@@ -8,6 +8,13 @@ import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableRow,
+} from "@/components/ui/table";
 import { CAMPO_PX_PROMO_FIJO } from "@/lib/descuentosListaPrecioReglasConstants";
 import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -271,64 +278,68 @@ export default function DescuentosAplicadosListaPreciosModal({
               />
             </div>
 
-            <div className="rounded-md border border-border px-3 py-2">
-              <div className={GRID_CLASS}>
-                <FilaTres
-                  etiqueta="PX. LISTA"
-                  porcentaje={null}
-                  nominal={<p className={MONTO_CLASS}>{fmtPesos(fila.pxListaProveedor)}</p>}
-                />
-
-                {descuentosReglas.map((descuento) => (
-                  <FilaTres
-                    key={descuento.campo}
-                    etiqueta={descuento.label}
-                    etiquetaClassName="font-normal"
-                    porcentaje={
-                      <div className="flex items-center justify-center gap-0.5">
-                        <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
-                          {fmtPorcentajeTabla(descuento.valor)}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
-                          )}
-                          aria-label={`Ver regla de ${descuento.label}`}
-                          onClick={() => onVerRegla(descuento)}
-                        >
-                          <Info className="h-4 w-4" aria-hidden />
-                        </Button>
-                      </div>
-                    }
-                    nominal={
-                      <p className={MONTO_CLASS}>
+            <div className="overflow-hidden rounded-md border border-border">
+              <Table variant="compact" scrollX={false}>
+                <colgroup>
+                  <col className="w-[40%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[20%]" />
+                </colgroup>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="celda-datos text-left font-medium">
+                      PX. LISTA
+                    </TableCell>
+                    <TableCell className="celda-datos celda-numero text-center">
+                      {fmtPesos(fila.pxListaProveedor)}
+                    </TableCell>
+                    <TableCell className="celda-datos" />
+                  </TableRow>
+                  {descuentosReglas.map((descuento) => (
+                    <TableRow key={descuento.campo}>
+                      <TableCell className="celda-datos text-left font-normal">
+                        {descuento.label}
+                      </TableCell>
+                      <TableCell className="celda-datos celda-numero text-center">
                         {fmtNominalCuenta(
                           nominalReglaNumero(fila, descuento, hayPromo),
                           descuento.tipo
                         )}
-                      </p>
-                    }
-                  />
-                ))}
-
-                <div
-                  className="col-span-3 border-t-2 border-primary"
-                  role="separator"
-                />
-
-                <FilaTres
-                  etiqueta="PX. FINAL"
-                  porcentaje={null}
-                  nominal={
-                    <p className={cn(MONTO_CLASS, "font-semibold")}>
+                      </TableCell>
+                      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                        <div className="flex h-full items-center justify-center gap-0.5">
+                          <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
+                            {fmtPorcentajeTabla(descuento.valor)}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
+                            )}
+                            aria-label={`Ver regla de ${descuento.label}`}
+                            onClick={() => onVerRegla(descuento)}
+                          >
+                            <Info className="h-4 w-4" aria-hidden />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter className="border-t-2 border-primary bg-muted">
+                  <TableRow className="border-0 bg-muted hover:bg-muted">
+                    <TableCell className="celda-datos text-left font-semibold">
+                      PX. FINAL
+                    </TableCell>
+                    <TableCell className="celda-datos celda-numero text-center font-semibold">
                       {fmtPesos(fila.pxCompraFinalSinIva)}
-                    </p>
-                  }
-                />
-              </div>
+                    </TableCell>
+                    <TableCell className="celda-datos" />
+                  </TableRow>
+                </TableFooter>
+              </Table>
             </div>
           </div>
         )}
