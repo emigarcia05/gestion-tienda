@@ -114,6 +114,13 @@ export async function guardarPrecioListaEdicionDesdeMargen(
     return { success: true, data };
   }
 
+  if (!(costoCompra > 0)) {
+    return {
+      success: false,
+      error: "Sin costo de compra no se puede calcular el precio desde el margen.",
+    };
+  }
+
   const margenRedondeado = roundMargenPxListaPct(margenManual);
   const pxCalculado = calcPxListaDesdeMargenSinIvaPct(margenRedondeado, costoCompra);
   if (pxCalculado == null || !(pxCalculado > 0)) {
@@ -173,12 +180,6 @@ export async function guardarPrecioListaEdicionDesdePx(
   }
 
   const margenManual = margenDesdePrecioDux(pxEntero, costoCompra);
-  if (margenManual == null) {
-    return {
-      success: false,
-      error: "No se pudo calcular el margen desde el precio.",
-    };
-  }
 
   await persistirStagingPrecioLista(codTienda, idLista, pxEntero);
 

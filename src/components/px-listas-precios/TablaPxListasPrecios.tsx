@@ -18,6 +18,7 @@ import {
   TableRow,
   EmptyTableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import {
   guardarPxListaCompetenciaRefAction,
   guardarPxListaMargenEdicionAction,
@@ -50,7 +51,6 @@ import {
   pxListaEnteroFromNumber,
 } from "@/lib/pxListaEnteroMask";
 import {
-  fmtMargenPxListaTabla,
   fmtPxListaTabla,
   MARGEN_PX_LISTA_MAX_CENTS,
   margenesPorcUtilidadDifieren,
@@ -143,7 +143,6 @@ function CeldaPxLista({
   const [draftLocal, setDraftLocal] = useState<string | null>(null);
   const [saving, startTransition] = useTransition();
   const pxAlIniciarRef = useRef<number | null>(null);
-  const pxEditable = costoCompra > 0;
   const tieneEdicion = celda.pxEdicion != null;
 
   const pxVista = fmtPxListaTabla(pxPersistido);
@@ -164,13 +163,6 @@ function CeldaPxLista({
   }
 
   function commit() {
-    if (!pxEditable) {
-      onDraft(idLista, null);
-      pxAlIniciarRef.current = null;
-      setDraftLocal(null);
-      return;
-    }
-
     if (draft.trim() === "") {
       if (!tieneEdicion) {
         onDraft(idLista, null);
@@ -250,11 +242,21 @@ function CeldaPxLista({
     });
   }
 
-  if (!puedeEditar || !pxEditable) {
+  if (!puedeEditar) {
     return (
-      <span className="tabular-nums text-foreground">
-        {pxVista || "—"}
-      </span>
+      <Input
+        type="text"
+        readOnly
+        value={pxVista}
+        placeholder="—"
+        className={cn(
+          INPUT_PX_LISTA_CLASS,
+          "w-full cursor-default border-primary tabular-nums",
+          tieneEdicion && "px-lista-input--edicion"
+        )}
+        aria-label="Precio (solo lectura)"
+        title="Solo lectura"
+      />
     );
   }
 
@@ -305,11 +307,7 @@ function CeldaMargenLista({
   const [draftLocal, setDraftLocal] = useState<string | null>(null);
   const [saving, startTransition] = useTransition();
   const margenAlIniciarRef = useRef<number | null>(null);
-  const margenEditable = costoCompra > 0;
   const tieneEdicion = celda.pxEdicion != null;
-
-  const margenVista =
-    celda.margenPct != null ? fmtMargenPxListaTabla(celda.margenPct) : "";
 
   const draft =
     draftLocal ??
@@ -330,13 +328,6 @@ function CeldaMargenLista({
   }
 
   function commit() {
-    if (!margenEditable) {
-      onDraft(idLista, null);
-      margenAlIniciarRef.current = null;
-      setDraftLocal(null);
-      return;
-    }
-
     if (draft.trim() === "") {
       if (!tieneEdicion) {
         onDraft(idLista, null);
@@ -413,11 +404,22 @@ function CeldaMargenLista({
     });
   }
 
-  if (!puedeEditar || !margenEditable) {
+  if (!puedeEditar) {
     return (
-      <span className="tabular-nums text-foreground">
-        {margenVista || "—"}
-      </span>
+      <PorcentajeCentInput
+        valueNormalized={draft}
+        onValueNormalizedChange={() => {}}
+        readOnly
+        maxCents={MARGEN_PX_LISTA_MAX_CENTS}
+        placeholder="—"
+        className={cn(
+          INPUT_MARGEN_PX_LISTA_CLASS,
+          "w-full cursor-default border-primary",
+          tieneEdicion && "px-lista-input--edicion"
+        )}
+        aria-label="Porc. utilidad (solo lectura)"
+        title="Solo lectura"
+      />
     );
   }
 

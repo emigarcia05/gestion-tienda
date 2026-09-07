@@ -275,7 +275,7 @@ URL: `/gestion-productos/tienda/comp-proveedores`. Permiso lectura/edición CX: 
 
 ### 3.5 Px Listas DUX y Px Competencia
 
-**Px Listas** (precios venta DUX): `prod_tienda` + `prod_tienda_listas_precios` + `prod_tienda_precios`. Staging `prod_tienda_precios_edicion`. Actions `pxListasPrecios.ts` (`cxPxTienda.acceso`). CATEGORÍA MARGEN: `fin_ana_mc_cat` + lista `1 - GENERAL`. Competidor ref. GENERAL: `prod_tienda.competencia_id_px_lista_general`. Act. Px: `exportarPxListasMargenAction` (Excel + limpia staging; sin POST ítem a DUX). El botón abre `DUX_NUEVO_IMPORTADOR_URL` (`src/lib/duxImportador.ts`) en pestaña nueva. Filtros: `@/lib/pxListasPreciosFiltros`.
+**Px Listas** (precios venta DUX): `prod_tienda` + `prod_tienda_listas_precios` + `prod_tienda_precios`. Staging `prod_tienda_precios_edicion`. Actions `pxListasPrecios.ts` (`cxPxTienda.acceso`). CATEGORÍA MARGEN: `fin_ana_mc_cat` + lista `1 - GENERAL`. Competidor ref. GENERAL: `prod_tienda.competencia_id_px_lista_general`. `guardarPrecioListaEdicionDesdePx` persiste PX aunque `costoCompra` sea 0 (`margenManual` null). `guardarPrecioListaEdicionDesdeMargen` exige costo > 0 (sin costo no hay PX). Act. Px: `exportarPxListasMargenAction` (Excel + limpia staging; sin POST ítem a DUX). El botón abre `DUX_NUEVO_IMPORTADOR_URL` (`src/lib/duxImportador.ts`) en pestaña nueva. Filtros: `@/lib/pxListasPreciosFiltros`.
 
 **Px Competencia** (vs competidores): `getPxCompetenciaPageData` (`unknown` + `getPxCompetenciaPageParamsSchema`) → `pxCompetenciaPage.service.ts` / `pxCompetenciaRows.service.ts`. Precio mostrado: sugerido del proveedor del competidor si existe, si no scraping (`competenciaPxSugerido.service.ts`). Filtros: `@/lib/pxCompetenciaFiltros`.
 
