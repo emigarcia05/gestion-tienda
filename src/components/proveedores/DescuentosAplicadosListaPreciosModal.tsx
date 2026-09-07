@@ -33,7 +33,7 @@ interface Props {
 
 const VACIO = "-";
 const GRID_CLASS =
-  "grid grid-cols-[minmax(0,1.35fr)_minmax(5.5rem,1fr)_minmax(7.25rem,auto)] gap-x-3 gap-y-2 items-center";
+  "grid grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(0,2fr)] gap-x-3 gap-y-2 items-center";
 const LABEL_CLASS = "font-medium text-sm text-foreground text-left";
 const MONTO_CLASS = "text-sm tabular-nums text-foreground text-right";
 
@@ -183,6 +183,7 @@ export default function DescuentosAplicadosListaPreciosModal({
       <AppModal
         size="sm"
         padding="sm"
+        className="max-w-[33.6rem]"
         title="Descuentos Aplicados"
         actions={
           <>
