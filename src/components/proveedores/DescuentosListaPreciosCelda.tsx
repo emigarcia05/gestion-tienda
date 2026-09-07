@@ -20,27 +20,25 @@ export default function DescuentosListaPreciosCelda({ fila, puedeEditar, onAbrir
   const puedeAbrir = puedeEditar || tieneDescuentos;
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        disabled={!puedeAbrir}
-        className={cn(
-          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-          !puedeAbrir && "opacity-40"
-        )}
-        aria-label={
-          tieneDescuentos
-            ? `Ver descuentos de ${fila.codExt}`
-            : puedeEditar
-              ? `Descuentos y Px Promo Fijo de ${fila.codExt}`
-              : `Sin descuentos activos en ${fila.codExt}`
-        }
-        onClick={onAbrir}
-      >
-        <Percent className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-      </Button>
-    </div>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      disabled={!puedeAbrir}
+      className={cn(
+        TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+        !puedeAbrir && "opacity-40"
+      )}
+      aria-label={
+        tieneDescuentos
+          ? `Ver descuentos de ${fila.codExt}`
+          : puedeEditar
+            ? `Descuentos y Px Promo Fijo de ${fila.codExt}`
+            : `Sin descuentos activos en ${fila.codExt}`
+      }
+      onClick={onAbrir}
+    >
+      <Percent className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+    </Button>
   );
 }

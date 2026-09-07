@@ -1726,7 +1726,7 @@
   min-height: 0 !important;
 }
 
-/* Tabla Lista Precios proveedor: 7 columnas 8/51/8/8/2/8/9 % (colgroup en ListaPreciosTablaConFiltros). */
+/* Tabla Lista Precios proveedor: 6 columnas 8/53/8/8/8/15 % (colgroup en ListaPreciosTablaConFiltros). */
 .tabla-lista-precios-proveedor {
   table-layout: fixed;
   width: 100%;

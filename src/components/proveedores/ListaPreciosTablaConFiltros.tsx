@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowDown, Link2, Pencil, Trash2 } from "lucide-react";
+import { Link2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -88,8 +88,8 @@ interface ListaPreciosTablaConFiltrosProps {
   onFiltrosExportSnapshotChange?: (snapshot: ListaPreciosFiltrosExportSnapshot) => void;
 }
 
-/** Anchos de columna en % (COD / DESCR / MARCA / RUBRO / DESC / PX FINAL / ACC). */
-const COL_WIDTHS_PCT = [8, 51, 8, 8, 2, 8, 9] as const;
+/** Anchos de columna en % (COD / DESCR / MARCA / RUBRO / PX FINAL / ACC). */
+const COL_WIDTHS_PCT = [8, 53, 8, 8, 8, 15] as const;
 
 const MIN_CARACTERES_BUSQUEDA = 3;
 const COL_COUNT = COL_WIDTHS_PCT.length;
@@ -509,10 +509,6 @@ export default function ListaPreciosTablaConFiltros({
               <TableHead>DESCRIPCION</TableHead>
               <TableHead>MARCA</TableHead>
               <TableHead>RUBRO</TableHead>
-              <TableHead className="text-center">
-                <ArrowDown className="mx-auto h-4 w-4 text-primary-foreground" aria-hidden />
-                <span className="sr-only">Descuentos</span>
-              </TableHead>
               <TableHead className="text-right">PX. FINAL</TableHead>
               <TableHead className="text-center">ACCIONES</TableHead>
             </TableRow>
@@ -534,13 +530,6 @@ export default function ListaPreciosTablaConFiltros({
                   <TableCell className="celda-datos min-w-0 overflow-hidden">
                     <CeldaTextoTabla valor={fila.rubro} />
                   </TableCell>
-                  <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-                    <DescuentosListaPreciosCelda
-                      fila={fila}
-                      puedeEditar={puedeEdicionMasiva}
-                      onAbrir={() => abrirDescuentos(fila)}
-                    />
-                  </TableCell>
                   <TableCell
                     className="celda-datos celda-numero celda-destacado text-right whitespace-nowrap"
                     title="Precio compra final sin IVA"
@@ -554,6 +543,11 @@ export default function ListaPreciosTablaConFiltros({
                         "justify-center gap-0.5"
                       )}
                     >
+                      <DescuentosListaPreciosCelda
+                        fila={fila}
+                        puedeEditar={puedeEdicionMasiva}
+                        onAbrir={() => abrirDescuentos(fila)}
+                      />
                       {puedeEdicionMasiva ? (
                         <>
                           <Button

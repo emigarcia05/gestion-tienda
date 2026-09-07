@@ -89,21 +89,23 @@ function FilaTres({
   porcentaje,
   nominal,
   className,
+  etiquetaClassName,
 }: {
   etiqueta: string;
   htmlFor?: string;
   porcentaje: ReactNode;
   nominal: ReactNode;
   className?: string;
+  etiquetaClassName?: string;
 }) {
   return (
     <>
       {htmlFor ? (
-        <Label htmlFor={htmlFor} className={cn(LABEL_CLASS, className)}>
+        <Label htmlFor={htmlFor} className={cn(LABEL_CLASS, etiquetaClassName, className)}>
           {etiqueta}
         </Label>
       ) : (
-        <span className={cn(LABEL_CLASS, className)}>{etiqueta}</span>
+        <span className={cn(LABEL_CLASS, etiquetaClassName, className)}>{etiqueta}</span>
       )}
       <div className={cn("min-w-0", className)}>{nominal}</div>
       <div className={cn("flex min-w-0 items-center justify-end", className)}>{porcentaje}</div>
@@ -279,6 +281,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                   <FilaTres
                     key={descuento.campo}
                     etiqueta={descuento.label}
+                    etiquetaClassName="font-normal"
                     porcentaje={
                       <div className="flex items-center justify-end gap-0.5">
                         <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
