@@ -741,7 +741,9 @@ model ListaPrecioProveedor {
   cxTransporte      Decimal  @map("cx_transporte") @default(0) @db.Decimal(5, 2)
   /** Desc. específico por regla de productos vinculados (`prod_precios_desc_especial_regla`). */
   descEspecial      Decimal  @map("desc_especial") @default(0) @db.Decimal(5, 2)
-  pxCompraFinalSinIva Decimal? @map("px_compra_final_sin_iva") @db.Decimal(14, 4) // generada: base * (1 - dtoTotal/100) * (1 + cx_transporte/100); dtoTotal incluye desc_especial
+  /** Px promo fijo en USD. Null = no hay promo; Px Final usa dto_*. Si hay valor: USD × cotización × (1+cx_transporte). */
+  pxPromoFijo       Decimal? @map("px_promo_fijo") @db.Decimal(14, 4)
+  pxCompraFinalSinIva Decimal? @map("px_compra_final_sin_iva") @db.Decimal(14, 4) // GENERATED: promo → USD×cotiz×(1+cx); si no, lista×(1-dtoTotal/100)×(1+cx)
   codTiendaVinculo String? @map("cod_tienda") // FK al ítem tienda (`prod_tienda.cod_tienda`; 1 tienda → N proveedores)
   /** FK opcional → catálogo REX (`prod_precios_rex`). Varios `cod_ext` pueden compartir el mismo REX. */
   idPrecioRex         String?  @map("id_precio_rex")

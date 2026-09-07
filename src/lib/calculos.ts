@@ -20,7 +20,10 @@ export function listaPrecioBasePesos(
  * Fórmula con descuento acumulado:
  *   precioLista × (1 - dtoTotal/100) × (1 + cxTransporte/100)
  * donde dtoTotal = dtoProveedor + dtoMarca + dtoRubro + dtoCantidad + dtoFinanciero + descEspecial (+ dtoExtraComparacion si aplica; capado 0-100).
- * Parámetros opcionales default 0 para compatibilidad.
+ *
+ * Si `pxPromoFijo` > 0: **no** se aplican descuentos ni dto extra; Px Final =
+ *   pxPromoFijo (USD) × cotización × (1 + cxTransporte/100).
+ * Parámetros opcionales default 0/`null` para compatibilidad.
  */
 export function calcPxCompraFinal(
   precioLista: number,
@@ -31,8 +34,15 @@ export function calcPxCompraFinal(
   dtoMarca: number = 0,
   dtoFinanciero: number = 0,
   dtoExtraComparacion: number = 0,
-  descEspecial: number = 0
+  descEspecial: number = 0,
+  pxPromoFijo: number | null = null,
+  cotizacionDolar: number = 1
 ): number {
+  if (pxPromoFijo != null && pxPromoFijo > 0) {
+    const cotizacion = cotizacionDolar > 0 ? cotizacionDolar : 1;
+    return pxPromoFijo * cotizacion * (1 + cxTransporte / 100);
+  }
+
   const dtoTotal = clampPercent(
     dtoProveedor +
       dtoMarca +
@@ -62,23 +72,28 @@ export type DatosCostoComparacion = {
   dtoFinanciero: number;
   cxTransporte: number;
   descEspecial: number;
+  /** USD; si > 0, Px Final ignora descuentos y dto extra (sí aplica Cx. Transporte). */
+  pxPromoFijo: number | null;
 };
 
 /**
  * Costo sin IVA en **Comparacion por categorías**: misma fórmula que `px_compra_final_sin_iva`
  * más `dto_extra_comparacion` (persistido en `prod_comp_item_comparados`, no en `prod_precios_provee`).
+ * Con Px Promo Fijo el dto extra **no** se aplica.
  */
 export function calcCostoComparacion(
   datos: DatosCostoComparacion,
   dtoExtraComparacion: number | null | undefined
 ): number | null {
-  if (!(datos.pxListaProveedor > 0)) return null;
+  const hayPromo = datos.pxPromoFijo != null && datos.pxPromoFijo > 0;
+  if (!hayPromo && !(datos.pxListaProveedor > 0)) return null;
   const base = listaPrecioBasePesos(
     datos.pxListaProveedor,
     datos.pxDolares,
     datos.cotizacionDolar
   );
-  const dtoExtra = dtoExtraComparacion ?? 0;
+  const dtoExtra =
+    datos.pxPromoFijo != null && datos.pxPromoFijo > 0 ? 0 : (dtoExtraComparacion ?? 0);
   const px = calcPxCompraFinal(
     base,
     datos.dtoRubro,
@@ -88,7 +103,9 @@ export function calcCostoComparacion(
     datos.dtoMarca,
     datos.dtoFinanciero,
     dtoExtra,
-    datos.descEspecial
+    datos.descEspecial,
+    datos.pxPromoFijo,
+    datos.cotizacionDolar
   );
   if (!Number.isFinite(px) || px <= 0) return null;
   return roundPrecioListaTienda(px);

@@ -1,6 +1,7 @@
 import type { CampoReglaDescuentoListaPrecioInput } from "@/lib/validations/descuentosListaPrecioReglas";
 import {
   CAMPO_DESC_ESPECIAL,
+  CAMPO_PX_PROMO_FIJO,
   type DescuentosMaterializadosItem,
 } from "@/lib/descuentosListaPrecioReglasConstants";
 
@@ -56,9 +57,13 @@ export const CAMPOS_REGLA_DESCUENTO_OPCIONES: {
 ];
 
 export function labelCampoReglaDescuento(
-  campo: CampoReglaDescuentoListaPrecioInput | typeof CAMPO_DESC_ESPECIAL
+  campo:
+    | CampoReglaDescuentoListaPrecioInput
+    | typeof CAMPO_DESC_ESPECIAL
+    | typeof CAMPO_PX_PROMO_FIJO
 ): string {
   if (campo === CAMPO_DESC_ESPECIAL) return "DESC. ESPECÍFICO";
+  if (campo === CAMPO_PX_PROMO_FIJO) return "PX PROMO FIJO";
   return CAMPOS_REGLA_DESCUENTO_OPCIONES.find((o) => o.value === campo)?.label ?? campo;
 }
 

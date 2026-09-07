@@ -9,6 +9,7 @@ import type {
   CrearReglaDescuentoListaPrecioInput,
 } from "@/lib/validations/descuentosListaPrecioReglas";
 import {
+  CAMPO_PX_PROMO_FIJO,
   type CampoDescuentoActivoListaPrecio,
   type DescuentosMaterializadosItem,
 } from "@/lib/descuentosListaPrecioReglasConstants";
@@ -18,6 +19,7 @@ import type { ServiceResult } from "@/types/service.types";
 export type { CampoReglaDescuentoListaPrecioInput as CampoReglaDescuentoListaPrecio };
 export {
   CAMPO_DESC_ESPECIAL,
+  CAMPO_PX_PROMO_FIJO,
   type CampoDescuentoActivoListaPrecio,
   type DescuentosMaterializadosItem,
 } from "@/lib/descuentosListaPrecioReglasConstants";
@@ -331,6 +333,7 @@ export async function enriquecerFilasConDescuentosActivos<
     dtoFinanciero: number;
     cxTransporte: number;
     descEspecial: number;
+    pxPromoFijo?: number | null;
   },
 >(filas: TFila[]): Promise<(TFila & { descuentosActivos: DescuentoActivoListaPrecio[] })[]> {
   if (filas.length === 0) return [];
@@ -383,6 +386,19 @@ export async function enriquecerFilasConDescuentosActivos<
         valor: fila.descEspecial,
         regla: null,
         reglaEspecifica: reglaEsp,
+      });
+    }
+
+    const pxPromo = fila.pxPromoFijo;
+    if (pxPromo != null && pxPromo > 0) {
+      descuentosActivos.unshift({
+        campo: CAMPO_PX_PROMO_FIJO,
+        etiquetaCorta: "Promo",
+        label: "PX PROMO FIJO",
+        tipo: "descuento",
+        valor: pxPromo,
+        regla: null,
+        reglaEspecifica: null,
       });
     }
 

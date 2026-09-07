@@ -240,7 +240,7 @@ CRUD: `src/actions/proveedores.ts` + `proveedor.service.ts`. Mutaciones: `PERMIS
 Tabla `prod_precios_provee` (`ListaPrecioProveedor`). PK `cod_ext`. `px_compra_final_sin_iva` es columna **GENERATED**.
 
 - Lectura: `getListaPreciosConOpcionesAction` — `PERMISOS.proveedores.listaPrecios` o `sugeridos` si `opciones.soloPxSugerido`. Filtros: `listaPreciosFiltrosLecturaSchema`. Mapear siempre `px_vta_sugerido` → `pxVtaSugerido`.
-- Edición masiva **fila / SET** (lápiz de fila): `actualizarListaPreciosMasivoAction` + `actualizacionMasivaListaPreciosSchema` (`edicionMasiva`). Acepta `{ ids, data }` o `{ filtros, data }` (todos los ítems del filtro, sin paginación). **No** acepta `dto_*` ni `cx_transporte` (caché del motor de reglas).
+- Edición masiva **fila / SET** (lápiz de fila): `actualizarListaPreciosMasivoAction` + `actualizacionMasivaListaPreciosSchema` (`edicionMasiva`). Acepta `{ ids, data }` o `{ filtros, data }` (todos los ítems del filtro, sin paginación). **No** acepta `dto_*` ni `cx_transporte` (caché del motor de reglas). **Sí** acepta `pxPromoFijo` (USD o `null`).
 - Edición masiva **variación** (botón header): `aplicarVariacionPxListaMasivaAction` + `aplicarVariacionPxListaMasivaSchema` (`edicionMasiva` + `esEditor()`). Payload: `proveedorId` (obligatorio), `marcaNombre` / `rubroNombre` (opcionales; rubro exige marca), `variacion` (± %, 2 dec., ≠ 0, tope ±99,99). Aplica `px_lista_proveedor * (1 + variacion/100)` con piso 0 (`GREATEST(..., 0)`). Preview: `contarProductosVariacionPxListaAction` + `variacionPxListaMasivaFiltrosSchema`. `px_compra_final_sin_iva` se recalcula (GENERATED).
 - Import: **solo** `POST /api/import-lista-precios` (`guardListaPreciosImportarEsEditor` + `importarListaPreciosProveedorSchema`). Status: mismo guard; sin permiso → 200 + idle (no 403 de poll).
 - PDF matriz → REX: `POST /api/parse-lista-precios-pdf` + `guardarPreciosRexDesdePdfAction`.
@@ -248,6 +248,8 @@ Tabla `prod_precios_provee` (`ListaPrecioProveedor`). PK `cod_ext`. `px_compra_f
 **Descuentos dimensionales** (`prod_precios_provee_reglas`): los seis `dto_*` / `cx_transporte` son caché escrita **solo** por el motor (`descuentosListaPrecioReglas.service.ts`). Gana mayor especificidad (AND proveedor/marca/rubro). Anti-empate al guardar. Post-deploy: `npm run db:recalc-descuentos-lista-precio`. Actions: `gestionarReglasDescuentos` + editor. Rubros UI: distinct `prod_tienda.rubro` (`rubrosProdTienda.service.ts`).
 
 **Desc. específico** (`desc_especial`): reglas por producto (`cod_ext` UNIQUE en puente). Suma al `dtoTotal` de la columna generated. `descEspecialReglas.service.ts` + mismo gate de reglas.
+
+**Px Promo Fijo** (`px_promo_fijo`): USD nullable por ítem (`cod_ext`). Si hay valor, `px_compra_final_sin_iva` = `px_promo_fijo × cotizacion_dolar × (1 + cx_transporte/100)` (ignora `dto_*`, `desc_especial` y Dto. extra de Comp. Categorías). Las reglas % siguen materializadas; al poner `null` vuelve la fórmula de descuentos. Alta/baja: lápiz de fila (`actualizarListaPreciosMasivo`, campo `pxPromoFijo`). Ítems sin `px_dolares`: al setear promo se escribe la cotización USD en `cotizacion_dolar` (lista ARS sigue usando 1); al borrar promo se restaura `1`. Update de cotización también propaga a filas con promo.
 
 **USD:** singleton `global_cotizacion_usd` id `USD`. No se edita por ítem. `cotizacionUsd.service.ts`. `COTIZACION_DOLAR` solo fallback si no hay fila.
 

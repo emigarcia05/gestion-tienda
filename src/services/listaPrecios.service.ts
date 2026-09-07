@@ -13,7 +13,7 @@ import {
   materializarDescuentosEnFila,
   materializarDescuentosEnFilas,
 } from "@/services/descuentosListaPrecioReglas.service";
-import { resolverCotizacionDolarParaItem } from "@/services/cotizacionUsd.service";
+import { resolverCotizacionDolarParaItem, getCotizacionUsd } from "@/services/cotizacionUsd.service";
 import {
   enriquecerFilasConDescuentosActivos,
   type DescuentoActivoListaPrecio,
@@ -64,6 +64,7 @@ export interface FilaListaPrecioParaCliente {
   dtoFinanciero: number;
   cxTransporte: number;
   descEspecial: number;
+  pxPromoFijo: number | null;
   pxCompraFinalSinIva: number | null;
   proveedor: { id: string; prefijo: string; nombre: string; codigoUnico: string } | null;
   idPrecioRex: string | null;
@@ -103,6 +104,7 @@ function mapListaPrecioProveedorParaCliente(f: ListaPrecioProveedorParaCliente):
     dtoFinanciero: Number(f.dtoFinanciero),
     cxTransporte: Number(f.cxTransporte),
     descEspecial: Number(f.descEspecial),
+    pxPromoFijo: f.pxPromoFijo != null && Number(f.pxPromoFijo) > 0 ? Number(f.pxPromoFijo) : null,
     pxCompraFinalSinIva: f.pxCompraFinalSinIva != null ? Number(f.pxCompraFinalSinIva) : null,
     proveedor: f.proveedor
       ? {
@@ -684,6 +686,7 @@ export interface ActualizacionMasivaListaPrecios {
   rubro?: string | null;
   pxListaProveedor?: number;
   habilitado?: boolean;
+  pxPromoFijo?: number | null;
 }
 
 /**
@@ -702,12 +705,14 @@ export async function actualizarListaPreciosMasivo(
     rubro?: string | null;
     pxListaProveedor?: number;
     habilitado?: boolean;
+    pxPromoFijo?: number | null;
   } = {};
   if (data.marca !== undefined) updatePayload.marca = data.marca;
   if (data.rubro !== undefined) updatePayload.rubro = data.rubro;
   if (data.pxListaProveedor !== undefined && data.pxListaProveedor >= 0)
     updatePayload.pxListaProveedor = data.pxListaProveedor;
   if (data.habilitado !== undefined) updatePayload.habilitado = data.habilitado;
+  if (data.pxPromoFijo !== undefined) updatePayload.pxPromoFijo = data.pxPromoFijo;
 
   if (Object.keys(updatePayload).length === 0) return { actualizados: 0 };
 
@@ -728,6 +733,19 @@ export async function actualizarListaPreciosMasivo(
   if (updatePayload.habilitado !== undefined) {
     setClauses.push(`habilitado = $${params.length + 1}`);
     params.push(updatePayload.habilitado);
+  }
+  if (updatePayload.pxPromoFijo !== undefined) {
+    setClauses.push(`px_promo_fijo = $${params.length + 1}`);
+    params.push(updatePayload.pxPromoFijo);
+    if (updatePayload.pxPromoFijo == null) {
+      setClauses.push(`cotizacion_dolar = CASE WHEN px_dolares THEN cotizacion_dolar ELSE 1 END`);
+    } else {
+      const cotizacionUsd = await getCotizacionUsd();
+      setClauses.push(
+        `cotizacion_dolar = CASE WHEN px_dolares THEN cotizacion_dolar ELSE $${params.length + 1}::numeric END`
+      );
+      params.push(cotizacionUsd);
+    }
   }
   params.push(ids);
 

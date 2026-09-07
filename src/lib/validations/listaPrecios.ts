@@ -16,6 +16,18 @@ export const porcentajeListaPreciosSchema = z
   .max(100)
   .refine(tieneMaxDosDecimales, "El porcentaje admite hasta 2 decimales.");
 
+function tieneMaxCuatroDecimales(n: number): boolean {
+  return Math.abs(n * 10000 - Math.round(n * 10000)) < 1e-6;
+}
+
+/** Px Promo Fijo en USD: `null` borra el override; número > 0 lo setea. */
+export const pxPromoFijoListaPreciosSchema = z
+  .number()
+  .gt(0)
+  .max(99_999_999)
+  .refine(tieneMaxCuatroDecimales, "El Px Promo Fijo admite hasta 4 decimales.")
+  .nullable();
+
 /** Campos permitidos en actualización masiva de lista de precios (dto_* / cx_transporte / cotización USD solo vía servicios). */
 export const actualizacionMasivaListaPreciosSchema = z.object({
   marca: z.string().nullable().optional(),
@@ -23,6 +35,8 @@ export const actualizacionMasivaListaPreciosSchema = z.object({
   /** Precio de lista del proveedor (`prod_precios_provee.px_lista_proveedor`). */
   pxListaProveedor: z.number().min(0).optional(),
   habilitado: z.boolean().optional(),
+  /** USD; `null` elimina el promo (vuelven los descuentos %). */
+  pxPromoFijo: pxPromoFijoListaPreciosSchema.optional(),
 });
 
 export type ActualizacionMasivaListaPreciosInput = z.infer<typeof actualizacionMasivaListaPreciosSchema>;
