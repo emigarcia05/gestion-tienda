@@ -537,6 +537,7 @@ export default function ListaPreciosTablaConFiltros({
                   <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
                     <DescuentosListaPreciosCelda
                       fila={fila}
+                      puedeEditar={puedeEdicionMasiva}
                       onAbrir={() => abrirDescuentos(fila)}
                     />
                   </TableCell>
@@ -675,7 +676,9 @@ export default function ListaPreciosTablaConFiltros({
           setDescuentosModalOpen(next);
           if (!next) setFilaDescuentos(null);
         }}
-        descuentos={filaDescuentos?.descuentosActivos ?? []}
+        fila={filaDescuentos}
+        puedeEditar={puedeEdicionMasiva}
+        onSuccess={onEdicionSuccess}
         onVerRegla={(descuento) => {
           if (filaDescuentos) {
             abrirReglaDescuento(descuento);

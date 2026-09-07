@@ -124,7 +124,6 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
   const [marcaNombre, setMarcaNombre] = useState("");
   const [rubroNombre, setRubroNombre] = useState("");
   const [pxListaProveedorNorm, setPxListaProveedorNorm] = useState("");
-  const [pxPromoFijoNorm, setPxPromoFijoNorm] = useState("");
   const [variacionNorm, setVariacionNorm] = useState("");
   const [cantidadAfectados, setCantidadAfectados] = useState(0);
   const [conteoPendiente, setConteoPendiente] = useState(false);
@@ -137,11 +136,6 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
     setMarcaNombre(filaActual.marca ?? "");
     setRubroNombre(filaActual.rubro ?? "");
     setPxListaProveedorNorm(montoArNumberToNormalizedString(Number(filaActual.pxListaProveedor) || 0));
-    setPxPromoFijoNorm(
-      filaActual.pxPromoFijo != null && filaActual.pxPromoFijo > 0
-        ? montoArNumberToNormalizedString(filaActual.pxPromoFijo)
-        : ""
-    );
   }, [filaMode, open, filaActual]);
 
   useEffect(() => {
@@ -186,7 +180,6 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
     setMarcaNombre("");
     setRubroNombre("");
     setPxListaProveedorNorm("");
-    setPxPromoFijoNorm("");
     setVariacionNorm("");
     setCantidadAfectados(0);
   }
@@ -198,13 +191,6 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
     const norm = pxListaProveedorNorm.trim();
     if (norm !== "") {
       data.pxListaProveedor = roundPrecioListaTienda(montoArNormalizedStringToPesosNumber(norm));
-    }
-    const normPromo = pxPromoFijoNorm.trim();
-    if (normPromo === "") {
-      data.pxPromoFijo = null;
-    } else {
-      const n = roundPrecioListaTienda(montoArNormalizedStringToPesosNumber(normPromo));
-      data.pxPromoFijo = n > 0 ? n : null;
     }
     return data;
   }
@@ -303,16 +289,6 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
             placeholder="—"
             valueNormalized={pxListaProveedorNorm}
             onValueNormalizedChange={setPxListaProveedorNorm}
-            treatEmptyNormalizedAsBlank
-            className={INPUT_CONTROL_CLASS}
-          />
-        </ModalFormRow>
-        <ModalFormRow id="pxPromoFijo" label="PX PROMO FIJO (USD)">
-          <MontoArInput
-            id="pxPromoFijo"
-            placeholder="—"
-            valueNormalized={pxPromoFijoNorm}
-            onValueNormalizedChange={setPxPromoFijoNorm}
             treatEmptyNormalizedAsBlank
             className={INPUT_CONTROL_CLASS}
           />

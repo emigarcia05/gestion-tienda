@@ -249,7 +249,7 @@ Tabla `prod_precios_provee` (`ListaPrecioProveedor`). PK `cod_ext`. `px_compra_f
 
 **Desc. específico** (`desc_especial`): reglas por producto (`cod_ext` UNIQUE en puente). Suma al `dtoTotal` de la columna generated. `descEspecialReglas.service.ts` + mismo gate de reglas.
 
-**Px Promo Fijo** (`px_promo_fijo`): USD nullable por ítem (`cod_ext`). Si hay valor, `px_compra_final_sin_iva` = `px_promo_fijo × cotizacion_dolar × (1 + cx_transporte/100)` (ignora `dto_*`, `desc_especial` y Dto. extra de Comp. Categorías). Las reglas % siguen materializadas; al poner `null` vuelve la fórmula de descuentos. Alta/baja: lápiz de fila (`actualizarListaPreciosMasivo`, campo `pxPromoFijo`). Ítems sin `px_dolares`: al setear promo se escribe la cotización USD en `cotizacion_dolar` (lista ARS sigue usando 1); al borrar promo se restaura `1`. Update de cotización también propaga a filas con promo.
+**Px Promo Fijo** (`px_promo_fijo`): USD nullable por ítem (`cod_ext`). Si hay valor, `px_compra_final_sin_iva` = `px_promo_fijo × cotizacion_dolar × (1 + cx_transporte/100)` (ignora `dto_*`, `desc_especial` y Dto. extra de Comp. Categorías). Las reglas % siguen materializadas; al poner `null` vuelve la fórmula de descuentos. Alta/baja: modal **Descuentos Aplicados** (`actualizarListaPreciosMasivo`, campo `pxPromoFijo`). Ítems sin `px_dolares`: al setear promo se escribe la cotización USD en `cotizacion_dolar` (lista ARS sigue usando 1); al borrar promo se restaura `1`. Update de cotización también propaga a filas con promo.
 
 **USD:** singleton `global_cotizacion_usd` id `USD`. No se edita por ítem. `cotizacionUsd.service.ts`. `COTIZACION_DOLAR` solo fallback si no hay fila.
 

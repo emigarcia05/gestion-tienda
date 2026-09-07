@@ -11,11 +11,13 @@ import type { FilaListaPrecioParaCliente } from "@/services/listaPrecios.service
 
 interface Props {
   fila: FilaListaPrecioParaCliente;
+  puedeEditar: boolean;
   onAbrir: () => void;
 }
 
-export default function DescuentosListaPreciosCelda({ fila, onAbrir }: Props) {
+export default function DescuentosListaPreciosCelda({ fila, puedeEditar, onAbrir }: Props) {
   const tieneDescuentos = (fila.descuentosActivos?.length ?? 0) > 0;
+  const puedeAbrir = puedeEditar || tieneDescuentos;
 
   return (
     <div className="flex h-full items-center justify-center">
@@ -23,15 +25,17 @@ export default function DescuentosListaPreciosCelda({ fila, onAbrir }: Props) {
         type="button"
         variant="ghost"
         size="icon"
-        disabled={!tieneDescuentos}
+        disabled={!puedeAbrir}
         className={cn(
           TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-          !tieneDescuentos && "opacity-40"
+          !puedeAbrir && "opacity-40"
         )}
         aria-label={
           tieneDescuentos
             ? `Ver descuentos de ${fila.codExt}`
-            : `Sin descuentos activos en ${fila.codExt}`
+            : puedeEditar
+              ? `Descuentos y Px Promo Fijo de ${fila.codExt}`
+              : `Sin descuentos activos en ${fila.codExt}`
         }
         onClick={onAbrir}
       >
