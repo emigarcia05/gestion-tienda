@@ -33,10 +33,9 @@ interface Props {
 
 const VACIO = "-";
 const GRID_CLASS =
-  "grid grid-cols-[minmax(0,1.35fr)_minmax(7.25rem,auto)_minmax(5.5rem,1fr)] gap-x-3 gap-y-2 items-center";
+  "grid grid-cols-[minmax(0,1.35fr)_minmax(5.5rem,1fr)_minmax(7.25rem,auto)] gap-x-3 gap-y-2 items-center";
 const LABEL_CLASS = "font-medium text-sm text-foreground text-left";
 const MONTO_CLASS = "text-sm tabular-nums text-foreground text-right";
-const LINEA_TOTAL_CLASS = "border-t-2 border-foreground pt-2";
 
 function fmtUsdPromo(n: number): string {
   return n.toLocaleString("es-AR", {
@@ -106,8 +105,8 @@ function FilaTres({
       ) : (
         <span className={cn(LABEL_CLASS, className)}>{etiqueta}</span>
       )}
-      <div className={cn("flex min-w-0 items-center justify-end", className)}>{porcentaje}</div>
       <div className={cn("min-w-0", className)}>{nominal}</div>
+      <div className={cn("flex min-w-0 items-center justify-end", className)}>{porcentaje}</div>
     </>
   );
 }
@@ -220,8 +219,8 @@ export default function DescuentosAplicadosListaPreciosModal({
           <div className="flex flex-col gap-3">
             <div className={GRID_CLASS}>
               <span className="sr-only">Etiqueta</span>
-              <span className="sr-only">Valor porcentual</span>
               <span className="sr-only">Valor nominal</span>
+              <span className="sr-only">Valor porcentual</span>
 
               <FilaTres
                 etiqueta={fila.pxDolares ? "PX. PROMO FIJO (US$)" : "PX. PROMO FIJO"}
@@ -229,21 +228,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                 porcentaje={null}
                 nominal={
                   puedeEditar ? (
-                    <div className="relative">
-                      {mostrarBasura ? (
-                        <Button
-                          type="button"
-                          variant="primaryIcon"
-                          size="icon"
-                          disabled={pending}
-                          onClick={() => void handleQuitarPromo()}
-                          className="absolute top-1/2 left-0.5 z-[1] h-7 w-7 -translate-y-1/2"
-                          aria-label="Quitar Px. Promo Fijo"
-                          title="Quitar Px. Promo Fijo"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        </Button>
-                      ) : null}
+                    <div className="flex min-w-0 items-center gap-1">
                       <MontoArInput
                         id="pxPromoFijo"
                         placeholder={VACIO}
@@ -251,11 +236,22 @@ export default function DescuentosAplicadosListaPreciosModal({
                         onValueNormalizedChange={setPxPromoFijoNorm}
                         treatEmptyNormalizedAsBlank
                         disabled={pending}
-                        className={cn(
-                          "tabular-nums border-primary w-full min-w-0 text-right",
-                          mostrarBasura ? "pl-8 pr-3" : "px-3"
-                        )}
+                        className="tabular-nums border-primary w-full min-w-0 px-3 text-right"
                       />
+                      {mostrarBasura ? (
+                        <Button
+                          type="button"
+                          variant="primaryIcon"
+                          size="icon"
+                          disabled={pending}
+                          onClick={() => void handleQuitarPromo()}
+                          className="h-7 w-7 shrink-0"
+                          aria-label="Quitar Px. Promo Fijo"
+                          title="Quitar Px. Promo Fijo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </Button>
+                      ) : null}
                     </div>
                   ) : (
                     <p className={MONTO_CLASS}>
@@ -312,9 +308,13 @@ export default function DescuentosAplicadosListaPreciosModal({
                   />
                 ))}
 
+                <div
+                  className="col-span-3 border-t-2 border-primary"
+                  role="separator"
+                />
+
                 <FilaTres
                   etiqueta="PX. FINAL"
-                  className={LINEA_TOTAL_CLASS}
                   porcentaje={null}
                   nominal={
                     <p className={cn(MONTO_CLASS, "font-semibold")}>

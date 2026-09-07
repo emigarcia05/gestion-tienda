@@ -232,7 +232,7 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 
 ### Proveedores
 
-- **Lista Precios** (`/proveedores/lista-precios`): botón **Edición Masiva** (`EdicionMasivaListaPreciosModal` modo header): PROVEEDOR obligatorio, MARCA opcional, RUBRO opcional (Select habilitado solo con MARCA), VARIACIÓN ± % 2 dec. obligatoria (`PorcentajeCentInput` `allowNegative`, sufijo `%` fijo no editable). Confirmar aplica `px_lista_proveedor * (1 + variación/100)` (piso 0; p. ej. $100 y 4% → $104; −4% → $96). No exige filtro de página. El lápiz de fila es SET de marca/rubro/px lista. **Descuentos Aplicados** (ícono %): **PX. PROMO FIJO** (moneda del ítem; tacho en el input borra el promo y vuelve a las reglas). Debajo, bloque cuenta **PX. LISTA** ± reglas (% + info; descuento `−$`, Cx. `+$`; o `-` si hay promo) y **PX. FINAL** con línea de total.
+- **Lista Precios** (`/proveedores/lista-precios`): botón **Edición Masiva** (`EdicionMasivaListaPreciosModal` modo header): PROVEEDOR obligatorio, MARCA opcional, RUBRO opcional (Select habilitado solo con MARCA), VARIACIÓN ± % 2 dec. obligatoria (`PorcentajeCentInput` `allowNegative`, sufijo `%` fijo no editable). Confirmar aplica `px_lista_proveedor * (1 + variación/100)` (piso 0; p. ej. $100 y 4% → $104; −4% → $96). No exige filtro de página. El lápiz de fila es SET de marca/rubro/px lista. **Descuentos Aplicados** (ícono %): grilla etiqueta | $ | %. **PX. PROMO FIJO** (moneda del ítem; tacho en el input borra el promo y vuelve a las reglas). Debajo, bloque cuenta **PX. LISTA** ± reglas (descuento `−$`, Cx. `+$`; o `-` si hay promo; % + info a la derecha) y **PX. FINAL** con una sola línea de total `border-primary` a lo ancho.
 
 ### Stock / ayuda vendedor
 
