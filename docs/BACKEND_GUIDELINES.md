@@ -310,7 +310,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **Balance mensual** (`/finanzas/balance/mensual`): solo lectura. Resumen `resumenBalanceMensualDesdeFilas` (`src/lib/balanceMensual.ts`) con imputaciones + `fin_bal_vtas`. Ventas se editan en Ventas Mensuales (`guardarFinBalVtasCargaPeriodoAction`, editor). Grilla de Ventas Mensuales: una fila por mes/año desde el mes AR actual hasta la carga más antigua; borrar periodo = `eliminarFinBalVtasPorPeriodo` (todas las sucursales de ese mes/año). Sucursales `genera_balance`; costos de `centro_costo` sin `genera_balance` se reparte. UI de colores/grid: `FRONTEND_GUIDELINES` (Balance mensual).
 
-**IVA:** import débito, saldo manual, comparación pedido. Mutaciones editor.
+**IVA:** débito se lee de `fin_bal_iva_deb_import` (sin import TXT/CSV). Saldo manual y comparación pedido. Mutaciones editor (salvo alta de débito por archivo, eliminada). UI: FINANZAS → IMPUESTOS → Posición De IVA (`/finanzas/posicion-iva`).
 
 **Análisis M.C.:** `fin_ana_cos_fina` + fórmulas `fin_ana_mc_formulas` + categorías `fin_ana_mc_cat`. Signo descuento: `1 + %/100` (negativo = descuento). UI categorías: `reemplazarFinAnaMcCategoriasAction` (no CRUD granular).
 
@@ -399,6 +399,7 @@ Servicios: `clientes.service.ts`, `enviosDirecciones.service.ts`, `enviosFinal.s
 | Re-exportar constantes desde `"use server"` | `src/lib/` / `src/services/` |
 | `CANT_MAXIMA` / `CANT_MAX` / `CANT_FIJA` / `CANT_FIJA_POR_BULTO` / `CANT_FIJA_POR_UNIDAD` en `reposicion_forma_pedido` | `UNIDADES_MAX` / `POR_BULTO` / `UNIDADES_FIJAS` |
 | `prod_tienda_bultos` / modelo `ProdTiendaBulto` | `prod_tienda.bulto` (`null` = vacío; CHECK `prod_tienda_bulto_positivo`) |
+| `ImportarIvaDebitoCsvModal`, `importarFinBalIvaDebCsvAction`, `importarTxtIvaDebitoMes`, `parsearTxtIvaDebitoAfip` | Lectura `listarIvaDebitoFinBalPorAnio` / `listarDetalleIvaDebitoMes` sobre `fin_bal_iva_deb_import` |
 
 **Deuda aceptada (no copiar en código nuevo):** Prisma / SQL inline en `tienda.ts`, `stock.ts`, `reposicion.ts`, `vinculos.ts`, `tiposPinturaRendimientos.ts`. Extraer a servicio si se toca en profundidad. Firmas tipadas (no `unknown`) en varios listados legacy (`comparacionCategorias`, `getPedidoUrgenteData`, etc.): al tocarlas, pasar a `unknown` + Zod.
 
