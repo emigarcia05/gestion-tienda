@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, Upload } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ import type {
   DetalleLineaIvaCreditoCompraMercaderia,
 } from "@/services/finBalPosicionIva.service";
 import type { DetalleLineaIvaDebitoBalance } from "@/services/finBalIvaDeb.service";
-import ImportarIvaDebitoCsvModal from "@/components/finanzas/ImportarIvaDebitoCsvModal";
 import EditarIvaSaldoManualModal from "@/components/finanzas/EditarIvaSaldoManualModal";
 import ConfigurarIvaComparacionPedidosControl from "@/components/finanzas/ConfigurarIvaComparacionPedidosControl";
 import type { EstadoIvaComparacionPedido } from "@/actions/finBalPosicionIvaComparacionPedido";
@@ -98,7 +97,6 @@ export default function PosicionIvaBalanceClient({
   comparacionPedidos,
 }: Props) {
   const router = useRouter();
-  const [mesModalVentasIva, setMesModalVentasIva] = useState<number | null>(null);
   const [mesModalSaldoManual, setMesModalSaldoManual] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [mesDetalle, setMesDetalle] = useState<number | null>(null);
@@ -368,22 +366,6 @@ export default function PosicionIvaBalanceClient({
                                 variant="ghost"
                                 size="icon"
                                 className={CLASE_BOTON_EDITAR_IVA_DEBITO}
-                                title="Importar comprobantes fiscales emitidos (CSV)"
-                                aria-label="Importar comprobantes fiscales emitidos"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMesModalVentasIva(row.mes);
-                                }}
-                              >
-                                <Upload className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                              </Button>
-                            ) : null}
-                            {esEditor ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={CLASE_BOTON_EDITAR_IVA_DEBITO}
                                 title="Editar IVA saldo manual"
                                 aria-label="Editar IVA saldo manual"
                                 onClick={(e) => {
@@ -500,7 +482,7 @@ export default function PosicionIvaBalanceClient({
                     {filasDebito.length === 0 ? (
                       <EmptyTableRow
                         colSpan={4}
-                        message="No hay comprobantes importados para este mes."
+                        message="No hay comprobantes de IVA débito para este mes."
                       />
                     ) : (
                       filasDebito.map((f) => (
@@ -595,15 +577,6 @@ export default function PosicionIvaBalanceClient({
           </div>
         </AppModal>
       </Dialog>
-
-      <ImportarIvaDebitoCsvModal
-        open={mesModalVentasIva != null}
-        onOpenChange={(open) => {
-          if (!open) setMesModalVentasIva(null);
-        }}
-        mes={mesModalVentasIva ?? 1}
-        anio={anio}
-      />
 
       <EditarIvaSaldoManualModal
         open={mesModalSaldoManual != null}

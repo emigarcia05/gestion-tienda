@@ -1,24 +1,10 @@
-import { createHash } from "crypto";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { FilaCsvIvaDebParseada } from "@/lib/finBalIvaDebCsv";
 import {
   esErrorColumnaImpIvaFaltante,
   MSG_MIGRACION_IMP_IVA_FALTANTE,
 } from "@/lib/finBalIvaDebPrisma";
-import { filasTxtConDedupeKey, parsearTxtIvaDebitoAfip } from "@/lib/finBalIvaDebTxt";
-import { revalidatePedidoUrgenteTrasCambioIvaSaldo } from "@/lib/revalidatePedidoUrgenteTrasCambioIvaSaldo";
-import type { ServiceResult } from "@/types";
 
-export interface ImportarIvaDebTxtResultado {
-  insertados: number;
-  actualizados: number;
-  totalBruto: number;
-  totalIva: number;
-  ignoradasInvalidas: number;
-}
-
-/** Línea de detalle IVA débito · importadas desde TXT (`fin_bal_iva_deb_import`). */
+/** Línea de detalle IVA débito (`fin_bal_iva_deb_import`). */
 export interface DetalleLineaIvaDebitoBalance {
   id: string;
   fechaEmisionIso: string;
@@ -34,7 +20,7 @@ function isoYmdUtcDesdeDbDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Comprobantes importados cuya `fecha_emision` cae en el mes calendario indicado. */
+/** Comprobantes cuya `fecha_emision` cae en el mes calendario indicado. */
 export async function listarDetalleIvaDebitoMes(params: {
   mes: number;
   anio: number;
@@ -117,84 +103,3 @@ export async function listarIvaDebitoFinBalPorAnio(anio: number): Promise<number
     return out;
   }
 }
-
-async function upsertLinea(
-  tx: Prisma.TransactionClient,
-  f: FilaCsvIvaDebParseada,
-): Promise<"insert" | "update"> {
-  const existing = await tx.finBalIvaDebImportLine.findUnique({
-    where: { dedupeKey: f.dedupeKey },
-    select: { id: true },
-  });
-  await tx.finBalIvaDebImportLine.upsert({
-    where: { dedupeKey: f.dedupeKey },
-    create: {
-      dedupeKey: f.dedupeKey,
-      fechaEmision: f.fechaEmision,
-      denominacionReceptor: f.denominacionReceptor,
-      impTotal: f.impTotal,
-      impIva: f.impIva,
-    },
-    update: {
-      fechaEmision: f.fechaEmision,
-      denominacionReceptor: f.denominacionReceptor,
-      impTotal: f.impTotal,
-      impIva: f.impIva,
-    },
-  });
-  return existing ? "update" : "insert";
-}
-
-/**
- * Importa TXT de alícuotas (62 caracteres). Persiste `imp_iva` del archivo (sin cálculo).
- */
-export async function importarTxtIvaDebitoMes(params: {
-  textoTxt: string;
-  mes: number;
-  anio: number;
-}): Promise<ServiceResult<ImportarIvaDebTxtResultado>> {
-  const { textoTxt, mes, anio } = params;
-  if (mes < 1 || mes > 12 || anio < 2000 || anio > 2100) {
-    return { success: false, error: "Período inválido." };
-  }
-
-  const parsed = parsearTxtIvaDebitoAfip(textoTxt, { mes, anio });
-  if (!parsed.ok) return { success: false, error: parsed.error };
-
-  const filas = filasTxtConDedupeKey(parsed.filas, (payload) =>
-    createHash("sha256").update(payload, "utf8").digest("hex"),
-  );
-
-  let insertados = 0;
-  let actualizados = 0;
-
-  try {
-    await prisma.$transaction(async (tx) => {
-      for (const f of filas) {
-        const r = await upsertLinea(tx, f);
-        if (r === "insert") insertados++;
-        else actualizados++;
-      }
-    });
-  } catch (e: unknown) {
-    if (esErrorColumnaImpIvaFaltante(e)) {
-      return { success: false, error: MSG_MIGRACION_IMP_IVA_FALTANTE };
-    }
-    const msg = e instanceof Error ? e.message : "No se pudo guardar el TXT.";
-    return { success: false, error: msg };
-  }
-
-  revalidatePedidoUrgenteTrasCambioIvaSaldo();
-
-  return {
-    success: true,
-    data: {
-      insertados,
-      actualizados,
-      totalBruto: parsed.totalBruto,
-      totalIva: parsed.totalIva,
-      ignoradasInvalidas: parsed.erroresFila,
-    },
-  };
-}
-

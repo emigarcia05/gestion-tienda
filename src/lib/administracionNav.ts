@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: 5 pilares en sidebar + árbol
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
- * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) → pantallas
+ * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
@@ -123,17 +123,20 @@ const flujosScreens: AdmScreenDef[] = [
     permiso: PERMISOS.finanzas.acceso,
   },
   {
-    id: "posicion-iva",
-    label: "Posición De IVA",
-    href: "/finanzas/posicion-iva",
-    icon: "percent",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
     id: "flujo-de-fondos",
     label: "Flujo De Fondos",
     href: "/finanzas/venc-por-fecha",
     icon: "calendar-days",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+];
+
+const impuestosScreens: AdmScreenDef[] = [
+  {
+    id: "posicion-iva",
+    label: "Posición De IVA",
+    href: "/finanzas/posicion-iva",
+    icon: "percent",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -316,6 +319,12 @@ export const ADM_PILLARS: AdmPillarDef[] = [
         label: "OPERACIONES",
         icon: "banknote",
         groups: operacionesGroups,
+      },
+      {
+        id: "impuestos",
+        label: "IMPUESTOS",
+        icon: "percent",
+        screens: impuestosScreens,
       },
     ],
   },

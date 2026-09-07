@@ -114,7 +114,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 
 **Vendedor** (acordeón, módulos cerrados al inicio): **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
-**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE / OPERACIONES → FLUJOS / COMPRAS / GASTOS) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido.
+**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
 
 **Marketing:** **PUBLICACIONES** (Calendario, Ideas Contenido, Objetivos) → **BASE MULTIMEDIA** (Base Multimedia, Colores Marca). Lectura libre; mutaciones `editor`.
 
@@ -140,6 +140,7 @@ Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts
 | Listas Px Prov. | `…/lista-precios` → `/proveedores/lista-precios` |
 | Lista Prov. | `…/lista` → `/proveedores/lista` |
 | Flujo De Fondo | `/finanzas/venc-por-fecha` |
+| Posición De IVA | `/finanzas/posicion-iva` |
 | Pedido A Fáb. | `/pedido-a-fabrica` |
 | Envios | `/gestion-productos/envios/programados` → `/envios/programados` |
 | Conductor | `/gestion-productos/envios/conductor` → `/envios/conductor` (alias `/envios/crear`) |
@@ -254,6 +255,7 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 - **Balance mensual:** CSS Grid (concepto + Global + sucursales `genera_balance`). Filas `h-10`. Hex de informe (**Guía para IA** punto 13). Ventas solo lectura desde `fin_bal_vtas` (carga en Ventas Mensuales). Drill-down: historial → clic barra (CV/CF) → rubros; footer **Volver**. Filtros mes/año + cesto → periodo AR actual. `contentWidth="full"`.
 - **Gastos:** filtros sucursal/proveedor/rubro/gasto/estado + año/mes (mes multi). ESTADO: CON MONTO Y PAGADO → CON MONTO Y PENDIENTE → SIN MONTO → SIN MONTO O PENDIENTE. Totales en `.finanzas-resumen-tarjeta`. `TablaGastos` usa `<table>` nativo (excepción). **ACCIONES**: lápiz (monto/pago) + borrar imputación + gráfico de evolución mensual (sin columna HISTORIAL).
 - **Ventas Mensuales:** una fila por mes/año desde el mes calendario AR actual hasta la carga más antigua (`fin_bal_vtas`), inclusive los meses sin monto. Columnas **MES** + sucursales `genera_balance` + **ACCIONES** (Cargar / Editar / Eliminar; Cargar se deshabilita si todas las sucursales ya tienen monto). Filtros MES / AÑO / SUCURSAL + contador de periodos. Sin botón de header: Cargar/Editar abren `CrearFinBalVtasModal` con periodo fijo. Eliminar borra el periodo completo (`eliminarFinBalVtasPorPeriodoAction`).
+- **Posición De IVA:** sidenav **FINANZAS → IMPUESTOS** (un solo destino: el grupo es link directo a `/finanzas/posicion-iva`; alias `/finanzas/balance/posicion-iva` redirige). Sin modal de importar IVA débito (TXT alícuotas); ACCIONES editor = saldo manual.
 - **Tesorería:** 4 filtros en una fila. Pie dos filas de tarjetas (tipo de valor / disponibilidad). Cheques: tenencia ACTUALES / TRANSFERIDOS.
 - **Flujo De Fondo:** `/finanzas/venc-por-fecha` (`TablaFlujoDeFondo`). SALDO negativo: `text-destructive` en la celda. Doble clic → detalle día. **No** usar `/finanzas/flujo-de-fondo` (redirect).
 - **Venc. Provee. Merc. / Gastos:** doble clic → mismo detalle de flujo filtrado por proveedor.
