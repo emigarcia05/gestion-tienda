@@ -33,9 +33,9 @@ interface Props {
 
 const VACIO = "-";
 const GRID_CLASS =
-  "grid grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(0,2fr)] gap-x-3 gap-y-2 items-center";
+  "grid grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)] gap-x-3 gap-y-2 items-center";
 const LABEL_CLASS = "font-medium text-sm text-foreground text-left";
-const MONTO_CLASS = "text-sm tabular-nums text-foreground text-right";
+const MONTO_CLASS = "text-sm tabular-nums text-foreground text-center";
 
 function fmtUsdPromo(n: number): string {
   return n.toLocaleString("es-AR", {
@@ -107,8 +107,8 @@ function FilaTres({
       ) : (
         <span className={cn(LABEL_CLASS, etiquetaClassName, className)}>{etiqueta}</span>
       )}
-      <div className={cn("min-w-0", className)}>{nominal}</div>
-      <div className={cn("flex min-w-0 items-center justify-end", className)}>{porcentaje}</div>
+      <div className={cn("flex min-w-0 items-center justify-center", className)}>{nominal}</div>
+      <div className={cn("flex min-w-0 items-center justify-center", className)}>{porcentaje}</div>
     </>
   );
 }
@@ -231,7 +231,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                 porcentaje={null}
                 nominal={
                   puedeEditar ? (
-                    <div className="flex min-w-0 items-center gap-1">
+                    <div className="flex w-full min-w-0 items-center justify-center gap-1">
                       <MontoArInput
                         id="pxPromoFijo"
                         placeholder={VACIO}
@@ -239,22 +239,24 @@ export default function DescuentosAplicadosListaPreciosModal({
                         onValueNormalizedChange={setPxPromoFijoNorm}
                         treatEmptyNormalizedAsBlank
                         disabled={pending}
-                        className="tabular-nums border-primary w-full min-w-0 px-3 text-right"
+                        className="tabular-nums border-primary min-w-0 flex-1 px-3 text-center"
                       />
-                      {mostrarBasura ? (
-                        <Button
-                          type="button"
-                          variant="primaryIcon"
-                          size="icon"
-                          disabled={pending}
-                          onClick={() => void handleQuitarPromo()}
-                          className="h-7 w-7 shrink-0"
-                          aria-label="Quitar Px. Promo Fijo"
-                          title="Quitar Px. Promo Fijo"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        </Button>
-                      ) : null}
+                      <div className="h-7 w-7 shrink-0">
+                        {mostrarBasura ? (
+                          <Button
+                            type="button"
+                            variant="primaryIcon"
+                            size="icon"
+                            disabled={pending}
+                            onClick={() => void handleQuitarPromo()}
+                            className="h-7 w-7"
+                            aria-label="Quitar Px. Promo Fijo"
+                            title="Quitar Px. Promo Fijo"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : (
                     <p className={MONTO_CLASS}>
@@ -283,7 +285,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                     etiqueta={descuento.label}
                     etiquetaClassName="font-normal"
                     porcentaje={
-                      <div className="flex items-center justify-end gap-0.5">
+                      <div className="flex items-center justify-center gap-0.5">
                         <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
                           {fmtPorcentajeTabla(descuento.valor)}
                         </span>
