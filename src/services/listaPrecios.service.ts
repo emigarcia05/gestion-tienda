@@ -13,7 +13,7 @@ import {
   materializarDescuentosEnFila,
   materializarDescuentosEnFilas,
 } from "@/services/descuentosListaPrecioReglas.service";
-import { resolverCotizacionDolarParaItem, getCotizacionUsd } from "@/services/cotizacionUsd.service";
+import { resolverCotizacionDolarParaItem } from "@/services/cotizacionUsd.service";
 import {
   enriquecerFilasConDescuentosActivos,
   type DescuentoActivoListaPrecio,
@@ -55,6 +55,8 @@ export interface FilaListaPrecioParaCliente {
   marca: string | null;
   rubro: string | null;
   pxListaProveedor: number;
+  /** true = lista y promo en US$; false = pesos. */
+  pxDolares: boolean;
   /** Precio venta sugerido; presente cuando se usa soloPxSugerido (p. ej. página Sugeridos). */
   pxVtaSugerido?: number | null;
   dtoProveedor: number;
@@ -96,6 +98,7 @@ function mapListaPrecioProveedorParaCliente(f: ListaPrecioProveedorParaCliente):
     marca: f.marca ?? null,
     rubro: f.rubro ?? null,
     pxListaProveedor: Number(f.pxListaProveedor),
+    pxDolares: f.pxDolares,
     pxVtaSugerido: f.pxVtaSugerido != null ? Number(f.pxVtaSugerido) : null,
     dtoProveedor: Number(f.dtoProveedor),
     dtoMarca: Number(f.dtoMarca),
@@ -737,15 +740,7 @@ export async function actualizarListaPreciosMasivo(
   if (updatePayload.pxPromoFijo !== undefined) {
     setClauses.push(`px_promo_fijo = $${params.length + 1}`);
     params.push(updatePayload.pxPromoFijo);
-    if (updatePayload.pxPromoFijo == null) {
-      setClauses.push(`cotizacion_dolar = CASE WHEN px_dolares THEN cotizacion_dolar ELSE 1 END`);
-    } else {
-      const cotizacionUsd = await getCotizacionUsd();
-      setClauses.push(
-        `cotizacion_dolar = CASE WHEN px_dolares THEN cotizacion_dolar ELSE $${params.length + 1}::numeric END`
-      );
-      params.push(cotizacionUsd);
-    }
+    setClauses.push(`cotizacion_dolar = CASE WHEN px_dolares THEN cotizacion_dolar ELSE 1 END`);
   }
   params.push(ids);
 

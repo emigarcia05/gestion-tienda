@@ -20,7 +20,7 @@ function tieneMaxCuatroDecimales(n: number): boolean {
   return Math.abs(n * 10000 - Math.round(n * 10000)) < 1e-6;
 }
 
-/** Px Promo Fijo en USD: `null` borra el override; número > 0 lo setea. */
+/** Px Promo Fijo en moneda del ítem: `null` borra el override; número > 0 lo setea. */
 export const pxPromoFijoListaPreciosSchema = z
   .number()
   .gt(0)
@@ -35,7 +35,7 @@ export const actualizacionMasivaListaPreciosSchema = z.object({
   /** Precio de lista del proveedor (`prod_precios_provee.px_lista_proveedor`). */
   pxListaProveedor: z.number().min(0).optional(),
   habilitado: z.boolean().optional(),
-  /** USD; `null` elimina el promo (vuelven los descuentos %). */
+  /** Moneda del ítem; `null` elimina el promo (vuelven los descuentos %). */
   pxPromoFijo: pxPromoFijoListaPreciosSchema.optional(),
 });
 

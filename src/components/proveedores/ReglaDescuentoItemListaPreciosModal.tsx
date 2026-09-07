@@ -44,16 +44,18 @@ export default function ReglaDescuentoItemListaPreciosModal({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
             <dt className="font-medium text-foreground">Valor</dt>
             <dd className="tabular-nums">
-              USD{" "}
               {descuento.valor.toLocaleString("es-AR", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </dd>
             <dt className="font-medium text-foreground">Tipo</dt>
-            <dd>Precio de compra final en USD del ítem</dd>
-            <dt className="font-medium text-foreground">Px Final</dt>
-            <dd>USD × cotización × (1 + Cx. Transporte). Sin descuentos % ni Dto. extra.</dd>
+            <dd>Precio de compra final del ítem (misma moneda que la lista)</dd>
+            <dt className="font-medium text-foreground">Px. Final</dt>
+            <dd>
+              Promo × (cotización si el ítem está en US$) × (1 + Cx. Transporte). Sin descuentos % ni
+              Dto. extra.
+            </dd>
           </dl>
         ) : esEspecifica && descuento.reglaEspecifica ? (
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">

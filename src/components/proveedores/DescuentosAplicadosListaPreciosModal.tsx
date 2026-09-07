@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Info, Loader2 } from "lucide-react";
+import { Info, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -36,6 +36,7 @@ const GRID_CLASS =
   "grid grid-cols-[minmax(0,1.35fr)_minmax(7.25rem,auto)_minmax(5.5rem,1fr)] gap-x-3 gap-y-2 items-center";
 const LABEL_CLASS = "font-medium text-sm text-foreground text-left";
 const MONTO_CLASS = "text-sm tabular-nums text-foreground text-right";
+const LINEA_TOTAL_CLASS = "border-t-2 border-foreground pt-2";
 
 function fmtUsdPromo(n: number): string {
   return n.toLocaleString("es-AR", {
@@ -60,17 +61,27 @@ function dtoTotalFila(fila: FilaListaPrecioParaCliente): number {
   );
 }
 
-function nominalRegla(
+function nominalReglaNumero(
   fila: FilaListaPrecioParaCliente,
   descuento: DescuentoActivoListaPrecio,
   hayPromo: boolean
-): string {
-  if (hayPromo) return VACIO;
+): number | null {
+  if (hayPromo) return null;
   if (descuento.tipo === "descuento") {
-    return fmtPesos(fila.pxListaProveedor * (descuento.valor / 100));
+    return fila.pxListaProveedor * (descuento.valor / 100);
   }
   const baseTrasDto = fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
-  return fmtPesos(baseTrasDto * (descuento.valor / 100));
+  return baseTrasDto * (descuento.valor / 100);
+}
+
+function fmtNominalCuenta(
+  n: number | null,
+  tipo: DescuentoActivoListaPrecio["tipo"]
+): string {
+  if (n == null) return VACIO;
+  const monto = fmtPesos(n);
+  if (monto === VACIO) return VACIO;
+  return tipo === "descuento" ? `−${monto}` : `+${monto}`;
 }
 
 function FilaTres({
@@ -78,23 +89,25 @@ function FilaTres({
   htmlFor,
   porcentaje,
   nominal,
+  className,
 }: {
   etiqueta: string;
   htmlFor?: string;
   porcentaje: ReactNode;
   nominal: ReactNode;
+  className?: string;
 }) {
   return (
     <>
       {htmlFor ? (
-        <Label htmlFor={htmlFor} className={LABEL_CLASS}>
+        <Label htmlFor={htmlFor} className={cn(LABEL_CLASS, className)}>
           {etiqueta}
         </Label>
       ) : (
-        <span className={LABEL_CLASS}>{etiqueta}</span>
+        <span className={cn(LABEL_CLASS, className)}>{etiqueta}</span>
       )}
-      <div className="flex min-w-0 items-center justify-end">{porcentaje}</div>
-      <div className="min-w-0">{nominal}</div>
+      <div className={cn("flex min-w-0 items-center justify-end", className)}>{porcentaje}</div>
+      <div className={cn("min-w-0", className)}>{nominal}</div>
     </>
   );
 }
@@ -115,6 +128,8 @@ export default function DescuentosAplicadosListaPreciosModal({
     [fila]
   );
   const hayPromo = fila?.pxPromoFijo != null && fila.pxPromoFijo > 0;
+  const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
+  const mostrarBasura = puedeEditar && (hayPromo || hayValorPromoInput);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -125,14 +140,8 @@ export default function DescuentosAplicadosListaPreciosModal({
     );
   }, [open, fila]);
 
-  async function handleGuardarPromo() {
+  async function persistirPromo(valor: number | null) {
     if (!fila || !puedeEditar) return;
-    const norm = pxPromoFijoNorm.trim();
-    const pxPromoFijo =
-      norm === ""
-        ? null
-        : roundPrecioListaTienda(montoArNormalizedStringToPesosNumber(norm));
-    const valor = pxPromoFijo != null && pxPromoFijo > 0 ? pxPromoFijo : null;
     setPending(true);
     try {
       const result = await actualizarListaPreciosMasivoAction({
@@ -151,6 +160,23 @@ export default function DescuentosAplicadosListaPreciosModal({
     } finally {
       setPending(false);
     }
+  }
+
+  async function handleGuardarPromo() {
+    if (!fila || !puedeEditar) return;
+    const norm = pxPromoFijoNorm.trim();
+    const pxPromoFijo =
+      norm === ""
+        ? null
+        : roundPrecioListaTienda(montoArNormalizedStringToPesosNumber(norm));
+    const valor = pxPromoFijo != null && pxPromoFijo > 0 ? pxPromoFijo : null;
+    await persistirPromo(valor);
+  }
+
+  async function handleQuitarPromo() {
+    setPxPromoFijoNorm("");
+    if (!hayPromo) return;
+    await persistirPromo(null);
   }
 
   return (
@@ -191,82 +217,113 @@ export default function DescuentosAplicadosListaPreciosModal({
         {!fila ? (
           <p className="text-sm text-muted-foreground">Sin datos del ítem.</p>
         ) : (
-          <div className={GRID_CLASS}>
-            <span className="sr-only">Etiqueta</span>
-            <span className="sr-only">Valor porcentual</span>
-            <span className="sr-only">Valor nominal</span>
+          <div className="flex flex-col gap-3">
+            <div className={GRID_CLASS}>
+              <span className="sr-only">Etiqueta</span>
+              <span className="sr-only">Valor porcentual</span>
+              <span className="sr-only">Valor nominal</span>
 
-            <FilaTres
-              etiqueta="PX. PROMO FIJO (USD)"
-              htmlFor="pxPromoFijo"
-              porcentaje={null}
-              nominal={
-                puedeEditar ? (
-                  <MontoArInput
-                    id="pxPromoFijo"
-                    placeholder={VACIO}
-                    valueNormalized={pxPromoFijoNorm}
-                    onValueNormalizedChange={setPxPromoFijoNorm}
-                    treatEmptyNormalizedAsBlank
-                    disabled={pending}
-                    className="tabular-nums border-primary w-full min-w-0 text-right"
-                  />
-                ) : (
-                  <p className={MONTO_CLASS}>
-                    {hayPromo && fila.pxPromoFijo != null
-                      ? `$${fmtUsdPromo(fila.pxPromoFijo)}`
-                      : VACIO}
-                  </p>
-                )
-              }
-            />
-
-            <FilaTres
-              etiqueta="PX. LISTA"
-              porcentaje={null}
-              nominal={<p className={MONTO_CLASS}>{fmtPesos(fila.pxListaProveedor)}</p>}
-            />
-
-            {descuentosReglas.map((descuento) => (
               <FilaTres
-                key={descuento.campo}
-                etiqueta={descuento.label}
-                porcentaje={
-                  <div className="flex items-center justify-end gap-0.5">
-                    <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
-                      {fmtPorcentajeTabla(descuento.valor)}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
-                      )}
-                      aria-label={`Ver regla de ${descuento.label}`}
-                      onClick={() => onVerRegla(descuento)}
-                    >
-                      <Info className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </div>
-                }
+                etiqueta={fila.pxDolares ? "PX. PROMO FIJO (US$)" : "PX. PROMO FIJO"}
+                htmlFor="pxPromoFijo"
+                porcentaje={null}
                 nominal={
-                  <p className={MONTO_CLASS}>
-                    {nominalRegla(fila, descuento, hayPromo)}
-                  </p>
+                  puedeEditar ? (
+                    <div className="relative">
+                      {mostrarBasura ? (
+                        <Button
+                          type="button"
+                          variant="primaryIcon"
+                          size="icon"
+                          disabled={pending}
+                          onClick={() => void handleQuitarPromo()}
+                          className="absolute top-1/2 left-0.5 z-[1] h-7 w-7 -translate-y-1/2"
+                          aria-label="Quitar Px. Promo Fijo"
+                          title="Quitar Px. Promo Fijo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </Button>
+                      ) : null}
+                      <MontoArInput
+                        id="pxPromoFijo"
+                        placeholder={VACIO}
+                        valueNormalized={pxPromoFijoNorm}
+                        onValueNormalizedChange={setPxPromoFijoNorm}
+                        treatEmptyNormalizedAsBlank
+                        disabled={pending}
+                        className={cn(
+                          "tabular-nums border-primary w-full min-w-0 text-right",
+                          mostrarBasura ? "pl-8 pr-3" : "px-3"
+                        )}
+                      />
+                    </div>
+                  ) : (
+                    <p className={MONTO_CLASS}>
+                      {hayPromo && fila.pxPromoFijo != null
+                        ? fila.pxDolares
+                          ? `US$ ${fmtUsdPromo(fila.pxPromoFijo)}`
+                          : fmtPesos(fila.pxPromoFijo)
+                        : VACIO}
+                    </p>
+                  )
                 }
               />
-            ))}
+            </div>
 
-            <FilaTres
-              etiqueta="PX. FINAL"
-              porcentaje={null}
-              nominal={
-                <p className={cn(MONTO_CLASS, "font-semibold")}>
-                  {fmtPesos(fila.pxCompraFinalSinIva)}
-                </p>
-              }
-            />
+            <div className="rounded-md border border-border px-3 py-2">
+              <div className={GRID_CLASS}>
+                <FilaTres
+                  etiqueta="PX. LISTA"
+                  porcentaje={null}
+                  nominal={<p className={MONTO_CLASS}>{fmtPesos(fila.pxListaProveedor)}</p>}
+                />
+
+                {descuentosReglas.map((descuento) => (
+                  <FilaTres
+                    key={descuento.campo}
+                    etiqueta={descuento.label}
+                    porcentaje={
+                      <div className="flex items-center justify-end gap-0.5">
+                        <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
+                          {fmtPorcentajeTabla(descuento.valor)}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
+                          )}
+                          aria-label={`Ver regla de ${descuento.label}`}
+                          onClick={() => onVerRegla(descuento)}
+                        >
+                          <Info className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </div>
+                    }
+                    nominal={
+                      <p className={MONTO_CLASS}>
+                        {fmtNominalCuenta(
+                          nominalReglaNumero(fila, descuento, hayPromo),
+                          descuento.tipo
+                        )}
+                      </p>
+                    }
+                  />
+                ))}
+
+                <FilaTres
+                  etiqueta="PX. FINAL"
+                  className={LINEA_TOTAL_CLASS}
+                  porcentaje={null}
+                  nominal={
+                    <p className={cn(MONTO_CLASS, "font-semibold")}>
+                      {fmtPesos(fila.pxCompraFinalSinIva)}
+                    </p>
+                  }
+                />
+              </div>
+            </div>
           </div>
         )}
       </AppModal>

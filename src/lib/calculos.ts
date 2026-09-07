@@ -22,7 +22,7 @@ export function listaPrecioBasePesos(
  * donde dtoTotal = dtoProveedor + dtoMarca + dtoRubro + dtoCantidad + dtoFinanciero + descEspecial (+ dtoExtraComparacion si aplica; capado 0-100).
  *
  * Si `pxPromoFijo` > 0: **no** se aplican descuentos ni dto extra; Px Final =
- *   pxPromoFijo (USD) × cotización × (1 + cxTransporte/100).
+ *   pxPromoFijo (moneda del ítem) × (cotización si `pxDolares`) × (1 + cxTransporte/100).
  * Parámetros opcionales default 0/`null` para compatibilidad.
  */
 export function calcPxCompraFinal(
@@ -36,11 +36,12 @@ export function calcPxCompraFinal(
   dtoExtraComparacion: number = 0,
   descEspecial: number = 0,
   pxPromoFijo: number | null = null,
-  cotizacionDolar: number = 1
+  cotizacionDolar: number = 1,
+  pxDolares: boolean = false
 ): number {
   if (pxPromoFijo != null && pxPromoFijo > 0) {
-    const cotizacion = cotizacionDolar > 0 ? cotizacionDolar : 1;
-    return pxPromoFijo * cotizacion * (1 + cxTransporte / 100);
+    const basePromo = listaPrecioBasePesos(pxPromoFijo, pxDolares, cotizacionDolar);
+    return basePromo * (1 + cxTransporte / 100);
   }
 
   const dtoTotal = clampPercent(
@@ -72,7 +73,7 @@ export type DatosCostoComparacion = {
   dtoFinanciero: number;
   cxTransporte: number;
   descEspecial: number;
-  /** USD; si > 0, Px Final ignora descuentos y dto extra (sí aplica Cx. Transporte). */
+  /** Moneda del ítem; si > 0, Px Final ignora descuentos y dto extra (sí aplica Cx. Transporte). */
   pxPromoFijo: number | null;
 };
 
@@ -105,7 +106,8 @@ export function calcCostoComparacion(
     dtoExtra,
     datos.descEspecial,
     datos.pxPromoFijo,
-    datos.cotizacionDolar
+    datos.cotizacionDolar,
+    datos.pxDolares
   );
   if (!Number.isFinite(px) || px <= 0) return null;
   return roundPrecioListaTienda(px);

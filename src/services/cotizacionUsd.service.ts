@@ -59,7 +59,7 @@ export async function resolverCotizacionDolarParaItem(pxDolares: boolean): Promi
 
 /**
  * Actualiza cotización global y propaga a `prod_precios_provee.cotizacion_dolar`
- * en todas las filas con `px_dolares = true` o con `px_promo_fijo` (caché para columna GENERATED).
+ * en filas con `px_dolares = true` (caché para columna GENERATED).
  */
 export async function actualizarCotizacionUsd(
   valor: number
@@ -80,7 +80,7 @@ export async function actualizarCotizacionUsd(
       `
       UPDATE prod_precios_provee
       SET cotizacion_dolar = $1::numeric, updated_at = CURRENT_TIMESTAMP
-      WHERE px_dolares = true OR px_promo_fijo IS NOT NULL
+      WHERE px_dolares = true
       `,
       valor
     );
