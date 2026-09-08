@@ -185,17 +185,16 @@ export async function crearAlgoAction(raw: unknown): Promise<ActionResult<{ id: 
 ```ts
 export async function getPxListasPreciosPageData(params: unknown) {
   const rol = await getRol();
-  const vacio = await getPxListasPreciosPageDataFromDb({});
   if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
-    return { ...vacio, items: [], total: 0, totalPaginas: 1 };
+    return emptyPxListasPreciosPageData();
   }
   const parsed = getPxListasPreciosPageParamsSchema.safeParse(params);
-  if (!parsed.success) return { ...vacio, items: [], total: 0, totalPaginas: 1 };
+  if (!parsed.success) return emptyPxListasPreciosPageData();
   return getPxListasPreciosPageDataFromDb(parsed.data);
 }
 ```
 
-Listados pesados de página: preferir **RSC → servicio** (sin Action) cuando el cliente no invoca la lectura.
+Listados pesados de página: preferir **RSC → servicio** (sin Action) cuando el cliente no invoca la lectura. **Px Listas** carga el listado desde el RSC (`getPxListasPreciosPageDataFromDb`); la Action queda para mutaciones y para callers que no son la página. El shape vacío de permiso/Zod **no** debe ejecutar Prisma (DISTINCT / count).
 
 ### 2.3 Zod típico
 
@@ -275,7 +274,7 @@ URL: `/gestion-productos/tienda/comp-proveedores`. Permiso lectura/edición CX: 
 
 ### 3.5 Px Listas DUX y Px Competencia
 
-**Px Listas** (precios venta DUX): `prod_tienda` + `prod_tienda_listas_precios` + `prod_tienda_precios`. Staging `prod_tienda_precios_edicion`. Actions `pxListasPrecios.ts` (`cxPxTienda.acceso`). CATEGORÍA MARGEN: `fin_ana_mc_cat` + lista `1 - GENERAL`. Competidor ref. GENERAL: `prod_tienda.competencia_id_px_lista_general`. `guardarPrecioListaEdicionDesdePx` persiste PX aunque `costoCompra` sea 0 (`margenManual` null). `guardarPrecioListaEdicionDesdeMargen` exige costo > 0 (sin costo no hay PX). Act. Px: `exportarPxListasMargenAction` (Excel + limpia staging; sin POST ítem a DUX). El botón abre `DUX_NUEVO_IMPORTADOR_URL` (`src/lib/duxImportador.ts`) en pestaña nueva. Filtros: `@/lib/pxListasPreciosFiltros`.
+**Px Listas** (precios venta DUX): `prod_tienda` + `prod_tienda_listas_precios` + `prod_tienda_precios`. Staging `prod_tienda_precios_edicion`. Actions `pxListasPrecios.ts` (`cxPxTienda.acceso`). CATEGORÍA MARGEN: `fin_ana_mc_cat` + lista `1 - GENERAL`. Competidor ref. GENERAL: `prod_tienda.competencia_id_px_lista_general`. `guardarPrecioListaEdicionDesdePx` persiste PX aunque `costoCompra` sea 0 (`margenManual` null). `guardarPrecioListaEdicionDesdeMargen` exige costo > 0 (sin costo no hay PX). Act. Px: `exportarPxListasMargenAction` (Excel + limpia staging; sin POST ítem a DUX). El botón abre `DUX_NUEVO_IMPORTADOR_URL` (`src/lib/duxImportador.ts`) en pestaña nueva. Filtros: `@/lib/pxListasPreciosFiltros` (SI/NO **Actualizar** = `preciosListaEdicion` `some`/`none` en Prisma; no post-proceso en memoria). Listado GET (`getPxListasPreciosPageDataFromDb`): **no consulta productos** hasta `hayFiltroActivoPxListas` (desplegable o `q` ≥ 3); con filtro, una pasada en paralelo (catálogo, página y count). **No** reescribe staging. `sincronizarPxGeneralDesdeCompetenciaRef` solo en Act. Px (`listarExportPxListasMargenPorLista`). Índices `prod_tienda`: `descripcion_tienda`, `marca`, `rubro`, `sub_rubro`. Catálogo de filtros sin `q` se cachea ~60 s en el proceso.
 
 **Px Competencia** (vs competidores): `getPxCompetenciaPageData` (`unknown` + `getPxCompetenciaPageParamsSchema`) → `pxCompetenciaPage.service.ts` / `pxCompetenciaRows.service.ts`. Precio mostrado: sugerido del proveedor del competidor si existe, si no scraping (`competenciaPxSugerido.service.ts`). Filtros: `@/lib/pxCompetenciaFiltros`.
 

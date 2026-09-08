@@ -963,6 +963,10 @@ model ProdTienda {
   stockTrasnDepositos      StockTrasnDeposito[]
 
   @@index([competenciaIdPxListaGeneral], map: "prod_tienda_competencia_id_px_lista_general_idx")
+  @@index([descripcionTienda], map: "prod_tienda_descripcion_tienda_idx")
+  @@index([marca], map: "prod_tienda_marca_idx")
+  @@index([rubro], map: "prod_tienda_rubro_idx")
+  @@index([subRubro], map: "prod_tienda_sub_rubro_idx")
   @@map("prod_tienda")
 }
 

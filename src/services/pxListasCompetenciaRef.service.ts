@@ -105,14 +105,15 @@ export async function resolverPxReferenciaCompetenciaPxListas(
  * (sugerido del proveedor vinculado o scraping).
  */
 export async function listarOpcionesCompetenciaRefPorCodTiendas(
-  codTiendas: string[]
+  codTiendas: string[],
+  extraCompetenciaIds: string[] = []
 ): Promise<Map<string, OpcionCompetenciaRefPxListas[]>> {
   const map = new Map<string, OpcionCompetenciaRefPxListas[]>();
   if (codTiendas.length === 0) return map;
 
   for (const cod of codTiendas) map.set(cod, []);
 
-  const [sugeridos, scrapRows, competenciasMap] = await Promise.all([
+  const [sugeridos, scrapRows] = await Promise.all([
     listarCompetenciasConPxSugeridoPorCodTiendas(codTiendas),
     prisma.prodPrecioCompetencia.findMany({
       where: {
@@ -125,8 +126,19 @@ export async function listarOpcionesCompetenciaRefPorCodTiendas(
         pxCompetencia: true,
       },
     }),
-    cargarMapCompetenciasConEtiqueta(),
   ]);
+
+  const idsCompetencia = [
+    ...new Set([
+      ...sugeridos.map((s) => s.competenciaId),
+      ...scrapRows.map((r) => r.competenciaId),
+      ...extraCompetenciaIds,
+    ]),
+  ];
+  const competenciasMap =
+    idsCompetencia.length > 0
+      ? await cargarMapCompetenciasConEtiqueta(idsCompetencia)
+      : new Map<string, CompetenciaEtiquetaRow>();
 
   const seen = new Set<string>();
 
@@ -195,22 +207,29 @@ export async function asegurarOpcionCompetenciaRefSeleccionada(
   if (faltantes.length === 0) return;
 
   const ids = [...new Set(faltantes.map((f) => f.competenciaId))];
-  const comps = await cargarMapCompetenciasConEtiqueta(ids);
+  const [comps, pxPairs] = await Promise.all([
+    cargarMapCompetenciasConEtiqueta(ids),
+    Promise.all(
+      faltantes.map(async (f) => {
+        const px =
+          (await resolverPxReferenciaCompetenciaPxListas(
+            f.codTienda,
+            f.competenciaId
+          )) ?? 0;
+        return { ...f, px };
+      })
+    ),
+  ]);
 
-  for (const f of faltantes) {
+  for (const f of pxPairs) {
     const meta = comps.get(f.competenciaId);
     if (!meta) continue;
     const list = opcionesPorCod.get(f.codTienda) ?? [];
-    const px =
-      (await resolverPxReferenciaCompetenciaPxListas(
-        f.codTienda,
-        f.competenciaId
-      )) ?? 0;
     list.push({
       competenciaId: f.competenciaId,
       nombre: meta.nombre,
       etiqueta: meta.etiqueta,
-      px,
+      px: f.px,
     });
     list.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
     opcionesPorCod.set(f.codTienda, list);

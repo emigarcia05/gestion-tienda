@@ -8,13 +8,13 @@ import type {
   ListaPrecioPxListasColumna,
 } from "@/lib/pxListasPrecios";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
-import {
-  armarCeldaPrecioPxListas,
-  filtrarItemPorActualizar,
-} from "@/lib/pxListasPreciosCelda";
+import { armarCeldaPrecioPxListas } from "@/lib/pxListasPreciosCelda";
 import {
   esFiltroActualizarPxListas,
-  requierePostProcesoActualizarPxListas,
+  FILTRO_ACTUALIZAR_NO,
+  FILTRO_ACTUALIZAR_SI,
+  hayFiltroActivoPxListas,
+  MIN_CARACTERES_BUSQUEDA_PX_LISTAS,
   type FiltroActualizarPxListas,
 } from "@/lib/pxListasPreciosFiltros";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +23,6 @@ import {
   asegurarOpcionCompetenciaRefSeleccionada,
   listarOpcionesCompetenciaRefPorCodTiendas,
   listarOpcionesFiltroPxVinculado,
-  sincronizarPxGeneralDesdeCompetenciaRef,
 } from "@/services/pxListasCompetenciaRef.service";
 import { listarFinAnaMcCategorias } from "@/services/finAnaMcCategorias.service";
 
@@ -42,21 +41,68 @@ export type PxListasPreciosPageData = {
   /** `idLista` de **1 - GENERAL**; `null` si no existe en el catálogo. */
   idListaGeneral: number | null;
 };
+
+/** Shape vacío sin Prisma (gate de permiso / Zod). */
+export function emptyPxListasPreciosPageData(): PxListasPreciosPageData {
+  return {
+    items: [],
+    total: 0,
+    totalPaginas: 1,
+    listas: [],
+    marcas: [],
+    rubros: [],
+    subRubros: [],
+    opcionesPxVinculado: [],
+    categoriasMc: [],
+    idListaGeneral: null,
+  };
+}
+
+const META_ESTATICO_TTL_MS = 60_000;
+const DISTINCT_SIN_Q_TTL_MS = 60_000;
+
+type MetaEstaticoPxListas = {
+  listas: ListaPrecioPxListasColumna[];
+  categoriasMc: FinAnaMcCategoriaItem[];
+  opcionesPxVinculado: OpcionFiltroPxVinculado[];
+  idListaGeneral: number | null;
+};
+
+type DistinctFiltrosPxListas = {
+  marcas: Array<{ marca: string }>;
+  rubros: Array<{ rubro: string }>;
+  subRubros: Array<{ subRubro: string }>;
+};
+
+let metaEstaticoCache: { at: number; data: MetaEstaticoPxListas } | null = null;
+let distinctSinQCache: { at: number; data: DistinctFiltrosPxListas } | null =
+  null;
+
 function buildWhere(params: {
   q: string;
   rubro: string;
   marca: string;
   subRubro: string;
   pxVinculado: string;
+  actualizar: FiltroActualizarPxListas | "";
 }): Prisma.ProdTiendaWhereInput {
   const andParts: Prisma.ProdTiendaWhereInput[] = [];
-  const textFilter = filtroTexto(params.q, ["descripcionTienda", "codTienda"]);
+  const qListado =
+    params.q.trim().length >= MIN_CARACTERES_BUSQUEDA_PX_LISTAS
+      ? params.q
+      : "";
+  const textFilter = filtroTexto(qListado, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
   if (params.rubro) andParts.push({ rubro: params.rubro });
   if (params.marca) andParts.push({ marca: params.marca });
   if (params.subRubro) andParts.push({ subRubro: params.subRubro });
   if (params.pxVinculado) {
     andParts.push({ competenciaIdPxListaGeneral: params.pxVinculado });
+  }
+  if (params.actualizar === FILTRO_ACTUALIZAR_SI) {
+    andParts.push({ preciosListaEdicion: { some: {} } });
+  } else if (params.actualizar === FILTRO_ACTUALIZAR_NO) {
+    andParts.push({ preciosListaEdicion: { none: {} } });
   }
   return andParts.length ? { AND: andParts } : {};
 }
@@ -80,6 +126,82 @@ async function listarColumnasListas(): Promise<ListaPrecioPxListasColumna[]> {
     idLista: r.idLista,
     nombreLista: r.nombreLista,
   }));
+}
+
+async function cargarMetaEstaticoPxListas(): Promise<MetaEstaticoPxListas> {
+  const now = Date.now();
+  if (
+    metaEstaticoCache &&
+    now - metaEstaticoCache.at < META_ESTATICO_TTL_MS
+  ) {
+    return metaEstaticoCache.data;
+  }
+  const [listas, categoriasMc, opcionesPxVinculado] = await Promise.all([
+    listarColumnasListas(),
+    listarFinAnaMcCategorias(),
+    listarOpcionesFiltroPxVinculado(),
+  ]);
+  const data: MetaEstaticoPxListas = {
+    listas,
+    categoriasMc,
+    opcionesPxVinculado,
+    idListaGeneral: encontrarIdListaGeneralPxListas(listas),
+  };
+  metaEstaticoCache = { at: now, data };
+  return data;
+}
+
+async function listarOpcionesDistinctFiltros(
+  q: string
+): Promise<DistinctFiltrosPxListas> {
+  const [marcasDistinct, rubrosDistinct, subRubrosDistinct] = await Promise.all([
+    prisma.prodTienda.findMany({
+      select: { marca: true },
+      distinct: ["marca"],
+      where: whereDistinctOpciones(q, { marca: { not: null } }),
+      orderBy: { marca: "asc" },
+    }),
+    prisma.prodTienda.findMany({
+      select: { rubro: true },
+      distinct: ["rubro"],
+      where: whereDistinctOpciones(q, { rubro: { not: null } }),
+      orderBy: { rubro: "asc" },
+    }),
+    prisma.prodTienda.findMany({
+      select: { subRubro: true },
+      distinct: ["subRubro"],
+      where: whereDistinctOpciones(q, { subRubro: { not: null } }),
+      orderBy: { subRubro: "asc" },
+    }),
+  ]);
+
+  return {
+    marcas: marcasDistinct.flatMap((m) =>
+      m.marca != null ? [{ marca: m.marca }] : []
+    ),
+    rubros: rubrosDistinct.flatMap((r) =>
+      r.rubro != null ? [{ rubro: r.rubro }] : []
+    ),
+    subRubros: subRubrosDistinct.flatMap((s) =>
+      s.subRubro != null ? [{ subRubro: s.subRubro }] : []
+    ),
+  };
+}
+
+async function listarOpcionesDistinctFiltrosCached(
+  q: string
+): Promise<DistinctFiltrosPxListas> {
+  if (q) return listarOpcionesDistinctFiltros(q);
+  const now = Date.now();
+  if (
+    distinctSinQCache &&
+    now - distinctSinQCache.at < DISTINCT_SIN_Q_TTL_MS
+  ) {
+    return distinctSinQCache.data;
+  }
+  const data = await listarOpcionesDistinctFiltros("");
+  distinctSinQCache = { at: now, data };
+  return data;
 }
 
 async function cargarMapsPreciosYEdicion(
@@ -148,108 +270,58 @@ function buildItemDesdeFila(
   };
 }
 
+type FilaListadoPxListas = {
+  codTienda: string;
+  descripcionTienda: string | null;
+  costoCompra: { toString(): string };
+  competenciaIdPxListaGeneral: string | null;
+};
+
+const SELECT_FILA_LISTADO = {
+  codTienda: true,
+  descripcionTienda: true,
+  costoCompra: true,
+  competenciaIdPxListaGeneral: true,
+} as const;
+
+async function listarPaginaProdTiendaPxListas(
+  where: Prisma.ProdTiendaWhereInput,
+  skip: number
+): Promise<{ rows: FilaListadoPxListas[]; total: number }> {
+  const [rows, total] = await Promise.all([
+    prisma.prodTienda.findMany({
+      where,
+      select: SELECT_FILA_LISTADO,
+      orderBy: [{ descripcionTienda: "asc" }],
+      skip,
+      take: PAGE_SIZE,
+    }),
+    prisma.prodTienda.count({ where }),
+  ]);
+  return { rows, total };
+}
+
 async function enriquecerItemsPxListas(
-  rows: Array<{
-    codTienda: string;
-    descripcionTienda: string | null;
-    costoCompra: { toString(): string };
-    competenciaIdPxListaGeneral: string | null;
-  }>,
+  rows: FilaListadoPxListas[],
   listas: ListaPrecioPxListasColumna[],
   idListas: number[]
 ): Promise<ItemPxListasPreciosTabla[]> {
   const codTiendas = rows.map((r) => r.codTienda);
-  await sincronizarPxGeneralDesdeCompetenciaRef(codTiendas);
+  const extraCompetenciaIds = [
+    ...new Set(
+      rows
+        .map((r) => r.competenciaIdPxListaGeneral)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
   const [{ duxMap, pxEdicionMap }, opcionesPorCod] = await Promise.all([
     cargarMapsPreciosYEdicion(codTiendas, idListas),
-    listarOpcionesCompetenciaRefPorCodTiendas(codTiendas),
+    listarOpcionesCompetenciaRefPorCodTiendas(codTiendas, extraCompetenciaIds),
   ]);
   await asegurarOpcionCompetenciaRefSeleccionada(opcionesPorCod, rows);
   return rows.map((row) =>
     buildItemDesdeFila(row, listas, duxMap, pxEdicionMap, opcionesPorCod)
   );
-}
-
-async function getEmptyPage(q: string): Promise<PxListasPreciosPageData> {
-  const [listas, categoriasMc, opcionesPxVinculado] = await Promise.all([
-    listarColumnasListas(),
-    listarFinAnaMcCategorias(),
-    listarOpcionesFiltroPxVinculado(),
-  ]);
-  const [marcasDistinct, rubrosDistinct, subRubrosDistinct] = await Promise.all([
-    prisma.prodTienda.findMany({
-      select: { marca: true },
-      distinct: ["marca"],
-      where: whereDistinctOpciones(q, { marca: { not: null } }),
-      orderBy: { marca: "asc" },
-    }),
-    prisma.prodTienda.findMany({
-      select: { rubro: true },
-      distinct: ["rubro"],
-      where: whereDistinctOpciones(q, { rubro: { not: null } }),
-      orderBy: { rubro: "asc" },
-    }),
-    prisma.prodTienda.findMany({
-      select: { subRubro: true },
-      distinct: ["subRubro"],
-      where: whereDistinctOpciones(q, { subRubro: { not: null } }),
-      orderBy: { subRubro: "asc" },
-    }),
-  ]);
-
-  return {
-    items: [],
-    total: 0,
-    totalPaginas: 1,
-    listas,
-    marcas: marcasDistinct
-      .filter((m) => m.marca != null)
-      .map((m) => ({ marca: m.marca! })),
-    rubros: rubrosDistinct
-      .filter((r) => r.rubro != null)
-      .map((r) => ({ rubro: r.rubro! })),
-    subRubros: subRubrosDistinct
-      .filter((s) => s.subRubro != null)
-      .map((s) => ({ subRubro: s.subRubro! })),
-    opcionesPxVinculado,
-    categoriasMc,
-    idListaGeneral: encontrarIdListaGeneralPxListas(listas),
-  };
-}
-
-async function listarItemsConFiltroActualizar(
-  where: Prisma.ProdTiendaWhereInput,
-  opts: {
-    actualizar: FiltroActualizarPxListas;
-    paginaNum: number;
-    listas: ListaPrecioPxListasColumna[];
-    idListas: number[];
-  }
-) {
-  const rows = await prisma.prodTienda.findMany({
-    where,
-    select: {
-      codTienda: true,
-      descripcionTienda: true,
-      costoCompra: true,
-      competenciaIdPxListaGeneral: true,
-    },
-    orderBy: [{ descripcionTienda: "asc" }],
-  });
-
-  const items = (await enriquecerItemsPxListas(rows, opts.listas, opts.idListas)).filter(
-    (item) => filtrarItemPorActualizar(item, opts.actualizar)
-  );
-
-  const total = items.length;
-  const totalPaginas = total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE);
-  const skip = (opts.paginaNum - 1) * PAGE_SIZE;
-
-  return {
-    items: items.slice(skip, skip + PAGE_SIZE),
-    total,
-    totalPaginas,
-  };
 }
 
 export async function getPxListasPreciosPageDataFromDb(params: {
@@ -263,7 +335,7 @@ export async function getPxListasPreciosPageDataFromDb(params: {
 }): Promise<PxListasPreciosPageData> {
   const parsed = getPxListasPreciosPageParamsSchema.safeParse(params);
   if (!parsed.success) {
-    return getEmptyPage("");
+    return emptyPxListasPreciosPageData();
   }
 
   const {
@@ -282,99 +354,57 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     ? actualizarRaw
     : "";
 
-  const where = buildWhere({ q, rubro, marca, subRubro, pxVinculado });
+  const qDistinct =
+    q.trim().length >= MIN_CARACTERES_BUSQUEDA_PX_LISTAS ? q : "";
+  const listarItems = hayFiltroActivoPxListas({
+    q,
+    rubro,
+    marca,
+    subRubro,
+    pxVinculado,
+    actualizar,
+  });
+
+  const where = buildWhere({
+    q,
+    rubro,
+    marca,
+    subRubro,
+    pxVinculado,
+    actualizar,
+  });
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
-  const postProceso = requierePostProcesoActualizarPxListas({ actualizar });
-
-  const [listas, categoriasMc, opcionesPxVinculado] = await Promise.all([
-    listarColumnasListas(),
-    listarFinAnaMcCategorias(),
-    listarOpcionesFiltroPxVinculado(),
-  ]);
-  const idListas = listas.map((l) => l.idLista);
-  const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
-
-  const [marcasDistinct, rubrosDistinct, subRubrosDistinct] = await Promise.all([
-    prisma.prodTienda.findMany({
-      select: { marca: true },
-      distinct: ["marca"],
-      where: whereDistinctOpciones(q, { marca: { not: null } }),
-      orderBy: { marca: "asc" },
-    }),
-    prisma.prodTienda.findMany({
-      select: { rubro: true },
-      distinct: ["rubro"],
-      where: whereDistinctOpciones(q, { rubro: { not: null } }),
-      orderBy: { rubro: "asc" },
-    }),
-    prisma.prodTienda.findMany({
-      select: { subRubro: true },
-      distinct: ["subRubro"],
-      where: whereDistinctOpciones(q, { subRubro: { not: null } }),
-      orderBy: { subRubro: "asc" },
-    }),
-  ]);
-
-  const metaFiltros = {
-    listas,
-    marcas: marcasDistinct
-      .filter((m) => m.marca != null)
-      .map((m) => ({ marca: m.marca! })),
-    rubros: rubrosDistinct
-      .filter((r) => r.rubro != null)
-      .map((r) => ({ rubro: r.rubro! })),
-    subRubros: subRubrosDistinct
-      .filter((s) => s.subRubro != null)
-      .map((s) => ({ subRubro: s.subRubro! })),
-    opcionesPxVinculado,
-    categoriasMc,
-    idListaGeneral,
-  };
-
-  if (postProceso && actualizar) {
-    const { items, total, totalPaginas } = await listarItemsConFiltroActualizar(
-      where,
-      { actualizar, paginaNum, listas, idListas }
-    );
-
-    return {
-      items,
-      total,
-      totalPaginas,
-      ...metaFiltros,
-    };
-  }
-
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
-  const [rows, total] = await Promise.all([
-    prisma.prodTienda.findMany({
-      where,
-      select: {
-        codTienda: true,
-        descripcionTienda: true,
-        costoCompra: true,
-        competenciaIdPxListaGeneral: true,
-      },
-      orderBy: [{ descripcionTienda: "asc" }],
-      skip,
-      take: PAGE_SIZE,
-    }),
-    prisma.prodTienda.count({ where }),
+  const [metaEstatico, distincts, listado] = await Promise.all([
+    cargarMetaEstaticoPxListas(),
+    listarOpcionesDistinctFiltrosCached(qDistinct),
+    listarItems
+      ? listarPaginaProdTiendaPxListas(where, skip)
+      : Promise.resolve({ rows: [] as FilaListadoPxListas[], total: 0 }),
   ]);
 
-  const items: ItemPxListasPreciosTabla[] = await enriquecerItemsPxListas(
-    rows,
-    listas,
-    idListas
-  );
+  const items: ItemPxListasPreciosTabla[] = listarItems
+    ? await enriquecerItemsPxListas(
+        listado.rows,
+        metaEstatico.listas,
+        metaEstatico.listas.map((l) => l.idLista)
+      )
+    : [];
 
+  const total = listado.total;
   const totalPaginas = total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE);
 
   return {
     items,
     total,
     totalPaginas,
-    ...metaFiltros,
+    listas: metaEstatico.listas,
+    marcas: distincts.marcas,
+    rubros: distincts.rubros,
+    subRubros: distincts.subRubros,
+    opcionesPxVinculado: metaEstatico.opcionesPxVinculado,
+    categoriasMc: metaEstatico.categoriasMc,
+    idListaGeneral: metaEstatico.idListaGeneral,
   };
 }

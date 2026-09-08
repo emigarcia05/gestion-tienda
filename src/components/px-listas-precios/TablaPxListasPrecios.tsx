@@ -72,6 +72,7 @@ interface Props {
   puedeEditar: boolean;
   categoriasMc: FinAnaMcCategoriaItem[];
   idListaGeneral: number | null;
+  mensajeVacio: string;
 }
 
 type DraftCeldaPxListas = {
@@ -729,6 +730,7 @@ export default function TablaPxListasPrecios({
   puedeEditar,
   categoriasMc,
   idListaGeneral,
+  mensajeVacio,
 }: Props) {
   const [items, setItems] = useState(inicial);
 
@@ -863,7 +865,7 @@ export default function TablaPxListasPrecios({
       </TableHeader>
       <TableBody>
         {items.length === 0 ? (
-          <EmptyTableRow colSpan={colCount} message="NO HAY PRODUCTOS." />
+          <EmptyTableRow colSpan={colCount} message={mensajeVacio} />
         ) : (
           items.map((item) => (
             <FilaPxListasPrecios

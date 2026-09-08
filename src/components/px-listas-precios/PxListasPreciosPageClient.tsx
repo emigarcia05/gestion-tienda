@@ -11,6 +11,10 @@ import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
 import type { ItemPxListasPreciosTabla, ListaPrecioPxListasColumna } from "@/lib/pxListasPrecios";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
+import {
+  hayFiltroActivoPxListas,
+  MENSAJE_SIN_FILTRO_PX_LISTAS,
+} from "@/lib/pxListasPreciosFiltros";
 
 const BASE_PATH = GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas;
 
@@ -56,6 +60,17 @@ export default function PxListasPreciosPageClient({
   paginaNum,
 }: Props) {
   const puedeEditar = puede(rol, PERMISOS.cxPxTienda.acceso);
+  const hayFiltro = hayFiltroActivoPxListas({
+    q,
+    rubro,
+    marca,
+    subRubro,
+    pxVinculado,
+    actualizar,
+  });
+  const mensajeVacio = hayFiltro
+    ? "NO HAY PRODUCTOS."
+    : MENSAJE_SIN_FILTRO_PX_LISTAS;
 
   return (
     <div className="area-page-shell bg-gris">
@@ -92,6 +107,7 @@ export default function PxListasPreciosPageClient({
               puedeEditar={puedeEditar}
               categoriasMc={categoriasMc}
               idListaGeneral={idListaGeneral}
+              mensajeVacio={mensajeVacio}
             />
           </div>
           {totalPaginas > 1 ? (

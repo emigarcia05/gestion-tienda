@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
-import { getPxListasPreciosPageData } from "@/actions/pxListasPrecios";
 import PxListasPreciosPageClient from "@/components/px-listas-precios/PxListasPreciosPageClient";
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
+import { getPxListasPreciosPageDataFromDb } from "@/services/pxListasPreciosPage.service";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +47,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
     rubros,
     subRubros,
     opcionesPxVinculado,
-  } = await getPxListasPreciosPageData({
+  } = await getPxListasPreciosPageDataFromDb({
     q,
     rubro,
     marca,
