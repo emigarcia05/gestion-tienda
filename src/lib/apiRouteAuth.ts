@@ -38,7 +38,7 @@ export async function guardFinanzasLectura(): Promise<NextResponse | null> {
   return null;
 }
 
-/** Sync Fact & Cobros (facturas DUX): escritura editor. */
+/** Sync Fact & Cobros (remitos de venta DUX): escritura editor. */
 export async function guardFinanzasEditor(): Promise<NextResponse | null> {
   const denied = await guardFinanzasLectura();
   if (denied) return denied;

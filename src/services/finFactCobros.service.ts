@@ -1,16 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { DUX_API_BATCH_INTERVAL_MS } from "@/lib/duxApiBatchPolicy";
 import {
-  DUX_FACTURAS_API_PAGE_LIMIT,
-  fetchFacturasVentasPage,
-} from "@/lib/duxFacturasApi";
+  DUX_REMITOS_VENTA_API_PAGE_LIMIT,
+  fetchRemitosVentaPage,
+} from "@/lib/duxRemitosVentaApi";
 import {
   parseImporteFacturaDux,
   parseNroPtoVtaDux,
-  periodoCalendarioDesdeFechaCompDux,
+  periodoCalendarioDesdeFechaIsoYmd,
   rangoIsoMesCalendario,
-  signoMontoGravadoFactCobros,
-  facturaDuxEstaAnulada,
+  remitoVentaEntraEnTotal,
 } from "@/lib/finFactCobrosFacturas";
 import { prisma } from "@/lib/prisma";
 import {
@@ -95,47 +94,45 @@ async function cargarCatalogoPtoVtasSync(): Promise<
   };
 }
 
-function aplicarFacturaAlAcumulado(
+function aplicarRemitoAlAcumulado(
   meta: SyncFacturasVentasDuxMeta,
-  factura: {
-    id: number;
+  remito: {
+    idRemitoVenta: number;
     nroPtoVta: string;
-    letraComp: string;
-    tipoComp: string;
-    fechaComp: string;
+    fecha: string;
+    anulado: boolean;
+    estadoFacturacion: string;
     totalFacturaAsociada: unknown;
-    anulada: string;
-    anuladaBoolean: boolean;
   },
   catalogo: Map<number, CatalogoPtoSync>,
   idSucursalDux: number
 ): void {
-  if (meta.idsVistos.includes(factura.id)) return;
-  meta.idsVistos.push(factura.id);
+  if (meta.idsVistos.includes(remito.idRemitoVenta)) return;
+  meta.idsVistos.push(remito.idRemitoVenta);
   meta.scanned += 1;
 
-  const periodo = periodoCalendarioDesdeFechaCompDux(factura.fechaComp);
+  const periodo = periodoCalendarioDesdeFechaIsoYmd(remito.fecha);
   if (!periodo || periodo.mes !== meta.mes || periodo.anio !== meta.anio) return;
 
-  const nro = parseNroPtoVtaDux(factura.nroPtoVta);
+  const nro = parseNroPtoVtaDux(remito.nroPtoVta);
   if (nro == null) return;
   const pto = catalogo.get(nro);
   if (!pto || !pto.sucursalesDux.has(idSucursalDux)) return;
 
-  const signo = signoMontoGravadoFactCobros({
-    letraComp: factura.letraComp,
-    tipoComp: factura.tipoComp,
-    anulada: facturaDuxEstaAnulada({
-      anuladaBoolean: factura.anuladaBoolean,
-      anulada: factura.anulada,
-    }),
-  });
-  if (signo === 0) return;
+  const estado = remito.estadoFacturacion.trim().toUpperCase();
+  if (estado && estado !== "FACTURADO") return;
 
-  const monto = parseImporteFacturaDux(factura.totalFacturaAsociada);
-  if (!(monto > 0)) return;
+  if (
+    !remitoVentaEntraEnTotal({
+      anulado: remito.anulado,
+      totalFacturaAsociada: remito.totalFacturaAsociada,
+    })
+  ) {
+    return;
+  }
 
-  const delta = new Prisma.Decimal(monto.toFixed(4)).mul(signo);
+  const monto = parseImporteFacturaDux(remito.totalFacturaAsociada);
+  const delta = new Prisma.Decimal(monto.toFixed(4));
   const actual = new Prisma.Decimal(meta.acumulado[pto.id] ?? "0");
   meta.acumulado[pto.id] = actual.plus(delta).toFixed(4);
 }
@@ -164,7 +161,7 @@ async function persistirAcumulado(meta: SyncFacturasVentasDuxMeta): Promise<void
 }
 
 /**
- * Un paso de sync DUX GET `/facturas` (una página). El cliente encadena POST mientras `continuing`.
+ * Un paso de sync DUX GET `/v2/remitos-venta` (una página). El cliente encadena POST mientras `continuing`.
  */
 export async function syncFacturasVentasDuxRunStep(params: {
   mes: number;
@@ -187,7 +184,7 @@ export async function syncFacturasVentasDuxRunStep(params: {
     ) {
       return {
         success: false,
-        error: "Ya hay una sincronización de facturas en curso para otro periodo.",
+        error: "Ya hay una sincronización de remitos en curso para otro periodo.",
       };
     }
 
@@ -230,22 +227,21 @@ export async function syncFacturasVentasDuxRunStep(params: {
     }
 
     const { fechaDesde, fechaHasta } = rangoIsoMesCalendario(mes, anio);
-    const page = await fetchFacturasVentasPage({
+    const page = await fetchRemitosVentaPage({
       fechaDesde,
       fechaHasta,
       idEmpresa,
       idSucursal,
       offset: meta.offset,
-      limit: DUX_FACTURAS_API_PAGE_LIMIT,
+      limit: DUX_REMITOS_VENTA_API_PAGE_LIMIT,
     });
 
-    for (const factura of page.facturas) {
-      aplicarFacturaAlAcumulado(meta, factura, catalogo.data.porNro, idSucursal);
+    for (const remito of page.remitos) {
+      aplicarRemitoAlAcumulado(meta, remito, catalogo.data.porNro, idSucursal);
     }
 
-    const paginaCompleta = page.facturas.length >= DUX_FACTURAS_API_PAGE_LIMIT;
-    if (paginaCompleta) {
-      meta.offset += DUX_FACTURAS_API_PAGE_LIMIT;
+    if (page.hayMas) {
+      meta.offset += DUX_REMITOS_VENTA_API_PAGE_LIMIT;
     } else {
       meta.sucursalIndex += 1;
       meta.offset = 0;
@@ -284,7 +280,7 @@ export async function syncFacturasVentasDuxRunStep(params: {
       },
     };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "No se pudo sincronizar facturas DUX.";
+    const message = e instanceof Error ? e.message : "No se pudo sincronizar remitos DUX.";
     console.error("[factCobros][syncFacturasVentasDuxRunStep]", e);
     await setSyncFacturasVentasDuxErrorInDb(message);
     return { success: false, error: message };

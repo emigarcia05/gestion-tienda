@@ -6,7 +6,7 @@ import { syncFacturasVentasDuxRunStep } from "@/services/finFactCobros.service";
 export const maxDuration = 300;
 
 /**
- * POST: un paso de GET `/facturas` DUX (una página). Encadenar mientras `continuing`.
+ * POST: un paso de GET `/v2/remitos-venta` DUX (una página). Encadenar mientras `continuing`.
  */
 export async function POST(req: Request) {
   const denied = await guardFinanzasEditor();

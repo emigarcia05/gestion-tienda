@@ -1,7 +1,3 @@
-import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
-
-const LETRAS_GRAVADO = new Set(["A", "C"]);
-
 export function parseImporteFacturaDux(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   const text = String(raw ?? "").trim().replace(/\s+/g, "");
@@ -21,43 +17,16 @@ export function parseImporteFacturaDux(raw: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function esLetraCompGravadoFactCobros(letraComp: string): boolean {
-  return LETRAS_GRAVADO.has(letraComp.trim().toUpperCase());
-}
-
-export function esNotaCreditoTipoCompDux(tipoComp: string): boolean {
-  return tipoComp.trim().toUpperCase().startsWith("NOTA_CREDITO");
-}
-
-export function facturaDuxEstaAnulada(params: {
-  anuladaBoolean: boolean;
-  anulada: string;
-}): boolean {
-  if (params.anuladaBoolean) return true;
-  return params.anulada.trim().toUpperCase() === "S";
-}
-
-/** `1` suma, `-1` resta (NC), `0` se ignora. */
-export function signoMontoGravadoFactCobros(params: {
-  letraComp: string;
-  tipoComp: string;
-  anulada: boolean;
-}): 1 | -1 | 0 {
-  if (params.anulada) return 0;
-  if (!esLetraCompGravadoFactCobros(params.letraComp)) return 0;
-  if (esNotaCreditoTipoCompDux(params.tipoComp)) return -1;
-  return 1;
-}
-
-export function periodoCalendarioDesdeFechaCompDux(
-  fechaComp: string
+/**
+ * Periodo desde `fecha` ISO `yyyy-MM-dd` (sin `Date`, evita corrimiento TZ).
+ */
+export function periodoCalendarioDesdeFechaIsoYmd(
+  fecha: string
 ): { mes: number; anio: number } | null {
-  const d = new Date(fechaComp);
-  if (Number.isNaN(d.getTime())) return null;
-  const ymd = dateToIsoYmdArgentina(d);
-  const [ys, ms] = ymd.split("-");
-  const anio = Number(ys);
-  const mes = Number(ms);
+  const m = fecha.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const anio = Number(m[1]);
+  const mes = Number(m[2]);
   if (!Number.isFinite(anio) || !Number.isFinite(mes) || mes < 1 || mes > 12) {
     return null;
   }
@@ -81,4 +50,13 @@ export function parseNroPtoVtaDux(raw: string): number | null {
   const n = Number.parseInt(raw.trim(), 10);
   if (!Number.isFinite(n) || n < 1) return null;
   return n;
+}
+
+/** Remito entra en el TOTAL: no anulado y `total_factura_asociada` > 0. */
+export function remitoVentaEntraEnTotal(params: {
+  anulado: boolean;
+  totalFacturaAsociada: unknown;
+}): boolean {
+  if (params.anulado) return false;
+  return parseImporteFacturaDux(params.totalFacturaAsociada) > 0;
 }

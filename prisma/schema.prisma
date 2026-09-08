@@ -590,8 +590,9 @@ model FinBalVtas {
 
 /**
  * Totales mensuales por punto de venta (`fin_fact_cobros_pto_vta_mes`).
- * FK a `global_pto_vtas`. No guarda facturas individuales. Recalculado al sincronizar el mes.
- * `monto_gravado` persiste la suma de `total_factura_asociada` (DUX).
+ * FK a `global_pto_vtas`. No guarda remitos individuales.
+ * Recalculado al sincronizar el mes desde GET `/v2/remitos-venta`.
+ * `monto_gravado` persiste la suma de `total_factura_asociada`.
  */
 model FinFactCobrosPtoVtaMes {
   id           String   @id @default(cuid())
@@ -599,7 +600,7 @@ model FinFactCobrosPtoVtaMes {
   /** Mes calendario 1–12. */
   mes          Int
   anio         Int      @map("anio")
-  /** Suma de `total_factura_asociada` DUX (letra A/C; NC resta). */
+  /** Suma de `total_factura_asociada` de remitos de venta DUX (no anulados). */
   montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

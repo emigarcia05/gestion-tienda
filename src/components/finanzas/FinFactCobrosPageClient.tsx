@@ -104,16 +104,16 @@ export default function FinFactCobrosPageClient({
           continuing?: boolean;
         };
         if (!res.ok || !json.ok) {
-          toast.error(json.error ?? "No se pudo sincronizar facturas.");
+          toast.error(json.error ?? "No se pudo sincronizar remitos.");
           return;
         }
         first = false;
         continuing = json.continuing === true;
       }
-      toast.success("Facturas sincronizadas.");
+      toast.success("Remitos sincronizados.");
       router.refresh();
     } catch {
-      toast.error("No se pudo sincronizar facturas.");
+      toast.error("No se pudo sincronizar remitos.");
     } finally {
       setSyncing(false);
     }

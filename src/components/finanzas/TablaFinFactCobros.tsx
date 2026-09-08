@@ -44,7 +44,7 @@ export default function TablaFinFactCobros({
           {filas.length === 0 ? (
             <EmptyTableRow
               colSpan={3}
-              message="NO HAY TOTALES PARA ESTE PERIODO. SINCRONIZÁ FACTURAS DUX O ELEGÍ OTRO MES."
+              message="NO HAY TOTALES PARA ESTE PERIODO. SINCRONIZÁ REMITOS DUX O ELEGÍ OTRO MES."
             />
           ) : (
             filas.map((f) => (
