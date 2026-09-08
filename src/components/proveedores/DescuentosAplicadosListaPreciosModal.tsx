@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Info, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -70,11 +70,10 @@ function nominalReglaNumero(
   descuento: DescuentoActivoListaPrecio,
   pxPromo: number | null
 ): number | null {
-  const hayPromo = pxPromo != null && pxPromo > 0;
   if (descuento.tipo === "descuento") {
-    if (hayPromo) return null;
     return fila.pxListaProveedor * (descuento.valor / 100);
   }
+  const hayPromo = pxPromo != null && pxPromo > 0;
   const base =
     hayPromo && pxPromo != null
       ? pxPromo
@@ -93,6 +92,45 @@ function fmtNominalCuenta(
 }
 
 const LINEA_DESCUENTOS_RECARGOS_CLASS = "border-b border-primary";
+const REGLA_ANULADA_CLASS = "text-muted-foreground line-through";
+const HUECO_INFO_CLASS = "flex h-7 w-7 shrink-0 items-center justify-center";
+
+function CeldaPctRegla({
+  porcentaje,
+  iconoSentido,
+  onVerRegla,
+  ariaLabelRegla,
+}: {
+  porcentaje: ReactNode;
+  iconoSentido: ReactNode;
+  onVerRegla?: () => void;
+  ariaLabelRegla?: string;
+}) {
+  return (
+    <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+      <div className="flex h-full w-full items-center">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
+          {porcentaje}
+          {iconoSentido}
+        </div>
+        <div className={HUECO_INFO_CLASS}>
+          {onVerRegla ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
+              aria-label={ariaLabelRegla}
+              onClick={onVerRegla}
+            >
+              <Info className="h-4 w-4" aria-hidden />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </TableCell>
+  );
+}
 
 function FilaReglaAplicada({
   fila,
@@ -113,44 +151,57 @@ function FilaReglaAplicada({
   const IconoSentido = esDescuento ? ArrowDown : ArrowUp;
 
   return (
-    <TableRow className={className}>
-      <TableCell className="celda-datos text-left font-normal">
+    <TableRow
+      className={className}
+      title={anuladoPorPromo ? "No aplicado: hay Px. Promo Fijo" : undefined}
+    >
+      <TableCell
+        className={cn(
+          "celda-datos text-left font-normal",
+          anuladoPorPromo && REGLA_ANULADA_CLASS
+        )}
+      >
         {descuento.label}
       </TableCell>
-      <TableCell className="celda-datos celda-numero text-center">
+      <TableCell
+        className={cn(
+          "celda-datos celda-numero text-center",
+          anuladoPorPromo && REGLA_ANULADA_CLASS
+        )}
+      >
         {fmtNominalCuenta(
           nominalReglaNumero(fila, descuento, pxPromo),
           descuento.tipo
         )}
       </TableCell>
-      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-        <div className="flex h-full items-center justify-center gap-0.5">
-          <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
-            {anuladoPorPromo ? VACIO : fmtPorcentajeTabla(descuento.valor)}
-          </span>
-          {anuladoPorPromo ? null : (
-            <IconoSentido
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                esDescuento ? "text-primary" : "text-destructive"
-              )}
-              aria-hidden
-            />
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
+      <CeldaPctRegla
+        porcentaje={
+          <span
             className={cn(
-              "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
+              MONTO_CLASS,
+              "min-w-0 truncate",
+              anuladoPorPromo && REGLA_ANULADA_CLASS
             )}
-            aria-label={`Ver regla de ${descuento.label}`}
-            onClick={() => onVerRegla(descuento)}
           >
-            <Info className="h-4 w-4" aria-hidden />
-          </Button>
-        </div>
-      </TableCell>
+            {fmtPorcentajeTabla(descuento.valor)}
+          </span>
+        }
+        iconoSentido={
+          <IconoSentido
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              anuladoPorPromo
+                ? "text-muted-foreground"
+                : esDescuento
+                  ? "text-primary"
+                  : "text-destructive"
+            )}
+            aria-hidden
+          />
+        }
+        onVerRegla={() => onVerRegla(descuento)}
+        ariaLabelRegla={`Ver regla de ${descuento.label}`}
+      />
     </TableRow>
   );
 }
@@ -175,14 +226,16 @@ function FilaDescPxPromoFijo({
       <TableCell className="celda-datos celda-numero text-center">
         {fmtNominalCuenta(monto, "descuento")}
       </TableCell>
-      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-        <div className="flex h-full items-center justify-center gap-0.5">
+      <CeldaPctRegla
+        porcentaje={
           <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
             {pct == null ? VACIO : fmtPorcentajeTabla(pct)}
           </span>
+        }
+        iconoSentido={
           <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-        </div>
-      </TableCell>
+        }
+      />
     </TableRow>
   );
 }
