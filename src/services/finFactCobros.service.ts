@@ -5,7 +5,7 @@ import {
   fetchFacturasVentasPage,
 } from "@/lib/duxFacturasApi";
 import {
-  parseMontoGravadoDux,
+  parseImporteFacturaDux,
   parseNroPtoVtaDux,
   periodoCalendarioDesdeFechaCompDux,
   rangoIsoMesCalendario,
@@ -103,7 +103,7 @@ function aplicarFacturaAlAcumulado(
     letraComp: string;
     tipoComp: string;
     fechaComp: string;
-    montoGravado: unknown;
+    totalFacturaAsociada: unknown;
     anulada: string;
     anuladaBoolean: boolean;
   },
@@ -132,7 +132,7 @@ function aplicarFacturaAlAcumulado(
   });
   if (signo === 0) return;
 
-  const monto = parseMontoGravadoDux(factura.montoGravado);
+  const monto = parseImporteFacturaDux(factura.totalFacturaAsociada);
   if (!(monto > 0)) return;
 
   const delta = new Prisma.Decimal(monto.toFixed(4)).mul(signo);

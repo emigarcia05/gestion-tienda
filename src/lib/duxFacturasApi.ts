@@ -16,7 +16,7 @@ export type FacturaVentaDux = {
   letraComp: string;
   tipoComp: string;
   fechaComp: string;
-  montoGravado: unknown;
+  totalFacturaAsociada: unknown;
   anulada: string;
   anuladaBoolean: boolean;
 };
@@ -42,7 +42,7 @@ export function mapFacturaVentaDux(raw: unknown): FacturaVentaDux | null {
     letraComp: String(raw.letra_comp ?? ""),
     tipoComp: String(raw.tipo_comp ?? ""),
     fechaComp: String(raw.fecha_comp ?? ""),
-    montoGravado: raw.monto_gravado,
+    totalFacturaAsociada: raw.total_factura_asociada,
     anulada: String(raw.anulada ?? ""),
     anuladaBoolean: raw.anulada_boolean === true,
   };

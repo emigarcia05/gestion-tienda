@@ -2,7 +2,7 @@ import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 
 const LETRAS_GRAVADO = new Set(["A", "C"]);
 
-export function parseMontoGravadoDux(raw: unknown): number {
+export function parseImporteFacturaDux(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   const text = String(raw ?? "").trim().replace(/\s+/g, "");
   if (!text) return 0;
