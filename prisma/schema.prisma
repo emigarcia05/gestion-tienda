@@ -290,8 +290,37 @@ model Sucursal {
   enviosFinal                EnviosFinal[]
   stockTrasnDepositosOrigen  StockTrasnDeposito[] @relation("StockTrasnDepositoOrigen")
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
+  ptoVtasAsociados           GlobalPtoVtaSucursal[]
 
   @@map("global_sucursales")
+}
+
+/**
+ * Catálogo de puntos de venta DUX (`global_pto_vtas`).
+ * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales`).
+ */
+model GlobalPtoVta {
+  id              String   @id @default(cuid())
+  ptoVenta        Int      @unique(map: "global_pto_vtas_pto_venta_key") @map("pto_venta")
+  nombrePtoVenta  String   @map("nombre_pto_venta")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  sucursales GlobalPtoVtaSucursal[]
+
+  @@map("global_pto_vtas")
+}
+
+/** Sucursales asociadas a un punto de venta (`suc_asociadas`). */
+model GlobalPtoVtaSucursal {
+  ptoVtaId   String @map("pto_vta_id")
+  sucursalId String @map("sucursal_id")
+  ptoVta     GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Cascade)
+  sucursal   Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+
+  @@id([ptoVtaId, sucursalId])
+  @@index([sucursalId], map: "global_pto_vta_sucursales_sucursal_idx")
+  @@map("global_pto_vta_sucursales")
 }
 
 /**

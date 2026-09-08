@@ -5,6 +5,10 @@ import { getRol } from "@/lib/sesion";
 import { finFactCobrosPeriodoSchema } from "@/lib/validations/finFactCobros";
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 import { listarFinFactCobrosPtoVtaMes } from "@/services/finFactCobros.service";
+import {
+  listarGlobalPtoVtas,
+  listarSucursalesParaPtoVtas,
+} from "@/services/globalPtoVtas.service";
 import FinFactCobrosPageClient from "@/components/finanzas/FinFactCobrosPageClient";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +32,11 @@ export default async function FinFactCobrosPage({ searchParams }: Props) {
   const mes = parsed.success ? parsed.data.mes : def.mes;
   const anio = parsed.success ? parsed.data.anio : def.anio;
 
-  const filas = await listarFinFactCobrosPtoVtaMes({ mes, anio });
+  const [filas, ptoVtas, sucursales] = await Promise.all([
+    listarFinFactCobrosPtoVtaMes({ mes, anio }),
+    listarGlobalPtoVtas(),
+    listarSucursalesParaPtoVtas(),
+  ]);
 
   return (
     <FinFactCobrosPageClient
@@ -38,6 +46,8 @@ export default async function FinFactCobrosPage({ searchParams }: Props) {
       mesActual={def.mes}
       anioActual={def.anio}
       esEditor={rol === "editor"}
+      ptoVtas={ptoVtas}
+      sucursales={sucursales}
     />
   );
 }

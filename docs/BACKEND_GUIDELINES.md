@@ -307,6 +307,8 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **Fact & Cobros** (`fin_fact_cobros_pto_vta_mes`): unique `(nro_pto_vta, mes, anio)`. No guarda facturas ni ítems. Sync editor: `POST /api/sync-facturas-ventas-dux` (pasos reanudables, 1 página DUX por POST) + `GET …/status`. Guard POST `guardFinanzasEditor`; status `guardFinanzasLectura`. Cliente DUX `duxFacturasApi.ts` (`GET /WSERP/rest/services/facturas`, fechas `yyyy-MM-dd`, `idEmpresa` = `DUX_ID_EMPRESA_COMPRAS`, `idSucursal` = `global_sucursales.id_dux`, `anuladas=false`, limit 50). Regla: suma `monto_gravado` si `letra_comp` A|C; `NOTA_CREDITO*` resta; anuladas se ignoran. Periodo = `fecha_comp` en calendario AR. Listado RSC `listarFinFactCobrosPtoVtaMes`. UI `/finanzas/fact-cobros`.
 
+**`global_pto_vtas`:** catálogo de puntos de venta (`pto_venta` unique Int; `nombre_pto_venta` mayúsculas `es-AR`). **`suc_asociadas`:** N:M vía `global_pto_vta_sucursales` (`pto_vta_id` Cascade, `sucursal_id` Restrict a `global_sucursales`; mín. 1 sucursal). CRUD editor: `globalPtoVtas.ts` + `globalPtoVtas.service.ts`. Lectura RSC en Fact & Cobros.
+
 **Tesorería:** `CajaTesoreria.tipoCaja` usa enum `TipoCajaTesoreria`. El modelo `FinTesoreriaTipoCaja` existe en schema (seed) pero **la app no lo lee**; no dropear sin decisión explícita. Cheques: `finTesoreriaCheques.ts`.
 
 **Gastos jerárquicos:** tipo → rubro → gasto → gasto final → imputación mensual. Catálogo: `finBalGastosCatalogo.ts`. Imputaciones: `finBalGastoMensualBalance.ts`. `listarImputacionesMensualesBalance({ meses, anio })`: `meses` vacío = todas las imputaciones del `anio` (sin filtro de mes). Gasto eventual vendedor: `requireCargarGastoEventual`.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Store } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -22,7 +22,9 @@ import FilterBar, {
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import TablaFinFactCobros from "@/components/finanzas/TablaFinFactCobros";
+import GestionarGlobalPtoVtasModal from "@/components/finanzas/GestionarGlobalPtoVtasModal";
 import type { FinFactCobrosPtoVtaFila } from "@/services/finFactCobros.service";
+import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption } from "@/lib/globalPtoVtas";
 import { cn } from "@/lib/utils";
 
 const MESES_CALENDARIO: { valor: number; etiqueta: string }[] = [
@@ -51,6 +53,8 @@ interface Props {
   mesActual: number;
   anioActual: number;
   esEditor: boolean;
+  ptoVtas: GlobalPtoVtaItem[];
+  sucursales: GlobalPtoVtaSucursalOption[];
 }
 
 export default function FinFactCobrosPageClient({
@@ -60,10 +64,13 @@ export default function FinFactCobrosPageClient({
   mesActual,
   anioActual,
   esEditor,
+  ptoVtas,
+  sucursales,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [syncing, setSyncing] = useState(false);
+  const [openPtoVtas, setOpenPtoVtas] = useState(false);
 
   function navigate(next: { mes?: number; anio?: number }) {
     const p = new URLSearchParams();
@@ -188,19 +195,35 @@ export default function FinFactCobrosPageClient({
           </FilterBar>
         }
         actions={
-          esEditor ? (
+          <div className="flex items-center gap-2">
             <ToolbarActionButton
               type="button"
-              icon={<RefreshCw />}
-              label="Sincronizar"
-              loading={syncing}
-              onClick={() => void sincronizar()}
+              icon={<Store />}
+              label="Ptos. Vta."
+              onClick={() => setOpenPtoVtas(true)}
             />
-          ) : undefined
+            {esEditor ? (
+              <ToolbarActionButton
+                type="button"
+                icon={<RefreshCw />}
+                label="Sincronizar"
+                loading={syncing}
+                onClick={() => void sincronizar()}
+              />
+            ) : null}
+          </div>
         }
       >
         <TablaFinFactCobros filas={filas} />
       </ClassicFilteredTableLayout>
+      <GestionarGlobalPtoVtasModal
+        open={openPtoVtas}
+        onOpenChange={setOpenPtoVtas}
+        itemsIniciales={ptoVtas}
+        sucursales={sucursales}
+        esEditor={esEditor}
+        onCatalogoChanged={() => router.refresh()}
+      />
     </div>
   );
 }
