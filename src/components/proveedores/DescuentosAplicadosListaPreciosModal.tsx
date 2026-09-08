@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/table";
 import { CAMPO_PX_PROMO_FIJO } from "@/lib/descuentosListaPrecioReglasConstants";
 import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
-import { TEXT_WARNING_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { clampPercent, roundPrecioListaTienda } from "@/lib/calculos";
 import {
@@ -41,7 +40,7 @@ interface Props {
 
 const VACIO = "-";
 const LABEL_CLASS = "font-medium text-sm text-foreground text-left shrink-0";
-const MONTO_CLASS = "text-sm tabular-nums text-center";
+const MONTO_CLASS = "text-sm tabular-nums text-foreground text-center";
 
 function fmtUsdPromo(n: number): string {
   return n.toLocaleString("es-AR", {
@@ -69,18 +68,17 @@ function dtoTotalFila(fila: FilaListaPrecioParaCliente): number {
 function nominalReglaNumero(
   fila: FilaListaPrecioParaCliente,
   descuento: DescuentoActivoListaPrecio,
-  hayPromo: boolean
+  pxPromo: number | null
 ): number | null {
+  const hayPromo = pxPromo != null && pxPromo > 0;
   if (descuento.tipo === "descuento") {
     if (hayPromo) return null;
     return fila.pxListaProveedor * (descuento.valor / 100);
   }
-  const basePromo =
-    hayPromo && fila.pxPromoFijo != null && fila.pxPromoFijo > 0
-      ? fila.pxPromoFijo
-      : null;
   const base =
-    basePromo ?? fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
+    hayPromo && pxPromo != null
+      ? pxPromo
+      : fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
   return base * (descuento.valor / 100);
 }
 
@@ -94,57 +92,51 @@ function fmtNominalCuenta(
   return tipo === "descuento" ? `−${monto}` : `+${monto}`;
 }
 
-function claseMontoRegla(tipo: DescuentoActivoListaPrecio["tipo"]): string {
-  return tipo === "descuento" ? "text-destructive" : TEXT_WARNING_CLASS;
-}
-
-function FilaSeccionTabla({ titulo }: { titulo: string }) {
-  return (
-    <TableRow className="bg-muted hover:bg-muted">
-      <TableCell colSpan={3} className="celda-datos text-center font-semibold">
-        {titulo}
-      </TableCell>
-    </TableRow>
-  );
-}
+const LINEA_DESCUENTOS_RECARGOS_CLASS = "border-b border-primary";
 
 function FilaReglaAplicada({
   fila,
   descuento,
-  hayPromo,
+  pxPromo,
   onVerRegla,
+  className,
 }: {
   fila: FilaListaPrecioParaCliente;
   descuento: DescuentoActivoListaPrecio;
-  hayPromo: boolean;
+  pxPromo: number | null;
   onVerRegla: (descuento: DescuentoActivoListaPrecio) => void;
+  className?: string;
 }) {
   const esDescuento = descuento.tipo === "descuento";
-  const colorMonto = claseMontoRegla(descuento.tipo);
+  const hayPromo = pxPromo != null && pxPromo > 0;
+  const anuladoPorPromo = hayPromo && esDescuento;
   const IconoSentido = esDescuento ? ArrowDown : ArrowUp;
 
   return (
-    <TableRow>
+    <TableRow className={className}>
       <TableCell className="celda-datos text-left font-normal">
         {descuento.label}
       </TableCell>
-      <TableCell
-        className={cn("celda-datos celda-numero text-center", colorMonto)}
-      >
+      <TableCell className="celda-datos celda-numero text-center">
         {fmtNominalCuenta(
-          nominalReglaNumero(fila, descuento, hayPromo),
+          nominalReglaNumero(fila, descuento, pxPromo),
           descuento.tipo
         )}
       </TableCell>
       <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
         <div className="flex h-full items-center justify-center gap-0.5">
-          <span className={cn(MONTO_CLASS, colorMonto, "min-w-0 truncate")}>
-            {fmtPorcentajeTabla(descuento.valor)}
+          <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
+            {anuladoPorPromo ? VACIO : fmtPorcentajeTabla(descuento.valor)}
           </span>
-          <IconoSentido
-            className={cn("h-3.5 w-3.5 shrink-0", colorMonto)}
-            aria-hidden
-          />
+          {anuladoPorPromo ? null : (
+            <IconoSentido
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                esDescuento ? "text-primary" : "text-destructive"
+              )}
+              aria-hidden
+            />
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -157,6 +149,38 @@ function FilaReglaAplicada({
           >
             <Info className="h-4 w-4" aria-hidden />
           </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function FilaDescPxPromoFijo({
+  pxLista,
+  pxPromo,
+  className,
+}: {
+  pxLista: number;
+  pxPromo: number;
+  className?: string;
+}) {
+  const monto = Math.max(0, pxLista - pxPromo);
+  const pct = pxLista > 0 ? (monto / pxLista) * 100 : null;
+
+  return (
+    <TableRow className={className}>
+      <TableCell className="celda-datos text-left font-normal">
+        DESC. PX. PROMO FIJO
+      </TableCell>
+      <TableCell className="celda-datos celda-numero text-center">
+        {fmtNominalCuenta(monto, "descuento")}
+      </TableCell>
+      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+        <div className="flex h-full items-center justify-center gap-0.5">
+          <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
+            {pct == null ? VACIO : fmtPorcentajeTabla(pct)}
+          </span>
+          <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
         </div>
       </TableCell>
     </TableRow>
@@ -186,9 +210,21 @@ export default function DescuentosAplicadosListaPreciosModal({
     () => descuentosReglas.filter((d) => d.tipo === "costo"),
     [descuentosReglas]
   );
-  const hayPromo = fila?.pxPromoFijo != null && fila.pxPromoFijo > 0;
+  const hayPromoPersistido = fila?.pxPromoFijo != null && fila.pxPromoFijo > 0;
+  const pxPromoVista = useMemo(() => {
+    const norm = pxPromoFijoNorm.trim();
+    if (norm === "") return null;
+    const n = roundPrecioListaTienda(
+      montoArNormalizedStringToPesosNumber(norm)
+    );
+    return n > 0 ? n : null;
+  }, [pxPromoFijoNorm]);
+  const hayPromoVista = pxPromoVista != null;
+  const hayBloqueDescuentos = reglasDescuento.length > 0 || hayPromoVista;
+  const lineaTrasDescuentos =
+    hayBloqueDescuentos && reglasRecargo.length > 0;
   const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
-  const mostrarBasura = puedeEditar && (hayPromo || hayValorPromoInput);
+  const mostrarBasura = puedeEditar && (hayPromoPersistido || hayValorPromoInput);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -234,7 +270,7 @@ export default function DescuentosAplicadosListaPreciosModal({
 
   async function handleQuitarPromo() {
     setPxPromoFijoNorm("");
-    if (!hayPromo) return;
+    if (!hayPromoPersistido) return;
     await persistirPromo(null);
   }
 
@@ -320,7 +356,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                   </div>
                 ) : (
                   <p className={cn(MONTO_CLASS, "text-foreground")}>
-                    {hayPromo && fila.pxPromoFijo != null
+                    {hayPromoPersistido && fila.pxPromoFijo != null
                       ? fila.pxDolares
                         ? `US$ ${fmtUsdPromo(fila.pxPromoFijo)}`
                         : fmtPesos(fila.pxPromoFijo)
@@ -347,34 +383,46 @@ export default function DescuentosAplicadosListaPreciosModal({
                     </TableCell>
                     <TableCell className="celda-datos" />
                   </TableRow>
-                  {reglasDescuento.length > 0 ? (
+                  {reglasDescuento.length > 0 || hayPromoVista ? (
                     <>
-                      <FilaSeccionTabla titulo="DESCUENTOS" />
-                      {reglasDescuento.map((descuento) => (
+                      {reglasDescuento.map((descuento, i) => (
                         <FilaReglaAplicada
                           key={descuento.campo}
                           fila={fila}
                           descuento={descuento}
-                          hayPromo={hayPromo}
+                          pxPromo={pxPromoVista}
                           onVerRegla={onVerRegla}
+                          className={
+                            lineaTrasDescuentos &&
+                            !hayPromoVista &&
+                            i === reglasDescuento.length - 1
+                              ? LINEA_DESCUENTOS_RECARGOS_CLASS
+                              : undefined
+                          }
                         />
                       ))}
-                    </>
-                  ) : null}
-                  {reglasRecargo.length > 0 ? (
-                    <>
-                      <FilaSeccionTabla titulo="RECARGOS" />
-                      {reglasRecargo.map((descuento) => (
-                        <FilaReglaAplicada
-                          key={descuento.campo}
-                          fila={fila}
-                          descuento={descuento}
-                          hayPromo={hayPromo}
-                          onVerRegla={onVerRegla}
+                      {pxPromoVista != null ? (
+                        <FilaDescPxPromoFijo
+                          pxLista={fila.pxListaProveedor}
+                          pxPromo={pxPromoVista}
+                          className={
+                            lineaTrasDescuentos
+                              ? LINEA_DESCUENTOS_RECARGOS_CLASS
+                              : undefined
+                          }
                         />
-                      ))}
+                      ) : null}
                     </>
                   ) : null}
+                  {reglasRecargo.map((descuento) => (
+                    <FilaReglaAplicada
+                      key={descuento.campo}
+                      fila={fila}
+                      descuento={descuento}
+                      pxPromo={pxPromoVista}
+                      onVerRegla={onVerRegla}
+                    />
+                  ))}
                 </TableBody>
                 <TableFooter className="border-t-2 border-primary bg-muted">
                   <TableRow className="border-0 bg-muted hover:bg-muted">
