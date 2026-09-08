@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
   Upload,
+  Download,
   FileText,
   CheckCircle2,
   AlertCircle,
@@ -180,7 +181,7 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="btn-primario-gestion">
-          <Upload className="h-4 w-4" />
+          <Download className="h-4 w-4" />
           Imp. Lista
         </Button>
       </DialogTrigger>

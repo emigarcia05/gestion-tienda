@@ -105,6 +105,42 @@ async function aplicarLimpiezaTabla(
   );
 }
 
+/** Tamaño de lote al borrar `prod_tienda` ausentes de DUX (Restrict de `est_por_prod`). */
+const CHUNK_ELIMINAR_AUSENTES_SYNC = 200;
+
+/**
+ * Tras un sync DUX completo: borra `prod_tienda` que no recibieron upsert
+ * (`last_sync` anterior a `startedAt`).
+ * Primero elimina `est_por_prod` (FK Restrict); el resto de hijas va en Cascade / SetNull.
+ */
+export async function eliminarProdTiendaAusentesEnSyncDux(
+  startedAt: Date
+): Promise<number> {
+  let eliminados = 0;
+
+  for (;;) {
+    const lote = await prisma.prodTienda.findMany({
+      where: { lastSync: { lt: startedAt } },
+      select: { codTienda: true },
+      take: CHUNK_ELIMINAR_AUSENTES_SYNC,
+    });
+    if (lote.length === 0) break;
+
+    const codigos = lote.map((r) => r.codTienda);
+    const res = await prisma.$transaction(async (tx) => {
+      await tx.estPorProd.deleteMany({
+        where: { codTienda: { in: codigos } },
+      });
+      return tx.prodTienda.deleteMany({
+        where: { codTienda: { in: codigos } },
+      });
+    });
+    eliminados += res.count;
+  }
+
+  return eliminados;
+}
+
 export type LimpiarHuerfanosProdTiendaOpciones = {
   /** Si false, solo cuenta (dry-run). */
   execute?: boolean;

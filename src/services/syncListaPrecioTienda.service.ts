@@ -19,7 +19,7 @@ import {
   type SyncDuxWorkerMeta,
   type SyncDuxWorkerState,
 } from "@/lib/syncDuxStatusDb";
-import { limpiarHuerfanosProdTienda } from "@/services/limpiarHuerfanosProdTienda.service";
+import { limpiarHuerfanosProdTienda, eliminarProdTiendaAusentesEnSyncDux } from "@/services/limpiarHuerfanosProdTienda.service";
 
 /** Se lanza cuando el usuario cancela la sync vía API (flag `running` en BD). */
 export class SyncListaPrecioTiendaCancelledError extends Error {
@@ -61,6 +61,7 @@ export const SYNC_STEP_TIME_BUDGET_MS = Math.max(
 export interface SyncListaPrecioTiendaResult {
   creados: number;
   actualizados: number;
+  eliminados: number;
   totalProcesados: number;
   totalApi: number;
   duracionMs: number;
@@ -240,6 +241,7 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
             for (const row of chunk) {
               const nombreMarca = row.marca?.trim();
               const idMarca = nombreMarca ? mapaMarca.get(nombreMarca) ?? null : null;
+              const lastSync = new Date();
         await tx.prodTienda.upsert({
                 where: { codTienda: row.codTienda },
                 create: {
@@ -250,6 +252,7 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
                   costoCompra: new Prisma.Decimal(row.costoCompra),
+                  lastSync,
                 },
                 update: {
                   codTienda: row.codTienda,
@@ -259,7 +262,7 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
                   costoCompra: new Prisma.Decimal(row.costoCompra),
-                  lastSync: new Date(),
+                  lastSync,
                 },
               });
             }
@@ -399,15 +402,19 @@ async function finalizeSyncWorker(
   });
   await emitProgress(onProgress, worker.processed, worker.total, "guardando");
 
-  if (worker.startedAt) {
+  let eliminados = 0;
+  if (worker.startedAt && worker.processed > 0) {
     try {
-      await prisma.prodTienda.deleteMany({
-        where: { lastSync: { lt: worker.startedAt } },
-      });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    errores.push(`Limpieza cod_tienda ausentes: ${msg}`);
-    console.error("Error en limpieza de cod_tienda ausentes:", msg);
+      eliminados = await eliminarProdTiendaAusentesEnSyncDux(worker.startedAt);
+      if (eliminados > 0) {
+        console.log(
+          `Sync DUX: eliminados ${eliminados} ítem(s) de prod_tienda ausentes en DUX.`
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errores.push(`Limpieza cod_tienda ausentes: ${msg}`);
+      console.error("Error en limpieza de cod_tienda ausentes:", msg);
     }
   }
 
@@ -462,6 +469,7 @@ async function finalizeSyncWorker(
   return {
     creados,
     actualizados,
+    eliminados,
     totalProcesados: worker.processed,
     totalApi: worker.total,
     duracionMs: Date.now() - inicioMs,
@@ -593,6 +601,7 @@ export async function syncListaPrecioTiendaRunStep(
   return {
     creados: 0,
     actualizados: 0,
+    eliminados: 0,
     totalProcesados: worker.processed,
     totalApi: worker.total,
     duracionMs: Date.now() - stepStartedMs,

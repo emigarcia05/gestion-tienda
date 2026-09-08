@@ -339,7 +339,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 ### 3.12 Sync DUX lista tienda y APIs
 
-Única entrada: `GET`/`POST /api/sync-lista-precios-tienda` + `…/status` + `…/cancel`. Guard `guardTiendaListaPreciosSincronizar`. Pasos reanudables: `syncListaPrecioTiendaRunStep` + estado `sync_dux_status`. Cancelación cooperativa (`running = false`); **no** actualiza `last_completed_at`. Cliente encadena POST con `continuing: true`. Persistencia por chunks; huérfanos: `limpiarHuerfanosProdTienda`. El upsert **no** escribe `prod_tienda.bulto`.
+Única entrada: `GET`/`POST /api/sync-lista-precios-tienda` + `…/status` + `…/cancel`. Guard `guardTiendaListaPreciosSincronizar`. Pasos reanudables: `syncListaPrecioTiendaRunStep` + estado `sync_dux_status`. Cancelación cooperativa (`running = false`); **no** actualiza `last_completed_at`. Cliente encadena POST con `continuing: true`. Persistencia por chunks; el upsert escribe `last_sync` en alta y en update. Al finalizar (solo si `processed > 0`): borra `prod_tienda` con `last_sync` anterior a `started_at` (ítems que DUX ya no envió). Antes del delete, `est_por_prod` (FK Restrict); hijas Cascade/SetNull. Luego huérfanos: `limpiarHuerfanosProdTienda`. El upsert **no** escribe `prod_tienda.bulto`.
 
 Otras APIs: import lista, parse PDF, sync competencia, import/borrar `est_por_prod`, detalle historial pedidos, PDF comprobante de envíos (`GET /api/envios/[id]/comprobante`). Todas con guard en `apiRouteAuth` (o el mismo criterio).
 

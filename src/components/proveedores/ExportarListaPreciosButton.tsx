@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { exportarListaPreciosAction } from "@/actions/listaPrecios";
@@ -61,7 +61,7 @@ export default function ExportarListaPreciosButton({ snapshot }: Props) {
     <ToolbarActionButton
       type="button"
       label="Exp. Lista"
-      icon={<Download aria-hidden />}
+      icon={<Upload aria-hidden />}
       loading={exportando}
       loadingLabel="Exportando…"
       disabled={!snapshot.hasFilterActive || exportando}
