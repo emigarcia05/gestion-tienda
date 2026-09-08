@@ -75,3 +75,10 @@ export function rangoIsoMesCalendario(
     fechaHasta: `${anio}-${pad(mes)}-${pad(last)}`,
   };
 }
+
+/** `nro_pto_vta` DUX → entero para cruzar con `global_pto_vtas.pto_venta`. */
+export function parseNroPtoVtaDux(raw: string): number | null {
+  const n = Number.parseInt(raw.trim(), 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}

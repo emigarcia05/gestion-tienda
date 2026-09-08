@@ -6,6 +6,7 @@ import {
 } from "@/lib/duxFacturasApi";
 import {
   parseMontoGravadoDux,
+  parseNroPtoVtaDux,
   periodoCalendarioDesdeFechaCompDux,
   rangoIsoMesCalendario,
   signoMontoGravadoFactCobros,
@@ -43,16 +44,55 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function listarIdDuxSucursales(): Promise<number[]> {
-  const rows = await prisma.sucursal.findMany({ select: { idDux: true } });
-  return [
-    ...new Set(
-      rows
-        .map((s) => (s.idDux ?? "").trim())
-        .filter((id) => /^\d+$/.test(id))
-        .map((id) => Number(id))
-    ),
-  ];
+type CatalogoPtoSync = {
+  id: string;
+  sucursalesDux: Set<number>;
+};
+
+async function cargarCatalogoPtoVtasSync(): Promise<
+  ServiceResult<{
+    porNro: Map<number, CatalogoPtoSync>;
+    idDuxSucursales: number[];
+  }>
+> {
+  const rows = await prisma.globalPtoVta.findMany({
+    select: {
+      id: true,
+      ptoVenta: true,
+      sucursales: {
+        select: { sucursal: { select: { idDux: true } } },
+      },
+    },
+  });
+  if (rows.length === 0) {
+    return {
+      success: false,
+      error: "Cargá puntos de venta en Ptos. Vta. antes de sincronizar.",
+    };
+  }
+  const porNro = new Map<number, CatalogoPtoSync>();
+  const idDuxSet = new Set<number>();
+  for (const row of rows) {
+    const sucursalesDux = new Set<number>();
+    for (const link of row.sucursales) {
+      const raw = (link.sucursal.idDux ?? "").trim();
+      if (!/^\d+$/.test(raw)) continue;
+      const n = Number(raw);
+      sucursalesDux.add(n);
+      idDuxSet.add(n);
+    }
+    porNro.set(row.ptoVenta, { id: row.id, sucursalesDux });
+  }
+  if (idDuxSet.size === 0) {
+    return {
+      success: false,
+      error: "No hay sucursales asociadas a puntos de venta con id DUX.",
+    };
+  }
+  return {
+    success: true,
+    data: { porNro, idDuxSucursales: [...idDuxSet] },
+  };
 }
 
 function aplicarFacturaAlAcumulado(
@@ -66,7 +106,9 @@ function aplicarFacturaAlAcumulado(
     montoGravado: unknown;
     anulada: string;
     anuladaBoolean: boolean;
-  }
+  },
+  catalogo: Map<number, CatalogoPtoSync>,
+  idSucursalDux: number
 ): void {
   if (meta.idsVistos.includes(factura.id)) return;
   meta.idsVistos.push(factura.id);
@@ -74,6 +116,11 @@ function aplicarFacturaAlAcumulado(
 
   const periodo = periodoCalendarioDesdeFechaCompDux(factura.fechaComp);
   if (!periodo || periodo.mes !== meta.mes || periodo.anio !== meta.anio) return;
+
+  const nro = parseNroPtoVtaDux(factura.nroPtoVta);
+  if (nro == null) return;
+  const pto = catalogo.get(nro);
+  if (!pto || !pto.sucursalesDux.has(idSucursalDux)) return;
 
   const signo = signoMontoGravadoFactCobros({
     letraComp: factura.letraComp,
@@ -89,17 +136,22 @@ function aplicarFacturaAlAcumulado(
   if (!(monto > 0)) return;
 
   const delta = new Prisma.Decimal(monto.toFixed(4)).mul(signo);
-  const actual = new Prisma.Decimal(meta.acumulado[factura.nroPtoVta] ?? "0");
-  meta.acumulado[factura.nroPtoVta] = actual.plus(delta).toFixed(4);
+  const actual = new Prisma.Decimal(meta.acumulado[pto.id] ?? "0");
+  meta.acumulado[pto.id] = actual.plus(delta).toFixed(4);
 }
 
 async function persistirAcumulado(meta: SyncFacturasVentasDuxMeta): Promise<void> {
-  const filas = Object.entries(meta.acumulado).map(([nroPtoVta, monto]) => ({
-    nroPtoVta,
-    mes: meta.mes,
-    anio: meta.anio,
-    montoGravado: new Prisma.Decimal(monto),
-  }));
+  const idsValidos = new Set(
+    (await prisma.globalPtoVta.findMany({ select: { id: true } })).map((r) => r.id)
+  );
+  const filas = Object.entries(meta.acumulado)
+    .filter(([ptoVtaId]) => idsValidos.has(ptoVtaId))
+    .map(([ptoVtaId, monto]) => ({
+      ptoVtaId,
+      mes: meta.mes,
+      anio: meta.anio,
+      montoGravado: new Prisma.Decimal(monto),
+    }));
 
   await prisma.$transaction(async (tx) => {
     await tx.finFactCobrosPtoVtaMes.deleteMany({
@@ -140,10 +192,9 @@ export async function syncFacturasVentasDuxRunStep(params: {
     }
 
     if (!current.running || !meta || meta.mes !== mes || meta.anio !== anio) {
-      const sucursales = await listarIdDuxSucursales();
-      if (sucursales.length === 0) {
-        return { success: false, error: "No hay sucursales con id_dux numérico." };
-      }
+      const catalogoInicio = await cargarCatalogoPtoVtasSync();
+      if (!catalogoInicio.success) return catalogoInicio;
+      const sucursales = catalogoInicio.data.idDuxSucursales;
       meta = {
         mes,
         anio,
@@ -158,6 +209,9 @@ export async function syncFacturasVentasDuxRunStep(params: {
     } else {
       await delay(DUX_API_BATCH_INTERVAL_MS);
     }
+
+    const catalogo = await cargarCatalogoPtoVtasSync();
+    if (!catalogo.success) return catalogo;
 
     const idSucursal = meta.sucursales[meta.sucursalIndex];
     if (idSucursal == null) {
@@ -186,7 +240,7 @@ export async function syncFacturasVentasDuxRunStep(params: {
     });
 
     for (const factura of page.facturas) {
-      aplicarFacturaAlAcumulado(meta, factura);
+      aplicarFacturaAlAcumulado(meta, factura, catalogo.data.porNro, idSucursal);
     }
 
     const paginaCompleta = page.facturas.length >= DUX_FACTURAS_API_PAGE_LIMIT;
@@ -238,8 +292,10 @@ export async function syncFacturasVentasDuxRunStep(params: {
 }
 
 export type FinFactCobrosPtoVtaFila = {
-  nroPtoVta: string;
-  montoGravado: string;
+  ptoVtaId: string;
+  ptoVenta: number;
+  nombrePtoVenta: string;
+  total: string;
 };
 
 export async function listarFinFactCobrosPtoVtaMes(params: {
@@ -248,11 +304,17 @@ export async function listarFinFactCobrosPtoVtaMes(params: {
 }): Promise<FinFactCobrosPtoVtaFila[]> {
   const rows = await prisma.finFactCobrosPtoVtaMes.findMany({
     where: { mes: params.mes, anio: params.anio },
-    orderBy: [{ nroPtoVta: "asc" }],
-    select: { nroPtoVta: true, montoGravado: true },
+    orderBy: { ptoVta: { ptoVenta: "asc" } },
+    select: {
+      ptoVtaId: true,
+      montoGravado: true,
+      ptoVta: { select: { ptoVenta: true, nombrePtoVenta: true } },
+    },
   });
   return rows.map((r) => ({
-    nroPtoVta: r.nroPtoVta,
-    montoGravado: r.montoGravado.toFixed(2),
+    ptoVtaId: r.ptoVtaId,
+    ptoVenta: r.ptoVta.ptoVenta,
+    nombrePtoVenta: r.ptoVta.nombrePtoVenta.toLocaleUpperCase("es-AR"),
+    total: r.montoGravado.toFixed(2),
   }));
 }

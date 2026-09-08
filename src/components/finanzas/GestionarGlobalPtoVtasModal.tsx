@@ -118,7 +118,11 @@ export default function GestionarGlobalPtoVtasModal({
     setEditingItem(item);
     setFormPtoVenta(String(item.ptoVenta));
     setFormNombre(item.nombrePtoVenta);
-    setFormSucursalIds(item.sucursales.map((s) => s.id));
+    setFormSucursalIds(
+      item.sucursales
+        .map((s) => s.id)
+        .filter((id) => sucursales.some((opt) => opt.id === id))
+    );
     setFormOpen(true);
   }
 

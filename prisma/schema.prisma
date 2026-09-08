@@ -297,7 +297,7 @@ model Sucursal {
 
 /**
  * Catálogo de puntos de venta DUX (`global_pto_vtas`).
- * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales`).
+ * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales` `genera_est = true`).
  */
 model GlobalPtoVta {
   id              String   @id @default(cuid())
@@ -307,6 +307,7 @@ model GlobalPtoVta {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   sucursales GlobalPtoVtaSucursal[]
+  factCobrosMes FinFactCobrosPtoVtaMes[]
 
   @@map("global_pto_vtas")
 }
@@ -588,12 +589,12 @@ model FinBalVtas {
 }
 
 /**
- * Totales mensuales de monto gravado A/C por punto de venta DUX (`fin_fact_cobros_pto_vta_mes`).
- * No guarda facturas individuales. Recalculado al sincronizar el mes desde GET /facturas.
+ * Totales mensuales de monto gravado A/C por punto de venta (`fin_fact_cobros_pto_vta_mes`).
+ * FK a `global_pto_vtas`. No guarda facturas individuales. Recalculado al sincronizar el mes.
  */
 model FinFactCobrosPtoVtaMes {
   id           String   @id @default(cuid())
-  nroPtoVta    String   @map("nro_pto_vta")
+  ptoVtaId     String   @map("pto_vta_id")
   /** Mes calendario 1–12. */
   mes          Int
   anio         Int      @map("anio")
@@ -602,8 +603,11 @@ model FinFactCobrosPtoVtaMes {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  @@unique([nroPtoVta, mes, anio], map: "fin_fact_cobros_pto_vta_mes_ux")
+  ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
+
+  @@unique([ptoVtaId, mes, anio], map: "fin_fact_cobros_pto_vta_mes_ux")
   @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
+  @@index([ptoVtaId], map: "fin_fact_cobros_pto_vta_mes_pto_vta_idx")
   @@map("fin_fact_cobros_pto_vta_mes")
 }
 

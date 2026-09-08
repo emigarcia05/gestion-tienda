@@ -56,19 +56,21 @@ async function validarSucursales(
   sucursalIds: string[]
 ): Promise<ServiceResult<void>> {
   const encontradas = await prisma.sucursal.findMany({
-    where: { id: { in: sucursalIds } },
+    where: { id: { in: sucursalIds }, generaEst: true },
     select: { id: true },
   });
   if (encontradas.length !== sucursalIds.length) {
-    return { success: false, error: "Hay sucursales inválidas." };
+    return { success: false, error: "Solo se pueden asociar sucursales que generan estadísticas." };
   }
   return { success: true, data: undefined };
 }
 
+/** Sucursales elegibles para asociar a un pto. vta.: `genera_est = true`. */
 export async function listarSucursalesParaPtoVtas(): Promise<
   GlobalPtoVtaSucursalOption[]
 > {
   const rows = await prisma.sucursal.findMany({
+    where: { generaEst: true },
     select: sucursalSelect,
     orderBy: { nombre: "asc" },
   });
@@ -137,6 +139,15 @@ export async function eliminarGlobalPtoVta(
   id: string
 ): Promise<ServiceResult<{ id: string }>> {
   try {
+    const usados = await prisma.finFactCobrosPtoVtaMes.count({
+      where: { ptoVtaId: id },
+    });
+    if (usados > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: hay totales de Fact & Cobros.",
+      };
+    }
     await prisma.globalPtoVta.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {
