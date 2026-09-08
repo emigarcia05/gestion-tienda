@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Info, Loader2, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Info, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { CAMPO_PX_PROMO_FIJO } from "@/lib/descuentosListaPrecioReglasConstants";
 import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { TEXT_WARNING_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { clampPercent, roundPrecioListaTienda } from "@/lib/calculos";
 import {
@@ -39,10 +40,8 @@ interface Props {
 }
 
 const VACIO = "-";
-const GRID_CLASS =
-  "grid grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)] gap-x-3 gap-y-2 items-center";
-const LABEL_CLASS = "font-medium text-sm text-foreground text-left";
-const MONTO_CLASS = "text-sm tabular-nums text-foreground text-center";
+const LABEL_CLASS = "font-medium text-sm text-foreground text-left shrink-0";
+const MONTO_CLASS = "text-sm tabular-nums text-center";
 
 function fmtUsdPromo(n: number): string {
   return n.toLocaleString("es-AR", {
@@ -72,12 +71,17 @@ function nominalReglaNumero(
   descuento: DescuentoActivoListaPrecio,
   hayPromo: boolean
 ): number | null {
-  if (hayPromo) return null;
   if (descuento.tipo === "descuento") {
+    if (hayPromo) return null;
     return fila.pxListaProveedor * (descuento.valor / 100);
   }
-  const baseTrasDto = fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
-  return baseTrasDto * (descuento.valor / 100);
+  const basePromo =
+    hayPromo && fila.pxPromoFijo != null && fila.pxPromoFijo > 0
+      ? fila.pxPromoFijo
+      : null;
+  const base =
+    basePromo ?? fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
+  return base * (descuento.valor / 100);
 }
 
 function fmtNominalCuenta(
@@ -90,33 +94,72 @@ function fmtNominalCuenta(
   return tipo === "descuento" ? `−${monto}` : `+${monto}`;
 }
 
-function FilaTres({
-  etiqueta,
-  htmlFor,
-  porcentaje,
-  nominal,
-  className,
-  etiquetaClassName,
-}: {
-  etiqueta: string;
-  htmlFor?: string;
-  porcentaje: ReactNode;
-  nominal: ReactNode;
-  className?: string;
-  etiquetaClassName?: string;
-}) {
+function claseMontoRegla(tipo: DescuentoActivoListaPrecio["tipo"]): string {
+  return tipo === "descuento" ? "text-destructive" : TEXT_WARNING_CLASS;
+}
+
+function FilaSeccionTabla({ titulo }: { titulo: string }) {
   return (
-    <>
-      {htmlFor ? (
-        <Label htmlFor={htmlFor} className={cn(LABEL_CLASS, etiquetaClassName, className)}>
-          {etiqueta}
-        </Label>
-      ) : (
-        <span className={cn(LABEL_CLASS, etiquetaClassName, className)}>{etiqueta}</span>
-      )}
-      <div className={cn("flex min-w-0 items-center justify-center", className)}>{nominal}</div>
-      <div className={cn("flex min-w-0 items-center justify-center", className)}>{porcentaje}</div>
-    </>
+    <TableRow className="bg-muted hover:bg-muted">
+      <TableCell colSpan={3} className="celda-datos text-center font-semibold">
+        {titulo}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function FilaReglaAplicada({
+  fila,
+  descuento,
+  hayPromo,
+  onVerRegla,
+}: {
+  fila: FilaListaPrecioParaCliente;
+  descuento: DescuentoActivoListaPrecio;
+  hayPromo: boolean;
+  onVerRegla: (descuento: DescuentoActivoListaPrecio) => void;
+}) {
+  const esDescuento = descuento.tipo === "descuento";
+  const colorMonto = claseMontoRegla(descuento.tipo);
+  const IconoSentido = esDescuento ? ArrowDown : ArrowUp;
+
+  return (
+    <TableRow>
+      <TableCell className="celda-datos text-left font-normal">
+        {descuento.label}
+      </TableCell>
+      <TableCell
+        className={cn("celda-datos celda-numero text-center", colorMonto)}
+      >
+        {fmtNominalCuenta(
+          nominalReglaNumero(fila, descuento, hayPromo),
+          descuento.tipo
+        )}
+      </TableCell>
+      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+        <div className="flex h-full items-center justify-center gap-0.5">
+          <span className={cn(MONTO_CLASS, colorMonto, "min-w-0 truncate")}>
+            {fmtPorcentajeTabla(descuento.valor)}
+          </span>
+          <IconoSentido
+            className={cn("h-3.5 w-3.5 shrink-0", colorMonto)}
+            aria-hidden
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
+            )}
+            aria-label={`Ver regla de ${descuento.label}`}
+            onClick={() => onVerRegla(descuento)}
+          >
+            <Info className="h-4 w-4" aria-hidden />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -134,6 +177,14 @@ export default function DescuentosAplicadosListaPreciosModal({
   const descuentosReglas = useMemo(
     () => (fila?.descuentosActivos ?? []).filter((d) => d.campo !== CAMPO_PX_PROMO_FIJO),
     [fila]
+  );
+  const reglasDescuento = useMemo(
+    () => descuentosReglas.filter((d) => d.tipo === "descuento"),
+    [descuentosReglas]
+  );
+  const reglasRecargo = useMemo(
+    () => descuentosReglas.filter((d) => d.tipo === "costo"),
+    [descuentosReglas]
   );
   const hayPromo = fila?.pxPromoFijo != null && fila.pxPromoFijo > 0;
   const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
@@ -226,56 +277,57 @@ export default function DescuentosAplicadosListaPreciosModal({
         {!fila ? (
           <p className="text-sm text-muted-foreground">Sin datos del ítem.</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            <div className={GRID_CLASS}>
-              <span className="sr-only">Etiqueta</span>
-              <span className="sr-only">Valor nominal</span>
-              <span className="sr-only">Valor porcentual</span>
+          <div className="flex flex-col">
+            <p
+              className="text-center text-sm font-medium text-foreground"
+              title={fila.descripcion}
+            >
+              {fila.descripcion}
+            </p>
 
-              <FilaTres
-                etiqueta={fila.pxDolares ? "PX. PROMO FIJO (US$)" : "PX. PROMO FIJO"}
-                htmlFor="pxPromoFijo"
-                porcentaje={null}
-                nominal={
-                  puedeEditar ? (
-                    <div className="flex w-full min-w-0 items-center justify-center gap-1">
-                      <MontoArInput
-                        id="pxPromoFijo"
-                        placeholder={VACIO}
-                        valueNormalized={pxPromoFijoNorm}
-                        onValueNormalizedChange={setPxPromoFijoNorm}
-                        treatEmptyNormalizedAsBlank
-                        disabled={pending}
-                        className="tabular-nums border-primary min-w-0 flex-1 px-3 text-center"
-                      />
-                      <div className="h-7 w-7 shrink-0">
-                        {mostrarBasura ? (
-                          <Button
-                            type="button"
-                            variant="primaryIcon"
-                            size="icon"
-                            disabled={pending}
-                            onClick={() => void handleQuitarPromo()}
-                            className="h-7 w-7"
-                            aria-label="Quitar Px. Promo Fijo"
-                            title="Quitar Px. Promo Fijo"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                          </Button>
-                        ) : null}
-                      </div>
+            <div className="flex items-center justify-center py-5">
+              <div className="flex w-[70%] items-center justify-center gap-3">
+                <Label htmlFor="pxPromoFijo" className={LABEL_CLASS}>
+                  {fila.pxDolares ? "PX. PROMO FIJO (US$)" : "PX. PROMO FIJO"}
+                </Label>
+                {puedeEditar ? (
+                  <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
+                    <MontoArInput
+                      id="pxPromoFijo"
+                      placeholder={VACIO}
+                      valueNormalized={pxPromoFijoNorm}
+                      onValueNormalizedChange={setPxPromoFijoNorm}
+                      treatEmptyNormalizedAsBlank
+                      disabled={pending}
+                      className="tabular-nums border-primary min-w-0 flex-1 px-3 text-center"
+                    />
+                    <div className="h-7 w-7 shrink-0">
+                      {mostrarBasura ? (
+                        <Button
+                          type="button"
+                          variant="primaryIcon"
+                          size="icon"
+                          disabled={pending}
+                          onClick={() => void handleQuitarPromo()}
+                          className="h-7 w-7"
+                          aria-label="Quitar Px. Promo Fijo"
+                          title="Quitar Px. Promo Fijo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </Button>
+                      ) : null}
                     </div>
-                  ) : (
-                    <p className={MONTO_CLASS}>
-                      {hayPromo && fila.pxPromoFijo != null
-                        ? fila.pxDolares
-                          ? `US$ ${fmtUsdPromo(fila.pxPromoFijo)}`
-                          : fmtPesos(fila.pxPromoFijo)
-                        : VACIO}
-                    </p>
-                  )
-                }
-              />
+                  </div>
+                ) : (
+                  <p className={cn(MONTO_CLASS, "text-foreground")}>
+                    {hayPromo && fila.pxPromoFijo != null
+                      ? fila.pxDolares
+                        ? `US$ ${fmtUsdPromo(fila.pxPromoFijo)}`
+                        : fmtPesos(fila.pxPromoFijo)
+                      : VACIO}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="overflow-hidden rounded-md border border-border">
@@ -295,38 +347,34 @@ export default function DescuentosAplicadosListaPreciosModal({
                     </TableCell>
                     <TableCell className="celda-datos" />
                   </TableRow>
-                  {descuentosReglas.map((descuento) => (
-                    <TableRow key={descuento.campo}>
-                      <TableCell className="celda-datos text-left font-normal">
-                        {descuento.label}
-                      </TableCell>
-                      <TableCell className="celda-datos celda-numero text-center">
-                        {fmtNominalCuenta(
-                          nominalReglaNumero(fila, descuento, hayPromo),
-                          descuento.tipo
-                        )}
-                      </TableCell>
-                      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-                        <div className="flex h-full items-center justify-center gap-0.5">
-                          <span className={cn(MONTO_CLASS, "min-w-0 truncate")}>
-                            {fmtPorcentajeTabla(descuento.valor)}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "h-7 w-7 shrink-0 rounded-sm text-primary hover:bg-primary/10 hover:text-primary"
-                            )}
-                            aria-label={`Ver regla de ${descuento.label}`}
-                            onClick={() => onVerRegla(descuento)}
-                          >
-                            <Info className="h-4 w-4" aria-hidden />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {reglasDescuento.length > 0 ? (
+                    <>
+                      <FilaSeccionTabla titulo="DESCUENTOS" />
+                      {reglasDescuento.map((descuento) => (
+                        <FilaReglaAplicada
+                          key={descuento.campo}
+                          fila={fila}
+                          descuento={descuento}
+                          hayPromo={hayPromo}
+                          onVerRegla={onVerRegla}
+                        />
+                      ))}
+                    </>
+                  ) : null}
+                  {reglasRecargo.length > 0 ? (
+                    <>
+                      <FilaSeccionTabla titulo="RECARGOS" />
+                      {reglasRecargo.map((descuento) => (
+                        <FilaReglaAplicada
+                          key={descuento.campo}
+                          fila={fila}
+                          descuento={descuento}
+                          hayPromo={hayPromo}
+                          onVerRegla={onVerRegla}
+                        />
+                      ))}
+                    </>
+                  ) : null}
                 </TableBody>
                 <TableFooter className="border-t-2 border-primary bg-muted">
                   <TableRow className="border-0 bg-muted hover:bg-muted">
