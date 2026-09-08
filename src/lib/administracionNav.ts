@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: 5 pilares en sidebar + árbol
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
- * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
+ * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS / VENTAS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
@@ -158,6 +158,16 @@ const comprasScreens: AdmScreenDef[] = [
   },
 ];
 
+const ventasScreens: AdmScreenDef[] = [
+  {
+    id: "fact-cobros",
+    label: "Fact & Cobros",
+    href: "/finanzas/fact-cobros",
+    icon: "receipt",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+];
+
 const gastosScreens: AdmScreenDef[] = [
   {
     id: "venc-provee-gastos",
@@ -186,6 +196,12 @@ const operacionesGroups: AdmGroupDef[] = [
     label: "GASTOS",
     icon: "receipt",
     screens: gastosScreens,
+  },
+  {
+    id: "ventas",
+    label: "VENTAS",
+    icon: "circle-dollar",
+    screens: ventasScreens,
   },
 ];
 

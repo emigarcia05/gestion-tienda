@@ -114,7 +114,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 
 **Vendedor** (acordeón, módulos cerrados al inicio): **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
-**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
+**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS / VENTAS | IMPUESTOS) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`). **VENTAS** agrupa Fact & Cobros (`/finanzas/fact-cobros`).
 
 **Marketing:** **PUBLICACIONES** (Calendario, Ideas Contenido, Objetivos) → **BASE MULTIMEDIA** (Base Multimedia, Colores Marca). Lectura libre; mutaciones `editor`.
 
@@ -141,6 +141,7 @@ Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts
 | Lista Prov. | `…/lista` → `/proveedores/lista` |
 | Flujo De Fondo | `/finanzas/venc-por-fecha` |
 | Posición De IVA | `/finanzas/posicion-iva` |
+| Fact & Cobros | `/finanzas/fact-cobros` |
 | Pedido A Fáb. | `/pedido-a-fabrica` |
 | Envios | `/gestion-productos/envios/programados` → `/envios/programados` |
 | Conductor | `/gestion-productos/envios/conductor` → `/envios/conductor` (alias `/envios/crear`) |
@@ -260,6 +261,7 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 - **Flujo De Fondo:** `/finanzas/venc-por-fecha` (`TablaFlujoDeFondo`). SALDO negativo: `text-destructive` en la celda. Doble clic → detalle día. **No** usar `/finanzas/flujo-de-fondo` (redirect).
 - **Venc. Provee. Merc. / Gastos:** doble clic → mismo detalle de flujo filtrado por proveedor.
 - **Comprobantes** (`/finanzas/control-comprobantes`): filtros + rango fechas. Columna **PROVEEDOR** = `prefijo` (tooltip = nombre). Columna **SALDO** = total − monto aplicado. Columna **PLAZO** = plan efectivo (`30, 60, 90`). Header (editor): **Gestionar Venc.** → modal con hasta 4 plazos por proveedor mercadería. **ACCIONES**: Controlado + Plazo De Pago (plan proveedor o personalizado hasta 4 cuotas iguales; pagos FIFO).
+- **Fact & Cobros** (`/finanzas/fact-cobros`): sidenav **FINANZAS → OPERACIONES → VENTAS**. Filtros MES / AÑO. Tabla **NRO. PTO. VTA.** | **MONTO GRAVADO** (totales persistidos). Header editor **Sincronizar** (GET DUX `/facturas` del mes; encadena POST `/api/sync-facturas-ventas-dux`). No lista facturas individuales.
 - **Catálogo Gastos:** Finder 5 columnas. Proveedores no-mercadería desde header.
 - **Margen Contribución / Cx. Financieros:** ver PageClients; overlay COSTOS en MC (`.contenedor-tabla-gestion--mc-overlay`).
 - **Usuarios:** búsqueda + tabla; modal sucursal y módulos (mín. 1).

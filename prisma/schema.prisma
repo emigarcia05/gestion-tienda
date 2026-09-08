@@ -559,6 +559,26 @@ model FinBalVtas {
 }
 
 /**
+ * Totales mensuales de monto gravado A/C por punto de venta DUX (`fin_fact_cobros_pto_vta_mes`).
+ * No guarda facturas individuales. Recalculado al sincronizar el mes desde GET /facturas.
+ */
+model FinFactCobrosPtoVtaMes {
+  id           String   @id @default(cuid())
+  nroPtoVta    String   @map("nro_pto_vta")
+  /** Mes calendario 1–12. */
+  mes          Int
+  anio         Int      @map("anio")
+  /** Suma de `monto_gravado` (letra A/C; NC resta). */
+  montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([nroPtoVta, mes, anio], map: "fin_fact_cobros_pto_vta_mes_ux")
+  @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
+  @@map("fin_fact_cobros_pto_vta_mes")
+}
+
+/**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
  * La sucursal debe existir en `global_sucursales` con `genera_est = true` (validado en servicio).
  * `cod_tienda` referencia `prod_tienda.cod_tienda` (código numérico DUX importado como texto).

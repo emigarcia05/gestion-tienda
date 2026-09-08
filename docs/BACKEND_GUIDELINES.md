@@ -208,7 +208,7 @@ Esquemas en `src/lib/validations/<dominio>.ts`. Comunes en `@/lib/validations/co
 | `requireEditorMarketing` / `requireMarketingLectura` | idem |
 | `requireEditorEstadisticas` / `requireEstadisticasLectura` | idem |
 | `requireEditorAsistenteIa` / `requireAsistenteIaLectura` | idem |
-| `guardTiendaListaPreciosSincronizar`, `guardFinanzasLectura`, `guardCompetenciaPreciosSyncEsEditor`, `guardListaPreciosImportarEsEditor`, `guardEstPorProdImportarEsEditor`, `guardPedidosLectura`, `guardIndicadorSlidenavLectura` | `@/lib/apiRouteAuth.ts` |
+| `guardTiendaListaPreciosSincronizar`, `guardFinanzasLectura`, `guardFinanzasEditor`, `guardCompetenciaPreciosSyncEsEditor`, `guardListaPreciosImportarEsEditor`, `guardEstPorProdImportarEsEditor`, `guardPedidosLectura`, `guardIndicadorSlidenavLectura` | `@/lib/apiRouteAuth.ts` |
 
 GET de estado y POST del mismo job: **mismo guard**.
 
@@ -305,6 +305,8 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **Comprobantes DUX** (`fin_compras_comprobante`): sync por Action editor + progreso `GET /api/sync-compras-proveedor-dux/status` (`guardFinanzasLectura`). Unique natural para upsert. Ventana ~150 días AR. `id_proveedor` = `id_proveedor_dux`. **Plan de pago:** `plazo_pago_1_dias`…`plazo_pago_4_dias` (override; null en el 1.º = plan del proveedor). Cuotas iguales = `total / N`; `monto_aplicado` FIFO por cuota. Expansión SQL: `src/lib/comprobanteCuotasPlazoPago.ts` (`SQL_CTE_CUOTAS_MERCADERIA`). Deuda / flujo: `deudaProveedores.service.ts`, `vencimientosPorFecha.service.ts`. UI: `controlComprobantes.ts` + `/finanzas/control-comprobantes`.
 
+**Fact & Cobros** (`fin_fact_cobros_pto_vta_mes`): unique `(nro_pto_vta, mes, anio)`. No guarda facturas ni ítems. Sync editor: `POST /api/sync-facturas-ventas-dux` (pasos reanudables, 1 página DUX por POST) + `GET …/status`. Guard POST `guardFinanzasEditor`; status `guardFinanzasLectura`. Cliente DUX `duxFacturasApi.ts` (`GET /WSERP/rest/services/facturas`, fechas `yyyy-MM-dd`, `idEmpresa` = `DUX_ID_EMPRESA_COMPRAS`, `idSucursal` = `global_sucursales.id_dux`, `anuladas=false`, limit 50). Regla: suma `monto_gravado` si `letra_comp` A|C; `NOTA_CREDITO*` resta; anuladas se ignoran. Periodo = `fecha_comp` en calendario AR. Listado RSC `listarFinFactCobrosPtoVtaMes`. UI `/finanzas/fact-cobros`.
+
 **Tesorería:** `CajaTesoreria.tipoCaja` usa enum `TipoCajaTesoreria`. El modelo `FinTesoreriaTipoCaja` existe en schema (seed) pero **la app no lo lee**; no dropear sin decisión explícita. Cheques: `finTesoreriaCheques.ts`.
 
 **Gastos jerárquicos:** tipo → rubro → gasto → gasto final → imputación mensual. Catálogo: `finBalGastosCatalogo.ts`. Imputaciones: `finBalGastoMensualBalance.ts`. `listarImputacionesMensualesBalance({ meses, anio })`: `meses` vacío = todas las imputaciones del `anio` (sin filtro de mes). Gasto eventual vendedor: `requireCargarGastoEventual`.
@@ -340,7 +342,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 Única entrada: `GET`/`POST /api/sync-lista-precios-tienda` + `…/status` + `…/cancel`. Guard `guardTiendaListaPreciosSincronizar`. Pasos reanudables: `syncListaPrecioTiendaRunStep` + estado `sync_dux_status`. Cancelación cooperativa (`running = false`); **no** actualiza `last_completed_at`. Cliente encadena POST con `continuing: true`. Persistencia por chunks; el upsert escribe `last_sync` en alta y en update. Al finalizar (solo si `processed > 0`): borra `prod_tienda` con `last_sync` anterior a `started_at` (ítems que DUX ya no envió). Antes del delete, `est_por_prod` (FK Restrict); hijas Cascade/SetNull. Luego huérfanos: `limpiarHuerfanosProdTienda`. El upsert **no** escribe `prod_tienda.bulto`.
 
-Otras APIs: import lista, parse PDF, sync competencia, import/borrar `est_por_prod`, detalle historial pedidos, PDF comprobante de envíos (`GET /api/envios/[id]/comprobante`). Todas con guard en `apiRouteAuth` (o el mismo criterio).
+Otras APIs: import lista, parse PDF, sync competencia, import/borrar `est_por_prod`, detalle historial pedidos, PDF comprobante de envíos (`GET /api/envios/[id]/comprobante`), sync facturas ventas (`POST /api/sync-facturas-ventas-dux`). Todas con guard en `apiRouteAuth` (o el mismo criterio).
 
 ### 3.13 Tipos de pintura (`prod_rendimientos`)
 

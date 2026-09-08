@@ -38,6 +38,16 @@ export async function guardFinanzasLectura(): Promise<NextResponse | null> {
   return null;
 }
 
+/** Sync Fact & Cobros (facturas DUX): escritura editor. */
+export async function guardFinanzasEditor(): Promise<NextResponse | null> {
+  const denied = await guardFinanzasLectura();
+  if (denied) return denied;
+  if (!(await esEditor())) {
+    return NextResponse.json({ ok: false, error: "Sin permisos de editor." }, { status: 403 });
+  }
+  return null;
+}
+
 /** Sync precios competencia (scraping) + polling de estado. */
 export async function guardCompetenciaPreciosSyncEsEditor(): Promise<NextResponse | null> {
   const rol = await getRol();
