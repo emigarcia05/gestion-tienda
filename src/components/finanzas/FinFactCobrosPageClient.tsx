@@ -48,6 +48,8 @@ interface Props {
   filas: FinFactCobrosPtoVtaFila[];
   mes: number;
   anio: number;
+  mesActual: number;
+  anioActual: number;
   esEditor: boolean;
 }
 
@@ -55,6 +57,8 @@ export default function FinFactCobrosPageClient({
   filas,
   mes,
   anio,
+  mesActual,
+  anioActual,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -117,7 +121,11 @@ export default function FinFactCobrosPageClient({
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
               <FilaFiltrosDesplegables>
-                <FiltroIndividualContainer className={FILTER_SELECT_WRAPPER_CLASS}>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={mes !== mesActual}
+                  onLimpiar={() => navigate({ mes: mesActual })}
+                >
                   <Select
                     value={String(mes)}
                     onValueChange={(v) => navigate({ mes: Number(v) })}
@@ -142,7 +150,11 @@ export default function FinFactCobrosPageClient({
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-                <FiltroIndividualContainer className={FILTER_SELECT_WRAPPER_CLASS}>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={anio !== anioActual}
+                  onLimpiar={() => navigate({ anio: anioActual })}
+                >
                   <Select
                     value={String(anio)}
                     onValueChange={(v) => navigate({ anio: Number(v) })}

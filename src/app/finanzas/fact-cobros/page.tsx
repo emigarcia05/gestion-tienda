@@ -35,6 +35,8 @@ export default async function FinFactCobrosPage({ searchParams }: Props) {
       filas={filas}
       mes={mes}
       anio={anio}
+      mesActual={def.mes}
+      anioActual={def.anio}
       esEditor={rol === "editor"}
     />
   );
