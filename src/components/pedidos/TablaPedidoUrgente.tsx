@@ -40,7 +40,7 @@ export interface ProductoPedidoUrgente {
   /** Misma cantidad que **CANT. A PEDIR** en Pedido Reposición (regla forma/punto/stock/stockeable). */
   cantReposicion: number;
   /**
-   * `true` si hay vínculo `prod_precios_provee.cod_tienda` → `prod_tienda`.
+   * `true` si hay `prod_tienda` de Dux (FK `cod_tienda`, CX PROD o match de descripción).
    * La tabla muestra primero **Productos Registrados en Dux** y luego **Sin Registrar**.
    */
   estaVinculadoTienda: boolean;

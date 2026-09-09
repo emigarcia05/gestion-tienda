@@ -32,6 +32,11 @@ import {
   getStockSucursalPrincipal,
 } from "@/services/prodTiendaStock.service";
 import { bultoProdTiendaValido, buildMapBultosProdTienda } from "@/services/tiendaBultos.service";
+import {
+  construirIndiceMatchDuxPedidoUrgente,
+  resolverTiendaPedidoUrgente,
+  type ProdTiendaMatchDux,
+} from "@/lib/pedidoUrgenteMatchDux";
 
 const TIPO_URGENTE_MERC2 = "URGENTE";
 
@@ -846,10 +851,12 @@ export interface PedidoUrgenteItem {
    * en Pedido Reposición (`cantPedirReposicionMerc2`: forma, punto, conf., stock, stockeable, bulto).
    */
   cantReposicion: number;
-  /** true si hay fila `prod_tienda` (catálogo sincronizado con Dux). */
+  /**
+   * true si hay `prod_tienda` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
+   */
   estaVinculadoTienda: boolean;
   /**
-   * Varias filas `prod_precios_provee` con el mismo `codTiendaVinculo`: la UI muestra una sola fila;
+   * Varias filas `prod_precios_provee` con el mismo `cod_tienda` (FK o match Dux): la UI muestra una sola fila;
    * cada miembro conserva su `cod_ext` para persistir cantidades. Ausente en filas no agrupadas.
    */
   miembrosAgrupacion?: Array<{
@@ -1121,7 +1128,7 @@ async function clavesCantidadPositivaPedidoUrgente(
 
 /**
  * Pantalla Pedido Urgente: filas **`prod_precios_provee`** con **`habilitado = true`**.
- * Varias filas con el mismo **`codTiendaVinculo`** se agrupan en **una sola fila** de UI (`id` `agrup-tienda:{cod_tienda}`, `miembrosAgrupacion`);
+ * Varias filas con el mismo **`cod_tienda`** (FK o match Dux) se agrupan en **una sola fila** de UI (`id` `agrup-tienda:{cod_tienda}`, `miembrosAgrupacion`);
  * la paginación y el **`total`** cuentan **grupos** (fila vista), no filas crudas. Filas sin vínculo a tienda siguen 1:1 por `cod_ext`.
  * Filtro **`proveedorId`**: solo reduce qué **grupos/filas** entran al listado (al menos un miembro del grupo coincide); **`miembrosAgrupacion`** sigue incluyendo **todos** los proveedores del vínculo para el modal «Elegir Proveedor».
  * Filtro **`pedidoTipo`**: `urgente` / `reposicion` / `cualquier` = solo grupos con cant. &gt; 0 en ese tipo (o en cualquiera); `null` = catálogo completo.
@@ -1240,18 +1247,40 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     prodTienda: { select: { codTienda: true, descripcionTienda: true } },
   } as const;
 
-  /** Meta: conserva todos los miembros del grupo por `codTiendaVinculo`. */
-  const meta = await prisma.listaPrecioProveedor.findMany({
-    where: listaWhereBase,
-    select: { codExt: true, codTiendaVinculo: true, idProveedor: true },
-    orderBy: [{ codTiendaVinculo: "asc" }, { codExt: "asc" }],
-  });
+  /** Meta: conserva todos los miembros del grupo por `cod_tienda` (FK o match Dux). */
+  const [meta, catalogoTienda] = await Promise.all([
+    prisma.listaPrecioProveedor.findMany({
+      where: listaWhereBase,
+      select: {
+        codExt: true,
+        codTiendaVinculo: true,
+        idProveedor: true,
+        descripcionProveedor: true,
+      },
+      orderBy: [{ codTiendaVinculo: "asc" }, { codExt: "asc" }],
+    }),
+    prisma.prodTienda.findMany({
+      select: { codTienda: true, descripcionTienda: true, costoCompraCodExt: true },
+    }),
+  ]);
+
+  const indiceDux = construirIndiceMatchDuxPedidoUrgente(catalogoTienda);
+  const tiendaPorCodExt = new Map<string, ProdTiendaMatchDux>();
+  for (const row of meta) {
+    const hit = resolverTiendaPedidoUrgente({
+      codTiendaVinculo: row.codTiendaVinculo,
+      codExt: row.codExt,
+      descripcionProveedor: row.descripcionProveedor,
+      indice: indiceDux,
+    });
+    if (hit) tiendaPorCodExt.set(row.codExt, hit);
+  }
 
   const codExtToProveedor = new Map<string, string>();
   const groupKeyToCodExts = new Map<string, string[]>();
   for (const row of meta) {
     codExtToProveedor.set(row.codExt, row.idProveedor);
-    const ct = row.codTiendaVinculo?.trim();
+    const ct = tiendaPorCodExt.get(row.codExt)?.codTienda.trim() ?? "";
     const key = ct ? `T:${ct}` : `E:${row.codExt}`;
     const arr = groupKeyToCodExts.get(key) ?? [];
     arr.push(row.codExt);
@@ -1322,7 +1351,14 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       ? await mercaderiaMapsDesdeMerc2(
           sucursalTrim,
           pairs,
-          filas.map((f) => f.prodTienda?.codTienda?.trim() ?? "").filter(Boolean)
+          filas
+            .map(
+              (f) =>
+                tiendaPorCodExt.get(f.codExt)?.codTienda.trim() ??
+                f.prodTienda?.codTienda?.trim() ??
+                ""
+            )
+            .filter(Boolean)
         )
       : {
           mercaderiaMapUrgente: new Map<string, number>(),
@@ -1333,12 +1369,26 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   const filaByCodExt = new Map(filas.map((f) => [f.codExt, f]));
   type FilaU = (typeof filas)[number];
 
+  function tiendaDeFila(f: FilaU): ProdTiendaMatchDux | null {
+    return (
+      tiendaPorCodExt.get(f.codExt) ??
+      (f.prodTienda?.codTienda?.trim()
+        ? {
+            codTienda: f.prodTienda.codTienda.trim(),
+            descripcionTienda: f.prodTienda.descripcionTienda?.trim() ?? "",
+          }
+        : null)
+    );
+  }
+
   function itemDesdeFila(f: FilaU): PedidoUrgenteItem {
     const ce = (f.codExt ?? "").trim();
     const keyProv = `${f.idProveedor}:${ce}`;
-    const descTienda = f.prodTienda?.descripcionTienda?.trim() || null;
+    const tienda = tiendaDeFila(f);
+    const descTienda = tienda?.descripcionTienda.trim() || null;
     const cantUrgenteUi =
       mercaderiaMapUrgente.get(keyProv) ?? mercaderiaMapUrgente.get(ce) ?? 0;
+    const codTienda = tienda?.codTienda.trim() ?? "";
 
     return {
       id: f.codExt,
@@ -1348,9 +1398,9 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       pxCompraFinalSinIva: f.pxCompraFinalSinIva != null ? Number(f.pxCompraFinalSinIva) : null,
       ivaProveedor: f.proveedor.iva,
       cantPedidaUrgente: Math.max(0, Math.floor(cantUrgenteUi)),
-      confReposicion: mercaderiaRepoSet.has(f.prodTienda?.codTienda?.trim() ?? ""),
-      cantReposicion: mercaderiaMapRepo.get(f.prodTienda?.codTienda?.trim() ?? "") ?? 0,
-      estaVinculadoTienda: Boolean(f.prodTienda?.codTienda?.trim()),
+      confReposicion: mercaderiaRepoSet.has(codTienda),
+      cantReposicion: mercaderiaMapRepo.get(codTienda) ?? 0,
+      estaVinculadoTienda: Boolean(codTienda),
     };
   }
 
@@ -1375,7 +1425,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       items.push(unico);
       continue;
     }
-    const codTienda = memberFilas[0]!.codTiendaVinculo?.trim();
+    const codTienda = key.startsWith("T:") ? key.slice(2) : "";
     if (!codTienda) {
       for (const mf of memberFilas) {
         const it = itemDesdeFila(mf);
@@ -1400,7 +1450,15 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     if (pedidoTipo === "cualquier" && cantUrgenteGrupo <= 0 && cantRepoGrupo <= 0) {
       continue;
     }
-    const descripcionGrupo = descripcionTiendaUnificadaParaGrupoPedidoUrgente(memberFilas);
+    const descripcionGrupo = descripcionTiendaUnificadaParaGrupoPedidoUrgente(
+      memberFilas.map((f) => {
+        const t = tiendaDeFila(f);
+        return {
+          descripcionProveedor: f.descripcionProveedor,
+          prodTienda: t ? { descripcionTienda: t.descripcionTienda } : f.prodTienda,
+        };
+      })
+    );
     items.push({
       id: `agrup-tienda:${codTienda}`,
       codExt: memberItems[0]!.codExt,
@@ -1428,7 +1486,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 /**
  * Ítems de lista precios para Pedido Urgente.
  * Con sucursal: todos los `habilitado` de mercadería no fábrica, paginados.
- * La grilla parte **Productos Registrados en Dux** (`prod_tienda`) y **Sin Registrar**.
+ * La grilla parte **Productos Registrados en Dux** (`prod_tienda` por FK, CX PROD o match de descripción) y **Sin Registrar**.
  * descripcion = descripcion_tienda si existe; si no, descripcion_proveedor.
  */
 export async function getListaPreciosParaPedidoUrgente(
