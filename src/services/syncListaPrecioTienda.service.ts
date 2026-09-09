@@ -319,6 +319,11 @@ async function emitProgress(
   await onProgress(processed, total, phase);
 }
 
+function catalogoDuxSyncEstaCompleto(processed: number, total: number): boolean {
+  if (total > 0 && processed < total) return false;
+  return true;
+}
+
 function delayMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -339,6 +344,8 @@ async function persistPaginaDuxYActualizarEstado(
   const meta = await persistRecordBatch(batch, worker.meta);
   const processed = worker.processed + batch.length;
   const fetchOffset = fetchOffsetAntes + DUX_API_PAGE_LIMIT;
+  const complete =
+    apiFetchComplete && catalogoDuxSyncEstaCompleto(processed, totalApi);
 
   await saveSyncDuxWorkerStateInDb({
     processed,
@@ -346,7 +353,7 @@ async function persistPaginaDuxYActualizarEstado(
     fetchOffset,
     meta,
     phase: "sincronizando",
-    apiFetchComplete,
+    apiFetchComplete: complete,
   });
   await emitProgress(onProgress, processed, totalApi, "sincronizando");
 
@@ -359,7 +366,7 @@ async function persistPaginaDuxYActualizarEstado(
     fetchOffset,
     total: totalApi,
     meta,
-    apiFetchComplete,
+    apiFetchComplete: complete,
   };
 }
 
@@ -403,7 +410,11 @@ async function finalizeSyncWorker(
   await emitProgress(onProgress, worker.processed, worker.total, "guardando");
 
   let eliminados = 0;
-  if (worker.startedAt && worker.processed > 0) {
+  if (
+    worker.startedAt &&
+    worker.processed > 0 &&
+    catalogoDuxSyncEstaCompleto(worker.processed, worker.total)
+  ) {
     try {
       eliminados = await eliminarProdTiendaAusentesEnSyncDux(worker.startedAt);
       if (eliminados > 0) {
@@ -523,10 +534,17 @@ export async function syncListaPrecioTiendaRunStep(
     if (total > 0 && totalApi === 0) totalApi = total;
 
     if (results.length === 0) {
-      await saveSyncDuxWorkerStateInDb({
-        apiFetchComplete: true,
-        total: totalApi,
-      });
+      const totalRef = totalApi || worker.total;
+      if (catalogoDuxSyncEstaCompleto(worker.processed, totalRef)) {
+        await saveSyncDuxWorkerStateInDb({
+          apiFetchComplete: true,
+          total: totalApi,
+        });
+      } else {
+        throw new Error(
+          `DUX no devolvió más ítems en offset ${worker.fetchOffset} (${worker.processed}/${totalRef}).`
+        );
+      }
       break;
     }
 
@@ -534,7 +552,7 @@ export async function syncListaPrecioTiendaRunStep(
     if (batch.length === 0) {
       worker.fetchOffset += DUX_API_PAGE_LIMIT;
       await saveSyncDuxWorkerStateInDb({ fetchOffset: worker.fetchOffset, total: totalApi });
-      if (!hasMore) {
+      if (!hasMore && catalogoDuxSyncEstaCompleto(worker.processed, totalApi)) {
         await saveSyncDuxWorkerStateInDb({ apiFetchComplete: true, total: totalApi });
         break;
       }
@@ -581,7 +599,7 @@ export async function syncListaPrecioTiendaRunStep(
       throw new Error(`No se pudo guardar productos en la base de datos. ${msg}`);
     }
 
-    if (apiFetchComplete) break;
+    if (worker.apiFetchComplete) break;
     // Presupuesto de paso agotado: salir y dejar `continuing: true` para la siguiente invocación POST.
     if (Date.now() >= deadline) break;
   }
@@ -589,6 +607,20 @@ export async function syncListaPrecioTiendaRunStep(
   worker = await getSyncDuxWorkerStateFromDb();
 
   if (worker.apiFetchComplete) {
+    if (!catalogoDuxSyncEstaCompleto(worker.processed, worker.total)) {
+      await saveSyncDuxWorkerStateInDb({ apiFetchComplete: false });
+      return {
+        creados: 0,
+        actualizados: 0,
+        eliminados: 0,
+        totalProcesados: worker.processed,
+        totalApi: worker.total,
+        duracionMs: Date.now() - stepStartedMs,
+        errores,
+        done: false,
+        continuing: true,
+      };
+    }
     if (worker.processed === 0 && worker.total > 0) {
       throw new Error("La consulta DUX terminó pero no se guardó ningún producto.");
     }

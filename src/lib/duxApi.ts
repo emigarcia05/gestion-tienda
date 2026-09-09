@@ -276,10 +276,18 @@ export async function fetchItemsPage(offset: number, limit: number = DUX_API_PAG
             : {};
         const total = Number(paging.total ?? 0);
         const results = rawResults.map(mapItem);
+        const pageLen = rawResults.length;
+        /**
+         * Página llena ⇒ hay más (aunque `paging.total` falte o sea 0).
+         * Si `total` es fiable, también comparar offset+page vs total.
+         * Una página final exacta de `limit` ítems se cierra en el fetch siguiente (0 resultados).
+         */
+        const hasMore =
+          pageLen >= limit || (total > 0 && offset + pageLen < total);
         return {
           results,
           total,
-          hasMore: rawResults.length > 0 && offset + rawResults.length < total,
+          hasMore,
         };
       }
 

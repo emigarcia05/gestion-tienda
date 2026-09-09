@@ -41,6 +41,14 @@ async function ejecutarPasoSyncListaPrecioTienda() {
     });
 
     if (result.done) {
+      if (result.totalApi > 0 && result.totalProcesados < result.totalApi) {
+        return NextResponse.json({
+          ok: true,
+          continuing: true,
+          processed: result.totalProcesados,
+          total: result.totalApi,
+        });
+      }
       await setSyncDuxSuccessInDb(result.totalProcesados, result.totalApi);
       const { continuing: _c, done: _d, ...payload } = result;
       return NextResponse.json({ ok: true, continuing: false, ...payload });

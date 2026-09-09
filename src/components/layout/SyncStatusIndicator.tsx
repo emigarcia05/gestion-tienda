@@ -55,16 +55,35 @@ export default function SyncStatusIndicator({ rol }: Props) {
     syncStepsRunningRef.current = true;
     try {
       let continuing = true;
+      let fallosRed = 0;
       while (continuing) {
-        const res = await fetch("/api/sync-lista-precios-tienda", { method: "POST" });
-        const data = res.ok ? await res.json().catch(() => null) : null;
-        if (!res.ok || !data?.ok) {
-          if (data?.error && !data?.cancelled) {
-            toast.error(String(data.error));
+        try {
+          const res = await fetch("/api/sync-lista-precios-tienda", { method: "POST" });
+          const data = res.ok ? await res.json().catch(() => null) : null;
+          if (!res.ok || !data?.ok) {
+            if (data?.cancelled) break;
+            if (data?.error) {
+              toast.error(String(data.error));
+              break;
+            }
+            fallosRed += 1;
+            if (fallosRed >= 3) {
+              toast.error("Error de red durante la sincronización.");
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+            continue;
           }
-          break;
+          fallosRed = 0;
+          continuing = !!data.continuing;
+        } catch {
+          fallosRed += 1;
+          if (fallosRed >= 3) {
+            toast.error("Error de red durante la sincronización.");
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 2000));
         }
-        continuing = !!data.continuing;
       }
     } catch {
       toast.error("Error de red durante la sincronización.");
@@ -92,11 +111,17 @@ export default function SyncStatusIndicator({ rol }: Props) {
             ) {
               const proc = Number(data.processed ?? 0);
               const tot = Number(data.total ?? 0);
-              toast.success(
-                tot > 0
-                  ? `Sincronización de productos finalizada: ${proc.toLocaleString("es-AR")} de ${tot.toLocaleString("es-AR")}.`
-                  : "Sincronización de productos finalizada."
-              );
+              if (tot > 0 && proc < tot) {
+                toast.error(
+                  `Sincronización incompleta: ${proc.toLocaleString("es-AR")} de ${tot.toLocaleString("es-AR")} productos. Volvé a sincronizar.`
+                );
+              } else {
+                toast.success(
+                  tot > 0
+                    ? `Sincronización de productos finalizada: ${proc.toLocaleString("es-AR")} de ${tot.toLocaleString("es-AR")}.`
+                    : "Sincronización de productos finalizada."
+                );
+              }
             }
           }
 
