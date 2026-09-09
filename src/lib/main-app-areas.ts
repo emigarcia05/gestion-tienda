@@ -1,7 +1,8 @@
 /**
  * Áreas principales de la aplicación (macro-secciones).
  * **Vendedor** (id `gestion-productos`): pedidos, ayuda vendedor, asistente IA.
- * **Administración** (id `finanzas`): balance, tesorería, análisis M.C., Análisis de Precios
+ * **Administración** (id `finanzas`): balance, tesorería, análisis M.C., **VTAS. Y COBROS**
+ * (`/vtas-cobros/...`), Análisis de Precios
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
  * **Marketing** (id `marketing`).
@@ -65,6 +66,9 @@ export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
     return "finanzas";
   }
   if (pathname === "/finanzas" || pathname.startsWith("/finanzas/")) {
+    return "finanzas";
+  }
+  if (pathname === "/vtas-cobros" || pathname.startsWith("/vtas-cobros/")) {
     return "finanzas";
   }
   // Estadísticas Productos vive en área Administración (URLs bajo /estadisticas-productos/...).

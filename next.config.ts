@@ -128,6 +128,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/finanzas/fact-cobros",
+        destination: "/vtas-cobros/ptos-venta",
+        permanent: true,
+      },
+      {
         source: "/proveedores/lista-precios/reglas-descuentos",
         destination: R.analisisPrecios.listaProveedores.reglasDescuentos,
         permanent: true,

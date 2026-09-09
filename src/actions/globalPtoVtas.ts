@@ -9,6 +9,7 @@ import {
   editarGlobalPtoVtaSchema,
   eliminarGlobalPtoVtaSchema,
 } from "@/lib/validations/globalPtoVtas";
+import { VTAS_COBROS_LEGACY_FACT_COBROS_PATH, VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 import {
   crearGlobalPtoVta,
   editarGlobalPtoVta,
@@ -27,7 +28,8 @@ function firstZodErrorMessage(error: {
 }
 
 function revalidateFactCobros(): void {
-  revalidatePath("/finanzas/fact-cobros");
+  revalidatePath(VTAS_COBROS_ROUTES.ptosVenta);
+  revalidatePath(VTAS_COBROS_LEGACY_FACT_COBROS_PATH);
 }
 
 export async function listarGlobalPtoVtasAction(): Promise<ActionResult<GlobalPtoVtaItem[]>> {

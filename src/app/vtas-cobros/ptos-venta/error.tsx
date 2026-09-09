@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 
-export default function FinFactCobrosError({
+export default function VtasCobrosPtosVentaError({
   error,
   reset,
 }: {
@@ -14,7 +15,7 @@ export default function FinFactCobrosError({
   const router = useRouter();
 
   useEffect(() => {
-    const tag = "[finanzas][fact-cobros][error-boundary]";
+    const tag = "[vtas-cobros][ptos-venta][error-boundary]";
     if (process.env.NODE_ENV === "production") {
       console.error(tag, "digest:", error.digest);
     } else {
@@ -26,7 +27,7 @@ export default function FinFactCobrosError({
     <div className="area-page-shell flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold text-foreground">
-          No Se Pudo Cargar Fact & Cobros
+          No Se Pudo Cargar Ptos. Venta
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Ocurrió un error inesperado al renderizar la página. Reintentá la operación.
@@ -43,7 +44,7 @@ export default function FinFactCobrosError({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/finanzas/fact-cobros")}
+            onClick={() => router.push(VTAS_COBROS_ROUTES.ptosVenta)}
           >
             Recargar Módulo
           </Button>

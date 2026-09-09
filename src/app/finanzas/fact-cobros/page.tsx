@@ -1,15 +1,5 @@
 import { redirect } from "next/navigation";
-import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
-import { PERMISOS, puede } from "@/lib/permisos";
-import { getRol } from "@/lib/sesion";
-import { finFactCobrosPeriodoSchema } from "@/lib/validations/finFactCobros";
-import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
-import { listarFinFactCobrosPtoVtaMes } from "@/services/finFactCobros.service";
-import {
-  listarGlobalPtoVtas,
-  listarSucursalesParaPtoVtas,
-} from "@/services/globalPtoVtas.service";
-import FinFactCobrosPageClient from "@/components/finanzas/FinFactCobrosPageClient";
+import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 
 export const dynamic = "force-dynamic";
 
@@ -17,37 +7,12 @@ interface Props {
   searchParams: Promise<{ mes?: string; anio?: string }>;
 }
 
-export default async function FinFactCobrosPage({ searchParams }: Props) {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.finanzas.acceso)) {
-    redirect(GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido);
-  }
-
+/** Alias: Fact & Cobros se movió a VTAS. Y COBROS → Ptos. Venta. */
+export default async function FinFactCobrosLegacyRedirect({ searchParams }: Props) {
   const sp = await searchParams;
-  const def = mesAnioCalendarioArgentina();
-  const parsed = finFactCobrosPeriodoSchema.safeParse({
-    mes: sp.mes ?? def.mes,
-    anio: sp.anio ?? def.anio,
-  });
-  const mes = parsed.success ? parsed.data.mes : def.mes;
-  const anio = parsed.success ? parsed.data.anio : def.anio;
-
-  const [filas, ptoVtas, sucursales] = await Promise.all([
-    listarFinFactCobrosPtoVtaMes({ mes, anio }),
-    listarGlobalPtoVtas(),
-    listarSucursalesParaPtoVtas(),
-  ]);
-
-  return (
-    <FinFactCobrosPageClient
-      filas={filas}
-      mes={mes}
-      anio={anio}
-      mesActual={def.mes}
-      anioActual={def.anio}
-      esEditor={rol === "editor"}
-      ptoVtas={ptoVtas}
-      sucursales={sucursales}
-    />
-  );
+  const p = new URLSearchParams();
+  if (sp.mes) p.set("mes", sp.mes);
+  if (sp.anio) p.set("anio", sp.anio);
+  const q = p.toString();
+  redirect(`${VTAS_COBROS_ROUTES.ptosVenta}${q ? `?${q}` : ""}`);
 }

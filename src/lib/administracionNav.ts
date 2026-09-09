@@ -1,8 +1,9 @@
 /**
- * Navegación del área **Administración**: 5 pilares en sidebar + árbol
+ * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
- * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS / VENTAS) | IMPUESTOS → pantallas
+ * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
+ * VTAS. Y COBROS → CONTROL VTA Y COBRO → Ptos. Venta / Cobros
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
@@ -21,9 +22,11 @@ import {
 } from "@/lib/pedidoAFabricaRoutes";
 import { PERMISOS } from "@/lib/permisos";
 import { USUARIOS_PATH } from "@/lib/usuarios";
+import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 
 export type AdmPillarId =
   | "finanzas"
+  | "vtas-cobros"
   | "listas-precios"
   | "pedido-a-fabrica"
   | "estadisticas"
@@ -51,7 +54,8 @@ export type AdmIconId =
   | "link-2"
   | "package-search"
   | "tags"
-  | "users";
+  | "users"
+  | "store";
 
 export interface AdmScreenDef {
   id: string;
@@ -158,16 +162,6 @@ const comprasScreens: AdmScreenDef[] = [
   },
 ];
 
-const ventasScreens: AdmScreenDef[] = [
-  {
-    id: "fact-cobros",
-    label: "Fact & Cobros",
-    href: "/finanzas/fact-cobros",
-    icon: "receipt",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
 const gastosScreens: AdmScreenDef[] = [
   {
     id: "venc-provee-gastos",
@@ -197,11 +191,22 @@ const operacionesGroups: AdmGroupDef[] = [
     icon: "receipt",
     screens: gastosScreens,
   },
+];
+
+const controlVtaCobroScreens: AdmScreenDef[] = [
   {
-    id: "ventas",
-    label: "VENTAS",
-    icon: "circle-dollar",
-    screens: ventasScreens,
+    id: "ptos-venta",
+    label: "Ptos. Venta",
+    href: VTAS_COBROS_ROUTES.ptosVenta,
+    icon: "store",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cobros",
+    label: "Cobros",
+    href: VTAS_COBROS_ROUTES.cobros,
+    icon: "wallet",
+    permiso: PERMISOS.finanzas.acceso,
   },
 ];
 
@@ -345,6 +350,19 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     ],
   },
   {
+    id: "vtas-cobros",
+    label: "VTAS. Y COBROS",
+    icon: "circle-dollar",
+    groups: [
+      {
+        id: "control-vta-cobro",
+        label: "CONTROL VTA Y COBRO",
+        icon: "receipt",
+        screens: controlVtaCobroScreens,
+      },
+    ],
+  },
+  {
     id: "listas-precios",
     label: "LISTA PRECIOS",
     icon: "handshake",
@@ -475,6 +493,12 @@ export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boole
   }
   if (pillar.id === "usuarios") {
     return pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`);
+  }
+  if (pillar.id === "vtas-cobros") {
+    return (
+      pathname === VTAS_COBROS_ROUTES.hub ||
+      pathname.startsWith(`${VTAS_COBROS_ROUTES.hub}/`)
+    );
   }
   // FINANZAS: /finanzas/* excepto analisis-mc (LISTA PRECIOS) y usuarios (USUARIOS)
   if (pathname.startsWith("/finanzas/analisis-mc")) return false;
