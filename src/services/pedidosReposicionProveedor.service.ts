@@ -156,7 +156,7 @@ export type ProveedorFiltroReposicion = {
 
 /**
  * Catálogo del filtro PROVEEDOR en Reposición: mercadería, no fábrica,
- * con al menos un vínculo habilitado a `prod_tienda`.
+ * con lista de precios habilitada (el vínculo a tienda no es obligatorio para listar).
  */
 export async function listarProveedoresFiltroReposicion(): Promise<
   ProveedorFiltroReposicion[]
@@ -165,12 +165,7 @@ export async function listarProveedoresFiltroReposicion(): Promise<
     where: {
       proveedorMercaderia: true,
       esFabrica: false,
-      listaPrecios: {
-        some: {
-          habilitado: true,
-          codTiendaVinculo: { not: null },
-        },
-      },
+      listaPrecios: { some: { habilitado: true } },
     },
     select: { id: true, nombre: true, prefijo: true },
     orderBy: [{ prefijo: "asc" }, { nombre: "asc" }],

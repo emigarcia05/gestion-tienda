@@ -72,7 +72,7 @@ export interface ReposicionData {
   marcas: string[];
   rubros: string[];
   subRubros: string[];
-  /** Filtro PROVEEDOR (mercadería, no fábrica, con vínculo habilitado). */
+  /** Filtro PROVEEDOR (mercadería, no fábrica, lista habilitada). */
   proveedores: ProveedorFiltroReposicion[];
 }
 
@@ -110,13 +110,14 @@ function proveedorFiltroId(raw: string | undefined): string {
   return parsed.success ? parsed.data : "";
 }
 
-/** EXISTS: vínculo habilitado a proveedor no fábrica (opcionalmente un proveedor). */
-function whereVinculoVendedor(proveedorId: string): Prisma.ProdTiendaWhereInput {
+/** Filtro PROVEEDOR: solo si hay id (vínculo habilitado a ese proveedor no fábrica). */
+function whereVinculoProveedor(proveedorId: string): Prisma.ProdTiendaWhereInput | null {
+  if (!proveedorId) return null;
   return {
     listaPreciosProveedores: {
       some: {
         habilitado: true,
-        ...(proveedorId ? { idProveedor: proveedorId } : {}),
+        idProveedor: proveedorId,
         proveedor: { esFabrica: false },
       },
     },
@@ -138,7 +139,8 @@ function baseWhere(
 }
 
 /**
- * Datos para Pedido Reposición: lista_tienda filtrada por sucursal (stock), marca, rubro, sub-rubro, descripción.
+ * Datos para Pedido Reposición: catálogo `prod_tienda` filtrado por marca, rubro, descripción
+ * y, si hay filtro PROVEEDOR, por vínculo habilitado a ese proveedor no fábrica.
  * Cada ítem incluye la configuración REPOSICION desde `prod_ped_merc`.
  * **CANT. A PEDIR** se recalcula con la misma regla que Generar Pedido / `upsertPedidoMercaderiaReposicionConfig`.
  */
@@ -197,7 +199,7 @@ export async function getReposicionData(
     pagina: paginaNum,
   };
   const skip = (paginaNum - 1) * PAGE_SIZE;
-  const vinculoVendedor = whereVinculoVendedor(proveedorId);
+  const vinculoProveedor = whereVinculoProveedor(proveedorId);
 
   const codTiendaMerc2 =
     configurado === "si"
@@ -224,13 +226,14 @@ export async function getReposicionData(
 
   const baseParts = baseWhere(paramsNorm);
   const whereItems: Prisma.ProdTiendaWhereInput = (() => {
-    const parts: Prisma.ProdTiendaWhereInput[] = [...baseParts, vinculoVendedor];
+    const parts: Prisma.ProdTiendaWhereInput[] = [...baseParts];
+    if (vinculoProveedor) parts.push(vinculoProveedor);
     if (configurado === "si") {
       // Si no hay configurados, devolvemos vacío rápido.
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
       parts.push({ codTienda: { in: codTiendaList } });
     }
-    return { AND: parts };
+    return parts.length > 0 ? { AND: parts } : {};
   })();
   const toWhereWithNotNull = (
     exclude: "marca" | "rubro" | "subRubro"
@@ -240,7 +243,8 @@ export async function getReposicionData(
     const notNull = {
       [key]: { not: null },
     } as Prisma.ProdTiendaWhereInput;
-    const extra: Prisma.ProdTiendaWhereInput[] = [vinculoVendedor];
+    const extra: Prisma.ProdTiendaWhereInput[] = [];
+    if (vinculoProveedor) extra.push(vinculoProveedor);
     if (configurado === "si") {
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
       extra.push({ codTienda: { in: codTiendaList } });
