@@ -66,7 +66,7 @@ export default function TablaFinFactCobros({
   filas: FinFactCobrosPtoVtaFila[];
 }) {
   const { letras, grupos } = agruparPorPtoYLetra(filas);
-  const colSpanVacio = 3 + letras.length;
+  const colSpanVacio = 2 + letras.length;
   const totPorLetra: Record<string, number> = {};
   let totalGral = 0;
   for (const g of grupos) {
@@ -81,8 +81,7 @@ export default function TablaFinFactCobros({
       <Table variant="compact">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[12%] text-center">PTO. VENTA</TableHead>
-            <TableHead className="w-[28%] text-left">NOMBRE PTO. VENTA</TableHead>
+            <TableHead className="w-[36%] text-left">PTO. VTAS.</TableHead>
             {letras.map((letra) => (
               <TableHead key={letra} className="text-right">
                 {letra}
@@ -100,11 +99,8 @@ export default function TablaFinFactCobros({
           ) : (
             grupos.map((g) => (
               <TableRow key={g.ptoVtaId}>
-                <TableCell className="celda-datos text-center tabular-nums">
-                  {g.ptoVenta}
-                </TableCell>
                 <TableCell className="celda-datos text-left">
-                  {fmtCelda(g.nombrePtoVenta)}
+                  {fmtCelda(`${g.ptoVenta} - ${g.nombrePtoVenta}`)}
                 </TableCell>
                 {letras.map((letra) => (
                   <TableCell
@@ -126,8 +122,7 @@ export default function TablaFinFactCobros({
         {grupos.length > 0 ? (
           <TableFooter>
             <TableRow>
-              <TableCell className="font-semibold text-center">TOTAL</TableCell>
-              <TableCell className="celda-datos" />
+              <TableCell className="font-semibold text-left">TOTAL</TableCell>
               {letras.map((letra) => (
                 <TableCell
                   key={letra}

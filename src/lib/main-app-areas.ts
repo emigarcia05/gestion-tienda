@@ -1,7 +1,7 @@
 /**
  * Áreas principales de la aplicación (macro-secciones).
  * **Vendedor** (id `gestion-productos`): pedidos, ayuda vendedor, asistente IA.
- * **Administración** (id `finanzas`): balance, tesorería, análisis M.C., **VTAS. Y COBROS**
+ * **Administración** (id `finanzas`): balance, tesorería, análisis M.C., **VTAS. & COBROS**
  * (`/vtas-cobros/...`), Análisis de Precios
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).

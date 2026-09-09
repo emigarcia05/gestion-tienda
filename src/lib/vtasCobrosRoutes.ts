@@ -1,4 +1,4 @@
-/** Rutas canónicas del módulo Administración **VTAS. Y COBROS**. */
+/** Rutas canónicas del módulo Administración **VTAS. & COBROS**. */
 export const VTAS_COBROS_ROUTES = {
   hub: "/vtas-cobros",
   ptosVenta: "/vtas-cobros/ptos-venta",

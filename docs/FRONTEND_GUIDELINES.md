@@ -114,7 +114,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 
 **Vendedor** (acordeón, módulos cerrados al inicio): **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
-**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **VTAS. Y COBROS** (CONTROL VTA Y COBRO → Ptos. Venta / Cobros) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
+**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **VTAS. & COBROS** (Ptos. Vtas / Cobros, pantallas directas) → **LISTA PRECIOS** … Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
 
 **Marketing:** **PUBLICACIONES** (Calendario, Ideas Contenido, Objetivos) → **BASE MULTIMEDIA** (Base Multimedia, Colores Marca). Lectura libre; mutaciones `editor`.
 
@@ -141,7 +141,7 @@ Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts
 | Lista Prov. | `…/lista` → `/proveedores/lista` |
 | Flujo De Fondo | `/finanzas/venc-por-fecha` |
 | Posición De IVA | `/finanzas/posicion-iva` |
-| Ptos. Venta | `/vtas-cobros/ptos-venta` (alias `/finanzas/fact-cobros`) |
+| Ptos. Vtas | `/vtas-cobros/ptos-venta` (alias `/finanzas/fact-cobros`) |
 | Cobros | `/vtas-cobros/cobros` |
 | Pedido A Fáb. | `/pedido-a-fabrica` |
 | Envios | `/gestion-productos/envios/programados` → `/envios/programados` |
@@ -262,8 +262,8 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 - **Flujo De Fondo:** `/finanzas/venc-por-fecha` (`TablaFlujoDeFondo`). SALDO negativo: `text-destructive` en la celda. Doble clic → detalle día. **No** usar `/finanzas/flujo-de-fondo` (redirect).
 - **Venc. Provee. Merc. / Gastos:** doble clic → mismo detalle de flujo filtrado por proveedor.
 - **Comprobantes** (`/finanzas/control-comprobantes`): filtros + rango fechas. Columna **PROVEEDOR** = `prefijo` (tooltip = nombre). Columna **SALDO** = total − monto aplicado. Columna **PLAZO** = plan efectivo (`30, 60, 90`). Header (editor): **Gestionar Venc.** → modal con hasta 4 plazos por proveedor mercadería. **ACCIONES**: Controlado + Plazo De Pago (plan proveedor o personalizado hasta 4 cuotas iguales; pagos FIFO).
-- **Ptos. Venta** (`/vtas-cobros/ptos-venta`, alias `/finanzas/fact-cobros`): sidenav **VTAS. Y COBROS → CONTROL VTA Y COBRO → Ptos. Venta**. Header **VTAS. Y COBROS** / Control Vta Y Cobro / Ptos. Venta. Filtros MES / AÑO. Tabla **PTO. VENTA** | **NOMBRE PTO. VENTA** | **letra(s) A/B/C/…** (columnas según lo sincronizado) | **TOTAL** (desde `global_pto_vtas` + `fin_fact_cobros_pto_vta_mes`; un monto por pto + letra). Header **Ptos. Vta.** (`GestionarGlobalPtoVtasModal`: catálogo `global_pto_vtas`; **SUC. ASOCIADAS** solo `global_sucursales.genera_est`; alta/edición/baja solo editor). Header editor **Sincronizar** (GET DUX `/v2/remitos-venta` del mes; suma `total_factura_asociada` de **todas** las letras de comprobante asociado (`nro_factura_string`); encadena POST `/api/sync-facturas-ventas-dux`; solo `nro_pto_vta` del catálogo y sucursal asociada). No lista remitos individuales.
-- **Cobros** (`/vtas-cobros/cobros`): misma rama del sidenav; pantalla lista (sin datos todavía).
+- **Ptos. Vtas** (`/vtas-cobros/ptos-venta`, alias `/finanzas/fact-cobros`): sidenav **VTAS. & COBROS → Ptos. Vtas**. Header **VTAS. & COBROS** / Ptos. Vtas. Filtros MES / AÑO. Tabla **PTO. VTAS.** (`Nº - NOMBRE`) | **letra(s) A/B/C/…** (columnas según lo sincronizado) | **TOTAL** (desde `global_pto_vtas` + `fin_fact_cobros_pto_vta_mes`; un monto por pto + letra). Header **Ptos. Vta.** (`GestionarGlobalPtoVtasModal`: catálogo `global_pto_vtas`; **SUC. ASOCIADAS** solo `global_sucursales.genera_est`; alta/edición/baja solo editor). Header editor **Sincronizar** (GET DUX `/v2/remitos-venta` del mes; suma `total_factura_asociada` de **todas** las letras de comprobante asociado (`nro_factura_string`); encadena POST `/api/sync-facturas-ventas-dux`; solo `nro_pto_vta` del catálogo y sucursal asociada). No lista remitos individuales.
+- **Cobros** (`/vtas-cobros/cobros`): misma rama del sidenav; header **VTAS. & COBROS** / Cobros; pantalla lista (sin datos todavía).
 - **Catálogo Gastos:** Finder 5 columnas. Proveedores no-mercadería desde header.
 - **Margen Contribución / Cx. Financieros:** ver PageClients; overlay COSTOS en MC (`.contenedor-tabla-gestion--mc-overlay`).
 - **Usuarios:** búsqueda + tabla; modal sucursal y módulos (mín. 1).

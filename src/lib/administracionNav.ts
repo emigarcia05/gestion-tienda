@@ -3,7 +3,7 @@
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
  * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
- * VTAS. Y COBROS → CONTROL VTA Y COBRO → Ptos. Venta / Cobros
+ * VTAS. & COBROS → Ptos. Vtas / Cobros
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
@@ -193,10 +193,10 @@ const operacionesGroups: AdmGroupDef[] = [
   },
 ];
 
-const controlVtaCobroScreens: AdmScreenDef[] = [
+const vtasCobrosScreens: AdmScreenDef[] = [
   {
     id: "ptos-venta",
-    label: "Ptos. Venta",
+    label: "Ptos. Vtas",
     href: VTAS_COBROS_ROUTES.ptosVenta,
     icon: "store",
     permiso: PERMISOS.finanzas.acceso,
@@ -351,16 +351,9 @@ export const ADM_PILLARS: AdmPillarDef[] = [
   },
   {
     id: "vtas-cobros",
-    label: "VTAS. Y COBROS",
+    label: "VTAS. & COBROS",
     icon: "circle-dollar",
-    groups: [
-      {
-        id: "control-vta-cobro",
-        label: "CONTROL VTA Y COBRO",
-        icon: "receipt",
-        screens: controlVtaCobroScreens,
-      },
-    ],
+    screens: vtasCobrosScreens,
   },
   {
     id: "listas-precios",

@@ -27,7 +27,7 @@ export default function VtasCobrosPtosVentaError({
     <div className="area-page-shell flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold text-foreground">
-          No Se Pudo Cargar Ptos. Venta
+          No Se Pudo Cargar Ptos. Vtas
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Ocurrió un error inesperado al renderizar la página. Reintentá la operación.

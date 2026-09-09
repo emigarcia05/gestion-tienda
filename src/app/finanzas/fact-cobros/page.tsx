@@ -7,7 +7,7 @@ interface Props {
   searchParams: Promise<{ mes?: string; anio?: string }>;
 }
 
-/** Alias: Fact & Cobros se movió a VTAS. Y COBROS → Ptos. Venta. */
+/** Alias: Fact & Cobros se movió a VTAS. & COBROS → Ptos. Vtas. */
 export default async function FinFactCobrosLegacyRedirect({ searchParams }: Props) {
   const sp = await searchParams;
   const p = new URLSearchParams();

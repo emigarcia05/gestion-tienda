@@ -14,9 +14,8 @@ export default function VtasCobrosCobrosPageClient() {
   return (
     <div className="area-page-shell bg-gris">
       <ClassicFilteredTableLayout
-        title="VTAS. Y COBROS"
-        subtitle="Control Vta Y Cobro"
-        subtitleSecondary="Cobros"
+        title="VTAS. & COBROS"
+        subtitle="Cobros"
       >
         <div className="contenedor-tabla-gestion flex-1 min-h-0">
           <Table variant="compact">
