@@ -145,7 +145,8 @@ export async function getPedidoUrgenteData(params: {
         totalPaginas: result.totalPaginas,
         ivaSaldoAcumuladoComparacion,
       };
-    } catch {
+    } catch (error: unknown) {
+      console.error("[pedidos][getPedidoUrgenteData] lista", error);
       const ivaSaldoAcumuladoComparacion = await sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido();
       return {
         proveedores,
@@ -155,7 +156,8 @@ export async function getPedidoUrgenteData(params: {
         ivaSaldoAcumuladoComparacion,
       };
     }
-  } catch {
+  } catch (error: unknown) {
+    console.error("[pedidos][getPedidoUrgenteData]", error);
     return {
       proveedores: [],
       productos: [],

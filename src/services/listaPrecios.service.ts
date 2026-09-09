@@ -846,7 +846,7 @@ export interface PedidoUrgenteItem {
    * en Pedido Reposición (`cantPedirReposicionMerc2`: forma, punto, conf., stock, stockeable, bulto).
    */
   cantReposicion: number;
-  /** true si el ítem de proveedor está vinculado a un producto en `prod_precios_tienda`. */
+  /** true si hay fila `prod_tienda` (catálogo sincronizado con Dux). */
   estaVinculadoTienda: boolean;
   /**
    * Varias filas `prod_precios_provee` con el mismo `codTiendaVinculo`: la UI muestra una sola fila;
@@ -1165,7 +1165,10 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     }
   }
 
-  const listaWhereBaseParts: Prisma.ListaPrecioProveedorWhereInput[] = [{ habilitado: true }];
+  const listaWhereBaseParts: Prisma.ListaPrecioProveedorWhereInput[] = [
+    { habilitado: true },
+    { proveedor: { proveedorMercaderia: true, esFabrica: false } },
+  ];
 
   /**
    * Con filtro PEDIDO: no cargar el catálogo completo. Semillas = filas con cant. &gt; 0;
@@ -1259,9 +1262,12 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   }
 
   let sortedKeys = [...groupKeyToCodExts.keys()].sort((ka, kb) => {
+    const aDux = ka.startsWith("T:") ? 0 : 1;
+    const bDux = kb.startsWith("T:") ? 0 : 1;
+    if (aDux !== bDux) return aDux - bDux;
     const a0 = groupKeyToCodExts.get(ka)![0]!;
     const b0 = groupKeyToCodExts.get(kb)![0]!;
-    return a0.localeCompare(b0);
+    return a0.localeCompare(b0, "es");
   });
 
   /** Seguridad: el grupo debe tener al menos una semilla con cant. &gt; 0 del tipo filtrado. */
@@ -1333,7 +1339,6 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     const descTienda = f.prodTienda?.descripcionTienda?.trim() || null;
     const cantUrgenteUi =
       mercaderiaMapUrgente.get(keyProv) ?? mercaderiaMapUrgente.get(ce) ?? 0;
-    const tiendaListaId = f.codTiendaVinculo ?? null;
 
     return {
       id: f.codExt,
@@ -1345,7 +1350,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       cantPedidaUrgente: Math.max(0, Math.floor(cantUrgenteUi)),
       confReposicion: mercaderiaRepoSet.has(f.prodTienda?.codTienda?.trim() ?? ""),
       cantReposicion: mercaderiaMapRepo.get(f.prodTienda?.codTienda?.trim() ?? "") ?? 0,
-      estaVinculadoTienda: tiendaListaId != null,
+      estaVinculadoTienda: Boolean(f.prodTienda?.codTienda?.trim()),
     };
   }
 
@@ -1421,10 +1426,10 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 }
 
 /**
- * Ítems de lista precios para la pantalla Pedido Urgente.
- * Solo devuelve datos si sucursal está informada.
+ * Ítems de lista precios para Pedido Urgente.
+ * Con sucursal: todos los `habilitado` de mercadería no fábrica, paginados.
+ * La grilla parte **Productos Registrados en Dux** (`prod_tienda`) y **Sin Registrar**.
  * descripcion = descripcion_tienda si existe; si no, descripcion_proveedor.
- * incluye `pxCompraFinalSinIva` para el modal de cantidad.
  */
 export async function getListaPreciosParaPedidoUrgente(
   sucursal: string,
@@ -1473,6 +1478,7 @@ export async function getProveedoresParaPedidoUrgente(): Promise<
   const list = await prisma.proveedor.findMany({
     where: {
       proveedorMercaderia: true,
+      esFabrica: false,
       listaPrecios: { some: { habilitado: true } },
     },
     select: { id: true, nombre: true, prefijo: true },

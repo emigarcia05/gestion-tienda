@@ -139,8 +139,8 @@ function baseWhere(
 }
 
 /**
- * Datos para Pedido Reposición: catálogo `prod_tienda` filtrado por marca, rubro, descripción
- * y, si hay filtro PROVEEDOR, por vínculo habilitado a ese proveedor no fábrica.
+ * Datos para Pedido Reposición: con sucursal, **todos** los ítems de `prod_tienda`
+ * (paginados). Marca / rubro / descripción / proveedor son opcionales.
  * Cada ítem incluye la configuración REPOSICION desde `prod_ped_merc`.
  * **CANT. A PEDIR** se recalcula con la misma regla que Generar Pedido / `upsertPedidoMercaderiaReposicionConfig`.
  */
@@ -255,6 +255,7 @@ export async function getReposicionData(
   const whereRubros = toWhereWithNotNull("rubro");
   const whereSubRubros = toWhereWithNotNull("subRubro");
 
+  try {
   const [rows, total, marcasDistinct, rubrosDistinct, subRubrosDistinct] =
     await Promise.all([
       prisma.prodTienda.findMany({
@@ -396,6 +397,10 @@ export async function getReposicionData(
       .map((s) => s.subRubro!),
     proveedores,
   };
+  } catch (error: unknown) {
+    console.error("[reposicion][getReposicionData]", error);
+    return emptyConProveedores();
+  }
 }
 
 export interface ItemSelectorReposicion {
