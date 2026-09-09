@@ -54,22 +54,14 @@ export default async function PedidoReposicionPage({ searchParams }: Props) {
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
 
   const [data, { proveedores }, ivaComparacionRevisionToken] = await Promise.all([
-    sucursalValida
-      ? getReposicionData(sucursalValida, {
-          q,
-          marca,
-          rubro,
-          configurado: configurado === "si" ? "si" : "",
-          pagina: paginaNum,
-        })
-      : Promise.resolve({
-          items: [],
-          total: 0,
-          totalPaginas: 1,
-          marcas: [],
-          rubros: [],
-          subRubros: [],
-        }),
+    getReposicionData(sucursalValida, {
+      q,
+      marca,
+      rubro,
+      configurado: configurado === "si" ? "si" : "",
+      pagina: paginaNum,
+      proveedor,
+    }),
     getEnviarPedidoData(),
     getPosicionIvaComparacionRevisionToken(),
   ]);

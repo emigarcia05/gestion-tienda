@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -36,13 +36,11 @@ const CELL_MIN = "min-w-0";
 interface Props {
   data: ReposicionData;
   sucursalActual: SucursalReposicion | null;
-  onFiltradosCountChange?: (count: number) => void;
 }
 
 export default function TablaReposicion({
   data,
   sucursalActual,
-  onFiltradosCountChange,
 }: Props) {
   const router = useRouter();
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -65,10 +63,6 @@ export default function TablaReposicion({
   );
 
   const sucursalSeleccionada = sucursalActual !== null;
-
-  useEffect(() => {
-    if (onFiltradosCountChange) onFiltradosCountChange(items.length);
-  }, [items.length, onFiltradosCountChange]);
 
   return (
     <div className="contenedor-tabla-gestion no-scroll-x">

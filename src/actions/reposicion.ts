@@ -22,8 +22,11 @@ import {
 import {
   cargarListaPrecioReposicionPorCodTiendas,
   elegirListaPrecioProveedorReposicion,
+  listarProveedoresFiltroReposicion,
   sumarIvaSaldoParaReposicion,
+  type ProveedorFiltroReposicion,
 } from "@/services/pedidosReposicionProveedor.service";
+import { prismaCuidSchema } from "@/lib/validations/common";
 import { bultoProdTiendaValido, buildMapBultosProdTienda, guardarBultoProdTienda } from "@/services/tiendaBultos.service";
 import { REVALIDATE_CX_COMPRA } from "@/lib/gestionProductosRoutes";
 import {
@@ -69,6 +72,8 @@ export interface ReposicionData {
   marcas: string[];
   rubros: string[];
   subRubros: string[];
+  /** Filtro PROVEEDOR (mercadería, no fábrica, con vínculo habilitado). */
+  proveedores: ProveedorFiltroReposicion[];
 }
 
 export interface GetReposicionParams {
@@ -76,6 +81,7 @@ export interface GetReposicionParams {
   marca?: string;
   rubro?: string;
   subRubro?: string;
+  proveedor?: string;
   /** "si" = solo ítems con regla de reposición configurada. */
   configurado?: "" | "si";
   pagina?: number;
@@ -88,6 +94,7 @@ const emptyReposicionData: ReposicionData = {
   marcas: [],
   rubros: [],
   subRubros: [],
+  proveedores: [],
 };
 
 async function sucursalPedidoHabilitada(codigo: SucursalReposicion): Promise<boolean> {
@@ -98,23 +105,25 @@ async function sucursalPedidoHabilitada(codigo: SucursalReposicion): Promise<boo
   return row?.pedido === true;
 }
 
-async function listarCodTiendasConProveedorVendedor(): Promise<string[]> {
-  const rows = await prisma.listaPrecioProveedor.findMany({
-    where: {
-      habilitado: true,
-      codTiendaVinculo: { not: null },
-      proveedor: { esFabrica: false },
+function proveedorFiltroId(raw: string | undefined): string {
+  const parsed = prismaCuidSchema.safeParse((raw ?? "").trim());
+  return parsed.success ? parsed.data : "";
+}
+
+/** EXISTS: vínculo habilitado a proveedor no fábrica (opcionalmente un proveedor). */
+function whereVinculoVendedor(proveedorId: string): Prisma.ProdTiendaWhereInput {
+  return {
+    listaPreciosProveedores: {
+      some: {
+        habilitado: true,
+        ...(proveedorId ? { idProveedor: proveedorId } : {}),
+        proveedor: { esFabrica: false },
+      },
     },
-    select: { codTiendaVinculo: true },
-    distinct: ["codTiendaVinculo"],
-  });
-  return rows
-    .map((r) => (r.codTiendaVinculo ?? "").trim())
-    .filter((v) => v.length > 0);
+  };
 }
 
 function baseWhere(
-  sucursal: SucursalReposicion,
   params: GetReposicionParams,
   exclude?: "marca" | "rubro" | "subRubro"
 ): Prisma.ProdTiendaWhereInput[] {
@@ -141,34 +150,54 @@ export async function getReposicionData(
   if (!puede(rol, PERMISOS.pedidos.acceso)) {
     return emptyReposicionData;
   }
+
+  let proveedores: ProveedorFiltroReposicion[] = [];
+  try {
+    proveedores = await listarProveedoresFiltroReposicion();
+  } catch (error: unknown) {
+    console.error("[reposicion][getReposicionData] proveedores", error);
+  }
+
+  const emptyConProveedores = (): ReposicionData => ({
+    ...emptyReposicionData,
+    proveedores,
+  });
+
   if (!sucursal) {
-    return emptyReposicionData;
+    return emptyConProveedores();
   }
   if (!sucursalReposicionSchema.safeParse(sucursal).success) {
-    return emptyReposicionData;
+    return emptyConProveedores();
   }
   if (!(await sucursalPedidoHabilitada(sucursal))) {
-    return emptyReposicionData;
+    return emptyConProveedores();
   }
 
   const parsedParams = getReposicionParamsSchema.safeParse(params);
   if (!parsedParams.success) {
-    return emptyReposicionData;
+    return emptyConProveedores();
   }
-  const { configurado, pagina: paginaNum, q, marca, rubro, subRubro } = parsedParams.data;
+  const {
+    configurado,
+    pagina: paginaNum,
+    q,
+    marca,
+    rubro,
+    subRubro,
+    proveedor: proveedorRaw,
+  } = parsedParams.data;
+  const proveedorId = proveedorFiltroId(proveedorRaw);
   const paramsNorm: GetReposicionParams = {
     q,
     marca,
     rubro,
     subRubro,
+    proveedor: proveedorId,
     configurado: configurado as "" | "si",
     pagina: paginaNum,
   };
   const skip = (paginaNum - 1) * PAGE_SIZE;
-  const codTiendasVendedor = await listarCodTiendasConProveedorVendedor();
-  if (codTiendasVendedor.length === 0) {
-    return emptyReposicionData;
-  }
+  const vinculoVendedor = whereVinculoVendedor(proveedorId);
 
   const codTiendaMerc2 =
     configurado === "si"
@@ -193,39 +222,30 @@ export async function getReposicionData(
         ]
       : [];
 
-  const baseParts = baseWhere(sucursal, paramsNorm);
+  const baseParts = baseWhere(paramsNorm);
   const whereItems: Prisma.ProdTiendaWhereInput = (() => {
-    const parts: Prisma.ProdTiendaWhereInput[] = [
-      ...baseParts,
-      { codTienda: { in: codTiendasVendedor } },
-    ];
+    const parts: Prisma.ProdTiendaWhereInput[] = [...baseParts, vinculoVendedor];
     if (configurado === "si") {
       // Si no hay configurados, devolvemos vacío rápido.
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
       parts.push({ codTienda: { in: codTiendaList } });
     }
-    return parts.length > 0 ? { AND: parts } : {};
+    return { AND: parts };
   })();
   const toWhereWithNotNull = (
     exclude: "marca" | "rubro" | "subRubro"
   ): Prisma.ProdTiendaWhereInput => {
-    const parts = baseWhere(sucursal, paramsNorm, exclude);
+    const parts = baseWhere(paramsNorm, exclude);
     const key = exclude;
     const notNull = {
       [key]: { not: null },
     } as Prisma.ProdTiendaWhereInput;
-    const extra: Prisma.ProdTiendaWhereInput[] = [
-      { codTienda: { in: codTiendasVendedor } },
-    ];
+    const extra: Prisma.ProdTiendaWhereInput[] = [vinculoVendedor];
     if (configurado === "si") {
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
       extra.push({ codTienda: { in: codTiendaList } });
     }
-    return parts.length > 0
-      ? { AND: [...parts, ...extra, notNull] }
-      : extra.length > 0
-        ? { AND: [...extra, notNull] }
-        : notNull;
+    return { AND: [...parts, ...extra, notNull] };
   };
   const whereMarcas = toWhereWithNotNull("marca");
   const whereRubros = toWhereWithNotNull("rubro");
@@ -370,6 +390,7 @@ export async function getReposicionData(
     subRubros: subRubrosDistinct
       .filter((s) => s.subRubro != null)
       .map((s) => s.subRubro!),
+    proveedores,
   };
 }
 

@@ -148,6 +148,40 @@ export async function sumarIvaSaldoParaReposicion(): Promise<number> {
   return sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido();
 }
 
+export type ProveedorFiltroReposicion = {
+  id: string;
+  nombre: string;
+  prefijo: string;
+};
+
+/**
+ * Catálogo del filtro PROVEEDOR en Reposición: mercadería, no fábrica,
+ * con al menos un vínculo habilitado a `prod_tienda`.
+ */
+export async function listarProveedoresFiltroReposicion(): Promise<
+  ProveedorFiltroReposicion[]
+> {
+  const rows = await prisma.proveedor.findMany({
+    where: {
+      proveedorMercaderia: true,
+      esFabrica: false,
+      listaPrecios: {
+        some: {
+          habilitado: true,
+          codTiendaVinculo: { not: null },
+        },
+      },
+    },
+    select: { id: true, nombre: true, prefijo: true },
+    orderBy: [{ prefijo: "asc" }, { nombre: "asc" }],
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    prefijo: p.prefijo ?? "",
+  }));
+}
+
 /** Verifica que exista al menos una línea de lista proveedor habilitada vinculada al `cod_tienda`. */
 export async function existeListaPrecioParaReposicionCodTienda(
   codTienda: string

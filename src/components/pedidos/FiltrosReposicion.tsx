@@ -14,6 +14,7 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
+  SELECT_TRIGGER_FILTER_CLASS,
   FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
@@ -35,7 +36,6 @@ interface Props {
   totalItems: number;
   proveedorActual: string;
   sucursales: SucursalFiltroOption[];
-  onProveedorChange: (proveedorId: string) => void;
 }
 
 export default function FiltrosReposicion({
@@ -48,7 +48,6 @@ export default function FiltrosReposicion({
   totalItems,
   proveedorActual,
   sucursales,
-  onProveedorChange,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -147,7 +146,6 @@ export default function FiltrosReposicion({
 
   function limpiarFiltros() {
     setQ("");
-    onProveedorChange("");
     if (sucursalActual) {
       router.push(`${pathname}?sucursal=${sucursalActual}`);
     } else {
@@ -155,21 +153,9 @@ export default function FiltrosReposicion({
     }
   }
 
-  const sucursalValue = sucursalActual ?? undefined;
+  const sucursalValue = sucursalActual ?? "";
   const sucursalSeleccionada = sucursalActual !== null;
-  const configuradoValue = configuradoActual || undefined;
-
-  const proveedoresDisponibles = Array.from(
-    new Map(
-      data.items
-        .map((i): readonly [string, string] | null =>
-          i.idProveedor && i.nombreProveedor ? [i.idProveedor, i.nombreProveedor] : null
-        )
-        .filter((v): v is readonly [string, string] => v !== null)
-    ).entries()
-  )
-    .map(([id, nombre]) => ({ id, nombre }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR", { sensitivity: "base" }));
+  const configuradoValue = configuradoActual || "";
 
   return (
     <FilterBar className="filtros-contenedor-tienda bg-card">
@@ -186,7 +172,7 @@ export default function FiltrosReposicion({
             >
               <SelectTrigger
                 id="filtro-reposicion-sucursal"
-                className="input-filtro-unificado"
+                className={SELECT_TRIGGER_FILTER_CLASS}
               >
                 <SelectValue placeholder="SUCURSAL" />
               </SelectTrigger>
@@ -208,22 +194,19 @@ export default function FiltrosReposicion({
             className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(proveedorActual)}
             onLimpiar={() => {
-              onProveedorChange("");
               navigate({ proveedor: "", pagina: "1" });
             }}
           >
             <Select
               value={proveedorActual ?? ""}
               onValueChange={(v) => {
-                const next = v;
-                onProveedorChange(next);
-                navigate({ proveedor: next, pagina: "1" });
+                navigate({ proveedor: v, pagina: "1" });
               }}
               disabled={!sucursalSeleccionada}
             >
               <SelectTrigger
                 id="filtro-reposicion-proveedor"
-                className="input-filtro-unificado"
+                className={SELECT_TRIGGER_FILTER_CLASS}
               >
                 <SelectValue placeholder="PROVEEDOR" />
               </SelectTrigger>
@@ -233,9 +216,11 @@ export default function FiltrosReposicion({
                 align="start"
                 className="select-content-filtro"
               >
-                {proveedoresDisponibles.map((p) => (
+                {data.proveedores.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.nombre.toUpperCase()}
+                    {p.prefijo
+                      ? `[${p.prefijo}] ${p.nombre}`.toUpperCase()
+                      : p.nombre.toUpperCase()}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -253,7 +238,7 @@ export default function FiltrosReposicion({
             >
               <SelectTrigger
                 id="filtro-reposicion-marca"
-                className="input-filtro-unificado"
+                className={SELECT_TRIGGER_FILTER_CLASS}
               >
                 <SelectValue placeholder="MARCA" />
               </SelectTrigger>
@@ -283,7 +268,7 @@ export default function FiltrosReposicion({
             >
               <SelectTrigger
                 id="filtro-reposicion-rubro"
-                className="input-filtro-unificado"
+                className={SELECT_TRIGGER_FILTER_CLASS}
               >
                 <SelectValue placeholder="RUBRO" />
               </SelectTrigger>
@@ -313,7 +298,7 @@ export default function FiltrosReposicion({
             >
               <SelectTrigger
                 id="filtro-reposicion-configurado"
-                className="input-filtro-unificado"
+                className={SELECT_TRIGGER_FILTER_CLASS}
               >
                 <SelectValue placeholder="CONFIGURADO" />
               </SelectTrigger>

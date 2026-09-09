@@ -116,6 +116,8 @@ export const getReposicionParamsSchema = z.object({
   marca: z.string().max(200).optional().default(""),
   rubro: z.string().max(200).optional().default(""),
   subRubro: z.string().max(200).optional().default(""),
+  /** Filtro PROVEEDOR (CUID). Vacío o inválido = sin filtro. */
+  proveedor: z.string().max(200).optional().default(""),
   configurado: z.enum(["", "si"]).optional().default(""),
   pagina: z.preprocess(
     (v) => (v === undefined || v === null || v === "" ? 1 : v),

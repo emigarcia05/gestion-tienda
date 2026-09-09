@@ -1,7 +1,6 @@
 "use client";
 
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
-import { useState } from "react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltrosReposicion from "@/components/pedidos/FiltrosReposicion";
 import TablaReposicion from "@/components/pedidos/TablaReposicion";
@@ -40,9 +39,9 @@ export default function ReposicionPageClient({
   paramsPagina,
   ivaComparacionRevisionToken,
 }: Props) {
-  const [totalFiltrados, setTotalFiltrados] = useState<number>(data.items.length);
   const tieneSucursal = sucursalValida !== null;
   const proveedorActual = proveedor;
+  const totalFiltrados = tieneSucursal ? data.total : 0;
 
   const filters = (
     <FiltrosReposicion
@@ -55,7 +54,6 @@ export default function ReposicionPageClient({
       totalItems={totalFiltrados}
       proveedorActual={proveedorActual}
       sucursales={sucursales}
-      onProveedorChange={() => {}}
     />
   );
 
@@ -82,7 +80,6 @@ export default function ReposicionPageClient({
         <TablaReposicion
           data={data}
           sucursalActual={sucursalValida}
-          onFiltradosCountChange={setTotalFiltrados}
         />
         {tieneSucursal && data.totalPaginas > 1 && (
           <div className="flex justify-end pt-2 shrink-0">
