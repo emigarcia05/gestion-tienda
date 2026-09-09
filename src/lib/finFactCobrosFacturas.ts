@@ -52,11 +52,20 @@ export function parseNroPtoVtaDux(raw: string): number | null {
   return n;
 }
 
-/** Remito entra en el TOTAL: no anulado y `total_factura_asociada` > 0. */
+/** Letra de la factura asociada (`FACTURA C-00007-…` → `C`). El remito suele ser X. */
+export function letraFacturaAsociadaDesdeNro(nroFactura: string): "A" | "C" | null {
+  const m = nroFactura.trim().toUpperCase().match(/\bFACTURA\s+([AC])\b/);
+  if (m?.[1] === "A" || m?.[1] === "C") return m[1];
+  return null;
+}
+
+/** Remito entra en el TOTAL: no anulado, factura asociada A o C, y `total_factura_asociada` > 0. */
 export function remitoVentaEntraEnTotal(params: {
   anulado: boolean;
+  nroFacturaString: string;
   totalFacturaAsociada: unknown;
 }): boolean {
   if (params.anulado) return false;
+  if (letraFacturaAsociadaDesdeNro(params.nroFacturaString) == null) return false;
   return parseImporteFacturaDux(params.totalFacturaAsociada) > 0;
 }

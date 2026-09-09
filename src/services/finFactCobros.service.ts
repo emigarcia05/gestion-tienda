@@ -102,6 +102,7 @@ function aplicarRemitoAlAcumulado(
     fecha: string;
     anulado: boolean;
     estadoFacturacion: string;
+    nroFacturaString: string;
     totalFacturaAsociada: unknown;
   },
   catalogo: Map<number, CatalogoPtoSync>,
@@ -125,6 +126,7 @@ function aplicarRemitoAlAcumulado(
   if (
     !remitoVentaEntraEnTotal({
       anulado: remito.anulado,
+      nroFacturaString: remito.nroFacturaString,
       totalFacturaAsociada: remito.totalFacturaAsociada,
     })
   ) {
