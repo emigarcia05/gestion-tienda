@@ -71,6 +71,7 @@ export default function FinFactCobrosPageClient({
   const pathname = usePathname();
   const [syncing, setSyncing] = useState(false);
   const [openPtoVtas, setOpenPtoVtas] = useState(false);
+  const cantPtoVtas = new Set(filas.map((f) => f.ptoVtaId)).size;
 
   function navigate(next: { mes?: number; anio?: number }) {
     const p = new URLSearchParams();
@@ -189,8 +190,8 @@ export default function FinFactCobrosPageClient({
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
             <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-              {filas.length.toLocaleString("es-AR")} PTO. VTA.
-              {filas.length !== 1 ? "S" : ""}
+              {cantPtoVtas.toLocaleString("es-AR")} PTO. VTA.
+              {cantPtoVtas !== 1 ? "S" : ""}
             </span>
           </FilterBar>
         }

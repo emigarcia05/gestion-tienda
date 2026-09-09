@@ -589,10 +589,10 @@ model FinBalVtas {
 }
 
 /**
- * Totales mensuales por punto de venta (`fin_fact_cobros_pto_vta_mes`).
+ * Totales mensuales por punto de venta y letra de comprobante (`fin_fact_cobros_pto_vta_mes`).
  * FK a `global_pto_vtas`. No guarda remitos individuales.
  * Recalculado al sincronizar el mes desde GET `/v2/remitos-venta`.
- * `monto_gravado` persiste la suma de `total_factura_asociada`.
+ * `monto_gravado` persiste la suma de `total_factura_asociada` por `(pto, letra)`.
  */
 model FinFactCobrosPtoVtaMes {
   id           String   @id @default(cuid())
@@ -600,14 +600,16 @@ model FinFactCobrosPtoVtaMes {
   /** Mes calendario 1–12. */
   mes          Int
   anio         Int      @map("anio")
-  /** Suma de `total_factura_asociada` de remitos con factura asociada A o C (no anulados). */
+  /** Letra del comprobante asociado (A, B, C, …). No usar `letra_comp` del remito. */
+  letra        String   @db.Char(1)
+  /** Suma de `total_factura_asociada` de remitos no anulados con esa letra. */
   montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
 
-  @@unique([ptoVtaId, mes, anio], map: "fin_fact_cobros_pto_vta_mes_ux")
+  @@unique([ptoVtaId, mes, anio, letra], map: "fin_fact_cobros_pto_vta_mes_ux")
   @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
   @@index([ptoVtaId], map: "fin_fact_cobros_pto_vta_mes_pto_vta_idx")
   @@map("fin_fact_cobros_pto_vta_mes")

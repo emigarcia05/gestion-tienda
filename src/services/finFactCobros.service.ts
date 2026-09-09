@@ -5,6 +5,9 @@ import {
   fetchRemitosVentaPage,
 } from "@/lib/duxRemitosVentaApi";
 import {
+  claveAcumuladoFactCobros,
+  letraComprobanteAsociadoRemito,
+  parseClaveAcumuladoFactCobros,
   parseImporteFacturaDux,
   parseNroPtoVtaDux,
   periodoCalendarioDesdeFechaIsoYmd,
@@ -136,9 +139,16 @@ function aplicarRemitoAlAcumulado(
   }
 
   const monto = parseImporteFacturaDux(remito.totalFacturaAsociada);
+  const letra = letraComprobanteAsociadoRemito({
+    nroFacturaString: remito.nroFacturaString,
+    nrosFacturaVinculados: remito.nrosFacturaVinculados,
+  });
+  if (letra == null) return;
+
   const delta = new Prisma.Decimal(monto.toFixed(4));
-  const actual = new Prisma.Decimal(meta.acumulado[pto.id] ?? "0");
-  meta.acumulado[pto.id] = actual.plus(delta).toFixed(4);
+  const clave = claveAcumuladoFactCobros(pto.id, letra);
+  const actual = new Prisma.Decimal(meta.acumulado[clave] ?? "0");
+  meta.acumulado[clave] = actual.plus(delta).toFixed(4);
 }
 
 async function persistirAcumulado(meta: SyncFacturasVentasDuxMeta): Promise<void> {
@@ -146,13 +156,18 @@ async function persistirAcumulado(meta: SyncFacturasVentasDuxMeta): Promise<void
     (await prisma.globalPtoVta.findMany({ select: { id: true } })).map((r) => r.id)
   );
   const filas = Object.entries(meta.acumulado)
-    .filter(([ptoVtaId]) => idsValidos.has(ptoVtaId))
-    .map(([ptoVtaId, monto]) => ({
-      ptoVtaId,
-      mes: meta.mes,
-      anio: meta.anio,
-      montoGravado: new Prisma.Decimal(monto),
-    }));
+    .map(([clave, monto]) => {
+      const parsed = parseClaveAcumuladoFactCobros(clave);
+      if (!parsed || !idsValidos.has(parsed.ptoVtaId)) return null;
+      return {
+        ptoVtaId: parsed.ptoVtaId,
+        mes: meta.mes,
+        anio: meta.anio,
+        letra: parsed.letra,
+        montoGravado: new Prisma.Decimal(monto),
+      };
+    })
+    .filter((f): f is NonNullable<typeof f> => f != null);
 
   await prisma.$transaction(async (tx) => {
     await tx.finFactCobrosPtoVtaMes.deleteMany({
@@ -295,6 +310,7 @@ export type FinFactCobrosPtoVtaFila = {
   ptoVtaId: string;
   ptoVenta: number;
   nombrePtoVenta: string;
+  letra: string;
   total: string;
 };
 
@@ -304,9 +320,10 @@ export async function listarFinFactCobrosPtoVtaMes(params: {
 }): Promise<FinFactCobrosPtoVtaFila[]> {
   const rows = await prisma.finFactCobrosPtoVtaMes.findMany({
     where: { mes: params.mes, anio: params.anio },
-    orderBy: { ptoVta: { ptoVenta: "asc" } },
+    orderBy: [{ ptoVta: { ptoVenta: "asc" } }, { letra: "asc" }],
     select: {
       ptoVtaId: true,
+      letra: true,
       montoGravado: true,
       ptoVta: { select: { ptoVenta: true, nombrePtoVenta: true } },
     },
@@ -315,6 +332,7 @@ export async function listarFinFactCobrosPtoVtaMes(params: {
     ptoVtaId: r.ptoVtaId,
     ptoVenta: r.ptoVta.ptoVenta,
     nombrePtoVenta: r.ptoVta.nombrePtoVenta.toLocaleUpperCase("es-AR"),
+    letra: r.letra.trim().toLocaleUpperCase("es-AR"),
     total: r.montoGravado.toFixed(2),
   }));
 }
