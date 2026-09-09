@@ -40,8 +40,8 @@ export interface ProductoPedidoUrgente {
   /** Misma cantidad que **CANT. A PEDIR** en Pedido Reposición (regla forma/punto/stock/stockeable). */
   cantReposicion: number;
   /**
-   * `true` si hay vínculo a **`prod_precios_tienda`** (catálogo tienda sincronizado con Dux). La tabla
-   * muestra primero **Productos Registrados en Dux** y luego **Productos Sin Registrar en Dux**.
+   * `true` si hay vínculo `prod_precios_provee.cod_tienda` → `prod_tienda`.
+   * La tabla muestra primero **Productos Registrados en Dux** y luego **Sin Registrar**.
    */
   estaVinculadoTienda: boolean;
   /** Mismo vínculo tienda (`cod_tienda`): varios proveedores en una fila; cantidades por `codExt` de cada miembro. */

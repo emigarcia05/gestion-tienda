@@ -24,14 +24,20 @@ import {
   cantidadesUrgenteDesdeProductos,
   limpiarCantidadesUrgenteVisibles,
 } from "@/lib/pedidoUrgenteCantidades";
+import {
+  MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE,
+  MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE,
+} from "@/lib/pedidos";
 
 interface Props {
   filters: React.ReactNode;
   productos: ProductoPedidoUrgente[];
   proveedores: { id: string; nombre: string; prefijo: string }[];
   sucursalValida: "" | "guaymallen" | "maipu";
-  /** True cuando no hay sucursal seleccionada (único filtro obligatorio para listar). */
+  /** True cuando no se puede listar (falta sucursal o el segundo filtro). */
   sinFiltros: boolean;
+  /** Sucursal ya elegida (el segundo filtro puede faltar). */
+  tieneSucursal: boolean;
   pedidoValida: "cualquier" | "urgente" | "reposicion" | "";
   total: number;
   totalPaginas: number;
@@ -43,9 +49,6 @@ interface Props {
   /** Token inicial para auto-refresh si otra sesión modifica Posición IVA. */
   ivaComparacionRevisionToken: string;
 }
-
-const MENSAJE_SIN_FILTROS =
-  "Seleccioná una sucursal para ver los productos.";
 
 const TITULO_PROVEEDOR_PRIORIDAD_COSTO = "Proveedor Con Prioridad Por Costo";
 const TITULO_ALTERNATIVAS_PROVEEDOR =
@@ -61,6 +64,7 @@ export default function PedidoUrgentePageClient({
   proveedores,
   sucursalValida,
   sinFiltros,
+  tieneSucursal,
   pedidoValida,
   total,
   totalPaginas,
@@ -248,7 +252,11 @@ export default function PedidoUrgentePageClient({
           <TablaPedidoUrgente
             productos={productos}
             sinFiltros={sinFiltros}
-            mensajeSinSucursal={MENSAJE_SIN_FILTROS}
+            mensajeSinSucursal={
+              tieneSucursal
+                ? MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE
+                : MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE
+            }
             cantPorId={cantPorId}
             onRowDoubleClick={abrirModalCantidad}
             onRowDeleteClick={borrarCantidad}

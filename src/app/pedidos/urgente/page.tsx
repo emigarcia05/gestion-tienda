@@ -7,6 +7,7 @@ import FiltrosPedidoUrgente from "@/components/pedidos/FiltrosPedidoUrgente";
 import PedidoUrgentePageClient from "@/components/pedidos/PedidoUrgentePageClient";
 import { prisma } from "@/lib/prisma";
 import { getPosicionIvaComparacionRevisionToken } from "@/services/finBalPosicionIvaComparacionRevision.service";
+import { hayFiltroExtraPedidoUrgente } from "@/lib/pedidos";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,13 @@ export default async function PedidoUrgentePage({ searchParams }: Props) {
     ]);
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const tieneSucursalSeleccionada = !!sucursalValida;
+  const puedeListar =
+    tieneSucursalSeleccionada &&
+    hayFiltroExtraPedidoUrgente({
+      proveedor,
+      pedido: pedidoValida,
+      q,
+    });
 
   const filters = (
     <FiltrosPedidoUrgente
@@ -82,7 +90,8 @@ export default async function PedidoUrgentePage({ searchParams }: Props) {
       productos={productos}
       proveedores={proveedores}
       sucursalValida={sucursalValida}
-      sinFiltros={!tieneSucursalSeleccionada}
+      sinFiltros={!puedeListar}
+      tieneSucursal={tieneSucursalSeleccionada}
       pedidoValida={pedidoValida}
       total={total}
       totalPaginas={totalPaginas}

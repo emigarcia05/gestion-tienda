@@ -29,7 +29,11 @@ import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { revalidatePedidosMercaderiaListados } from "@/lib/revalidatePedidosMercaderia";
-import { SUCURSAL_LABEL_PEDIDO, type SucursalPedido } from "@/lib/pedidos";
+import {
+  hayFiltroExtraPedidoUrgente,
+  SUCURSAL_LABEL_PEDIDO,
+  type SucursalPedido,
+} from "@/lib/pedidos";
 import {
   getSobreStockOtraSucursalParaPedidoEnviar,
   type SobreStockReposicionItem,
@@ -116,6 +120,22 @@ export async function getPedidoUrgenteData(params: {
     const proveedores = await getProveedoresParaPedidoUrgente();
 
     if (!tieneSucursal || !sucursalHabilitada) {
+      return {
+        proveedores,
+        productos: [],
+        total: 0,
+        totalPaginas: 0,
+        ivaSaldoAcumuladoComparacion: 0,
+      };
+    }
+
+    if (
+      !hayFiltroExtraPedidoUrgente({
+        proveedor: proveedorValido,
+        pedido,
+        q,
+      })
+    ) {
       return {
         proveedores,
         productos: [],
