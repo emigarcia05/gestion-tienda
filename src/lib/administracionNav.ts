@@ -3,8 +3,8 @@
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
  * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
- * VTAS. & COBROS → Ptos. Vtas / Cobros
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
+ * VTAS. & COBROS → Ptos. Vtas / Cobros
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
  * USUARIOS → pantallas
@@ -350,12 +350,6 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     ],
   },
   {
-    id: "vtas-cobros",
-    label: "VTAS. & COBROS",
-    icon: "circle-dollar",
-    screens: vtasCobrosScreens,
-  },
-  {
     id: "listas-precios",
     label: "LISTA PRECIOS",
     icon: "handshake",
@@ -379,6 +373,12 @@ export const ADM_PILLARS: AdmPillarDef[] = [
         screens: analisisMcScreens,
       },
     ],
+  },
+  {
+    id: "vtas-cobros",
+    label: "VTAS. & COBROS",
+    icon: "circle-dollar",
+    screens: vtasCobrosScreens,
   },
   {
     id: "pedido-a-fabrica",

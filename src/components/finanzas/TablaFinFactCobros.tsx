@@ -23,41 +23,42 @@ function fmtMonto(raw: string): string {
   });
 }
 
+const LETRA_NO_FISCAL = "X";
+
 type FilaPivote = {
   ptoVtaId: string;
   ptoVenta: number;
   nombrePtoVenta: string;
-  porLetra: Record<string, number>;
+  fiscal: number;
+  noFiscal: number;
   total: number;
 };
 
-function agruparPorPtoYLetra(filas: FinFactCobrosPtoVtaFila[]): {
-  letras: string[];
-  grupos: FilaPivote[];
-} {
-  const letrasSet = new Set<string>();
+function agruparPorPtoYFiscal(filas: FinFactCobrosPtoVtaFila[]): FilaPivote[] {
   const porPto = new Map<string, FilaPivote>();
   for (const f of filas) {
     const letra = f.letra.trim().toLocaleUpperCase("es-AR");
-    if (letra) letrasSet.add(letra);
     const monto = Number(f.total) || 0;
     const actual = porPto.get(f.ptoVtaId);
     if (actual) {
-      actual.porLetra[letra] = (actual.porLetra[letra] ?? 0) + monto;
+      if (letra === LETRA_NO_FISCAL) {
+        actual.noFiscal += monto;
+      } else {
+        actual.fiscal += monto;
+      }
       actual.total += monto;
     } else {
       porPto.set(f.ptoVtaId, {
         ptoVtaId: f.ptoVtaId,
         ptoVenta: f.ptoVenta,
         nombrePtoVenta: f.nombrePtoVenta,
-        porLetra: { [letra]: monto },
+        fiscal: letra === LETRA_NO_FISCAL ? 0 : monto,
+        noFiscal: letra === LETRA_NO_FISCAL ? monto : 0,
         total: monto,
       });
     }
   }
-  const letras = [...letrasSet].sort((a, b) => a.localeCompare(b, "es-AR"));
-  const grupos = [...porPto.values()].sort((a, b) => a.ptoVenta - b.ptoVenta);
-  return { letras, grupos };
+  return [...porPto.values()].sort((a, b) => a.ptoVenta - b.ptoVenta);
 }
 
 export default function TablaFinFactCobros({
@@ -65,15 +66,15 @@ export default function TablaFinFactCobros({
 }: {
   filas: FinFactCobrosPtoVtaFila[];
 }) {
-  const { letras, grupos } = agruparPorPtoYLetra(filas);
-  const colSpanVacio = 2 + letras.length;
-  const totPorLetra: Record<string, number> = {};
+  const grupos = agruparPorPtoYFiscal(filas);
+  const colSpanVacio = 4;
+  let totFiscal = 0;
+  let totNoFiscal = 0;
   let totalGral = 0;
   for (const g of grupos) {
+    totFiscal += g.fiscal;
+    totNoFiscal += g.noFiscal;
     totalGral += g.total;
-    for (const letra of letras) {
-      totPorLetra[letra] = (totPorLetra[letra] ?? 0) + (g.porLetra[letra] ?? 0);
-    }
   }
 
   return (
@@ -82,11 +83,8 @@ export default function TablaFinFactCobros({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[36%] text-left">PTO. VTAS.</TableHead>
-            {letras.map((letra) => (
-              <TableHead key={letra} className="text-right">
-                {letra}
-              </TableHead>
-            ))}
+            <TableHead className="text-right">FISCAL</TableHead>
+            <TableHead className="text-right">NO FISCAL</TableHead>
             <TableHead className="w-[16%] text-right">TOTAL</TableHead>
           </TableRow>
         </TableHeader>
@@ -102,16 +100,12 @@ export default function TablaFinFactCobros({
                 <TableCell className="celda-datos text-left">
                   {fmtCelda(`${g.ptoVenta} - ${g.nombrePtoVenta}`)}
                 </TableCell>
-                {letras.map((letra) => (
-                  <TableCell
-                    key={letra}
-                    className="celda-datos text-right tabular-nums"
-                  >
-                    {g.porLetra[letra] != null
-                      ? fmtMonto(g.porLetra[letra].toFixed(2))
-                      : ""}
-                  </TableCell>
-                ))}
+                <TableCell className="celda-datos text-right tabular-nums">
+                  {g.fiscal > 0 ? fmtMonto(g.fiscal.toFixed(2)) : ""}
+                </TableCell>
+                <TableCell className="celda-datos text-right tabular-nums">
+                  {g.noFiscal > 0 ? fmtMonto(g.noFiscal.toFixed(2)) : ""}
+                </TableCell>
                 <TableCell className="celda-datos text-right tabular-nums">
                   {fmtMonto(g.total.toFixed(2))}
                 </TableCell>
@@ -123,14 +117,16 @@ export default function TablaFinFactCobros({
           <TableFooter>
             <TableRow>
               <TableCell className="font-semibold text-left">TOTAL</TableCell>
-              {letras.map((letra) => (
-                <TableCell
-                  key={letra}
-                  className={cn("celda-datos text-right tabular-nums font-semibold")}
-                >
-                  {fmtMonto((totPorLetra[letra] ?? 0).toFixed(2))}
-                </TableCell>
-              ))}
+              <TableCell
+                className={cn("celda-datos text-right tabular-nums font-semibold")}
+              >
+                {fmtMonto(totFiscal.toFixed(2))}
+              </TableCell>
+              <TableCell
+                className={cn("celda-datos text-right tabular-nums font-semibold")}
+              >
+                {fmtMonto(totNoFiscal.toFixed(2))}
+              </TableCell>
               <TableCell
                 className={cn("celda-datos text-right tabular-nums font-semibold")}
               >
