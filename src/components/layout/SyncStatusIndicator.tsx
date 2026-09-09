@@ -58,6 +58,7 @@ export default function SyncStatusIndicator({ rol }: Props) {
       let fallosRed = 0;
       while (continuing) {
         try {
+          const res = await fetch("/api/sync-lista-precios-tienda", { method: "POST" });
           const data = await res.json().catch(() => null);
           if (!res.ok || !data?.ok) {
             if (data?.cancelled) break;
