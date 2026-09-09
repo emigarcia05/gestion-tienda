@@ -319,9 +319,22 @@ async function emitProgress(
   await onProgress(processed, total, phase);
 }
 
+/** `true` solo si DUX informó un total y se persistieron todos (`1980/2156` → false). */
 function catalogoDuxSyncEstaCompleto(processed: number, total: number): boolean {
-  if (total > 0 && processed < total) return false;
-  return true;
+  if (total <= 0) return false;
+  return processed >= total;
+}
+
+/**
+ * Limpieza de catálogo (ausentes, huérfanos, listas, depósitos) y `last_completed_at`
+ * solo con sync **completa y sin errores**. Ej. 1980/2156 → no se borra nada.
+ */
+export function syncDuxPermiteLimpiezaCatalogo(
+  processed: number,
+  total: number,
+  errores: string[]
+): boolean {
+  return catalogoDuxSyncEstaCompleto(processed, total) && errores.length === 0;
 }
 
 function delayMs(ms: number): Promise<void> {
@@ -409,12 +422,14 @@ async function finalizeSyncWorker(
   });
   await emitProgress(onProgress, worker.processed, worker.total, "guardando");
 
+  const permiteLimpieza = syncDuxPermiteLimpiezaCatalogo(
+    worker.processed,
+    worker.total,
+    errores
+  );
+
   let eliminados = 0;
-  if (
-    worker.startedAt &&
-    worker.processed > 0 &&
-    catalogoDuxSyncEstaCompleto(worker.processed, worker.total)
-  ) {
+  if (permiteLimpieza && worker.startedAt && worker.processed > 0) {
     try {
       eliminados = await eliminarProdTiendaAusentesEnSyncDux(worker.startedAt);
       if (eliminados > 0) {
@@ -427,24 +442,30 @@ async function finalizeSyncWorker(
       errores.push(`Limpieza cod_tienda ausentes: ${msg}`);
       console.error("Error en limpieza de cod_tienda ausentes:", msg);
     }
+  } else if (!permiteLimpieza) {
+    console.warn(
+      `[sync-dux] sync incompleta o con errores (${worker.processed}/${worker.total}); no se borra catálogo ni huérfanos.`
+    );
   }
 
-  try {
-    const huerfanos = await limpiarHuerfanosProdTienda({ execute: true });
-    const totalHuerfanos = huerfanos.reduce((s, r) => s + r.aplicados, 0);
-    if (totalHuerfanos > 0) {
-      console.log(
-        `Limpieza huérfanos prod_tienda: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
-      );
+  if (permiteLimpieza) {
+    try {
+      const huerfanos = await limpiarHuerfanosProdTienda({ execute: true });
+      const totalHuerfanos = huerfanos.reduce((s, r) => s + r.aplicados, 0);
+      if (totalHuerfanos > 0) {
+        console.log(
+          `Limpieza huérfanos prod_tienda: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
+        );
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errores.push(`Limpieza huérfanos prod_tienda: ${msg}`);
+      console.error("Error en limpieza huérfanos prod_tienda:", msg);
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    errores.push(`Limpieza huérfanos prod_tienda: ${msg}`);
-    console.error("Error en limpieza huérfanos prod_tienda:", msg);
   }
 
   const listasVistas = worker.meta.listasVistas;
-  if (listasVistas.length > 0) {
+  if (permiteLimpieza && listasVistas.length > 0) {
     try {
       await prisma.prodTiendaPrecio.deleteMany({
         where: { idLista: { notIn: listasVistas } },
@@ -460,7 +481,7 @@ async function finalizeSyncWorker(
   }
 
   const depositosVistos = worker.meta.depositosVistos;
-  if (depositosVistos.length > 0) {
+  if (permiteLimpieza && depositosVistos.length > 0) {
     try {
       await prisma.globalDeposito.updateMany({
         where: { idDeposito: { notIn: depositosVistos } },
@@ -515,8 +536,13 @@ export async function syncListaPrecioTiendaRunStep(
   }
 
   if (worker.apiFetchComplete) {
-    const result = await finalizeSyncWorker(worker, errores, onProgress);
-    return { ...result, done: true, continuing: false };
+    if (!catalogoDuxSyncEstaCompleto(worker.processed, worker.total)) {
+      await saveSyncDuxWorkerStateInDb({ apiFetchComplete: false });
+      worker = await getSyncDuxWorkerStateFromDb();
+    } else if (errores.length === 0) {
+      const result = await finalizeSyncWorker(worker, errores, onProgress);
+      return { ...result, done: true, continuing: false };
+    }
   }
 
   let totalApi = worker.total;
@@ -624,7 +650,7 @@ export async function syncListaPrecioTiendaRunStep(
     if (worker.processed === 0 && worker.total > 0) {
       throw new Error("La consulta DUX terminó pero no se guardó ningún producto.");
     }
-    if (Date.now() < deadline) {
+    if (Date.now() < deadline && errores.length === 0) {
       const result = await finalizeSyncWorker(worker, errores, onProgress);
       return { ...result, done: true, continuing: false };
     }

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { syncListaPrecioTiendaRunStep } from "@/services/syncListaPrecioTienda.service";
+import {
+  syncListaPrecioTiendaRunStep,
+  syncDuxPermiteLimpiezaCatalogo,
+  SyncListaPrecioTiendaCancelledError,
+} from "@/services/syncListaPrecioTienda.service";
 import { guardTiendaListaPreciosSincronizar } from "@/lib/apiRouteAuth";
 import {
   clearListaPrecioTiendaSyncRunningStateInDb,
@@ -10,7 +14,6 @@ import {
   setSyncDuxSuccessInDb,
   startSyncDuxInDb,
 } from "@/lib/syncDuxStatusDb";
-import { SyncListaPrecioTiendaCancelledError } from "@/services/syncListaPrecioTienda.service";
 
 /** Sync DUX puede demorar varios minutos (rate limit + persistencia por chunks). */
 export const maxDuration = 300;
@@ -41,7 +44,25 @@ async function ejecutarPasoSyncListaPrecioTienda() {
     });
 
     if (result.done) {
-      if (result.totalApi > 0 && result.totalProcesados < result.totalApi) {
+      if (
+        !syncDuxPermiteLimpiezaCatalogo(
+          result.totalProcesados,
+          result.totalApi,
+          result.errores
+        )
+      ) {
+        if (result.errores.length > 0) {
+          await setSyncDuxErrorInDb(result.errores.join(" | "));
+          return NextResponse.json(
+            {
+              ok: false,
+              error: result.errores.join(" | "),
+              processed: result.totalProcesados,
+              total: result.totalApi,
+            },
+            { status: 500 }
+          );
+        }
         return NextResponse.json({
           ok: true,
           continuing: true,
