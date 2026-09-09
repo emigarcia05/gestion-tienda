@@ -17,6 +17,7 @@ export type RemitoVentaDux = {
   anulado: boolean;
   estadoFacturacion: string;
   nroFacturaString: string;
+  nrosFacturaVinculados: string[];
   totalFacturaAsociada: unknown;
 };
 
@@ -34,17 +35,15 @@ function isRecord(val: unknown): val is Record<string, unknown> {
   return val !== null && typeof val === "object";
 }
 
-function nroFacturaAsociadaDesdeRaw(raw: Record<string, unknown>): string {
-  const directo = String(raw.nro_factura_string ?? "").trim();
-  if (directo) return directo;
-  const vinculados = raw.comprobantes_vinculados;
-  if (!Array.isArray(vinculados)) return "";
-  for (const item of vinculados) {
+function nrosFacturaVinculados(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
     if (!isRecord(item)) continue;
     const nro = String(item.nro_factura ?? "").trim();
-    if (nro) return nro;
+    if (nro) out.push(nro);
   }
-  return "";
+  return out;
 }
 
 export function mapRemitoVentaDux(raw: unknown): RemitoVentaDux | null {
@@ -59,7 +58,8 @@ export function mapRemitoVentaDux(raw: unknown): RemitoVentaDux | null {
     fecha: String(raw.fecha ?? "").trim(),
     anulado: raw.anulado === true,
     estadoFacturacion: String(raw.estado_facturacion ?? "").trim(),
-    nroFacturaString: nroFacturaAsociadaDesdeRaw(raw),
+    nroFacturaString: String(raw.nro_factura_string ?? "").trim(),
+    nrosFacturaVinculados: nrosFacturaVinculados(raw.comprobantes_vinculados),
     totalFacturaAsociada: raw.total_factura_asociada,
   };
 }

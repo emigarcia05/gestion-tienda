@@ -600,7 +600,7 @@ model FinFactCobrosPtoVtaMes {
   /** Mes calendario 1–12. */
   mes          Int
   anio         Int      @map("anio")
-  /** Suma de `total_factura_asociada` de remitos con factura asociada A o C. */
+  /** Suma de `total_factura_asociada` de remitos con factura asociada A o C (no anulados). */
   montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
