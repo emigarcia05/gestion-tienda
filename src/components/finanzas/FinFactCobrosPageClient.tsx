@@ -124,7 +124,7 @@ export default function FinFactCobrosPageClient({
     <div className="area-page-shell bg-gris">
       <ClassicFilteredTableLayout
         title="VTAS. & COBROS"
-        subtitle="Ptos. Vtas"
+        subtitle="Ptos. Vtas."
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>

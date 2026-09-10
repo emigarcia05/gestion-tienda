@@ -133,6 +133,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/finanzas/analisis-mc/costos-financieros",
+        destination: "/vtas-cobros/cx-fin-cobros",
+        permanent: true,
+      },
+      {
         source: "/proveedores/lista-precios/reglas-descuentos",
         destination: R.analisisPrecios.listaProveedores.reglasDescuentos,
         permanent: true,

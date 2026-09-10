@@ -17,6 +17,7 @@ export type FinAnaCosFinaItem = {
   impCheque: boolean;
   terminalId: string;
   terminalNombre: string;
+  terminalIdDux: string | null;
   terminalOrden: number;
   pagoId: string;
   pagoNombre: string;
@@ -39,7 +40,7 @@ function mapRow(row: {
   diasAcreditacion: number | null;
   arancel: Prisma.Decimal;
   costoFinanciero: Prisma.Decimal;
-  terminal: { nombre: string; orden: number };
+  terminal: { nombre: string; idDux: string | null; orden: number };
   pago: { nombre: string; orden: number };
 }): FinAnaCosFinaItem {
   return {
@@ -48,6 +49,7 @@ function mapRow(row: {
     impCheque: row.impCheque,
     terminalId: row.terminalId,
     terminalNombre: row.terminal.nombre.toUpperCase(),
+    terminalIdDux: row.terminal.idDux,
     terminalOrden: row.terminal.orden,
     pagoId: row.pagoId,
     pagoNombre: row.pago.nombre.toUpperCase(),
@@ -106,7 +108,7 @@ export async function listarFinAnaCosFina(): Promise<FinAnaCosFinaItem[]> {
   await ensureFinAnaCosFinaSeed();
   const rows = await prisma.finAnaCosFina.findMany({
     include: {
-      terminal: { select: { nombre: true, orden: true } },
+      terminal: { select: { nombre: true, idDux: true, orden: true } },
       pago: { select: { nombre: true, orden: true } },
     },
   });
@@ -139,7 +141,7 @@ export async function actualizarFinAnaCosFina(
     where: { id },
     data,
     include: {
-      terminal: { select: { nombre: true, orden: true } },
+      terminal: { select: { nombre: true, idDux: true, orden: true } },
       pago: { select: { nombre: true, orden: true } },
     },
   });

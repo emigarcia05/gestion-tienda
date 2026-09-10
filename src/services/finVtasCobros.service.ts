@@ -28,7 +28,8 @@ export type SyncCobrosDuxStepResult = {
 export type FinVtasCobroFila = {
   id: string;
   idCobro: string;
-  idSucursal: number;
+  idSucursal: string;
+  nombreSucursal: string;
   fecha: string;
   descripcion: string;
   monto: string;
@@ -95,13 +96,18 @@ async function ventanaConsultaCobros(): Promise<{ fechaDesde: string; fechaHasta
   return { fechaDesde, fechaHasta };
 }
 
-function filasDesdeCobros(cobros: CobroDux[]): Prisma.FinVtasCobroCreateManyInput[] {
+function filasDesdeCobros(
+  cobros: CobroDux[],
+  idDuxPermitidos: Set<string>
+): Prisma.FinVtasCobroCreateManyInput[] {
   const filas: Prisma.FinVtasCobroCreateManyInput[] = [];
   for (const cobro of cobros) {
+    const idSucursal = String(cobro.idSucursal);
+    if (!idDuxPermitidos.has(idSucursal)) continue;
     cobro.cobranza.forEach((linea, idx) => {
       filas.push({
         idCobro: cobro.idCobro,
-        idSucursal: cobro.idSucursal,
+        idSucursal,
         fecha: fechaPrismaDateOnlyFromIsoYmd(cobro.fecha),
         descripcion: linea.descripcion.slice(0, 500),
         monto: new Prisma.Decimal(linea.monto.toFixed(2)),
@@ -116,8 +122,11 @@ function filasDesdeCobros(cobros: CobroDux[]): Prisma.FinVtasCobroCreateManyInpu
   return filas;
 }
 
-async function persistirPagina(cobros: CobroDux[]): Promise<number> {
-  const filas = filasDesdeCobros(cobros);
+async function persistirPagina(
+  cobros: CobroDux[],
+  idDuxPermitidos: Set<string>
+): Promise<number> {
+  const filas = filasDesdeCobros(cobros, idDuxPermitidos);
   if (filas.length === 0) return 0;
   const result = await prisma.finVtasCobro.createMany({
     data: filas,
@@ -182,7 +191,10 @@ export async function syncCobrosDuxRunStep(): Promise<ServiceResult<SyncCobrosDu
       limit: DUX_COBROS_API_PAGE_LIMIT,
     });
 
-    meta.inserted += await persistirPagina(page.cobros);
+    meta.inserted += await persistirPagina(
+      page.cobros,
+      new Set(meta.sucursales.map((n) => String(n)))
+    );
 
     if (page.hayMas) {
       meta.offset += DUX_COBROS_API_PAGE_LIMIT;
@@ -253,12 +265,14 @@ export async function listarFinVtasCobros(params: {
         idPlanTarjeta: true,
         idTerminal: true,
         tipoValor: true,
+        sucursal: { select: { nombre: true } },
       },
     });
     return rows.map((r) => ({
       id: r.id,
       idCobro: r.idCobro.toString(),
       idSucursal: r.idSucursal,
+      nombreSucursal: r.sucursal.nombre.toLocaleUpperCase("es-AR"),
       fecha: isoYmdFromPrismaDateOnly(r.fecha),
       descripcion: r.descripcion,
       monto: r.monto.toFixed(2),

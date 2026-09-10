@@ -4,7 +4,7 @@
  *
  * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
- * VTAS. & COBROS → Ptos. Vtas / Cobros
+ * VTAS. & COBROS → Ptos. Vtas. / Cobros / Cx. Fin. Cobros
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
  * USUARIOS → pantallas
@@ -22,7 +22,11 @@ import {
 } from "@/lib/pedidoAFabricaRoutes";
 import { PERMISOS } from "@/lib/permisos";
 import { USUARIOS_PATH } from "@/lib/usuarios";
-import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
+import {
+  VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH,
+  VTAS_COBROS_LEGACY_FACT_COBROS_PATH,
+  VTAS_COBROS_ROUTES,
+} from "@/lib/vtasCobrosRoutes";
 
 export type AdmPillarId =
   | "finanzas"
@@ -196,7 +200,7 @@ const operacionesGroups: AdmGroupDef[] = [
 const vtasCobrosScreens: AdmScreenDef[] = [
   {
     id: "ptos-venta",
-    label: "Ptos. Vtas",
+    label: "Ptos. Vtas.",
     href: VTAS_COBROS_ROUTES.ptosVenta,
     icon: "store",
     permiso: PERMISOS.finanzas.acceso,
@@ -206,6 +210,13 @@ const vtasCobrosScreens: AdmScreenDef[] = [
     label: "Cobros",
     href: VTAS_COBROS_ROUTES.cobros,
     icon: "wallet",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cx-fin-cobros",
+    label: "Cx. Fin. Cobros",
+    href: VTAS_COBROS_ROUTES.cxFinCobros,
+    icon: "circle-dollar",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -264,13 +275,6 @@ const analisisMcScreens: AdmScreenDef[] = [
     label: "Margen Contribución",
     href: "/finanzas/analisis-mc/margen-contribucion",
     icon: "pie-chart",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "costos-financieros",
-    label: "Cx. Financieros",
-    href: "/finanzas/analisis-mc/costos-financieros",
-    icon: "circle-dollar",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -424,6 +428,22 @@ function pathnameMatchesScreen(pathname: string, href: string): boolean {
       pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
     );
   }
+  if (href === VTAS_COBROS_ROUTES.ptosVenta) {
+    return (
+      pathname === VTAS_COBROS_ROUTES.ptosVenta ||
+      pathname.startsWith(`${VTAS_COBROS_ROUTES.ptosVenta}/`) ||
+      pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
+      pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`)
+    );
+  }
+  if (href === VTAS_COBROS_ROUTES.cxFinCobros) {
+    return (
+      pathname === VTAS_COBROS_ROUTES.cxFinCobros ||
+      pathname.startsWith(`${VTAS_COBROS_ROUTES.cxFinCobros}/`) ||
+      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
+      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
+    );
+  }
   if (pathname === href) return true;
   return pathname.startsWith(`${href}/`);
 }
@@ -461,6 +481,12 @@ export function isAdmGroupActive(pathname: string, group: AdmGroupDef): boolean 
 export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boolean {
   if (pillar.id === "listas-precios") {
     if (isAnalisisPreciosPathname(pathname)) return true;
+    if (
+      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
+      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
+    ) {
+      return false;
+    }
     if (pathname.startsWith("/finanzas/analisis-mc")) return true;
     return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
   }
@@ -490,11 +516,21 @@ export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boole
   if (pillar.id === "vtas-cobros") {
     return (
       pathname === VTAS_COBROS_ROUTES.hub ||
-      pathname.startsWith(`${VTAS_COBROS_ROUTES.hub}/`)
+      pathname.startsWith(`${VTAS_COBROS_ROUTES.hub}/`) ||
+      pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
+      pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`) ||
+      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
+      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
     );
   }
-  // FINANZAS: /finanzas/* excepto analisis-mc (LISTA PRECIOS) y usuarios (USUARIOS)
+  // FINANZAS: /finanzas/* excepto analisis-mc (LISTA PRECIOS), usuarios y aliases de VTAS. & COBROS
   if (pathname.startsWith("/finanzas/analisis-mc")) return false;
+  if (
+    pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
+    pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`)
+  ) {
+    return false;
+  }
   if (pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`)) {
     return false;
   }

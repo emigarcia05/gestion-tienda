@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 
-export default function VtasCobrosPtosVentaError({
+export default function VtasCobrosCxFinCobrosError({
   error,
   reset,
 }: {
@@ -15,7 +15,7 @@ export default function VtasCobrosPtosVentaError({
   const router = useRouter();
 
   useEffect(() => {
-    const tag = "[vtas-cobros][ptos-venta][error-boundary]";
+    const tag = "[vtas-cobros][cx-fin-cobros][error-boundary]";
     if (process.env.NODE_ENV === "production") {
       console.error(tag, "digest:", error.digest);
     } else {
@@ -27,7 +27,7 @@ export default function VtasCobrosPtosVentaError({
     <div className="area-page-shell flex items-center justify-center p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold text-foreground">
-          No Se Pudo Cargar Ptos. Vtas.
+          No Se Pudo Cargar Cx. Fin. Cobros
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Ocurrió un error inesperado al renderizar la página. Reintentá la operación.
@@ -44,7 +44,7 @@ export default function VtasCobrosPtosVentaError({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push(VTAS_COBROS_ROUTES.ptosVenta)}
+            onClick={() => router.push(VTAS_COBROS_ROUTES.cxFinCobros)}
           >
             Recargar Módulo
           </Button>

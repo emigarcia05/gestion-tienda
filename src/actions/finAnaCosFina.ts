@@ -34,12 +34,17 @@ import {
   listarFinAnaCosFinaPagos,
   reordenarFinAnaCosFinaPagos,
 } from "@/services/finAnaCosFinaPago.service";
+import {
+  VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH,
+  VTAS_COBROS_ROUTES,
+} from "@/lib/vtasCobrosRoutes";
 
-const RUTA_COSTOS_FINANCIEROS = "/finanzas/analisis-mc/costos-financieros";
+const RUTA_COSTOS_FINANCIEROS = VTAS_COBROS_ROUTES.cxFinCobros;
 const RUTA_MARGEN_CONTRIBUCION = "/finanzas/analisis-mc/margen-contribucion";
 
 function revalidateRutasAnalisisMc(): void {
   revalidatePath(RUTA_COSTOS_FINANCIEROS);
+  revalidatePath(VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH);
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);
 }
 

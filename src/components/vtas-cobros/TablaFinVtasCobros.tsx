@@ -34,7 +34,7 @@ export default function TablaFinVtasCobros({
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[10%] text-left">FECHA</TableHead>
             <TableHead className="w-[12%] text-left">ID COBRO</TableHead>
-            <TableHead className="w-[8%] text-right">ID SUC.</TableHead>
+            <TableHead className="w-[18%] text-left">SUC.</TableHead>
             <TableHead className="w-[12%] text-left">TIPO VALOR</TableHead>
             <TableHead className="text-left">DESCRIPCION</TableHead>
             <TableHead className="w-[12%] text-right">MONTO</TableHead>
@@ -58,8 +58,8 @@ export default function TablaFinVtasCobros({
                 <TableCell className="celda-datos text-left tabular-nums">
                   {fmtCelda(f.idCobro)}
                 </TableCell>
-                <TableCell className="celda-datos text-right tabular-nums">
-                  {fmtCelda(f.idSucursal)}
+                <TableCell className="celda-datos text-left">
+                  {fmtCelda(`${f.idSucursal} - ${f.nombreSucursal}`)}
                 </TableCell>
                 <TableCell className="celda-datos text-left">
                   {fmtCelda(f.tipoValor)}

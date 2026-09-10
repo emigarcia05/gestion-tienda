@@ -26,6 +26,7 @@ import {
 } from "@/lib/porcentajeCentMask";
 import { cn } from "@/lib/utils";
 import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
+import { fmtCelda } from "@/lib/format";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
 
 export type FinAnaCosFinaFila = FinAnaCosFinaItem;
@@ -284,6 +285,7 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
             <TableRow>
               <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>HABILITADO</TableHead>
               <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>TERMINAL</TableHead>
+              <TableHead className={cn("w-[8%]", TH_COLUMNA_CLASS)}>ID DUX</TableHead>
               <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>PAGO</TableHead>
               <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>
                 DÍAS
@@ -326,6 +328,9 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                 </TableCell>
                 <TableCell className="celda-datos text-center text-xs font-medium">
                   {fila.terminalNombre}
+                </TableCell>
+                <TableCell className="celda-datos text-center text-xs tabular-nums">
+                  {fmtCelda(fila.terminalIdDux)}
                 </TableCell>
                 <TableCell className="celda-datos text-center text-xs">
                   {fila.pagoNombre}

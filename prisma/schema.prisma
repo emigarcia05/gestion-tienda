@@ -276,7 +276,8 @@ model Sucursal {
    * y de `genera_balance`. Default `false` (opt-in); se gestiona por seed / UPDATE en DB.
    */
   generaEst      Boolean  @default(false) @map("genera_est")
-  idDux          String?  @map("id_dux")
+  /** ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo). */
+  idDux          String?  @unique(map: "global_sucursales_id_dux_key") @map("id_dux")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -291,6 +292,7 @@ model Sucursal {
   stockTrasnDepositosOrigen  StockTrasnDeposito[] @relation("StockTrasnDepositoOrigen")
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
+  finVtasCobros              FinVtasCobro[]
 
   @@map("global_sucursales")
 }
@@ -620,11 +622,13 @@ model FinFactCobrosPtoVtaMes {
  * Una fila por ítem de `cobranza` de GET `/v2/cobros`.
  * Unique `(id_cobro, linea)`: al reconsultar el último día se omiten repetidos.
  * `fecha` habilita la ventana incremental (última fecha persistida → hoy AR).
+ * `id_sucursal` = `global_sucursales.id_dux` (Restrict).
  */
 model FinVtasCobro {
   id            String   @id @default(cuid())
   idCobro       BigInt   @map("id_cobro")
-  idSucursal    Int      @map("id_sucursal")
+  /** `global_sucursales.id_dux` (ID sucursal DUX). */
+  idSucursal    String   @map("id_sucursal")
   fecha         DateTime @map("fecha") @db.Date
   descripcion   String   @default("") @db.VarChar(500)
   monto         Decimal  @db.Decimal(14, 2)
@@ -636,6 +640,8 @@ model FinVtasCobro {
   linea         Int      @default(0)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sucursal Sucursal @relation(fields: [idSucursal], references: [idDux], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([idCobro, linea], map: "fin_vtas_cobros_ux")
   @@index([fecha], map: "fin_vtas_cobros_fecha_idx")
@@ -1232,6 +1238,8 @@ model ProdPedUltComp {
 model FinAnaCosFinaTerminal {
   id        String   @id @default(cuid())
   nombre    String   @unique
+  /** ID de terminal en DUX (`id_terminal` de GET `/v2/cobros`). Null = aún no asociado. */
+  idDux     String?  @unique(map: "fin_ana_cos_fina_terminales_id_dux_key") @map("id_dux")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

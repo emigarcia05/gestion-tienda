@@ -13,16 +13,34 @@ import type {
 
 type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
-function mapTerminal(row: { id: string; nombre: string; orden: number }): FinAnaCosFinaTerminalItem {
+const TERMINAL_SELECT = { id: true, nombre: true, idDux: true, orden: true } as const;
+
+function mapTerminal(row: {
+  id: string;
+  nombre: string;
+  idDux: string | null;
+  orden: number;
+}): FinAnaCosFinaTerminalItem {
   return {
     id: row.id,
     nombre: row.nombre.toUpperCase(),
+    idDux: row.idDux,
     orden: row.orden,
   };
 }
 
 function normalizarNombreTerminal(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
+
+function p2002TargetIncludes(error: unknown, field: string): boolean {
+  if (!error || typeof error !== "object" || !("meta" in error)) return false;
+  const meta = (error as { meta?: { target?: unknown } }).meta;
+  const target = meta?.target;
+  if (Array.isArray(target)) {
+    return target.some((t) => typeof t === "string" && t === field);
+  }
+  return typeof target === "string" && target.includes(field);
 }
 
 function mapDbError(error: unknown, fallback: string): string {
@@ -33,7 +51,12 @@ function mapDbError(error: unknown, fallback: string): string {
     typeof (error as { code?: unknown }).code === "string"
   ) {
     const code = (error as { code: string }).code;
-    if (code === "P2002") return "Ya existe una terminal con ese nombre.";
+    if (code === "P2002") {
+      if (p2002TargetIncludes(error, "id_dux")) {
+        return "Ya existe una terminal con ese ID DUX.";
+      }
+      return "Ya existe una terminal con ese nombre.";
+    }
     if (code === "P2025") return "Terminal no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -42,7 +65,7 @@ function mapDbError(error: unknown, fallback: string): string {
 export async function listarFinAnaCosFinaTerminales(): Promise<FinAnaCosFinaTerminalItem[]> {
   const rows = await prisma.finAnaCosFinaTerminal.findMany({
     orderBy: [{ orden: "asc" }, { nombre: "asc" }],
-    select: { id: true, nombre: true, orden: true },
+    select: TERMINAL_SELECT,
   });
   return rows.map(mapTerminal);
 }
@@ -78,8 +101,8 @@ export async function crearFinAnaCosFinaTerminal(
 
     const terminal = await prisma.$transaction(async (tx) => {
       const created = await tx.finAnaCosFinaTerminal.create({
-        data: { nombre, orden },
-        select: { id: true, nombre: true, orden: true },
+        data: { nombre, orden, idDux: input.idDux },
+        select: TERMINAL_SELECT,
       });
 
       await ensureFinAnaCosFinaPagosSeed();
@@ -120,8 +143,8 @@ export async function editarFinAnaCosFinaTerminal(
   try {
     const updated = await prisma.finAnaCosFinaTerminal.update({
       where: { id: input.id },
-      data: { nombre },
-      select: { id: true, nombre: true, orden: true },
+      data: { nombre, idDux: input.idDux },
+      select: TERMINAL_SELECT,
     });
     return { success: true, data: mapTerminal(updated) };
   } catch (error: unknown) {

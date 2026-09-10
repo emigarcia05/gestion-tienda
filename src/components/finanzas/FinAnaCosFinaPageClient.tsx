@@ -91,8 +91,8 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Finanzas"
-        subtitle="Costos Financieros"
+        title="VTAS. & COBROS"
+        subtitle="Cx. Fin. Cobros"
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button

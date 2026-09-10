@@ -2,5 +2,7 @@
 export interface FinAnaCosFinaTerminalItem {
   id: string;
   nombre: string;
+  /** `id_terminal` DUX; null si aún no está asociado. */
+  idDux: string | null;
   orden: number;
 }

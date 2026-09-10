@@ -43,8 +43,10 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
 }: Props) {
   const [items, setItems] = useState<FinAnaCosFinaTerminalItem[]>(terminalesIniciales);
   const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoIdDux, setNuevoIdDux] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [editDraftIdDux, setEditDraftIdDux] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaTerminalItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -64,8 +66,10 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
     setItems(terminalesIniciales);
     void cargar();
     setNuevoNombre("");
+    setNuevoIdDux("");
     setEditingId(null);
     setEditDraft("");
+    setEditDraftIdDux("");
     setBorrarTarget(null);
   }, [open, cargar, terminalesIniciales]);
 
@@ -73,13 +77,17 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
     if (!esEditor || !nuevoNombre.trim() || pending) return;
     setPending(true);
     try {
-      const res = await crearFinAnaCosFinaTerminalAction({ nombre: nuevoNombre });
+      const res = await crearFinAnaCosFinaTerminalAction({
+        nombre: nuevoNombre,
+        idDux: nuevoIdDux,
+      });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo crear la terminal.");
         return;
       }
       toast.success("Terminal creada.");
       setNuevoNombre("");
+      setNuevoIdDux("");
       await cargar();
       onCatalogoChanged?.();
     } finally {
@@ -91,7 +99,11 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
     if (!esEditor || !editingId || !editDraft.trim() || pending) return;
     setPending(true);
     try {
-      const res = await editarFinAnaCosFinaTerminalAction({ id: editingId, nombre: editDraft });
+      const res = await editarFinAnaCosFinaTerminalAction({
+        id: editingId,
+        nombre: editDraft,
+        idDux: editDraftIdDux,
+      });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo guardar.");
         return;
@@ -99,6 +111,7 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
       toast.success("Terminal actualizada.");
       setEditingId(null);
       setEditDraft("");
+      setEditDraftIdDux("");
       await cargar();
       onCatalogoChanged?.();
     } finally {
@@ -157,6 +170,21 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
                       }
                     }}
                   />
+                  <Input
+                    value={nuevoIdDux}
+                    onChange={(e) => setNuevoIdDux(e.target.value)}
+                    placeholder="ID DUX"
+                    inputMode="numeric"
+                    disabled={pending}
+                    className="w-32 shrink-0"
+                    aria-label="ID DUX"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleCrear();
+                      }
+                    }}
+                  />
                   <Button
                     type="button"
                     disabled={pending || !nuevoNombre.trim()}
@@ -185,6 +213,16 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
                           onChange={(ev) => setEditDraft(ev.target.value)}
                           className="h-8 flex-1 text-xs"
                           disabled={pending}
+                          aria-label={`Nombre ${terminal.nombre}`}
+                        />
+                        <Input
+                          value={editDraftIdDux}
+                          onChange={(ev) => setEditDraftIdDux(ev.target.value)}
+                          className="h-8 w-28 shrink-0 text-xs tabular-nums"
+                          placeholder="ID DUX"
+                          inputMode="numeric"
+                          disabled={pending}
+                          aria-label={`ID DUX ${terminal.nombre}`}
                         />
                         <Button
                           type="button"
@@ -204,6 +242,7 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
                           onClick={() => {
                             setEditingId(null);
                             setEditDraft("");
+                            setEditDraftIdDux("");
                           }}
                         >
                           Cancelar
@@ -212,6 +251,9 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
                     ) : (
                       <>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{terminal.nombre}</span>
+                        <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                          {terminal.idDux ?? ""}
+                        </span>
                         {esEditor ? (
                           <div className="flex shrink-0 items-center gap-1.5">
                             <Button
@@ -224,6 +266,7 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
                               onClick={() => {
                                 setEditingId(terminal.id);
                                 setEditDraft(terminal.nombre);
+                                setEditDraftIdDux(terminal.idDux ?? "");
                               }}
                             >
                               <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
