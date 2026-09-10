@@ -51,6 +51,8 @@ type CatalogoPtoSync = {
   sucursalesDux: Set<number>;
 };
 
+type FinFactCobroItemInsert = Prisma.FinFactCobroItemCreateManyInput;
+
 async function cargarCatalogoPtoVtasSync(): Promise<
   ServiceResult<{
     porNro: Map<number, CatalogoPtoSync>;
@@ -110,7 +112,8 @@ function aplicarRemitoAlAcumulado(
     totalFacturaAsociada: unknown;
   },
   catalogo: Map<number, CatalogoPtoSync>,
-  idSucursalDux: number
+  idSucursalDux: number,
+  itemsSink: FinFactCobroItemInsert[]
 ): void {
   if (meta.idsVistos.includes(remito.idRemitoVenta)) return;
   meta.idsVistos.push(remito.idRemitoVenta);
@@ -144,11 +147,27 @@ function aplicarRemitoAlAcumulado(
     nrosFacturaVinculados: remito.nrosFacturaVinculados,
   });
   if (letra == null) return;
+  const fechaYmd = remito.fecha.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaYmd)) return;
 
   const delta = new Prisma.Decimal(monto.toFixed(4));
   const clave = claveAcumuladoFactCobros(pto.id, letra);
   const actual = new Prisma.Decimal(meta.acumulado[clave] ?? "0");
   meta.acumulado[clave] = actual.plus(delta).toFixed(4);
+
+  itemsSink.push({
+    ptoVtaId: pto.id,
+    idSucursalDux,
+    idRemitoVenta: remito.idRemitoVenta,
+    mes: meta.mes,
+    anio: meta.anio,
+    fechaYmd,
+    letra,
+    estadoFacturacion: estado || "FACTURADO",
+    nroFacturaString: remito.nroFacturaString.trim(),
+    montoGravado: delta,
+    anulado: remito.anulado,
+  });
 }
 
 async function persistirAcumulado(meta: SyncFacturasVentasDuxMeta): Promise<void> {
@@ -211,6 +230,9 @@ export async function syncFacturasVentasDuxRunStep(params: {
       const catalogoInicio = await cargarCatalogoPtoVtasSync();
       if (!catalogoInicio.success) return catalogoInicio;
       const sucursales = catalogoInicio.data.idDuxSucursales;
+      await prisma.finFactCobroItem.deleteMany({
+        where: { mes, anio },
+      });
       meta = {
         mes,
         anio,
@@ -255,8 +277,20 @@ export async function syncFacturasVentasDuxRunStep(params: {
       limit: DUX_REMITOS_VENTA_API_PAGE_LIMIT,
     });
 
+    const itemsPage: FinFactCobroItemInsert[] = [];
     for (const remito of page.remitos) {
-      aplicarRemitoAlAcumulado(meta, remito, catalogo.data.porNro, idSucursal);
+      aplicarRemitoAlAcumulado(
+        meta,
+        remito,
+        catalogo.data.porNro,
+        idSucursal,
+        itemsPage
+      );
+    }
+    if (itemsPage.length > 0) {
+      await prisma.finFactCobroItem.createMany({
+        data: itemsPage,
+      });
     }
 
     if (page.hayMas) {
