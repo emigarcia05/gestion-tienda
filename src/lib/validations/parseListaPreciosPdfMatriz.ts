@@ -23,17 +23,4 @@ export const filaPdfMatrizNormalizadaSchema = z.object({
   precio: z.number().positive().max(999_999_999),
 });
 
-export const parseListaPreciosPdfMatrizResponseSchema = z.object({
-  ok: z.literal(true),
-  filas: z.array(filaPdfMatrizNormalizadaSchema),
-  meta: z.object({
-    paginaInicioUsada: z.number().int().min(1),
-    filasIgnoradasUsadas: z.number().int().min(0),
-    paginasProcesadas: z.number().int().min(0),
-    filasOmitidasVacias: z.number().int().min(0),
-    advertencias: z.array(z.string()),
-  }),
-});
-
 export type FilaPdfMatrizNormalizadaDto = z.infer<typeof filaPdfMatrizNormalizadaSchema>;
-export type ParseListaPreciosPdfMatrizResponse = z.infer<typeof parseListaPreciosPdfMatrizResponseSchema>;

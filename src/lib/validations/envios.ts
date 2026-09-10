@@ -264,10 +264,6 @@ export const eliminarEnviosFinalSchema = z.object({
   id: prismaCuidSchema,
 });
 
-export const enviosFinalIdSchema = z.object({
-  id: prismaCuidSchema,
-});
-
 export const enviosFinalEntregadoSchema = z.object({
   id: prismaCuidSchema,
   entregado: z.boolean(),

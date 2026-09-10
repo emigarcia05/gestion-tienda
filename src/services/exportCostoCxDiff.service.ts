@@ -108,18 +108,6 @@ export async function listarItemsCostoCxDiff(): Promise<ItemCostoCxDiff[]> {
   return items;
 }
 
-/** Un ítem Act. Cx. por `cod_tienda`, o null si ya no hay diff válido. */
-export async function obtenerItemCostoCxDiff(
-  codTienda: string
-): Promise<ItemCostoCxDiff | null> {
-  const row = await prisma.prodTienda.findUnique({
-    where: { codTienda },
-    select: selectItemCostoCxDiff,
-  });
-  if (!row) return null;
-  return itemCostoCxDiffDesdeRow(row);
-}
-
 /**
  * Ítems a exportar en Excel: CODIGO = `cod_tienda`, COSTO = `px_compra_final_sin_iva` (2 dec.).
  */

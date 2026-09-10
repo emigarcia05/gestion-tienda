@@ -35,12 +35,6 @@ export type ReposicionFormaPedidoFabrica = z.infer<
   typeof reposicionFormaPedidoFabricaSchema
 >;
 
-export const REPOSICION_FORMA_PEDIDO_LABELS: Record<ReposicionFormaPedido, string> = {
-  UNIDADES_MAX: "UN. MÁXIMAS",
-  POR_BULTO: "POR BULTO",
-  UNIDADES_FIJAS: "UNIDADES FIJAS",
-};
-
 /** Labels cortos de FORMA PEDIR en Pedido A Fáb. */
 export const REPOSICION_FORMA_PEDIDO_FABRICA_LABELS: Record<
   ReposicionFormaPedidoFabrica,
@@ -84,13 +78,6 @@ export function normalizarReposicionFormaPedido(
     return "UNIDADES_FIJAS";
   }
   return null;
-}
-
-export function labelReposicionFormaPedido(
-  raw: string | null | undefined
-): string {
-  const n = normalizarReposicionFormaPedido(raw);
-  return n ? REPOSICION_FORMA_PEDIDO_LABELS[n] : "";
 }
 
 export function labelReposicionFormaPedidoVendedor(

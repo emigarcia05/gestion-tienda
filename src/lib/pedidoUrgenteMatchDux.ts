@@ -42,10 +42,6 @@ export function tokensDescProductoDux(descripcion: string): string[] {
   return n.split(" ").filter((t) => t.length > 0 && !STOP_TOKENS.has(t));
 }
 
-export function firmaDescProductoDux(descripcion: string): string {
-  return [...new Set(tokensDescProductoDux(descripcion))].sort().join(" ");
-}
-
 function clavePresentacion(tokens: Iterable<string>): string {
   const toks = [...tokens];
   const nums = toks.filter((t) => /^\d+$/.test(t)).sort((a, b) => Number(a) - Number(b));

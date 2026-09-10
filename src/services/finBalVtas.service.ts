@@ -125,20 +125,6 @@ export async function guardarFinBalVtasCargaPeriodo(
   }
 }
 
-export async function eliminarFinBalVtas(id: string): Promise<ServiceResult<{ id: string }>> {
-  try {
-    await prisma.finBalVtas.delete({ where: { id } });
-    return { success: true, data: { id } };
-  } catch (e: unknown) {
-    const code = e && typeof e === "object" && "code" in e ? (e as { code: string }).code : "";
-    if (code === "P2025") {
-      return { success: false, error: "Registro no encontrado." };
-    }
-    const msg = e instanceof Error ? e.message : "No se pudo eliminar el registro.";
-    return { success: false, error: msg };
-  }
-}
-
 /** Elimina las ventas de todas las sucursales para un mes/año. */
 export async function eliminarFinBalVtasPorPeriodo(
   mes: number,

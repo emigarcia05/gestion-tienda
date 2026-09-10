@@ -10,12 +10,7 @@ import {
   guardarPxListaCompetenciaRefSchema,
   guardarPxListaMargenEdicionSchema,
   guardarPxListaPrecioEdicionSchema,
-  getPxListasPreciosPageParamsSchema,
 } from "@/lib/validations/pxListasPrecios";
-import {
-  emptyPxListasPreciosPageData,
-  getPxListasPreciosPageDataFromDb,
-} from "@/services/pxListasPreciosPage.service";
 import {
   guardarCompetenciaRefPxListaGeneral,
   limpiarCompetenciaRefSiListaGeneral,
@@ -40,19 +35,6 @@ function revalidatePxListasPaths() {
   for (const p of PX_LISTAS_PATHS) {
     revalidatePath(p);
   }
-}
-
-/** Listado paginado **Px Listas** (precios por lista DUX + margen manual). */
-export async function getPxListasPreciosPageData(params: unknown) {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
-    return emptyPxListasPreciosPageData();
-  }
-  const parsed = getPxListasPreciosPageParamsSchema.safeParse(params);
-  if (!parsed.success) {
-    return emptyPxListasPreciosPageData();
-  }
-  return getPxListasPreciosPageDataFromDb(parsed.data);
 }
 
 /** Persiste PX staging en `prod_tienda_precios_edicion` desde margen % (o elimina con `margenManual: null`). */

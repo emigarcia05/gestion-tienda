@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/common";
+import { globalSucursalIdSchema } from "@/lib/validations/common";
 import { mesAnioQuerySchema } from "@/lib/validations/finBalGastoMensualBalance";
 
 export const listarFinBalVtasPorMesAnioSchema = mesAnioQuerySchema;
@@ -20,11 +20,6 @@ export const guardarFinBalVtasCargaPeriodoSchema = mesAnioQuerySchema.extend({
     .min(1, "Ingresá al menos un monto de venta."),
 });
 export type GuardarFinBalVtasCargaPeriodoInput = z.infer<typeof guardarFinBalVtasCargaPeriodoSchema>;
-
-export const eliminarFinBalVtasSchema = z.object({
-  id: prismaCuidSchema,
-});
-export type EliminarFinBalVtasInput = z.infer<typeof eliminarFinBalVtasSchema>;
 
 /** Borra todas las sucursales de un mes/año. */
 export const eliminarFinBalVtasPorPeriodoSchema = mesAnioQuerySchema;

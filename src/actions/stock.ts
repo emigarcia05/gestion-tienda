@@ -15,7 +15,6 @@ import {
   registrarControlStockExportacionSchema,
 } from "@/lib/validations/stock";
 import {
-  conteosIndicadorSlidenavSchema,
   listarHistorialTransfDepositosProductoSchema,
   parSucursalesTransfDepositosSchema,
   registrarTransferenciasDepositosSchema,
@@ -527,33 +526,6 @@ export type {
   IndicadorSlidenavDto,
   IndicadorSlidenavProveedorPedidoDto,
 } from "@/lib/indicadorSlidenav";
-
-/**
- * Chequeo liviano para el aviso al login: ¿hay filas en `stock_trasn_depositos`
- * con esta sucursal como origen? No usa el indicador de pedidos.
- */
-export async function hayPendientesTransfOrigenAction(
-  raw: unknown
-): Promise<ActionResult<boolean>> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.stock.acceso)) {
-    return { ok: true, data: false };
-  }
-  const parsed = conteosIndicadorSlidenavSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: "Datos inválidos." };
-  }
-  try {
-    const { hayPendientesTransfDepositosComoOrigen } = await import(
-      "@/services/transfDepositos.service"
-    );
-    const hay = await hayPendientesTransfDepositosComoOrigen(parsed.data.sucursal);
-    return { ok: true, data: hay };
-  } catch (e) {
-    console.error("[hayPendientesTransfOrigenAction]", e);
-    return { ok: false, error: "Error al consultar transferencias." };
-  }
-}
 
 /**
  * Exportar Excel: ÚLT. CONTROL + stock local del depósito de la sucursal.

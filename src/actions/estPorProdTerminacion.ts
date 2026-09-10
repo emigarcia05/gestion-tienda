@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { EstPorProdTerminacionItem } from "@/lib/estPorProdTerminacion";
 import { ESTADISTICAS_PRODUCTOS_ROUTES } from "@/lib/estadisticasProductosRoutes";
 import { requireEditorEstadisticas, requireEstadisticasLectura } from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
   crearEstPorProdTerminacionSchema,
@@ -16,18 +17,6 @@ import {
   eliminarEstPorProdTerminacion,
   listarEstPorProdTerminaciones,
 } from "@/services/estPorProdTerminacion.service";
-
-function firstZodErrorMessage(error: {
-  flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
-}
-
-
 
 function revalidateCategorizacion() {
   revalidatePath("/estadisticas-productos");
@@ -42,10 +31,8 @@ export async function listarEstPorProdTerminacionesAction(): Promise<
   try {
     return { ok: true, data: await listarEstPorProdTerminaciones() };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudieron listar las terminaciones.",
-    };
+    console.error("[listarEstPorProdTerminacionesAction]", e);
+    return { ok: false, error: "No se pudieron listar las terminaciones." };
   }
 }
 
@@ -58,10 +45,10 @@ export async function crearEstPorProdTerminacionAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await crearEstPorProdTerminacion(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await crearEstPorProdTerminacion(parsed.data));
+  if (!out.ok) return out;
   revalidateCategorizacion();
-  return { ok: true, data: res.data };
+  return out;
 }
 
 export async function editarEstPorProdTerminacionAction(
@@ -73,10 +60,10 @@ export async function editarEstPorProdTerminacionAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await editarEstPorProdTerminacion(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await editarEstPorProdTerminacion(parsed.data));
+  if (!out.ok) return out;
   revalidateCategorizacion();
-  return { ok: true, data: res.data };
+  return out;
 }
 
 export async function eliminarEstPorProdTerminacionAction(
@@ -88,8 +75,8 @@ export async function eliminarEstPorProdTerminacionAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await eliminarEstPorProdTerminacion(parsed.data.id);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await eliminarEstPorProdTerminacion(parsed.data.id));
+  if (!out.ok) return out;
   revalidateCategorizacion();
-  return { ok: true, data: res.data };
+  return out;
 }

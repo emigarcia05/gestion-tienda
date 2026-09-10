@@ -42,7 +42,8 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 9. **TZ:** `@/lib/fechaArgentina`. No `Date#getHours()` ni `toLocaleDateString` sin `timeZone`.
 10. **Naming:** Px Competencia = `pxCompetencia*`. Px Listas DUX = `pxListasPrecios*`. Ver **§5**.
 11. **Gates repetidos:** `@/lib/actionGates.ts` (finanzas / marketing / estadísticas / Asistente IA / gasto eventual). API: `@/lib/apiRouteAuth.ts`.
-12. **Al cerrar:** actualizar este documento (modelo, servicio, regla o patrón). Lint: `npx eslint src --max-warnings 0`.
+12. **Errores Zod / ServiceResult en Actions:** `@/lib/actionResult.ts` (`firstZodErrorMessage`, `zodFail`, `fromServiceResult`). No copiar flatten local.
+13. **Al cerrar:** actualizar este documento (modelo, servicio, regla o patrón). Lint: `npx eslint src --max-warnings 0`.
 
 ---
 
@@ -135,7 +136,7 @@ type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string
 type ServiceResult<T = void> = { success: true; data: T } | { success: false; error: string };
 ```
 
-No lanzar al cliente. `sesion.ts` puede devolver `{ ok, error? }`.
+No lanzar al cliente. `sesion.ts` puede devolver `{ ok, error? }`. Traducción `ServiceResult` → `ActionResult` y flatten Zod: `@/lib/actionResult.ts`.
 
 **Error boundaries RSC:** `src/app/global-error.tsx` + `error.tsx` por ruta que lea Prisma. `catch` en servicios con prefijo grepeable (`[pedidoHistoria]`, `[sesion][getRol]`, etc.).
 
@@ -150,6 +151,7 @@ No lanzar al cliente. `sesion.ts` puede devolver `{ ok, error? }`.
 
 import { revalidatePath } from "next/cache";
 import { requireEditorFinanzas } from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import { crearAlgoSchema } from "@/lib/validations/algo";
 import { crearAlgo } from "@/services/algo.service";
@@ -160,17 +162,14 @@ export async function crearAlgoAction(raw: unknown): Promise<ActionResult<{ id: 
 
   const parsed = crearAlgoSchema.safeParse(raw);
   if (!parsed.success) {
-    const flat = parsed.error.flatten();
-    const msg =
-      [...Object.values(flat.fieldErrors).flat(), ...flat.formErrors][0] ?? "Datos inválidos.";
-    return { ok: false, error: msg };
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
 
   try {
-    const res = await crearAlgo(parsed.data);
-    if (!res.success) return { ok: false, error: res.error };
+    const out = fromServiceResult(await crearAlgo(parsed.data));
+    if (!out.ok) return out;
     revalidatePath("/ruta-canonica");
-    return { ok: true, data: res.data };
+    return out;
   } catch (e) {
     console.error("[crearAlgoAction]", e);
     return { ok: false, error: "No se pudo crear." };
@@ -178,12 +177,13 @@ export async function crearAlgoAction(raw: unknown): Promise<ActionResult<{ id: 
 }
 ```
 
-`FormData` (alta proveedor, etc.): armar `raw` desde `formData.get(...)` y `safeParse` igual. El gate de módulo concreto (`PERMISOS.proveedores.acciones.nuevoProveedor`) va **antes** del parse.
+`FormData` (alta proveedor, etc.): armar `raw` desde `formData.get(...)` y `safeParse` igual. El gate de módulo concreto (`PERMISOS.proveedores.acciones.nuevoProveedor`) va **antes** del parse. Helpers de error: `@/lib/actionResult.ts`.
 
 ### 2.2 Lectura sensible (permiso + Zod + shape vacío)
 
 ```ts
-export async function getPxListasPreciosPageData(params: unknown) {
+// Preferir RSC → servicio (sin Action) cuando el cliente no invoca la lectura.
+export async function loadPxListasPage(params: unknown) {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
     return emptyPxListasPreciosPageData();
@@ -194,7 +194,7 @@ export async function getPxListasPreciosPageData(params: unknown) {
 }
 ```
 
-Listados pesados de página: preferir **RSC → servicio** (sin Action) cuando el cliente no invoca la lectura. **Px Listas** carga el listado desde el RSC (`getPxListasPreciosPageDataFromDb`); la Action queda para mutaciones y para callers que no son la página. El shape vacío de permiso/Zod **no** debe ejecutar Prisma (DISTINCT / count).
+Listados pesados de página: preferir **RSC → servicio** (sin Action) cuando el cliente no invoca la lectura. **Px Listas** carga el listado desde el RSC (`getPxListasPreciosPageDataFromDb`); las Actions del módulo son solo mutaciones/export. El shape vacío de permiso/Zod **no** debe ejecutar Prisma (DISTINCT / count).
 
 ### 2.3 Zod típico
 
@@ -293,7 +293,7 @@ Jerarquía `CategoriaComparacion` → sub → presentación. Membresía en `prod
 Permiso módulo: `PERMISOS.pedidos.acceso` (simple+editor). Ítems vivos: `prod_ped_merc` (`ProdPedMerc2`, UUID).
 
 - Urgente / enviar / tintométrico: `pedidos.ts` + `pedidosEnvio.service.ts`. Pedido Urgente: sucursal **y** un segundo filtro (`hayFiltroExtraPedidoUrgente`: PROVEEDOR, PEDIDO o `q` ≥ 3). `getListaPreciosParaPedidoUrgente` lista `prod_precios_provee.habilitado` de mercadería (`proveedorMercaderia` y `es_fabrica = false`). **Registrados en Dux** = fila `prod_tienda`: FK `prod_precios_provee.cod_tienda`, o `prod_tienda.costo_compra_cod_ext`, o match único de descripción (`pedidoUrgenteMatchDux.ts`; no persiste el vínculo). Si no hay match, **Sin Registrar**. `comprobarItemsParaGenerarPedidoAction` usa el **servicio** `getItemsTablaEnviarPedido` (no la Action vecina).
-- Indicador slidenav: `GET /api/indicador-slidenav` (`obtenerIndicadorSlidenav`; **no** Server Action: Next serializa actions y el armado de Generar Pedido bloqueaba Elegir Usuario ~10 s). `parte=transf` = solo COUNT origen (`hayPendientesTransfDepositosComoOrigen`). `parte=completo` (default) = pedidos (`contarItemsPedidoPorTipoParaSlidenav`, mismos ítems que Generar Pedido, sucursal preferida, `es_fabrica = false`) + transf. El cliente demora el `completo` 2,5 s para no saturar la BD al login. Aviso al login: mismo `parte=transf` + evento de ventana (sobrevive `router.push`). Permiso `pedidos.acceso` / `stock.acceso`; sin permiso el bloque va en 0. `hayPendientesTransfOrigenAction` queda como COUNT de servicio (no lo usa el picker).
+- Indicador slidenav: `GET /api/indicador-slidenav` (`obtenerIndicadorSlidenav`; **no** Server Action: Next serializa actions y el armado de Generar Pedido bloqueaba Elegir Usuario ~10 s). `parte=transf` = solo COUNT origen (`hayPendientesTransfDepositosComoOrigen`). `parte=completo` (default) = pedidos (`contarItemsPedidoPorTipoParaSlidenav`, mismos ítems que Generar Pedido, sucursal preferida, `es_fabrica = false`) + transf. El cliente demora el `completo` 2,5 s para no saturar la BD al login. Aviso al login: mismo `parte=transf` + evento de ventana (sobrevive `router.push`). Permiso `pedidos.acceso` / `stock.acceso`; sin permiso el bloque va en 0.
 - Reposición: `reposicion.ts` (Prisma parcial en Action). `reposicion_forma_pedido`: `UNIDADES_MAX` | `POR_BULTO` | `UNIDADES_FIJAS`. Vendedor (upsert regla): solo `UNIDADES_MAX` + `POR_BULTO`; **BULTO siempre está en el select**. Si `POR_BULTO`, `upsertReglaReposicion` acepta `unidadesPorBulto` (entero ≥ 1) y llama `guardarBultoProdTienda` **antes** de exigir `prod_tienda.bulto` ≥ 1 (el modal envía ese valor para el ítem principal y para cada adicional); `reposicion_cant_conf` = BULTOS REPOSICIÓN (permiso `pedidos.acceso`; no usar `guardarBultoTiendaAction`). Selector de adicionales (`getProductosReposicionSelector`): vínculo habilitado a proveedor no fábrica y `bulto` **null** **o** igual a `bultoReferencia`. Solo se permiten productos con vínculo habilitado a proveedor no fábrica (`global_proveedores.es_fabrica = false`) en el selector de productos adicionales por bulto; `existeListaPrecioParaReposicionCodTienda` debe respetar esa misma condición. Grilla `getReposicionData`: con sucursal, **todos** los `prod_tienda` (paginado; no exige vínculo). Filtro PROVEEDOR opcional en servidor vía `listaPreciosProveedores.some`. Catálogo del Select: `listarProveedoresFiltroReposicion` (mercadería, `es_fabrica = false`, lista habilitada). Listados de proveedor en modal Generar Pedido origen reposición: solo proveedores de mercadería con `global_proveedores.es_fabrica = false`. Pedido A Fáb. (filas `A FÁBRICA`): solo `POR_BULTO` + `UNIDADES_FIJAS`. Cálculo `cantPedirReposicionMerc2` (pedir solo si `stock <= punto`): UNIDADES_MAX → `cantConf - stock` (unidades); UNIDADES_FIJAS → `cantConf` (unidades); POR_BULTO → `cantConf × bulto` (`cantConf` = BULTOS REPOSICIÓN; `bulto` = unidades por bulto de `prod_tienda.bulto`; sin bulto válido → 0). Helper `cantConfReposicionAUnidades`. No reintroducir `CANT_MAX` / `CANT_FIJA_POR_BULTO` como valores persistidos.
 - **Historial:** cabecera `prod_ped_historial`; ítems `prod_ped_historial_merc` (writes vía `tx.pedidoHistoriaItem`). Estados `PENDIENTE` | `RECEPCIONADO`. `fecha_recepcion` (`@db.Date`): FECHA FACTURA del modal de recepción; se escribe al marcar RECEPCIONADO y en Guardar Corrección. Distinto de `registrado_at` (instante del POST). Listado NC: `listarPedidosHistoriaRecepcionadosParaNotaCredito`. Asistente NC (`PedidoHistoriaDetalleModal` `variante="nota-credito"`): borrador local; no escribe el pedido origen. **Generar Nota Crédito** abre `DUX_NUEVA_NOTA_CREDITO_DEBITO_COMPRA_URL` en pestaña nombrada `DUX_NOTA_CREDITO_WINDOW_NAME` (`abrirDuxNotaCreditoTab`; no `_blank` / `noopener`) y un checklist UI; no llama `registrarRecepcionCompraDuxAction`. Copiar (cabecera, OK, CANT., Px. Unitario, Nota Generada) enfoca esa pestaña sin recargar (`enfocarDuxNotaCreditoTab`). Correlativo NC: `prod_ped_ult_comp` `id=3` `NOTA_CREDITO` formato `X-00000-########` (`reservarSiguienteNumeroNotaCredito` al **Nota Generada**; preview `obtenerSiguienteNumeroNotaCredito`). Retención: fábrica 60 días / resto 14 (`purgarPedidosHistoriaExpirados` al inicio de cada mutación, no en lecturas). Listado: RSC. Detalle: API. Mutaciones: Actions.
 - **Recepción DUX:** `registrarRecepcionCompraDuxAction`. `iva` proveedor → `tipo_comprobante` (`resolverTipoComprobantePorIva` en `exportRecepcionPedidoExcel.service.ts`). `PREGUNTA` sin decisión → `REQUIERE_DECISION_FISCAL`. Nro comprobante: `prod_ped_ult_comp` (`id` 1 Comprobante_Compra, 2 FACTURA, 3 NOTA_CREDITO). Personal: `idPersonal` obligatorio = usuario slidenav (`sessionStorage` / `leerUsuarioSesion`). Precios netos 4 decimales. `cant_recibida` y `prod_ped_historial.total` **admiten negativo** (NC / devolución). Ítems con cantidad 0 no van a DUX; hace falta al menos un ítem ≠ 0 y suma de cantidades ≠ 0. TOTAL PEDIDO distinto de 0 (positivo o negativo). Zod/servicio no usan `.positive()` ni `Math.max(0, …)` sobre esos campos.

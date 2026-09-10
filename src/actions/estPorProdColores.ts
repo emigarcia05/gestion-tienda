@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { EstPorProdColorItem } from "@/lib/estPorProdColores";
 import { requireEditorEstadisticas, requireEstadisticasLectura } from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
   crearEstPorProdColorSchema,
@@ -16,17 +17,11 @@ import {
   listarEstPorProdColores,
 } from "@/services/estPorProdColores.service";
 
-function firstZodErrorMessage(error: {
-  flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
+function revalidateEstColores(): void {
+  revalidatePath("/estadisticas-productos");
+  revalidatePath("/estadisticas-productos/ventas-por-producto");
+  revalidatePath("/estadisticas-productos/categorizacion");
 }
-
-
 
 export async function listarEstPorProdColoresAction(): Promise<
   ActionResult<EstPorProdColorItem[]>
@@ -36,10 +31,8 @@ export async function listarEstPorProdColoresAction(): Promise<
   try {
     return { ok: true, data: await listarEstPorProdColores() };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudieron listar los colores.",
-    };
+    console.error("[listarEstPorProdColoresAction]", e);
+    return { ok: false, error: "No se pudieron listar los colores." };
   }
 }
 
@@ -52,12 +45,10 @@ export async function crearEstPorProdColorAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await crearEstPorProdColor(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
-    revalidatePath("/estadisticas-productos");
-    revalidatePath("/estadisticas-productos/ventas-por-producto");
-    revalidatePath("/estadisticas-productos/categorizacion");
-    return { ok: true, data: res.data };
+  const out = fromServiceResult(await crearEstPorProdColor(parsed.data));
+  if (!out.ok) return out;
+  revalidateEstColores();
+  return out;
 }
 
 export async function editarEstPorProdColorAction(
@@ -69,12 +60,10 @@ export async function editarEstPorProdColorAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await editarEstPorProdColor(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
-    revalidatePath("/estadisticas-productos");
-    revalidatePath("/estadisticas-productos/ventas-por-producto");
-    revalidatePath("/estadisticas-productos/categorizacion");
-    return { ok: true, data: res.data };
+  const out = fromServiceResult(await editarEstPorProdColor(parsed.data));
+  if (!out.ok) return out;
+  revalidateEstColores();
+  return out;
 }
 
 export async function eliminarEstPorProdColorAction(
@@ -86,10 +75,8 @@ export async function eliminarEstPorProdColorAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await eliminarEstPorProdColor(parsed.data.id);
-  if (!res.success) return { ok: false, error: res.error };
-    revalidatePath("/estadisticas-productos");
-    revalidatePath("/estadisticas-productos/ventas-por-producto");
-    revalidatePath("/estadisticas-productos/categorizacion");
-    return { ok: true, data: res.data };
+  const out = fromServiceResult(await eliminarEstPorProdColor(parsed.data.id));
+  if (!out.ok) return out;
+  revalidateEstColores();
+  return out;
 }

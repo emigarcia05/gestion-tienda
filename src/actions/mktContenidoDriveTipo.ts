@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import type { MktContenidoDriveTipoItem } from "@/lib/mktContenidoUrlDrive";
 import { requireEditorMarketing, requireMarketingLectura } from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
   crearMktContenidoDriveTipoSchema,
@@ -17,21 +18,9 @@ import {
   listarMktContenidoDriveTipos,
 } from "@/services/mktContenidoDriveTipo.service";
 
-function firstZodErrorMessage(error: {
-  flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
-}
-
 function revalidateBaseMultimedia(): void {
   revalidatePath(MARKETING_ROUTES.baseMultimedia.contenido);
 }
-
-
 
 export async function listarMktContenidoDriveTiposAction(): Promise<
   ActionResult<MktContenidoDriveTipoItem[]>
@@ -41,10 +30,8 @@ export async function listarMktContenidoDriveTiposAction(): Promise<
   try {
     return { ok: true, data: await listarMktContenidoDriveTipos() };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudieron listar los tipos.",
-    };
+    console.error("[listarMktContenidoDriveTiposAction]", e);
+    return { ok: false, error: "No se pudieron listar los tipos." };
   }
 }
 
@@ -57,10 +44,10 @@ export async function crearMktContenidoDriveTipoAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await crearMktContenidoDriveTipo(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await crearMktContenidoDriveTipo(parsed.data));
+  if (!out.ok) return out;
   revalidateBaseMultimedia();
-  return { ok: true, data: res.data };
+  return out;
 }
 
 export async function editarMktContenidoDriveTipoAction(
@@ -72,10 +59,10 @@ export async function editarMktContenidoDriveTipoAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await editarMktContenidoDriveTipo(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await editarMktContenidoDriveTipo(parsed.data));
+  if (!out.ok) return out;
   revalidateBaseMultimedia();
-  return { ok: true, data: res.data };
+  return out;
 }
 
 export async function eliminarMktContenidoDriveTipoAction(
@@ -87,8 +74,8 @@ export async function eliminarMktContenidoDriveTipoAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await eliminarMktContenidoDriveTipo(parsed.data.id);
-  if (!res.success) return { ok: false, error: res.error };
+  const out = fromServiceResult(await eliminarMktContenidoDriveTipo(parsed.data.id));
+  if (!out.ok) return out;
   revalidateBaseMultimedia();
-  return { ok: true, data: res.data };
+  return out;
 }

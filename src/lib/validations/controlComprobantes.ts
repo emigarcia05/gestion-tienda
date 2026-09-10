@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
-import {
-  PLAZOS_PAGO_DIAS_PERMITIDOS,
-  type PlanPlazosPago,
-} from "@/lib/comprobanteCuotasPlazoPago";
+import { PLAZOS_PAGO_DIAS_PERMITIDOS } from "@/lib/comprobanteCuotasPlazoPago";
 
 const plazoOpcionalSchema = z
   .union([z.literal(""), z.literal("none"), z.null(), z.coerce.number().int()])
@@ -57,27 +54,6 @@ function refinePlanCreciente(
     }
     last = cur;
   }
-}
-
-/** Plan completo (1.º obligatorio). */
-export const planPlazosPagoSchema = z
-  .object({
-    plazo1: plazoObligatorioSchema,
-    plazo2: plazoOpcionalSchema,
-    plazo3: plazoOpcionalSchema,
-    plazo4: plazoOpcionalSchema,
-  })
-  .superRefine(refinePlanCreciente);
-
-export type PlanPlazosPagoForm = z.infer<typeof planPlazosPagoSchema>;
-
-export function planFormToPlan(data: PlanPlazosPagoForm): PlanPlazosPago {
-  return {
-    plazo1: data.plazo1,
-    plazo2: data.plazo2,
-    plazo3: data.plazo3,
-    plazo4: data.plazo4,
-  };
 }
 
 export const toggleControladoSchema = z.object({
