@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
 import { matchByMultiTerm } from "@/lib/busqueda";
+import { fmtCelda } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   etiquetaModulosPermitidos,
@@ -59,6 +60,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
       matchByMultiTerm(
         [
           item.nombrePersonal,
+          item.idDux ?? "",
           etiquetaSucursalPorDefecto(item.sucursalPorDefecto),
           etiquetaModulosPermitidos(item.modulosPermitidos),
           item.titularFinanciero ? "TITULAR FINANCIERO SI" : "NO",
@@ -73,7 +75,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
     setQDebounced("");
   }
 
-  const colSpan = esEditor ? 5 : 4;
+  const colSpan = esEditor ? 6 : 5;
 
   return (
     <>
@@ -100,7 +102,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-usuarios-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, SUCURSAL, MÓDULO O TITULAR..."
+                  placeholder="BUSCAR POR NOMBRE, ID DUX, SUCURSAL, MÓDULO O TITULAR..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -119,15 +121,17 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[28%]" />
-              <col className="w-[18%]" />
-              <col className={esEditor ? "w-[28%]" : "w-[36%]"} />
+              <col className="w-[24%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className={esEditor ? "w-[22%]" : "w-[32%]"} />
               <col className="w-[16%]" />
               {esEditor ? <col className="w-[10%]" /> : null}
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>NOMBRE</TableHead>
+                <TableHead className="text-center">ID DUX</TableHead>
                 <TableHead className="text-center">SUCURSAL POR DEFECTO</TableHead>
                 <TableHead>MÓDULOS PERMITIDOS</TableHead>
                 <TableHead className="text-center">TITULAR FINANCIERO</TableHead>
@@ -153,6 +157,9 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                   <TableRow key={item.idPersonal}>
                     <TableCell className="celda-datos font-medium uppercase">
                       {item.nombrePersonal}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {fmtCelda(item.idDux)}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
                       {etiquetaSucursalPorDefecto(item.sucursalPorDefecto)}

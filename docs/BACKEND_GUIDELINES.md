@@ -232,7 +232,7 @@ GET de estado y POST del mismo job: **mismo guard**.
 
 CRUD: `src/actions/proveedores.ts` + `proveedor.service.ts`. Mutaciones: `PERMISOS.proveedores.acciones.nuevoProveedor`. Lectura catálogo: al menos uno de `sugeridos` / `lista` / `importarLista`. Eliminar: servicio `deleteProveedor` (`ServiceResult`; respeta FK).
 
-**`global_personal`:** PK `id_personal` (ID DUX). `sucursal_por_defecto` (nullable; un usuario puede no tener sucursal) + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
+**`global_personal`:** PK `id_personal`. **`id_dux`:** vínculo DUX hacia otras tablas (TEXT, unique si informado; varios NULL OK). Filas existentes: `id_dux` = `id_personal`. Alta nueva: el usuario carga `id_dux` (opcional; no se copia el PK). `sucursal_por_defecto` (nullable) + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
 
 ### 3.2 Lista de precios proveedor
 

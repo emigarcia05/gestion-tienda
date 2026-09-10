@@ -330,11 +330,13 @@ model GlobalPtoVtaSucursal {
 /**
  * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
  * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
- * Filas cargadas manualmente o por sync futuro; PK = ID numérico DUX.
+ * PK `id_personal`. Vínculo DUX hacia otras tablas: `id_dux` (opcional, unique).
  */
 model GlobalPersonal {
   idPersonal         Int      @id @map("id_personal")
   nombrePersonal     String   @map("nombre_personal")
+  /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
+  idDux              String?  @unique(map: "global_personal_id_dux_key") @map("id_dux")
   /** Código de `global_sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
   /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */

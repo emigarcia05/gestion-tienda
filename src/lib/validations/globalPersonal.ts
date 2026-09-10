@@ -25,6 +25,19 @@ const nombrePersonalSchema = z
   .min(1, "Ingresá el nombre.")
   .max(200, "El nombre es demasiado largo.");
 
+const idDuxPersonalOpcionalSchema = z.preprocess((value) => {
+  if (value == null) return null;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}, z.union([
+  z
+    .string()
+    .regex(/^\d+$/, "Ingresá un ID DUX numérico.")
+    .max(20, "El ID DUX es demasiado largo."),
+  z.null(),
+]));
+
 const modulosPermitidosSchema = z
   .array(moduloPermitidoUsuarioSchema)
   .min(1, "Elegí al menos un módulo.")
@@ -36,6 +49,7 @@ const modulosPermitidosSchema = z
 export const crearUsuarioPersonalSchema = z.object({
   idPersonal: idPersonalSchema,
   nombrePersonal: nombrePersonalSchema,
+  idDux: idDuxPersonalOpcionalSchema,
   sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
   modulosPermitidos: modulosPermitidosSchema,
   titularFinanciero: z.boolean(),
@@ -43,6 +57,7 @@ export const crearUsuarioPersonalSchema = z.object({
 
 export const actualizarUsuarioPersonalSchema = z.object({
   idPersonal: idPersonalSchema,
+  idDux: idDuxPersonalOpcionalSchema,
   sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
   modulosPermitidos: modulosPermitidosSchema,
   titularFinanciero: z.boolean(),

@@ -46,6 +46,7 @@ export default function EditarUsuarioModal({
   const esAlta = item == null;
   const [idPersonal, setIdPersonal] = useState("");
   const [nombre, setNombre] = useState("");
+  const [idDux, setIdDux] = useState("");
   const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
   const [titularFinanciero, setTitularFinanciero] = useState(false);
@@ -56,6 +57,7 @@ export default function EditarUsuarioModal({
     if (item) {
       setIdPersonal(String(item.idPersonal));
       setNombre(item.nombrePersonal);
+      setIdDux(item.idDux ?? "");
       setSucursal(item.sucursalPorDefecto ?? "");
       setModulos(item.modulosPermitidos);
       setTitularFinanciero(item.titularFinanciero);
@@ -63,6 +65,7 @@ export default function EditarUsuarioModal({
     }
     setIdPersonal("");
     setNombre("");
+    setIdDux("");
     setSucursal("");
     setModulos([]);
     setTitularFinanciero(false);
@@ -83,10 +86,12 @@ export default function EditarUsuarioModal({
     setSaving(true);
     try {
       const sucursalPorDefecto = sucursal === "" ? null : sucursal;
+      const idDuxValor = idDux.trim() === "" ? null : idDux.trim();
       const res = esAlta
         ? await crearUsuarioPersonalAction({
             idPersonal,
             nombrePersonal: nombre,
+            idDux: idDuxValor,
             sucursalPorDefecto,
             modulosPermitidos: modulos,
             titularFinanciero,
@@ -94,6 +99,7 @@ export default function EditarUsuarioModal({
         : item
           ? await actualizarUsuarioPersonalAction({
               idPersonal: item.idPersonal,
+              idDux: idDuxValor,
               sucursalPorDefecto,
               modulosPermitidos: modulos,
               titularFinanciero,
@@ -178,6 +184,17 @@ export default function EditarUsuarioModal({
               </p>
             </div>
           )}
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>ID DUX</ModalMicroLabel>
+            <Input
+              value={idDux}
+              onChange={(e) => setIdDux(e.target.value)}
+              placeholder="ID DUX (OPCIONAL)"
+              inputMode="numeric"
+              disabled={saving}
+              aria-label="ID DUX"
+            />
+          </div>
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Sucursal Por Defecto</ModalMicroLabel>
             <Select

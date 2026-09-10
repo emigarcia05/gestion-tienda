@@ -11,6 +11,7 @@ import type {
 export interface GlobalPersonalItem {
   idPersonal: number;
   nombrePersonal: string;
+  idDux: string | null;
   sucursalPorDefecto: SucursalPreferida | null;
   modulosPermitidos: MainAppAreaId[];
   titularFinanciero: boolean;
@@ -19,6 +20,7 @@ export interface GlobalPersonalItem {
 const PERSONAL_SELECT = {
   idPersonal: true,
   nombrePersonal: true,
+  idDux: true,
   sucursalPorDefecto: true,
   modulosPermitidos: true,
   titularFinanciero: true,
@@ -28,10 +30,25 @@ function normalizarNombrePersonal(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
 }
 
+function p2002TargetIncludes(error: unknown, field: string): boolean {
+  if (!error || typeof error !== "object" || !("meta" in error)) return false;
+  const meta = (error as { meta?: { target?: unknown } }).meta;
+  const target = meta?.target;
+  if (Array.isArray(target)) {
+    return target.some((t) => typeof t === "string" && t === field);
+  }
+  return typeof target === "string" && target.includes(field);
+}
+
 function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
-    if (code === "P2002") return "Ya existe un usuario con ese ID Personal.";
+    if (code === "P2002") {
+      if (p2002TargetIncludes(error, "id_dux")) {
+        return "Ya existe un usuario con ese ID DUX.";
+      }
+      return "Ya existe un usuario con ese ID Personal.";
+    }
     if (code === "P2003") return "Sucursal inválida.";
     if (code === "P2025") return "Usuario no encontrado.";
   }
@@ -53,6 +70,7 @@ async function validarSucursalOpcional(
 function mapRow(row: {
   idPersonal: number;
   nombrePersonal: string;
+  idDux: string | null;
   sucursalPorDefecto: string | null;
   modulosPermitidos: string[];
   titularFinanciero: boolean;
@@ -60,6 +78,7 @@ function mapRow(row: {
   return {
     idPersonal: row.idPersonal,
     nombrePersonal: row.nombrePersonal,
+    idDux: row.idDux,
     sucursalPorDefecto: parseSucursalPreferida(row.sucursalPorDefecto),
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
     titularFinanciero: row.titularFinanciero,
@@ -99,6 +118,7 @@ export async function crearUsuarioPersonal(
       data: {
         idPersonal: input.idPersonal,
         nombrePersonal: nombre,
+        idDux: input.idDux,
         sucursalPorDefecto: input.sucursalPorDefecto,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
@@ -131,6 +151,7 @@ export async function actualizarUsuarioPersonal(
       where: { idPersonal: input.idPersonal },
       data: {
         sucursalPorDefecto: input.sucursalPorDefecto,
+        idDux: input.idDux,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
       },
