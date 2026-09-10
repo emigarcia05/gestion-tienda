@@ -308,7 +308,6 @@ model GlobalPtoVta {
 
   sucursales GlobalPtoVtaSucursal[]
   factCobrosMes FinFactCobrosPtoVtaMes[]
-  factCobrosItems FinFactCobroItem[]
 
   @@map("global_pto_vtas")
 }
@@ -614,42 +613,6 @@ model FinFactCobrosPtoVtaMes {
   @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
   @@index([ptoVtaId], map: "fin_fact_cobros_pto_vta_mes_pto_vta_idx")
   @@map("fin_fact_cobros_pto_vta_mes")
-}
-
-/**
- * Ítems de cobros sincronizados desde DUX (`fin_fact_cobros_items`).
- * Persiste cada remito contabilizado como cobro para habilitar cálculos y estadísticas.
- */
-model FinFactCobroItem {
-  id                String   @id @default(cuid())
-  ptoVtaId          String   @map("pto_vta_id")
-  idSucursalDux     Int      @map("id_sucursal_dux")
-  idRemitoVenta     Int      @map("id_remito_venta")
-  /** Mes calendario 1–12. */
-  mes               Int
-  /** Año calendario (columna física `anio`). */
-  anio              Int      @map("anio")
-  /** Fecha del remito en formato ISO `yyyy-MM-dd`. */
-  fechaYmd          String   @map("fecha_ymd") @db.Char(10)
-  /** Letra del comprobante asociado (A, B, C, …). */
-  letra             String   @db.Char(1)
-  /** Estado de facturación informado por DUX. */
-  estadoFacturacion String   @map("estado_facturacion")
-  /** Texto del comprobante asociado. */
-  nroFacturaString  String   @map("nro_factura_string")
-  /** Suma del comprobante asociado al remito. */
-  montoGravado      Decimal  @map("monto_gravado") @db.Decimal(14, 4)
-  anulado           Boolean  @default(false)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
-
-  @@unique([ptoVtaId, idSucursalDux, idRemitoVenta, letra], map: "fin_fact_cobros_items_ux")
-  @@index([anio, mes], map: "fin_fact_cobros_items_anio_mes_idx")
-  @@index([ptoVtaId], map: "fin_fact_cobros_items_pto_vta_idx")
-  @@index([idSucursalDux], map: "fin_fact_cobros_items_sucursal_dux_idx")
-  @@map("fin_fact_cobros_items")
 }
 
 /**
