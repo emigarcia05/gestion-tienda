@@ -3,27 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { getRol, esEditor } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import { USUARIOS_PATH } from "@/lib/usuarios";
-import { actualizarUsuarioPersonalSchema } from "@/lib/validations/globalPersonal";
+import {
+  actualizarUsuarioPersonalSchema,
+  crearUsuarioPersonalSchema,
+} from "@/lib/validations/globalPersonal";
 import {
   actualizarUsuarioPersonal,
+  crearUsuarioPersonal,
   listUsuariosParaInicioSesion,
   type GlobalPersonalItem,
 } from "@/services/globalPersonal.service";
-
-function firstZodErrorMessage(error: {
-  flatten: () => {
-    fieldErrors: Record<string, string[] | undefined>;
-    formErrors: string[];
-  };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
-}
 
 export async function listUsuariosParaInicioSesionAction(): Promise<
   ActionResult<GlobalPersonalItem[]>
@@ -40,6 +32,27 @@ export async function listUsuariosParaInicioSesionAction(): Promise<
     console.error("[globalPersonal][action][listUsuariosParaInicioSesion]", message);
     return { ok: false, error: "Error al listar usuarios." };
   }
+}
+
+export async function crearUsuarioPersonalAction(
+  raw: unknown
+): Promise<ActionResult<GlobalPersonalItem>> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.usuarios.acceso)) {
+    return { ok: false, error: "Sin permisos para usuarios." };
+  }
+  if (!(await esEditor())) {
+    return { ok: false, error: "Sin permisos de editor." };
+  }
+
+  const parsed = crearUsuarioPersonalSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const result = await crearUsuarioPersonal(parsed.data);
+  if (result.success) revalidatePath(USUARIOS_PATH);
+  return fromServiceResult(result);
 }
 
 export async function actualizarUsuarioPersonalAction(
@@ -59,9 +72,6 @@ export async function actualizarUsuarioPersonalAction(
   }
 
   const result = await actualizarUsuarioPersonal(parsed.data);
-  if (!result.success) {
-    return { ok: false, error: result.error };
-  }
-  revalidatePath(USUARIOS_PATH);
-  return { ok: true, data: result.data };
+  if (result.success) revalidatePath(USUARIOS_PATH);
+  return fromServiceResult(result);
 }

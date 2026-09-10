@@ -7,6 +7,7 @@ import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,7 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { actualizarUsuarioPersonalAction } from "@/actions/globalPersonal";
+import {
+  actualizarUsuarioPersonalAction,
+  crearUsuarioPersonalAction,
+} from "@/actions/globalPersonal";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
 import { MODULOS_PERMITIDOS_USUARIO } from "@/lib/usuarios";
 import {
@@ -31,25 +35,42 @@ interface Props {
   onSuccess?: () => void;
 }
 
+const SUCURSAL_VACIA = "none";
+
 export default function EditarUsuarioModal({
   open,
   onOpenChange,
   item,
   onSuccess,
 }: Props) {
+  const esAlta = item == null;
+  const [idPersonal, setIdPersonal] = useState("");
+  const [nombre, setNombre] = useState("");
   const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
   const [titularFinanciero, setTitularFinanciero] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || !item) return;
-    setSucursal(item.sucursalPorDefecto ?? "");
-    setModulos(item.modulosPermitidos);
-    setTitularFinanciero(item.titularFinanciero);
+    if (!open) return;
+    if (item) {
+      setIdPersonal(String(item.idPersonal));
+      setNombre(item.nombrePersonal);
+      setSucursal(item.sucursalPorDefecto ?? "");
+      setModulos(item.modulosPermitidos);
+      setTitularFinanciero(item.titularFinanciero);
+      return;
+    }
+    setIdPersonal("");
+    setNombre("");
+    setSucursal("");
+    setModulos([]);
+    setTitularFinanciero(false);
   }, [open, item]);
 
-  const puedeGuardar = sucursal !== "" && modulos.length > 0 && item != null;
+  const puedeGuardar =
+    modulos.length > 0 &&
+    (esAlta ? idPersonal.trim() !== "" && nombre.trim() !== "" : item != null);
 
   function toggleModulo(id: MainAppAreaId) {
     setModulos((prev) =>
@@ -58,21 +79,31 @@ export default function EditarUsuarioModal({
   }
 
   async function handleSubmit() {
-    if (saving || !item || sucursal === "") return;
-    if (modulos.length === 0) return;
+    if (saving || !puedeGuardar) return;
     setSaving(true);
     try {
-      const res = await actualizarUsuarioPersonalAction({
-        idPersonal: item.idPersonal,
-        sucursalPorDefecto: sucursal,
-        modulosPermitidos: modulos,
-        titularFinanciero,
-      });
+      const sucursalPorDefecto = sucursal === "" ? null : sucursal;
+      const res = esAlta
+        ? await crearUsuarioPersonalAction({
+            idPersonal,
+            nombrePersonal: nombre,
+            sucursalPorDefecto,
+            modulosPermitidos: modulos,
+            titularFinanciero,
+          })
+        : item
+          ? await actualizarUsuarioPersonalAction({
+              idPersonal: item.idPersonal,
+              sucursalPorDefecto,
+              modulosPermitidos: modulos,
+              titularFinanciero,
+            })
+          : { ok: false as const, error: "Usuario no encontrado." };
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo guardar.");
         return;
       }
-      toast.success("Usuario actualizado.");
+      toast.success(esAlta ? "Usuario creado." : "Usuario actualizado.");
       onOpenChange(false);
       onSuccess?.();
     } finally {
@@ -89,7 +120,7 @@ export default function EditarUsuarioModal({
       }}
     >
       <AppModal
-        title="Editar Usuario"
+        title={esAlta ? "CREAR USUARIO" : "EDITAR USUARIO"}
         size="md"
         scrollBody
         hideBodyScrollbars
@@ -114,17 +145,46 @@ export default function EditarUsuarioModal({
         }
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Nombre</ModalMicroLabel>
-            <p className="text-sm font-medium uppercase text-foreground">
-              {item?.nombrePersonal ?? ""}
-            </p>
-          </div>
+          {esAlta ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>ID Personal</ModalMicroLabel>
+                <Input
+                  value={idPersonal}
+                  onChange={(e) => setIdPersonal(e.target.value)}
+                  placeholder="ID PERSONAL"
+                  inputMode="numeric"
+                  disabled={saving}
+                  aria-label="ID Personal"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>Nombre</ModalMicroLabel>
+                <Input
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="NOMBRE"
+                  disabled={saving}
+                  aria-label="Nombre"
+                  className="uppercase"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Nombre</ModalMicroLabel>
+              <p className="text-sm font-medium uppercase text-foreground">
+                {item?.nombrePersonal ?? ""}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Sucursal Por Defecto</ModalMicroLabel>
             <Select
-              value={sucursal ?? ""}
-              onValueChange={(v) => setSucursal(v as SucursalPreferida)}
+              value={sucursal || SUCURSAL_VACIA}
+              onValueChange={(v) =>
+                setSucursal(v === SUCURSAL_VACIA ? "" : (v as SucursalPreferida))
+              }
               disabled={saving}
             >
               <SelectTrigger
@@ -139,6 +199,7 @@ export default function EditarUsuarioModal({
                 align="start"
                 className="select-content-filtro"
               >
+                <SelectItem value={SUCURSAL_VACIA}>SIN SUCURSAL</SelectItem>
                 {SUCURSALES_PREFERIDAS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
                     {s.label}

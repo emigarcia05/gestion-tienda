@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import EditarUsuarioModal from "@/components/usuarios/EditarUsuarioModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -50,6 +51,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
       onDebouncedSearch: setQDebounced,
     });
   const [itemEditar, setItemEditar] = useState<GlobalPersonalItem | null>(null);
+  const [openCrear, setOpenCrear] = useState(false);
 
   const itemsFiltrados = useMemo(() => {
     if (!qDebounced.trim()) return items;
@@ -79,6 +81,19 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         title="Administración"
         subtitle="Usuarios"
         contentWidth="full"
+        actions={
+          esEditor ? (
+            <ToolbarActionButton
+              type="button"
+              icon={<Plus />}
+              label="Crear Usuario"
+              onClick={() => {
+                setItemEditar(null);
+                setOpenCrear(true);
+              }}
+            />
+          ) : null
+        }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <div className="flex items-center gap-3">
@@ -176,10 +191,13 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         </div>
       </ClassicFilteredTableLayout>
       <EditarUsuarioModal
-        open={itemEditar != null}
-        item={itemEditar}
+        open={openCrear || itemEditar != null}
+        item={openCrear ? null : itemEditar}
         onOpenChange={(open) => {
-          if (!open) setItemEditar(null);
+          if (!open) {
+            setItemEditar(null);
+            setOpenCrear(false);
+          }
         }}
         onSuccess={() => router.refresh()}
       />
