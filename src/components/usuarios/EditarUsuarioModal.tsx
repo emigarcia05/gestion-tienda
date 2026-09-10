@@ -44,7 +44,6 @@ export default function EditarUsuarioModal({
   onSuccess,
 }: Props) {
   const esAlta = item == null;
-  const [idPersonal, setIdPersonal] = useState("");
   const [nombre, setNombre] = useState("");
   const [idDux, setIdDux] = useState("");
   const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
@@ -55,7 +54,6 @@ export default function EditarUsuarioModal({
   useEffect(() => {
     if (!open) return;
     if (item) {
-      setIdPersonal(String(item.idPersonal));
       setNombre(item.nombrePersonal);
       setIdDux(item.idDux ?? "");
       setSucursal(item.sucursalPorDefecto ?? "");
@@ -63,7 +61,6 @@ export default function EditarUsuarioModal({
       setTitularFinanciero(item.titularFinanciero);
       return;
     }
-    setIdPersonal("");
     setNombre("");
     setIdDux("");
     setSucursal("");
@@ -72,8 +69,7 @@ export default function EditarUsuarioModal({
   }, [open, item]);
 
   const puedeGuardar =
-    modulos.length > 0 &&
-    (esAlta ? idPersonal.trim() !== "" && nombre.trim() !== "" : item != null);
+    modulos.length > 0 && (esAlta ? nombre.trim() !== "" : item != null);
 
   function toggleModulo(id: MainAppAreaId) {
     setModulos((prev) =>
@@ -89,7 +85,6 @@ export default function EditarUsuarioModal({
       const idDuxValor = idDux.trim() === "" ? null : idDux.trim();
       const res = esAlta
         ? await crearUsuarioPersonalAction({
-            idPersonal,
             nombrePersonal: nombre,
             idDux: idDuxValor,
             sucursalPorDefecto,
@@ -152,30 +147,17 @@ export default function EditarUsuarioModal({
       >
         <div className="flex flex-col gap-4">
           {esAlta ? (
-            <>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>ID Personal</ModalMicroLabel>
-                <Input
-                  value={idPersonal}
-                  onChange={(e) => setIdPersonal(e.target.value)}
-                  placeholder="ID PERSONAL"
-                  inputMode="numeric"
-                  disabled={saving}
-                  aria-label="ID Personal"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>Nombre</ModalMicroLabel>
-                <Input
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  placeholder="NOMBRE"
-                  disabled={saving}
-                  aria-label="Nombre"
-                  className="uppercase"
-                />
-              </div>
-            </>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Nombre</ModalMicroLabel>
+              <Input
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="NOMBRE"
+                disabled={saving}
+                aria-label="Nombre"
+                className="uppercase"
+              />
+            </div>
           ) : (
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>Nombre</ModalMicroLabel>

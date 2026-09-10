@@ -330,10 +330,10 @@ model GlobalPtoVtaSucursal {
 /**
  * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
  * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
- * PK `id_personal`. Vínculo DUX hacia otras tablas: `id_dux` (opcional, unique).
+ * PK `id_personal` (serial, no lo carga el usuario). Vínculo DUX: `id_dux` (opcional, unique).
  */
 model GlobalPersonal {
-  idPersonal         Int      @id @map("id_personal")
+  idPersonal         Int      @id @default(autoincrement()) @map("id_personal")
   nombrePersonal     String   @map("nombre_personal")
   /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
   idDux              String?  @unique(map: "global_personal_id_dux_key") @map("id_dux")

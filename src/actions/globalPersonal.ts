@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getRol, esEditor } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
+import { requireFinanzasLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import { USUARIOS_PATH } from "@/lib/usuarios";
@@ -13,9 +14,24 @@ import {
 import {
   actualizarUsuarioPersonal,
   crearUsuarioPersonal,
+  listNombresTitularesFinancieros,
   listUsuariosParaInicioSesion,
   type GlobalPersonalItem,
 } from "@/services/globalPersonal.service";
+
+/** Titulares de caja/cheque: `global_personal` con `titular_financiero = true`. */
+export async function listTitularesFinancierosAction(): Promise<ActionResult<string[]>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  try {
+    const nombres = await listNombresTitularesFinancieros();
+    return { ok: true, data: nombres };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[globalPersonal][action][listTitularesFinancieros]", message);
+    return { ok: false, error: "Error al listar titulares financieros." };
+  }
+}
 
 export async function listUsuariosParaInicioSesionAction(): Promise<
   ActionResult<GlobalPersonalItem[]>

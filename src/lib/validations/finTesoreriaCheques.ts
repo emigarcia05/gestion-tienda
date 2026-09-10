@@ -1,11 +1,8 @@
 import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
-import { TITULARES_CAJA_TESORERIA } from "@/lib/cajasTesoreriaTitulares";
+import { titularCajaTesoreriaSchema } from "@/lib/cajasTesoreriaTitulares";
 
-export const tenedorChequeTesoreriaSchema = z.enum(
-  TITULARES_CAJA_TESORERIA,
-  "Seleccioná un tenedor válido."
-);
+export const tenedorChequeTesoreriaSchema = titularCajaTesoreriaSchema;
 
 const isoYmdSchema = z
   .string()

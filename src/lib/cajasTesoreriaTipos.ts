@@ -10,7 +10,7 @@ export const OPCIONES_TIPO_CAJA_TESORERIA_UI: { value: TipoCajaTesoreria; label:
   { value: "BILLETERA_DIGITAL", label: "BILLETERA DIGITAL" },
   { value: "CHEQUE", label: "CHEQUE" },
   { value: "EFECTIVO", label: "CAJA LOCAL" },
-  { value: "TARJETAS_A_COBRAR", label: "TARJETAS A COBRAR" },
+  { value: "TARJETAS_A_COBRAR", label: "TERMINAL DE PAGO" },
 ];
 
 export const OPCIONES_TIPO_VALOR_TESORERIA_UI: { value: TipoValorTesoreria; label: string }[] = [
@@ -35,9 +35,10 @@ export function disponibilidadDesdeTipoCaja(tipo: TipoCajaTesoreria): Disponibil
   return "INMEDIATA";
 }
 
-/** Etiqueta de pantalla para filtros y tabla (enum EFECTIVO → CAJA LOCAL; el resto: guión bajo → espacio). */
+/** Etiqueta de pantalla para filtros, tabla y selects (enum persistido sin cambiar). */
 export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria): string {
-  if (tipo === "EFECTIVO") return "CAJA LOCAL";
-  if (tipo === "TARJETAS_A_COBRAR") return "TARJETAS A COBRAR";
-  return tipo.replaceAll("_", " ");
+  return (
+    OPCIONES_TIPO_CAJA_TESORERIA_UI.find((o) => o.value === tipo)?.label ??
+    tipo.replaceAll("_", " ")
+  );
 }

@@ -232,7 +232,7 @@ GET de estado y POST del mismo job: **mismo guard**.
 
 CRUD: `src/actions/proveedores.ts` + `proveedor.service.ts`. Mutaciones: `PERMISOS.proveedores.acciones.nuevoProveedor`. Lectura catálogo: al menos uno de `sugeridos` / `lista` / `importarLista`. Eliminar: servicio `deleteProveedor` (`ServiceResult`; respeta FK).
 
-**`global_personal`:** PK `id_personal`. **`id_dux`:** vínculo DUX hacia otras tablas (TEXT, unique si informado; varios NULL OK). Filas existentes: `id_dux` = `id_personal`. Alta nueva: el usuario carga `id_dux` (opcional; no se copia el PK). `sucursal_por_defecto` (nullable) + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
+**`global_personal`:** PK `id_personal` (serial; el alta no lo pide). **`id_dux`:** vínculo DUX hacia otras tablas (TEXT, unique si informado; varios NULL OK). Filas existentes: `id_dux` = `id_personal`. Alta nueva: el usuario carga `id_dux` (opcional; no se copia el PK). `sucursal_por_defecto` (nullable) + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
 
 ### 3.2 Lista de precios proveedor
 
@@ -311,7 +311,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **`global_pto_vtas`:** catálogo de puntos de venta (`pto_venta` unique Int; `nombre_titular` mayúsculas `es-AR`). **`suc_asociadas`:** N:M vía `global_pto_vta_sucursales` (`pto_vta_id` Cascade, `sucursal_id` Restrict a `global_sucursales` con `genera_est = true`; mín. 1 sucursal). CRUD editor: `globalPtoVtas.ts` + `globalPtoVtas.service.ts`. Lectura RSC en Ptos. Vtas. No borrar un pto. vta. si hay terminales `fin_ana_cos_fina_terminales.titular_id`.
 
-**Tesorería:** `CajaTesoreria.tipoCaja` usa enum `TipoCajaTesoreria`. El modelo `FinTesoreriaTipoCaja` existe en schema (seed) pero **la app no lo lee**; no dropear sin decisión explícita. Cheques: `finTesoreriaCheques.ts`.
+**Tesorería:** `CajaTesoreria.tipoCaja` usa enum `TipoCajaTesoreria` (valor `TARJETAS_A_COBRAR` se muestra **TERMINAL DE PAGO**). El modelo `FinTesoreriaTipoCaja` existe en schema (seed) pero **la app no lo lee**; no dropear sin decisión explícita. Cheques: `finTesoreriaCheques.ts`.
 
 **Gastos jerárquicos:** tipo → rubro → gasto → gasto final → imputación mensual. Catálogo: `finBalGastosCatalogo.ts`. Imputaciones: `finBalGastoMensualBalance.ts`. `listarImputacionesMensualesBalance({ meses, anio })`: `meses` vacío = todas las imputaciones del `anio` (sin filtro de mes). Gasto eventual vendedor: `requireCargarGastoEventual`.
 

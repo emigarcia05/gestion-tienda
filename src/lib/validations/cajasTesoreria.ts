@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prismaCuidOrUuidSchema, prismaCuidSchema } from "@/lib/validations/common";
-import { TITULARES_CAJA_TESORERIA } from "@/lib/cajasTesoreriaTitulares";
+import { titularCajaTesoreriaSchema } from "@/lib/cajasTesoreriaTitulares";
 
 export const tipoCajaTesoreriaSchema = z.enum([
   "BANCO",
@@ -42,7 +42,7 @@ export const eliminarFinTesoreriaEntidadSchema = z.object({
 
 export const crearCajaTesoreriaSchema = z.object({
   entidadId: prismaCuidOrUuidSchema,
-  titular: z.enum(TITULARES_CAJA_TESORERIA, "Seleccioná un titular válido."),
+  titular: titularCajaTesoreriaSchema,
   tipoCaja: tipoCajaTesoreriaSchema,
   tipoValor: tipoValorTesoreriaSchema,
   disponibilidad: disponibilidadCajaTesoreriaSchema,

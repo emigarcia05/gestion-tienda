@@ -47,7 +47,6 @@ const modulosPermitidosSchema = z
   });
 
 export const crearUsuarioPersonalSchema = z.object({
-  idPersonal: idPersonalSchema,
   nombrePersonal: nombrePersonalSchema,
   idDux: idDuxPersonalOpcionalSchema,
   sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,

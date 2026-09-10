@@ -47,7 +47,7 @@ function mapDbError(error: unknown, fallback: string): string {
       if (p2002TargetIncludes(error, "id_dux")) {
         return "Ya existe un usuario con ese ID DUX.";
       }
-      return "Ya existe un usuario con ese ID Personal.";
+      return "Ya existe un usuario con esos datos.";
     }
     if (code === "P2003") return "Sucursal inválida.";
     if (code === "P2025") return "Usuario no encontrado.";
@@ -85,6 +85,49 @@ function mapRow(row: {
   };
 }
 
+/** Nombres de `global_personal` con `titular_financiero = true` (tesorería / tenedor). */
+export async function listNombresTitularesFinancieros(): Promise<string[]> {
+  const rows = await prisma.globalPersonal.findMany({
+    where: { titularFinanciero: true },
+    orderBy: { nombrePersonal: "asc" },
+    select: { nombrePersonal: true },
+  });
+  const seen = new Set<string>();
+  const nombres: string[] = [];
+  for (const row of rows) {
+    const nombre = normalizarNombrePersonal(row.nombrePersonal);
+    if (!nombre || seen.has(nombre)) continue;
+    seen.add(nombre);
+    nombres.push(nombre);
+  }
+  return nombres;
+}
+
+/**
+ * Resuelve el nombre canónico de un titular financiero.
+ * `permitirNombre` deja pasar un valor ya persistido (edición de caja/cheque legado).
+ */
+export async function resolverNombreTitularFinanciero(
+  raw: string,
+  permitirNombre?: string
+): Promise<ServiceResult<string>> {
+  const nombre = normalizarNombrePersonal(raw);
+  if (!nombre) {
+    return { success: false, error: "Seleccioná un titular válido." };
+  }
+  if (permitirNombre && normalizarNombrePersonal(permitirNombre) === nombre) {
+    return { success: true, data: nombre };
+  }
+  const row = await prisma.globalPersonal.findFirst({
+    where: { titularFinanciero: true, nombrePersonal: nombre },
+    select: { nombrePersonal: true },
+  });
+  if (!row) {
+    return { success: false, error: "Seleccioná un titular financiero válido." };
+  }
+  return { success: true, data: row.nombrePersonal };
+}
+
 /** Lista el catálogo `global_personal` ordenado por nombre. */
 export async function listGlobalPersonal(): Promise<GlobalPersonalItem[]> {
   const rows = await prisma.globalPersonal.findMany({
@@ -116,7 +159,6 @@ export async function crearUsuarioPersonal(
   try {
     const row = await prisma.globalPersonal.create({
       data: {
-        idPersonal: input.idPersonal,
         nombrePersonal: nombre,
         idDux: input.idDux,
         sucursalPorDefecto: input.sucursalPorDefecto,
