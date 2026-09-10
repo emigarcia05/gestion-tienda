@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Calculator, Settings2 } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaFinAnaCosFina, { type FinAnaCosFinaFila } from "@/components/finanzas/TablaFinAnaCosFina";
-import GestionarTerminalesFinAnaCosFinaModal from "@/components/finanzas/GestionarTerminalesFinAnaCosFinaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPagosFinAnaCosFinaModal";
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
@@ -28,15 +27,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
-import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
-import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
 
 interface Props {
   filas: FinAnaCosFinaFila[];
   marcas: FinAnaCosFinaTerminalMarcaItem[];
-  terminales: FinAnaCosFinaTerminalItem[];
-  ptoVtas: GlobalPtoVtaItem[];
   pagos: FinAnaCosFinaPagoItem[];
   esEditor: boolean;
 }
@@ -48,8 +43,6 @@ function etiquetaFiltroMayusculas(texto: string): string {
 export default function FinAnaCosFinaPageClient({
   filas,
   marcas,
-  terminales,
-  ptoVtas,
   pagos,
   esEditor,
 }: Props) {
@@ -59,7 +52,6 @@ export default function FinAnaCosFinaPageClient({
   const [filtroTerminalId, setFiltroTerminalId] = useState("");
   const [filtroPago, setFiltroPago] = useState("");
   const [filtroHabilitado, setFiltroHabilitado] = useState("");
-  const [openGestionarTerminales, setOpenGestionarTerminales] = useState(false);
   const [openGestionarMarcas, setOpenGestionarMarcas] = useState(false);
   const [openGestionarPagos, setOpenGestionarPagos] = useState(false);
   const [openCalculoCxTotal, setOpenCalculoCxTotal] = useState(false);
@@ -91,7 +83,7 @@ export default function FinAnaCosFinaPageClient({
     setFilasOverrides((prev) => ({ ...prev, [fila.id]: fila }));
   }
 
-  function handleCatalogoTerminalesChanged() {
+  function handleCatalogoMarcasChanged() {
     setFilasOverrides({});
     router.refresh();
   }
@@ -131,14 +123,6 @@ export default function FinAnaCosFinaPageClient({
             >
               <Settings2 className="size-4 shrink-0" aria-hidden />
               Gestionar Marcas
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setOpenGestionarTerminales(true)}
-              className="h-10 gap-2 px-4"
-            >
-              <Settings2 className="size-4 shrink-0" aria-hidden />
-              Gestionar Terminales
             </Button>
           </div>
         }
@@ -250,17 +234,7 @@ export default function FinAnaCosFinaPageClient({
         onOpenChange={setOpenGestionarMarcas}
         marcasIniciales={marcas}
         esEditor={esEditor}
-        onCatalogoChanged={handleCatalogoTerminalesChanged}
-      />
-
-      <GestionarTerminalesFinAnaCosFinaModal
-        open={openGestionarTerminales}
-        onOpenChange={setOpenGestionarTerminales}
-        terminalesIniciales={terminales}
-        marcas={marcas}
-        ptoVtas={ptoVtas}
-        esEditor={esEditor}
-        onCatalogoChanged={handleCatalogoTerminalesChanged}
+        onCatalogoChanged={handleCatalogoMarcasChanged}
       />
 
       <CalculoCxTotalFinAnaCosFinaModal open={openCalculoCxTotal} onOpenChange={setOpenCalculoCxTotal} />

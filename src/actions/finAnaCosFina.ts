@@ -61,6 +61,11 @@ function revalidateRutasAnalisisMc(): void {
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);
 }
 
+function revalidateRutasTerminalesDux(): void {
+  revalidateRutasAnalisisMc();
+  revalidatePath(VTAS_COBROS_ROUTES.cobros);
+}
+
 export async function listarFinAnaCosFinaTerminalesMarcasAction(): Promise<
   ActionResult<FinAnaCosFinaTerminalMarcaItem[]>
 > {
@@ -87,7 +92,7 @@ export async function crearFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await crearFinAnaCosFinaTerminalMarca(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 
@@ -103,7 +108,7 @@ export async function editarFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await editarFinAnaCosFinaTerminalMarca(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 
@@ -119,7 +124,7 @@ export async function eliminarFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await eliminarFinAnaCosFinaTerminalMarca(parsed.data.id);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 
@@ -149,7 +154,7 @@ export async function crearFinAnaCosFinaTerminalAction(
   }
 
   const res = await crearFinAnaCosFinaTerminal(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 
@@ -165,7 +170,7 @@ export async function editarFinAnaCosFinaTerminalAction(
   }
 
   const res = await editarFinAnaCosFinaTerminal(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 
@@ -179,7 +184,7 @@ export async function eliminarFinAnaCosFinaTerminalAction(raw: unknown): Promise
   }
 
   const res = await eliminarFinAnaCosFinaTerminal(parsed.data.id);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasTerminalesDux();
   return fromServiceResult(res);
 }
 

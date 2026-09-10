@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/select";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaFinVtasCobros from "@/components/vtas-cobros/TablaFinVtasCobros";
+import GestionarTerminalesFinAnaCosFinaModal from "@/components/finanzas/GestionarTerminalesFinAnaCosFinaModal";
 import type { FinVtasCobroFila } from "@/services/finVtasCobros.service";
+import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
 import { cn } from "@/lib/utils";
 
 const MESES_CALENDARIO: { valor: number; etiqueta: string }[] = [
@@ -51,6 +55,9 @@ interface Props {
   mesActual: number;
   anioActual: number;
   esEditor: boolean;
+  terminales: FinAnaCosFinaTerminalItem[];
+  marcas: FinAnaCosFinaTerminalMarcaItem[];
+  ptoVtas: GlobalPtoVtaItem[];
 }
 
 export default function VtasCobrosCobrosPageClient({
@@ -60,10 +67,14 @@ export default function VtasCobrosCobrosPageClient({
   mesActual,
   anioActual,
   esEditor,
+  terminales,
+  marcas,
+  ptoVtas,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [consultando, setConsultando] = useState(false);
+  const [openGestionarTerminales, setOpenGestionarTerminales] = useState(false);
 
   function navigate(next: { mes?: number; anio?: number }) {
     const p = new URLSearchParams();
@@ -164,19 +175,36 @@ export default function VtasCobrosCobrosPageClient({
           </FilterBar>
         }
         actions={
-          esEditor ? (
+          <div className="flex items-center gap-2">
             <ToolbarActionButton
               type="button"
-              icon={<RefreshCw />}
-              label="Consultar"
-              loading={consultando}
-              onClick={() => void consultarCobros()}
+              icon={<Settings2 />}
+              label="Gestionar Terminales"
+              onClick={() => setOpenGestionarTerminales(true)}
             />
-          ) : null
+            {esEditor ? (
+              <ToolbarActionButton
+                type="button"
+                icon={<RefreshCw />}
+                label="Consultar"
+                loading={consultando}
+                onClick={() => void consultarCobros()}
+              />
+            ) : null}
+          </div>
         }
       >
         <TablaFinVtasCobros filas={filas} />
       </ClassicFilteredTableLayout>
+      <GestionarTerminalesFinAnaCosFinaModal
+        open={openGestionarTerminales}
+        onOpenChange={setOpenGestionarTerminales}
+        terminalesIniciales={terminales}
+        marcas={marcas}
+        ptoVtas={ptoVtas}
+        esEditor={esEditor}
+        onCatalogoChanged={() => router.refresh()}
+      />
     </div>
   );
 }
