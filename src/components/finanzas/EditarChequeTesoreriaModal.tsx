@@ -20,10 +20,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import type { TipoChequeTesoreria } from "@prisma/client";
 import { actualizarFinTesoreriaChequeAction } from "@/actions/finTesoreriaCheques";
 import type { FinTesoreriaChequeItem } from "@/services/finTesoreriaCheques.service";
-import {
-  TITULARES_CAJA_TESORERIA,
-  type TitularCajaTesoreria,
-} from "@/lib/cajasTesoreriaTitulares";
+import { useTitularesFinancierosTesoreria } from "@/lib/hooks/useTitularesFinancierosTesoreria";
 import { montoArNormalizedStringToPesosIntRounded, montoArPesosEnterosToNormalizedString } from "@/lib/montoArMask";
 
 interface Props {
@@ -31,10 +28,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   cheque: FinTesoreriaChequeItem | null;
   onUpdated?: () => void;
-}
-
-function tenedorValido(o: string): o is TitularCajaTesoreria {
-  return TITULARES_CAJA_TESORERIA.includes(o as TitularCajaTesoreria);
 }
 
 const TIPOS_CHEQUE: readonly TipoChequeTesoreria[] = ["FISICO", "ECHEQUE"];
@@ -50,7 +43,8 @@ export default function EditarChequeTesoreriaModal({
   onUpdated,
 }: Props) {
   const [tipo, setTipo] = useState<TipoChequeTesoreria>("FISICO");
-  const [tenedor, setTenedor] = useState<TitularCajaTesoreria | "">("");
+  const [tenedor, setTenedor] = useState("");
+  const titulares = useTitularesFinancierosTesoreria(open, cheque?.tenedor);
   const [emisor, setEmisor] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [fechaAcreditacionIso, setFechaAcreditacionIso] = useState("");
@@ -64,7 +58,7 @@ export default function EditarChequeTesoreriaModal({
     setFechaAcreditacionIso(cheque.fechaAcreditacionIso);
     setFechaRecibidoIso(cheque.fechaRecibidoIso);
     setTipo(tipoChequeValido(cheque.tipo) ? cheque.tipo : "FISICO");
-    setTenedor(tenedorValido(cheque.tenedor) ? cheque.tenedor : "");
+    setTenedor(cheque.tenedor);
   }, [open, cheque]);
 
   const parsedMonto = useMemo(() => montoArNormalizedStringToPesosIntRounded(montoNorm), [montoNorm]);
@@ -154,7 +148,7 @@ export default function EditarChequeTesoreriaModal({
             <Select
               value={tenedor || "none"}
               onValueChange={(value) =>
-                setTenedor(value === "none" ? "" : (value as TitularCajaTesoreria))
+                setTenedor(value === "none" ? "" : value)
               }
               disabled={saving || !cheque}
             >
@@ -168,7 +162,7 @@ export default function EditarChequeTesoreriaModal({
                 className="select-content-filtro"
               >
                 <SelectItem value="none">SELECCIONAR TENEDOR</SelectItem>
-                {TITULARES_CAJA_TESORERIA.map((opt) => (
+                {titulares.map((opt) => (
                   <SelectItem key={opt} value={opt}>
                     {opt}
                   </SelectItem>

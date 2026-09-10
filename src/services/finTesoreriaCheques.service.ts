@@ -14,6 +14,7 @@ import type {
   MarcarEntregaProveedorChequeInput,
   TransferirFinTesoreriaChequeInput,
 } from "@/lib/validations/finTesoreriaCheques";
+import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
 
 /** Límite alineado con `montoCajaTesoreriaSchema` (cajas tesorería). */
 const MONTO_CAJA_MAX = 999_999_999;
@@ -220,13 +221,16 @@ export async function crearFinTesoreriaCheque(
     return { success: false, error: "Solo se pueden registrar cheques en cajas tipo CHEQUE." };
   }
 
+  const tenedorOk = await resolverNombreTitularFinanciero(input.tenedor);
+  if (!tenedorOk.success) return tenedorOk;
+
   try {
     const row = await prisma.$transaction(async (tx) => {
       const created = await tx.finTesoreriaCheque.create({
         data: {
           cajaId: input.cajaId,
           tipo: input.tipo,
-          tenedor: input.tenedor,
+          tenedor: tenedorOk.data,
           emisor: input.emisor.trim(),
           monto: input.monto,
           fechaAcreditacion: new Date(`${input.fechaAcreditacion}T12:00:00.000Z`),
@@ -280,12 +284,15 @@ export async function actualizarFinTesoreriaCheque(
     return { success: false, error: "No se puede editar un cheque ya transferido a una cuenta." };
   }
 
+  const tenedorOk = await resolverNombreTitularFinanciero(input.tenedor, existente.tenedor);
+  if (!tenedorOk.success) return tenedorOk;
+
   try {
     const row = await prisma.finTesoreriaCheque.update({
       where: { id: input.id },
       data: {
         tipo: input.tipo,
-        tenedor: input.tenedor,
+        tenedor: tenedorOk.data,
         emisor: input.emisor.trim(),
         monto: input.monto,
         fechaAcreditacion: new Date(`${input.fechaAcreditacion}T12:00:00.000Z`),

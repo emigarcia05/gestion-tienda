@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prismaCuidOrUuidSchema, prismaCuidSchema } from "@/lib/validations/common";
+import { prismaCuidOrUuidSchema, prismaCuidSchema, globalSucursalIdSchema } from "@/lib/validations/common";
 import { titularCajaTesoreriaSchema } from "@/lib/cajasTesoreriaTitulares";
 
 export const tipoCajaTesoreriaSchema = z.enum([
@@ -21,6 +21,11 @@ export const montoCajaTesoreriaSchema = z
   .min(-999_999_999, "El monto es demasiado bajo.")
   .max(999_999_999, "El monto es demasiado alto.");
 
+const sucursalCajaTesoreriaSchema = z.preprocess(
+  (value) => (value === "none" || value === "" || value == null ? null : value),
+  globalSucursalIdSchema.nullable()
+);
+
 const nombreFinTesoreriaEntidadSchema = z
   .string()
   .trim()
@@ -40,18 +45,46 @@ export const eliminarFinTesoreriaEntidadSchema = z.object({
   id: prismaCuidOrUuidSchema,
 });
 
-export const crearCajaTesoreriaSchema = z.object({
+function refinSucursalSegunTipoCaja(
+  data: { tipoCaja: string; sucursalId: string | null },
+  ctx: z.RefinementCtx
+): void {
+  if (data.tipoCaja === "CHEQUE") {
+    if (data.sucursalId != null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Las cajas CHEQUE no tienen sucursal.",
+        path: ["sucursalId"],
+      });
+    }
+    return;
+  }
+  if (data.sucursalId == null) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Seleccioná una sucursal.",
+      path: ["sucursalId"],
+    });
+  }
+}
+
+const cajaTesoreriaCamposSchema = z.object({
   entidadId: prismaCuidOrUuidSchema,
   titular: titularCajaTesoreriaSchema,
+  sucursalId: sucursalCajaTesoreriaSchema,
   tipoCaja: tipoCajaTesoreriaSchema,
   tipoValor: tipoValorTesoreriaSchema,
   disponibilidad: disponibilidadCajaTesoreriaSchema,
   monto: montoCajaTesoreriaSchema.optional().default(0),
 });
 
-export const editarCajaTesoreriaSchema = crearCajaTesoreriaSchema.extend({
-  id: prismaCuidSchema,
-});
+export const crearCajaTesoreriaSchema = cajaTesoreriaCamposSchema.superRefine(
+  refinSucursalSegunTipoCaja
+);
+
+export const editarCajaTesoreriaSchema = cajaTesoreriaCamposSchema
+  .extend({ id: prismaCuidSchema })
+  .superRefine(refinSucursalSegunTipoCaja);
 
 export const eliminarCajaTesoreriaSchema = z.object({
   id: prismaCuidSchema,

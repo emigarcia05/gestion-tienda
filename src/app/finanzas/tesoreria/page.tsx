@@ -21,6 +21,8 @@ export default async function FinanzasTesoreriaPage() {
     entidadId: c.entidadId,
     entidadNombre: c.entidadNombre,
     titular: c.titular,
+    sucursalId: c.sucursalId,
+    sucursalNombre: c.sucursalNombre,
     tipoCaja: c.tipoCaja,
     tipoValor: c.tipoValor,
     disponibilidad: c.disponibilidad,

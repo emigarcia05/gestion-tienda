@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fmtPrecio } from "@/lib/format";
+import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { Banknote, Pencil, ScrollText, TriangleAlert } from "lucide-react";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -27,6 +27,8 @@ export interface TesoreriaCajaFila {
   entidadId: string;
   entidadNombre: string;
   titular: string;
+  sucursalId: string | null;
+  sucursalNombre: string;
   tipoCaja: string;
   tipoValor: string;
   disponibilidad: string;
@@ -49,11 +51,11 @@ interface Props {
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
 }
 
-/** Orden: ÚLT. ACT., TIPO CAJA, ENTIDAD, TITULAR, MONTO [, ACCIONES]. Con acciones suma 100%. */
-const COLS = 5;
+/** Orden: ÚLT. ACT., TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO [, ACCIONES]. */
+const COLS = 6;
 
-const COL_WIDTHS_PCT_CON_ACCIONES = [15, 15, 20, 20, 20, 10] as const;
-const COL_WIDTHS_PCT_SIN_ACCIONES = [15, 15, 20, 20, 30] as const;
+const COL_WIDTHS_PCT_CON_ACCIONES = [13, 13, 16, 14, 16, 16, 10] as const;
+const COL_WIDTHS_PCT_SIN_ACCIONES = [14, 14, 18, 16, 18, 20] as const;
 
 /** Columna ÚLT. ACT.: recuadro sólido `accent2` + ícono blanco (solo si hay alerta). */
 const TESORERIA_ALERTA_CAJA_ACTIVA_CLASS = "border-accent2 bg-accent2 shadow-sm";
@@ -220,6 +222,7 @@ export default function TablaTesoreriaCajas({
                 <TableHead className={CELL_MIN}>ÚLT. ACT.</TableHead>
                 <TableHead className={CELL_MIN}>TIPO CAJA</TableHead>
                 <TableHead className={CELL_MIN}>ENTIDAD</TableHead>
+                <TableHead className={CELL_MIN}>SUCURSAL</TableHead>
                 <TableHead className={CELL_MIN}>TITULAR</TableHead>
                 <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO</TableHead>
                 {esEditor ? (
@@ -296,6 +299,9 @@ export default function TablaTesoreriaCajas({
                         </TableCell>
                         <TableCell className={cn("celda-datos", CELL_MIN)} title={f.entidadNombre}>
                           <span className="celda-destacado block truncate">{f.entidadNombre}</span>
+                        </TableCell>
+                        <TableCell className={cn("celda-datos", CELL_MIN)} title={f.sucursalNombre || undefined}>
+                          <span className="block truncate">{fmtCelda(f.sucursalNombre)}</span>
                         </TableCell>
                         <TableCell className={cn("celda-datos", CELL_MIN)} title={f.titular}>
                           <span className="block truncate">{f.titular}</span>

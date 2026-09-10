@@ -26,10 +26,8 @@ import {
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import {
-  TITULARES_CAJA_TESORERIA,
-  type TitularCajaTesoreria,
-} from "@/lib/cajasTesoreriaTitulares";
+import { useTitularesFinancierosTesoreria } from "@/lib/hooks/useTitularesFinancierosTesoreria";
+import { normalizarNombreTitularCaja } from "@/lib/cajasTesoreriaTitulares";
 import type { TipoChequeTesoreria } from "@prisma/client";
 
 const TIPOS_CHEQUE: readonly TipoChequeTesoreria[] = ["FISICO", "ECHEQUE"];
@@ -43,11 +41,13 @@ function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   }
 }
 
-function tenedorInicialDesdeTitularCaja(raw: string | null | undefined): TitularCajaTesoreria {
-  if (raw && TITULARES_CAJA_TESORERIA.includes(raw as TitularCajaTesoreria)) {
-    return raw as TitularCajaTesoreria;
-  }
-  return TITULARES_CAJA_TESORERIA[0];
+function tenedorInicialDesdeTitularCaja(
+  raw: string | null | undefined,
+  catalogo: readonly string[]
+): string {
+  const actual = raw ? normalizarNombreTitularCaja(raw) : "";
+  if (actual && catalogo.includes(actual)) return actual;
+  return catalogo[0] ?? "";
 }
 
 interface Props {
@@ -67,7 +67,8 @@ export default function AltaChequeTesoreriaModal({
   onCreated,
 }: Props) {
   const [tipo, setTipo] = useState<TipoChequeTesoreria>("FISICO");
-  const [tenedor, setTenedor] = useState<TitularCajaTesoreria>(TITULARES_CAJA_TESORERIA[0]);
+  const [tenedor, setTenedor] = useState("");
+  const titulares = useTitularesFinancierosTesoreria(open, titularCaja);
   const [emisor, setEmisor] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [fechaDdMmYyyy, setFechaDdMmYyyy] = useState("");
@@ -79,13 +80,17 @@ export default function AltaChequeTesoreriaModal({
   useEffect(() => {
     if (!open) return;
     setTipo("FISICO");
-    setTenedor(tenedorInicialDesdeTitularCaja(titularCaja ?? null));
     setEmisor("");
     setMontoNorm("");
     const hoy = formatIsoYmdDdMmYyyyArgentina(dateToIsoYmdArgentina(new Date()));
     setFechaDdMmYyyy(hoy);
     setFechaRecibidoDdMmYyyy(hoy);
   }, [open, titularCaja]);
+
+  useEffect(() => {
+    if (!open) return;
+    setTenedor(tenedorInicialDesdeTitularCaja(titularCaja ?? null, titulares));
+  }, [open, titularCaja, titulares]);
 
   const parsedMonto = useMemo(() => montoArNormalizedStringToPesosIntRounded(montoNorm), [montoNorm]);
   const fechaAcreditacionIso = useMemo(
@@ -117,12 +122,13 @@ export default function AltaChequeTesoreriaModal({
     return (
       saving ||
       !cajaId ||
+      tenedor.trim().length === 0 ||
       emisor.trim().length === 0 ||
       parsedMonto < 0 ||
       fechaAcreditacionIso === "" ||
       fechaRecibidoIso === ""
     );
-  }, [saving, cajaId, emisor, parsedMonto, fechaAcreditacionIso, fechaRecibidoIso]);
+  }, [saving, cajaId, tenedor, emisor, parsedMonto, fechaAcreditacionIso, fechaRecibidoIso]);
 
   async function handleSubmit() {
     if (disabledSubmit || !cajaId) return;
@@ -195,8 +201,8 @@ export default function AltaChequeTesoreriaModal({
           <label className="flex flex-col gap-1">
             <ModalMicroLabel>TENEDOR</ModalMicroLabel>
             <Select
-              value={tenedor}
-              onValueChange={(value) => setTenedor(value as TitularCajaTesoreria)}
+              value={tenedor || "none"}
+              onValueChange={(value) => setTenedor(value === "none" ? "" : value)}
               disabled={saving || !cajaId}
             >
               <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
@@ -208,7 +214,8 @@ export default function AltaChequeTesoreriaModal({
                 align="start"
                 className="select-content-filtro"
               >
-                {TITULARES_CAJA_TESORERIA.map((opt) => (
+                <SelectItem value="none">SELECCIONAR TENEDOR</SelectItem>
+                {titulares.map((opt) => (
                   <SelectItem key={opt} value={opt}>
                     {opt}
                   </SelectItem>

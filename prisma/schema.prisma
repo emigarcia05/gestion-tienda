@@ -293,6 +293,7 @@ model Sucursal {
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   finVtasCobros              FinVtasCobro[]
+  cajasTesoreria            CajaTesoreria[]
 
   @@map("global_sucursales")
 }
@@ -379,7 +380,11 @@ model CajaTesoreria {
   id               String            @id @default(cuid())
   entidadId        String            @map("entidad_id")
   entidad          FinTesoreriaEntidad @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
+  /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `global_sucursales`. */
+  sucursalId       String?           @map("sucursal_id")
+  sucursal         Sucursal?         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   tipoCaja         TipoCajaTesoreria @map("tipo_caja")
   tipoValor        TipoValorTesoreria @map("tipo_valor")
   disponibilidad   DisponibilidadCajaTesoreria @map("disponibilidad")
@@ -391,10 +396,10 @@ model CajaTesoreria {
   cheques                        FinTesoreriaCheque[]
   chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
 
-  @@unique([entidadId, titular], map: "fin_tesoreria_entidad_titular_ux")
   @@index([tipoCaja], map: "fin_tesoreria_tipo_caja_idx")
   @@index([tipoValor], map: "fin_tesoreria_tipo_valor_idx")
   @@index([entidadId], map: "fin_tesoreria_entidad_id_idx")
+  @@index([sucursalId], map: "fin_tesoreria_sucursal_id_idx")
   @@map("fin_tesoreria")
 }
 
@@ -406,7 +411,7 @@ model FinTesoreriaCheque {
   cajaId              String               @map("caja_id")
   tipo                TipoChequeTesoreria  @map("tipo")
   emisor              String
-  /** Misma lista cerrada que `fin_tesoreria.titular` (titulares de caja). */
+  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `fin_tesoreria.titular`). */
   tenedor             String                 @map("tenedor")
   /** Custodia: en tienda (alta), depositado (transferido a caja con tipo_valor DIGITAL), proveedor (pago a proveedor mercadería). */
   tenencia            TenenciaChequeTesoreria @default(TIENDA) @map("tenencia")

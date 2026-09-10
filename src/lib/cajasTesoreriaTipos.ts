@@ -35,6 +35,11 @@ export function disponibilidadDesdeTipoCaja(tipo: TipoCajaTesoreria): Disponibil
   return "INMEDIATA";
 }
 
+/** Las cajas CHEQUE no tienen sucursal. */
+export function cajaTesoreriaUsaSucursal(tipo: TipoCajaTesoreria): boolean {
+  return tipo !== "CHEQUE";
+}
+
 /** Etiqueta de pantalla para filtros, tabla y selects (enum persistido sin cambiar). */
 export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria): string {
   return (

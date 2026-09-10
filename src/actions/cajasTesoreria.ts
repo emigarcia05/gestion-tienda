@@ -21,7 +21,9 @@ import {
   eliminarFinTesoreriaEntidad,
   listarCajasTesoreriaPorTipoCaja,
   listarEntidadesFinTesoreria,
+  listarSucursalesTesoreria,
   type CajaTesoreriaItem,
+  type SucursalTesoreriaOption,
 } from "@/services/cajasTesoreria.service";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 
@@ -52,6 +54,24 @@ export async function listarEntidadesFinTesoreriaAction(): Promise<ActionResult<
     return { ok: true, data: items };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "No se pudo listar las entidades.";
+    return { ok: false, error: message };
+  }
+}
+
+/** Catálogo `global_sucursales` para alta/edición de cajas. */
+export async function listarSucursalesTesoreriaAction(): Promise<
+  ActionResult<SucursalTesoreriaOption[]>
+> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.finanzas.acceso)) {
+    return { ok: false, error: "Sin permisos para finanzas." };
+  }
+
+  try {
+    const items = await listarSucursalesTesoreria();
+    return { ok: true, data: items };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "No se pudo listar las sucursales.";
     return { ok: false, error: message };
   }
 }

@@ -13,11 +13,13 @@ import {
 } from "@/services/finTesoreriaCheques.service";
 import { disponibilidadDesdeTipoCaja, tipoValorDesdeTipoCaja } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
+import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
 
 export type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 
 const CAJA_TESORERIA_LIST_INCLUDE = {
   entidad: { select: { id: true, nombre: true } },
+  sucursal: { select: { id: true, nombre: true } },
 } as const;
 
 type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
@@ -30,6 +32,8 @@ export interface CajaTesoreriaItem {
   /** Texto del catálogo `fin_tesoreria_entidades.nombre` (MAYÚSCULAS). */
   entidadNombre: string;
   titular: string;
+  sucursalId: string | null;
+  sucursalNombre: string;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   disponibilidad: DisponibilidadCajaTesoreria;
@@ -52,6 +56,7 @@ export interface CajaTesoreriaItem {
 export interface CrearCajaTesoreriaInput {
   entidadId: string;
   titular: string;
+  sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   disponibilidad: DisponibilidadCajaTesoreria;
@@ -62,10 +67,16 @@ export interface EditarCajaTesoreriaInput {
   id: string;
   entidadId: string;
   titular: string;
+  sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   disponibilidad: DisponibilidadCajaTesoreria;
   monto: number;
+}
+
+export interface SucursalTesoreriaOption {
+  id: string;
+  nombre: string;
 }
 
 function mapCaja(
@@ -78,6 +89,10 @@ function mapCaja(
     entidadId: row.entidadId,
     entidadNombre: row.entidad.nombre.toUpperCase(),
     titular: row.titular.toUpperCase(),
+    sucursalId: row.sucursalId,
+    sucursalNombre: row.sucursal
+      ? row.sucursal.nombre.toLocaleUpperCase("es-AR")
+      : "",
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
     disponibilidad: row.disponibilidad,
@@ -98,7 +113,8 @@ function mapDbError(error: unknown, fallback: string): string {
     typeof (error as { code?: unknown }).code === "string"
   ) {
     const code = (error as { code: string }).code;
-    if (code === "P2002") return "Ya existe una caja con esa entidad y titular.";
+    if (code === "P2002") return "Ya existe una caja con esos datos.";
+    if (code === "P2003") return "Sucursal o entidad inválida.";
     if (code === "P2025") return "Caja no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -114,6 +130,35 @@ export async function listarEntidadesFinTesoreria(): Promise<FinTesoreriaEntidad
     select: { id: true, nombre: true },
   });
   return rows.map((r) => ({ id: r.id, nombre: r.nombre.toUpperCase() }));
+}
+
+export async function listarSucursalesTesoreria(): Promise<SucursalTesoreriaOption[]> {
+  const rows = await prisma.sucursal.findMany({
+    orderBy: [{ nombre: "asc" }],
+    select: { id: true, nombre: true },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre.toLocaleUpperCase("es-AR"),
+  }));
+}
+
+async function resolverSucursalCajaTesoreria(
+  tipoCaja: TipoCajaTesoreria,
+  sucursalId: string | null
+): Promise<ServiceResult<string | null>> {
+  if (tipoCaja === "CHEQUE") {
+    return { success: true, data: null };
+  }
+  if (!sucursalId) {
+    return { success: false, error: "Seleccioná una sucursal." };
+  }
+  const sucursal = await prisma.sucursal.findUnique({
+    where: { id: sucursalId },
+    select: { id: true },
+  });
+  if (!sucursal) return { success: false, error: "Sucursal inválida." };
+  return { success: true, data: sucursal.id };
 }
 
 function mapDbErrorEntidad(error: unknown, fallback: string): string {
@@ -252,11 +297,16 @@ export async function crearCajaTesoreria(
         "La combinación tipo de caja / tipo de valor / disponibilidad no es válida para las reglas de tesorería.",
     };
   }
+  const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);
+  if (!sucursalOk.success) return sucursalOk;
+  const titularOk = await resolverNombreTitularFinanciero(input.titular);
+  if (!titularOk.success) return titularOk;
   try {
     const row = await prisma.cajaTesoreria.create({
       data: {
         entidadId: input.entidadId,
-        titular: input.titular.trim().toUpperCase(),
+        titular: titularOk.data,
+        sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         disponibilidad: input.disponibilidad,
@@ -282,7 +332,7 @@ export async function editarCajaTesoreria(
   try {
     const existing = await prisma.cajaTesoreria.findUnique({
       where: { id: input.id },
-      select: { tipoCaja: true },
+      select: { tipoCaja: true, titular: true },
     });
     if (!existing) {
       return { success: false, error: "Caja no encontrada." };
@@ -297,11 +347,20 @@ export async function editarCajaTesoreria(
       }
     }
 
+    const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);
+    if (!sucursalOk.success) return sucursalOk;
+    const titularOk = await resolverNombreTitularFinanciero(
+      input.titular,
+      existing.titular
+    );
+    if (!titularOk.success) return titularOk;
+
     const row = await prisma.cajaTesoreria.update({
       where: { id: input.id },
       data: {
         entidadId: input.entidadId,
-        titular: input.titular.trim().toUpperCase(),
+        titular: titularOk.data,
+        sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         disponibilidad: input.disponibilidad,
