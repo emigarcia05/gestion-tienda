@@ -41,14 +41,16 @@ function isRecord(val: unknown): val is Record<string, unknown> {
   return val !== null && typeof val === "object";
 }
 
+const BIGINT_ZERO = BigInt(0);
+
 function parseDuxInt64(raw: unknown): bigint | null {
-  if (typeof raw === "bigint" && raw > 0n) return raw;
+  if (typeof raw === "bigint" && raw > BIGINT_ZERO) return raw;
   if (typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0) {
     return BigInt(raw);
   }
   if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
     const n = BigInt(raw.trim());
-    return n > 0n ? n : null;
+    return n > BIGINT_ZERO ? n : null;
   }
   return null;
 }
