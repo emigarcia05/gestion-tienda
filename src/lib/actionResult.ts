@@ -2,16 +2,12 @@ import type { ZodError } from "zod";
 import type { ActionResult } from "@/lib/types";
 import type { ServiceResult } from "@/types/service.types";
 
-/** Primer mensaje de `ZodError.flatten()` (fieldErrors → formErrors). */
+/** Primer mensaje de `ZodError.issues` (`flatten()` en Zod 4 no tipa `string`). */
 export function firstZodErrorMessage(
   error: ZodError,
   fallback = "Datos inválidos."
 ): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    fallback
-  );
+  return error.issues[0]?.message ?? fallback;
 }
 
 /** Fallo de Action listo para `return` tras `safeParse` fallido. */

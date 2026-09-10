@@ -616,6 +616,34 @@ model FinFactCobrosPtoVtaMes {
 }
 
 /**
+ * Líneas de cobranza DUX (`fin_vtas_cobros`).
+ * Una fila por ítem de `cobranza` de GET `/v2/cobros`.
+ * Unique `(id_cobro, linea)`: al reconsultar el último día se omiten repetidos.
+ * `fecha` habilita la ventana incremental (última fecha persistida → hoy AR).
+ */
+model FinVtasCobro {
+  id            String   @id @default(cuid())
+  idCobro       BigInt   @map("id_cobro")
+  idSucursal    Int      @map("id_sucursal")
+  fecha         DateTime @map("fecha") @db.Date
+  descripcion   String   @default("") @db.VarChar(500)
+  monto         Decimal  @db.Decimal(14, 2)
+  idTarjeta     BigInt?  @map("id_tarjeta")
+  idPlanTarjeta BigInt?  @map("id_plan_tarjeta")
+  idTerminal    BigInt?  @map("id_terminal")
+  tipoValor     String   @map("tipo_valor") @db.VarChar(40)
+  /** Índice en el array `cobranza` del cobro DUX. */
+  linea         Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([idCobro, linea], map: "fin_vtas_cobros_ux")
+  @@index([fecha], map: "fin_vtas_cobros_fecha_idx")
+  @@index([idSucursal], map: "fin_vtas_cobros_id_sucursal_idx")
+  @@map("fin_vtas_cobros")
+}
+
+/**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
  * La sucursal debe existir en `global_sucursales` con `genera_est = true` (validado en servicio).
  * `cod_tienda` referencia `prod_tienda.cod_tienda` (código numérico DUX importado como texto).

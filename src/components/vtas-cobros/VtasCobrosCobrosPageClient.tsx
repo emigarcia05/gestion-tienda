@@ -5,6 +5,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import FilterBar, {
+  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   SELECT_TRIGGER_FILTER_CLASS,
   FilaFiltrosDesplegables,
@@ -19,15 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  EmptyTableRow,
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import TablaFinVtasCobros from "@/components/vtas-cobros/TablaFinVtasCobros";
+import type { FinVtasCobroFila } from "@/services/finVtasCobros.service";
+import { cn } from "@/lib/utils";
 
 const MESES_CALENDARIO: { valor: number; etiqueta: string }[] = [
   { valor: 1, etiqueta: "ENERO" },
@@ -49,6 +45,7 @@ const ANIO_MAX = 2046;
 const ANIOS = Array.from({ length: ANIO_MAX - ANIO_MIN + 1 }, (_, i) => ANIO_MIN + i);
 
 interface Props {
+  filas: FinVtasCobroFila[];
   mes: number;
   anio: number;
   mesActual: number;
@@ -57,6 +54,7 @@ interface Props {
 }
 
 export default function VtasCobrosCobrosPageClient({
+  filas,
   mes,
   anio,
   mesActual,
@@ -81,12 +79,10 @@ export default function VtasCobrosCobrosPageClient({
       let first = true;
 
       while (continuing) {
-        const res = await fetch("/api/sync-facturas-ventas-dux", {
+        const res = await fetch("/api/sync-cobros-dux", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mes,
-            anio,
             continuing: !first,
           }),
         });
@@ -117,6 +113,7 @@ export default function VtasCobrosCobrosPageClient({
       <ClassicFilteredTableLayout
         title="VTAS. & COBROS"
         subtitle="Cobros"
+        contentWidth="full"
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
@@ -160,6 +157,10 @@ export default function VtasCobrosCobrosPageClient({
                 </FiltroIndividualContainer>
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
+            <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
+              {filas.length.toLocaleString("es-AR")} COBRO
+              {filas.length !== 1 ? "S" : ""}
+            </span>
           </FilterBar>
         }
         actions={
@@ -174,21 +175,7 @@ export default function VtasCobrosCobrosPageClient({
           ) : null
         }
       >
-        <div className="contenedor-tabla-gestion flex-1 min-h-0">
-          <Table variant="compact">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-left">CONSULTA DE COBROS</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <EmptyTableRow
-                colSpan={1}
-                message="USÁ CONSULTAR PARA TRAER EL PERIODO SELECCIONADO EN CADA SUCURSAL ASOCIADA."
-              />
-            </TableBody>
-          </Table>
-        </div>
+        <TablaFinVtasCobros filas={filas} />
       </ClassicFilteredTableLayout>
     </div>
   );
