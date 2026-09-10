@@ -232,7 +232,7 @@ GET de estado y POST del mismo job: **mismo guard**.
 
 CRUD: `src/actions/proveedores.ts` + `proveedor.service.ts`. Mutaciones: `PERMISOS.proveedores.acciones.nuevoProveedor`. Lectura catálogo: al menos uno de `sugeridos` / `lista` / `importarLista`. Eliminar: servicio `deleteProveedor` (`ServiceResult`; respeta FK).
 
-**`global_personal`:** PK `id_personal` (ID DUX). `sucursal_por_defecto` + `modulos_permitidos`. Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
+**`global_personal`:** PK `id_personal` (ID DUX). `sucursal_por_defecto` + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
 
 ### 3.2 Lista de precios proveedor
 

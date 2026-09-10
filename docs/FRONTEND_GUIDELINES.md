@@ -268,7 +268,7 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 - **Cx. Fin. Cobros** (`/vtas-cobros/cx-fin-cobros`, alias `/finanzas/analisis-mc/costos-financieros`): sidenav **VTAS. & COBROS → Cx. Fin. Cobros**. Header **VTAS. & COBROS** / Cx. Fin. Cobros. Matriz **MARCA × PAGO** (`fin_ana_cos_fina.terminal_id` → `fin_ana_cos_fina_terminales_marcas`). **Gestionar Marcas** (nombre; alta/edición en modal aparte). Pagos y **Cálculo Cx. Total**. Catálogo de terminales DUX: header de **Cobros**.
 - **Catálogo Gastos:** Finder 5 columnas. Proveedores no-mercadería desde header.
 - **Margen Contribución:** `/finanzas/analisis-mc/margen-contribucion`; overlay COSTOS (`.contenedor-tabla-gestion--mc-overlay`).
-- **Usuarios:** búsqueda + tabla; modal sucursal y módulos (mín. 1).
+- **Usuarios:** búsqueda + tabla (NOMBRE / SUCURSAL POR DEFECTO / MÓDULOS PERMITIDOS / TITULAR FINANCIERO); modal sucursal, módulos (mín. 1) y titular financiero (SÍ/NO).
 
 ### Estadísticas / Pedido A Fáb.
 

@@ -130,7 +130,7 @@ export const PERMISOS = {
 
   // ─── Administración · USUARIOS (`/finanzas/usuarios`) ─────────────────────
   usuarios: {
-    /** Catálogo `global_personal`: sucursal por defecto y módulos permitidos. Solo editor. */
+    /** Catálogo `global_personal`: sucursal, módulos y titular financiero. Solo editor. */
     acceso: { simple: false, editor: true },
     /** Listado para el modal de inicio (nombre + sucursal + módulos). */
     inicioSesion: { simple: true, editor: true },

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -38,12 +39,14 @@ export default function EditarUsuarioModal({
 }: Props) {
   const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
+  const [titularFinanciero, setTitularFinanciero] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !item) return;
     setSucursal(item.sucursalPorDefecto ?? "");
     setModulos(item.modulosPermitidos);
+    setTitularFinanciero(item.titularFinanciero);
   }, [open, item]);
 
   const puedeGuardar = sucursal !== "" && modulos.length > 0 && item != null;
@@ -63,6 +66,7 @@ export default function EditarUsuarioModal({
         idPersonal: item.idPersonal,
         sucursalPorDefecto: sucursal,
         modulosPermitidos: modulos,
+        titularFinanciero,
       });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo guardar.");
@@ -164,6 +168,14 @@ export default function EditarUsuarioModal({
                 );
               })}
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Titular Financiero</ModalMicroLabel>
+            <ModalSiNoChoice
+              value={titularFinanciero}
+              onChange={setTitularFinanciero}
+              disabled={saving}
+            />
           </div>
         </div>
       </AppModal>

@@ -9,6 +9,7 @@ export interface GlobalPersonalItem {
   nombrePersonal: string;
   sucursalPorDefecto: SucursalPreferida | null;
   modulosPermitidos: MainAppAreaId[];
+  titularFinanciero: boolean;
 }
 
 function mapRow(row: {
@@ -16,12 +17,14 @@ function mapRow(row: {
   nombrePersonal: string;
   sucursalPorDefecto: string | null;
   modulosPermitidos: string[];
+  titularFinanciero: boolean;
 }): GlobalPersonalItem {
   return {
     idPersonal: row.idPersonal,
     nombrePersonal: row.nombrePersonal,
     sucursalPorDefecto: parseSucursalPreferida(row.sucursalPorDefecto),
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
+    titularFinanciero: row.titularFinanciero,
   };
 }
 
@@ -34,6 +37,7 @@ export async function listGlobalPersonal(): Promise<GlobalPersonalItem[]> {
       nombrePersonal: true,
       sucursalPorDefecto: true,
       modulosPermitidos: true,
+      titularFinanciero: true,
     },
   });
   return rows.map(mapRow);
@@ -51,6 +55,7 @@ export async function actualizarUsuarioPersonal(input: {
   idPersonal: number;
   sucursalPorDefecto: SucursalPreferida;
   modulosPermitidos: MainAppAreaId[];
+  titularFinanciero: boolean;
 }): Promise<ServiceResult<GlobalPersonalItem>> {
   try {
     const existente = await prisma.globalPersonal.findUnique({
@@ -74,12 +79,14 @@ export async function actualizarUsuarioPersonal(input: {
       data: {
         sucursalPorDefecto: input.sucursalPorDefecto,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
+        titularFinanciero: input.titularFinanciero,
       },
       select: {
         idPersonal: true,
         nombrePersonal: true,
         sucursalPorDefecto: true,
         modulosPermitidos: true,
+        titularFinanciero: true,
       },
     });
     return { success: true, data: mapRow(row) };

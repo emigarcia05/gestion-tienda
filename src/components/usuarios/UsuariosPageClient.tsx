@@ -59,6 +59,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
           item.nombrePersonal,
           etiquetaSucursalPorDefecto(item.sucursalPorDefecto),
           etiquetaModulosPermitidos(item.modulosPermitidos),
+          item.titularFinanciero ? "TITULAR FINANCIERO SI" : "NO",
         ],
         qDebounced
       )
@@ -70,7 +71,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
     setQDebounced("");
   }
 
-  const colSpan = esEditor ? 4 : 3;
+  const colSpan = esEditor ? 5 : 4;
 
   return (
     <>
@@ -84,7 +85,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-usuarios-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, SUCURSAL O MÓDULO..."
+                  placeholder="BUSCAR POR NOMBRE, SUCURSAL, MÓDULO O TITULAR..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -103,9 +104,10 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[34%]" />
-              <col className="w-[22%]" />
-              <col className={esEditor ? "w-[34%]" : "w-[44%]"} />
+              <col className="w-[28%]" />
+              <col className="w-[18%]" />
+              <col className={esEditor ? "w-[28%]" : "w-[36%]"} />
+              <col className="w-[16%]" />
               {esEditor ? <col className="w-[10%]" /> : null}
             </colgroup>
             <TableHeader>
@@ -113,6 +115,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                 <TableHead>NOMBRE</TableHead>
                 <TableHead className="text-center">SUCURSAL POR DEFECTO</TableHead>
                 <TableHead>MÓDULOS PERMITIDOS</TableHead>
+                <TableHead className="text-center">TITULAR FINANCIERO</TableHead>
                 {esEditor ? (
                   <TableHead className="tabla-bloque-secundario-head-divider text-center">
                     ACCIONES
@@ -141,6 +144,9 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                     </TableCell>
                     <TableCell className="celda-datos">
                       {etiquetaModulosPermitidos(item.modulosPermitidos)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      {item.titularFinanciero ? "SI" : "NO"}
                     </TableCell>
                     {esEditor ? (
                       <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">

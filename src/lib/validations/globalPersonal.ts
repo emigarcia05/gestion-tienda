@@ -18,6 +18,7 @@ export const actualizarUsuarioPersonalSchema = z.object({
     .refine((mods) => new Set(mods).size === mods.length, {
       message: "Módulos duplicados.",
     }),
+  titularFinanciero: z.boolean(),
 });
 
 export type ActualizarUsuarioPersonalInput = z.infer<
