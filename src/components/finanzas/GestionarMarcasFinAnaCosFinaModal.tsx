@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -9,64 +9,52 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  crearGlobalPtoVtaAction,
-  editarGlobalPtoVtaAction,
-  eliminarGlobalPtoVtaAction,
-  listarGlobalPtoVtasAction,
-} from "@/actions/globalPtoVtas";
+  crearFinAnaCosFinaTerminalMarcaAction,
+  editarFinAnaCosFinaTerminalMarcaAction,
+  eliminarFinAnaCosFinaTerminalMarcaAction,
+  listarFinAnaCosFinaTerminalesMarcasAction,
+} from "@/actions/finAnaCosFina";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption } from "@/lib/globalPtoVtas";
-import type { ActionResult } from "@/lib/types";
-import {
-  TABLE_ROW_ACTION_ICON_CLASS,
-  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-} from "@/lib/ui-classes";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  marcasIniciales: FinAnaCosFinaTerminalMarcaItem[];
+  esEditor: boolean;
+  onCatalogoChanged?: () => void;
+}
 
 const LIST_ROW_ICON_BTN_CLASS = cn(
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   "h-9 w-9 min-h-9 max-h-9"
 );
 
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  itemsIniciales: GlobalPtoVtaItem[];
-  sucursales: GlobalPtoVtaSucursalOption[];
-  esEditor: boolean;
-  onCatalogoChanged?: () => void;
-}
-
-function etiquetaSucursales(item: GlobalPtoVtaItem): string {
-  return item.sucursales.map((s) => s.nombre).join(", ");
-}
-
-export default function GestionarGlobalPtoVtasModal({
+export default function GestionarMarcasFinAnaCosFinaModal({
   open,
   onOpenChange,
-  itemsIniciales,
-  sucursales,
+  marcasIniciales,
   esEditor,
   onCatalogoChanged,
 }: Props) {
-  const [items, setItems] = useState<GlobalPtoVtaItem[]>(itemsIniciales);
+  const [items, setItems] = useState<FinAnaCosFinaTerminalMarcaItem[]>(marcasIniciales);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<GlobalPtoVtaItem | null>(null);
-  const [formPtoVenta, setFormPtoVenta] = useState("");
+  const [editingItem, setEditingItem] = useState<FinAnaCosFinaTerminalMarcaItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
-  const [formSucursalIds, setFormSucursalIds] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
-  const [borrarTarget, setBorrarTarget] = useState<GlobalPtoVtaItem | null>(null);
+  const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaTerminalMarcaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const res: ActionResult<GlobalPtoVtaItem[]> = await listarGlobalPtoVtasAction();
+      const res = await listarFinAnaCosFinaTerminalesMarcasAction();
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron cargar los puntos de venta.");
+        toast.error(res.error ?? "No se pudieron cargar las marcas.");
         setItems([]);
         return;
       }
@@ -78,33 +66,24 @@ export default function GestionarGlobalPtoVtasModal({
 
   useEffect(() => {
     if (!open) return;
-    setItems(itemsIniciales);
+    setItems(marcasIniciales);
     setBusqueda("");
     setFormOpen(false);
     setEditingItem(null);
-    setFormPtoVenta("");
     setFormNombre("");
-    setFormSucursalIds([]);
     setBorrarTarget(null);
     void cargar();
-  }, [open, cargar, itemsIniciales]);
+  }, [open, cargar, marcasIniciales]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
     if (!q) return items;
-    return items.filter((item) =>
-      matchByMultiTerm(
-        [String(item.ptoVenta), item.nombreTitular, etiquetaSucursales(item)],
-        q
-      )
-    );
+    return items.filter((item) => matchByMultiTerm([item.nombre], q));
   }, [items, busqueda]);
 
   function resetForm() {
     setEditingItem(null);
-    setFormPtoVenta("");
     setFormNombre("");
-    setFormSucursalIds([]);
   }
 
   function abrirCrear() {
@@ -113,56 +92,36 @@ export default function GestionarGlobalPtoVtasModal({
     setFormOpen(true);
   }
 
-  function abrirEditar(item: GlobalPtoVtaItem) {
+  function abrirEditar(item: FinAnaCosFinaTerminalMarcaItem) {
     if (!esEditor || pending) return;
     setEditingItem(item);
-    setFormPtoVenta(String(item.ptoVenta));
-    setFormNombre(item.nombreTitular);
-    setFormSucursalIds(
-      item.sucursales
-        .map((s) => s.id)
-        .filter((id) => sucursales.some((opt) => opt.id === id))
-    );
+    setFormNombre(item.nombre);
     setFormOpen(true);
   }
 
-  function toggleSucursal(id: string) {
-    setFormSucursalIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
-
-  const formValido =
-    formPtoVenta.trim().length > 0 &&
-    formNombre.trim().length > 0 &&
-    formSucursalIds.length > 0;
+  const formValido = formNombre.trim().length > 0;
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
     setPending(true);
     try {
-      const payload = {
-        ptoVenta: formPtoVenta,
-        nombreTitular: formNombre,
-        sucursalIds: formSucursalIds,
-      };
       if (editingItem) {
-        const res = await editarGlobalPtoVtaAction({
+        const res = await editarFinAnaCosFinaTerminalMarcaAction({
           id: editingItem.id,
-          ...payload,
+          nombre: formNombre,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
           return;
         }
-        toast.success("Punto de venta actualizado.");
+        toast.success("Marca actualizada.");
       } else {
-        const res = await crearGlobalPtoVtaAction(payload);
+        const res = await crearFinAnaCosFinaTerminalMarcaAction({ nombre: formNombre });
         if (!res.ok) {
-          toast.error(res.error ?? "No se pudo crear.");
+          toast.error(res.error ?? "No se pudo crear la marca.");
           return;
         }
-        toast.success("Punto de venta creado.");
+        toast.success("Marca creada.");
       }
       setFormOpen(false);
       resetForm();
@@ -177,12 +136,12 @@ export default function GestionarGlobalPtoVtasModal({
     if (!borrarTarget || borrando) return;
     setBorrando(true);
     try {
-      const res = await eliminarGlobalPtoVtaAction({ id: borrarTarget.id });
+      const res = await eliminarFinAnaCosFinaTerminalMarcaAction({ id: borrarTarget.id });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
-      toast.success("Punto de venta eliminado.");
+      toast.success("Marca eliminada.");
       setBorrarTarget(null);
       await cargar();
       onCatalogoChanged?.();
@@ -195,7 +154,7 @@ export default function GestionarGlobalPtoVtasModal({
     <>
       <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
         <AppModal
-          title="PUNTOS DE VENTA"
+          title="GESTIONAR MARCAS"
           size="lg"
           scrollBody
           hideBodyScrollbars
@@ -212,9 +171,9 @@ export default function GestionarGlobalPtoVtasModal({
                 <Input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="BUSCAR PTO. VTA..."
+                  placeholder="BUSCAR MARCA..."
                   className="h-10 pl-9"
-                  aria-label="Buscar punto de venta"
+                  aria-label="Buscar marca"
                 />
               </div>
               {esEditor ? (
@@ -223,7 +182,7 @@ export default function GestionarGlobalPtoVtasModal({
                   variant="default"
                   size="icon"
                   className="h-10 w-10 shrink-0"
-                  aria-label="Agregar punto de venta"
+                  aria-label="Agregar marca"
                   disabled={pending}
                   onClick={abrirCrear}
                 >
@@ -237,12 +196,10 @@ export default function GestionarGlobalPtoVtasModal({
                 <p className="text-sm text-muted-foreground">Cargando...</p>
               ) : items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay puntos de venta. Usá el botón + para agregar el primero.
+                  No hay marcas. Usá el botón + para agregar la primera.
                 </p>
               ) : listaFiltrada.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Ningún punto de venta coincide con la búsqueda.
-                </p>
+                <p className="text-sm text-muted-foreground">Ninguna marca coincide con la búsqueda.</p>
               ) : (
                 <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-1">
                   {listaFiltrada.map((item) => (
@@ -250,14 +207,9 @@ export default function GestionarGlobalPtoVtasModal({
                       key={item.id}
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
-                      <div className="min-w-0 flex-1 text-left">
-                        <p className="truncate font-medium text-foreground">
-                          {item.ptoVenta} · {item.nombreTitular}
-                        </p>
-                        <p className="truncate text-sm text-muted-foreground">
-                          {etiquetaSucursales(item)}
-                        </p>
-                      </div>
+                      <p className="min-w-0 flex-1 truncate text-left font-medium text-foreground">
+                        {item.nombre}
+                      </p>
                       {esEditor ? (
                         <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
                           <Button
@@ -265,7 +217,7 @@ export default function GestionarGlobalPtoVtasModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Editar ${item.nombreTitular}`}
+                            aria-label={`Editar ${item.nombre}`}
                             disabled={pending}
                             onClick={() => abrirEditar(item)}
                           >
@@ -276,7 +228,7 @@ export default function GestionarGlobalPtoVtasModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Eliminar ${item.nombreTitular}`}
+                            aria-label={`Eliminar ${item.nombre}`}
                             disabled={pending}
                             onClick={() => setBorrarTarget(item)}
                           >
@@ -302,8 +254,8 @@ export default function GestionarGlobalPtoVtasModal({
         }}
       >
         <AppModal
-          title={editingItem ? "EDITAR PUNTO DE VENTA" : "NUEVO PUNTO DE VENTA"}
-          size="md"
+          title={editingItem ? "EDITAR MARCA" : "NUEVA MARCA"}
+          size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
               <Button
@@ -327,77 +279,22 @@ export default function GestionarGlobalPtoVtasModal({
             </div>
           }
         >
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Pto. Venta</ModalMicroLabel>
-              <Input
-                value={formPtoVenta}
-                onChange={(e) => setFormPtoVenta(e.target.value.replace(/\D/g, ""))}
-                placeholder="NRO."
-                disabled={pending}
-                inputMode="numeric"
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Titular</ModalMicroLabel>
-              <Input
-                value={formNombre}
-                onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
-                placeholder="TITULAR (SE GUARDARÁ EN MAYÚSCULAS)"
-                disabled={pending}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <ModalMicroLabel>Suc. Asociadas</ModalMicroLabel>
-              {sucursales.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hay sucursales cargadas.</p>
-              ) : (
-                <ul className="flex max-h-[16rem] flex-col gap-1 overflow-y-auto pr-1">
-                  {sucursales.map((suc) => {
-                    const seleccionado = formSucursalIds.includes(suc.id);
-                    return (
-                      <li key={suc.id}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={pending}
-                          onClick={() => toggleSucursal(suc.id)}
-                          aria-pressed={seleccionado}
-                          aria-label={
-                            seleccionado
-                              ? `Quitar ${suc.nombre}`
-                              : `Asociar ${suc.nombre}`
-                          }
-                          className="flex h-auto w-full items-center justify-start gap-2 rounded-md px-2 py-2 text-left font-normal"
-                        >
-                          <span
-                            className={cn(
-                              "tabla-check-toggle shrink-0",
-                              seleccionado &&
-                                "border-primary text-primary"
-                            )}
-                            aria-hidden
-                          >
-                            {seleccionado ? (
-                              <Check className={TABLE_ROW_ACTION_ICON_CLASS} />
-                            ) : null}
-                          </span>
-                          <span className="min-w-0 truncate text-foreground">{suc.nombre}</span>
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Nombre</ModalMicroLabel>
+            <Input
+              value={formNombre}
+              onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
+              placeholder="NOMBRE (SE GUARDARÁ EN MAYÚSCULAS)"
+              disabled={pending}
+              autoFocus
+            />
           </div>
         </AppModal>
       </Dialog>
 
       <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
         <AppModal
-          title="ELIMINAR PUNTO DE VENTA"
+          title="ELIMINAR MARCA"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
@@ -416,11 +313,9 @@ export default function GestionarGlobalPtoVtasModal({
           }
         >
           <p className="text-sm text-muted-foreground">
-            ¿Eliminar el punto de venta{" "}
-            <span className="font-semibold text-foreground">
-              {borrarTarget?.ptoVenta} · {borrarTarget?.nombreTitular}
-            </span>
-            ? Esta acción no se puede deshacer.
+            ¿Eliminar la marca{" "}
+            <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Se borrarán también
+            sus filas de costos financieros. No se puede eliminar si hay terminales asociadas.
           </p>
         </AppModal>
       </Dialog>

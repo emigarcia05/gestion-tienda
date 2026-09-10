@@ -304,12 +304,13 @@ model Sucursal {
 model GlobalPtoVta {
   id              String   @id @default(cuid())
   ptoVenta        Int      @unique(map: "global_pto_vtas_pto_venta_key") @map("pto_venta")
-  nombrePtoVenta  String   @map("nombre_pto_venta")
+  nombreTitular   String   @map("nombre_titular")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   sucursales GlobalPtoVtaSucursal[]
   factCobrosMes FinFactCobrosPtoVtaMes[]
+  finAnaCosFinaTerminales FinAnaCosFinaTerminal[]
 
   @@map("global_pto_vtas")
 }
@@ -1232,22 +1233,39 @@ model ProdPedUltComp {
   @@map("prod_ped_ult_comp")
 }
 
-// ─── Análisis M.C. · Costos financieros por terminal y forma de pago ───────
+// ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de terminales de cobro (`nombre` único en MAYÚSCULAS). */
-model FinAnaCosFinaTerminal {
+/** Catálogo de marcas de terminal (`nombre` único en MAYÚSCULAS). */
+model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique
-  /** ID de terminal en DUX (`id_terminal` de GET `/v2/cobros`). Null = aún no asociado. */
-  idDux     String?  @unique(map: "fin_ana_cos_fina_terminales_id_dux_key") @map("id_dux")
+  nombre    String   @unique(map: "fin_ana_cos_fina_terminales_marcas_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  filas    FinAnaCosFina[]
-  mcConfig FinAnaMcConfig[]
+  filas       FinAnaCosFina[]
+  mcConfig    FinAnaMcConfig[]
+  terminales  FinAnaCosFinaTerminal[]
 
-  @@index([orden], map: "fin_ana_cos_fina_terminales_orden_idx")
+  @@index([orden], map: "fin_ana_cos_fina_terminales_marcas_orden_idx")
+  @@map("fin_ana_cos_fina_terminales_marcas")
+}
+
+/**
+ * Terminal DUX concreta: `id_dux` (carga el usuario) + marca + titular (`global_pto_vtas`).
+ */
+model FinAnaCosFinaTerminal {
+  id        String   @id @default(cuid())
+  idDux     String   @unique(map: "fin_ana_cos_fina_terminales_id_dux_key") @map("id_dux")
+  marcaId   String   @map("marca_id")
+  marca     FinAnaCosFinaTerminalMarca @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  titularId String   @map("titular_id")
+  titular   GlobalPtoVta @relation(fields: [titularId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([marcaId], map: "fin_ana_cos_fina_terminales_marca_idx")
+  @@index([titularId], map: "fin_ana_cos_fina_terminales_titular_idx")
   @@map("fin_ana_cos_fina_terminales")
 }
 
@@ -1270,14 +1288,15 @@ model FinAnaCosFinaPagoCat {
 }
 
 /**
- * Matriz terminal × forma de pago para costos financieros (Análisis M.C.).
+ * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
+ * `terminal_id` = marca (`fin_ana_cos_fina_terminales_marcas`).
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
   habilitado       Boolean             @default(true)
   impCheque        Boolean             @default(false) @map("imp_cheque")
   terminalId       String              @map("terminal_id")
-  terminal         FinAnaCosFinaTerminal @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  terminal         FinAnaCosFinaTerminalMarca @relation(fields: [terminalId], references: [id], onDelete: Cascade)
   pagoId           String              @map("pago_id")
   pago             FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   diasAcreditacion Int?                @map("dias_acreditacion")
@@ -1349,7 +1368,7 @@ model FinAnaMcConfig {
   variableObjetivo String   @map("variable_objetivo")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  terminal FinAnaCosFinaTerminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  terminal FinAnaCosFinaTerminalMarca? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
 
   @@map("fin_ana_mc_cat_config")
 }

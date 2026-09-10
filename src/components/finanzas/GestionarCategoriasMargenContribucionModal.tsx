@@ -43,7 +43,7 @@ import {
   etiquetaTipoComprobanteVentaMargenContribucion,
   type TipoComprobanteVentaMargenContribucion,
 } from "@/lib/finAnaMargenContribucion";
-import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
@@ -54,7 +54,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   esEditor: boolean;
-  terminales: FinAnaCosFinaTerminalItem[];
+  terminales: FinAnaCosFinaTerminalMarcaItem[];
   configInicial: FinAnaMcConfigItem;
   onGuardado?: (payload: {
     config: FinAnaMcConfigItem;

@@ -7,11 +7,11 @@ const ptoVentaSchema = z.coerce
   .min(1, "El punto de venta debe ser mayor a 0.")
   .max(99_999, "El punto de venta es demasiado grande.");
 
-const nombrePtoVentaSchema = z
+const nombreTitularSchema = z
   .string()
   .trim()
-  .min(1, "Ingresá el nombre del punto de venta.")
-  .max(200, "El nombre es demasiado largo.");
+  .min(1, "Ingresá el titular.")
+  .max(200, "El titular es demasiado largo.");
 
 const sucursalIdsSchema = z
   .array(globalSucursalIdSchema)
@@ -23,14 +23,14 @@ const sucursalIdsSchema = z
 
 export const crearGlobalPtoVtaSchema = z.object({
   ptoVenta: ptoVentaSchema,
-  nombrePtoVenta: nombrePtoVentaSchema,
+  nombreTitular: nombreTitularSchema,
   sucursalIds: sucursalIdsSchema,
 });
 
 export const editarGlobalPtoVtaSchema = z.object({
   id: prismaCuidSchema,
   ptoVenta: ptoVentaSchema,
-  nombrePtoVenta: nombrePtoVentaSchema,
+  nombreTitular: nombreTitularSchema,
   sucursalIds: sucursalIdsSchema,
 });
 

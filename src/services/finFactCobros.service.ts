@@ -309,7 +309,7 @@ export async function syncFacturasVentasDuxRunStep(params: {
 export type FinFactCobrosPtoVtaFila = {
   ptoVtaId: string;
   ptoVenta: number;
-  nombrePtoVenta: string;
+  nombreTitular: string;
   letra: string;
   total: string;
 };
@@ -325,13 +325,13 @@ export async function listarFinFactCobrosPtoVtaMes(params: {
       ptoVtaId: true,
       letra: true,
       montoGravado: true,
-      ptoVta: { select: { ptoVenta: true, nombrePtoVenta: true } },
+      ptoVta: { select: { ptoVenta: true, nombreTitular: true } },
     },
   });
   return rows.map((r) => ({
     ptoVtaId: r.ptoVtaId,
     ptoVenta: r.ptoVta.ptoVenta,
-    nombrePtoVenta: r.ptoVta.nombrePtoVenta.toLocaleUpperCase("es-AR"),
+    nombreTitular: r.ptoVta.nombreTitular.toLocaleUpperCase("es-AR"),
     letra: r.letra.trim().toLocaleUpperCase("es-AR"),
     total: r.montoGravado.toFixed(2),
   }));

@@ -1,36 +1,35 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { filtrarPagosCostosFinancieros } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
-import {
-  ensureFinAnaCosFinaPagosSeed,
-  listarFinAnaCosFinaPagos,
-} from "@/services/finAnaCosFinaPago.service";
 import type {
   CrearFinAnaCosFinaTerminalInput,
   EditarFinAnaCosFinaTerminalInput,
 } from "@/lib/validations/finAnaCosFinaTerminal";
+import type { ServiceResult } from "@/types/service.types";
 
-type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+const TERMINAL_INCLUDE = {
+  marca: { select: { nombre: true } },
+  titular: { select: { ptoVenta: true, nombreTitular: true } },
+} as const;
 
-const TERMINAL_SELECT = { id: true, nombre: true, idDux: true, orden: true } as const;
-
-function mapTerminal(row: {
+type TerminalRow = {
   id: string;
-  nombre: string;
-  idDux: string | null;
-  orden: number;
-}): FinAnaCosFinaTerminalItem {
+  idDux: string;
+  marcaId: string;
+  titularId: string;
+  marca: { nombre: string };
+  titular: { ptoVenta: number; nombreTitular: string };
+};
+
+function mapTerminal(row: TerminalRow): FinAnaCosFinaTerminalItem {
   return {
     id: row.id,
-    nombre: row.nombre.toUpperCase(),
     idDux: row.idDux,
-    orden: row.orden,
+    marcaId: row.marcaId,
+    marcaNombre: row.marca.nombre.toLocaleUpperCase("es-AR"),
+    titularId: row.titularId,
+    titularPtoVenta: row.titular.ptoVenta,
+    titularNombre: row.titular.nombreTitular.toLocaleUpperCase("es-AR"),
   };
-}
-
-function normalizarNombreTerminal(nombre: string): string {
-  return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
 }
 
 function p2002TargetIncludes(error: unknown, field: string): boolean {
@@ -44,19 +43,15 @@ function p2002TargetIncludes(error: unknown, field: string): boolean {
 }
 
 function mapDbError(error: unknown, fallback: string): string {
-  if (
-    error &&
-    typeof error === "object" &&
-    "code" in error &&
-    typeof (error as { code?: unknown }).code === "string"
-  ) {
-    const code = (error as { code: string }).code;
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: string }).code;
     if (code === "P2002") {
       if (p2002TargetIncludes(error, "id_dux")) {
         return "Ya existe una terminal con ese ID DUX.";
       }
-      return "Ya existe una terminal con ese nombre.";
+      return "Ya existe una terminal con esos datos.";
     }
+    if (code === "P2003") return "Marca o titular inválido.";
     if (code === "P2025") return "Terminal no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -64,94 +59,71 @@ function mapDbError(error: unknown, fallback: string): string {
 
 export async function listarFinAnaCosFinaTerminales(): Promise<FinAnaCosFinaTerminalItem[]> {
   const rows = await prisma.finAnaCosFinaTerminal.findMany({
-    orderBy: [{ orden: "asc" }, { nombre: "asc" }],
-    select: TERMINAL_SELECT,
+    include: TERMINAL_INCLUDE,
+    orderBy: [{ idDux: "asc" }],
   });
   return rows.map(mapTerminal);
 }
 
-/** Semilla idempotente de terminales base si la tabla está vacía. */
-export async function ensureFinAnaCosFinaTerminalesSeed(): Promise<void> {
-  const count = await prisma.finAnaCosFinaTerminal.count();
-  if (count > 0) return;
-
-  const semilla: { id: string; nombre: string; orden: number }[] = [
-    { id: "clfinacosfintermmp00001", nombre: "MERCADOPAGO", orden: 0 },
-    { id: "clfinacosfintermpw00001", nombre: "PAYWAY", orden: 1 },
-    { id: "clfinacosfintermnv00001", nombre: "NAVE", orden: 2 },
-  ];
-
-  await prisma.finAnaCosFinaTerminal.createMany({
-    data: semilla,
-    skipDuplicates: true,
-  });
+async function validarMarcaYTitular(
+  marcaId: string,
+  titularId: string
+): Promise<ServiceResult<void>> {
+  const [marca, titular] = await Promise.all([
+    prisma.finAnaCosFinaTerminalMarca.findUnique({
+      where: { id: marcaId },
+      select: { id: true },
+    }),
+    prisma.globalPtoVta.findUnique({
+      where: { id: titularId },
+      select: { id: true },
+    }),
+  ]);
+  if (!marca) return { success: false, error: "Marca no encontrada." };
+  if (!titular) return { success: false, error: "Titular no encontrado." };
+  return { success: true, data: undefined };
 }
 
 export async function crearFinAnaCosFinaTerminal(
   input: CrearFinAnaCosFinaTerminalInput
 ): Promise<ServiceResult<FinAnaCosFinaTerminalItem>> {
-  const nombre = normalizarNombreTerminal(input.nombre);
-  if (!nombre) {
-    return { success: false, error: "El nombre no puede quedar vacío." };
-  }
+  const valid = await validarMarcaYTitular(input.marcaId, input.titularId);
+  if (!valid.success) return valid;
 
   try {
-    const maxOrden = await prisma.finAnaCosFinaTerminal.aggregate({ _max: { orden: true } });
-    const orden = (maxOrden._max.orden ?? -1) + 1;
-
-    const terminal = await prisma.$transaction(async (tx) => {
-      const created = await tx.finAnaCosFinaTerminal.create({
-        data: { nombre, orden, idDux: input.idDux },
-        select: TERMINAL_SELECT,
-      });
-
-      await ensureFinAnaCosFinaPagosSeed();
-      const pagosCostos = filtrarPagosCostosFinancieros(await listarFinAnaCosFinaPagos());
-
-      await tx.finAnaCosFina.createMany({
-        data: pagosCostos.map((pago) => ({
-          terminalId: created.id,
-          pagoId: pago.id,
-          habilitado: true,
-          impCheque: false,
-          arancel: new Prisma.Decimal(0),
-          costoFinanciero: new Prisma.Decimal(0),
-        })),
-        skipDuplicates: true,
-      });
-
-      return created;
+    const created = await prisma.finAnaCosFinaTerminal.create({
+      data: {
+        idDux: input.idDux,
+        marcaId: input.marcaId,
+        titularId: input.titularId,
+      },
+      include: TERMINAL_INCLUDE,
     });
-
-    return { success: true, data: mapTerminal(terminal) };
+    return { success: true, data: mapTerminal(created) };
   } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo crear la terminal."),
-    };
+    return { success: false, error: mapDbError(error, "No se pudo crear la terminal.") };
   }
 }
 
 export async function editarFinAnaCosFinaTerminal(
   input: EditarFinAnaCosFinaTerminalInput
 ): Promise<ServiceResult<FinAnaCosFinaTerminalItem>> {
-  const nombre = normalizarNombreTerminal(input.nombre);
-  if (!nombre) {
-    return { success: false, error: "El nombre no puede quedar vacío." };
-  }
+  const valid = await validarMarcaYTitular(input.marcaId, input.titularId);
+  if (!valid.success) return valid;
 
   try {
     const updated = await prisma.finAnaCosFinaTerminal.update({
       where: { id: input.id },
-      data: { nombre, idDux: input.idDux },
-      select: TERMINAL_SELECT,
+      data: {
+        idDux: input.idDux,
+        marcaId: input.marcaId,
+        titularId: input.titularId,
+      },
+      include: TERMINAL_INCLUDE,
     });
     return { success: true, data: mapTerminal(updated) };
   } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo editar la terminal."),
-    };
+    return { success: false, error: mapDbError(error, "No se pudo editar la terminal.") };
   }
 }
 
@@ -160,9 +132,7 @@ export async function eliminarFinAnaCosFinaTerminal(id: string): Promise<Service
     await prisma.finAnaCosFinaTerminal.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo eliminar la terminal."),
-    };
+    return { success: false, error: mapDbError(error, "No se pudo eliminar la terminal.") };
   }
 }
+

@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import { actualizarFinAnaCosFinaSchema } from "@/lib/validations/finAnaCosFina";
 import {
@@ -11,6 +13,11 @@ import {
   editarFinAnaCosFinaTerminalSchema,
   eliminarFinAnaCosFinaTerminalSchema,
 } from "@/lib/validations/finAnaCosFinaTerminal";
+import {
+  crearFinAnaCosFinaTerminalMarcaSchema,
+  editarFinAnaCosFinaTerminalMarcaSchema,
+  eliminarFinAnaCosFinaTerminalMarcaSchema,
+} from "@/lib/validations/finAnaCosFinaTerminalMarca";
 import {
   crearFinAnaCosFinaPagoSchema,
   editarFinAnaCosFinaPagoSchema,
@@ -27,6 +34,12 @@ import {
   eliminarFinAnaCosFinaTerminal,
   listarFinAnaCosFinaTerminales,
 } from "@/services/finAnaCosFinaTerminal.service";
+import {
+  crearFinAnaCosFinaTerminalMarca,
+  editarFinAnaCosFinaTerminalMarca,
+  eliminarFinAnaCosFinaTerminalMarca,
+  listarFinAnaCosFinaTerminalesMarcas,
+} from "@/services/finAnaCosFinaTerminalMarca.service";
 import {
   crearFinAnaCosFinaPago,
   editarFinAnaCosFinaPago,
@@ -48,17 +61,67 @@ function revalidateRutasAnalisisMc(): void {
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);
 }
 
-function firstZodErrorMessage(error: {
-  flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
+export async function listarFinAnaCosFinaTerminalesMarcasAction(): Promise<
+  ActionResult<FinAnaCosFinaTerminalMarcaItem[]>
+> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+
+  try {
+    const data = await listarFinAnaCosFinaTerminalesMarcas();
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: "No se pudieron cargar las marcas." };
+  }
 }
 
+export async function crearFinAnaCosFinaTerminalMarcaAction(
+  raw: unknown
+): Promise<ActionResult<FinAnaCosFinaTerminalMarcaItem>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
 
+  const parsed = crearFinAnaCosFinaTerminalMarcaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await crearFinAnaCosFinaTerminalMarca(parsed.data);
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
+}
+
+export async function editarFinAnaCosFinaTerminalMarcaAction(
+  raw: unknown
+): Promise<ActionResult<FinAnaCosFinaTerminalMarcaItem>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+
+  const parsed = editarFinAnaCosFinaTerminalMarcaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await editarFinAnaCosFinaTerminalMarca(parsed.data);
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
+}
+
+export async function eliminarFinAnaCosFinaTerminalMarcaAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+
+  const parsed = eliminarFinAnaCosFinaTerminalMarcaSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await eliminarFinAnaCosFinaTerminalMarca(parsed.data.id);
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
+}
 
 export async function listarFinAnaCosFinaTerminalesAction(): Promise<
   ActionResult<FinAnaCosFinaTerminalItem[]>
@@ -86,12 +149,8 @@ export async function crearFinAnaCosFinaTerminalAction(
   }
 
   const res = await crearFinAnaCosFinaTerminal(parsed.data);
-  if (!res.success) {
-    return { ok: false, error: res.error };
-  }
-
-  revalidateRutasAnalisisMc();
-  return { ok: true, data: res.data };
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
 }
 
 export async function editarFinAnaCosFinaTerminalAction(
@@ -106,12 +165,8 @@ export async function editarFinAnaCosFinaTerminalAction(
   }
 
   const res = await editarFinAnaCosFinaTerminal(parsed.data);
-  if (!res.success) {
-    return { ok: false, error: res.error };
-  }
-
-  revalidateRutasAnalisisMc();
-  return { ok: true, data: res.data };
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
 }
 
 export async function eliminarFinAnaCosFinaTerminalAction(raw: unknown): Promise<ActionResult<void>> {
@@ -124,13 +179,10 @@ export async function eliminarFinAnaCosFinaTerminalAction(raw: unknown): Promise
   }
 
   const res = await eliminarFinAnaCosFinaTerminal(parsed.data.id);
-  if (!res.success) {
-    return { ok: false, error: res.error };
-  }
-
-  revalidateRutasAnalisisMc();
-  return { ok: true, data: undefined };
+  if (res.success) revalidateRutasAnalisisMc();
+  return fromServiceResult(res);
 }
+
 
 export async function listarFinAnaCosFinaPagosAction(): Promise<
   ActionResult<FinAnaCosFinaPagoItem[]>

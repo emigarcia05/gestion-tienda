@@ -17,7 +17,7 @@ const ptoVtaInclude = {
 type PtoVtaRow = {
   id: string;
   ptoVenta: number;
-  nombrePtoVenta: string;
+  nombreTitular: string;
   sucursales: {
     sucursal: { id: string; nombre: string };
   }[];
@@ -31,7 +31,7 @@ function mapRow(row: PtoVtaRow): GlobalPtoVtaItem {
   return {
     id: row.id,
     ptoVenta: row.ptoVenta,
-    nombrePtoVenta: row.nombrePtoVenta.toLocaleUpperCase("es-AR"),
+    nombreTitular: row.nombreTitular.toLocaleUpperCase("es-AR"),
     sucursales: row.sucursales
       .map((link) => mapSucursal(link.sucursal))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR")),
@@ -94,7 +94,7 @@ export async function crearGlobalPtoVta(
     const row = await prisma.globalPtoVta.create({
       data: {
         ptoVenta: input.ptoVenta,
-        nombrePtoVenta: normalizarNombre(input.nombrePtoVenta),
+        nombreTitular: normalizarNombre(input.nombreTitular),
         sucursales: {
           create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
         },
@@ -120,7 +120,7 @@ export async function editarGlobalPtoVta(
         where: { id: input.id },
         data: {
           ptoVenta: input.ptoVenta,
-          nombrePtoVenta: normalizarNombre(input.nombrePtoVenta),
+          nombreTitular: normalizarNombre(input.nombreTitular),
           sucursales: {
             create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
           },
@@ -146,6 +146,15 @@ export async function eliminarGlobalPtoVta(
       return {
         success: false,
         error: "No se puede eliminar: hay totales de Fact & Cobros.",
+      };
+    }
+    const terminales = await prisma.finAnaCosFinaTerminal.count({
+      where: { titularId: id },
+    });
+    if (terminales > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: hay terminales asociadas.",
       };
     }
     await prisma.globalPtoVta.delete({ where: { id } });

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -9,109 +9,163 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   crearFinAnaCosFinaTerminalAction,
   editarFinAnaCosFinaTerminalAction,
   eliminarFinAnaCosFinaTerminalAction,
   listarFinAnaCosFinaTerminalesAction,
 } from "@/actions/finAnaCosFina";
-import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import { matchByMultiTerm } from "@/lib/busqueda";
 import {
-  TABLE_ROW_ACTION_ICON_CLASS,
-  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-} from "@/lib/ui-classes";
+  etiquetaTitularPtoVta,
+  type FinAnaCosFinaTerminalItem,
+} from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
+import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   terminalesIniciales: FinAnaCosFinaTerminalItem[];
+  marcas: FinAnaCosFinaTerminalMarcaItem[];
+  ptoVtas: GlobalPtoVtaItem[];
   esEditor: boolean;
   onCatalogoChanged?: () => void;
 }
 
-const BOTON_ACCION_TERMINAL_CLASS = cn(
+const LIST_ROW_ICON_BTN_CLASS = cn(
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-  "!size-8 max-h-8 min-h-8 min-w-8 shrink-0 !p-0"
+  "h-9 w-9 min-h-9 max-h-9"
 );
+
+const SELECT_TRIGGER_CLASS = "input-filtro-unificado h-9 w-full text-xs font-semibold";
 
 export default function GestionarTerminalesFinAnaCosFinaModal({
   open,
   onOpenChange,
   terminalesIniciales,
+  marcas,
+  ptoVtas,
   esEditor,
   onCatalogoChanged,
 }: Props) {
   const [items, setItems] = useState<FinAnaCosFinaTerminalItem[]>(terminalesIniciales);
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoIdDux, setNuevoIdDux] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState("");
-  const [editDraftIdDux, setEditDraftIdDux] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<FinAnaCosFinaTerminalItem | null>(null);
+  const [formIdDux, setFormIdDux] = useState("");
+  const [formMarcaId, setFormMarcaId] = useState("");
+  const [formTitularId, setFormTitularId] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaTerminalItem | null>(null);
   const [borrando, setBorrando] = useState(false);
 
   const cargar = useCallback(async () => {
-    const res = await listarFinAnaCosFinaTerminalesAction();
-    if (!res.ok) {
-      toast.error(res.error ?? "No se pudieron cargar las terminales.");
-      setItems([]);
-      return;
+    setLoading(true);
+    try {
+      const res = await listarFinAnaCosFinaTerminalesAction();
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudieron cargar las terminales.");
+        setItems([]);
+        return;
+      }
+      setItems(res.data);
+    } finally {
+      setLoading(false);
     }
-    setItems(res.data);
   }, []);
 
   useEffect(() => {
     if (!open) return;
     setItems(terminalesIniciales);
-    void cargar();
-    setNuevoNombre("");
-    setNuevoIdDux("");
-    setEditingId(null);
-    setEditDraft("");
-    setEditDraftIdDux("");
+    setBusqueda("");
+    setFormOpen(false);
+    setEditingItem(null);
+    setFormIdDux("");
+    setFormMarcaId("");
+    setFormTitularId("");
     setBorrarTarget(null);
+    void cargar();
   }, [open, cargar, terminalesIniciales]);
 
-  async function handleCrear() {
-    if (!esEditor || !nuevoNombre.trim() || pending) return;
-    setPending(true);
-    try {
-      const res = await crearFinAnaCosFinaTerminalAction({
-        nombre: nuevoNombre,
-        idDux: nuevoIdDux,
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo crear la terminal.");
-        return;
-      }
-      toast.success("Terminal creada.");
-      setNuevoNombre("");
-      setNuevoIdDux("");
-      await cargar();
-      onCatalogoChanged?.();
-    } finally {
-      setPending(false);
-    }
+  const listaFiltrada = useMemo(() => {
+    const q = busqueda.trim();
+    if (!q) return items;
+    return items.filter((item) =>
+      matchByMultiTerm(
+        [
+          item.idDux,
+          item.marcaNombre,
+          etiquetaTitularPtoVta(item.titularPtoVenta, item.titularNombre),
+        ],
+        q
+      )
+    );
+  }, [items, busqueda]);
+
+  function resetForm() {
+    setEditingItem(null);
+    setFormIdDux("");
+    setFormMarcaId("");
+    setFormTitularId("");
   }
 
-  async function handleGuardarEdicion() {
-    if (!esEditor || !editingId || !editDraft.trim() || pending) return;
+  function abrirCrear() {
+    if (!esEditor || pending) return;
+    resetForm();
+    setFormOpen(true);
+  }
+
+  function abrirEditar(item: FinAnaCosFinaTerminalItem) {
+    if (!esEditor || pending) return;
+    setEditingItem(item);
+    setFormIdDux(item.idDux);
+    setFormMarcaId(item.marcaId);
+    setFormTitularId(item.titularId);
+    setFormOpen(true);
+  }
+
+  const formValido =
+    formIdDux.trim().length > 0 && formMarcaId.length > 0 && formTitularId.length > 0;
+
+  async function handleGuardarForm() {
+    if (!esEditor || !formValido || pending) return;
     setPending(true);
     try {
-      const res = await editarFinAnaCosFinaTerminalAction({
-        id: editingId,
-        nombre: editDraft,
-        idDux: editDraftIdDux,
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo guardar.");
-        return;
+      const payload = {
+        idDux: formIdDux,
+        marcaId: formMarcaId,
+        titularId: formTitularId,
+      };
+      if (editingItem) {
+        const res = await editarFinAnaCosFinaTerminalAction({
+          id: editingItem.id,
+          ...payload,
+        });
+        if (!res.ok) {
+          toast.error(res.error ?? "No se pudo guardar.");
+          return;
+        }
+        toast.success("Terminal actualizada.");
+      } else {
+        const res = await crearFinAnaCosFinaTerminalAction(payload);
+        if (!res.ok) {
+          toast.error(res.error ?? "No se pudo crear la terminal.");
+          return;
+        }
+        toast.success("Terminal creada.");
       }
-      toast.success("Terminal actualizada.");
-      setEditingId(null);
-      setEditDraft("");
-      setEditDraftIdDux("");
+      setFormOpen(false);
+      resetForm();
       await cargar();
       onCatalogoChanged?.();
     } finally {
@@ -141,9 +195,8 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
     <>
       <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
         <AppModal
-          title="Gestionar Terminales"
+          title="GESTIONAR TERMINALES"
           size="lg"
-          className="max-w-xl"
           scrollBody
           hideBodyScrollbars
           actions={
@@ -152,146 +205,184 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
             </Button>
           }
         >
-          <div className="flex min-h-0 flex-col gap-4">
-            {esEditor ? (
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>NUEVA TERMINAL</ModalMicroLabel>
-                <div className="flex gap-2">
-                  <Input
-                    value={nuevoNombre}
-                    onChange={(e) => setNuevoNombre(e.target.value)}
-                    placeholder="Nombre (se guardará en mayúsculas)"
-                    disabled={pending}
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleCrear();
-                      }
-                    }}
-                  />
-                  <Input
-                    value={nuevoIdDux}
-                    onChange={(e) => setNuevoIdDux(e.target.value)}
-                    placeholder="ID DUX"
-                    inputMode="numeric"
-                    disabled={pending}
-                    className="w-32 shrink-0"
-                    aria-label="ID DUX"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleCrear();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    disabled={pending || !nuevoNombre.trim()}
-                    onClick={() => void handleCrear()}
-                    className="gap-2"
-                  >
-                    <Plus className="size-4 shrink-0" aria-hidden />
-                    Crear
-                  </Button>
-                </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+                <Input
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="BUSCAR TERMINAL..."
+                  className="h-10 pl-9"
+                  aria-label="Buscar terminal"
+                />
               </div>
-            ) : null}
+              {esEditor ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  aria-label="Agregar terminal"
+                  disabled={pending}
+                  onClick={abrirCrear}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              ) : null}
+            </div>
 
-            <div className={cn("flex min-h-0 flex-1 flex-col gap-1", esEditor && "border-t pt-3")}>
-              <ModalMicroLabel>TERMINALES EXISTENTES</ModalMicroLabel>
-              <ul className="max-h-[min(22rem,55vh)] space-y-2 overflow-y-auto pr-1">
-                {items.map((terminal) => (
-                  <li
-                    key={terminal.id}
-                    className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5"
-                  >
-                    {editingId === terminal.id && esEditor ? (
-                      <>
-                        <Input
-                          value={editDraft}
-                          onChange={(ev) => setEditDraft(ev.target.value)}
-                          className="h-8 flex-1 text-xs"
-                          disabled={pending}
-                          aria-label={`Nombre ${terminal.nombre}`}
-                        />
-                        <Input
-                          value={editDraftIdDux}
-                          onChange={(ev) => setEditDraftIdDux(ev.target.value)}
-                          className="h-8 w-28 shrink-0 text-xs tabular-nums"
-                          placeholder="ID DUX"
-                          inputMode="numeric"
-                          disabled={pending}
-                          aria-label={`ID DUX ${terminal.nombre}`}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 shrink-0"
-                          disabled={pending}
-                          onClick={() => void handleGuardarEdicion()}
-                        >
-                          Guardar
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 shrink-0"
-                          disabled={pending}
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditDraft("");
-                            setEditDraftIdDux("");
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{terminal.nombre}</span>
-                        <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                          {terminal.idDux ?? ""}
-                        </span>
-                        {esEditor ? (
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={BOTON_ACCION_TERMINAL_CLASS}
-                              aria-label={`Editar ${terminal.nombre}`}
-                              disabled={pending}
-                              onClick={() => {
-                                setEditingId(terminal.id);
-                                setEditDraft(terminal.nombre);
-                                setEditDraftIdDux(terminal.idDux ?? "");
-                              }}
-                            >
-                              <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={BOTON_ACCION_TERMINAL_CLASS}
-                              aria-label={`Eliminar ${terminal.nombre}`}
-                              disabled={pending}
-                              onClick={() => setBorrarTarget(terminal)}
-                            >
-                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-                  </li>
-                ))}
-                {items.length === 0 ? (
-                  <li className="py-6 text-center text-sm text-muted-foreground">No hay terminales.</li>
-                ) : null}
-              </ul>
+            <div className="min-h-[12rem]">
+              {loading ? (
+                <p className="text-sm text-muted-foreground">Cargando...</p>
+              ) : items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay terminales. Usá el botón + para agregar la primera.
+                </p>
+              ) : listaFiltrada.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ninguna terminal coincide con la búsqueda.</p>
+              ) : (
+                <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-1">
+                  {listaFiltrada.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1 text-left">
+                        <p className="truncate font-medium tabular-nums text-foreground">{item.idDux}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {item.marcaNombre} ·{" "}
+                          {etiquetaTitularPtoVta(item.titularPtoVenta, item.titularNombre)}
+                        </p>
+                      </div>
+                      {esEditor ? (
+                        <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={LIST_ROW_ICON_BTN_CLASS}
+                            aria-label={`Editar terminal ${item.idDux}`}
+                            disabled={pending}
+                            onClick={() => abrirEditar(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={LIST_ROW_ICON_BTN_CLASS}
+                            aria-label={`Eliminar terminal ${item.idDux}`}
+                            disabled={pending}
+                            onClick={() => setBorrarTarget(item)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </AppModal>
+      </Dialog>
+
+      <Dialog
+        open={formOpen}
+        onOpenChange={(next) => {
+          if (pending) return;
+          setFormOpen(next);
+          if (!next) resetForm();
+        }}
+      >
+        <AppModal
+          title={editingItem ? "EDITAR TERMINAL" : "NUEVA TERMINAL"}
+          size="md"
+          actions={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setFormOpen(false);
+                  resetForm();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={pending || !formValido}
+                onClick={() => void handleGuardarForm()}
+              >
+                Guardar
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>ID DUX</ModalMicroLabel>
+              <Input
+                value={formIdDux}
+                onChange={(e) => setFormIdDux(e.target.value.replace(/\D/g, ""))}
+                placeholder="ID DUX"
+                inputMode="numeric"
+                disabled={pending}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Marca</ModalMicroLabel>
+              <Select
+                value={formMarcaId || undefined}
+                onValueChange={setFormMarcaId}
+                disabled={pending || marcas.length === 0}
+              >
+                <SelectTrigger className={SELECT_TRIGGER_CLASS} aria-label="Marca">
+                  <SelectValue placeholder="MARCA" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  {marcas.map((marca) => (
+                    <SelectItem key={marca.id} value={marca.id}>
+                      {marca.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Titular</ModalMicroLabel>
+              <Select
+                value={formTitularId || undefined}
+                onValueChange={setFormTitularId}
+                disabled={pending || ptoVtas.length === 0}
+              >
+                <SelectTrigger className={SELECT_TRIGGER_CLASS} aria-label="Titular">
+                  <SelectValue placeholder="TITULAR" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  {ptoVtas.map((pto) => (
+                    <SelectItem key={pto.id} value={pto.id}>
+                      {etiquetaTitularPtoVta(pto.ptoVenta, pto.nombreTitular)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </AppModal>
@@ -299,7 +390,7 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
 
       <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
         <AppModal
-          title="Eliminar Terminal"
+          title="ELIMINAR TERMINAL"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
@@ -319,8 +410,8 @@ export default function GestionarTerminalesFinAnaCosFinaModal({
         >
           <p className="text-sm text-muted-foreground">
             ¿Eliminar la terminal{" "}
-            <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Se borrarán también
-            sus filas de costos financieros. Esta acción no se puede deshacer.
+            <span className="font-semibold text-foreground">{borrarTarget?.idDux}</span>? Esta acción no se
+            puede deshacer.
           </p>
         </AppModal>
       </Dialog>

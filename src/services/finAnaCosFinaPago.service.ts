@@ -136,11 +136,11 @@ export async function crearFinAnaCosFinaPago(
       });
 
       if (created.enCostosFinancieros) {
-        const terminales = await tx.finAnaCosFinaTerminal.findMany({
+        const marcas = await tx.finAnaCosFinaTerminalMarca.findMany({
           select: { id: true },
         });
-        const filas = terminales.map((terminal) => ({
-          terminalId: terminal.id,
+        const filas = marcas.map((marca) => ({
+          terminalId: marca.id,
           pagoId: created.id,
           habilitado: true,
           impCheque: false,

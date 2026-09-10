@@ -8,6 +8,6 @@ export type GlobalPtoVtaSucursalOption = {
 export type GlobalPtoVtaItem = {
   id: string;
   ptoVenta: number;
-  nombrePtoVenta: string;
+  nombreTitular: string;
   sucursales: GlobalPtoVtaSucursalOption[];
 };

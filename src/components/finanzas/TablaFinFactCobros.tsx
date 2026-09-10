@@ -28,7 +28,7 @@ const LETRA_NO_FISCAL = "X";
 type FilaPivote = {
   ptoVtaId: string;
   ptoVenta: number;
-  nombrePtoVenta: string;
+  nombreTitular: string;
   fiscal: number;
   noFiscal: number;
   total: number;
@@ -51,7 +51,7 @@ function agruparPorPtoYFiscal(filas: FinFactCobrosPtoVtaFila[]): FilaPivote[] {
       porPto.set(f.ptoVtaId, {
         ptoVtaId: f.ptoVtaId,
         ptoVenta: f.ptoVenta,
-        nombrePtoVenta: f.nombrePtoVenta,
+        nombreTitular: f.nombreTitular,
         fiscal: letra === LETRA_NO_FISCAL ? 0 : monto,
         noFiscal: letra === LETRA_NO_FISCAL ? monto : 0,
         total: monto,
@@ -98,7 +98,7 @@ export default function TablaFinFactCobros({
             grupos.map((g) => (
               <TableRow key={g.ptoVtaId}>
                 <TableCell className="celda-datos text-left">
-                  {fmtCelda(`${g.ptoVenta} - ${g.nombrePtoVenta}`)}
+                  {fmtCelda(`${g.ptoVenta} - ${g.nombreTitular}`)}
                 </TableCell>
                 <TableCell className="celda-datos text-right tabular-nums">
                   {g.fiscal > 0 ? fmtMonto(g.fiscal.toFixed(2)) : ""}

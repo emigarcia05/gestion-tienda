@@ -62,12 +62,12 @@ export async function guardarFinAnaMcConfig(
 ): Promise<ServiceResult<FinAnaMcConfigItem>> {
   try {
     if (input.terminalId) {
-      const terminal = await prisma.finAnaCosFinaTerminal.findUnique({
+      const terminal = await prisma.finAnaCosFinaTerminalMarca.findUnique({
         where: { id: input.terminalId },
         select: { id: true },
       });
       if (!terminal) {
-        return { success: false, error: "Terminal no encontrada." };
+        return { success: false, error: "Marca no encontrada." };
       }
     }
 

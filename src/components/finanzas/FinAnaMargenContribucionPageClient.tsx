@@ -62,14 +62,14 @@ import {
   porcentajeCentNormalizedStringToCents,
 } from "@/lib/porcentajeCentMask";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
-import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { DescuentoFpMargenContribucionMap } from "@/services/finAnaMcDescuentoFp.service";
 import type { FormaPagoMargenContribucion } from "@/lib/finAnaMargenContribucion";
 import { toast } from "sonner";
 
 interface Props {
   filasCostosFinancieros: FinAnaCosFinaItem[];
-  terminales: FinAnaCosFinaTerminalItem[];
+  terminales: FinAnaCosFinaTerminalMarcaItem[];
   pagos: FinAnaCosFinaPagoItem[];
   descuentosPorFormaPago: DescuentoFpMargenContribucionMap;
   formulas: FinAnaMcFormulaItem[];

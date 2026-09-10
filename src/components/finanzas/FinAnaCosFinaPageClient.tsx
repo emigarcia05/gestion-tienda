@@ -6,6 +6,7 @@ import { Calculator, Settings2 } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaFinAnaCosFina, { type FinAnaCosFinaFila } from "@/components/finanzas/TablaFinAnaCosFina";
 import GestionarTerminalesFinAnaCosFinaModal from "@/components/finanzas/GestionarTerminalesFinAnaCosFinaModal";
+import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPagosFinAnaCosFinaModal";
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
@@ -28,10 +29,14 @@ import {
 import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
+import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
 
 interface Props {
   filas: FinAnaCosFinaFila[];
+  marcas: FinAnaCosFinaTerminalMarcaItem[];
   terminales: FinAnaCosFinaTerminalItem[];
+  ptoVtas: GlobalPtoVtaItem[];
   pagos: FinAnaCosFinaPagoItem[];
   esEditor: boolean;
 }
@@ -40,7 +45,14 @@ function etiquetaFiltroMayusculas(texto: string): string {
   return texto.toLocaleUpperCase("es");
 }
 
-export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEditor }: Props) {
+export default function FinAnaCosFinaPageClient({
+  filas,
+  marcas,
+  terminales,
+  ptoVtas,
+  pagos,
+  esEditor,
+}: Props) {
   const router = useRouter();
   const pagosCostos = useMemo(() => filtrarPagosCostosFinancieros(pagos), [pagos]);
   const [filasOverrides, setFilasOverrides] = useState<Record<string, FinAnaCosFinaFila>>({});
@@ -48,6 +60,7 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
   const [filtroPago, setFiltroPago] = useState("");
   const [filtroHabilitado, setFiltroHabilitado] = useState("");
   const [openGestionarTerminales, setOpenGestionarTerminales] = useState(false);
+  const [openGestionarMarcas, setOpenGestionarMarcas] = useState(false);
   const [openGestionarPagos, setOpenGestionarPagos] = useState(false);
   const [openCalculoCxTotal, setOpenCalculoCxTotal] = useState(false);
 
@@ -113,6 +126,14 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
             </Button>
             <Button
               type="button"
+              onClick={() => setOpenGestionarMarcas(true)}
+              className="h-10 gap-2 px-4"
+            >
+              <Settings2 className="size-4 shrink-0" aria-hidden />
+              Gestionar Marcas
+            </Button>
+            <Button
+              type="button"
               onClick={() => setOpenGestionarTerminales(true)}
               className="h-10 gap-2 px-4"
             >
@@ -135,7 +156,7 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
                     onValueChange={(value) => setFiltroTerminalId(value)}
                   >
                     <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="TERMINAL" />
+                      <SelectValue placeholder="MARCA" />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -143,9 +164,9 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
                       align="start"
                       className="select-content-filtro"
                     >
-                      {terminales.map((terminal) => (
-                        <SelectItem key={terminal.id} value={terminal.id}>
-                          {etiquetaFiltroMayusculas(terminal.nombre)}
+                      {marcas.map((marca) => (
+                        <SelectItem key={marca.id} value={marca.id}>
+                          {etiquetaFiltroMayusculas(marca.nombre)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -224,10 +245,20 @@ export default function FinAnaCosFinaPageClient({ filas, terminales, pagos, esEd
         onCatalogoChanged={handleCatalogoPagosChanged}
       />
 
+      <GestionarMarcasFinAnaCosFinaModal
+        open={openGestionarMarcas}
+        onOpenChange={setOpenGestionarMarcas}
+        marcasIniciales={marcas}
+        esEditor={esEditor}
+        onCatalogoChanged={handleCatalogoTerminalesChanged}
+      />
+
       <GestionarTerminalesFinAnaCosFinaModal
         open={openGestionarTerminales}
         onOpenChange={setOpenGestionarTerminales}
         terminalesIniciales={terminales}
+        marcas={marcas}
+        ptoVtas={ptoVtas}
         esEditor={esEditor}
         onCatalogoChanged={handleCatalogoTerminalesChanged}
       />
