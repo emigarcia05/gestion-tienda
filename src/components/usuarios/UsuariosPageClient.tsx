@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import EditarUsuarioModal from "@/components/usuarios/EditarUsuarioModal";
+import EliminarUsuarioModal from "@/components/usuarios/EliminarUsuarioModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FilterRowSearch,
@@ -52,6 +53,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
       onDebouncedSearch: setQDebounced,
     });
   const [itemEditar, setItemEditar] = useState<GlobalPersonalItem | null>(null);
+  const [itemEliminar, setItemEliminar] = useState<GlobalPersonalItem | null>(null);
   const [openCrear, setOpenCrear] = useState(false);
 
   const itemsFiltrados = useMemo(() => {
@@ -187,6 +189,20 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                               aria-hidden
                             />
                           </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            title="Eliminar"
+                            aria-label={`Eliminar ${item.nombrePersonal}`}
+                            onClick={() => setItemEliminar(item)}
+                          >
+                            <Trash2
+                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                              aria-hidden
+                            />
+                          </Button>
                         </div>
                       </TableCell>
                     ) : null}
@@ -207,6 +223,14 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
           }
         }}
         onSuccess={() => router.refresh()}
+      />
+      <EliminarUsuarioModal
+        open={itemEliminar != null}
+        item={itemEliminar}
+        onOpenChange={(open) => {
+          if (!open) setItemEliminar(null);
+        }}
+        onDeleted={() => router.refresh()}
       />
     </>
   );

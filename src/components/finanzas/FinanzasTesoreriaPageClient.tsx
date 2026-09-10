@@ -11,12 +11,10 @@ import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarM
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import FilterBar, {
-  FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
   FilterRowSelection,
-  LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import {
   Select,
@@ -95,14 +93,6 @@ export default function FinanzasTesoreriaPageClient({
         }),
     [filas, filtroEntidad, filtroSucursal, filtroTitular, filtroTipoCaja, filtroTipoValor]
   );
-
-  function limpiarFiltros() {
-    setFiltroEntidad("");
-    setFiltroSucursal("");
-    setFiltroTitular("");
-    setFiltroTipoCaja("");
-    setFiltroTipoValor("");
-  }
 
   return (
     <div className="area-page-shell">
@@ -240,9 +230,6 @@ export default function FinanzasTesoreriaPageClient({
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-                <div className={FILTER_INLINE_ACTION_SLOT_CLASS}>
-                  <LimpiarFiltrosButton onClick={limpiarFiltros} />
-                </div>
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
           </FilterBar>

@@ -10,10 +10,12 @@ import { USUARIOS_PATH } from "@/lib/usuarios";
 import {
   actualizarUsuarioPersonalSchema,
   crearUsuarioPersonalSchema,
+  eliminarUsuarioPersonalSchema,
 } from "@/lib/validations/globalPersonal";
 import {
   actualizarUsuarioPersonal,
   crearUsuarioPersonal,
+  eliminarUsuarioPersonal,
   listNombresTitularesFinancieros,
   listUsuariosParaInicioSesion,
   type GlobalPersonalItem,
@@ -88,6 +90,27 @@ export async function actualizarUsuarioPersonalAction(
   }
 
   const result = await actualizarUsuarioPersonal(parsed.data);
+  if (result.success) revalidatePath(USUARIOS_PATH);
+  return fromServiceResult(result);
+}
+
+export async function eliminarUsuarioPersonalAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.usuarios.acceso)) {
+    return { ok: false, error: "Sin permisos para usuarios." };
+  }
+  if (!(await esEditor())) {
+    return { ok: false, error: "Sin permisos de editor." };
+  }
+
+  const parsed = eliminarUsuarioPersonalSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const result = await eliminarUsuarioPersonal(parsed.data);
   if (result.success) revalidatePath(USUARIOS_PATH);
   return fromServiceResult(result);
 }

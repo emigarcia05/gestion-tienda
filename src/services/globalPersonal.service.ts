@@ -6,6 +6,7 @@ import { parseSucursalPreferida, type SucursalPreferida } from "@/lib/sucursalPr
 import type {
   ActualizarUsuarioPersonalInput,
   CrearUsuarioPersonalInput,
+  EliminarUsuarioPersonalInput,
 } from "@/lib/validations/globalPersonal";
 
 export interface GlobalPersonalItem {
@@ -203,5 +204,44 @@ export async function actualizarUsuarioPersonal(
   } catch (e) {
     console.error("[globalPersonal][actualizar]", e);
     return { success: false, error: mapDbError(e, "Error al guardar el usuario.") };
+  }
+}
+
+export async function eliminarUsuarioPersonal(
+  input: EliminarUsuarioPersonalInput
+): Promise<ServiceResult<void>> {
+  try {
+    const existente = await prisma.globalPersonal.findUnique({
+      where: { idPersonal: input.idPersonal },
+      select: { idPersonal: true, nombrePersonal: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Usuario no encontrado." };
+    }
+
+    const nombre = existente.nombrePersonal;
+    const [cajasTitular, chequesTenedor] = await Promise.all([
+      prisma.cajaTesoreria.count({
+        where: { titular: { equals: nombre, mode: "insensitive" } },
+      }),
+      prisma.finTesoreriaCheque.count({
+        where: { tenedor: { equals: nombre, mode: "insensitive" } },
+      }),
+    ]);
+    if (cajasTitular > 0 || chequesTenedor > 0) {
+      return {
+        success: false,
+        error:
+          "No se puede eliminar: el usuario figura como titular o tenedor en tesorería.",
+      };
+    }
+
+    await prisma.globalPersonal.delete({
+      where: { idPersonal: input.idPersonal },
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[globalPersonal][eliminar]", e);
+    return { success: false, error: mapDbError(e, "No se pudo eliminar el usuario.") };
   }
 }

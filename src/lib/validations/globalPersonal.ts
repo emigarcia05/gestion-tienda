@@ -62,7 +62,14 @@ export const actualizarUsuarioPersonalSchema = z.object({
   titularFinanciero: z.boolean(),
 });
 
+export const eliminarUsuarioPersonalSchema = z.object({
+  idPersonal: idPersonalSchema,
+});
+
 export type CrearUsuarioPersonalInput = z.infer<typeof crearUsuarioPersonalSchema>;
 export type ActualizarUsuarioPersonalInput = z.infer<
   typeof actualizarUsuarioPersonalSchema
+>;
+export type EliminarUsuarioPersonalInput = z.infer<
+  typeof eliminarUsuarioPersonalSchema
 >;
