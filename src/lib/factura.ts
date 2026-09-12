@@ -13,10 +13,10 @@ export const FACTURA_TIPOS = [
 export type FacturaTipo = (typeof FACTURA_TIPOS)[number];
 
 export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
-  presupuesto: "Presupuesto",
-  factura: "Factura",
-  factura_fiscal: "Factura Fiscal",
-  nota_credito: "Nota de Crédito",
+  presupuesto: "PRESUPUESTO",
+  factura: "FACTURA",
+  factura_fiscal: "FACTURA FISCAL",
+  nota_credito: "NOTA DE CRÉDITO",
 };
 
 /** Valor inicial del select en Crear. */
@@ -28,6 +28,9 @@ export function esFacturaTipo(value: string): value is FacturaTipo {
 
 /** Máximo de sugerencias en el typeahead de productos (Crear). */
 export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
+
+/** Mínimo de caracteres (trim) para disparar la búsqueda de productos. */
+export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 
 /** Línea local del remito en Crear (aún sin persistencia). */
 export type FacturaLineaLocal = {

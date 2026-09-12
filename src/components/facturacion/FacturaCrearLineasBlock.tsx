@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   EmptyTableRow,
 } from "@/components/ui/table";
 import {
+  FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
   FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
   totalLineaFactura,
   type FacturaLineaLocal,
@@ -39,6 +40,7 @@ function parseCantidadDraft(raw: string): number | null {
 
 /**
  * Segundo bloque de Factura · Crear: typeahead de productos + tabla remito local.
+ * Dropdown fijo al foco; búsqueda desde 3 letras; click en ítem = agregar.
  */
 export default function FacturaCrearLineasBlock() {
   const listboxId = useId();
@@ -46,18 +48,13 @@ export default function FacturaCrearLineasBlock() {
   const [sugerencias, setSugerencias] = useState<ProductoFacturaBusquedaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(false);
-  const [seleccionado, setSeleccionado] = useState<ProductoFacturaBusquedaItem | null>(
-    null
-  );
   const [highlight, setHighlight] = useState(0);
   const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
 
   const fetchSugerencias = useCallback(async (value: string) => {
     const q = value.trim();
-    if (q.length === 0) {
+    if (q.length < FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
       setSugerencias([]);
-      setSeleccionado(null);
-      setAbierto(false);
       setLoading(false);
       return;
     }
@@ -69,17 +66,11 @@ export default function FacturaCrearLineasBlock() {
     setLoading(false);
     if (!res.ok) {
       setSugerencias([]);
-      setAbierto(false);
       toast.error(res.error);
       return;
     }
     setSugerencias(res.data.items);
     setHighlight(0);
-    setAbierto(res.data.items.length > 0);
-    setSeleccionado((prev) => {
-      if (!prev) return null;
-      return res.data.items.find((i) => i.codTienda === prev.codTienda) ?? null;
-    });
   }, []);
 
   const { q, setQ, ref, handleQChange, isDebouncing } = useFiltrosConBusqueda({
@@ -89,6 +80,9 @@ export default function FacturaCrearLineasBlock() {
       void fetchSugerencias(value);
     },
   });
+
+  const qTrim = q.trim();
+  const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -102,21 +96,7 @@ export default function FacturaCrearLineasBlock() {
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, []);
 
-  function elegirSugerencia(item: ProductoFacturaBusquedaItem) {
-    setSeleccionado(item);
-    setQ(item.descripcion);
-    setAbierto(false);
-  }
-
-  function agregarSeleccionado() {
-    const item =
-      seleccionado ??
-      (sugerencias.length === 1 ? sugerencias[0] : null) ??
-      (sugerencias[highlight] ?? null);
-    if (!item) {
-      toast.message("Elegí un producto de la lista.");
-      return;
-    }
+  function agregarItem(item: ProductoFacturaBusquedaItem) {
     setLineas((prev) => {
       const existente = prev.find((l) => l.codTienda === item.codTienda);
       if (existente) {
@@ -139,9 +119,9 @@ export default function FacturaCrearLineasBlock() {
     });
     setQ("");
     setSugerencias([]);
-    setSeleccionado(null);
-    setAbierto(false);
-    ref.current?.focus();
+    setHighlight(0);
+    setAbierto(true);
+    queueMicrotask(() => ref.current?.focus());
   }
 
   function actualizarCantidad(key: string, raw: string) {
@@ -155,7 +135,7 @@ export default function FacturaCrearLineasBlock() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
       <div ref={wrapRef} className="relative shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <Button
             type="button"
             variant="outline"
@@ -174,36 +154,34 @@ export default function FacturaCrearLineasBlock() {
               id="factura-crear-buscar-producto"
               value={q}
               onChange={(e) => {
-                setSeleccionado(null);
-                handleQChange(e.target.value);
-                if (e.target.value.trim() === "") {
+                const next = e.target.value;
+                handleQChange(next);
+                setAbierto(true);
+                if (next.trim().length < FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
                   setSugerencias([]);
-                  setAbierto(false);
+                  setLoading(false);
                 }
               }}
-              onFocus={() => {
-                if (sugerencias.length > 0) setAbierto(true);
-              }}
+              onFocus={() => setAbierto(true)}
+              onClick={() => setAbierto(true)}
               onKeyDown={(e) => {
+                if (!abierto) setAbierto(true);
                 if (e.key === "ArrowDown" && sugerencias.length > 0) {
                   e.preventDefault();
-                  setAbierto(true);
                   setHighlight((h) => (h + 1) % sugerencias.length);
                   return;
                 }
                 if (e.key === "ArrowUp" && sugerencias.length > 0) {
                   e.preventDefault();
-                  setAbierto(true);
-                  setHighlight((h) => (h - 1 + sugerencias.length) % sugerencias.length);
+                  setHighlight(
+                    (h) => (h - 1 + sugerencias.length) % sugerencias.length
+                  );
                   return;
                 }
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && sugerencias[highlight]) {
                   e.preventDefault();
-                  if (abierto && sugerencias[highlight]) {
-                    elegirSugerencia(sugerencias[highlight]!);
-                    return;
-                  }
-                  agregarSeleccionado();
+                  agregarItem(sugerencias[highlight]!);
+                  return;
                 }
                 if (e.key === "Escape") {
                   setAbierto(false);
@@ -224,54 +202,67 @@ export default function FacturaCrearLineasBlock() {
               />
             )}
 
-            {abierto && sugerencias.length > 0 ? (
-              <ul
+            {abierto ? (
+              <div
                 id={listboxId}
                 role="listbox"
                 className={cn(
-                  "absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto",
-                  "rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+                  "absolute left-0 right-0 top-full z-50 mt-1",
+                  "h-72 overflow-y-auto rounded-md border border-border bg-popover",
+                  "text-popover-foreground shadow-md"
                 )}
               >
-                {sugerencias.map((item, idx) => {
-                  const activo = idx === highlight;
-                  const sel = seleccionado?.codTienda === item.codTienda;
-                  return (
-                    <li key={item.codTienda} role="option" aria-selected={sel || activo}>
-                      <button
-                        type="button"
-                        className={cn(
-                          "flex w-full items-start gap-3 px-3 py-2 text-left text-sm",
-                          (activo || sel) && "bg-accent text-accent-foreground"
-                        )}
-                        onMouseEnter={() => setHighlight(idx)}
-                        onClick={() => elegirSugerencia(item)}
-                      >
-                        <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                          {item.codTienda}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{item.descripcion}</span>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                          {fmtPrecio(item.pxLista)}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                {!puedeBuscar ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    Escribí al menos {FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS} letras
+                    para buscar.
+                  </p>
+                ) : loading || isDebouncing ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
+                ) : sugerencias.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
+                    Sin resultados.
+                  </p>
+                ) : (
+                  <ul className="py-1">
+                    {sugerencias.map((item, idx) => {
+                      const activo = idx === highlight;
+                      return (
+                        <li
+                          key={item.codTienda}
+                          role="option"
+                          aria-selected={activo}
+                        >
+                          <div
+                            role="button"
+                            tabIndex={-1}
+                            className={cn(
+                              "flex w-full cursor-pointer items-start gap-3 px-3 py-2 text-left text-sm",
+                              "text-foreground transition-colors",
+                              "hover:bg-accent/60",
+                              activo && "bg-accent/60"
+                            )}
+                            onMouseEnter={() => setHighlight(idx)}
+                            onClick={() => agregarItem(item)}
+                          >
+                            <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
+                              {item.codTienda}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {item.descripcion}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {fmtPrecio(item.pxLista)}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             ) : null}
           </div>
-
-          <Button
-            type="button"
-            size="icon"
-            className="size-9 shrink-0"
-            title="Agregar ítem"
-            aria-label="Agregar ítem a la factura"
-            onClick={agregarSeleccionado}
-          >
-            <Plus className="h-4 w-4 shrink-0" aria-hidden />
-          </Button>
         </div>
       </div>
 
@@ -292,8 +283,12 @@ export default function FacturaCrearLineasBlock() {
             ) : (
               lineas.map((linea) => (
                 <TableRow key={linea.key}>
-                  <TableCell className="celda-datos tabular-nums">{linea.codTienda}</TableCell>
-                  <TableCell className="celda-datos text-left">{linea.descripcion}</TableCell>
+                  <TableCell className="celda-datos tabular-nums">
+                    {linea.codTienda}
+                  </TableCell>
+                  <TableCell className="celda-datos text-left">
+                    {linea.descripcion}
+                  </TableCell>
                   <TableCell className="celda-datos text-right">
                     <Input
                       type="text"

@@ -132,6 +132,36 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     };
   }, [usuarioOpen]);
 
+  /**
+   * Al abrir Cambiar Módulo, sincroniza `modulosPermitidos` desde BD
+   * (p. ej. se asignó Facturación en Usuarios sin volver a Elegir Usuario).
+   */
+  useEffect(() => {
+    if (!moduloOpen) return;
+    const idPersonal = leerUsuarioSesion()?.idPersonal;
+    if (idPersonal == null) return;
+    let cancelled = false;
+    void listUsuariosParaInicioSesionAction().then((res) => {
+      if (cancelled || !res.ok) return;
+      const item = res.data.find((u) => u.idPersonal === idPersonal);
+      if (!item) return;
+      const next = usuarioSesionDesdeItem(item);
+      if (!next) return;
+      const actual = leerUsuarioSesion();
+      const mismos =
+        actual != null &&
+        actual.idPersonal === next.idPersonal &&
+        actual.modulosPermitidos.length === next.modulosPermitidos.length &&
+        actual.modulosPermitidos.every((id, i) => id === next.modulosPermitidos[i]);
+      if (mismos && actual?.nombrePersonal === next.nombrePersonal) return;
+      guardarUsuarioSesion(next);
+      setUsuarioSesion(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduloOpen]);
+
   useEffect(() => {
     function onAvisoListo() {
       setAvisoTransfTick((n) => n + 1);
@@ -540,7 +570,11 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
                 </Button>
               );
             })}
-          </div>
+            {(usuarioSesion?.modulosPermitidos?.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Este usuario no tiene módulos asignados.
+              </p>
+            ) : null}          </div>
         </AppModal>
       </Dialog>
 
