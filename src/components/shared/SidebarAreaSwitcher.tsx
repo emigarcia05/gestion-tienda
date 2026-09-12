@@ -7,6 +7,7 @@ import {
   EyeOff,
   Landmark,
   Megaphone,
+  Receipt,
   ShieldCheck,
   Store,
   type LucideIcon,
@@ -58,6 +59,7 @@ const ICONO_MODULO: Record<MainAppAreaId, LucideIcon> = {
   "gestion-productos": Store,
   finanzas: Landmark,
   marketing: Megaphone,
+  facturacion: Receipt,
 };
 
 function nombreUsuarioLabel(nombre: string): string {

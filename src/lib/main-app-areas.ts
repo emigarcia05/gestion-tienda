@@ -6,6 +6,7 @@
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
  * **Marketing** (id `marketing`).
+ * **Facturación** (id `facturacion`): módulo Factura (Crear / Facturas / Presupuestos).
  */
 
 import {
@@ -16,7 +17,8 @@ import {
 export type MainAppAreaId =
   | "gestion-productos"
   | "finanzas"
-  | "marketing";
+  | "marketing"
+  | "facturacion";
 
 interface MainAppAreaDefinition {
   id: MainAppAreaId;
@@ -58,6 +60,14 @@ export const MAIN_APP_AREAS: MainAppAreaDefinition[] = [
     href: "/marketing",
     requierePassword: false,
   },
+  {
+    id: "facturacion",
+    label: "Facturación",
+    statusLabel: "A construir",
+    /** Hub vacío; el usuario elige una ruta hoja en el sidenav. */
+    href: "/facturacion",
+    requierePassword: false,
+  },
 ];
 
 export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
@@ -84,6 +94,9 @@ export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
   }
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) {
     return "marketing";
+  }
+  if (pathname === "/facturacion" || pathname.startsWith("/facturacion/")) {
+    return "facturacion";
   }
   // Vendedor (id `gestion-productos`) — resto de rutas GP y legacy.
   return "gestion-productos";

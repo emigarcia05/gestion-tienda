@@ -24,6 +24,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 | Sync DUX / Route Handlers | **§3.13** |
 | Tipos pintura / rendimientos | **§3.14** |
 | Envios (Vendedor) | **§3.15** |
+| Facturación | **§3.16** |
 | Prohibido reintroducir | **§5** |
 | IA Diseño / scraper / CSV | `docs/AGENTEIA_GUIDELINES.md` |
 
@@ -41,7 +42,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 8. **Errores:** `{ ok: false, error: string }` controlado. No stack ni SQL al cliente. Loguear en servidor con prefijo `[modulo][fn]`.
 9. **TZ:** `@/lib/fechaArgentina`. No `Date#getHours()` ni `toLocaleDateString` sin `timeZone`.
 10. **Naming:** Px Competencia = `pxCompetencia*`. Px Listas DUX = `pxListasPrecios*`. Ver **§5**.
-11. **Gates repetidos:** `@/lib/actionGates.ts` (finanzas / marketing / estadísticas / Asistente IA / gasto eventual). API: `@/lib/apiRouteAuth.ts`.
+11. **Gates repetidos:** `@/lib/actionGates.ts` (finanzas / marketing / facturación / estadísticas / Asistente IA / gasto eventual). API: `@/lib/apiRouteAuth.ts`.
 12. **Errores Zod / ServiceResult en Actions:** `@/lib/actionResult.ts` (`firstZodErrorMessage` lee `issues[0].message`, `zodFail`, `fromServiceResult`). No copiar flatten local (`flatten()` en Zod 4 no tipa `string`).
 13. **Al cerrar:** actualizar este documento (modelo, servicio, regla o patrón). Lint: `npx eslint src --max-warnings 0`.
 
@@ -206,6 +207,7 @@ Esquemas en `src/lib/validations/<dominio>.ts`. Comunes en `@/lib/validations/co
 |--------|--------|
 | `requireEditorFinanzas` / `requireFinanzasLectura` / `requireCargarGastoEventual` | `@/lib/actionGates.ts` |
 | `requireEditorMarketing` / `requireMarketingLectura` | idem |
+| `requireEditorFacturacion` / `requireFacturacionLectura` | idem |
 | `requireEditorEstadisticas` / `requireEstadisticasLectura` | idem |
 | `requireEditorAsistenteIa` / `requireAsistenteIaLectura` | idem |
 | `guardTiendaListaPreciosSincronizar`, `guardFinanzasLectura`, `guardFinanzasEditor`, `guardCompetenciaPreciosSyncEsEditor`, `guardListaPreciosImportarEsEditor`, `guardEstPorProdImportarEsEditor`, `guardPedidosLectura`, `guardIndicadorSlidenavLectura` | `@/lib/apiRouteAuth.ts` |
@@ -232,7 +234,7 @@ GET de estado y POST del mismo job: **mismo guard**.
 
 CRUD: `src/actions/proveedores.ts` + `proveedor.service.ts`. Mutaciones: `PERMISOS.proveedores.acciones.nuevoProveedor`. Lectura catálogo: al menos uno de `sugeridos` / `lista` / `importarLista`. Eliminar: servicio `deleteProveedor` (`ServiceResult`; respeta FK).
 
-**`global_personal`:** PK `id_personal` (serial; el alta no lo pide). **`id_dux`:** vínculo DUX hacia otras tablas (TEXT, unique si informado; varios NULL OK). Filas existentes: `id_dux` = `id_personal`. Alta nueva: el usuario carga `id_dux` (opcional; no se copia el PK). `sucursal_por_defecto` (nullable) + `modulos_permitidos` + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Baja: `eliminarUsuarioPersonalAction` (`usuarios.acceso` + editor); si el nombre figura como `fin_tesoreria.titular` o `fin_tesoreria_cheques.tenedor`, se rechaza. Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
+**`global_personal`:** PK `id_personal` (serial; el alta no lo pide). **`id_dux`:** vínculo DUX hacia otras tablas (TEXT, unique si informado; varios NULL OK). Filas existentes: `id_dux` = `id_personal`. Alta nueva: el usuario carga `id_dux` (opcional; no se copia el PK). `sucursal_por_defecto` (nullable) + `modulos_permitidos` (ids de `MainAppAreaId`: `gestion-productos` \| `finanzas` \| `marketing` \| `facturacion`; Zod max 4) + `titular_financiero` (boolean, default `false`). Login slidenav: `listUsuariosParaInicioSesionAction` (`usuarios.inicioSesion`; solo filas con sucursal **y** al menos un módulo). Alta: `crearUsuarioPersonalAction` (`usuarios.acceso` + editor). Update: `actualizarUsuarioPersonalAction` (`usuarios.acceso` + editor). Baja: `eliminarUsuarioPersonalAction` (`usuarios.acceso` + editor); si el nombre figura como `fin_tesoreria.titular` o `fin_tesoreria_cheques.tenedor`, se rechaza. Lista catálogo (Usuarios): `listGlobalPersonal` en RSC. Recepción DUX usa el `idPersonal` del usuario slidenav (`leerUsuarioSesion`); no hay modal **Elegir Personal**.
 
 ### 3.2 Lista de precios proveedor
 
@@ -370,6 +372,14 @@ Tablas: `clientes` (catálogo; `nombre_completo` **en mayúsculas** `es-AR` al p
 **`envios_final`:** **`sucursal_id`** FK obligatoria a `global_sucursales` (`Restrict`); solo sucursales con **`pedido = true`** (`listarSucursalesParaEnvios` / `validarSucursalParaEnvio` en `enviosFinal.service.ts`). Hasta **dos** clientes, uno por tipo — FKs `cliente_final_id` y `pintor_id` (opcionales, `Restrict`). CHECK SQL + Zod + servicio: al menos uno; el cliente debe ser `CONSUMIDOR_FINAL` y el pintor `PINTOR`. Dirección obligatoria (`direccion_id`) y debe pertenecer al cliente (o al pintor si no hay cliente). **`fecha_envio`** (`@db.Date`, calendario AR): persistir `new Date(\`${iso}T12:00:00.000Z\`)`; leer con `isoYmdFromPrismaDateOnly`. **`hora_desde` / `hora_hasta`** (`VARCHAR(5)`, `HH:MM`): valores 09:00–19:00 en saltos de 30 min; CHECK + Zod: `hora_desde < hora_hasta`. En UI, Select **DESDE** (09:00–18:30) y luego Select **HASTA** (horas posteriores a desde, hasta 19:00). En el alta desde Crear Envío: si el elegido es `CONSUMIDOR_FINAL`, `pintor_id` vacío se completa con `clientes.pintor_asociado`; si el elegido es `PINTOR`, va solo en `pintor_id`. `forma_pagado`: `PAGADO` | `EFECTIVO` | `TRANSFERENCIA` | `POSNET` | `CUENTA_CORRIENTE`. **`PAGADO`** como forma fuerza **`pagado = true`** (`pagadoDesdeFormaPagado` en el servicio). **`observacion_envio`** (`TEXT`, default `""`, Zod máx. 5000): el wizard lo edita en el paso MERCADERÍA. **`entregado`** (`BOOLEAN`, default `false`): el conductor lo marca con confirmación; no se revierte desde Conductor. PDF opcional: `pdf_comprobante` (`BYTEA`, máx. 5 MB, magia `%PDF`) + `pdf_comprobante_nombre`. Listados **no** seleccionan bytes. Orden de listado: `fecha_envio` desc, `hora_desde` asc.
 
 Servicios: `clientes.service.ts`, `enviosDirecciones.service.ts`, `enviosFinal.service.ts`. Actions: `src/actions/envios.ts` (incluye `marcarEnviosFinalEntregadoAction`). Descarga PDF: `GET /api/envios/[id]/comprobante` (`guardEnviosLectura`). No borrar cliente/dirección si hay envío asociado (`P2003`). Alta/edición de dirección también desde el modal de cliente (`CONSUMIDOR_FINAL`): si el cliente no existe aún, se persiste antes de crear la dirección.
+
+### 3.16 Facturación
+
+Área principal `facturacion` en `MAIN_APP_AREAS` (`requierePassword: false`). URLs `/facturacion/...` (`FACTURACION_ROUTES`). Permiso `PERMISOS.facturacion.acceso` (`simple` + `editor`); gates `requireFacturacionLectura` / `requireEditorFacturacion`.
+
+Módulo sidenav **FACTURA**: Crear / Facturas / Presupuestos. **Comprobante aún sin persistencia** (cabecera + líneas en estado local). Contrato cabecera Zod: `facturaCrearCabeceraSchema` (`@/lib/validations/factura`) — `fechaIso` YYYY-MM-DD, `tipo` ∈ `FACTURA_TIPOS` (`presupuesto` \| `factura` \| `factura_fiscal` \| `nota_credito`), `cliente` string, `nroComprobante` opcional vacío. Constantes: `@/lib/factura`.
+
+**Búsqueda de productos (Crear):** Action `buscarProductosFacturaAction` → `buscarProductosParaFactura` (`facturaProductos.service.ts`). Zod `buscarProductosFacturaSchema` (`q` + `take` ≤ 10). Tokens de `q` separados por espacio: **AND** de `descripcion_tienda contains` (insensitive). Incluye `pxLista` de lista DUX **1 - GENERAL** (`encontrarIdListaGeneralPxListas`); si no hay precio → `0`. Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4 áreas).
 
 ---
 

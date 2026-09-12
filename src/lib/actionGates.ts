@@ -40,6 +40,17 @@ export function requireEditorMarketing(): Promise<ActionGateFail | null> {
   return requirePermisoEditor(PERMISOS.marketing.acceso, "Sin permisos para marketing.");
 }
 
+export function requireFacturacionLectura(): Promise<ActionGateFail | null> {
+  return requirePermiso(PERMISOS.facturacion.acceso, "Sin permisos para facturación.");
+}
+
+export function requireEditorFacturacion(): Promise<ActionGateFail | null> {
+  return requirePermisoEditor(
+    PERMISOS.facturacion.acceso,
+    "Sin permisos para facturación."
+  );
+}
+
 export function requireEstadisticasLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(
     PERMISOS.estadisticasProductos.acceso,

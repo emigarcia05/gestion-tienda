@@ -17,7 +17,7 @@ Stack: **Next.js 16 (App Router)**, **React 19**, **Tailwind CSS 4**, **shadcn/u
 | Lista Precios / Edición Masiva | **§3 Proveedores** |
 | IA Diseño / Asistente IA | `docs/AGENTEIA_GUIDELINES.md` |
 
-`/` , `/finanzas` y `/marketing` son **hubs vacíos** (panel central sin datos). El contenido aparece al elegir una **ruta hoja** en el sidenav. Al cambiar de área: **Vendedor** → `/`, **Administración** → `/finanzas`, **Marketing** → `/marketing`.
+`/` , `/finanzas`, `/marketing` y `/facturacion` son **hubs vacíos** (panel central sin datos). El contenido aparece al elegir una **ruta hoja** en el sidenav. Al cambiar de área: **Vendedor** → `/`, **Administración** → `/finanzas`, **Marketing** → `/marketing`, **Facturación** → `/facturacion`.
 
 ---
 
@@ -104,19 +104,22 @@ Stack: **Next.js 16 (App Router)**, **React 19**, **Tailwind CSS 4**, **shadcn/u
 
 ### 1.6 Sidebar y áreas
 
-SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`, `Sidebar.tsx`.
+SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`, `facturacionRoutes.ts`, `Sidebar.tsx`.
 
 | Área (UI) | id | Entrada |
 |-----------|-----|---------|
 | Vendedor | `gestion-productos` | `/` |
 | Administración | `finanzas` (pide clave) | `/finanzas` |
 | Marketing | `marketing` | `/marketing` |
+| Facturación | `facturacion` (sin clave) | `/facturacion` |
 
 **Vendedor** (acordeón, módulos cerrados al inicio): **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
 **Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** (PX TIENDA | PROVEEDORES | ANÁLISIS M.C.) → **VTAS. & COBROS** (Ptos. Vtas. / Cobros / Cx. Fin. Cobros, pantallas directas) → **PEDIDO A FÁB.** → **ESTADÍSTICAS** → **USUARIOS**. Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
 
 **Marketing:** **PUBLICACIONES** (Calendario, Ideas Contenido, Objetivos) → **BASE MULTIMEDIA** (Base Multimedia, Colores Marca). Lectura libre; mutaciones `editor`.
+
+**Facturación:** **FACTURA** (Crear / Facturas / Presupuestos). Lectura libre (`PERMISOS.facturacion.acceso`); sin clave de editor al entrar al área. Asignable en Usuarios vía `modulos_permitidos` (`facturacion`).
 
 **Dock** (abajo, `mt-auto`): Sync DUX (`SyncStatusIndicator` / `DuxSyncStyleButton`) → superficie sesión (`Pendientes` + usuario). El POST de sync lista tienda lee el JSON de error aunque el status no sea 2xx (no lo cuenta como fallo de red). Click en el nombre de usuario abre `Elegir Usuario`; en ese modal, el flujo es en 2 pasos dentro del mismo contenido (`Sucursal` → `Usuario`, sin abrir segundo modal). La clave de editor se pide **solo** al entrar a un módulo con `requierePassword=true` (Administración), no al seleccionar usuario para entrar a Vendedor. Si el usuario puede cambiar módulo, el ícono de módulo mantiene la apertura de `Cambiar Módulo`. Sync **no** se duplica en headers de página. Editor: modal Productos / Compras. Simple: sync productos. Import Excel: `ImportStatusIndicator` (independiente).
 
@@ -126,7 +129,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 
 ### 1.7 URLs
 
-Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts`). Rewrites en `next.config.ts` sirven `src/app/pedidos`, `proveedores`, `tienda`, etc. Finanzas y Marketing usan la URL de `src/app/` tal cual.
+Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts`). Rewrites en `next.config.ts` sirven `src/app/pedidos`, `proveedores`, `tienda`, etc. Finanzas, Marketing y Facturación usan la URL de `src/app/` tal cual.
 
 | Pantalla | URL canónica / app |
 |----------|-------------------|
@@ -147,6 +150,9 @@ Canónicas Vendedor / Análisis: `GP_ROUTES` (`src/lib/gestionProductosRoutes.ts
 | Pedido A Fáb. | `/pedido-a-fabrica` |
 | Envios | `/gestion-productos/envios/programados` → `/envios/programados` |
 | Conductor | `/gestion-productos/envios/conductor` → `/envios/conductor` (alias `/envios/crear`) |
+| Factura · Crear | `/facturacion/factura/crear` |
+| Factura · Facturas | `/facturacion/factura/facturas` |
+| Factura · Presupuestos | `/facturacion/factura/presupuestos` |
 
 Aliases viejos (`/pedidos/*`, `/proveedores`, `/proveedores/gestion`, `/finanzas/flujo-de-fondo`, …) **redirigen**; no crear páginas ahí.
 
@@ -280,6 +286,10 @@ Patrón por defecto = **§1**. Acá solo lo que un agente rompería si copia el 
 ### Marketing
 
 SSOT `MARKETING_ROUTES`. Calendario: grilla mes + Cuadro De Mando; ícono red `MktRedSocialIcon`. Ideas: Finder 2 columnas. Objetivos: 3 ejes × semanal/mensual. Base Multimedia / Colores Marca: tablas CFTL. Export: `ExportarMktSeccionesGoogleSheetsButton`.
+
+### Facturación
+
+SSOT `FACTURACION_ROUTES` (`src/lib/facturacionRoutes.ts`). Módulo sidenav **FACTURA**: Crear / Facturas / Presupuestos. **Crear** (`FacturaCrearPageClient`): cabecera en card — grid 3 cols (Fecha con picker nativo AR, Tipo De Factura select, N° Comprobante solo lectura vacío) + Cliente en 2.ª fila. Segundo bloque (`FacturaCrearLineasBlock`): fila **lupa** (búsqueda avanzada stub) + input typeahead + **+**; dropdown hasta 10 ítems (`buscarProductosFacturaAction`, AND `contains` por tokens en `descripcion_tienda`); tabla remito COD. / DESCRIPCIÓN / CANTIDAD / PX. LISTA / TOTAL (estado local; mismo `cod_tienda` suma cantidad). Tipos: `FACTURA_TIPOS` en `@/lib/factura`. Facturas / Presupuestos: placeholders CFTL sin datos.
 
 ### Asistente IA
 

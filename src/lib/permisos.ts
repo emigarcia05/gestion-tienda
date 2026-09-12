@@ -6,7 +6,8 @@
  *
  * Roles disponibles: "simple" | "editor"
  * El rol `editor` se activa al ingresar al módulo **Administración** con clave
- * (`SidebarAreaSwitcher` + `EDITOR_PASSWORD`). Vendedor y Marketing son libre acceso.
+ * (`SidebarAreaSwitcher` + `EDITOR_PASSWORD`). Vendedor, Marketing y Facturación
+ * son libre acceso.
  */
 
 export type Rol = "simple" | "editor";
@@ -125,6 +126,12 @@ export const PERMISOS = {
   // ─── Área /marketing ──────────────────────────────────────────────────────
   marketing: {
     /** Libre acceso de lectura/navegación; mutaciones CRUD siguen con `esEditor()`. */
+    acceso: { simple: true, editor: true },
+  },
+
+  // ─── Área /facturacion ────────────────────────────────────────────────────
+  facturacion: {
+    /** Libre acceso de lectura/navegación (sin clave de editor). */
     acceso: { simple: true, editor: true },
   },
 

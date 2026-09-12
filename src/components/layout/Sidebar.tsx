@@ -30,6 +30,9 @@ import {
   ScanSearch,
   Paintbrush,
   ArrowLeftRight,
+  FilePlus2,
+  Files,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +49,7 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
 import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
 import SidebarNavDivider from "@/components/layout/SidebarNavDivider";
 
@@ -60,7 +64,8 @@ type ModuleId =
   | "envios"
   | "asistente-ia";
 type MarketingModuleId = "publicaciones" | "base-multimedia";
-type SidebarModuleId = ModuleId | MarketingModuleId;
+type FacturacionModuleId = "factura";
+type SidebarModuleId = ModuleId | MarketingModuleId | FacturacionModuleId;
 
 interface SubmoduleItem {
   /** Omitir en agrupadores solo desplegables (sin página propia). */
@@ -269,6 +274,34 @@ const MARKETING_MODULES: NavModule[] = [
   },
 ];
 
+const FACTURACION_MODULES: NavModule[] = [
+  {
+    id: "factura",
+    label: "FACTURA",
+    icon: <Receipt className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.factura.crear,
+        label: "Crear",
+        icon: <FilePlus2 className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: FACTURACION_ROUTES.factura.facturas,
+        label: "Facturas",
+        icon: <Files className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: FACTURACION_ROUTES.factura.presupuestos,
+        label: "Presupuestos",
+        icon: <ScrollText className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+    ],
+  },
+];
+
 function isSubmoduleActive(pathname: string, href: string): boolean {
   if (href.startsWith("/gestion-productos") || href.startsWith("/asistente-ia")) {
     return isGpRouteActive(pathname, href);
@@ -287,6 +320,15 @@ function isSubmoduleActive(pathname: string, href: string): boolean {
   }
   if (href === MARKETING_ROUTES.baseMultimedia.coloresMarca) {
     return pathname === MARKETING_ROUTES.baseMultimedia.coloresMarca;
+  }
+  if (href === FACTURACION_ROUTES.factura.crear) {
+    return pathname === FACTURACION_ROUTES.factura.crear;
+  }
+  if (href === FACTURACION_ROUTES.factura.facturas) {
+    return pathname === FACTURACION_ROUTES.factura.facturas;
+  }
+  if (href === FACTURACION_ROUTES.factura.presupuestos) {
+    return pathname === FACTURACION_ROUTES.factura.presupuestos;
   }
   return pathname === href;
 }
@@ -361,7 +403,9 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       ? MODULES
       : mainAreaId === "marketing"
         ? MARKETING_MODULES
-        : [];
+        : mainAreaId === "facturacion"
+          ? FACTURACION_MODULES
+          : [];
 
   const visibleModules: NavModule[] = modulesForArea.filter((module) => {
     if (module.href && module.permiso && puede(rol, module.permiso)) return true;
