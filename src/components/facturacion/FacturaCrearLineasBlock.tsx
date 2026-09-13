@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Loader2, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
@@ -46,6 +46,17 @@ function parseCantidadDraft(raw: string): number | null {
 
 const FILA_BUSQUEDA_GRID =
   "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-2 px-3";
+
+function hayStockEnOtraSucursal(
+  item: ProductoFacturaBusquedaItem,
+  sucursalCodigo: string | null
+): boolean {
+  return item.stockPorSucursal.some((s) => {
+    if (s.stock <= 0) return false;
+    if (sucursalCodigo == null) return true;
+    return s.codigo !== sucursalCodigo;
+  });
+}
 
 /**
  * Segundo bloque de Factura · Crear: typeahead de productos + tabla remito local.
@@ -102,6 +113,7 @@ export default function FacturaCrearLineasBlock() {
   const qTrim = q.trim();
   const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
   const stockModalOpen = stockModalItem != null;
+  const sucursalUsuario = leerUsuarioSesion()?.sucursalPorDefecto ?? null;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -290,6 +302,12 @@ export default function FacturaCrearLineasBlock() {
                     <ul className="min-h-0 flex-1 overflow-y-auto py-1">
                       {sugerencias.map((item, idx) => {
                         const activo = idx === highlight;
+                        const sinStockLocal = item.stock <= 0;
+                        const stockEnOtra = hayStockEnOtraSucursal(
+                          item,
+                          sucursalUsuario
+                        );
+                        const resaltarSucursal = sinStockLocal && stockEnOtra;
                         return (
                           <li
                             key={item.codTienda}
@@ -317,23 +335,47 @@ export default function FacturaCrearLineasBlock() {
                               <span className="text-right tabular-nums text-muted-foreground">
                                 {fmtPrecio(item.pxLista)}
                               </span>
-                              <span className="text-right tabular-nums text-muted-foreground">
-                                {fmtNumero(item.stock)}
+                              <span className="flex items-center justify-end tabular-nums text-muted-foreground">
+                                {sinStockLocal ? (
+                                  <AlertTriangle
+                                    className={cn(
+                                      TABLE_ROW_ACTION_ICON_CLASS,
+                                      "text-destructive"
+                                    )}
+                                    aria-label="Sin stock en la sucursal"
+                                    title="Sin stock en la sucursal"
+                                  />
+                                ) : (
+                                  fmtNumero(item.stock)
+                                )}
                               </span>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="size-7 shrink-0 text-primary hover:bg-primary/10"
-                                title="Ver stock por sucursal"
-                                aria-label={`Stock por sucursal de ${item.descripcion}`}
+                                className={cn(
+                                  "size-7 shrink-0",
+                                  resaltarSucursal
+                                    ? "text-primary hover:bg-primary/10"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                                title={
+                                  resaltarSucursal
+                                    ? "Hay stock en otra sucursal"
+                                    : "Ver stock por sucursal"
+                                }
+                                aria-label={
+                                  resaltarSucursal
+                                    ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
+                                    : `Stock por sucursal de ${item.descripcion}`
+                                }
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   setStockModalItem(item);
                                 }}
                               >
-                                <Search
+                                <Store
                                   className={TABLE_ROW_ACTION_ICON_CLASS}
                                   aria-hidden
                                 />
