@@ -505,14 +505,14 @@ export default function FacturaCrearLineasBlock({
         <Table className="w-full table-fixed" scrollX={false}>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-16 text-center" aria-label="Acciones" />
-              <TableHead className="w-[7rem] text-center">COD.</TableHead>
-              <TableHead className="text-center">DESCRIPCIÓN</TableHead>
-              <TableHead className="w-[6.5rem] text-center">CANTIDAD</TableHead>
-              <TableHead className="w-[7.5rem] text-center">PX. LISTA</TableHead>
-              <TableHead className="w-[6.5rem] text-center">DESC.</TableHead>
-              <TableHead className="w-[7.5rem] text-center">PX C/ DESC.</TableHead>
-              <TableHead className="w-[7.5rem] text-center">TOTAL</TableHead>
+              <TableHead className="w-[10%] text-center" aria-label="Acciones" />
+              <TableHead className="w-[10%] text-center">COD.</TableHead>
+              <TableHead className="w-[40%] text-center">DESCRIPCIÓN</TableHead>
+              <TableHead className="w-[5%] text-center">CANT.</TableHead>
+              <TableHead className="w-[10%] text-center">PX. LISTA</TableHead>
+              <TableHead className="w-[5%] text-center">DESC.</TableHead>
+              <TableHead className="w-[10%] text-center">PX C/ DESC.</TableHead>
+              <TableHead className="w-[10%] text-center">TOTAL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -535,12 +535,20 @@ export default function FacturaCrearLineasBlock({
                 return (
                   <TableRow key={linea.key}>
                     <TableCell className="celda-datos text-center">
-                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <div
+                        className={cn(
+                          TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                          "flex-nowrap gap-1 p-1"
+                        )}
+                      >
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            "!h-7 !w-7 min-h-7 min-w-7 shrink-0 !p-0"
+                          )}
                           title="Eliminar ítem"
                           aria-label={`Eliminar ${linea.descripcion}`}
                           onClick={() => eliminarLinea(linea.key)}
@@ -554,7 +562,10 @@ export default function FacturaCrearLineasBlock({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            "!h-7 !w-7 min-h-7 min-w-7 shrink-0 !p-0"
+                          )}
                           title="Comentario"
                           aria-label={`Comentario de ${linea.descripcion}`}
                           onClick={() => setComentarioLineaKey(linea.key)}
