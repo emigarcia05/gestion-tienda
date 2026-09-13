@@ -45,7 +45,7 @@ function parseCantidadDraft(raw: string): number | null {
 }
 
 const FILA_BUSQUEDA_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-2 px-3";
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
 
 function hayStockEnOtraSucursal(
   item: ProductoFacturaBusquedaItem,
@@ -150,29 +150,18 @@ export default function FacturaCrearLineasBlock() {
   }, [lineas]);
 
   function agregarItem(item: ProductoFacturaBusquedaItem) {
-    const existente = lineas.find((l) => l.codTienda === item.codTienda);
-    const keyFoco = existente?.key ?? nuevaKeyLinea();
-    pendingScrollAlFinalRef.current = existente == null;
-    setLineas((prev) => {
-      const ya = prev.find((l) => l.codTienda === item.codTienda);
-      if (ya) {
-        return prev.map((l) =>
-          l.codTienda === item.codTienda
-            ? { ...l, cantidad: l.cantidad + 1 }
-            : l
-        );
-      }
-      return [
-        ...prev,
-        {
-          key: keyFoco,
-          codTienda: item.codTienda,
-          descripcion: item.descripcion,
-          cantidad: 1,
-          pxLista: item.pxLista,
-        },
-      ];
-    });
+    const keyFoco = nuevaKeyLinea();
+    pendingScrollAlFinalRef.current = true;
+    setLineas((prev) => [
+      ...prev,
+      {
+        key: keyFoco,
+        codTienda: item.codTienda,
+        descripcion: item.descripcion,
+        cantidad: 1,
+        pxLista: item.pxLista,
+      },
+    ]);
     setQ("");
     setSugerencias([]);
     setHighlight(0);
@@ -289,17 +278,17 @@ export default function FacturaCrearLineasBlock() {
                     <div
                       className={cn(
                         FILA_BUSQUEDA_GRID,
-                        "shrink-0 border-b border-border bg-muted/40 py-1 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
+                        "shrink-0 border-b border-border bg-muted/40 py-0.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
                       )}
                       aria-hidden
                     >
-                      <span>COD.</span>
-                      <span>DESCRIPCIÓN</span>
-                      <span className="text-right">PRECIOS</span>
-                      <span className="text-right">STOCK</span>
+                      <span className="text-center">COD.</span>
+                      <span className="text-center">DESCRIPCIÓN</span>
+                      <span className="text-center">PRECIOS</span>
+                      <span className="text-center">STOCK</span>
                       <span />
                     </div>
-                    <ul className="min-h-0 flex-1 overflow-y-auto py-0.5">
+                    <ul className="min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto">
                       {sugerencias.map((item, idx) => {
                         const activo = idx === highlight;
                         const sinStockLocal = item.stock <= 0;
@@ -319,7 +308,7 @@ export default function FacturaCrearLineasBlock() {
                               tabIndex={-1}
                               className={cn(
                                 FILA_BUSQUEDA_GRID,
-                                "cursor-pointer py-1 text-left text-sm leading-snug text-foreground transition-colors",
+                                "cursor-pointer py-0 text-center text-sm leading-tight text-foreground transition-colors",
                                 "hover:bg-accent/60",
                                 activo && "bg-accent/60"
                               )}
@@ -332,10 +321,10 @@ export default function FacturaCrearLineasBlock() {
                               <span className="min-w-0 truncate">
                                 {item.descripcion}
                               </span>
-                              <span className="text-right tabular-nums text-muted-foreground">
-                                {fmtPrecio(item.pxLista)}
+                              <span className="tabular-nums text-muted-foreground">
+                                {`$${fmtPrecio(item.pxLista)}`}
                               </span>
-                              <span className="flex items-center justify-end tabular-nums text-muted-foreground">
+                              <span className="flex items-center justify-center tabular-nums text-muted-foreground">
                                 {sinStockLocal ? (
                                   <span
                                     className="inline-flex"
@@ -358,7 +347,7 @@ export default function FacturaCrearLineasBlock() {
                                 variant="ghost"
                                 size="icon"
                                 className={cn(
-                                  "size-6 shrink-0",
+                                  "mx-auto size-5 shrink-0",
                                   resaltarSucursal
                                     ? "text-primary hover:bg-primary/10"
                                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -404,12 +393,12 @@ export default function FacturaCrearLineasBlock() {
         <Table className="w-full table-fixed" scrollX={false}>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12" aria-label="Eliminar" />
-              <TableHead className="w-[7rem]">COD.</TableHead>
-              <TableHead>DESCRIPCIÓN</TableHead>
+              <TableHead className="w-12 text-center" aria-label="Eliminar" />
+              <TableHead className="w-[7rem] text-center">COD.</TableHead>
+              <TableHead className="text-center">DESCRIPCIÓN</TableHead>
               <TableHead className="w-[7rem] text-center">CANTIDAD</TableHead>
-              <TableHead className="w-[8rem] text-right">PX. LISTA</TableHead>
-              <TableHead className="w-[8rem] text-right">TOTAL</TableHead>
+              <TableHead className="w-[8rem] text-center">PX. LISTA</TableHead>
+              <TableHead className="w-[8rem] text-center">TOTAL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -418,12 +407,15 @@ export default function FacturaCrearLineasBlock() {
             ) : (
               lineas.map((linea) => (
                 <TableRow key={linea.key}>
-                  <TableCell className="celda-datos">
+                  <TableCell className="celda-datos text-center">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      className={cn(
+                        TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                        "mx-auto"
+                      )}
                       title="Eliminar ítem"
                       aria-label={`Eliminar ${linea.descripcion}`}
                       onClick={() => eliminarLinea(linea.key)}
@@ -431,10 +423,10 @@ export default function FacturaCrearLineasBlock() {
                       <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                     </Button>
                   </TableCell>
-                  <TableCell className="celda-datos tabular-nums">
+                  <TableCell className="celda-datos text-center tabular-nums">
                     {linea.codTienda}
                   </TableCell>
-                  <TableCell className="celda-datos text-left">
+                  <TableCell className="celda-datos text-center">
                     {linea.descripcion}
                   </TableCell>
                   <TableCell className="celda-datos text-center">
@@ -462,11 +454,11 @@ export default function FacturaCrearLineasBlock() {
                       }}
                     />
                   </TableCell>
-                  <TableCell className="celda-datos text-right tabular-nums">
-                    {fmtPrecio(linea.pxLista)}
+                  <TableCell className="celda-datos text-center tabular-nums">
+                    {`$${fmtPrecio(linea.pxLista)}`}
                   </TableCell>
-                  <TableCell className="celda-datos text-right tabular-nums">
-                    {fmtPrecio(totalLineaFactura(linea))}
+                  <TableCell className="celda-datos text-center tabular-nums">
+                    {`$${fmtPrecio(totalLineaFactura(linea))}`}
                   </TableCell>
                 </TableRow>
               ))

@@ -34,7 +34,7 @@ export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 
 /** Línea local del remito en Crear (aún sin persistencia). */
 export type FacturaLineaLocal = {
-  /** Clave estable en la grilla (permite duplicar el mismo cod en el futuro). */
+  /** Clave estable en la grilla (permite el mismo cod en varias filas). */
   key: string;
   codTienda: string;
   descripcion: string;
