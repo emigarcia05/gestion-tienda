@@ -43,11 +43,16 @@ export type FacturaLineaLocal = {
   descripcion: string;
   cantidad: number;
   pxLista: number;
+  /**
+   * Descuento especial de la línea.
+   * `null` = hereda el % global del pie; número = override (p. ej. 20 con global 25).
+   */
+  descuentoPctEspecial: number | null;
 };
 
 /**
  * Descuento de comprobante (Crear, estado local).
- * - `porcentaje`: aplica el % a todos los PX. LISTA.
+ * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
  */
 export type FacturaDescuentoEstado = {
@@ -92,10 +97,10 @@ export function totalListaFactura(lineas: readonly FacturaLineaLocal[]): number 
 }
 
 /**
- * % efectivo a aplicar a todas las líneas.
+ * % global del pie (sin overrides de línea).
  * Con `total_fac`, se recalcula desde el objetivo y el total de lista actual.
  */
-export function porcentajeDescuentoEfectivo(
+export function porcentajeDescuentoGlobal(
   lineas: readonly FacturaLineaLocal[],
   descuento: FacturaDescuentoEstado | null
 ): number {
@@ -111,11 +116,34 @@ export function porcentajeDescuentoEfectivo(
   return clampDescuentoPct(((totalLista - objetivo) / totalLista) * 100);
 }
 
+/** Alias histórico de `porcentajeDescuentoGlobal`. */
+export function porcentajeDescuentoEfectivo(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): number {
+  return porcentajeDescuentoGlobal(lineas, descuento);
+}
+
+/** % a aplicar a una línea: especial o global. */
+export function porcentajeDescuentoLinea(
+  linea: Pick<FacturaLineaLocal, "descuentoPctEspecial">,
+  pctGlobal: number
+): number {
+  if (linea.descuentoPctEspecial != null) {
+    return clampDescuentoPct(linea.descuentoPctEspecial);
+  }
+  return clampDescuentoPct(pctGlobal);
+}
+
 export function hayDescuentoFactura(
   lineas: readonly FacturaLineaLocal[],
   descuento: FacturaDescuentoEstado | null
 ): boolean {
-  return porcentajeDescuentoEfectivo(lineas, descuento) > 0;
+  const pctGlobal = porcentajeDescuentoGlobal(lineas, descuento);
+  if (pctGlobal > 0) return true;
+  return lineas.some(
+    (l) => l.descuentoPctEspecial != null && l.descuentoPctEspecial > 0
+  );
 }
 
 export type FacturaResumenTotales = {
@@ -133,15 +161,25 @@ export function resumenTotalesFactura(
 ): FacturaResumenTotales {
   const totalItem = lineas.length;
   const totalLista = totalListaFactura(lineas);
-  const pct = porcentajeDescuentoEfectivo(lineas, descuento);
-  const hayDescuento = pct > 0;
-  const totalConDesc = hayDescuento
-    ? lineas.reduce((sum, l) => sum + totalLineaConDescuento(l, pct), 0)
-    : totalLista;
+  const pctGlobal = porcentajeDescuentoGlobal(lineas, descuento);
+
+  let totalConDesc = 0;
+  let sumaPctPonderado = 0;
+  for (const l of lineas) {
+    const pct = porcentajeDescuentoLinea(l, pctGlobal);
+    const lista = totalLineaLista(l);
+    totalConDesc += totalLineaConDescuento(l, pct);
+    sumaPctPonderado += pct * lista;
+  }
+
+  const descPctPromedio =
+    totalLista > 0 ? clampDescuentoPct(sumaPctPonderado / totalLista) : 0;
+  const hayDescuento = totalConDesc < totalLista - 0.5 || descPctPromedio > 0;
+
   return {
     totalItem,
     totalLista,
-    descPctPromedio: pct,
+    descPctPromedio,
     descPesos: Math.max(0, totalLista - totalConDesc),
     totalConDesc,
     hayDescuento,
@@ -166,4 +204,50 @@ export function totalFacDesdeDescuentoPct(
 ): number {
   const pct = clampDescuentoPct(descuentoPct);
   return Math.round(totalLista * (1 - pct / 100));
+}
+
+/**
+ * Al agregar una línea:
+ * - `porcentaje`: hereda el % global (`descuentoPctEspecial = null`).
+ * - `total_fac`: congela el DESC. % PROMEDIO actual como global `porcentaje`
+ *   (deja de perseguir el objetivo al crecer el remito); la línea nueva hereda ese %.
+ */
+export function prepararDescuentoAlAgregarLinea(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): {
+  descuentoPctEspecial: number | null;
+  descuentoSiguiente: FacturaDescuentoEstado | null;
+} {
+  if (descuento == null) {
+    return { descuentoPctEspecial: null, descuentoSiguiente: null };
+  }
+  if (descuento.fuente === "porcentaje") {
+    return {
+      descuentoPctEspecial: null,
+      descuentoSiguiente: descuento,
+    };
+  }
+
+  const resumen = resumenTotalesFactura(lineas, descuento);
+  const pct =
+    resumen.descPctPromedio > 0
+      ? resumen.descPctPromedio
+      : porcentajeDescuentoGlobal(lineas, descuento);
+
+  if (pct <= 0) {
+    return {
+      descuentoPctEspecial: null,
+      descuentoSiguiente: descuento,
+    };
+  }
+
+  return {
+    descuentoPctEspecial: null,
+    descuentoSiguiente: {
+      fuente: "porcentaje",
+      porcentaje: clampDescuentoPct(pct),
+      totalFacObjetivo: null,
+    },
+  };
 }
