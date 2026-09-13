@@ -299,21 +299,36 @@ model Sucursal {
 }
 
 /**
- * Catálogo de puntos de venta DUX (`global_pto_vtas`).
+ * Catálogo de puntos de venta DUX (`ptos_vtas`, ex `global_pto_vtas`).
+ * PK `id` = cuid (TEXT); no serial. `pto_venta` = CHAR(5) con ceros a la izquierda.
  * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales` `genera_est = true`).
  */
 model GlobalPtoVta {
-  id              String   @id @default(cuid())
-  ptoVenta        Int      @unique(map: "global_pto_vtas_pto_venta_key") @map("pto_venta")
-  nombreTitular   String   @map("nombre_titular")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                 String    @id @default(cuid())
+  /** N° punto de venta DUX, siempre 5 dígitos (ej. `00002`). */
+  ptoVenta           String    @unique(map: "ptos_vtas_pto_venta_key") @map("pto_venta") @db.Char(5)
+  /** CUIT 11 dígitos sin guiones. */
+  cuit               String?   @map("cuit") @db.VarChar(11)
+  iiBbMultilateral   Boolean   @default(false) @map("ii_bb_multilateral")
+  /** Cuenta IIBB / convenio / `EXENTO`. */
+  iiBb               String?   @map("ii_bb") @db.VarChar(64)
+  /** `Responsable Inscripto` | `Monotributista` (CHECK SQL). */
+  condicionIva       String?   @map("condicion_iva") @db.VarChar(32)
+  nombreTitular      String    @map("nombre_titular")
+  domicilioComercial String?   @map("domicilio_comercial") @db.Text
+  inicioActividades  DateTime? @map("inicio_actividades") @db.Date
+  /** Default `1` = Productos. */
+  concepto           String    @default("1") @map("concepto") @db.VarChar(8)
+  /** `activo` | `inactivo` (CHECK SQL). */
+  estado             String    @default("activo") @map("estado") @db.VarChar(16)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  sucursales GlobalPtoVtaSucursal[]
-  factCobrosMes FinFactCobrosPtoVtaMes[]
+  sucursales              GlobalPtoVtaSucursal[]
+  factCobrosMes           FinFactCobrosPtoVtaMes[]
   finAnaCosFinaTerminales FinAnaCosFinaTerminal[]
 
-  @@map("global_pto_vtas")
+  @@map("ptos_vtas")
 }
 
 /** Sucursales asociadas a un punto de venta (`suc_asociadas`). */
@@ -601,7 +616,7 @@ model FinBalVtas {
 
 /**
  * Totales mensuales por punto de venta y letra de comprobante (`fin_fact_cobros_pto_vta_mes`).
- * FK a `global_pto_vtas`. No guarda remitos individuales.
+ * FK a `ptos_vtas`. No guarda remitos individuales.
  * Recalculado al sincronizar el mes desde GET `/v2/remitos-venta`.
  * `monto_gravado` persiste la suma de `total_factura_asociada` por `(pto, letra)`.
  */
@@ -1260,7 +1275,7 @@ model FinAnaCosFinaTerminalMarca {
 }
 
 /**
- * Terminal DUX concreta: `id_dux` (carga el usuario) + marca + titular (`global_pto_vtas`).
+ * Terminal DUX concreta: `id_dux` (carga el usuario) + marca + titular (`ptos_vtas`).
  */
 model FinAnaCosFinaTerminal {
   id        String   @id @default(cuid())

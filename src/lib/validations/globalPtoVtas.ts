@@ -1,11 +1,20 @@
 import { z } from "zod";
+import { normalizarPtoVentaCodigo } from "@/lib/globalPtoVtas";
 import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/common";
 
-const ptoVentaSchema = z.coerce
-  .number({ error: "Ingresá el nro. de punto de venta." })
-  .int("El punto de venta debe ser un número entero.")
-  .min(1, "El punto de venta debe ser mayor a 0.")
-  .max(99_999, "El punto de venta es demasiado grande.");
+const ptoVentaSchema = z
+  .union([z.string(), z.number()])
+  .transform((raw, ctx) => {
+    const codigo = normalizarPtoVentaCodigo(raw);
+    if (!codigo) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El punto de venta debe ser un entero entre 1 y 99999.",
+      });
+      return z.NEVER;
+    }
+    return codigo;
+  });
 
 const nombreTitularSchema = z
   .string()

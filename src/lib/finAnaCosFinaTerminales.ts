@@ -5,11 +5,14 @@ export type FinAnaCosFinaTerminalItem = {
   marcaId: string;
   marcaNombre: string;
   titularId: string;
-  titularPtoVenta: number;
+  titularPtoVenta: string;
   titularNombre: string;
 };
 
-export function etiquetaTitularPtoVta(ptoVenta: number, nombreTitular: string): string {
+export function etiquetaTitularPtoVta(
+  ptoVenta: string | number,
+  nombreTitular: string
+): string {
   return `${ptoVenta} · ${nombreTitular}`;
 }
 

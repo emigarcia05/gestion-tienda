@@ -27,7 +27,7 @@ const LETRA_NO_FISCAL = "X";
 
 type FilaPivote = {
   ptoVtaId: string;
-  ptoVenta: number;
+  ptoVenta: string;
   nombreTitular: string;
   fiscal: number;
   noFiscal: number;
@@ -58,7 +58,9 @@ function agruparPorPtoYFiscal(filas: FinFactCobrosPtoVtaFila[]): FilaPivote[] {
       });
     }
   }
-  return [...porPto.values()].sort((a, b) => a.ptoVenta - b.ptoVenta);
+  return [...porPto.values()].sort((a, b) =>
+    a.ptoVenta.localeCompare(b.ptoVenta, "es-AR")
+  );
 }
 
 export default function TablaFinFactCobros({

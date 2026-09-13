@@ -17,7 +17,7 @@ type TerminalRow = {
   marcaId: string;
   titularId: string;
   marca: { nombre: string };
-  titular: { ptoVenta: number; nombreTitular: string };
+  titular: { ptoVenta: string; nombreTitular: string };
 };
 
 function mapTerminal(row: TerminalRow): FinAnaCosFinaTerminalItem {

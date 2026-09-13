@@ -16,7 +16,7 @@ const ptoVtaInclude = {
 
 type PtoVtaRow = {
   id: string;
-  ptoVenta: number;
+  ptoVenta: string;
   nombreTitular: string;
   sucursales: {
     sucursal: { id: string; nombre: string };

@@ -45,7 +45,7 @@ export function rangoIsoMesCalendario(
   };
 }
 
-/** `nro_pto_vta` DUX → entero para cruzar con `global_pto_vtas.pto_venta`. */
+/** `nro_pto_vta` DUX → entero para cruzar con `ptos_vtas.pto_venta` (CHAR(5) → número). */
 export function parseNroPtoVtaDux(raw: string): number | null {
   const n = Number.parseInt(raw.trim(), 10);
   if (!Number.isFinite(n) || n < 1) return null;

@@ -83,7 +83,7 @@ async function cargarCatalogoPtoVtasSync(): Promise<
       sucursalesDux.add(n);
       idDuxSet.add(n);
     }
-    porNro.set(row.ptoVenta, { id: row.id, sucursalesDux });
+    porNro.set(Number.parseInt(row.ptoVenta, 10), { id: row.id, sucursalesDux });
   }
   if (idDuxSet.size === 0) {
     return {
@@ -308,7 +308,7 @@ export async function syncFacturasVentasDuxRunStep(params: {
 
 export type FinFactCobrosPtoVtaFila = {
   ptoVtaId: string;
-  ptoVenta: number;
+  ptoVenta: string;
   nombreTitular: string;
   letra: string;
   total: string;
