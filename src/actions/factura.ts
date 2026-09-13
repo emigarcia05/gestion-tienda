@@ -21,6 +21,7 @@ export async function buscarProductosFacturaAction(
   const res = await buscarProductosParaFactura({
     q: parsed.data.q,
     take: parsed.data.take,
+    sucursalCodigo: parsed.data.sucursalCodigo,
   });
   return fromServiceResult(res);
 }

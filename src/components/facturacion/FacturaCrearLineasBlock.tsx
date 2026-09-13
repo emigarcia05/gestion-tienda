@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
+import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,8 +22,10 @@ import {
   totalLineaFactura,
   type FacturaLineaLocal,
 } from "@/lib/factura";
-import { fmtPrecio } from "@/lib/format";
+import { fmtNumero, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 
@@ -38,6 +41,9 @@ function parseCantidadDraft(raw: string): number | null {
   return Math.trunc(n);
 }
 
+const FILA_BUSQUEDA_GRID =
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-2 px-3";
+
 /**
  * Segundo bloque de Factura · Crear: typeahead de productos + tabla remito local.
  * Dropdown fijo al foco; búsqueda desde 3 letras; click en ítem = agregar.
@@ -50,6 +56,10 @@ export default function FacturaCrearLineasBlock() {
   const [abierto, setAbierto] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
+  const [stockModalItem, setStockModalItem] =
+    useState<ProductoFacturaBusquedaItem | null>(null);
+  const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
+  const pendingFocusCantidadKeyRef = useRef<string | null>(null);
 
   const fetchSugerencias = useCallback(async (value: string) => {
     const q = value.trim();
@@ -59,9 +69,11 @@ export default function FacturaCrearLineasBlock() {
       return;
     }
     setLoading(true);
+    const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
     const res = await buscarProductosFacturaAction({
       q,
       take: FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
+      ...(sucursalCodigo ? { sucursalCodigo } : {}),
     });
     setLoading(false);
     if (!res.ok) {
@@ -83,9 +95,11 @@ export default function FacturaCrearLineasBlock() {
 
   const qTrim = q.trim();
   const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
+  const stockModalOpen = stockModalItem != null;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
+      if (stockModalItem != null) return;
       const el = wrapRef.current;
       if (!el) return;
       if (e.target instanceof Node && !el.contains(e.target)) {
@@ -94,12 +108,24 @@ export default function FacturaCrearLineasBlock() {
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, []);
+  }, [stockModalItem]);
+
+  useEffect(() => {
+    const key = pendingFocusCantidadKeyRef.current;
+    if (!key) return;
+    const el = cantidadInputRefs.current.get(key);
+    if (!el) return;
+    pendingFocusCantidadKeyRef.current = null;
+    el.focus();
+    el.select();
+  }, [lineas]);
 
   function agregarItem(item: ProductoFacturaBusquedaItem) {
+    const existente = lineas.find((l) => l.codTienda === item.codTienda);
+    const keyFoco = existente?.key ?? nuevaKeyLinea();
     setLineas((prev) => {
-      const existente = prev.find((l) => l.codTienda === item.codTienda);
-      if (existente) {
+      const ya = prev.find((l) => l.codTienda === item.codTienda);
+      if (ya) {
         return prev.map((l) =>
           l.codTienda === item.codTienda
             ? { ...l, cantidad: l.cantidad + 1 }
@@ -109,7 +135,7 @@ export default function FacturaCrearLineasBlock() {
       return [
         ...prev,
         {
-          key: nuevaKeyLinea(),
+          key: keyFoco,
           codTienda: item.codTienda,
           descripcion: item.descripcion,
           cantidad: 1,
@@ -120,8 +146,8 @@ export default function FacturaCrearLineasBlock() {
     setQ("");
     setSugerencias([]);
     setHighlight(0);
-    setAbierto(true);
-    queueMicrotask(() => ref.current?.focus());
+    setAbierto(false);
+    pendingFocusCantidadKeyRef.current = keyFoco;
   }
 
   function actualizarCantidad(key: string, raw: string) {
@@ -207,8 +233,8 @@ export default function FacturaCrearLineasBlock() {
                 id={listboxId}
                 role="listbox"
                 className={cn(
-                  "absolute left-0 right-0 top-full z-50 mt-1",
-                  "h-72 overflow-y-auto rounded-md border border-border bg-popover",
+                  "absolute left-0 right-0 top-full z-50 mt-1 flex flex-col",
+                  "h-72 overflow-hidden rounded-md border border-border bg-popover",
                   "text-popover-foreground shadow-md"
                 )}
               >
@@ -224,41 +250,77 @@ export default function FacturaCrearLineasBlock() {
                     Sin resultados.
                   </p>
                 ) : (
-                  <ul className="py-1">
-                    {sugerencias.map((item, idx) => {
-                      const activo = idx === highlight;
-                      return (
-                        <li
-                          key={item.codTienda}
-                          role="option"
-                          aria-selected={activo}
-                        >
-                          <div
-                            role="button"
-                            tabIndex={-1}
-                            className={cn(
-                              "flex w-full cursor-pointer items-start gap-3 px-3 py-2 text-left text-sm",
-                              "text-foreground transition-colors",
-                              "hover:bg-accent/60",
-                              activo && "bg-accent/60"
-                            )}
-                            onMouseEnter={() => setHighlight(idx)}
-                            onClick={() => agregarItem(item)}
+                  <>
+                    <div
+                      className={cn(
+                        FILA_BUSQUEDA_GRID,
+                        "shrink-0 border-b border-border bg-muted/40 py-1.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
+                      )}
+                      aria-hidden
+                    >
+                      <span>COD.</span>
+                      <span>DESCRIPCIÓN</span>
+                      <span className="text-right">PRECIOS</span>
+                      <span className="text-right">STOCK</span>
+                      <span />
+                    </div>
+                    <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+                      {sugerencias.map((item, idx) => {
+                        const activo = idx === highlight;
+                        return (
+                          <li
+                            key={item.codTienda}
+                            role="option"
+                            aria-selected={activo}
                           >
-                            <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                              {item.codTienda}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate">
-                              {item.descripcion}
-                            </span>
-                            <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {fmtPrecio(item.pxLista)}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            <div
+                              role="button"
+                              tabIndex={-1}
+                              className={cn(
+                                FILA_BUSQUEDA_GRID,
+                                "cursor-pointer py-2 text-left text-sm text-foreground transition-colors",
+                                "hover:bg-accent/60",
+                                activo && "bg-accent/60"
+                              )}
+                              onMouseEnter={() => setHighlight(idx)}
+                              onClick={() => agregarItem(item)}
+                            >
+                              <span className="truncate tabular-nums text-muted-foreground">
+                                {item.codTienda}
+                              </span>
+                              <span className="min-w-0 truncate">
+                                {item.descripcion}
+                              </span>
+                              <span className="text-right tabular-nums text-muted-foreground">
+                                {fmtPrecio(item.pxLista)}
+                              </span>
+                              <span className="text-right tabular-nums text-muted-foreground">
+                                {fmtNumero(item.stock)}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 shrink-0 text-primary hover:bg-primary/10"
+                                title="Ver stock por sucursal"
+                                aria-label={`Stock por sucursal de ${item.descripcion}`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setStockModalItem(item);
+                                }}
+                              >
+                                <Search
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
                 )}
               </div>
             ) : null}
@@ -291,11 +353,16 @@ export default function FacturaCrearLineasBlock() {
                   </TableCell>
                   <TableCell className="celda-datos text-right">
                     <Input
+                      ref={(el) => {
+                        if (el) cantidadInputRefs.current.set(linea.key, el);
+                        else cantidadInputRefs.current.delete(linea.key);
+                      }}
                       type="text"
                       inputMode="numeric"
                       className="ml-auto h-8 w-20 text-right tabular-nums"
                       value={String(linea.cantidad)}
                       aria-label={`Cantidad de ${linea.descripcion}`}
+                      onFocus={(e) => e.currentTarget.select()}
                       onChange={(e) => {
                         const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
                         if (digits === "") return;
@@ -315,6 +382,14 @@ export default function FacturaCrearLineasBlock() {
           </TableBody>
         </Table>
       </div>
+
+      <FacturaProductoStockModal
+        open={stockModalOpen}
+        onOpenChange={(open) => {
+          if (!open) setStockModalItem(null);
+        }}
+        producto={stockModalItem}
+      />
     </div>
   );
 }

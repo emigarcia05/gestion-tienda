@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FACTURA_TIPOS } from "@/lib/factura";
+import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 /** Cabecera de Crear factura (UI local; aún sin Action de persistencia). */
 export const facturaCrearCabeceraSchema = z.object({
@@ -25,6 +26,8 @@ export const buscarProductosFacturaSchema = z.object({
     .min(3, "Escribí al menos 3 letras.")
     .max(200),
   take: z.coerce.number().int().min(1).max(10).optional().default(10),
+  /** Sucursal del usuario (columna Stock del typeahead). */
+  sucursalCodigo: sucursalPorDefectoSchema.optional(),
 });
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
