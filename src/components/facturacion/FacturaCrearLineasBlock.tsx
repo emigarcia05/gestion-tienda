@@ -337,14 +337,18 @@ export default function FacturaCrearLineasBlock() {
                               </span>
                               <span className="flex items-center justify-end tabular-nums text-muted-foreground">
                                 {sinStockLocal ? (
-                                  <AlertTriangle
-                                    className={cn(
-                                      TABLE_ROW_ACTION_ICON_CLASS,
-                                      "text-destructive"
-                                    )}
-                                    aria-label="Sin stock en la sucursal"
+                                  <span
+                                    className="inline-flex"
                                     title="Sin stock en la sucursal"
-                                  />
+                                  >
+                                    <AlertTriangle
+                                      className={cn(
+                                        TABLE_ROW_ACTION_ICON_CLASS,
+                                        "text-destructive"
+                                      )}
+                                      aria-label="Sin stock en la sucursal"
+                                    />
+                                  </span>
                                 ) : (
                                   fmtNumero(item.stock)
                                 )}
