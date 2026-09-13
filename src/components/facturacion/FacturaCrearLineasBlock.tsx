@@ -44,7 +44,8 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 
-const DESC_INPUT_CLASS = "h-8 tabular-nums border-primary w-full min-w-0 text-sm";
+const DESC_INPUT_CLASS =
+  "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
 
 function pctToNorm(pct: number): string {
   if (pct <= 0) return "";
@@ -72,6 +73,18 @@ function parseCantidadDraft(raw: string): number | null {
 
 const FILA_BUSQUEDA_GRID =
   "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
+
+/** Anchos de columnas del remito (suma 100 %). */
+const REMITO_COL_PCT = {
+  acciones: 7,
+  cod: 7,
+  descripcion: 40,
+  cant: 8,
+  pxLista: 10,
+  desc: 8,
+  pxConDesc: 10,
+  total: 10,
+} as const;
 
 function hayStockEnOtraSucursal(
   item: ProductoFacturaBusquedaItem,
@@ -503,16 +516,26 @@ export default function FacturaCrearLineasBlock({
         className="contenedor-tabla-gestion relative z-0 min-h-0 flex-1 overflow-y-auto"
       >
         <Table className="w-full table-fixed" scrollX={false}>
+          <colgroup>
+            <col style={{ width: `${REMITO_COL_PCT.acciones}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.cod}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.descripcion}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.cant}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.pxLista}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.desc}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.pxConDesc}%` }} />
+            <col style={{ width: `${REMITO_COL_PCT.total}%` }} />
+          </colgroup>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[10%] text-center" aria-label="Acciones" />
-              <TableHead className="w-[10%] text-center">COD.</TableHead>
-              <TableHead className="w-[40%] text-center">DESCRIPCIÓN</TableHead>
-              <TableHead className="w-[5%] text-center">CANT.</TableHead>
-              <TableHead className="w-[10%] text-center">PX. LISTA</TableHead>
-              <TableHead className="w-[5%] text-center">DESC.</TableHead>
-              <TableHead className="w-[10%] text-center">PX C/ DESC.</TableHead>
-              <TableHead className="w-[10%] text-center">TOTAL</TableHead>
+              <TableHead className="min-w-0 text-center" aria-label="Acciones" />
+              <TableHead className="min-w-0 text-center">COD.</TableHead>
+              <TableHead className="min-w-0 text-center">DESCRIPCIÓN</TableHead>
+              <TableHead className="min-w-0 text-center">CANT.</TableHead>
+              <TableHead className="min-w-0 text-center">PX. LISTA</TableHead>
+              <TableHead className="min-w-0 text-center">DESC.</TableHead>
+              <TableHead className="min-w-0 text-center">PX C/ DESC.</TableHead>
+              <TableHead className="min-w-0 text-center">TOTAL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -534,11 +557,11 @@ export default function FacturaCrearLineasBlock({
                 const comentarioVisible = linea.comentario.trim();
                 return (
                   <TableRow key={linea.key}>
-                    <TableCell className="celda-datos text-center">
+                    <TableCell className="celda-datos min-w-0 text-center">
                       <div
                         className={cn(
                           TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                          "flex-nowrap gap-1 p-1"
+                          "flex-nowrap gap-1 p-0.5"
                         )}
                       >
                         <Button
@@ -577,20 +600,22 @@ export default function FacturaCrearLineasBlock({
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
+                    <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
                       {linea.codTienda}
                     </TableCell>
-                    <TableCell className="celda-datos text-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span>{linea.descripcion}</span>
+                    <TableCell className="celda-datos min-w-0 text-center">
+                      <div className="flex min-w-0 flex-col items-center gap-0.5">
+                        <span className="w-full min-w-0 break-words">
+                          {linea.descripcion}
+                        </span>
                         {comentarioVisible ? (
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <span className="w-full min-w-0 break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             {comentarioVisible}
                           </span>
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="celda-datos text-center">
+                    <TableCell className="celda-datos min-w-0 text-center">
                       <Input
                         ref={(el) => {
                           if (el) cantidadInputRefs.current.set(linea.key, el);
@@ -598,7 +623,7 @@ export default function FacturaCrearLineasBlock({
                         }}
                         type="text"
                         inputMode="numeric"
-                        className="mx-auto h-8 w-20 text-center tabular-nums"
+                        className="h-8 w-full min-w-0 text-center tabular-nums"
                         value={String(linea.cantidad)}
                         aria-label={`Cantidad de ${linea.descripcion}`}
                         onFocus={(e) => e.currentTarget.select()}
@@ -617,10 +642,10 @@ export default function FacturaCrearLineasBlock({
                         }}
                       />
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
+                    <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
                       {`$${fmtPrecio(linea.pxLista)}`}
                     </TableCell>
-                    <TableCell className="celda-datos text-center">
+                    <TableCell className="celda-datos min-w-0 text-center">
                       <PorcentajeCentInput
                         valueNormalized={descNorm}
                         onValueNormalizedChange={(next) =>
@@ -629,14 +654,14 @@ export default function FacturaCrearLineasBlock({
                         maxCents={FACTURA_DESCUENTO_MAX_CENTS}
                         treatEmptyNormalizedAsBlank
                         pctSuffixAlwaysVisible
-                        className={cn(DESC_INPUT_CLASS, "mx-auto max-w-[5.5rem]")}
+                        className={DESC_INPUT_CLASS}
                         aria-label={`Descuento de ${linea.descripcion}`}
                       />
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
+                    <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
                       {`$${fmtPrecio(pxDesc)}`}
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
+                    <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
                       {`$${fmtPrecio(totalFila)}`}
                     </TableCell>
                   </TableRow>

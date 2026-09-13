@@ -57,7 +57,7 @@ export default function FacturaCrearPageClient() {
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cliente, setCliente] = useState("");
   const [nroComprobante] = useState("");
-  const [observaciones, setObservaciones] = useState("");
+  const [comentarios, setComentarios] = useState("");
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
@@ -77,7 +77,7 @@ export default function FacturaCrearPageClient() {
       fechaIso,
       cliente,
       nroComprobante,
-      observaciones,
+      comentarios,
       lineas,
       descuento,
     });
@@ -103,6 +103,27 @@ export default function FacturaCrearPageClient() {
         {/* Cabecera del comprobante */}
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="grid grid-cols-5 gap-4">
+            <label className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
+              <Select
+                value={tipo}
+                onValueChange={(value) => {
+                  if (esFacturaTipo(value)) setTipo(value);
+                }}
+              >
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FACTURA_TIPOS.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {FACTURA_TIPO_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
             <label className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
@@ -144,24 +165,15 @@ export default function FacturaCrearPageClient() {
             </label>
 
             <label className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>TIPO DE FACTURA</ModalMicroLabel>
-              <Select
-                value={tipo}
-                onValueChange={(value) => {
-                  if (esFacturaTipo(value)) setTipo(value);
-                }}
-              >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FACTURA_TIPOS.map((id) => (
-                    <SelectItem key={id} value={id}>
-                      {FACTURA_TIPO_LABELS[id]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ModalMicroLabel>CLIENTE</ModalMicroLabel>
+              <Input
+                type="text"
+                value={cliente}
+                onChange={(e) => setCliente(e.target.value)}
+                placeholder="Nombre del cliente"
+                autoComplete="off"
+                aria-label="Cliente"
+              />
             </label>
 
             <label className="flex min-w-0 flex-col gap-1">
@@ -177,26 +189,14 @@ export default function FacturaCrearPageClient() {
             </label>
 
             <label className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>CLIENTE</ModalMicroLabel>
+              <ModalMicroLabel>COMENTARIOS</ModalMicroLabel>
               <Input
                 type="text"
-                value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
-                placeholder="Nombre del cliente"
+                value={comentarios}
+                onChange={(e) => setComentarios(e.target.value)}
+                placeholder="Comentarios"
                 autoComplete="off"
-                aria-label="Cliente"
-              />
-            </label>
-
-            <label className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>OBSERVACIONES</ModalMicroLabel>
-              <Input
-                type="text"
-                value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
-                placeholder="Observaciones"
-                autoComplete="off"
-                aria-label="Observaciones"
+                aria-label="Comentarios"
               />
             </label>
           </div>

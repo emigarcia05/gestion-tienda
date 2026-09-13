@@ -26,7 +26,7 @@ export type FacturaComprobantePdfInput = {
   fechaIso: string;
   cliente: string;
   nroComprobante: string;
-  observaciones: string;
+  comentarios: string;
   lineas: FacturaLineaLocal[];
   descuento: FacturaDescuentoEstado | null;
 };
@@ -57,14 +57,14 @@ export function generarPdfFacturaComprobante(
   y += 5;
   doc.text(`N° Comprobante: ${nro}`, MARGIN, y);
   y += 5;
-  const observaciones = input.observaciones.trim();
-  if (observaciones) {
-    const obsLines = doc.splitTextToSize(
-      `Observaciones: ${observaciones}`,
+  const comentarios = input.comentarios.trim();
+  if (comentarios) {
+    const comentarioLines = doc.splitTextToSize(
+      `Comentarios: ${comentarios}`,
       contentWidth
     );
-    doc.text(obsLines, MARGIN, y);
-    y += Math.max(5, obsLines.length * 4 + 1);
+    doc.text(comentarioLines, MARGIN, y);
+    y += Math.max(5, comentarioLines.length * 4 + 1);
   }
   y += 3;
 
