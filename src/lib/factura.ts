@@ -32,6 +32,9 @@ export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
 /** Mínimo de caracteres (trim) para disparar la búsqueda de productos. */
 export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 
+/** Tope de % de descuento en máscara (100,00 %). */
+export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
+
 /** Línea local del remito en Crear (aún sin persistencia). */
 export type FacturaLineaLocal = {
   /** Clave estable en la grilla (permite el mismo cod en varias filas). */
@@ -42,8 +45,125 @@ export type FacturaLineaLocal = {
   pxLista: number;
 };
 
-export function totalLineaFactura(
+/**
+ * Descuento de comprobante (Crear, estado local).
+ * - `porcentaje`: aplica el % a todos los PX. LISTA.
+ * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
+ */
+export type FacturaDescuentoEstado = {
+  fuente: "porcentaje" | "total_fac";
+  /** 0–100 */
+  porcentaje: number;
+  /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
+  totalFacObjetivo: number | null;
+};
+
+export function clampDescuentoPct(pct: number): number {
+  if (!Number.isFinite(pct)) return 0;
+  return Math.max(0, Math.min(100, pct));
+}
+
+export function totalLineaLista(
   linea: Pick<FacturaLineaLocal, "cantidad" | "pxLista">
 ): number {
   return linea.cantidad * linea.pxLista;
+}
+
+export function totalLineaFactura(
+  linea: Pick<FacturaLineaLocal, "cantidad" | "pxLista">
+): number {
+  return totalLineaLista(linea);
+}
+
+export function pxConDescuento(pxLista: number, descuentoPct: number): number {
+  const pct = clampDescuentoPct(descuentoPct);
+  return Math.round(pxLista * (1 - pct / 100));
+}
+
+export function totalLineaConDescuento(
+  linea: Pick<FacturaLineaLocal, "cantidad" | "pxLista">,
+  descuentoPct: number
+): number {
+  return linea.cantidad * pxConDescuento(linea.pxLista, descuentoPct);
+}
+
+export function totalListaFactura(lineas: readonly FacturaLineaLocal[]): number {
+  return lineas.reduce((sum, l) => sum + totalLineaLista(l), 0);
+}
+
+/**
+ * % efectivo a aplicar a todas las líneas.
+ * Con `total_fac`, se recalcula desde el objetivo y el total de lista actual.
+ */
+export function porcentajeDescuentoEfectivo(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): number {
+  if (descuento == null) return 0;
+  if (descuento.fuente === "porcentaje") {
+    return clampDescuentoPct(descuento.porcentaje);
+  }
+  const totalLista = totalListaFactura(lineas);
+  const objetivo = descuento.totalFacObjetivo;
+  if (totalLista <= 0 || objetivo == null) return 0;
+  if (objetivo >= totalLista) return 0;
+  if (objetivo <= 0) return 100;
+  return clampDescuentoPct(((totalLista - objetivo) / totalLista) * 100);
+}
+
+export function hayDescuentoFactura(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): boolean {
+  return porcentajeDescuentoEfectivo(lineas, descuento) > 0;
+}
+
+export type FacturaResumenTotales = {
+  totalItem: number;
+  totalLista: number;
+  descPctPromedio: number;
+  descPesos: number;
+  totalConDesc: number;
+  hayDescuento: boolean;
+};
+
+export function resumenTotalesFactura(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): FacturaResumenTotales {
+  const totalItem = lineas.length;
+  const totalLista = totalListaFactura(lineas);
+  const pct = porcentajeDescuentoEfectivo(lineas, descuento);
+  const hayDescuento = pct > 0;
+  const totalConDesc = hayDescuento
+    ? lineas.reduce((sum, l) => sum + totalLineaConDescuento(l, pct), 0)
+    : totalLista;
+  return {
+    totalItem,
+    totalLista,
+    descPctPromedio: pct,
+    descPesos: Math.max(0, totalLista - totalConDesc),
+    totalConDesc,
+    hayDescuento,
+  };
+}
+
+/** Deriva el % a partir de un TOTAL FAC. objetivo. */
+export function descuentoPctDesdeTotalFac(
+  totalLista: number,
+  totalFac: number
+): number {
+  if (totalLista <= 0) return 0;
+  if (totalFac >= totalLista) return 0;
+  if (totalFac <= 0) return 100;
+  return clampDescuentoPct(((totalLista - totalFac) / totalLista) * 100);
+}
+
+/** TOTAL FAC. resultante al aplicar un %. */
+export function totalFacDesdeDescuentoPct(
+  totalLista: number,
+  descuentoPct: number
+): number {
+  const pct = clampDescuentoPct(descuentoPct);
+  return Math.round(totalLista * (1 - pct / 100));
 }

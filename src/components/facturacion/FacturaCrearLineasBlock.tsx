@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Search, Store, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Loader2, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
+import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +20,16 @@ import {
 import {
   FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
   FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
-  totalLineaFactura,
+  hayDescuentoFactura,
+  porcentajeDescuentoEfectivo,
+  pxConDescuento,
+  resumenTotalesFactura,
+  totalLineaConDescuento,
+  totalLineaLista,
+  type FacturaDescuentoEstado,
   type FacturaLineaLocal,
 } from "@/lib/factura";
-import { fmtNumero, fmtPrecio } from "@/lib/format";
+import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -70,6 +77,8 @@ export default function FacturaCrearLineasBlock() {
   const [abierto, setAbierto] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
+  const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(null);
+  const [descuentoModalOpen, setDescuentoModalOpen] = useState(false);
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
@@ -114,10 +123,20 @@ export default function FacturaCrearLineasBlock() {
   const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
   const stockModalOpen = stockModalItem != null;
   const sucursalUsuario = leerUsuarioSesion()?.sucursalPorDefecto ?? null;
+  const resumen = useMemo(
+    () => resumenTotalesFactura(lineas, descuento),
+    [lineas, descuento]
+  );
+  const pctEfectivo = useMemo(
+    () => porcentajeDescuentoEfectivo(lineas, descuento),
+    [lineas, descuento]
+  );
+  const mostrarColumnasDesc = hayDescuentoFactura(lineas, descuento);
+  const colSpanRemito = mostrarColumnasDesc ? 8 : 6;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
-      if (stockModalItem != null) return;
+      if (stockModalItem != null || descuentoModalOpen) return;
       const el = wrapRef.current;
       if (!el) return;
       if (e.target instanceof Node && !el.contains(e.target)) {
@@ -126,7 +145,7 @@ export default function FacturaCrearLineasBlock() {
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [stockModalItem]);
+  }, [stockModalItem, descuentoModalOpen]);
 
   useEffect(() => {
     const key = pendingFocusCantidadKeyRef.current;
@@ -178,7 +197,11 @@ export default function FacturaCrearLineasBlock() {
   }
 
   function eliminarLinea(key: string) {
-    setLineas((prev) => prev.filter((l) => l.key !== key));
+    setLineas((prev) => {
+      const next = prev.filter((l) => l.key !== key);
+      if (next.length === 0) setDescuento(null);
+      return next;
+    });
     cantidadInputRefs.current.delete(key);
   }
 
@@ -398,73 +421,168 @@ export default function FacturaCrearLineasBlock() {
               <TableHead className="text-center">DESCRIPCIÓN</TableHead>
               <TableHead className="w-[7rem] text-center">CANTIDAD</TableHead>
               <TableHead className="w-[8rem] text-center">PX. LISTA</TableHead>
+              {mostrarColumnasDesc ? (
+                <>
+                  <TableHead className="w-[6rem] text-center">DESC.</TableHead>
+                  <TableHead className="w-[8rem] text-center">PX C/ DESC.</TableHead>
+                </>
+              ) : null}
               <TableHead className="w-[8rem] text-center">TOTAL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {lineas.length === 0 ? (
-              <EmptyTableRow colSpan={6} message="Sin ítems." />
+              <EmptyTableRow colSpan={colSpanRemito} message="Sin ítems." />
             ) : (
-              lineas.map((linea) => (
-                <TableRow key={linea.key}>
-                  <TableCell className="celda-datos text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                        "mx-auto"
-                      )}
-                      title="Eliminar ítem"
-                      aria-label={`Eliminar ${linea.descripcion}`}
-                      onClick={() => eliminarLinea(linea.key)}
-                    >
-                      <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="celda-datos text-center tabular-nums">
-                    {linea.codTienda}
-                  </TableCell>
-                  <TableCell className="celda-datos text-center">
-                    {linea.descripcion}
-                  </TableCell>
-                  <TableCell className="celda-datos text-center">
-                    <Input
-                      ref={(el) => {
-                        if (el) cantidadInputRefs.current.set(linea.key, el);
-                        else cantidadInputRefs.current.delete(linea.key);
-                      }}
-                      type="text"
-                      inputMode="numeric"
-                      className="mx-auto h-8 w-20 text-center tabular-nums"
-                      value={String(linea.cantidad)}
-                      aria-label={`Cantidad de ${linea.descripcion}`}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
-                        if (digits === "") return;
-                        actualizarCantidad(linea.key, digits);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          confirmarCantidadYVolverABuscar();
-                        }
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell className="celda-datos text-center tabular-nums">
-                    {`$${fmtPrecio(linea.pxLista)}`}
-                  </TableCell>
-                  <TableCell className="celda-datos text-center tabular-nums">
-                    {`$${fmtPrecio(totalLineaFactura(linea))}`}
-                  </TableCell>
-                </TableRow>
-              ))
+              lineas.map((linea) => {
+                const pxDesc = pxConDescuento(linea.pxLista, pctEfectivo);
+                const totalFila = mostrarColumnasDesc
+                  ? totalLineaConDescuento(linea, pctEfectivo)
+                  : totalLineaLista(linea);
+                return (
+                  <TableRow key={linea.key}>
+                    <TableCell className="celda-datos text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                          "mx-auto"
+                        )}
+                        title="Eliminar ítem"
+                        aria-label={`Eliminar ${linea.descripcion}`}
+                        onClick={() => eliminarLinea(linea.key)}
+                      >
+                        <Trash2
+                          className={TABLE_ROW_ACTION_ICON_CLASS}
+                          aria-hidden
+                        />
+                      </Button>
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {linea.codTienda}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      {linea.descripcion}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      <Input
+                        ref={(el) => {
+                          if (el) cantidadInputRefs.current.set(linea.key, el);
+                          else cantidadInputRefs.current.delete(linea.key);
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        className="mx-auto h-8 w-20 text-center tabular-nums"
+                        value={String(linea.cantidad)}
+                        aria-label={`Cantidad de ${linea.descripcion}`}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) => {
+                          const digits = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6);
+                          if (digits === "") return;
+                          actualizarCantidad(linea.key, digits);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            confirmarCantidadYVolverABuscar();
+                          }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {`$${fmtPrecio(linea.pxLista)}`}
+                    </TableCell>
+                    {mostrarColumnasDesc ? (
+                      <>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          {fmtPorcentajeTabla(pctEfectivo)}
+                        </TableCell>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          {`$${fmtPrecio(pxDesc)}`}
+                        </TableCell>
+                      </>
+                    ) : null}
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {`$${fmtPrecio(totalFila)}`}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div
+        className={cn(
+          "grid shrink-0 grid-cols-6 items-end gap-3 rounded-md border border-border bg-card px-3 py-2",
+          "text-center"
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            TOTAL ITEM
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {fmtNumero(resumen.totalItem)}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            TOTAL $
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {`$${fmtPrecio(resumen.totalLista)}`}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            DESC. % PROMEDIO
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {resumen.hayDescuento
+              ? fmtPorcentajeTabla(resumen.descPctPromedio)
+              : ""}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            DESC. $
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {resumen.hayDescuento ? `$${fmtPrecio(resumen.descPesos)}` : ""}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            TOTAL C/ DESC.
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-foreground">
+            {`$${fmtPrecio(resumen.totalConDesc)}`}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col items-center gap-0.5">
+          <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            DESC.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={lineas.length === 0}
+            title="Aplicar descuento"
+            aria-label="Aplicar descuento"
+            onClick={() => setDescuentoModalOpen(true)}
+          >
+            <Percent className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Desc.
+          </Button>
+        </div>
       </div>
 
       <FacturaProductoStockModal
@@ -473,6 +591,15 @@ export default function FacturaCrearLineasBlock() {
           if (!open) setStockModalItem(null);
         }}
         producto={stockModalItem}
+      />
+
+      <FacturaDescuentoModal
+        key={descuentoModalOpen ? "factura-desc-open" : "factura-desc-closed"}
+        open={descuentoModalOpen}
+        onOpenChange={setDescuentoModalOpen}
+        totalLista={resumen.totalLista}
+        descuentoActual={descuento}
+        onAplicar={setDescuento}
       />
     </div>
   );
