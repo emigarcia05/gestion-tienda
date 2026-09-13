@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Search, Store, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
+import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
-import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 import {
   clampDescuentoPct,
-  descuentoPctDesdeTotalFac,
   FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
   FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
   FACTURA_DESCUENTO_MAX_CENTS,
@@ -35,7 +34,6 @@ import {
 } from "@/lib/factura";
 import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { montoArNormalizedStringToCents } from "@/lib/montoArMask";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
@@ -51,23 +49,11 @@ function pctToNorm(pct: number): string {
   return (Math.round(pct * 100) / 100).toFixed(2);
 }
 
-function pesosToNorm(pesos: number): string {
-  if (!Number.isFinite(pesos) || pesos < 0) return "";
-  if (pesos === 0) return "";
-  return Math.round(pesos).toFixed(2);
-}
-
 function parsePctNorm(norm: string): number {
   const t = norm.trim();
   if (t === "") return 0;
   const n = Number(t);
   return Number.isFinite(n) ? n : 0;
-}
-
-function parsePesosNorm(norm: string): number | null {
-  const t = norm.trim();
-  if (t === "") return null;
-  return Math.round(montoArNormalizedStringToCents(t) / 100);
 }
 
 function nuevaKeyLinea(): string {
@@ -109,9 +95,7 @@ export default function FacturaCrearLineasBlock() {
   const [highlight, setHighlight] = useState(0);
   const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
   const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(null);
-  /** Borrador del input en edición; el otro campo se deriva del resumen. */
-  const [pctDraft, setPctDraft] = useState<string | null>(null);
-  const [totalDraft, setTotalDraft] = useState<string | null>(null);
+  const [descuentoModalOpen, setDescuentoModalOpen] = useState(false);
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
@@ -164,15 +148,10 @@ export default function FacturaCrearLineasBlock() {
     () => porcentajeDescuentoGlobal(lineas, descuento),
     [lineas, descuento]
   );
-  const pctInputValue =
-    pctDraft ?? (pctGlobal > 0 ? pctToNorm(pctGlobal) : "");
-  const totalInputValue =
-    totalDraft ??
-    (resumen.hayDescuento ? pesosToNorm(resumen.totalConDesc) : "");
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
-      if (stockModalItem != null) return;
+      if (stockModalItem != null || descuentoModalOpen) return;
       const el = wrapRef.current;
       if (!el) return;
       if (e.target instanceof Node && !el.contains(e.target)) {
@@ -181,7 +160,7 @@ export default function FacturaCrearLineasBlock() {
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [stockModalItem]);
+  }, [stockModalItem, descuentoModalOpen]);
 
   useEffect(() => {
     const key = pendingFocusCantidadKeyRef.current;
@@ -211,8 +190,6 @@ export default function FacturaCrearLineasBlock() {
       prepararDescuentoAlAgregarLinea(lineas, descuento);
     if (descuentoSiguiente !== descuento) {
       setDescuento(descuentoSiguiente);
-      setPctDraft(null);
-      setTotalDraft(null);
     }
     setLineas((prev) => [
       ...prev,
@@ -245,8 +222,6 @@ export default function FacturaCrearLineasBlock() {
       const next = prev.filter((l) => l.key !== key);
       if (next.length === 0) {
         setDescuento(null);
-        setPctDraft(null);
-        setTotalDraft(null);
       }
       return next;
     });
@@ -277,55 +252,13 @@ export default function FacturaCrearLineasBlock() {
     );
   }
 
-  function aplicarDescuentoPct(next: string) {
-    setPctDraft(next);
-    setTotalDraft(null);
-    if (lineas.length === 0) return;
-    if (next.trim() === "") {
-      setDescuento(null);
-      return;
+  function aplicarDescuentoDesdeModal(next: FacturaDescuentoEstado | null) {
+    if (next?.fuente === "total_fac") {
+      setLineas((prev) =>
+        prev.map((l) => ({ ...l, descuentoPctEspecial: null }))
+      );
     }
-    const pct = parsePctNorm(next);
-    if (pct <= 0) {
-      setDescuento(null);
-      return;
-    }
-    if (pct > 100) {
-      toast.error("El DESC. % no puede superar 100.");
-      return;
-    }
-    setDescuento({
-      fuente: "porcentaje",
-      porcentaje: pct,
-      totalFacObjetivo: null,
-    });
-  }
-
-  function aplicarDescuentoTotal(next: string) {
-    setTotalDraft(next);
-    setPctDraft(null);
-    if (lineas.length === 0) return;
-    if (next.trim() === "") {
-      setDescuento(null);
-      return;
-    }
-    const pesos = parsePesosNorm(next);
-    if (pesos == null) return;
-    const totalLista = resumen.totalLista;
-    if (pesos >= totalLista) {
-      setDescuento(null);
-      return;
-    }
-    if (pesos < 0) return;
-    // Objetivo global: limpia overrides de línea para poder alcanzar el monto.
-    setLineas((prev) =>
-      prev.map((l) => ({ ...l, descuentoPctEspecial: null }))
-    );
-    setDescuento({
-      fuente: "total_fac",
-      porcentaje: descuentoPctDesdeTotalFac(totalLista, pesos),
-      totalFacObjetivo: pesos,
-    });
+    setDescuento(next);
   }
 
   function confirmarCantidadYVolverABuscar() {
@@ -656,90 +589,73 @@ export default function FacturaCrearLineasBlock() {
       >
         <div
           className={cn(
-            "flex w-[16rem] shrink-0 flex-col justify-center gap-1.5 px-3 py-2",
+            "flex w-[10.5rem] shrink-0 flex-col items-center justify-start gap-0.5 px-3 py-2",
             "border-r-2 border-primary bg-primary/5"
           )}
           aria-label="Zona de descuentos"
         >
-          <label className="grid grid-cols-[5.75rem_1fr] items-center gap-2">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-foreground">
-              DESC. %
-            </span>
-            <PorcentajeCentInput
-              id="factura-pie-desc-pct"
-              valueNormalized={pctInputValue}
-              onValueNormalizedChange={aplicarDescuentoPct}
-              onCommit={() => setPctDraft(null)}
-              maxCents={FACTURA_DESCUENTO_MAX_CENTS}
-              treatEmptyNormalizedAsBlank
-              pctSuffixAlwaysVisible
-              disabled={lineas.length === 0}
-              className={DESC_INPUT_CLASS}
-              aria-label="Descuento porcentaje"
-            />
-          </label>
-          <label className="grid grid-cols-[5.75rem_1fr] items-center gap-2">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-foreground">
-              DESC. TOTAL
-            </span>
-            <MontoArInput
-              id="factura-pie-desc-total"
-              valueNormalized={totalInputValue}
-              onValueNormalizedChange={aplicarDescuentoTotal}
-              treatEmptyNormalizedAsBlank
-              disabled={lineas.length === 0}
-              className={DESC_INPUT_CLASS}
-              aria-label="Descuento total factura"
-            />
-          </label>
+          <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-foreground">
+            DESC.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 border-primary bg-card"
+            disabled={lineas.length === 0}
+            title="Aplicar descuento"
+            aria-label="Aplicar descuento"
+            onClick={() => setDescuentoModalOpen(true)}
+          >
+            <Percent className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Desc.
+          </Button>
         </div>
 
         <div
           className={cn(
-            "grid min-w-0 flex-1 grid-cols-5 items-end gap-3 px-3 py-2 text-center",
+            "grid min-w-0 flex-1 grid-cols-5 items-start gap-3 px-3 py-2 text-center",
             "bg-muted/40"
           )}
           aria-label="Resumen de totales"
         >
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
               TOTAL ITEM
             </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
+            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
               {fmtNumero(resumen.totalItem)}
             </span>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
               TOTAL $
             </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
+            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
               {`$${fmtPrecio(resumen.totalLista)}`}
             </span>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
               DESC. % PROMEDIO
             </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {resumen.hayDescuento
-                ? fmtPorcentajeTabla(resumen.descPctPromedio)
-                : ""}
+            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+              {fmtPorcentajeTabla(resumen.descPctPromedio)}
             </span>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
               DESC. $
             </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {resumen.hayDescuento ? `$${fmtPrecio(resumen.descPesos)}` : ""}
+            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+              {`$${fmtPrecio(resumen.descPesos)}`}
             </span>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold tracking-wide text-muted-foreground">
+            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
               TOTAL C/ DESC.
             </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
+            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
               {`$${fmtPrecio(resumen.totalConDesc)}`}
             </span>
           </div>
@@ -752,6 +668,15 @@ export default function FacturaCrearLineasBlock() {
           if (!open) setStockModalItem(null);
         }}
         producto={stockModalItem}
+      />
+
+      <FacturaDescuentoModal
+        key={descuentoModalOpen ? "factura-desc-open" : "factura-desc-closed"}
+        open={descuentoModalOpen}
+        onOpenChange={setDescuentoModalOpen}
+        totalLista={resumen.totalLista}
+        descuentoActual={descuento}
+        onAplicar={aplicarDescuentoDesdeModal}
       />
     </div>
   );
