@@ -289,7 +289,7 @@ export default function FacturaCrearLineasBlock() {
                     <div
                       className={cn(
                         FILA_BUSQUEDA_GRID,
-                        "shrink-0 border-b border-border bg-muted/40 py-1.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
+                        "shrink-0 border-b border-border bg-muted/40 py-1 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
                       )}
                       aria-hidden
                     >
@@ -299,7 +299,7 @@ export default function FacturaCrearLineasBlock() {
                       <span className="text-right">STOCK</span>
                       <span />
                     </div>
-                    <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+                    <ul className="min-h-0 flex-1 overflow-y-auto py-0.5">
                       {sugerencias.map((item, idx) => {
                         const activo = idx === highlight;
                         const sinStockLocal = item.stock <= 0;
@@ -319,7 +319,7 @@ export default function FacturaCrearLineasBlock() {
                               tabIndex={-1}
                               className={cn(
                                 FILA_BUSQUEDA_GRID,
-                                "cursor-pointer py-2 text-left text-sm text-foreground transition-colors",
+                                "cursor-pointer py-1 text-left text-sm leading-snug text-foreground transition-colors",
                                 "hover:bg-accent/60",
                                 activo && "bg-accent/60"
                               )}
@@ -354,7 +354,7 @@ export default function FacturaCrearLineasBlock() {
                                 variant="ghost"
                                 size="icon"
                                 className={cn(
-                                  "size-7 shrink-0",
+                                  "size-6 shrink-0",
                                   resaltarSucursal
                                     ? "text-primary hover:bg-primary/10"
                                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
