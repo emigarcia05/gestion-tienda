@@ -52,7 +52,7 @@ export default function FacturaCrearPageClient() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         {/* Cabecera del comprobante */}
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <label className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
@@ -140,8 +140,8 @@ export default function FacturaCrearPageClient() {
           </div>
         </div>
 
-        {/* Segundo bloque: buscador + tabla remito */}
-        <div className="min-h-0 flex-1 rounded-lg border border-border bg-card">
+        {/* Segundo bloque: buscador + tabla remito (scroll interno, thead sticky) */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
           <FacturaCrearLineasBlock />
         </div>
       </div>

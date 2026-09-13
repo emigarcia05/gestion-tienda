@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
@@ -24,7 +24,10 @@ import {
 } from "@/lib/factura";
 import { fmtNumero, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
@@ -60,6 +63,9 @@ export default function FacturaCrearLineasBlock() {
     useState<ProductoFacturaBusquedaItem | null>(null);
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
   const pendingFocusCantidadKeyRef = useRef<string | null>(null);
+  /** Si el alta fue al final de la grilla, bajar el scroll tras el paint. */
+  const pendingScrollAlFinalRef = useRef(false);
+  const tablaScrollRef = useRef<HTMLDivElement>(null);
 
   const fetchSugerencias = useCallback(async (value: string) => {
     const q = value.trim();
@@ -116,6 +122,17 @@ export default function FacturaCrearLineasBlock() {
     const el = cantidadInputRefs.current.get(key);
     if (!el) return;
     pendingFocusCantidadKeyRef.current = null;
+
+    if (pendingScrollAlFinalRef.current) {
+      pendingScrollAlFinalRef.current = false;
+      const scrollEl = tablaScrollRef.current;
+      if (scrollEl) {
+        scrollEl.scrollTop = scrollEl.scrollHeight;
+      }
+    } else {
+      el.scrollIntoView({ block: "nearest" });
+    }
+
     el.focus();
     el.select();
   }, [lineas]);
@@ -123,6 +140,7 @@ export default function FacturaCrearLineasBlock() {
   function agregarItem(item: ProductoFacturaBusquedaItem) {
     const existente = lineas.find((l) => l.codTienda === item.codTienda);
     const keyFoco = existente?.key ?? nuevaKeyLinea();
+    pendingScrollAlFinalRef.current = existente == null;
     setLineas((prev) => {
       const ya = prev.find((l) => l.codTienda === item.codTienda);
       if (ya) {
@@ -158,9 +176,14 @@ export default function FacturaCrearLineasBlock() {
     );
   }
 
+  function eliminarLinea(key: string) {
+    setLineas((prev) => prev.filter((l) => l.key !== key));
+    cantidadInputRefs.current.delete(key);
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-      <div ref={wrapRef} className="relative shrink-0">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+      <div ref={wrapRef} className="relative z-10 shrink-0">
         <div className="flex items-start gap-2">
           <Button
             type="button"
@@ -328,30 +351,47 @@ export default function FacturaCrearLineasBlock() {
         </div>
       </div>
 
-      <div className="contenedor-tabla-gestion min-h-0 flex-1 overflow-auto">
-        <Table className="w-full table-fixed">
+      <div
+        ref={tablaScrollRef}
+        className="contenedor-tabla-gestion min-h-0 flex-1 overflow-y-auto"
+      >
+        <Table className="w-full table-fixed" scrollX={false}>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12" aria-label="Eliminar" />
               <TableHead className="w-[7rem]">COD.</TableHead>
               <TableHead>DESCRIPCIÓN</TableHead>
-              <TableHead className="w-[7rem] text-right">CANTIDAD</TableHead>
+              <TableHead className="w-[7rem] text-center">CANTIDAD</TableHead>
               <TableHead className="w-[8rem] text-right">PX. LISTA</TableHead>
               <TableHead className="w-[8rem] text-right">TOTAL</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {lineas.length === 0 ? (
-              <EmptyTableRow colSpan={5} message="Sin ítems." />
+              <EmptyTableRow colSpan={6} message="Sin ítems." />
             ) : (
               lineas.map((linea) => (
                 <TableRow key={linea.key}>
+                  <TableCell className="celda-datos">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      title="Eliminar ítem"
+                      aria-label={`Eliminar ${linea.descripcion}`}
+                      onClick={() => eliminarLinea(linea.key)}
+                    >
+                      <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                  </TableCell>
                   <TableCell className="celda-datos tabular-nums">
                     {linea.codTienda}
                   </TableCell>
                   <TableCell className="celda-datos text-left">
                     {linea.descripcion}
                   </TableCell>
-                  <TableCell className="celda-datos text-right">
+                  <TableCell className="celda-datos text-center">
                     <Input
                       ref={(el) => {
                         if (el) cantidadInputRefs.current.set(linea.key, el);
@@ -359,7 +399,7 @@ export default function FacturaCrearLineasBlock() {
                       }}
                       type="text"
                       inputMode="numeric"
-                      className="ml-auto h-8 w-20 text-right tabular-nums"
+                      className="mx-auto h-8 w-20 text-center tabular-nums"
                       value={String(linea.cantidad)}
                       aria-label={`Cantidad de ${linea.descripcion}`}
                       onFocus={(e) => e.currentTarget.select()}
