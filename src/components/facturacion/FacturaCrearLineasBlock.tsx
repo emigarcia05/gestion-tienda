@@ -86,7 +86,18 @@ function hayStockEnOtraSucursal(
  * Segundo bloque de Factura · Crear: typeahead de productos + tabla remito local.
  * Dropdown fijo al foco; búsqueda desde 3 letras; click en ítem = agregar.
  */
-export default function FacturaCrearLineasBlock() {
+export type FacturaRemitoSnapshot = {
+  lineas: FacturaLineaLocal[];
+  descuento: FacturaDescuentoEstado | null;
+};
+
+interface FacturaCrearLineasBlockProps {
+  onRemitoChange?: (snapshot: FacturaRemitoSnapshot) => void;
+}
+
+export default function FacturaCrearLineasBlock({
+  onRemitoChange,
+}: FacturaCrearLineasBlockProps) {
   const listboxId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [sugerencias, setSugerencias] = useState<ProductoFacturaBusquedaItem[]>([]);
@@ -148,6 +159,10 @@ export default function FacturaCrearLineasBlock() {
     () => porcentajeDescuentoGlobal(lineas, descuento),
     [lineas, descuento]
   );
+
+  useEffect(() => {
+    onRemitoChange?.({ lineas, descuento });
+  }, [lineas, descuento, onRemitoChange]);
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -584,78 +599,75 @@ export default function FacturaCrearLineasBlock() {
 
       <div
         className={cn(
-          "flex shrink-0 items-stretch overflow-hidden rounded-md border border-border bg-card"
+          "flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
         )}
       >
         <div
           className={cn(
-            "flex w-[10.5rem] shrink-0 flex-col items-center justify-start gap-0.5 px-3 py-2",
+            "flex w-[9rem] shrink-0 items-center justify-center px-2 py-1",
             "border-r-2 border-primary bg-primary/5"
           )}
           aria-label="Zona de descuentos"
         >
-          <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-foreground">
-            DESC.
-          </span>
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
-            className="h-8 gap-1.5 border-primary bg-card"
+            className="h-7 gap-1 px-2.5 text-xs"
             disabled={lineas.length === 0}
             title="Aplicar descuento"
             aria-label="Aplicar descuento"
             onClick={() => setDescuentoModalOpen(true)}
           >
-            <Percent className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <Percent className="h-3 w-3 shrink-0" aria-hidden />
             Desc.
           </Button>
         </div>
 
         <div
           className={cn(
-            "grid min-w-0 flex-1 grid-cols-5 items-start gap-3 px-3 py-2 text-center",
+            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1 text-center",
             "bg-muted/40"
           )}
           aria-label="Resumen de totales"
         >
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-0 leading-none">
+            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
               TOTAL ITEM
             </span>
-            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+            <span className="text-xs font-semibold tabular-nums text-foreground">
               {fmtNumero(resumen.totalItem)}
             </span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-0 leading-none">
+            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
               TOTAL $
             </span>
-            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+            <span className="text-xs font-semibold tabular-nums text-foreground">
               {`$${fmtPrecio(resumen.totalLista)}`}
             </span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-0 leading-none">
+            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
               DESC. % PROMEDIO
             </span>
-            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+            <span className="text-xs font-semibold tabular-nums text-foreground">
               {fmtPorcentajeTabla(resumen.descPctPromedio)}
             </span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-0 leading-none">
+            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
               DESC. $
             </span>
-            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+            <span className="text-xs font-semibold tabular-nums text-foreground">
               {`$${fmtPrecio(resumen.descPesos)}`}
             </span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[0.65rem] font-semibold leading-4 tracking-wide text-muted-foreground">
+          <div className="flex min-w-0 flex-col gap-0 leading-none">
+            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
               TOTAL C/ DESC.
             </span>
-            <span className="text-sm font-semibold leading-5 tabular-nums text-foreground">
+            <span className="text-xs font-semibold tabular-nums text-foreground">
               {`$${fmtPrecio(resumen.totalConDesc)}`}
             </span>
           </div>

@@ -1,10 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { CalendarDays, FileText } from "lucide-react";
+import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import FacturaCrearLineasBlock from "@/components/facturacion/FacturaCrearLineasBlock";
+import FacturaCrearLineasBlock, {
+  type FacturaRemitoSnapshot,
+} from "@/components/facturacion/FacturaCrearLineasBlock";
+import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGenerarComprobanteModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +27,7 @@ import {
   esFacturaTipo,
   type FacturaTipo,
 } from "@/lib/factura";
+import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
@@ -43,12 +49,54 @@ function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
  */
 export default function FacturaCrearPageClient() {
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
+  const remitoRef = useRef<FacturaRemitoSnapshot>({
+    lineas: [],
+    descuento: null,
+  });
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cliente, setCliente] = useState("");
+  const [nroComprobante] = useState("");
+  const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
+  const [comprobantePdf, setComprobantePdf] =
+    useState<FacturaComprobantePdfInput | null>(null);
+
+  const handleRemitoChange = useCallback((snapshot: FacturaRemitoSnapshot) => {
+    remitoRef.current = snapshot;
+  }, []);
+
+  function abrirGenerarComprobante() {
+    const { lineas, descuento } = remitoRef.current;
+    if (lineas.length === 0) {
+      toast.error("Agregá al menos un ítem antes de generar el comprobante.");
+      return;
+    }
+    setComprobantePdf({
+      tipo,
+      fechaIso,
+      cliente,
+      nroComprobante,
+      lineas,
+      descuento,
+    });
+    setComprobanteModalOpen(true);
+  }
 
   return (
-    <ClassicFilteredTableLayout title="FACTURA" subtitle="Crear" contentWidth="full">
+    <ClassicFilteredTableLayout
+      title="FACTURA"
+      subtitle="Crear"
+      contentWidth="full"
+      actions={
+        <ToolbarActionButton
+          type="button"
+          variant="default"
+          label="Generar Comprobante"
+          icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
+          onClick={abrirGenerarComprobante}
+        />
+      }
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         {/* Cabecera del comprobante */}
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
@@ -119,7 +167,7 @@ export default function FacturaCrearPageClient() {
               <Input
                 type="text"
                 readOnly
-                value=""
+                value={nroComprobante}
                 placeholder="—"
                 className="bg-muted/40 tabular-nums"
                 aria-label="Número de comprobante (solo lectura)"
@@ -142,9 +190,18 @@ export default function FacturaCrearPageClient() {
 
         {/* Segundo bloque: buscador + tabla remito (scroll interno, thead sticky) */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <FacturaCrearLineasBlock />
+          <FacturaCrearLineasBlock onRemitoChange={handleRemitoChange} />
         </div>
       </div>
+
+      <FacturaGenerarComprobanteModal
+        open={comprobanteModalOpen}
+        onOpenChange={(open) => {
+          setComprobanteModalOpen(open);
+          if (!open) setComprobantePdf(null);
+        }}
+        comprobante={comprobantePdf}
+      />
     </ClassicFilteredTableLayout>
   );
 }
