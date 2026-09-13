@@ -181,9 +181,13 @@ export default function FacturaCrearLineasBlock() {
     cantidadInputRefs.current.delete(key);
   }
 
+  function confirmarCantidadYVolverABuscar() {
+    ref.current?.focus();
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-      <div ref={wrapRef} className="relative z-10 shrink-0">
+      <div ref={wrapRef} className="relative z-30 shrink-0">
         <div className="flex items-start gap-2">
           <Button
             type="button"
@@ -205,23 +209,24 @@ export default function FacturaCrearLineasBlock() {
               onChange={(e) => {
                 const next = e.target.value;
                 handleQChange(next);
-                setAbierto(true);
                 if (next.trim().length < FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
+                  setAbierto(false);
                   setSugerencias([]);
                   setLoading(false);
+                  return;
                 }
+                setAbierto(true);
               }}
-              onFocus={() => setAbierto(true)}
-              onClick={() => setAbierto(true)}
               onKeyDown={(e) => {
-                if (!abierto) setAbierto(true);
                 if (e.key === "ArrowDown" && sugerencias.length > 0) {
                   e.preventDefault();
+                  setAbierto(true);
                   setHighlight((h) => (h + 1) % sugerencias.length);
                   return;
                 }
                 if (e.key === "ArrowUp" && sugerencias.length > 0) {
                   e.preventDefault();
+                  setAbierto(true);
                   setHighlight(
                     (h) => (h - 1 + sugerencias.length) % sugerencias.length
                   );
@@ -251,7 +256,7 @@ export default function FacturaCrearLineasBlock() {
               />
             )}
 
-            {abierto ? (
+            {abierto && puedeBuscar ? (
               <div
                 id={listboxId}
                 role="listbox"
@@ -261,12 +266,7 @@ export default function FacturaCrearLineasBlock() {
                   "text-popover-foreground shadow-md"
                 )}
               >
-                {!puedeBuscar ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
-                    Escribí al menos {FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS} letras
-                    para buscar.
-                  </p>
-                ) : loading || isDebouncing ? (
+                {loading || isDebouncing ? (
                   <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
                 ) : sugerencias.length === 0 ? (
                   <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -353,7 +353,7 @@ export default function FacturaCrearLineasBlock() {
 
       <div
         ref={tablaScrollRef}
-        className="contenedor-tabla-gestion min-h-0 flex-1 overflow-y-auto"
+        className="contenedor-tabla-gestion relative z-0 min-h-0 flex-1 overflow-y-auto"
       >
         <Table className="w-full table-fixed" scrollX={false}>
           <TableHeader>
@@ -407,6 +407,12 @@ export default function FacturaCrearLineasBlock() {
                         const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
                         if (digits === "") return;
                         actualizarCantidad(linea.key, digits);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          confirmarCantidadYVolverABuscar();
+                        }
                       }}
                     />
                   </TableCell>
