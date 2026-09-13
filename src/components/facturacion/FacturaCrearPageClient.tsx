@@ -57,6 +57,7 @@ export default function FacturaCrearPageClient() {
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cliente, setCliente] = useState("");
   const [nroComprobante] = useState("");
+  const [observaciones, setObservaciones] = useState("");
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
@@ -76,6 +77,7 @@ export default function FacturaCrearPageClient() {
       fechaIso,
       cliente,
       nroComprobante,
+      observaciones,
       lineas,
       descuento,
     });
@@ -100,7 +102,7 @@ export default function FacturaCrearPageClient() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         {/* Cabecera del comprobante */}
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <label className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
@@ -183,6 +185,18 @@ export default function FacturaCrearPageClient() {
                 placeholder="Nombre del cliente"
                 autoComplete="off"
                 aria-label="Cliente"
+              />
+            </label>
+
+            <label className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>OBSERVACIONES</ModalMicroLabel>
+              <Input
+                type="text"
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                placeholder="Observaciones"
+                autoComplete="off"
+                aria-label="Observaciones"
               />
             </label>
           </div>

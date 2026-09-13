@@ -16,19 +16,30 @@ function sanitizarSegmentoNombreArchivo(raw: string): string {
     .slice(0, 80);
 }
 
+/** Últimos 4 dígitos del N° comprobante (si no hay dígitos → `S-N`). */
+export function ultimos4NumerosComprobante(nroComprobante: string): string {
+  const digits = nroComprobante.replace(/\D/g, "");
+  if (!digits) return "S-N";
+  return digits.slice(-4);
+}
+
 /**
- * `Cliente - fecha (dd-mm-aa) - N° Comprobante.pdf`
+ * `Cliente - dd-mm-aa - {últimos 4 del comprobante} - (Observaciones).pdf`
+ * Si no hay observaciones, se omite el segmento entre paréntesis.
  */
 export function nombreArchivoComprobanteFactura(opts: {
   cliente: string;
   fechaIso: string;
   nroComprobante: string;
+  observaciones?: string;
 }): string {
   const cliente = sanitizarSegmentoNombreArchivo(opts.cliente) || "SIN CLIENTE";
   const fecha = formatIsoYmdDdMmYyGuionesArchivo(opts.fechaIso);
-  const nro =
-    sanitizarSegmentoNombreArchivo(opts.nroComprobante) || "S-N";
-  return `${cliente} - ${fecha} - ${nro}.pdf`;
+  const nro = ultimos4NumerosComprobante(opts.nroComprobante);
+  const obs = sanitizarSegmentoNombreArchivo(opts.observaciones ?? "");
+  const base = `${cliente} - ${fecha} - ${nro}`;
+  if (!obs) return `${base}.pdf`;
+  return `${base} - (${obs}).pdf`;
 }
 
 export async function generarBytesPdfFacturaComprobante(
@@ -48,6 +59,7 @@ export async function descargarPdfFacturaComprobante(
     cliente: input.cliente,
     fechaIso: input.fechaIso,
     nroComprobante: input.nroComprobante,
+    observaciones: input.observaciones,
   });
   descargarPdfBytes(bytes, filename);
 }

@@ -26,6 +26,7 @@ export type FacturaComprobantePdfInput = {
   fechaIso: string;
   cliente: string;
   nroComprobante: string;
+  observaciones: string;
   lineas: FacturaLineaLocal[];
   descuento: FacturaDescuentoEstado | null;
 };
@@ -55,7 +56,17 @@ export function generarPdfFacturaComprobante(
   doc.text(`Fecha: ${fecha}`, MARGIN + contentWidth / 2, y);
   y += 5;
   doc.text(`N° Comprobante: ${nro}`, MARGIN, y);
-  y += 8;
+  y += 5;
+  const observaciones = input.observaciones.trim();
+  if (observaciones) {
+    const obsLines = doc.splitTextToSize(
+      `Observaciones: ${observaciones}`,
+      contentWidth
+    );
+    doc.text(obsLines, MARGIN, y);
+    y += Math.max(5, obsLines.length * 4 + 1);
+  }
+  y += 3;
 
   const pctGlobal = porcentajeDescuentoGlobal(input.lineas, input.descuento);
   const col = {
@@ -113,13 +124,27 @@ export function generarPdfFacturaComprobante(
       const pxDesc = pxConDescuento(linea.pxLista, pct);
       const total = totalLineaConDescuento(linea, pct);
       const descLines = doc.splitTextToSize(linea.descripcion, col.desc - 2);
-      const rowH = Math.max(6, descLines.length * 3.2 + 2);
+      const comentario = linea.comentario.trim();
+      const comentarioLines = comentario
+        ? doc.splitTextToSize(comentario, col.desc - 2)
+        : [];
+      const rowH = Math.max(
+        6,
+        descLines.length * 3.2 + comentarioLines.length * 3 + 2
+      );
 
       let x = MARGIN + 1;
       const ty = y + 3.5;
       doc.text(String(linea.codTienda), x, ty);
       x += col.cod;
       doc.text(descLines, x, ty);
+      if (comentarioLines.length > 0) {
+        doc.setFontSize(6.5);
+        doc.setTextColor(80, 80, 80);
+        doc.text(comentarioLines, x, ty + descLines.length * 3.2);
+        doc.setTextColor(17, 17, 17);
+        doc.setFontSize(7.5);
+      }
       x += col.desc;
       doc.text(String(linea.cantidad), x + col.cant / 2, ty, { align: "center" });
       x += col.cant;

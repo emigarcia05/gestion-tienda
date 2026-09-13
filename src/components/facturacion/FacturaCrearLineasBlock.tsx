@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Percent, Search, Store, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
 import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
+import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
@@ -107,6 +109,9 @@ export default function FacturaCrearLineasBlock({
   const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
   const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(null);
   const [descuentoModalOpen, setDescuentoModalOpen] = useState(false);
+  const [comentarioLineaKey, setComentarioLineaKey] = useState<string | null>(
+    null
+  );
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
@@ -150,6 +155,11 @@ export default function FacturaCrearLineasBlock({
   const qTrim = q.trim();
   const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
   const stockModalOpen = stockModalItem != null;
+  const comentarioLinea =
+    comentarioLineaKey == null
+      ? null
+      : (lineas.find((l) => l.key === comentarioLineaKey) ?? null);
+  const comentarioModalOpen = comentarioLinea != null;
   const sucursalUsuario = leerUsuarioSesion()?.sucursalPorDefecto ?? null;
   const resumen = useMemo(
     () => resumenTotalesFactura(lineas, descuento),
@@ -166,7 +176,8 @@ export default function FacturaCrearLineasBlock({
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
-      if (stockModalItem != null || descuentoModalOpen) return;
+      if (stockModalItem != null || descuentoModalOpen || comentarioModalOpen)
+        return;
       const el = wrapRef.current;
       if (!el) return;
       if (e.target instanceof Node && !el.contains(e.target)) {
@@ -175,7 +186,7 @@ export default function FacturaCrearLineasBlock({
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [stockModalItem, descuentoModalOpen]);
+  }, [stockModalItem, descuentoModalOpen, comentarioModalOpen]);
 
   useEffect(() => {
     const key = pendingFocusCantidadKeyRef.current;
@@ -215,6 +226,7 @@ export default function FacturaCrearLineasBlock({
         cantidad: 1,
         pxLista: item.pxLista,
         descuentoPctEspecial,
+        comentario: "",
       },
     ]);
     setQ("");
@@ -264,6 +276,12 @@ export default function FacturaCrearLineasBlock({
       prev.map((l) =>
         l.key === key ? { ...l, descuentoPctEspecial: especial } : l
       )
+    );
+  }
+
+  function actualizarComentarioLinea(key: string, comentario: string) {
+    setLineas((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, comentario } : l))
     );
   }
 
@@ -487,7 +505,7 @@ export default function FacturaCrearLineasBlock({
         <Table className="w-full table-fixed" scrollX={false}>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 text-center" aria-label="Eliminar" />
+              <TableHead className="w-16 text-center" aria-label="Acciones" />
               <TableHead className="w-[7rem] text-center">COD.</TableHead>
               <TableHead className="text-center">DESCRIPCIÓN</TableHead>
               <TableHead className="w-[6.5rem] text-center">CANTIDAD</TableHead>
@@ -513,32 +531,53 @@ export default function FacturaCrearLineasBlock({
                     : pctGlobal > 0
                       ? pctToNorm(pctGlobal)
                       : "";
+                const comentarioVisible = linea.comentario.trim();
                 return (
                   <TableRow key={linea.key}>
                     <TableCell className="celda-datos text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                          "mx-auto"
-                        )}
-                        title="Eliminar ítem"
-                        aria-label={`Eliminar ${linea.descripcion}`}
-                        onClick={() => eliminarLinea(linea.key)}
-                      >
-                        <Trash2
-                          className={TABLE_ROW_ACTION_ICON_CLASS}
-                          aria-hidden
-                        />
-                      </Button>
+                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Eliminar ítem"
+                          aria-label={`Eliminar ${linea.descripcion}`}
+                          onClick={() => eliminarLinea(linea.key)}
+                        >
+                          <Trash2
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Comentario"
+                          aria-label={`Comentario de ${linea.descripcion}`}
+                          onClick={() => setComentarioLineaKey(linea.key)}
+                        >
+                          <MessageSquare
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="celda-datos text-center tabular-nums">
                       {linea.codTienda}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
-                      {linea.descripcion}
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>{linea.descripcion}</span>
+                        {comentarioVisible ? (
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {comentarioVisible}
+                          </span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="celda-datos text-center">
                       <Input
@@ -690,6 +729,21 @@ export default function FacturaCrearLineasBlock({
         descuentoActual={descuento}
         onAplicar={aplicarDescuentoDesdeModal}
       />
+
+      {comentarioLinea ? (
+        <FacturaLineaComentarioModal
+          key={`comentario-${comentarioLinea.key}`}
+          open={comentarioModalOpen}
+          onOpenChange={(open) => {
+            if (!open) setComentarioLineaKey(null);
+          }}
+          descripcionItem={comentarioLinea.descripcion}
+          comentarioInicial={comentarioLinea.comentario}
+          onGuardar={(comentario) =>
+            actualizarComentarioLinea(comentarioLinea.key, comentario)
+          }
+        />
+      ) : null}
     </div>
   );
 }

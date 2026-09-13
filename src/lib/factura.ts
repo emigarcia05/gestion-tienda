@@ -48,6 +48,8 @@ export type FacturaLineaLocal = {
    * `null` = hereda el % global del pie; número = override (p. ej. 20 con global 25).
    */
   descuentoPctEspecial: number | null;
+  /** Comentario de línea (MAYÚSCULAS); vacío = sin comentario. */
+  comentario: string;
 };
 
 /**
