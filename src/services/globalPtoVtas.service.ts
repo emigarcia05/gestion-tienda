@@ -1,16 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
-import {
-  esPtoVtaCondicionIva,
-  type GlobalPtoVtaItem,
-  type GlobalPtoVtaSucursalOption,
-  type PtoVtaCondicionIva,
+import type {
+  GlobalPtoVtaItem,
+  GlobalPtoVtaSucursalOption,
+  PtoVentasCodArcaItem,
 } from "@/lib/globalPtoVtas";
 import type {
   CrearGlobalPtoVtaInput,
   EditarGlobalPtoVtaInput,
 } from "@/lib/validations/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
+import type { Prisma } from "@prisma/client";
 
 const sucursalSelect = { id: true, nombre: true } as const;
 
@@ -18,30 +18,13 @@ const ptoVtaInclude = {
   sucursales: {
     include: { sucursal: { select: sucursalSelect } },
   },
+  condicionIvaArca: { select: { codigo: true, descripcion: true, activo: true } },
 } as const;
 
-type PtoVtaRow = {
-  id: string;
-  ptoVenta: string;
-  nombreTitular: string;
-  cuit: string | null;
-  iiBb: string | null;
-  iiBbMultilateral: boolean;
-  condicionIva: string | null;
-  domicilioComercial: string | null;
-  inicioActividades: Date | null;
-  sucursales: {
-    sucursal: { id: string; nombre: string };
-  }[];
-};
+type PtoVtaRow = Prisma.GlobalPtoVtaGetPayload<{ include: typeof ptoVtaInclude }>;
 
 function mapSucursal(s: { id: string; nombre: string }): GlobalPtoVtaSucursalOption {
   return { id: s.id, nombre: s.nombre };
-}
-
-function mapCondicionIva(raw: string | null): PtoVtaCondicionIva | null {
-  if (!raw) return null;
-  return esPtoVtaCondicionIva(raw) ? raw : null;
 }
 
 function mapRow(row: PtoVtaRow): GlobalPtoVtaItem {
@@ -52,7 +35,8 @@ function mapRow(row: PtoVtaRow): GlobalPtoVtaItem {
     cuit: row.cuit,
     iiBb: row.iiBb,
     iiBbMultilateral: row.iiBbMultilateral,
-    condicionIva: mapCondicionIva(row.condicionIva),
+    condicionIva: row.condicionIva,
+    condicionIvaDescripcion: row.condicionIvaArca?.descripcion ?? null,
     domicilioComercial: row.domicilioComercial,
     inicioActividades: row.inicioActividades
       ? isoYmdFromPrismaDateOnly(row.inicioActividades)
@@ -67,7 +51,7 @@ function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
     if (code === "P2002") return "Ya existe un punto de venta con ese número.";
-    if (code === "P2003") return "Hay sucursales inválidas.";
+    if (code === "P2003") return "Hay sucursales o condición IVA inválidas.";
     if (code === "P2025") return "El punto de venta no existe.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -113,6 +97,37 @@ async function validarSucursales(
   return { success: true, data: undefined };
 }
 
+async function validarCondicionIva(
+  codigo: number | null,
+  codigoPersistido?: number | null
+): Promise<ServiceResult<void>> {
+  if (codigo == null) return { success: true, data: undefined };
+  const row = await prisma.ptoVentasCodArca.findUnique({
+    where: { codigo },
+    select: { codigo: true, activo: true },
+  });
+  if (!row) {
+    return { success: false, error: "Seleccioná una condición IVA válida." };
+  }
+  if (!row.activo && row.codigo !== codigoPersistido) {
+    return { success: false, error: "Seleccioná una condición IVA válida." };
+  }
+  return { success: true, data: undefined };
+}
+
+/** Catálogo ARCA de condiciones frente al IVA (para el Select de pto. vta.). */
+export async function listarPtoVentasCodArca(): Promise<PtoVentasCodArcaItem[]> {
+  const rows = await prisma.ptoVentasCodArca.findMany({
+    orderBy: { codigo: "asc" },
+    select: { codigo: true, descripcion: true, activo: true },
+  });
+  return rows.map((r) => ({
+    codigo: r.codigo,
+    descripcion: r.descripcion,
+    activo: r.activo,
+  }));
+}
+
 /** Sucursales elegibles para asociar a un pto. vta.: `genera_est = true`. */
 export async function listarSucursalesParaPtoVtas(): Promise<
   GlobalPtoVtaSucursalOption[]
@@ -138,6 +153,8 @@ export async function crearGlobalPtoVta(
 ): Promise<ServiceResult<GlobalPtoVtaItem>> {
   const sucursalesOk = await validarSucursales(input.sucursalIds);
   if (!sucursalesOk.success) return sucursalesOk;
+  const condicionOk = await validarCondicionIva(input.condicionIva);
+  if (!condicionOk.success) return condicionOk;
   try {
     const row = await prisma.globalPtoVta.create({
       data: {
@@ -163,6 +180,19 @@ export async function editarGlobalPtoVta(
   const sucursalesOk = await validarSucursales(input.sucursalIds);
   if (!sucursalesOk.success) return sucursalesOk;
   try {
+    const existente = await prisma.globalPtoVta.findUnique({
+      where: { id: input.id },
+      select: { condicionIva: true },
+    });
+    if (!existente) {
+      return { success: false, error: "El punto de venta no existe." };
+    }
+    const condicionOk = await validarCondicionIva(
+      input.condicionIva,
+      existente.condicionIva
+    );
+    if (!condicionOk.success) return condicionOk;
+
     const row = await prisma.$transaction(async (tx) => {
       await tx.globalPtoVtaSucursal.deleteMany({ where: { ptoVtaId: input.id } });
       return tx.globalPtoVta.update({

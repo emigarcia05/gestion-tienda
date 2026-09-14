@@ -24,7 +24,7 @@ import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import TablaFinFactCobros from "@/components/finanzas/TablaFinFactCobros";
 import GestionarGlobalPtoVtasModal from "@/components/finanzas/GestionarGlobalPtoVtasModal";
 import type { FinFactCobrosPtoVtaFila } from "@/services/finFactCobros.service";
-import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption } from "@/lib/globalPtoVtas";
+import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption, PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { cn } from "@/lib/utils";
 
 const MESES_CALENDARIO: { valor: number; etiqueta: string }[] = [
@@ -55,6 +55,7 @@ interface Props {
   esEditor: boolean;
   ptoVtas: GlobalPtoVtaItem[];
   sucursales: GlobalPtoVtaSucursalOption[];
+  condicionesArca: PtoVentasCodArcaItem[];
 }
 
 export default function FinFactCobrosPageClient({
@@ -66,6 +67,7 @@ export default function FinFactCobrosPageClient({
   esEditor,
   ptoVtas,
   sucursales,
+  condicionesArca,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -222,6 +224,7 @@ export default function FinFactCobrosPageClient({
         onOpenChange={setOpenPtoVtas}
         itemsIniciales={ptoVtas}
         sucursales={sucursales}
+        condicionesArca={condicionesArca}
         esEditor={esEditor}
         onCatalogoChanged={() => router.refresh()}
       />

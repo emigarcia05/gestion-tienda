@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
-import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
+import { firstZodErrorMessage } from "@/lib/actionResult";
+import type { GlobalPtoVtaItem, PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import type { ActionResult } from "@/lib/types";
 import {
   crearGlobalPtoVtaSchema,
@@ -15,21 +16,25 @@ import {
   editarGlobalPtoVta,
   eliminarGlobalPtoVta,
   listarGlobalPtoVtas,
+  listarPtoVentasCodArca,
 } from "@/services/globalPtoVtas.service";
-
-function firstZodErrorMessage(error: {
-  flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
-}): string {
-  const flattened = error.flatten();
-  return (
-    [...Object.values(flattened.fieldErrors).flat(), ...flattened.formErrors][0] ??
-    "Datos inválidos."
-  );
-}
 
 function revalidateFactCobros(): void {
   revalidatePath(VTAS_COBROS_ROUTES.ptosVenta);
   revalidatePath(VTAS_COBROS_LEGACY_FACT_COBROS_PATH);
+}
+
+export async function listarPtoVentasCodArcaAction(): Promise<
+  ActionResult<PtoVentasCodArcaItem[]>
+> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarPtoVentasCodArca() };
+  } catch (e) {
+    console.error("[globalPtoVtas][listarCodArca]", e);
+    return { ok: false, error: "No se pudieron listar las condiciones IVA." };
+  }
 }
 
 export async function listarGlobalPtoVtasAction(): Promise<ActionResult<GlobalPtoVtaItem[]>> {
@@ -39,10 +44,7 @@ export async function listarGlobalPtoVtasAction(): Promise<ActionResult<GlobalPt
     return { ok: true, data: await listarGlobalPtoVtas() };
   } catch (e) {
     console.error("[globalPtoVtas][listar]", e);
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudieron listar los puntos de venta.",
-    };
+    return { ok: false, error: "No se pudieron listar los puntos de venta." };
   }
 }
 

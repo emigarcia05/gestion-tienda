@@ -7,6 +7,7 @@ import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance
 import { listarFinFactCobrosPtoVtaMes } from "@/services/finFactCobros.service";
 import {
   listarGlobalPtoVtas,
+  listarPtoVentasCodArca,
   listarSucursalesParaPtoVtas,
 } from "@/services/globalPtoVtas.service";
 import FinFactCobrosPageClient from "@/components/finanzas/FinFactCobrosPageClient";
@@ -32,10 +33,11 @@ export default async function VtasCobrosPtosVentaPage({ searchParams }: Props) {
   const mes = parsed.success ? parsed.data.mes : def.mes;
   const anio = parsed.success ? parsed.data.anio : def.anio;
 
-  const [filas, ptoVtas, sucursales] = await Promise.all([
+  const [filas, ptoVtas, sucursales, condicionesArca] = await Promise.all([
     listarFinFactCobrosPtoVtaMes({ mes, anio }),
     listarGlobalPtoVtas(),
     listarSucursalesParaPtoVtas(),
+    listarPtoVentasCodArca(),
   ]);
 
   return (
@@ -48,6 +50,7 @@ export default async function VtasCobrosPtosVentaPage({ searchParams }: Props) {
       esEditor={rol === "editor"}
       ptoVtas={ptoVtas}
       sucursales={sucursales}
+      condicionesArca={condicionesArca}
     />
   );
 }

@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  PTO_VTA_CONDICIONES_IVA,
-  normalizarPtoVentaCodigo,
-} from "@/lib/globalPtoVtas";
+import { normalizarPtoVentaCodigo } from "@/lib/globalPtoVtas";
 import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/common";
 
 const ptoVentaSchema = z
@@ -48,9 +45,19 @@ const iiBbSchema = z
   .max(64, "IIBB es demasiado largo.")
   .transform((s) => (s === "" ? null : s.toLocaleUpperCase("es-AR")));
 
-const condicionIvaSchema = z
-  .union([z.enum(PTO_VTA_CONDICIONES_IVA), z.literal(""), z.null()])
-  .transform((v) => (v === "" || v == null ? null : v));
+const condicionIvaSchema = z.preprocess((value) => {
+  if (value === "" || value === "none" || value === "__none__" || value == null) {
+    return null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return value;
+}, z
+  .number({ error: "Seleccioná una condición IVA válida." })
+  .int("Seleccioná una condición IVA válida.")
+  .positive("Seleccioná una condición IVA válida.")
+  .nullable());
 
 const domicilioComercialSchema = z
   .string()

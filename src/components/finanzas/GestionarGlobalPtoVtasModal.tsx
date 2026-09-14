@@ -24,12 +24,11 @@ import {
 } from "@/actions/globalPtoVtas";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import {
-  esPtoVtaCondicionIva,
-  PTO_VTA_CONDICION_IVA_LABELS,
-  PTO_VTA_CONDICIONES_IVA,
+  etiquetaCondicionIvaArca,
+  opcionesCondicionIvaArca,
   type GlobalPtoVtaItem,
   type GlobalPtoVtaSucursalOption,
-  type PtoVtaCondicionIva,
+  type PtoVentasCodArcaItem,
 } from "@/lib/globalPtoVtas";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import type { ActionResult } from "@/lib/types";
@@ -60,6 +59,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   itemsIniciales: GlobalPtoVtaItem[];
   sucursales: GlobalPtoVtaSucursalOption[];
+  condicionesArca: PtoVentasCodArcaItem[];
   esEditor: boolean;
   onCatalogoChanged?: () => void;
 }
@@ -72,7 +72,7 @@ type FormFiscalState = {
   cuit: string;
   iiBb: string;
   iiBbMultilateral: boolean;
-  condicionIva: PtoVtaCondicionIva | "";
+  condicionIva: number | "";
   domicilioComercial: string;
   inicioActividades: string;
 };
@@ -91,6 +91,7 @@ export default function GestionarGlobalPtoVtasModal({
   onOpenChange,
   itemsIniciales,
   sucursales,
+  condicionesArca,
   esEditor,
   onCatalogoChanged,
 }: Props) {
@@ -146,12 +147,22 @@ export default function GestionarGlobalPtoVtasModal({
           item.ptoVenta,
           item.nombreTitular,
           item.cuit ?? "",
+          item.condicionIvaDescripcion ?? "",
           etiquetaSucursales(item),
         ],
         q
       )
     );
   }, [items, busqueda]);
+
+  const opcionesCondicionIva = useMemo(
+    () =>
+      opcionesCondicionIvaArca(
+        condicionesArca,
+        formFiscal.condicionIva === "" ? null : formFiscal.condicionIva
+      ),
+    [condicionesArca, formFiscal.condicionIva]
+  );
 
   function resetForm() {
     setEditingItem(null);
@@ -210,7 +221,7 @@ export default function GestionarGlobalPtoVtasModal({
         cuit: formFiscal.cuit,
         iiBb: formFiscal.iiBb,
         iiBbMultilateral: formFiscal.iiBbMultilateral,
-        condicionIva: formFiscal.condicionIva,
+        condicionIva: formFiscal.condicionIva === "" ? null : formFiscal.condicionIva,
         domicilioComercial: formFiscal.domicilioComercial,
         inicioActividades: formFiscal.inicioActividades,
       };
@@ -462,14 +473,19 @@ export default function GestionarGlobalPtoVtasModal({
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>Condición IVA</ModalMicroLabel>
               <Select
-                value={formFiscal.condicionIva || CONDICION_VACIA}
+                value={
+                  formFiscal.condicionIva === ""
+                    ? CONDICION_VACIA
+                    : String(formFiscal.condicionIva)
+                }
                 onValueChange={(value) => {
+                  const codigo = Number.parseInt(value, 10);
                   setFormFiscal((prev) => ({
                     ...prev,
                     condicionIva:
-                      value === CONDICION_VACIA || !esPtoVtaCondicionIva(value)
+                      value === CONDICION_VACIA || !Number.isFinite(codigo) || codigo <= 0
                         ? ""
-                        : value,
+                        : codigo,
                   }));
                 }}
                 disabled={pending}
@@ -487,9 +503,9 @@ export default function GestionarGlobalPtoVtasModal({
                   className="select-content-filtro"
                 >
                   <SelectItem value={CONDICION_VACIA}>SIN DEFINIR</SelectItem>
-                  {PTO_VTA_CONDICIONES_IVA.map((id) => (
-                    <SelectItem key={id} value={id}>
-                      {PTO_VTA_CONDICION_IVA_LABELS[id]}
+                  {opcionesCondicionIva.map((opt) => (
+                    <SelectItem key={opt.codigo} value={String(opt.codigo)}>
+                      {etiquetaCondicionIvaArca(opt.descripcion)}
                     </SelectItem>
                   ))}
                 </SelectContent>
