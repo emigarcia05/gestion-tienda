@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { normalizarPtoVentaCodigo } from "@/lib/globalPtoVtas";
+import {
+  PTO_VTA_CONDICIONES_IVA,
+  normalizarPtoVentaCodigo,
+} from "@/lib/globalPtoVtas";
 import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/common";
 
 const ptoVentaSchema = z
@@ -30,10 +33,64 @@ const sucursalIdsSchema = z
     message: "Hay sucursales duplicadas.",
   });
 
+const cuitSchema = z
+  .string()
+  .trim()
+  .transform((s) => s.replace(/\D/g, ""))
+  .refine((s) => s === "" || /^\d{11}$/.test(s), {
+    message: "El CUIT debe tener exactamente 11 dígitos (sin guiones).",
+  })
+  .transform((s) => (s === "" ? null : s));
+
+const iiBbSchema = z
+  .string()
+  .trim()
+  .max(64, "IIBB es demasiado largo.")
+  .transform((s) => (s === "" ? null : s.toLocaleUpperCase("es-AR")));
+
+const condicionIvaSchema = z
+  .union([z.enum(PTO_VTA_CONDICIONES_IVA), z.literal(""), z.null()])
+  .transform((v) => (v === "" || v == null ? null : v));
+
+const domicilioComercialSchema = z
+  .string()
+  .trim()
+  .max(500, "El domicilio es demasiado largo.")
+  .transform((s) => (s === "" ? null : s.toLocaleUpperCase("es-AR")));
+
+const isoYmdOpcionalSchema = z
+  .union([
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (use YYYY-MM-DD).")
+      .refine((s) => {
+        const [y, m, d] = s.split("-").map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        return (
+          dt.getUTCFullYear() === y &&
+          dt.getUTCMonth() === m - 1 &&
+          dt.getUTCDate() === d
+        );
+      }, "Fecha de calendario inválida."),
+    z.literal(""),
+    z.null(),
+  ])
+  .transform((v) => (v === "" || v == null ? null : v));
+
+const camposFiscalesSchema = {
+  cuit: cuitSchema,
+  iiBb: iiBbSchema,
+  iiBbMultilateral: z.boolean(),
+  condicionIva: condicionIvaSchema,
+  domicilioComercial: domicilioComercialSchema,
+  inicioActividades: isoYmdOpcionalSchema,
+} as const;
+
 export const crearGlobalPtoVtaSchema = z.object({
   ptoVenta: ptoVentaSchema,
   nombreTitular: nombreTitularSchema,
   sucursalIds: sucursalIdsSchema,
+  ...camposFiscalesSchema,
 });
 
 export const editarGlobalPtoVtaSchema = z.object({
@@ -41,6 +98,7 @@ export const editarGlobalPtoVtaSchema = z.object({
   ptoVenta: ptoVentaSchema,
   nombreTitular: nombreTitularSchema,
   sucursalIds: sucursalIdsSchema,
+  ...camposFiscalesSchema,
 });
 
 export const eliminarGlobalPtoVtaSchema = z.object({

@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Check, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   crearGlobalPtoVtaAction,
   editarGlobalPtoVtaAction,
@@ -15,7 +23,15 @@ import {
   listarGlobalPtoVtasAction,
 } from "@/actions/globalPtoVtas";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption } from "@/lib/globalPtoVtas";
+import {
+  esPtoVtaCondicionIva,
+  PTO_VTA_CONDICION_IVA_LABELS,
+  PTO_VTA_CONDICIONES_IVA,
+  type GlobalPtoVtaItem,
+  type GlobalPtoVtaSucursalOption,
+  type PtoVtaCondicionIva,
+} from "@/lib/globalPtoVtas";
+import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import type { ActionResult } from "@/lib/types";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -27,6 +43,17 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   "h-9 w-9 min-h-9 max-h-9"
 );
+
+const CONDICION_VACIA = "__none__";
+
+function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
+  if (!el) return;
+  try {
+    el.showPicker?.();
+  } catch {
+    el.click();
+  }
+}
 
 interface Props {
   open: boolean;
@@ -41,6 +68,24 @@ function etiquetaSucursales(item: GlobalPtoVtaItem): string {
   return item.sucursales.map((s) => s.nombre).join(", ");
 }
 
+type FormFiscalState = {
+  cuit: string;
+  iiBb: string;
+  iiBbMultilateral: boolean;
+  condicionIva: PtoVtaCondicionIva | "";
+  domicilioComercial: string;
+  inicioActividades: string;
+};
+
+const FORM_FISCAL_VACIO: FormFiscalState = {
+  cuit: "",
+  iiBb: "",
+  iiBbMultilateral: false,
+  condicionIva: "",
+  domicilioComercial: "",
+  inicioActividades: "",
+};
+
 export default function GestionarGlobalPtoVtasModal({
   open,
   onOpenChange,
@@ -49,6 +94,7 @@ export default function GestionarGlobalPtoVtasModal({
   esEditor,
   onCatalogoChanged,
 }: Props) {
+  const hiddenInicioRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<GlobalPtoVtaItem[]>(itemsIniciales);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -57,6 +103,7 @@ export default function GestionarGlobalPtoVtasModal({
   const [formPtoVenta, setFormPtoVenta] = useState("");
   const [formNombre, setFormNombre] = useState("");
   const [formSucursalIds, setFormSucursalIds] = useState<string[]>([]);
+  const [formFiscal, setFormFiscal] = useState<FormFiscalState>(FORM_FISCAL_VACIO);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<GlobalPtoVtaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -85,6 +132,7 @@ export default function GestionarGlobalPtoVtasModal({
     setFormPtoVenta("");
     setFormNombre("");
     setFormSucursalIds([]);
+    setFormFiscal(FORM_FISCAL_VACIO);
     setBorrarTarget(null);
     void cargar();
   }, [open, cargar, itemsIniciales]);
@@ -94,7 +142,12 @@ export default function GestionarGlobalPtoVtasModal({
     if (!q) return items;
     return items.filter((item) =>
       matchByMultiTerm(
-        [String(item.ptoVenta), item.nombreTitular, etiquetaSucursales(item)],
+        [
+          item.ptoVenta,
+          item.nombreTitular,
+          item.cuit ?? "",
+          etiquetaSucursales(item),
+        ],
         q
       )
     );
@@ -105,6 +158,7 @@ export default function GestionarGlobalPtoVtasModal({
     setFormPtoVenta("");
     setFormNombre("");
     setFormSucursalIds([]);
+    setFormFiscal(FORM_FISCAL_VACIO);
   }
 
   function abrirCrear() {
@@ -116,13 +170,21 @@ export default function GestionarGlobalPtoVtasModal({
   function abrirEditar(item: GlobalPtoVtaItem) {
     if (!esEditor || pending) return;
     setEditingItem(item);
-    setFormPtoVenta(String(item.ptoVenta));
+    setFormPtoVenta(item.ptoVenta);
     setFormNombre(item.nombreTitular);
     setFormSucursalIds(
       item.sucursales
         .map((s) => s.id)
         .filter((id) => sucursales.some((opt) => opt.id === id))
     );
+    setFormFiscal({
+      cuit: item.cuit ?? "",
+      iiBb: item.iiBb ?? "",
+      iiBbMultilateral: item.iiBbMultilateral,
+      condicionIva: item.condicionIva ?? "",
+      domicilioComercial: item.domicilioComercial ?? "",
+      inicioActividades: item.inicioActividades ?? "",
+    });
     setFormOpen(true);
   }
 
@@ -145,6 +207,12 @@ export default function GestionarGlobalPtoVtasModal({
         ptoVenta: formPtoVenta,
         nombreTitular: formNombre,
         sucursalIds: formSucursalIds,
+        cuit: formFiscal.cuit,
+        iiBb: formFiscal.iiBb,
+        iiBbMultilateral: formFiscal.iiBbMultilateral,
+        condicionIva: formFiscal.condicionIva,
+        domicilioComercial: formFiscal.domicilioComercial,
+        inicioActividades: formFiscal.inicioActividades,
       };
       if (editingItem) {
         const res = await editarGlobalPtoVtaAction({
@@ -303,7 +371,8 @@ export default function GestionarGlobalPtoVtasModal({
       >
         <AppModal
           title={editingItem ? "EDITAR PUNTO DE VENTA" : "NUEVO PUNTO DE VENTA"}
-          size="md"
+          size="lg"
+          scrollBody
           actions={
             <div className="flex w-full justify-end gap-2">
               <Button
@@ -332,7 +401,7 @@ export default function GestionarGlobalPtoVtasModal({
               <ModalMicroLabel>Pto. Venta</ModalMicroLabel>
               <Input
                 value={formPtoVenta}
-                onChange={(e) => setFormPtoVenta(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setFormPtoVenta(e.target.value.replace(/\D/g, "").slice(0, 5))}
                 placeholder="NRO."
                 disabled={pending}
                 inputMode="numeric"
@@ -348,12 +417,154 @@ export default function GestionarGlobalPtoVtasModal({
                 disabled={pending}
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>CUIT</ModalMicroLabel>
+              <Input
+                value={formFiscal.cuit}
+                onChange={(e) =>
+                  setFormFiscal((prev) => ({
+                    ...prev,
+                    cuit: e.target.value.replace(/\D/g, "").slice(0, 11),
+                  }))
+                }
+                placeholder="11 DÍGITOS SIN GUIONES"
+                disabled={pending}
+                inputMode="numeric"
+                className="tabular-nums"
+                aria-label="CUIT"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>IIBB</ModalMicroLabel>
+              <Input
+                value={formFiscal.iiBb}
+                onChange={(e) =>
+                  setFormFiscal((prev) => ({
+                    ...prev,
+                    iiBb: e.target.value.toLocaleUpperCase("es-AR"),
+                  }))
+                }
+                placeholder="CUENTA / CONVENIO / EXENTO"
+                disabled={pending}
+                aria-label="IIBB"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>IIBB Multilateral</ModalMicroLabel>
+              <ModalSiNoChoice
+                value={formFiscal.iiBbMultilateral}
+                onChange={(value) =>
+                  setFormFiscal((prev) => ({ ...prev, iiBbMultilateral: value }))
+                }
+                disabled={pending}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Condición IVA</ModalMicroLabel>
+              <Select
+                value={formFiscal.condicionIva || CONDICION_VACIA}
+                onValueChange={(value) => {
+                  setFormFiscal((prev) => ({
+                    ...prev,
+                    condicionIva:
+                      value === CONDICION_VACIA || !esPtoVtaCondicionIva(value)
+                        ? ""
+                        : value,
+                  }));
+                }}
+                disabled={pending}
+              >
+                <SelectTrigger
+                  className="input-filtro-unificado w-full"
+                  aria-label="Condición IVA"
+                >
+                  <SelectValue placeholder="ELEGIR CONDICIÓN" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  <SelectItem value={CONDICION_VACIA}>SIN DEFINIR</SelectItem>
+                  {PTO_VTA_CONDICIONES_IVA.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {PTO_VTA_CONDICION_IVA_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Domicilio Comercial</ModalMicroLabel>
+              <Input
+                value={formFiscal.domicilioComercial}
+                onChange={(e) =>
+                  setFormFiscal((prev) => ({
+                    ...prev,
+                    domicilioComercial: e.target.value.toLocaleUpperCase("es-AR"),
+                  }))
+                }
+                placeholder="DOMICILIO COMERCIAL"
+                disabled={pending}
+                aria-label="Domicilio comercial"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Inicia Actividad</ModalMicroLabel>
+              <div className="relative w-full">
+                <Input
+                  type="text"
+                  readOnly
+                  value={
+                    formFiscal.inicioActividades
+                      ? formatIsoYmdDdMmYyyyArgentina(formFiscal.inicioActividades)
+                      : ""
+                  }
+                  className={cn("tabular-nums", "pr-10", "cursor-pointer")}
+                  onClick={() => abrirSelectorFechaNativo(hiddenInicioRef.current)}
+                  title="Clic para abrir el calendario"
+                  placeholder="DD/MM/AAAA"
+                  disabled={pending}
+                  aria-label="Inicia actividad. Clic para abrir el calendario."
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "absolute right-0 top-0 h-9 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  onClick={() => abrirSelectorFechaNativo(hiddenInicioRef.current)}
+                  disabled={pending}
+                  aria-label="Abrir calendario"
+                  title="Abrir calendario"
+                >
+                  <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
+              </div>
+              <input
+                ref={hiddenInicioRef}
+                type="date"
+                tabIndex={-1}
+                aria-hidden
+                className="sr-only"
+                value={formFiscal.inicioActividades}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFormFiscal((prev) => ({
+                    ...prev,
+                    inicioActividades: v,
+                  }));
+                }}
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <ModalMicroLabel>Suc. Asociadas</ModalMicroLabel>
               {sucursales.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay sucursales cargadas.</p>
               ) : (
-                <ul className="flex max-h-[16rem] flex-col gap-1 overflow-y-auto pr-1">
+                <ul className="flex max-h-[12rem] flex-col gap-1 overflow-y-auto pr-1">
                   {sucursales.map((suc) => {
                     const seleccionado = formSucursalIds.includes(suc.id);
                     return (
@@ -374,8 +585,7 @@ export default function GestionarGlobalPtoVtasModal({
                           <span
                             className={cn(
                               "tabla-check-toggle shrink-0",
-                              seleccionado &&
-                                "border-primary text-primary"
+                              seleccionado && "border-primary text-primary"
                             )}
                             aria-hidden
                           >

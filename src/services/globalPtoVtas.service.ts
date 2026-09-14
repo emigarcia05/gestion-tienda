@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import type { GlobalPtoVtaItem, GlobalPtoVtaSucursalOption } from "@/lib/globalPtoVtas";
+import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
+import {
+  esPtoVtaCondicionIva,
+  type GlobalPtoVtaItem,
+  type GlobalPtoVtaSucursalOption,
+  type PtoVtaCondicionIva,
+} from "@/lib/globalPtoVtas";
 import type {
   CrearGlobalPtoVtaInput,
   EditarGlobalPtoVtaInput,
@@ -18,6 +24,12 @@ type PtoVtaRow = {
   id: string;
   ptoVenta: string;
   nombreTitular: string;
+  cuit: string | null;
+  iiBb: string | null;
+  iiBbMultilateral: boolean;
+  condicionIva: string | null;
+  domicilioComercial: string | null;
+  inicioActividades: Date | null;
   sucursales: {
     sucursal: { id: string; nombre: string };
   }[];
@@ -27,11 +39,24 @@ function mapSucursal(s: { id: string; nombre: string }): GlobalPtoVtaSucursalOpt
   return { id: s.id, nombre: s.nombre };
 }
 
+function mapCondicionIva(raw: string | null): PtoVtaCondicionIva | null {
+  if (!raw) return null;
+  return esPtoVtaCondicionIva(raw) ? raw : null;
+}
+
 function mapRow(row: PtoVtaRow): GlobalPtoVtaItem {
   return {
     id: row.id,
     ptoVenta: row.ptoVenta,
     nombreTitular: row.nombreTitular.toLocaleUpperCase("es-AR"),
+    cuit: row.cuit,
+    iiBb: row.iiBb,
+    iiBbMultilateral: row.iiBbMultilateral,
+    condicionIva: mapCondicionIva(row.condicionIva),
+    domicilioComercial: row.domicilioComercial,
+    inicioActividades: row.inicioActividades
+      ? isoYmdFromPrismaDateOnly(row.inicioActividades)
+      : null,
     sucursales: row.sucursales
       .map((link) => mapSucursal(link.sucursal))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR")),
@@ -50,6 +75,29 @@ function mapDbError(error: unknown, fallback: string): string {
 
 function normalizarNombre(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
+
+function datosFiscalesDesdeInput(
+  input: Pick<
+    CrearGlobalPtoVtaInput,
+    | "cuit"
+    | "iiBb"
+    | "iiBbMultilateral"
+    | "condicionIva"
+    | "domicilioComercial"
+    | "inicioActividades"
+  >
+) {
+  return {
+    cuit: input.cuit,
+    iiBb: input.iiBb,
+    iiBbMultilateral: input.iiBbMultilateral,
+    condicionIva: input.condicionIva,
+    domicilioComercial: input.domicilioComercial,
+    inicioActividades: input.inicioActividades
+      ? new Date(`${input.inicioActividades}T12:00:00.000Z`)
+      : null,
+  };
 }
 
 async function validarSucursales(
@@ -95,6 +143,7 @@ export async function crearGlobalPtoVta(
       data: {
         ptoVenta: input.ptoVenta,
         nombreTitular: normalizarNombre(input.nombreTitular),
+        ...datosFiscalesDesdeInput(input),
         sucursales: {
           create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
         },
@@ -121,6 +170,7 @@ export async function editarGlobalPtoVta(
         data: {
           ptoVenta: input.ptoVenta,
           nombreTitular: normalizarNombre(input.nombreTitular),
+          ...datosFiscalesDesdeInput(input),
           sucursales: {
             create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
           },

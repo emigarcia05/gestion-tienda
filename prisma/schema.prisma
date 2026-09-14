@@ -344,6 +344,19 @@ model GlobalPtoVtaSucursal {
 }
 
 /**
+ * Catálogo ARCA de condiciones frente al IVA (`pto_ventas_cod_arca`).
+ * Lookup/parámetros: `codigo` = código oficial ARCA.
+ */
+model PtoVentasCodArca {
+  id          Int     @id @default(autoincrement())
+  codigo      Int     @unique(map: "pto_ventas_cod_arca_codigo_key")
+  descripcion String  @db.VarChar(100)
+  activo      Boolean @default(true)
+
+  @@map("pto_ventas_cod_arca")
+}
+
+/**
  * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
  * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
  * PK `id_personal` (serial, no lo carga el usuario). Vínculo DUX: `id_dux` (opcional, unique).
