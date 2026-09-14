@@ -26,7 +26,6 @@ export default async function FacturaCrearPage() {
   return (
     <div className="area-page-shell">
       <FacturaCrearPageClient
-        esEditor={rol === "editor"}
         ptoVtas={ptoVtas}
         condicionesIva={condicionesIva}
         originalesNc={originalesNc}

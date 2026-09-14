@@ -131,7 +131,7 @@ export const PERMISOS = {
 
   // ─── Área /facturacion ────────────────────────────────────────────────────
   facturacion: {
-    /** Libre acceso de lectura/navegación (sin clave de editor). */
+    /** Acceso al área: leer y emitir comprobantes (sin clave de editor). */
     acceso: { simple: true, editor: true },
   },
 

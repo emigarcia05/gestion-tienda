@@ -26,12 +26,16 @@ import {
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
   FACTURA_TIPO_LABELS,
+  esClienteFacturaVacio,
   esFacturaTipo,
+  esFacturaTipoFiscal,
+  nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
+import { ARCA_CONDICION_IVA, ARCA_DOC_TIPO } from "@/lib/facturaFiscal";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
@@ -50,12 +54,7 @@ function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   }
 }
 
-function esTipoFiscalUi(tipo: FacturaTipo): boolean {
-  return tipo === "factura_fiscal" || tipo === "nota_credito";
-}
-
 type Props = {
-  esEditor: boolean;
   ptoVtas: FacturaPtoVtaOpcion[];
   condicionesIva: PtoVentasCodArcaItem[];
   originalesNc: { id: string; label: string }[];
@@ -63,10 +62,9 @@ type Props = {
 
 /**
  * Pantalla Crear (Facturación · Factura): cabecera + líneas.
- * Persiste; `factura_fiscal` / `nota_credito` autorizan CAE vía ARCA.
+ * Persiste; `factura` / `nota_credito` autorizan CAE vía ARCA. `comprobante` no.
  */
 export default function FacturaCrearPageClient({
-  esEditor,
   ptoVtas,
   condicionesIva,
   originalesNc,
@@ -95,7 +93,7 @@ export default function FacturaCrearPageClient({
     remitoRef.current = snapshot;
   }, []);
 
-  const fiscal = esTipoFiscalUi(tipo);
+  const fiscal = esFacturaTipoFiscal(tipo);
 
   async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
@@ -103,30 +101,36 @@ export default function FacturaCrearPageClient({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
-    if (!esEditor) {
-      toast.error("Solo el modo editor puede emitir comprobantes.");
-      return;
-    }
     if (!ptoVtaId) {
       toast.error("Seleccioná un punto de venta.");
       return;
     }
-    if (!cliente.trim()) {
-      toast.error("Ingresá el cliente.");
-      return;
-    }
+    const clienteVacio = esClienteFacturaVacio(cliente);
+    const clienteEmitir = nombreClienteFactura(cliente);
     setPending(true);
     try {
       const pctGlobal = porcentajeDescuentoGlobal(lineas, descuento);
       const res = await emitirFacturaComprobanteAction({
         fechaIso,
         tipo,
-        cliente,
+        cliente: clienteEmitir,
         comentarios,
         ptoVtaId,
-        receptorDocTipo: fiscal ? Number(receptorDocTipo) : undefined,
-        receptorDocNro: fiscal ? receptorDocNro : undefined,
-        receptorCondicionIva: fiscal ? Number(receptorCondicionIva) : undefined,
+        receptorDocTipo: fiscal
+          ? clienteVacio
+            ? ARCA_DOC_TIPO.CF
+            : Number(receptorDocTipo)
+          : undefined,
+        receptorDocNro: fiscal
+          ? clienteVacio
+            ? "0"
+            : receptorDocNro
+          : undefined,
+        receptorCondicionIva: fiscal
+          ? clienteVacio
+            ? ARCA_CONDICION_IVA.CF
+            : Number(receptorCondicionIva)
+          : undefined,
         cbteAsocId: tipo === "nota_credito" && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
           codTienda: l.codTienda,
@@ -151,7 +155,7 @@ export default function FacturaCrearPageClient({
       setComprobantePdf({
         tipo,
         fechaIso,
-        cliente,
+        cliente: clienteEmitir,
         nroComprobante: res.data.nroComprobante,
         comentarios,
         lineas,
@@ -253,7 +257,7 @@ export default function FacturaCrearPageClient({
                 type="text"
                 value={cliente}
                 onChange={(e) => setCliente(e.target.value.toLocaleUpperCase("es-AR"))}
-                placeholder="Nombre del cliente"
+                placeholder="CONSUMIDOR FINAL"
                 autoComplete="off"
                 aria-label="Cliente"
               />

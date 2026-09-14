@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { FACTURA_TIPOS } from "@/lib/factura";
-import { prismaCuidSchema } from "@/lib/validations/common";
+import { FACTURA_CLIENTE_CONSUMIDOR_FINAL, FACTURA_TIPOS, esFacturaTipoFiscal } from "@/lib/factura";import { prismaCuidSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
@@ -16,7 +15,11 @@ const isoYmdSchema = z
 export const facturaCrearCabeceraSchema = z.object({
   fechaIso: isoYmdSchema,
   tipo: z.enum(FACTURA_TIPOS, "Elegí el tipo de factura."),
-  cliente: z.string().trim().max(200, "El cliente es demasiado largo."),
+    cliente: z
+      .string()
+      .trim()
+      .max(200, "El cliente es demasiado largo.")
+      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
   /** Solo lectura en UI; vacío hasta numeración automática. */
   nroComprobante: z.string().trim().max(50).optional(),
 });
@@ -65,8 +68,8 @@ export const emitirFacturaComprobanteSchema = z
     cliente: z
       .string()
       .trim()
-      .min(1, "Ingresá el cliente.")
-      .max(200, "El cliente es demasiado largo."),
+      .max(200, "El cliente es demasiado largo.")
+      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
     receptorDocTipo: z.number().int().positive().optional(),
@@ -77,7 +80,7 @@ export const emitirFacturaComprobanteSchema = z
     descuento: descuentoEmitirSchema.optional().default(null),
   })
   .superRefine((data, ctx) => {
-    const fiscal = data.tipo === "factura_fiscal" || data.tipo === "nota_credito";
+    const fiscal = esFacturaTipoFiscal(data.tipo);
     if (fiscal) {
       if (data.receptorCondicionIva == null) {
         ctx.addIssue({

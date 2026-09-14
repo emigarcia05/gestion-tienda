@@ -24,6 +24,7 @@ import {
 } from "@/lib/fechaArgentina";
 import {
   esFacturaTipo,
+  nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   pxConDescuento,
@@ -81,7 +82,7 @@ function mapListItem(row: {
   ambiente: string;
   notasCredito: { id: string }[];
 }): FacturaComprobanteListItem {
-  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "factura";
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "comprobante";
   return {
     id: row.id,
     tipo,
@@ -96,7 +97,7 @@ function mapListItem(row: {
     estado: asEstado(row.estado),
     ambiente: row.ambiente,
     puedeNc:
-      tipo === "factura_fiscal" &&
+      tipo === "factura" &&
       row.estado === "autorizado" &&
       Boolean(row.cae) &&
       row.notasCredito.length === 0,
@@ -145,7 +146,7 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
 
 export async function listarFacturasComprobantes(): Promise<FacturaComprobanteListItem[]> {
   const rows = await prisma.factComprobante.findMany({
-    where: { tipoLocal: { in: ["factura", "factura_fiscal", "nota_credito"] } },
+    where: { tipoLocal: { in: ["comprobante", "factura", "nota_credito"] } },
     orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
     take: 500,
     select: listSelect,
@@ -168,7 +169,7 @@ export async function listarFacturasAutorizadasParaNc(): Promise<
 > {
   const rows = await prisma.factComprobante.findMany({
     where: {
-      tipoLocal: "factura_fiscal",
+      tipoLocal: "factura",
       estado: "autorizado",
       cae: { not: null },
       notasCredito: { none: {} },
@@ -212,7 +213,7 @@ export async function obtenerFacturaComprobantePdfDatos(
       include: { lineas: { orderBy: { orden: "asc" } } },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
-    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "factura";
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "comprobante";
     const lineas: FacturaLineaLocal[] = row.lineas.map((l, idx) => ({
       key: l.id || String(idx),
       codTienda: l.codTienda,
@@ -305,11 +306,13 @@ function calcularLineas(
   return { success: true, data: out };
 }
 
+/** Serie local (presupuesto / comprobante) por pto + tipo. Factura ARCA usa FECompUltimoAutorizado. */
 async function siguienteNroInterno(
   ptoVtaId: string,
-  tipoLocal: FacturaTipo
+  tipoLocal: FacturaTipo,
+  tx: Prisma.TransactionClient
 ): Promise<number> {
-  const max = await prisma.factComprobante.aggregate({
+  const max = await tx.factComprobante.aggregate({
     where: { ptoVtaId, tipoLocal, cbteNro: { not: null } },
     _max: { cbteNro: true },
   });
@@ -389,7 +392,7 @@ function emitirResultadoDesdeRow(row: {
   resultado: string | null;
   estado: string;
 }): FacturaEmitirResultado {
-  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "factura";
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "comprobante";
   return {
     id: row.id,
     nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
@@ -485,8 +488,6 @@ export async function emitirFacturaComprobante(
     if (!letraRes.ok) return { success: false, error: letraRes.error };
     letra = letraRes.letra;
     cbteTipo = letraRes.cbteTipo;
-  } else if (input.tipo === "factura") {
-    letra = null;
   }
 
   const lineasRes = calcularLineas(input, letra);
@@ -546,17 +547,17 @@ export async function emitirFacturaComprobante(
 
   const ambiente = ambienteArcaActual();
   const concepto = pto.concepto || "1";
-  const receptorNombre = input.cliente.trim().toLocaleUpperCase("es-AR");
+  const receptorNombre = nombreClienteFactura(input.cliente);
 
   if (!fiscal) {
     try {
-      const cbteNro = await siguienteNroInterno(pto.id, input.tipo);
       const created = await prisma.$transaction(async (tx) => {
+        const cbteNro = await siguienteNroInterno(pto.id, input.tipo, tx);
         const header = await tx.factComprobante.create({
           data: {
             tipoLocal: input.tipo,
             cbteTipo: null,
-            letra: input.tipo === "factura" ? "X" : null,
+            letra: input.tipo === "comprobante" ? "X" : null,
             ptoVtaId: pto.id,
             ptoVenta: pto.ptoVenta,
             cbteNro,
@@ -897,8 +898,8 @@ export async function emitirNotaCreditoDesdeComprobante(
     include: { lineas: { orderBy: { orden: "asc" } } },
   });
   if (!orig) return { success: false, error: "El comprobante no existe." };
-  if (orig.tipoLocal !== "factura_fiscal" || !orig.cae) {
-    return { success: false, error: "Solo se puede acreditar una factura fiscal autorizada." };
+  if (orig.tipoLocal !== "factura" || !orig.cae) {
+    return { success: false, error: "Solo se puede acreditar una factura autorizada por ARCA." };
   }
   const ya = await prisma.factComprobante.findFirst({
     where: { cbteAsocId: orig.id, tipoLocal: "nota_credito", estado: "autorizado" },

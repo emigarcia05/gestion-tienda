@@ -17,11 +17,7 @@ export default async function FacturaFacturasPage() {
 
   return (
     <div className="area-page-shell">
-      <FacturaListadoPageClient
-        items={items}
-        esEditor={rol === "editor"}
-        variant="facturas"
-      />
+      <FacturaListadoPageClient items={items} variant="facturas" />
     </div>
   );
 }

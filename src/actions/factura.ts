@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireEditorFacturacion, requireFacturacionLectura } from "@/lib/actionGates";
+import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import type { FacturaEmitirResultado } from "@/lib/factura";
@@ -49,7 +49,7 @@ export async function buscarProductosFacturaAction(
 export async function emitirFacturaComprobanteAction(
   raw: unknown
 ): Promise<ActionResult<FacturaEmitirResultado>> {
-  const gate = await requireEditorFacturacion();
+  const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
   const parsed = emitirFacturaComprobanteSchema.safeParse(raw);
@@ -69,7 +69,7 @@ export async function emitirFacturaComprobanteAction(
 export async function emitirNotaCreditoFacturaAction(
   raw: unknown
 ): Promise<ActionResult<FacturaEmitirResultado>> {
-  const gate = await requireEditorFacturacion();
+  const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
   const parsed = facturaComprobanteIdSchema.safeParse(raw);
@@ -91,7 +91,7 @@ export async function emitirNotaCreditoFacturaAction(
 export async function consultarFacturaComprobanteArcaAction(
   raw: unknown
 ): Promise<ActionResult<FacturaEmitirResultado>> {
-  const gate = await requireEditorFacturacion();
+  const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
   const parsed = facturaComprobanteIdSchema.safeParse(raw);

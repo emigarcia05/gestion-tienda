@@ -1821,7 +1821,8 @@ model SyncDuxStatus {
 /**
  * Comprobante de Facturación (interno o fiscal).
  * Receptor fiscal: snapshot en la fila (no usa `clientes` de Envios).
- * CAE solo si `tipo_local` es `factura_fiscal` o `nota_credito`.
+ * CAE solo si `tipo_local` es `factura` o `nota_credito`.
+ * Series: `presupuesto`/`comprobante` = nro local por pto+tipo; `factura`/`nota_credito` = nro ARCA (FECompUltimoAutorizado + 1 por pto + CbteTipo).
  */
 model FactComprobante {
   id     String @id @default(cuid())

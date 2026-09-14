@@ -302,7 +302,7 @@ Objetivo:
 
 Uso: pegar el archivo [`arca_afip_promp.md`](./arca_afip_promp.md) en un chat nuevo (Agent). Completar `Objetivo`.
 
-Emite comprobantes fiscales **desde este sistema** vía WSAA + WSFEv1 (homologación primero). No usa DUX como motor de CAE. Respeta Actions/servicios/Prisma, gates `requireEditorFacturacion` y el módulo `/facturacion` ya existente (hoy sin persistencia).
+Emite comprobantes fiscales **desde este sistema** vía WSAA + WSFEv1 (homologación primero). No usa DUX como motor de CAE. Respeta Actions/servicios/Prisma, gate `requireFacturacionLectura` (quien tiene el módulo puede emitir) y el módulo `/facturacion` ya existente.
 
 ---
 

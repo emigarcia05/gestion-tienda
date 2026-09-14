@@ -5,6 +5,7 @@
 
 import { jsPDF } from "jspdf";
 import {
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPO_LABELS,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
@@ -55,7 +56,7 @@ export function generarPdfFacturaComprobante(
   doc.setTextColor(17, 17, 17);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  const cliente = input.cliente.trim() || "—";
+  const cliente = input.cliente.trim() || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
   const nro = input.nroComprobante.trim() || "—";
   const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
   doc.text(`Cliente: ${cliente}`, MARGIN, y);

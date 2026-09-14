@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import {
   FACTURA_TIPO_LABELS,
+  esFacturaTipoFiscal,
   type FacturaComprobanteListItem,
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
@@ -44,13 +45,11 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   items: FacturaComprobanteListItem[];
-  esEditor: boolean;
   variant: "facturas" | "presupuestos";
 };
 
 export default function FacturaListadoPageClient({
   items,
-  esEditor,
   variant,
 }: Props) {
   const router = useRouter();
@@ -99,10 +98,6 @@ export default function FacturaListadoPageClient({
   }
 
   async function handleNc(id: string) {
-    if (!esEditor) {
-      toast.error("Solo el modo editor puede emitir notas de crédito.");
-      return;
-    }
     setBusyId(id);
     try {
       const res = await emitirNotaCreditoFacturaAction({ id });
@@ -118,10 +113,6 @@ export default function FacturaListadoPageClient({
   }
 
   async function handleConsultar(id: string) {
-    if (!esEditor) {
-      toast.error("Solo el modo editor puede consultar ARCA.");
-      return;
-    }
     setBusyId(id);
     try {
       const res = await consultarFacturaComprobanteArcaAction({ id });
@@ -232,7 +223,7 @@ export default function FacturaListadoPageClient({
                       >
                         <FileText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
-                      {esFacturas && item.puedeNc && esEditor ? (
+                      {esFacturas && item.puedeNc ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -247,8 +238,7 @@ export default function FacturaListadoPageClient({
                         </Button>
                       ) : null}
                       {esFacturas &&
-                      esEditor &&
-                      (item.tipo === "factura_fiscal" || item.tipo === "nota_credito") &&
+                      esFacturaTipoFiscal(item.tipo) &&
                       !item.cae ? (
                         <Button
                           type="button"

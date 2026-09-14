@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { guardFacturacionEditor } from "@/lib/apiRouteAuth";
+import { guardFacturacionLectura } from "@/lib/apiRouteAuth";
 import { healthArca } from "@/services/facturaComprobantes.service";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * GET: ping WSFEv1 `FEDummy` (sin exponer WSAA). Gate editor de facturación.
+ * GET: ping WSFEv1 `FEDummy` (sin exponer WSAA). Gate de módulo facturación.
  */
 export async function GET() {
-  const denied = await guardFacturacionEditor();
+  const denied = await guardFacturacionLectura();
   if (denied) return denied;
 
   const result = await healthArca();

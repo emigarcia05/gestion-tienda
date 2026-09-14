@@ -5,8 +5,8 @@
 
 export const FACTURA_TIPOS = [
   "presupuesto",
+  "comprobante",
   "factura",
-  "factura_fiscal",
   "nota_credito",
 ] as const;
 
@@ -14,8 +14,8 @@ export type FacturaTipo = (typeof FACTURA_TIPOS)[number];
 
 export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
   presupuesto: "PRESUPUESTO",
+  comprobante: "COMPROBANTE",
   factura: "FACTURA",
-  factura_fiscal: "FACTURA FISCAL",
   nota_credito: "NOTA DE CRÉDITO",
 };
 
@@ -24,6 +24,25 @@ export const FACTURA_TIPO_DEFAULT: FacturaTipo = "presupuesto";
 
 export function esFacturaTipo(value: string): value is FacturaTipo {
   return (FACTURA_TIPOS as readonly string[]).includes(value);
+}
+
+/** `factura` y `nota_credito` van a WSFEv1. `comprobante` y `presupuesto` no. */
+export function esFacturaTipoFiscal(
+  tipo: FacturaTipo
+): tipo is "factura" | "nota_credito" {
+  return tipo === "factura" || tipo === "nota_credito";
+}
+
+/** Nombre persistido / PDF cuando el input Cliente está vacío. */
+export const FACTURA_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
+
+export function nombreClienteFactura(raw: string): string {
+  const nombre = raw.trim().toLocaleUpperCase("es-AR");
+  return nombre || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+}
+
+export function esClienteFacturaVacio(raw: string): boolean {
+  return raw.trim() === "";
 }
 
 /** Máximo de sugerencias en el typeahead de productos (Crear). */
