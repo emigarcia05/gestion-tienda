@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { CalendarDays, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { emitirFacturaComprobanteAction } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
@@ -21,12 +22,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  FACTURA_DOC_TIPO_OPTIONS,
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
   FACTURA_TIPO_LABELS,
   esFacturaTipo,
+  porcentajeDescuentoGlobal,
+  porcentajeDescuentoLinea,
+  type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
+import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   dateToIsoYmdArgentina,
@@ -43,11 +50,27 @@ function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   }
 }
 
+function esTipoFiscalUi(tipo: FacturaTipo): boolean {
+  return tipo === "factura_fiscal" || tipo === "nota_credito";
+}
+
+type Props = {
+  esEditor: boolean;
+  ptoVtas: FacturaPtoVtaOpcion[];
+  condicionesIva: PtoVentasCodArcaItem[];
+  originalesNc: { id: string; label: string }[];
+};
+
 /**
- * Pantalla Crear (Facturación · Factura): cabecera + líneas de remito.
- * Persistencia pendiente; estado local únicamente.
+ * Pantalla Crear (Facturación · Factura): cabecera + líneas.
+ * Persiste; `factura_fiscal` / `nota_credito` autorizan CAE vía ARCA.
  */
-export default function FacturaCrearPageClient() {
+export default function FacturaCrearPageClient({
+  esEditor,
+  ptoVtas,
+  condicionesIva,
+  originalesNc,
+}: Props) {
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
   const remitoRef = useRef<FacturaRemitoSnapshot>({
     lineas: [],
@@ -56,8 +79,14 @@ export default function FacturaCrearPageClient() {
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cliente, setCliente] = useState("");
-  const [nroComprobante] = useState("");
+  const [nroComprobante, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
+  const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
+  const [receptorCondicionIva, setReceptorCondicionIva] = useState("5");
+  const [receptorDocTipo, setReceptorDocTipo] = useState("99");
+  const [receptorDocNro, setReceptorDocNro] = useState("0");
+  const [cbteAsocId, setCbteAsocId] = useState("");
+  const [pending, setPending] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
@@ -66,22 +95,75 @@ export default function FacturaCrearPageClient() {
     remitoRef.current = snapshot;
   }, []);
 
-  function abrirGenerarComprobante() {
+  const fiscal = esTipoFiscalUi(tipo);
+
+  async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
     if (lineas.length === 0) {
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
-    setComprobantePdf({
-      tipo,
-      fechaIso,
-      cliente,
-      nroComprobante,
-      comentarios,
-      lineas,
-      descuento,
-    });
-    setComprobanteModalOpen(true);
+    if (!esEditor) {
+      toast.error("Solo el modo editor puede emitir comprobantes.");
+      return;
+    }
+    if (!ptoVtaId) {
+      toast.error("Seleccioná un punto de venta.");
+      return;
+    }
+    if (!cliente.trim()) {
+      toast.error("Ingresá el cliente.");
+      return;
+    }
+    setPending(true);
+    try {
+      const pctGlobal = porcentajeDescuentoGlobal(lineas, descuento);
+      const res = await emitirFacturaComprobanteAction({
+        fechaIso,
+        tipo,
+        cliente,
+        comentarios,
+        ptoVtaId,
+        receptorDocTipo: fiscal ? Number(receptorDocTipo) : undefined,
+        receptorDocNro: fiscal ? receptorDocNro : undefined,
+        receptorCondicionIva: fiscal ? Number(receptorCondicionIva) : undefined,
+        cbteAsocId: tipo === "nota_credito" && cbteAsocId ? cbteAsocId : undefined,
+        lineas: lineas.map((l) => ({
+          codTienda: l.codTienda,
+          descripcion: l.descripcion,
+          cantidad: l.cantidad,
+          pxLista: l.pxLista,
+          descuentoPct: porcentajeDescuentoLinea(l, pctGlobal),
+          comentario: l.comentario,
+        })),
+        descuento,
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setNroComprobante(res.data.nroComprobante);
+      if (res.data.cae) {
+        toast.success(`CAE ${res.data.cae}`);
+      } else {
+        toast.success("Comprobante guardado.");
+      }
+      setComprobantePdf({
+        tipo,
+        fechaIso,
+        cliente,
+        nroComprobante: res.data.nroComprobante,
+        comentarios,
+        lineas,
+        descuento,
+        cae: res.data.cae,
+        caeVtoIso: res.data.caeVtoIso,
+        letra: res.data.letra,
+      });
+      setComprobanteModalOpen(true);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -94,13 +176,14 @@ export default function FacturaCrearPageClient() {
           type="button"
           variant="default"
           label="Generar Comprobante"
+          loadingLabel="Emitiendo…"
+          loading={pending}
           icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
-          onClick={abrirGenerarComprobante}
+          onClick={() => void abrirGenerarComprobante()}
         />
       }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
-        {/* Cabecera del comprobante */}
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="grid grid-cols-5 gap-4">
             <label className="flex min-w-0 flex-col gap-1">
@@ -169,7 +252,7 @@ export default function FacturaCrearPageClient() {
               <Input
                 type="text"
                 value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
+                onChange={(e) => setCliente(e.target.value.toLocaleUpperCase("es-AR"))}
                 placeholder="Nombre del cliente"
                 autoComplete="off"
                 aria-label="Cliente"
@@ -200,9 +283,115 @@ export default function FacturaCrearPageClient() {
               />
             </label>
           </div>
+
+          {fiscal ? (
+            <div className="mt-4 grid grid-cols-5 gap-4">
+              <label className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="Punto de venta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ptoVtas.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.ptoVenta} — {p.nombreTitular}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+
+              <label className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>COND. IVA RECEPTOR</ModalMicroLabel>
+                <Select
+                  value={receptorCondicionIva}
+                  onValueChange={setReceptorCondicionIva}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {condicionesIva
+                      .filter((c) => c.activo)
+                      .map((c) => (
+                        <SelectItem key={c.codigo} value={String(c.codigo)}>
+                          {c.codigo} — {etiquetaCondicionIvaArca(c.descripcion)}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </label>
+
+              <label className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>TIPO DOC.</ModalMicroLabel>
+                <Select value={receptorDocTipo} onValueChange={setReceptorDocTipo}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FACTURA_DOC_TIPO_OPTIONS.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+
+              <label className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>NRO. DOC.</ModalMicroLabel>
+                <Input
+                  type="text"
+                  value={receptorDocNro}
+                  onChange={(e) => setReceptorDocNro(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                  className="tabular-nums"
+                  autoComplete="off"
+                  aria-label="Número de documento del receptor"
+                />
+              </label>
+
+              {tipo === "nota_credito" ? (
+                <label className="flex min-w-0 flex-col gap-1">
+                  <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
+                  <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="Original con CAE" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {originalesNc.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              ) : (
+                <div />
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-5 gap-4">
+              <label className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="Punto de venta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ptoVtas.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.ptoVenta} — {p.nombreTitular}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+          )}
         </div>
 
-        {/* Segundo bloque: buscador + tabla remito (scroll interno, thead sticky) */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
           <FacturaCrearLineasBlock onRemitoChange={handleRemitoChange} />
         </div>

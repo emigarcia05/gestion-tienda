@@ -1,12 +1,20 @@
 import { z } from "zod";
 import { FACTURA_TIPOS } from "@/lib/factura";
+import { prismaCuidSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
-/** Cabecera de Crear factura (UI local; aún sin Action de persistencia). */
+const isoYmdSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.")
+  .refine((s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  }, "Fecha de calendario inválida.");
+
+/** Cabecera de Crear factura (UI). */
 export const facturaCrearCabeceraSchema = z.object({
-  fechaIso: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida."),
+  fechaIso: isoYmdSchema,
   tipo: z.enum(FACTURA_TIPOS, "Elegí el tipo de factura."),
   cliente: z.string().trim().max(200, "El cliente es demasiado largo."),
   /** Solo lectura en UI; vacío hasta numeración automática. */
@@ -31,3 +39,74 @@ export const buscarProductosFacturaSchema = z.object({
 });
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
+
+const facturaLineaEmitirSchema = z.object({
+  codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
+  descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),
+  cantidad: z.number().positive("La cantidad debe ser mayor a 0.").max(1_000_000),
+  pxLista: z.number().nonnegative("El precio no puede ser negativo.").max(1_000_000_000),
+  descuentoPct: z.number().min(0).max(100),
+  comentario: z.string().trim().max(2000).optional().default(""),
+  alicuotaIva: z.number().min(0).max(27).optional(),
+});
+
+const descuentoEmitirSchema = z
+  .object({
+    fuente: z.enum(["porcentaje", "total_fac"]),
+    porcentaje: z.number().min(0).max(100),
+    totalFacObjetivo: z.number().nonnegative().nullable(),
+  })
+  .nullable();
+
+export const emitirFacturaComprobanteSchema = z
+  .object({
+    fechaIso: isoYmdSchema,
+    tipo: z.enum(FACTURA_TIPOS, "Elegí el tipo de factura."),
+    cliente: z
+      .string()
+      .trim()
+      .min(1, "Ingresá el cliente.")
+      .max(200, "El cliente es demasiado largo."),
+    comentarios: z.string().trim().max(5000).optional().default(""),
+    ptoVtaId: prismaCuidSchema,
+    receptorDocTipo: z.number().int().positive().optional(),
+    receptorDocNro: z.string().trim().max(20).optional(),
+    receptorCondicionIva: z.number().int().positive().optional(),
+    cbteAsocId: prismaCuidSchema.optional(),
+    lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
+    descuento: descuentoEmitirSchema.optional().default(null),
+  })
+  .superRefine((data, ctx) => {
+    const fiscal = data.tipo === "factura_fiscal" || data.tipo === "nota_credito";
+    if (fiscal) {
+      if (data.receptorCondicionIva == null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["receptorCondicionIva"],
+          message: "Seleccioná la condición IVA del receptor.",
+        });
+      }
+      if (data.receptorDocTipo == null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["receptorDocTipo"],
+          message: "Seleccioná el tipo de documento del receptor.",
+        });
+      }
+    }
+    if (data.tipo === "nota_credito" && !data.cbteAsocId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cbteAsocId"],
+        message: "La nota de crédito requiere el comprobante original autorizado.",
+      });
+    }
+  });
+
+export type EmitirFacturaComprobanteInput = z.infer<typeof emitirFacturaComprobanteSchema>;
+
+export const facturaComprobanteIdSchema = z.object({
+  id: prismaCuidSchema,
+});
+
+export type FacturaComprobanteIdInput = z.infer<typeof facturaComprobanteIdSchema>;

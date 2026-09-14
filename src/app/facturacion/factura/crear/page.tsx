@@ -3,6 +3,11 @@ import FacturaCrearPageClient from "@/components/facturacion/FacturaCrearPageCli
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
+import { listarPtoVentasCodArca } from "@/services/globalPtoVtas.service";
+import {
+  listarFacturaPtoVtasActivos,
+  listarFacturasAutorizadasParaNc,
+} from "@/services/facturaComprobantes.service";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +17,20 @@ export default async function FacturaCrearPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
+  const [ptoVtas, condicionesIva, originalesNc] = await Promise.all([
+    listarFacturaPtoVtasActivos(),
+    listarPtoVentasCodArca(),
+    listarFacturasAutorizadasParaNc(),
+  ]);
+
   return (
     <div className="area-page-shell">
-      <FacturaCrearPageClient />
+      <FacturaCrearPageClient
+        esEditor={rol === "editor"}
+        ptoVtas={ptoVtas}
+        condicionesIva={condicionesIva}
+        originalesNc={originalesNc}
+      />
     </div>
   );
 }

@@ -94,6 +94,8 @@ function canonicalGestionProductosRewrites(): { source: string; destination: str
 }
 
 const nextConfig: NextConfig = {
+  /** PKCS#7 (WSAA) y XML SOAP no se bundlean con el cliente. */
+  serverExternalPackages: ["node-forge"],
   /** Worker de pdfjs-dist en el bundle serverless (Vercel). Ver `@/lib/pdfjsServerLoad`. */
   outputFileTracingIncludes: {
     "/api/parse-lista-precios-pdf": [

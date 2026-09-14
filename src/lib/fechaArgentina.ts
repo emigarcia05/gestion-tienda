@@ -104,6 +104,49 @@ export function formatDdMmYyHhMmNombreArchivoArgentina(d: Date): string {
 }
 
 /**
+ * Partes de una fecha calendario `YYYY-MM-DD` (sin hora). Null si el texto no es un día gregoriano válido.
+ * Usar en payloads de facturación / ARCA; no interpretar TZ del runtime.
+ */
+export function parseIsoYmdParts(
+  isoYmd: string
+): { y: number; m: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoYmd.trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return { y, m: mo, d };
+}
+
+/** Medianoche+12h UTC para persistir columnas Prisma `@db.Date` desde `YYYY-MM-DD`. */
+export function prismaDateOnlyFromIsoYmd(isoYmd: string): Date | null {
+  const p = parseIsoYmdParts(isoYmd);
+  if (!p) return null;
+  return new Date(Date.UTC(p.y, p.m - 1, p.d, 12, 0, 0));
+}
+
+/** `YYYY-MM-DD` → `YYYYMMDD` (CbteFch / CAEFchVto ARCA). */
+export function isoYmdToYyyymmdd(isoYmd: string): string | null {
+  const p = parseIsoYmdParts(isoYmd);
+  if (!p) return null;
+  return `${p.y}${String(p.m).padStart(2, "0")}${String(p.d).padStart(2, "0")}`;
+}
+
+/** `YYYYMMDD` ARCA → `YYYY-MM-DD`. */
+export function yyyymmddToIsoYmd(yyyymmdd: string): string | null {
+  const t = yyyymmdd.trim();
+  if (!/^\d{8}$/.test(t)) return null;
+  return parseIsoYmdParts(`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`)
+    ? `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`
+    : null;
+}
+
+/**
  * Calendario gregoriano en Argentina a partir de un instante UTC (p. ej. `generadoAt` de Prisma).
  * `YYYY-MM-DD` para inputs `type="date"` y exportaciones DUX.
  */

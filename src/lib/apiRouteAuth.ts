@@ -101,3 +101,15 @@ export async function guardIndicadorSlidenavLectura(): Promise<NextResponse | nu
   }
   return null;
 }
+
+/** Health ARCA (`FEDummy`): mismo gate que emitir CAE (módulo + editor). */
+export async function guardFacturacionEditor(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.facturacion.acceso)) {
+    return NextResponse.json({ ok: false, error: "Sin permisos para facturación." }, { status: 403 });
+  }
+  if (!(await esEditor())) {
+    return NextResponse.json({ ok: false, error: "Sin permisos de editor." }, { status: 403 });
+  }
+  return null;
+}

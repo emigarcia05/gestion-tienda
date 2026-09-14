@@ -11,6 +11,7 @@ import {
   imprimirPdfFacturaComprobante,
   imprimirYDescargarPdfFacturaComprobante,
 } from "@/lib/facturaComprobantePdfClient";
+import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 
 export type FacturaGenerarComprobanteAccion =
@@ -87,6 +88,22 @@ export default function FacturaGenerarComprobanteModal({
         }
       >
         <div className="flex flex-col gap-2">
+          {comprobante?.cae ? (
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <p className="font-semibold tabular-nums">
+                CAE: {comprobante.cae}
+              </p>
+              <p className="tabular-nums">
+                N°: {comprobante.nroComprobante.trim() || "—"}
+              </p>
+              <p>
+                Vto. CAE:{" "}
+                {comprobante.caeVtoIso
+                  ? formatIsoYmdDdMmYyyyArgentina(comprobante.caeVtoIso)
+                  : "—"}
+              </p>
+            </div>
+          ) : null}
           <Button
             type="button"
             variant="default"

@@ -210,7 +210,7 @@ Esquemas en `src/lib/validations/<dominio>.ts`. Comunes en `@/lib/validations/co
 | `requireEditorFacturacion` / `requireFacturacionLectura` | idem |
 | `requireEditorEstadisticas` / `requireEstadisticasLectura` | idem |
 | `requireEditorAsistenteIa` / `requireAsistenteIaLectura` | idem |
-| `guardTiendaListaPreciosSincronizar`, `guardFinanzasLectura`, `guardFinanzasEditor`, `guardCompetenciaPreciosSyncEsEditor`, `guardListaPreciosImportarEsEditor`, `guardEstPorProdImportarEsEditor`, `guardPedidosLectura`, `guardIndicadorSlidenavLectura` | `@/lib/apiRouteAuth.ts` |
+| `guardTiendaListaPreciosSincronizar`, `guardFinanzasLectura`, `guardFinanzasEditor`, `guardCompetenciaPreciosSyncEsEditor`, `guardListaPreciosImportarEsEditor`, `guardEstPorProdImportarEsEditor`, `guardPedidosLectura`, `guardIndicadorSlidenavLectura`, `guardFacturacionEditor` | `@/lib/apiRouteAuth.ts` |
 
 GET de estado y POST del mismo job: **mismo guard**.
 
@@ -350,7 +350,9 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 Única entrada: `GET`/`POST /api/sync-lista-precios-tienda` + `…/status` + `…/cancel`. Guard `guardTiendaListaPreciosSincronizar`. Pasos reanudables: `syncListaPrecioTiendaRunStep` + estado `sync_dux_status`. Cancelación cooperativa (`running = false`); **no** actualiza `last_completed_at`. Cliente encadena POST con `continuing: true` (reintenta red hasta 3 veces). Persistencia por chunks; el upsert escribe `last_sync` en alta y en update. **Paginación:** `hasMore` si la página viene llena (50) o `offset+len < paging.total`; no cortar cuando `paging.total` es 0. **Catálogo completo:** `total > 0` y `processed >= total` (si DUX dice 2156 y se cortó en 1980, la sync **no** está completa). **Limpieza (ausentes, huérfanos, listas no vistas, depósitos no vistos) y `last_completed_at`:** solo si es **exitosa y completa** (`syncDuxPermiteLimpiezaCatalogo`: completo y `errores.length === 0`). Si incompleta o con error, no se borra nada del catálogo. Al finalizar de verdad: borra `prod_tienda` con `last_sync` anterior a `started_at` (`processed > 0`). Antes del delete, `est_por_prod` (FK Restrict); hijas Cascade/SetNull. Luego `limpiarHuerfanosProdTienda`. El upsert **no** escribe `prod_tienda.bulto`.
 
-Otras APIs: import lista, parse PDF, sync competencia, import/borrar `est_por_prod`, detalle historial pedidos, PDF comprobante de envíos (`GET /api/envios/[id]/comprobante`), sync remitos de venta Fact & Cobros (`POST /api/sync-facturas-ventas-dux`), sync cobros DUX (`POST /api/sync-cobros-dux`). Todas con guard en `apiRouteAuth` (o el mismo criterio).
+Otras APIs: import lista, parse PDF, sync competencia, import/borrar `est_por_prod`, detalle historial pedidos, PDF comprobante de envíos (`GET /api/envios/[id]/comprobante`), sync remitos de venta Fact & Cobros (`POST /api/sync-facturas-ventas-dux`), sync cobros DUX (`POST /api/sync-cobros-dux`), health ARCA (`GET /api/arca/health`, `guardFacturacionEditor`, `FEDummy`). Todas con guard en `apiRouteAuth` (o el mismo criterio).
+
+**No** usar DUX para emitir CAE ni numeración fiscal ARCA. `POST /api/sync-facturas-ventas-dux` es inbound de totales a `fin_fact_cobros_pto_vta_mes`.
 
 ### 3.13 Tipos de pintura (`prod_rendimientos`)
 
@@ -358,7 +360,7 @@ Tabla en BD **sin modelo Prisma**. CRUD raw SQL en `tiposPinturaRendimientos.ts`
 
 ### 3.14 Mapa Prisma → SQL (vigente)
 
-Los ~71 modelos de `schema.prisma` están en uso (directo, `tx.` o include). Script: `npm run db:audit-schema`. El script solo cuenta `prisma.<camel>`: `PedidoHistoriaItem`, `ProdPedUltComp`, `MktPublicacionRedLink` se usan vía `tx.` / relaciones.
+Los ~75 modelos de `schema.prisma` están en uso (directo, `tx.` o include). Script: `npm run db:audit-schema`. El script solo cuenta `prisma.<camel>`: `PedidoHistoriaItem`, `ProdPedUltComp`, `MktPublicacionRedLink` se usan vía `tx.` / relaciones.
 
 `prod_rendimientos` no tiene `@@map` en schema (raw SQL, **§3.13**).
 
@@ -377,15 +379,48 @@ Servicios: `clientes.service.ts`, `enviosDirecciones.service.ts`, `enviosFinal.s
 
 ### 3.16 Facturación
 
-Área principal `facturacion` en `MAIN_APP_AREAS` (`requierePassword: false`). URLs `/facturacion/...` (`FACTURACION_ROUTES`). Permiso `PERMISOS.facturacion.acceso` (`simple` + `editor`); gates `requireFacturacionLectura` / `requireEditorFacturacion`.
+Área principal `facturacion` en `MAIN_APP_AREAS` (`requierePassword: false`). URLs `/facturacion/...` (`FACTURACION_ROUTES`). Permiso `PERMISOS.facturacion.acceso` (`simple` + `editor`); gates `requireFacturacionLectura` / `requireEditorFacturacion`. Emitir CAE / NC / consultar ARCA = mutación crítica (módulo + editor; **no** está en excepciones §1.2.3).
 
-Módulo sidenav **FACTURA**: Crear / Facturas / Presupuestos. **Comprobante aún sin persistencia** (cabecera + líneas en estado local). Contrato cabecera Zod: `facturaCrearCabeceraSchema` (`@/lib/validations/factura`) — `fechaIso` YYYY-MM-DD, `tipo` ∈ `FACTURA_TIPOS` (`presupuesto` \| `factura` \| `factura_fiscal` \| `nota_credito`), `cliente` string, `nroComprobante` opcional vacío. Constantes: `@/lib/factura`.
+Módulo sidenav **FACTURA**: Crear / Facturas / Presupuestos.
 
-**Búsqueda de productos (Crear):** Action `buscarProductosFacturaAction` → `buscarProductosParaFactura` (`facturaProductos.service.ts`). Zod `buscarProductosFacturaSchema` (`q` mín. 3 chars + `take` ≤ 10 + `sucursalCodigo` opcional). Tokens de `q` separados por espacio: **AND** de `descripcion_tienda contains` (insensitive). Incluye `pxLista` (**1 - GENERAL**), `stock` (sucursal del usuario o suma si no hay), `stockPorSucursal` (sucursales con `id_deposito`). UI: lista fija; click agrega; lupa → modal stock por sucursal.
+**Persistencia:** `fact_comprobantes` + `fact_comprobante_lineas` + `fact_comprobante_intentos` (IDs CUID). Receptor fiscal = **snapshot** en la cabecera (`receptor_nombre`, `receptor_doc_tipo`, `receptor_doc_nro`, `receptor_condicion_iva` FK a `pto_ventas_cod_arca.codigo`). **No** se unifica con `clientes` de Envios (`CONSUMIDOR_FINAL` | `PINTOR`, sin CUIT). Emisor = `ptos_vtas` (`pto_vta_id` Restrict; `pto_venta` CHAR(5) alineado al entero ARCA).
 
-**Comprobante PDF (Crear, cliente):** `generarPdfFacturaComprobante` (`@/lib/generarPdfFacturaComprobante`) + `facturaComprobantePdfClient` (descarga `descargarPdfBytes`; imprimir = `window.open` + `print`). Nombre: `Cliente - dd-mm-aa - {últimos 4 dígitos N°} - (Comentarios).pdf` (sin comentarios se omite el paréntesis). Sin persistencia aún.
+**Estados:** `borrador` | `autorizado` | `rechazado`. Ambiente `homo` | `prod`. Resultado WSFEv1 `A` | `R` | `P`. Unique parcial SQL `fact_comprobantes_fiscal_nro_key` (`ambiente`, `cbte_tipo`, `pto_venta`, `cbte_nro`) donde hay CAE.
 
-**Descuento (Crear, estado local):** `FacturaDescuentoEstado` en `@/lib/factura` — fuente `porcentaje` (global; al agregar ítem hereda ese %) o `total_fac` (objetivo DESC. TOTAL; al aplicar limpia overrides). UI: botón en pie → `FacturaDescuentoModal`. Al agregar ítem con `total_fac`: `prepararDescuentoAlAgregarLinea` congela el DESC. % PROMEDIO como `porcentaje` y la línea nueva lo hereda. Por línea: `descuentoPctEspecial` (`null` = hereda global). Helpers: `porcentajeDescuentoGlobal`, `porcentajeDescuentoLinea`, `pxConDescuento`, `resumenTotalesFactura`. Columnas DESC. / PX C/ DESC. siempre visibles. Sin persistencia de comprobante aún. Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; CHECK SQL alineado en migración `20260912200000_global_personal_modulos_permitidos_facturacion`).
+**Contrato Zod** (`@/lib/validations/factura`): `facturaCrearCabeceraSchema`, `buscarProductosFacturaSchema`, `emitirFacturaComprobanteSchema` (líneas + descuento + receptor fiscal + `cbteAsocId` si NC), `facturaComprobanteIdSchema`. Constantes: `@/lib/factura`. Reglas A/B/C, CUIT DV, desglose IVA: `@/lib/facturaFiscal`.
+
+**Mapeo tipos locales → WSFEv1 (mercado interno):**
+
+| `tipo_local` | ARCA |
+|--------------|------|
+| `presupuesto` | Solo interno. **Prohibido** WSFEv1. Numeración local por pto + tipo. |
+| `factura` | No fiscal (letra X). **Prohibido** WSFEv1. |
+| `factura_fiscal` | Factura A/B/C: RI→A a RI; B a CF/mono/exento; C si emisor monotributo o exento. `CbteTipo` 1 / 6 / 11. |
+| `nota_credito` | NC A/B/C (`CbteTipo` 3 / 8 / 13) con `CbtesAsoc` al original con CAE. Sin original autorizado, no emitir. Receptor exterior (códigos 8/9) → error (WSFEX fuera de alcance). |
+
+IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (default 21 % → Id 5). C: `ImpIVA = 0`, sin nodo `Iva`. `ImpTotal` = Neto + IVA + no gravado/exento/trib (2 decimales ARS). `CondicionIVAReceptorId` = código `pto_ventas_cod_arca`. CF: `DocTipo` 99 / `DocNro` 0 bajo `ARCA_CF_MAX_SIN_DOC` (default 10_000_000); por encima exigir DNI/CUIT. `FchVtoPago` / servicio solo si `concepto` 2 o 3 (`ptos_vtas.concepto` default `'1'`).
+
+**Cliente SOAP** (`src/lib/arca/`, `import "server-only"`): sin Prisma/Actions/UI. WSAA `LoginCms` (TRA PKCS#7 con `node-forge`, SHA-1) + WSFEv1 (`FEDummy`, `FEParamGetPtosVenta`, `FECompUltimoAutorizado`, `FECAESolicitar`, `FECompConsultar`, params `TiposCbte` / `TiposIva` / `TiposDoc` / `TiposConcepto` / `TiposMonedas`). SOAP = `fetch` + `fast-xml-parser` + Zod/schemas locales. Timeouts `ARCA_TIMEOUT_MS`. Errores `Errors`/`Events` → `ServiceResult` (mensaje usable; **sin** SOAP/PEM/token/sign al cliente ni en logs). `serverExternalPackages`: `node-forge`. Runtime Node.
+
+**URLs oficiales:** WSAA homo `https://wsaahomo.afip.gov.ar/ws/services/LoginCms` / prod `https://wsaa.afip.gov.ar/ws/services/LoginCms`. WSFEv1 homo `https://wswhomo.afip.gov.ar/wsfev1/service.asmx` / prod `https://servicios1.afip.gov.ar/wsfev1/service.asmx`. Default `ARCA_ENV=homo`. Producción exige `ARCA_ENV=prod` + certs de producción (no reutilizar homo).
+
+**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_CUIT`, `ARCA_CERT_PEM`, `ARCA_KEY_PEM`, `ARCA_KEY_PASSPHRASE`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Certificados **solo** desde ENV PEM (no archivos del repo).
+
+**Tickets WSAA:** cache memoria + tabla `arca_wsaa_tickets` (unique `cuit`+`servicio`+`ambiente`). Renovar con margen 10 min. Servicio `arcaAuth.service.ts` (`obtenerAuthWsfe`). Un ticket por CUIT+`wsfe`+ambiente.
+
+**Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT = `ARCA_CUIT`) → receptor → armar `FECAERequest` → persistir borrador + líneas (`$transaction`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Intentos en `fact_comprobante_intentos` (`request_id`, errores JSON/texto, **sin XML completo**).
+
+**Borde:** `emitirFacturaComprobanteAction` / `emitirNotaCreditoFacturaAction` / `consultarFacturaComprobanteArcaAction` (`requireEditorFacturacion` + Zod + `revalidatePath` `/facturacion/factura/*`). Lectura PDF: `obtenerFacturaComprobantePdfAction` (`requireFacturacionLectura`). Health: `GET /api/arca/health` (`guardFacturacionEditor`, `FEDummy`; no expone WSAA). Listados RSC → `listarFacturasComprobantes` / `listarPresupuestosComprobantes`.
+
+**Búsqueda de productos (Crear):** Action `buscarProductosFacturaAction` → `buscarProductosParaFactura` (`facturaProductos.service.ts`). Zod `buscarProductosFacturaSchema` (`q` mín. 3 chars + `take` ≤ 10 + `sucursalCodigo` opcional). Tokens de `q` separados por espacio: **AND** de `descripcion_tienda contains` (insensitive). Incluye `pxLista` (**1 - GENERAL**), `stock` (sucursal del usuario o suma si no hay), `stockPorSucursal` (sucursales con `id_deposito`).
+
+**PDF:** `generarPdfFacturaComprobante` + `facturaComprobantePdfClient`. Si hay CAE, el PDF lo imprime con vencimiento. Nombre: `Cliente - dd-mm-aa - {últimos 4 dígitos N°} - (Comentarios).pdf`.
+
+**Descuento (Crear):** `FacturaDescuentoEstado` en `@/lib/factura` — fuente `porcentaje` o `total_fac`. Helpers: `porcentajeDescuentoGlobal`, `porcentajeDescuentoLinea`, `pxConDescuento`, `resumenTotalesFactura`. Se persiste `desc_pct` / `desc_importe` + % por línea.
+
+Fuera de alcance: WSFEX, WSMTXCA, FCE/MiPyME, padrón A5. No reintroducir import TXT IVA débito AFIP (§5).
+
+Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; CHECK SQL alineado en migración `20260912200000_global_personal_modulos_permitidos_facturacion`). Migración ARCA: `20260914140000_facturacion_arca`.
 
 ---
 

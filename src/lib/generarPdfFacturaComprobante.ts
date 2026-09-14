@@ -29,6 +29,9 @@ export type FacturaComprobantePdfInput = {
   comentarios: string;
   lineas: FacturaLineaLocal[];
   descuento: FacturaDescuentoEstado | null;
+  cae?: string | null;
+  caeVtoIso?: string | null;
+  letra?: string | null;
 };
 
 export function generarPdfFacturaComprobante(
@@ -39,7 +42,10 @@ export function generarPdfFacturaComprobante(
   const contentWidth = pageWidth - 2 * MARGIN;
   let y = MARGIN;
 
-  const titulo = FACTURA_TIPO_LABELS[input.tipo];
+  const letra = input.letra?.trim();
+  const titulo = letra
+    ? `${FACTURA_TIPO_LABELS[input.tipo]} ${letra}`
+    : FACTURA_TIPO_LABELS[input.tipo];
   doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -188,6 +194,23 @@ export function generarPdfFacturaComprobante(
   doc.text(`DESC. $: $${fmtPrecio(resumen.descPesos)}`, MARGIN, y);
   y += 5;
   doc.text(`TOTAL C/ DESC.: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN, y);
+
+  const cae = input.cae?.trim();
+  if (cae) {
+    y += 8;
+    if (y > 270) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`CAE: ${cae}`, MARGIN, y);
+    y += 5;
+    const vto = input.caeVtoIso
+      ? formatIsoYmdDdMmYyyyArgentina(input.caeVtoIso)
+      : "—";
+    doc.text(`Vto. CAE: ${vto}`, MARGIN, y);
+  }
 
   const buf = doc.output("arraybuffer");
   return new Uint8Array(

@@ -298,6 +298,14 @@ Objetivo:
 
 ---
 
+## 6 — Especialista ARCA (ex AFIP) — facturación electrónica
+
+Uso: pegar el archivo [`arca_afip_promp.md`](./arca_afip_promp.md) en un chat nuevo (Agent). Completar `Objetivo`.
+
+Emite comprobantes fiscales **desde este sistema** vía WSAA + WSFEv1 (homologación primero). No usa DUX como motor de CAE. Respeta Actions/servicios/Prisma, gates `requireEditorFacturacion` y el módulo `/facturacion` ya existente (hoy sin persistencia).
+
+---
+
 ## Uso rápido
 
 Abrí el archivo del agente → **Ctrl+A** → **Ctrl+C** → pegá en un chat nuevo (Agent) → completá `Módulo/ruta` y `Objetivo`.
@@ -307,6 +315,7 @@ Abrí el archivo del agente → **Ctrl+A** → **Ctrl+C** → pegá en un chat n
 | FullStack | [`fullstack_promp.md`](./fullstack_promp.md) | Feature E2E + docs FE y BE |
 | Front | [`front_promp.md`](./front_promp.md) | UI/patrones + `FRONTEND_GUIDELINES` |
 | Back | [`back_promp.md`](./back_promp.md) | Actions/servicios/Prisma + `BACKEND_GUIDELINES` |
+| **ARCA / AFIP** | [`arca_afip_promp.md`](./arca_afip_promp.md) | WSAA + WSFEv1, CAE, persistencia fiscal |
 | Auditoría (campaña) | [`auditoria/`](./auditoria/) **1. → 12.** en orden | Front+Back por módulo; el 12 solo docs |
 | Auditoría puntual | [`auditoria_promp.md`](./auditoria_promp.md) | Un PR/carpeta contra guías |
 | Auditor BackEnd (legado) | [`auditoria_back_promp.md`](./auditoria_back_promp.md) | Preferir lotes 1–11 de la campaña |

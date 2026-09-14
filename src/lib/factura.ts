@@ -1,6 +1,6 @@
 /**
  * Constantes del módulo Factura (área Facturación).
- * Sin persistencia de comprobante aún: UI de alta (Crear) + búsqueda de ítems.
+ * Persistencia en `fact_comprobantes`; fiscal vía WSAA + WSFEv1.
  */
 
 export const FACTURA_TIPOS = [
@@ -35,7 +35,52 @@ export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 
-/** Línea local del remito en Crear (aún sin persistencia). */
+export const FACTURA_DOC_TIPO_OPTIONS = [
+  { id: 80, label: "CUIT" },
+  { id: 86, label: "CUIL" },
+  { id: 96, label: "DNI" },
+  { id: 99, label: "CONSUMIDOR FINAL" },
+] as const;
+
+export type FacturaComprobanteEstado = "borrador" | "autorizado" | "rechazado";
+
+export type FacturaComprobanteListItem = {
+  id: string;
+  tipo: FacturaTipo;
+  letra: string | null;
+  fechaIso: string;
+  nroComprobante: string;
+  cliente: string;
+  impTotal: number;
+  cae: string | null;
+  caeVtoIso: string | null;
+  resultado: string | null;
+  estado: FacturaComprobanteEstado;
+  ambiente: string;
+  puedeNc: boolean;
+};
+
+export type FacturaPtoVtaOpcion = {
+  id: string;
+  ptoVenta: string;
+  nombreTitular: string;
+  cuit: string | null;
+  condicionIva: number | null;
+  condicionIvaDescripcion: string | null;
+};
+
+export type FacturaEmitirResultado = {
+  id: string;
+  nroComprobante: string;
+  cae: string | null;
+  caeVtoIso: string | null;
+  resultado: string | null;
+  estado: FacturaComprobanteEstado;
+  tipo: FacturaTipo;
+  letra: string | null;
+};
+
+/** Línea local del remito en Crear. */
 export type FacturaLineaLocal = {
   /** Clave estable en la grilla (permite el mismo cod en varias filas). */
   key: string;

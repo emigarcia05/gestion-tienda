@@ -1,23 +1,27 @@
 import { redirect } from "next/navigation";
-import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import FacturaListadoPageClient from "@/components/facturacion/FacturaListadoPageClient";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
+import { listarFacturasComprobantes } from "@/services/facturaComprobantes.service";
 
 export const dynamic = "force-dynamic";
 
-/** Placeholder: listado de facturas (aún sin datos). */
 export default async function FacturaFacturasPage() {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.facturacion.acceso)) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
+  const items = await listarFacturasComprobantes();
+
   return (
     <div className="area-page-shell">
-      <ClassicFilteredTableLayout title="FACTURA" subtitle="Facturas" contentWidth="full">
-        <div className="min-h-0 flex-1" aria-hidden />
-      </ClassicFilteredTableLayout>
+      <FacturaListadoPageClient
+        items={items}
+        esEditor={rol === "editor"}
+        variant="facturas"
+      />
     </div>
   );
 }
