@@ -36,7 +36,11 @@ export function firmarTraCms(
     digestAlgorithm: forge.pki.oids.sha1,
     authenticatedAttributes: [
       { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
-      { type: forge.pki.oids.signingTime, value: new Date() },
+      {
+        type: forge.pki.oids.signingTime,
+        // @types/node-forge declara `value: string`; en runtime PKCS#7 espera Date → UTCTime.
+        value: new Date() as unknown as string,
+      },
       { type: forge.pki.oids.messageDigest, value: "" },
     ],
   });
