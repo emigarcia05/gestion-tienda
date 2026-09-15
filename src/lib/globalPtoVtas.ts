@@ -33,6 +33,15 @@ export function etiquetaCondicionIvaArca(descripcion: string): string {
   return descripcion.trim().toLocaleUpperCase("es-AR");
 }
 
+/** IIBB de listado: cuenta/convenio + sufijo MULT. si es multilateral. */
+export function etiquetaIibbPtoVta(item: GlobalPtoVtaItem): string {
+  const cuenta = (item.iiBb ?? "").trim();
+  if (item.iiBbMultilateral) {
+    return cuenta ? `${cuenta} · MULT.` : "MULT.";
+  }
+  return cuenta;
+}
+
 /** Opciones del Select: activas + el código ya persistido si quedó inactivo. */
 export function opcionesCondicionIvaArca(
   catalogo: readonly PtoVentasCodArcaItem[],
