@@ -61,7 +61,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 #### 1.2.1 Sesión (`src/lib/sesion.ts`)
 
 - **iron-session** vía `getSesion()`, `getRol()`, `esEditor()`.
-- Roles: `"simple"` | `"editor"`. El editor se activa con `activarModoEditor` (`clave` Zod `z.string().min(1).max(500)` vs `ADMINISTRADOR_PASSWORD`; alias legado `EDITOR_PASSWORD`). Única Action de sesión. No hay “volver a simple”: cookie de arranque `tienda-app-arranque` (sin `maxAge`) + middleware fuerzan `simple` al reabrir el navegador. Rutas `/api/*` fuera del matcher del middleware.
+- Roles: `"simple"` | `"editor"`. El editor se activa con `activarModoEditor` (`clave` Zod `z.string().min(1).max(500)` vs `ADMINISTRADOR_PASSWORD`). Única Action de sesión. No hay “volver a simple”: cookie de arranque `tienda-app-arranque` (sin `maxAge`) + middleware fuerzan `simple` al reabrir el navegador. Rutas `/api/*` fuera del matcher del middleware.
 - Usuario de pestaña: `sessionStorage` (`main-app-usuario-sesion`); **no** se persiste en iron-session ni BD. Sucursal preferida se copia de `global_personal.sucursal_por_defecto`. **Excepción:** Envios · Conductor no monta el slidenav; no exige usuario de pestaña (solo `PERMISOS.envios.acceso` + rol iron-session).
 - `getRol()` ante cookie inválida: `"simple"` + log `[sesion][getRol]` (no tumbar el layout).
 
