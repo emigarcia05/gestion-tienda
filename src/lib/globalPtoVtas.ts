@@ -33,6 +33,14 @@ export function etiquetaCondicionIvaArca(descripcion: string): string {
   return descripcion.trim().toLocaleUpperCase("es-AR");
 }
 
+export function etiquetaConvMultilateral(multilateral: boolean): "SI" | "NO" {
+  return multilateral ? "SI" : "NO";
+}
+
+export function etiquetaSucursalesPtoVta(item: GlobalPtoVtaItem): string {
+  return item.sucursales.map((s) => s.nombre).join(", ");
+}
+
 /** Opciones del Select: activas + el código ya persistido si quedó inactivo. */
 export function opcionesCondicionIvaArca(
   catalogo: readonly PtoVentasCodArcaItem[],
