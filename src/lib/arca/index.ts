@@ -5,6 +5,7 @@ export {
   arcaCertificadosConfigurados,
   leerArcaConexion,
   leerArcaEnv,
+  nombresPemPorCuit,
   topeCfSinDocDesdeEnv,
   urlWsaa,
   urlWsfev1,

@@ -30,7 +30,8 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtCelda } from "@/lib/format";
 import {
-  etiquetaIibbPtoVta,
+  etiquetaConvMultilateral,
+  etiquetaSucursalesPtoVta,
   type GlobalPtoVtaItem,
   type GlobalPtoVtaSucursalOption,
   type PtoVentasCodArcaItem,
@@ -76,8 +77,10 @@ export default function PtosVtasPageClient({
         [
           item.ptoVenta,
           item.nombreTitular,
+          etiquetaSucursalesPtoVta(item),
           item.cuit ?? "",
-          etiquetaIibbPtoVta(item),
+          item.iiBb ?? "",
+          etiquetaConvMultilateral(item.iiBbMultilateral),
           item.domicilioComercial ?? "",
           item.inicioActividades
             ? formatIsoYmdDdMmYyyyArgentina(item.inicioActividades)
@@ -120,7 +123,7 @@ export default function PtosVtasPageClient({
     }
   }
 
-  const colSpan = esEditor ? 7 : 6;
+  const colSpan = esEditor ? 9 : 8;
 
   return (
     <>
@@ -144,7 +147,7 @@ export default function PtosVtasPageClient({
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-ptos-vtas-busqueda"
-                  placeholder="BUSCAR POR N°, TITULAR, CUIT, IIBB O DOMICILIO..."
+                  placeholder="BUSCAR POR N°, TITULAR, SUC., CUIT, IIBB O DOMICILIO..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -163,20 +166,24 @@ export default function PtosVtasPageClient({
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
+              <col className="w-[8%]" />
+              <col className="w-[16%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
               <col className="w-[10%]" />
-              <col className="w-[18%]" />
-              <col className="w-[12%]" />
-              <col className="w-[14%]" />
-              <col className={esEditor ? "w-[22%]" : "w-[28%]"} />
-              <col className="w-[12%]" />
-              {esEditor ? <col className="w-[12%]" /> : null}
+              <col className="w-[8%]" />
+              <col className={esEditor ? "w-[17%]" : "w-[23%]"} />
+              <col className="w-[10%]" />
+              {esEditor ? <col className="w-[8%]" /> : null}
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-center">N° PUNTO</TableHead>
                 <TableHead>TITULAR</TableHead>
+                <TableHead>SUC. ASOCIADAS</TableHead>
                 <TableHead className="text-center">CUIT</TableHead>
-                <TableHead>IIBB</TableHead>
+                <TableHead className="text-center">IIBB</TableHead>
+                <TableHead className="text-center">CONV. MULT.</TableHead>
                 <TableHead>DOM. COMERCIAL</TableHead>
                 <TableHead className="text-center">INICIO ACT.</TableHead>
                 {esEditor ? (
@@ -205,11 +212,17 @@ export default function PtosVtasPageClient({
                     <TableCell className="celda-datos uppercase">
                       {item.nombreTitular}
                     </TableCell>
+                    <TableCell className="celda-datos uppercase">
+                      {fmtCelda(etiquetaSucursalesPtoVta(item))}
+                    </TableCell>
                     <TableCell className="celda-datos text-center tabular-nums">
                       {fmtCelda(item.cuit)}
                     </TableCell>
-                    <TableCell className="celda-datos">
-                      {fmtCelda(etiquetaIibbPtoVta(item))}
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {fmtCelda(item.iiBb)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      {etiquetaConvMultilateral(item.iiBbMultilateral)}
                     </TableCell>
                     <TableCell className="celda-datos uppercase">
                       {fmtCelda(item.domicilioComercial)}

@@ -665,7 +665,10 @@ async function emitirFiscal(args: {
     receptorCondicionIva: number | null;
   } | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
-  const authRes = await obtenerAuthWsfe(args.pto.cuit);
+  const authRes = await obtenerAuthWsfe({
+    ptoVenta: args.pto.ptoVenta,
+    cuitEmisor: args.pto.cuit,
+  });
   if (!authRes.success) return authRes;
   const auth = authRes.data;
   if (args.pto.cuit && args.pto.cuit !== auth.cuit) {
@@ -952,7 +955,10 @@ export async function consultarFacturaComprobanteArca(
   if (row.cae) {
     return { success: true, data: emitirResultadoDesdeRow(row) };
   }
-  const authRes = await obtenerAuthWsfe(row.ptoVta.cuit);
+  const authRes = await obtenerAuthWsfe({
+    ptoVenta: row.ptoVenta,
+    cuitEmisor: row.ptoVta.cuit,
+  });
   if (!authRes.success) return authRes;
   const consultado = await wsfeCompConsultar(
     authRes.data,

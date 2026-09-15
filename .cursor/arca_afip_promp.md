@@ -47,7 +47,7 @@ Fuera de alcance salvo pedido explícito: WSFEX (exportación), WSMTXCA, WSFE co
 ARQUITECTURA OBLIGATORIA
 Capa 1 — Cliente SOAP aislado (`src/lib/arca/`):
 - WSAA + WSFEv1. Sin Prisma, sin Actions, sin UI. Tipado estricto de XML/SOAP (parsear con Zod o schemas locales; nunca `any`)
-- Certificados **solo** desde ENV PEM (`ARCA_CERT_PEM`, `ARCA_KEY_PEM`, `ARCA_CUIT`, `ARCA_ENV=homo|prod`). Opcional passphrase. No leer archivos del repo. No loguear PEM, token ni sign
+- Certificados **solo** desde ENV PEM (`ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}`; fallback `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`; `ARCA_ENV=homo|prod`). Mismo CUIT = mismas variables para todos los pto. vta. Opcional passphrase. No leer archivos del repo. No loguear PEM, token ni sign
 - Librería SOAP: preferir paquete Node mantenido compatible con App Router; declarar `serverExternalPackages` en `next.config.ts` si hace falta. Si se evalúa un SDK tipo afipsdk, justificar y encapsularlo detrás de nuestra interfaz (podemos reemplazarlo)
 - Runtime Node (no Edge). Timeouts explícitos. Errores ARCA (`Errors`/`Events` de WSFEv1) mapeados a `ServiceResult` con mensaje usable, sin SOAP crudo al cliente
 

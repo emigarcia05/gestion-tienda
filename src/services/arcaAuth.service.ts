@@ -30,12 +30,16 @@ function vigente(expiration: Date, now: Date): boolean {
  * Ticket WSAA (token+sign) cacheado en memoria + `arca_wsaa_tickets`.
  * Nunca devolver token/sign a Actions/UI.
  */
-export async function obtenerAuthWsfe(
-  cuitEmisor?: string | null
-): Promise<
+export async function obtenerAuthWsfe(args: {
+  ptoVenta: string;
+  cuitEmisor?: string | null;
+}): Promise<
   ServiceResult<{ token: string; sign: string; cuit: string; ambiente: "homo" | "prod" }>
 > {
-  const env = leerArcaEnv({ cuitFallback: cuitEmisor });
+  const env = leerArcaEnv({
+    ptoVenta: args.ptoVenta,
+    cuitFallback: args.cuitEmisor,
+  });
   if ("error" in env) {
     return { success: false, error: env.error };
   }

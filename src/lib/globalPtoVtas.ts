@@ -33,13 +33,12 @@ export function etiquetaCondicionIvaArca(descripcion: string): string {
   return descripcion.trim().toLocaleUpperCase("es-AR");
 }
 
-/** IIBB de listado: cuenta/convenio + sufijo MULT. si es multilateral. */
-export function etiquetaIibbPtoVta(item: GlobalPtoVtaItem): string {
-  const cuenta = (item.iiBb ?? "").trim();
-  if (item.iiBbMultilateral) {
-    return cuenta ? `${cuenta} · MULT.` : "MULT.";
-  }
-  return cuenta;
+export function etiquetaConvMultilateral(multilateral: boolean): "SI" | "NO" {
+  return multilateral ? "SI" : "NO";
+}
+
+export function etiquetaSucursalesPtoVta(item: GlobalPtoVtaItem): string {
+  return item.sucursales.map((s) => s.nombre).join(", ");
 }
 
 /** Opciones del Select: activas + el código ya persistido si quedó inactivo. */
