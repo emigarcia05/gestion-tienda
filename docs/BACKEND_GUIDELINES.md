@@ -409,6 +409,15 @@ IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (defaul
 
 **ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_CUIT`, `ARCA_CERT_PEM`, `ARCA_KEY_PEM`, `ARCA_KEY_PASSPHRASE`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Certificados **solo** desde ENV PEM (no archivos del repo). `ARCA_CUIT` es opcional: si falta, se usa el CUIT del certificado (subject) o `ptos_vtas.cuit`. Si está, debe coincidir. El CUIT en BD **no** reemplaza el PEM: sin `ARCA_CERT_PEM` / `ARCA_KEY_PEM` no hay CAE.
 
+**Cargar certificado (homologación primero):** el emisor obtiene el certificado WSAA en ARCA (ex AFIP) para el CUIT de `ptos_vtas`. No usar el de producción con `ARCA_ENV=homo`. Convertir a PEM (nunca commitear `.crt` / `.key` / `.p12`):
+
+```bash
+openssl pkcs12 -in cert.p12 -clcerts -nokeys -out cert.pem
+openssl pkcs12 -in cert.p12 -nocerts -nodes -out key.pem
+```
+
+Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM` (`BEGIN CERTIFICATE`) y la clave → `ARCA_KEY_PEM` (`BEGIN PRIVATE KEY` o `BEGIN RSA PRIVATE KEY`). En Vercel → Settings → Environment Variables (Preview y Production del branch): `ARCA_ENV=homo`, `ARCA_CUIT`, `ARCA_CERT_PEM`, `ARCA_KEY_PEM`. PEM multilínea: una sola línea con `\n` literales (el runtime los convierte). Después **Redeploy**. Local: mismas claves en `.env` y reiniciar `next dev`. No pegar PEM en el chat ni en esta guía.
+
 **Tickets WSAA:** cache memoria + tabla `arca_wsaa_tickets` (unique `cuit`+`servicio`+`ambiente`). Renovar con margen 10 min. Servicio `arcaAuth.service.ts` (`obtenerAuthWsfe`). Un ticket por CUIT+`wsfe`+ambiente.
 
 **Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT alineado a certificado / `ARCA_CUIT`) → receptor → armar `FECAERequest` → persistir borrador + líneas (`$transaction`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Intentos en `fact_comprobante_intentos` (`request_id`, errores JSON/texto, **sin XML completo**).
