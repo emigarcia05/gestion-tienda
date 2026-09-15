@@ -3,6 +3,7 @@ import "server-only";
 export {
   arcaAmbienteDesdeEnv,
   arcaCertificadosConfigurados,
+  leerArcaConexion,
   leerArcaEnv,
   topeCfSinDocDesdeEnv,
   urlWsaa,

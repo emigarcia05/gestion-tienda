@@ -1,6 +1,7 @@
 import "server-only";
 
 import forge from "node-forge";
+import { esCuitValido } from "@/lib/facturaFiscal";
 
 function assertPrivateKey(
   key: forge.pki.rsa.PrivateKey | null
@@ -35,11 +36,29 @@ export function firmarTraCms(
     digestAlgorithm: forge.pki.oids.sha1,
     authenticatedAttributes: [
       { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
-      { type: forge.pki.oids.signingTime, value: new Date().toISOString() },
+      { type: forge.pki.oids.signingTime, value: new Date() },
       { type: forge.pki.oids.messageDigest, value: "" },
     ],
   });
   p7.sign();
   const der = forge.asn1.toDer(p7.toAsn1()).getBytes();
   return forge.util.encode64(der);
+}
+
+/** CUIT 11 dígitos del subject del certificado AFIP/ARCA (p. ej. serialNumber=CUIT 20…). */
+export function cuitDesdeCertPem(certPem: string): string | null {
+  try {
+    const cert = forge.pki.certificateFromPem(certPem);
+    const partes: string[] = [];
+    for (const attr of cert.subject.attributes) {
+      if (typeof attr.value === "string") partes.push(attr.value);
+    }
+    const matches = partes.join(" ").match(/\d{11}/g) ?? [];
+    for (const d of matches) {
+      if (esCuitValido(d)) return d;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

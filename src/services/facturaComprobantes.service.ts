@@ -665,7 +665,7 @@ async function emitirFiscal(args: {
     receptorCondicionIva: number | null;
   } | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
-  const authRes = await obtenerAuthWsfe();
+  const authRes = await obtenerAuthWsfe(args.pto.cuit);
   if (!authRes.success) return authRes;
   const auth = authRes.data;
   if (args.pto.cuit && args.pto.cuit !== auth.cuit) {
@@ -941,7 +941,10 @@ export async function emitirNotaCreditoDesdeComprobante(
 export async function consultarFacturaComprobanteArca(
   id: string
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
-  const row = await prisma.factComprobante.findUnique({ where: { id } });
+  const row = await prisma.factComprobante.findUnique({
+    where: { id },
+    include: { ptoVta: { select: { cuit: true } } },
+  });
   if (!row) return { success: false, error: "El comprobante no existe." };
   if (!esTipoLocalFiscal(row.tipoLocal) || row.cbteTipo == null || row.cbteNro == null) {
     return { success: false, error: "Ese comprobante no es fiscal ARCA." };
@@ -949,7 +952,7 @@ export async function consultarFacturaComprobanteArca(
   if (row.cae) {
     return { success: true, data: emitirResultadoDesdeRow(row) };
   }
-  const authRes = await obtenerAuthWsfe();
+  const authRes = await obtenerAuthWsfe(row.ptoVta.cuit);
   if (!authRes.success) return authRes;
   const consultado = await wsfeCompConsultar(
     authRes.data,

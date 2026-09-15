@@ -1,6 +1,10 @@
 import "server-only";
 
-import { leerArcaEnv, urlWsfev1, type ArcaEnvConfig } from "@/lib/arca/env";
+import {
+  leerArcaConexion,
+  urlWsfev1,
+  type ArcaConexionConfig,
+} from "@/lib/arca/env";
 import { postSoap } from "@/lib/arca/soap";
 import type {
   WsfeAuth,
@@ -85,7 +89,7 @@ function mensajeErroresArca(errors: WsfeErr[], fallback: string): string {
 }
 
 async function callWsfe(opts: {
-  env: ArcaEnvConfig;
+  env: ArcaConexionConfig;
   method: string;
   inner: string;
 }): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; error: string }> {
@@ -170,7 +174,7 @@ export async function wsfeCompUltimoAutorizado(
   ptoVta: number,
   cbteTipo: number
 ): Promise<{ ok: true; cbteNro: number } | { ok: false; error: string }> {
-  const env = leerArcaEnv();
+  const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const called = await callWsfe({
     env,
@@ -197,7 +201,7 @@ export async function wsfeCaeSolicitar(
   auth: WsfeAuth,
   req: WsfeCaeRequest
 ): Promise<{ ok: true; data: WsfeCaeResult } | { ok: false; error: string }> {
-  const env = leerArcaEnv();
+  const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const d = req.det;
   const inner = `<FECAESolicitar xmlns="${NS}">
@@ -272,7 +276,7 @@ export async function wsfeCompConsultar(
   cbteTipo: number,
   cbteNro: number
 ): Promise<{ ok: true; data: WsfeCompConsultarResult } | { ok: false; error: string }> {
-  const env = leerArcaEnv();
+  const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const called = await callWsfe({
     env,
@@ -313,7 +317,7 @@ export async function wsfeCompConsultar(
 export async function wsfeParamGetPtosVenta(
   auth: WsfeAuth
 ): Promise<{ ok: true; data: WsfePtoVentaParam[] } | { ok: false; error: string }> {
-  const env = leerArcaEnv();
+  const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const called = await callWsfe({
     env,
@@ -348,7 +352,7 @@ async function wsfeParamCatalogo(
   method: string,
   itemTag: string
 ): Promise<{ ok: true; data: WsfeCatalogoItem[] } | { ok: false; error: string }> {
-  const env = leerArcaEnv();
+  const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const called = await callWsfe({
     env,
