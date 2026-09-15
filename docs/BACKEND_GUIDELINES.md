@@ -408,7 +408,7 @@ IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (defaul
 
 **URLs oficiales:** WSAA homo `https://wsaahomo.afip.gov.ar/ws/services/LoginCms` / prod `https://wsaa.afip.gov.ar/ws/services/LoginCms`. WSFEv1 homo `https://wswhomo.afip.gov.ar/wsfev1/service.asmx` / prod `https://servicios1.afip.gov.ar/wsfev1/service.asmx`. Default `ARCA_ENV=homo`. Producción exige `ARCA_ENV=prod` + certs de producción (no reutilizar homo).
 
-**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Un certificado por titular: `ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}` / opcional `ARCA_KEY_PASSPHRASE_{CUIT}` (CUIT = `ptos_vtas.cuit`, 11 dígitos). Fallback de un solo emisor: `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`. El CUIT en BD **no** reemplaza el PEM. Varios puntos del mismo CUIT reutilizan el mismo par.
+**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Un par **por CUIT**: `ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}` / opcional `ARCA_KEY_PASSPHRASE_{CUIT}`. Todos los pto. vta. de ese CUIT (00005 y 00006) leen las **mismas** variables. Fallback de un solo emisor: `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`. El CUIT en BD **no** reemplaza el PEM.
 
 **Cargar certificado (homologación primero):** el emisor obtiene el certificado WSAA en ARCA (ex AFIP) para el CUIT de `ptos_vtas`. No usar el de producción con `ARCA_ENV=homo`. Convertir a PEM (nunca commitear `.crt` / `.key` / `.p12`):
 
@@ -417,11 +417,11 @@ openssl pkcs12 -in cert.p12 -clcerts -nokeys -out cert.pem
 openssl pkcs12 -in cert.p12 -nocerts -nodes -out key.pem
 ```
 
-Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM_{CUIT}` y la clave → `ARCA_KEY_PEM_{CUIT}`. En Vercel (Preview y Production): `ARCA_ENV=homo` + un par PEM por CUIT. PEM: una sola línea con `\n` literales. Después **Redeploy**. Local: mismo patrón en `.env` (el par sin CUIT sigue valiendo como fallback). No pegar PEM en el chat ni en esta guía.
+Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM_{CUIT}` y la clave → `ARCA_KEY_PEM_{CUIT}`. En Vercel (Preview y Production): `ARCA_ENV=homo` + un par PEM por CUIT (no por pto. vta.). PEM: una sola línea con `\n` literales. Después **Redeploy**. Local: mismo patrón en `.env` (el par sin CUIT sigue valiendo como fallback). No pegar PEM en el chat ni en esta guía.
 
 **Tickets WSAA:** cache memoria + tabla `arca_wsaa_tickets` (unique `cuit`+`servicio`+`ambiente`). Renovar con margen 10 min. Servicio `arcaAuth.service.ts` (`obtenerAuthWsfe`). Un ticket por CUIT+`wsfe`+ambiente.
 
-**Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT alineado a certificado / `ARCA_CUIT`) → receptor → armar `FECAERequest` → persistir borrador + líneas (`$transaction`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Intentos en `fact_comprobante_intentos` (`request_id`, errores JSON/texto, **sin XML completo**).
+**Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT alineado a certificado / `ARCA_CUIT`) → PEM de `ARCA_CERT_PEM_{CUIT}` → receptor → armar `FECAERequest` → persistir borrador + líneas (`$transaction`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Intentos en `fact_comprobante_intentos` (`request_id`, errores JSON/texto, **sin XML completo**).
 
 **Borde:** `emitirFacturaComprobanteAction` / `emitirNotaCreditoFacturaAction` / `consultarFacturaComprobanteArcaAction` (`requireFacturacionLectura` + Zod + `revalidatePath` `/facturacion/factura/*`). Lectura PDF: `obtenerFacturaComprobantePdfAction` (`requireFacturacionLectura`). Health: `GET /api/arca/health` (`guardFacturacionLectura`, `FEDummy`; no expone WSAA). Listados RSC → `listarFacturasComprobantes` / `listarPresupuestosComprobantes`.
 
