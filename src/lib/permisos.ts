@@ -6,7 +6,7 @@
  *
  * Roles disponibles: "simple" | "editor"
  * El rol `editor` se activa al ingresar al módulo **Administración** con clave
- * (`SidebarAreaSwitcher` + `EDITOR_PASSWORD`). Vendedor, Marketing y Facturación
+ * (`SidebarAreaSwitcher` + `ADMINISTRADOR_PASSWORD`). Vendedor, Marketing y Facturación
  * son libre acceso.
  */
 

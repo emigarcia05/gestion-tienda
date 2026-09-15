@@ -14,7 +14,8 @@ export async function activarModoEditor(clave: string): Promise<{ ok: boolean; e
     return { ok: false, error: "Clave inválida." };
   }
   const claveNorm = parsed.data.clave;
-  const claveCorrecta = process.env.EDITOR_PASSWORD;
+  const claveCorrecta =
+    process.env.ADMINISTRADOR_PASSWORD ?? process.env.EDITOR_PASSWORD;
 
   if (!claveCorrecta) {
     return { ok: false, error: "No hay clave de editor configurada en el servidor." };

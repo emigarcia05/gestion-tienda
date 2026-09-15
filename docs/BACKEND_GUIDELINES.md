@@ -61,7 +61,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 #### 1.2.1 Sesión (`src/lib/sesion.ts`)
 
 - **iron-session** vía `getSesion()`, `getRol()`, `esEditor()`.
-- Roles: `"simple"` | `"editor"`. El editor se activa con `activarModoEditor` (`clave` Zod `z.string().min(1).max(500)` vs `EDITOR_PASSWORD`). Única Action de sesión. No hay “volver a simple”: cookie de arranque `tienda-app-arranque` (sin `maxAge`) + middleware fuerzan `simple` al reabrir el navegador. Rutas `/api/*` fuera del matcher del middleware.
+- Roles: `"simple"` | `"editor"`. El editor se activa con `activarModoEditor` (`clave` Zod `z.string().min(1).max(500)` vs `ADMINISTRADOR_PASSWORD`; alias legado `EDITOR_PASSWORD`). Única Action de sesión. No hay “volver a simple”: cookie de arranque `tienda-app-arranque` (sin `maxAge`) + middleware fuerzan `simple` al reabrir el navegador. Rutas `/api/*` fuera del matcher del middleware.
 - Usuario de pestaña: `sessionStorage` (`main-app-usuario-sesion`); **no** se persiste en iron-session ni BD. Sucursal preferida se copia de `global_personal.sucursal_por_defecto`. **Excepción:** Envios · Conductor no monta el slidenav; no exige usuario de pestaña (solo `PERMISOS.envios.acceso` + rol iron-session).
 - `getRol()` ante cookie inválida: `"simple"` + log `[sesion][getRol]` (no tumbar el layout).
 
@@ -407,7 +407,7 @@ IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (defaul
 
 **URLs oficiales:** WSAA homo `https://wsaahomo.afip.gov.ar/ws/services/LoginCms` / prod `https://wsaa.afip.gov.ar/ws/services/LoginCms`. WSFEv1 homo `https://wswhomo.afip.gov.ar/wsfev1/service.asmx` / prod `https://servicios1.afip.gov.ar/wsfev1/service.asmx`. Default `ARCA_ENV=homo`. Producción exige `ARCA_ENV=prod` + certs de producción (no reutilizar homo).
 
-**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_CUIT`, `ARCA_CERT_PEM`, `ARCA_KEY_PEM`, `ARCA_KEY_PASSPHRASE`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Certificados **solo** desde ENV PEM (no archivos del repo). `ARCA_CUIT` es opcional: si falta, se usa el CUIT del certificado (subject) o `ptos_vtas.cuit`. Si está, debe coincidir. El CUIT en BD **no** reemplaza el PEM: sin `ARCA_CERT_PEM` / `ARCA_KEY_PEM` no hay CAE.
+**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Un certificado por titular: `ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}` / opcional `ARCA_KEY_PASSPHRASE_{CUIT}` (CUIT = `ptos_vtas.cuit`, 11 dígitos). Fallback de un solo emisor: `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`. El CUIT en BD **no** reemplaza el PEM. Varios puntos del mismo CUIT reutilizan el mismo par.
 
 **Cargar certificado (homologación primero):** el emisor obtiene el certificado WSAA en ARCA (ex AFIP) para el CUIT de `ptos_vtas`. No usar el de producción con `ARCA_ENV=homo`. Convertir a PEM (nunca commitear `.crt` / `.key` / `.p12`):
 
@@ -416,7 +416,7 @@ openssl pkcs12 -in cert.p12 -clcerts -nokeys -out cert.pem
 openssl pkcs12 -in cert.p12 -nocerts -nodes -out key.pem
 ```
 
-Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM` (`BEGIN CERTIFICATE`) y la clave → `ARCA_KEY_PEM` (`BEGIN PRIVATE KEY` o `BEGIN RSA PRIVATE KEY`). En Vercel → Settings → Environment Variables (Preview y Production del branch): `ARCA_ENV=homo`, `ARCA_CUIT`, `ARCA_CERT_PEM`, `ARCA_KEY_PEM`. PEM multilínea: una sola línea con `\n` literales (el runtime los convierte). Después **Redeploy**. Local: mismas claves en `.env` y reiniciar `next dev`. No pegar PEM en el chat ni en esta guía.
+Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM_{CUIT}` y la clave → `ARCA_KEY_PEM_{CUIT}`. En Vercel (Preview y Production): `ARCA_ENV=homo` + un par PEM por CUIT. PEM: una sola línea con `\n` literales. Después **Redeploy**. Local: mismo patrón en `.env` (el par sin CUIT sigue valiendo como fallback). No pegar PEM en el chat ni en esta guía.
 
 **Tickets WSAA:** cache memoria + tabla `arca_wsaa_tickets` (unique `cuit`+`servicio`+`ambiente`). Renovar con margen 10 min. Servicio `arcaAuth.service.ts` (`obtenerAuthWsfe`). Un ticket por CUIT+`wsfe`+ambiente.
 

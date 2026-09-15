@@ -29,7 +29,7 @@ interface MainAppAreaDefinition {
   /** Ruta de entrada al elegir el área desde el modal. */
   href: string;
   /**
-   * Si `true`, al elegir el área desde el switcher se pide `EDITOR_PASSWORD`
+   * Si `true`, al elegir el área desde el switcher se pide `ADMINISTRADOR_PASSWORD`
    * (activa rol `editor`) cuando la sesión aún es `simple`.
    */
   requierePassword: boolean;
