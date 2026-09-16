@@ -328,7 +328,7 @@ model GlobalPtoVta {
   sucursales              GlobalPtoVtaSucursal[]
   factCobrosMes           FinFactCobrosPtoVtaMes[]
   finAnaCosFinaTerminales FinAnaCosFinaTerminal[]
-  factComprobantes        FactComprobante[]
+  comprobantesVtas        ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
   @@map("ptos_vtas")
@@ -356,8 +356,8 @@ model PtoVentasCodArca {
   descripcion String  @db.VarChar(100)
   activo      Boolean @default(true)
 
-  ptoVtas                   GlobalPtoVta[]
-  factComprobantesReceptor  FactComprobante[] @relation("FactComprobanteReceptorIva")
+  ptoVtas                     GlobalPtoVta[]
+  comprobantesVtasReceptor    ComprobanteVta[] @relation("ComprobanteVtaReceptorIva")
 
   @@map("pto_ventas_cod_arca")
 }
@@ -1816,42 +1816,42 @@ model SyncDuxStatus {
   @@index([updatedAt])
 }
 
-// ─── Facturación ARCA (WSFEv1) ─────────────────────────────────────────────
+// ─── Facturación / ventas (comprobantes) ───────────────────────────────────
 
 /**
- * Comprobante de Facturación (interno o fiscal).
+ * Cabecera de comprobantes de venta (`comprobantes_vtas`).
  * Receptor fiscal: snapshot en la fila (no usa `clientes` de Envios).
- * CAE solo si `tipo_local` es `factura` o `nota_credito`.
- * Series: `presupuesto`/`comprobante` = nro local por pto+tipo; `factura`/`nota_credito` = nro ARCA (FECompUltimoAutorizado + 1 por pto + CbteTipo).
+ * CAE solo si `tipo_local` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
+ * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
  */
-model FactComprobante {
-  id     String @id @default(cuid())
+model ComprobanteVta {
+  id        String @id @default(cuid())
   tipoLocal String @map("tipo_local") @db.VarChar(32)
   /** Código WSFEv1 `CbteTipo` (1 A, 6 B, 11 C, 3/8/13 NC). Null si no fiscal. */
-  cbteTipo Int? @map("cbte_tipo")
-  letra    String? @db.Char(1)
-  ptoVtaId String @map("pto_vta_id")
+  cbteTipo  Int?   @map("cbte_tipo")
+  letra     String? @db.Char(1)
+  ptoVtaId  String @map("pto_vta_id")
   /** CHAR(5) alineado a `ptos_vtas.pto_venta`. */
-  ptoVenta String @map("pto_venta") @db.Char(5)
-  cbteNro  Int?   @map("cbte_nro")
-  fecha    DateTime @db.Date
-  concepto String @default("1") @db.VarChar(8)
-  moneda   String @default("PES") @db.VarChar(8)
+  ptoVenta  String @map("pto_venta") @db.Char(5)
+  cbteNro   Int?   @map("cbte_nro")
+  fecha     DateTime @db.Date
+  concepto  String @default("1") @db.VarChar(8)
+  moneda    String @default("PES") @db.VarChar(8)
   cotizacion Decimal @default(1) @db.Decimal(14, 6)
 
-  receptorNombre        String  @map("receptor_nombre")
-  receptorDocTipo       Int?    @map("receptor_doc_tipo")
-  receptorDocNro        String? @map("receptor_doc_nro") @db.VarChar(20)
-  receptorCondicionIva  Int?    @map("receptor_condicion_iva")
+  receptorNombre       String  @map("receptor_nombre")
+  receptorDocTipo      Int?    @map("receptor_doc_tipo")
+  receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
+  receptorCondicionIva Int?    @map("receptor_condicion_iva")
 
-  impNeto    Decimal @map("imp_neto") @db.Decimal(14, 2)
-  impIva     Decimal @default(0) @map("imp_iva") @db.Decimal(14, 2)
-  impExento  Decimal @default(0) @map("imp_exento") @db.Decimal(14, 2)
-  impTotConc Decimal @default(0) @map("imp_tot_conc") @db.Decimal(14, 2)
-  impTrib    Decimal @default(0) @map("imp_trib") @db.Decimal(14, 2)
-  impOpEx    Decimal @default(0) @map("imp_op_ex") @db.Decimal(14, 2)
-  impTotal   Decimal @map("imp_total") @db.Decimal(14, 2)
-  descPct    Decimal @default(0) @map("desc_pct") @db.Decimal(5, 2)
+  impNeto     Decimal @map("imp_neto") @db.Decimal(14, 2)
+  impIva      Decimal @default(0) @map("imp_iva") @db.Decimal(14, 2)
+  impExento   Decimal @default(0) @map("imp_exento") @db.Decimal(14, 2)
+  impTotConc  Decimal @default(0) @map("imp_tot_conc") @db.Decimal(14, 2)
+  impTrib     Decimal @default(0) @map("imp_trib") @db.Decimal(14, 2)
+  impOpEx     Decimal @default(0) @map("imp_op_ex") @db.Decimal(14, 2)
+  impTotal    Decimal @map("imp_total") @db.Decimal(14, 2)
+  descPct     Decimal @default(0) @map("desc_pct") @db.Decimal(5, 2)
   descImporte Decimal @default(0) @map("desc_importe") @db.Decimal(14, 2)
 
   cae               String?   @db.VarChar(14)
@@ -1863,6 +1863,11 @@ model FactComprobante {
   /** `borrador` | `autorizado` | `rechazado` */
   estado            String    @db.VarChar(16)
 
+  /** `salida` | `ingreso` | `ninguno` — efecto stock del tipo. */
+  efectoStock   String  @map("efecto_stock") @db.VarChar(16)
+  /** true cuando ya se aplicó el movimiento de stock. */
+  stockAplicado Boolean @default(false) @map("stock_aplicado")
+
   cbteAsocId     String? @map("cbte_asoc_id")
   cbteAsocTipo   Int?    @map("cbte_asoc_tipo")
   cbteAsocPtoVta Int?    @map("cbte_asoc_pto_vta")
@@ -1873,53 +1878,54 @@ model FactComprobante {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
-  receptorCondicionIvaArca PtoVentasCodArca? @relation("FactComprobanteReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  cbteAsoc     FactComprobante?  @relation("FactComprobanteAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
-  notasCredito FactComprobante[] @relation("FactComprobanteAsoc")
-  lineas       FactComprobanteLinea[]
-  intentos     FactComprobanteIntento[]
+  receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
+  notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
+  items        ComprobanteVtaItem[]
+  historialArca ComprobanteVtaHistorialArca[]
 
-  @@index([tipoLocal, fecha], map: "fact_comprobantes_tipo_fecha_idx")
-  @@index([ptoVtaId], map: "fact_comprobantes_pto_vta_idx")
-  @@index([cae], map: "fact_comprobantes_cae_idx")
-  @@index([receptorCondicionIva], map: "fact_comprobantes_receptor_iva_idx")
-  @@map("fact_comprobantes")
+  @@index([tipoLocal, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
+  @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
+  @@index([cae], map: "comprobantes_vtas_cae_idx")
+  @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
+  @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
+  @@map("comprobantes_vtas")
 }
 
-model FactComprobanteLinea {
-  id             String  @id @default(cuid())
-  comprobanteId  String  @map("comprobante_id")
-  orden          Int
-  codTienda      String  @map("cod_tienda")
-  descripcion    String
-  cantidad       Decimal @db.Decimal(12, 4)
-  px             Decimal @db.Decimal(14, 2)
-  descuentoPct   Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
-  alicuotaIva    Decimal @map("alicuota_iva") @db.Decimal(5, 2)
-  ivaId          Int     @map("iva_id")
-  importe        Decimal @db.Decimal(14, 2)
-  comentario     String  @default("") @db.Text
-
-  comprobante FactComprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
-
-  @@index([comprobanteId], map: "fact_comprobante_lineas_comp_idx")
-  @@map("fact_comprobante_lineas")
-}
-
-/** Log de intento ARCA (sin XML ni secretos). */
-model FactComprobanteIntento {
+model ComprobanteVtaItem {
   id            String  @id @default(cuid())
   comprobanteId String  @map("comprobante_id")
-  requestId     String  @map("request_id")
-  operacion     String  @db.VarChar(64)
-  resultado     String? @db.VarChar(8)
-  errores       String? @db.Text
+  orden         Int
+  codTienda     String  @map("cod_tienda")
+  descripcion   String
+  cantidad      Decimal @db.Decimal(12, 4)
+  px            Decimal @db.Decimal(14, 2)
+  descuentoPct  Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  alicuotaIva   Decimal @map("alicuota_iva") @db.Decimal(5, 2)
+  ivaId         Int     @map("iva_id")
+  importe       Decimal @db.Decimal(14, 2)
+  comentario    String  @default("") @db.Text
+
+  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+
+  @@index([comprobanteId], map: "comprobantes_vtas_items_comp_idx")
+  @@map("comprobantes_vtas_items")
+}
+
+/** Historial de llamadas ARCA (sin XML ni secretos). */
+model ComprobanteVtaHistorialArca {
+  id            String   @id @default(cuid())
+  comprobanteId String   @map("comprobante_id")
+  requestId     String   @map("request_id")
+  operacion     String   @db.VarChar(64)
+  resultado     String?  @db.VarChar(8)
+  errores       String?  @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
 
-  comprobante FactComprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
 
-  @@index([comprobanteId], map: "fact_comprobante_intentos_comp_idx")
-  @@map("fact_comprobante_intentos")
+  @@index([comprobanteId], map: "comprobantes_vtas_historial_arca_comp_idx")
+  @@map("comprobantes_vtas_historial_arca")
 }
 
 /** Ticket WSAA cacheado (token+sign). Nunca exponer al cliente. */

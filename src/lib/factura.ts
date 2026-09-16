@@ -1,22 +1,24 @@
 /**
  * Constantes del módulo Factura (área Facturación).
- * Persistencia en `fact_comprobantes`; fiscal vía WSAA + WSFEv1.
+ * Persistencia en `comprobantes_vtas`; fiscal vía WSAA + WSFEv1.
  */
 
 export const FACTURA_TIPOS = [
   "presupuesto",
-  "comprobante",
-  "factura",
-  "nota_credito",
+  "factura_no_fiscal",
+  "factura_fiscal",
+  "nota_credito_no_fiscal",
+  "nota_credito_fiscal",
 ] as const;
 
 export type FacturaTipo = (typeof FACTURA_TIPOS)[number];
 
 export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
   presupuesto: "PRESUPUESTO",
-  comprobante: "COMPROBANTE",
-  factura: "FACTURA",
-  nota_credito: "NOTA DE CRÉDITO",
+  factura_no_fiscal: "FACTURA NO FISCAL",
+  factura_fiscal: "FACTURA FISCAL",
+  nota_credito_no_fiscal: "NOTA CRÉDITO NO FISCAL",
+  nota_credito_fiscal: "NOTA CRÉDITO FISCAL",
 };
 
 /** Valor inicial del select en Crear. */
@@ -26,11 +28,31 @@ export function esFacturaTipo(value: string): value is FacturaTipo {
   return (FACTURA_TIPOS as readonly string[]).includes(value);
 }
 
-/** `factura` y `nota_credito` van a WSFEv1. `comprobante` y `presupuesto` no. */
+/** Tipos que autorizan CAE vía WSFEv1. */
 export function esFacturaTipoFiscal(
   tipo: FacturaTipo
-): tipo is "factura" | "nota_credito" {
-  return tipo === "factura" || tipo === "nota_credito";
+): tipo is "factura_fiscal" | "nota_credito_fiscal" {
+  return tipo === "factura_fiscal" || tipo === "nota_credito_fiscal";
+}
+
+export function esFacturaTipoNotaCredito(tipo: FacturaTipo): boolean {
+  return tipo === "nota_credito_no_fiscal" || tipo === "nota_credito_fiscal";
+}
+
+export type FacturaEfectoStock = "salida" | "ingreso" | "ninguno";
+
+/** Regla de stock por tipo (se persiste en `efecto_stock`). */
+export function efectoStockPorTipo(tipo: FacturaTipo): FacturaEfectoStock {
+  switch (tipo) {
+    case "factura_no_fiscal":
+    case "factura_fiscal":
+      return "salida";
+    case "nota_credito_no_fiscal":
+      return "ingreso";
+    case "nota_credito_fiscal":
+    case "presupuesto":
+      return "ninguno";
+  }
 }
 
 /** Nombre persistido / PDF cuando el input Cliente está vacío. */

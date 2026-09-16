@@ -85,8 +85,8 @@ export function esCuitValido(cuit: string): boolean {
 
 export function esTipoLocalFiscal(
   tipo: string
-): tipo is "factura" | "nota_credito" {
-  return tipo === "factura" || tipo === "nota_credito";
+): tipo is "factura_fiscal" | "nota_credito_fiscal" {
+  return tipo === "factura_fiscal" || tipo === "nota_credito_fiscal";
 }
 
 export function emisorEsMonotributo(condicionIva: number): boolean {
