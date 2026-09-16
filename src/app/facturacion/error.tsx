@@ -16,11 +16,7 @@ export default function FacturacionError({
 
   useEffect(() => {
     const tag = "[facturacion][error-boundary]";
-    if (process.env.NODE_ENV === "production") {
-      console.error(tag, "digest:", error.digest);
-    } else {
-      console.error(tag, error);
-    }
+    console.error(tag, "digest:", error.digest, "message:", error.message);
   }, [error]);
 
   return (
