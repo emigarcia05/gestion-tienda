@@ -7,7 +7,7 @@ import { listarPtoVentasCodArca } from "@/services/globalPtoVtas.service";
 import {
   listarFacturaPtoVtasActivos,
   listarFacturasAutorizadasParaNc,
-} from "@/services/facturaComprobantes.service";
+} from "@/services/facturaComprobantesListado.service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +17,22 @@ export default async function FacturaCrearPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [ptoVtas, condicionesIva, originalesNc] = await Promise.all([
-    listarFacturaPtoVtasActivos(),
-    listarPtoVentasCodArca(),
-    listarFacturasAutorizadasParaNc(),
-  ]);
+  let ptoVtas;
+  let condicionesIva;
+  let originalesNc;
+  try {
+    [ptoVtas, condicionesIva, originalesNc] = await Promise.all([
+      listarFacturaPtoVtasActivos(),
+      listarPtoVentasCodArca(),
+      listarFacturasAutorizadasParaNc(),
+    ]);
+  } catch (e) {
+    console.error(
+      "[facturacion][crear]",
+      e instanceof Error ? e.message : e
+    );
+    throw e;
+  }
 
   return (
     <div className="area-page-shell">

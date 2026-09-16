@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { FACTURA_CLIENTE_CONSUMIDOR_FINAL, FACTURA_TIPOS, esFacturaTipoFiscal } from "@/lib/factura";import { prismaCuidSchema } from "@/lib/validations/common";
+import {
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
+  FACTURA_TIPOS,
+  esFacturaTipoFiscal,
+  esFacturaTipoNotaCredito,
+} from "@/lib/factura";
+import { prismaCuidSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
@@ -97,7 +103,7 @@ export const emitirFacturaComprobanteSchema = z
         });
       }
     }
-    if (data.tipo === "nota_credito" && !data.cbteAsocId) {
+    if (esFacturaTipoNotaCredito(data.tipo) && !data.cbteAsocId) {
       ctx.addIssue({
         code: "custom",
         path: ["cbteAsocId"],

@@ -29,6 +29,7 @@ import {
   esClienteFacturaVacio,
   esFacturaTipo,
   esFacturaTipoFiscal,
+  esFacturaTipoNotaCredito,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
@@ -62,7 +63,7 @@ type Props = {
 
 /**
  * Pantalla Crear (Facturación · Factura): cabecera + líneas.
- * Persiste; `factura` / `nota_credito` autorizan CAE vía ARCA. `comprobante` no.
+ * Persiste; `factura_fiscal` / `nota_credito_fiscal` autorizan CAE vía ARCA.
  */
 export default function FacturaCrearPageClient({
   ptoVtas,
@@ -131,7 +132,8 @@ export default function FacturaCrearPageClient({
             ? ARCA_CONDICION_IVA.CF
             : Number(receptorCondicionIva)
           : undefined,
-        cbteAsocId: tipo === "nota_credito" && cbteAsocId ? cbteAsocId : undefined,
+        cbteAsocId:
+          esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
           codTienda: l.codTienda,
           descripcion: l.descripcion,
@@ -355,7 +357,7 @@ export default function FacturaCrearPageClient({
                 />
               </label>
 
-              {tipo === "nota_credito" ? (
+              {esFacturaTipoNotaCredito(tipo) ? (
                 <label className="flex min-w-0 flex-col gap-1">
                   <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
                   <Select value={cbteAsocId} onValueChange={setCbteAsocId}>

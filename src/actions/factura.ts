@@ -15,13 +15,7 @@ import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
 } from "@/services/facturaProductos.service";
-import {
-  consultarFacturaComprobanteArca,
-  emitirFacturaComprobante,
-  emitirNotaCreditoDesdeComprobante,
-  obtenerFacturaComprobantePdfDatos,
-  type FacturaComprobantePdfDatos,
-} from "@/services/facturaComprobantes.service";
+import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
 
 function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
@@ -56,6 +50,9 @@ export async function emitirFacturaComprobanteAction(
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
+    const { emitirFacturaComprobante } = await import(
+      "@/services/facturaComprobantes.service"
+    );
     const out = fromServiceResult(await emitirFacturaComprobante(parsed.data));
     if (!out.ok) return out;
     revalidateFacturacion();
@@ -76,6 +73,9 @@ export async function emitirNotaCreditoFacturaAction(
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
+    const { emitirNotaCreditoDesdeComprobante } = await import(
+      "@/services/facturaComprobantes.service"
+    );
     const out = fromServiceResult(
       await emitirNotaCreditoDesdeComprobante(parsed.data.id)
     );
@@ -98,6 +98,9 @@ export async function consultarFacturaComprobanteArcaAction(
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
+    const { consultarFacturaComprobanteArca } = await import(
+      "@/services/facturaComprobantes.service"
+    );
     const out = fromServiceResult(await consultarFacturaComprobanteArca(parsed.data.id));
     if (!out.ok) return out;
     revalidateFacturacion();
@@ -118,6 +121,9 @@ export async function obtenerFacturaComprobantePdfAction(
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
+    const { obtenerFacturaComprobantePdfDatos } = await import(
+      "@/services/facturaComprobantes.service"
+    );
     return fromServiceResult(await obtenerFacturaComprobantePdfDatos(parsed.data.id));
   } catch (e) {
     console.error("[obtenerFacturaComprobantePdfAction]", e);

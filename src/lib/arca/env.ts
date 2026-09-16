@@ -1,5 +1,6 @@
 import "server-only";
 
+import nodeProcess from "node:process";
 import { z } from "zod";
 import { cuitDesdeCertPem } from "@/lib/arca/cms";
 import { esCuitValido, type ArcaAmbiente } from "@/lib/facturaFiscal";
@@ -16,7 +17,7 @@ export type ArcaEnvConfig = {
 };
 
 function readPem(raw: string | undefined): string {
-  return (raw ?? "").replace(/\\n/g, "\n").trim();
+  return (raw ?? "").replace(/^\uFEFF/, "").replace(/\\n/g, "\n").trim();
 }
 
 function cuit11(raw: string | null | undefined): string | null {
@@ -88,6 +89,12 @@ function primerPass(...raws: (string | undefined)[]): string | null {
   return null;
 }
 
+/** Runtime Node. Evita que Next inline `process.env.FOO` vacío en el build. */
+function envRuntime(nombre: string): string | undefined {
+  const v = nodeProcess.env[nombre];
+  return typeof v === "string" ? v : undefined;
+}
+
 /** `ARCA_*_{CUIT}` compartido; fallback `ARCA_CERT_PEM` / `ARCA_KEY_PEM`. */
 function leerPems(cuit: string | null): {
   certPem: string;
@@ -97,16 +104,16 @@ function leerPems(cuit: string | null): {
   const porCuit = cuit ? nombresPemPorCuit(cuit) : null;
   return {
     certPem: primerPem(
-      porCuit ? process.env[porCuit.cert] : undefined,
-      process.env.ARCA_CERT_PEM
+      porCuit ? envRuntime(porCuit.cert) : undefined,
+      envRuntime("ARCA_CERT_PEM")
     ),
     keyPem: primerPem(
-      porCuit ? process.env[porCuit.key] : undefined,
-      process.env.ARCA_KEY_PEM
+      porCuit ? envRuntime(porCuit.key) : undefined,
+      envRuntime("ARCA_KEY_PEM")
     ),
     keyPassphrase: primerPass(
-      porCuit ? process.env[porCuit.passphrase] : undefined,
-      process.env.ARCA_KEY_PASSPHRASE
+      porCuit ? envRuntime(porCuit.passphrase) : undefined,
+      envRuntime("ARCA_KEY_PASSPHRASE")
     ),
   };
 }
@@ -168,14 +175,14 @@ export function leerArcaEnv(opts?: {
 }
 
 export function arcaCertificadosConfigurados(): boolean {
-  if (readPem(process.env.ARCA_CERT_PEM) && readPem(process.env.ARCA_KEY_PEM)) {
+  if (readPem(envRuntime("ARCA_CERT_PEM")) && readPem(envRuntime("ARCA_KEY_PEM"))) {
     return true;
   }
-  for (const name of Object.keys(process.env)) {
+  for (const name of Object.keys(nodeProcess.env)) {
     const cuit = /^ARCA_CERT_PEM_(\d{11})$/.exec(name);
     if (!cuit?.[1]) continue;
     const names = nombresPemPorCuit(cuit[1]);
-    if (readPem(process.env[name]) && readPem(process.env[names.key])) {
+    if (readPem(envRuntime(name)) && readPem(envRuntime(names.key))) {
       return true;
     }
   }

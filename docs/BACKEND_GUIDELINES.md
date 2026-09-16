@@ -385,22 +385,23 @@ Servicios: `clientes.service.ts`, `enviosDirecciones.service.ts`, `enviosFinal.s
 
 Módulo sidenav **FACTURA**: Crear / Facturas / Presupuestos.
 
-**Persistencia:** `fact_comprobantes` + `fact_comprobante_lineas` + `fact_comprobante_intentos` (IDs CUID). Receptor fiscal = **snapshot** en la cabecera (`receptor_nombre`, `receptor_doc_tipo`, `receptor_doc_nro`, `receptor_condicion_iva` FK a `pto_ventas_cod_arca.codigo`). **No** se unifica con `clientes` de Envios (`CONSUMIDOR_FINAL` | `PINTOR`, sin CUIT). Emisor = `ptos_vtas` (`pto_vta_id` Restrict; `pto_venta` CHAR(5) alineado al entero ARCA).
+**Persistencia:** `comprobantes_vtas` + `comprobantes_vtas_items` + `comprobantes_vtas_historial_arca` (ex `fact_comprobantes*`; IDs CUID). Receptor fiscal = **snapshot** en la cabecera (`receptor_nombre`, `receptor_doc_tipo`, `receptor_doc_nro`, `receptor_condicion_iva` FK a `pto_ventas_cod_arca.codigo`). **No** se unifica con `clientes` de Envios (`CONSUMIDOR_FINAL` | `PINTOR`, sin CUIT). Emisor = `ptos_vtas` (`pto_vta_id` Restrict; `pto_venta` CHAR(5) alineado al entero ARCA). Stock: `efecto_stock` (`salida` \| `ingreso` \| `ninguno`) + `stock_aplicado` (bool; el movimiento de depósito aún no se implementa).
 
-**Estados:** `borrador` | `autorizado` | `rechazado`. Ambiente `homo` | `prod`. Resultado WSFEv1 `A` | `R` | `P`. Unique parcial SQL `fact_comprobantes_fiscal_nro_key` (`ambiente`, `cbte_tipo`, `pto_venta`, `cbte_nro`) donde hay CAE. Unique parcial `fact_comprobantes_local_nro_key` (`pto_vta_id`, `tipo_local`, `cbte_nro`) donde `cbte_tipo` es null (series internas).
+**Estados:** `borrador` | `autorizado` | `rechazado`. Ambiente `homo` | `prod`. Resultado WSFEv1 `A` | `R` | `P`. Unique parcial SQL `comprobantes_vtas_fiscal_nro_key` (`ambiente`, `cbte_tipo`, `pto_venta`, `cbte_nro`) donde hay CAE. Unique parcial `comprobantes_vtas_local_nro_key` (`pto_vta_id`, `tipo_local`, `cbte_nro`) donde `cbte_tipo` es null (series internas).
 
 **Contrato Zod** (`@/lib/validations/factura`): `facturaCrearCabeceraSchema`, `buscarProductosFacturaSchema`, `emitirFacturaComprobanteSchema` (líneas + descuento + receptor fiscal + `cbteAsocId` si NC), `facturaComprobanteIdSchema`. Constantes: `@/lib/factura`. Reglas A/B/C, CUIT DV, desglose IVA: `@/lib/facturaFiscal`.
 
-**Mapeo tipos locales → WSFEv1 (mercado interno):**
+**Mapeo tipos locales → WSFEv1 / stock:**
 
-| `tipo_local` | UI | ARCA / numeración |
-|--------------|----|-------------------|
-| `presupuesto` | PRESUPUESTO | Solo interno. **Prohibido** WSFEv1. Serie local: `MAX(cbte_nro)+1` por pto + tipo. |
-| `comprobante` | COMPROBANTE | Interno (letra X). **Prohibido** WSFEv1. Serie local propia por pto (no comparte nro con Factura ni con Presupuesto). |
-| `factura` | FACTURA | Factura A/B/C: RI→A a RI; B a CF/mono/exento; C si emisor monotributo o exento. `CbteTipo` 1 / 6 / 11. Nro = `FECompUltimoAutorizado` + 1 por pto + `CbteTipo` (A, B y C son series oficiales distintas). |
-| `nota_credito` | NOTA DE CRÉDITO | NC A/B/C (`CbteTipo` 3 / 8 / 13) con `CbtesAsoc` al original `factura` con CAE. Sin original autorizado, no emitir. Receptor exterior (códigos 8/9) → error (WSFEX fuera de alcance). Serie ARCA propia (3/8/13), no la de Factura. |
+| `tipo_local` | UI | ARCA | `efecto_stock` |
+|--------------|----|------|----------------|
+| `presupuesto` | PRESUPUESTO | No | `ninguno` |
+| `factura_no_fiscal` | FACTURA NO FISCAL | No (letra X) | `salida` |
+| `factura_fiscal` | FACTURA FISCAL | Factura A/B/C (`CbteTipo` 1/6/11) | `salida` |
+| `nota_credito_no_fiscal` | NOTA CRÉDITO NO FISCAL | No | `ingreso` |
+| `nota_credito_fiscal` | NOTA CRÉDITO FISCAL | NC A/B/C (`CbteTipo` 3/8/13) + `CbtesAsoc` | `ninguno` |
 
-Rename vigente: ex `factura` (no ARCA) → `comprobante`; ex `factura_fiscal` → `factura`. Migración `20260914180000_fact_tipo_local_comprobante_factura` (primero el no fiscal, para no pisar el literal). Cliente vacío → `CONSUMIDOR FINAL`; en fiscal, DocTipo 99 / DocNro 0 / cond. IVA 5 si el nombre vino vacío.
+Rename tablas: migración `20260915210000_rename_comprobantes_vtas`. Valores previos: `comprobante`→`factura_no_fiscal`, `factura`→`factura_fiscal`, `nota_credito`→`nota_credito_fiscal`. Cliente vacío → `CONSUMIDOR FINAL`; en fiscal, DocTipo 99 / DocNro 0 / cond. IVA 5 si el nombre vino vacío.
 
 IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (default 21 % → Id 5). C: `ImpIVA = 0`, sin nodo `Iva`. `ImpTotal` = Neto + IVA + no gravado/exento/trib (2 decimales ARS). `CondicionIVAReceptorId` = código `pto_ventas_cod_arca`. CF: `DocTipo` 99 / `DocNro` 0 bajo `ARCA_CF_MAX_SIN_DOC` (default 10_000_000); por encima exigir DNI/CUIT. `FchVtoPago` / servicio solo si `concepto` 2 o 3 (`ptos_vtas.concepto` default `'1'`).
 
@@ -408,7 +409,7 @@ IVA: PX. LISTA = precio final al cliente. A/B desglosan neto + `AlicIva` (defaul
 
 **URLs oficiales:** WSAA homo `https://wsaahomo.afip.gov.ar/ws/services/LoginCms` / prod `https://wsaa.afip.gov.ar/ws/services/LoginCms`. WSFEv1 homo `https://wswhomo.afip.gov.ar/wsfev1/service.asmx` / prod `https://servicios1.afip.gov.ar/wsfev1/service.asmx`. Default `ARCA_ENV=homo`. Producción exige `ARCA_ENV=prod` + certs de producción (no reutilizar homo).
 
-**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Un par **por CUIT**: `ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}` / opcional `ARCA_KEY_PASSPHRASE_{CUIT}`. Todos los pto. vta. de ese CUIT (00005 y 00006) leen las **mismas** variables. Fallback de un solo emisor: `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`. El CUIT en BD **no** reemplaza el PEM.
+**ENV** (`.env.example`; nunca commitear PEM): `ARCA_ENV`, `ARCA_TIMEOUT_MS`, `ARCA_CF_MAX_SIN_DOC`. Un par **por CUIT**: `ARCA_CERT_PEM_{CUIT}` / `ARCA_KEY_PEM_{CUIT}` / opcional `ARCA_KEY_PASSPHRASE_{CUIT}`. Lectura vía `node:process` (`envRuntime` en `src/lib/arca/env.ts`) para no inlinear vacío en el build. Todos los pto. vta. de ese CUIT leen las **mismas** variables. Fallback: `ARCA_CERT_PEM` / `ARCA_KEY_PEM` / `ARCA_CUIT`. El CUIT en BD **no** reemplaza el PEM. Vercel: **Production y Preview**; al reabrir un secreto el valor no se muestra (no Guardar vacío).
 
 **Cargar certificado (homologación primero):** el emisor obtiene el certificado WSAA en ARCA (ex AFIP) para el CUIT de `ptos_vtas`. No usar el de producción con `ARCA_ENV=homo`. Convertir a PEM (nunca commitear `.crt` / `.key` / `.p12`):
 
@@ -421,9 +422,9 @@ Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM_{CUIT}` y la cla
 
 **Tickets WSAA:** cache memoria + tabla `arca_wsaa_tickets` (unique `cuit`+`servicio`+`ambiente`). Renovar con margen 10 min. Servicio `arcaAuth.service.ts` (`obtenerAuthWsfe`). Un ticket por CUIT+`wsfe`+ambiente.
 
-**Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT alineado a certificado / `ARCA_CUIT`) → PEM de `ARCA_CERT_PEM_{CUIT}` → receptor → armar `FECAERequest` → persistir borrador + líneas (`$transaction`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Intentos en `fact_comprobante_intentos` (`request_id`, errores JSON/texto, **sin XML completo**).
+**Flujo emitir (servicio `facturaComprobantes.service.ts`):** validar emisor activo (`ptos_vtas` + CUIT + cond. IVA; CUIT alineado a certificado / `ARCA_CUIT`) → PEM de `ARCA_CERT_PEM_{CUIT}` → receptor → armar `FECAERequest` → persistir borrador + ítems (`comprobantes_vtas_items`) → `FECompUltimoAutorizado` + 1 → `FECAESolicitar` → guardar CAE / rechazo. Idempotencia: si ya hay CAE no reenviar; timeout de red → `FECompConsultar` del mismo nro. Historial en `comprobantes_vtas_historial_arca` (`request_id`, errores JSON/texto, **sin XML completo**).
 
-**Borde:** `emitirFacturaComprobanteAction` / `emitirNotaCreditoFacturaAction` / `consultarFacturaComprobanteArcaAction` (`requireFacturacionLectura` + Zod + `revalidatePath` `/facturacion/factura/*`). Lectura PDF: `obtenerFacturaComprobantePdfAction` (`requireFacturacionLectura`). Health: `GET /api/arca/health` (`guardFacturacionLectura`, `FEDummy`; no expone WSAA). Listados RSC → `listarFacturasComprobantes` / `listarPresupuestosComprobantes`.
+**Borde:** `emitirFacturaComprobanteAction` / `emitirNotaCreditoFacturaAction` / `consultarFacturaComprobanteArcaAction` (`requireFacturacionLectura` + Zod + `revalidatePath` `/facturacion/factura/*`). El SOAP/PEM se carga con `import()` al emitir, no al abrir Crear. Lectura PDF: `obtenerFacturaComprobantePdfAction` (`requireFacturacionLectura`). Health: `GET /api/arca/health` (`guardFacturacionLectura`, `FEDummy`; no expone WSAA). Listados RSC → `facturaComprobantesListado.service.ts` (`listarFacturasComprobantes` / `listarPresupuestosComprobantes` / `listarFacturaPtoVtasActivos` / `listarFacturasAutorizadasParaNc`; sin SOAP/PEM).
 
 **Búsqueda de productos (Crear):** Action `buscarProductosFacturaAction` → `buscarProductosParaFactura` (`facturaProductos.service.ts`). Zod `buscarProductosFacturaSchema` (`q` mín. 3 chars + `take` ≤ 10 + `sucursalCodigo` opcional). Tokens de `q` separados por espacio: **AND** de `descripcion_tienda contains` (insensitive). Incluye `pxLista` (**1 - GENERAL**), `stock` (sucursal del usuario o suma si no hay), `stockPorSucursal` (sucursales con `id_deposito`).
 
@@ -433,7 +434,7 @@ Si ya hay `.crt` + `.key` del CSR: el `.crt` → `ARCA_CERT_PEM_{CUIT}` y la cla
 
 Fuera de alcance: WSFEX, WSMTXCA, FCE/MiPyME, padrón A5. No reintroducir import TXT IVA débito AFIP (§5).
 
-Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; CHECK SQL alineado en migración `20260912200000_global_personal_modulos_permitidos_facturacion`). Migraciones: `20260914140000_facturacion_arca` + `20260914180000_fact_tipo_local_comprobante_factura`.
+Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; CHECK SQL alineado en migración `20260912200000_global_personal_modulos_permitidos_facturacion`). Migraciones: `20260914140000_facturacion_arca` + `20260914180000_fact_tipo_local_comprobante_factura` + `20260915210000_rename_comprobantes_vtas`.
 
 ---
 
