@@ -13,50 +13,17 @@ import {
   emitirFacturaComprobanteSchema,
   facturaComprobanteIdSchema,
 } from "@/lib/validations/factura";
-import { crearClienteSchema } from "@/lib/validations/envios";
-import { buscarClientesParaFactura, crearCliente } from "@/services/clientes.service";
+import { buscarClientesParaFactura } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
 } from "@/services/facturaProductos.service";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
-import { REVALIDATE_ENVIOS } from "@/lib/gestionProductosRoutes";
 
 function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
   revalidatePath(FACTURACION_ROUTES.factura.facturas);
   revalidatePath(FACTURACION_ROUTES.factura.presupuestos);
-}
-
-/** Alta de cliente desde Factura · Crear (`requireFacturacionLectura`). */
-export async function crearClienteFacturaAction(
-  raw: unknown
-): Promise<ActionResult<ClienteItem>> {
-  const gate = await requireFacturacionLectura();
-  if (gate) return gate;
-
-  const parsed = crearClienteSchema.safeParse(raw);
-  if (!parsed.success) return zodFail(parsed.error);
-  if (normalizarNombreVacio(parsed.data.nombreCompleto)) {
-    return { ok: false, error: "Ingresá el nombre." };
-  }
-
-  try {
-    const res = await crearCliente(parsed.data);
-    if (!res.success) return { ok: false, error: res.error };
-    for (const path of REVALIDATE_ENVIOS) {
-      revalidatePath(path);
-    }
-    revalidateFacturacion();
-    return { ok: true, data: res.data };
-  } catch (e) {
-    console.error("[crearClienteFacturaAction]", e);
-    return { ok: false, error: "No se pudo crear el cliente." };
-  }
-}
-
-function normalizarNombreVacio(nombre: string): boolean {
-  return nombre.trim() === "";
 }
 
 export async function buscarClientesFacturaAction(

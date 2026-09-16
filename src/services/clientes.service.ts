@@ -148,17 +148,20 @@ export async function buscarClientesParaFactura(params: {
 
   try {
     const where: Prisma.ClienteWhereInput = {
-      AND: tokens.map((t) => {
-        const digitos = soloDigitos(t);
-        const or: Prisma.ClienteWhereInput[] = [
-          { nombreCompleto: { contains: t, mode: "insensitive" } },
-        ];
-        if (digitos.length > 0) {
-          or.push({ cel: { contains: digitos } });
-          or.push({ cuit: { contains: digitos } });
-        }
-        return { OR: or };
-      }),
+      AND: [
+        { nombreCompleto: { not: "" } },
+        ...tokens.map((t) => {
+          const digitos = soloDigitos(t);
+          const or: Prisma.ClienteWhereInput[] = [
+            { nombreCompleto: { contains: t, mode: "insensitive" } },
+          ];
+          if (digitos.length > 0) {
+            or.push({ cel: { contains: digitos } });
+            or.push({ cuit: { contains: digitos } });
+          }
+          return { OR: or };
+        }),
+      ],
     };
     const rows = await prisma.cliente.findMany({
       where,

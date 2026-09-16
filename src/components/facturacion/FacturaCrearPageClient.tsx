@@ -8,7 +8,7 @@ import {
   emitirFacturaComprobanteAction,
 } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import FacturaCrearClienteModal from "@/components/facturacion/FacturaCrearClienteModal";
+import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
 } from "@/components/facturacion/FacturaCrearLineasBlock";
@@ -28,6 +28,7 @@ import {
 import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_DOC_TIPO_OPTIONS,
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
@@ -57,6 +58,14 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
+import {
+  TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
+  TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
+  TYPEAHEAD_LISTBOX_UL_CLASS,
+} from "@/lib/ui-classes";
 
 /** Saldo en typeahead de clientes: pendiente de implementar. */
 const CLIENTE_SALDO_PLACEHOLDER = "";
@@ -145,7 +154,7 @@ export default function FacturaCrearPageClient({
     handleQChange: handleClienteQChange,
     isDebouncing: isDebouncingClientes,
   } = useFiltrosConBusqueda({
-    qActual: "",
+    qActual: FACTURA_CLIENTE_CONSUMIDOR_FINAL,
     debounceMs: 300,
     onDebouncedSearch: (value) => {
       void fetchSugerenciasClientes(value);
@@ -294,9 +303,10 @@ export default function FacturaCrearPageClient({
         </>
       }
     >
-      <FacturaCrearClienteModal
+      <CrearEditarClienteModal
         open={crearClienteOpen}
         onOpenChange={setCrearClienteOpen}
+        modo="crear"
         condicionesIva={condicionesIva}
         onSuccess={aplicarClienteSeleccionado}
       />
@@ -413,9 +423,14 @@ export default function FacturaCrearPageClient({
                     }
                   }}
                   onFocus={() => {
-                    if (puedeBuscarClientes) setClientesAbierto(true);
+                    if (
+                      puedeBuscarClientes &&
+                      cliente.trim() !== FACTURA_CLIENTE_CONSUMIDOR_FINAL
+                    ) {
+                      setClientesAbierto(true);
+                    }
                   }}
-                  placeholder="CONSUMIDOR FINAL"
+                  placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
                   autoComplete="off"
                   role="combobox"
                   aria-expanded={clientesAbierto}
@@ -438,9 +453,9 @@ export default function FacturaCrearPageClient({
                     id={listboxClientesId}
                     role="listbox"
                     className={cn(
-                      "absolute left-0 right-0 top-full z-50 mt-1 flex flex-col",
-                      "max-h-72 overflow-hidden rounded-md border border-border bg-popover",
-                      "text-popover-foreground shadow-md"
+                      TYPEAHEAD_LISTBOX_PANEL_CLASS,
+                      TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS,
+                      TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS
                     )}
                   >
                     {loadingClientes || isDebouncingClientes ? (
@@ -452,7 +467,7 @@ export default function FacturaCrearPageClient({
                         Sin resultados.
                       </p>
                     ) : (
-                      <ul className="min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto">
+                      <ul className={TYPEAHEAD_LISTBOX_UL_CLASS}>
                         {sugerenciasClientes.map((item, idx) => {
                           const activo = idx === clienteHighlight;
                           const nombre =
@@ -460,12 +475,13 @@ export default function FacturaCrearPageClient({
                           const pintor = nombrePintorAsociadoCliente(item);
                           return (
                             <li key={item.id} role="option" aria-selected={activo}>
-                              <button
-                                type="button"
+                              <div
+                                role="button"
+                                tabIndex={-1}
                                 className={cn(
-                                  "flex w-full flex-col gap-0.5 px-3 py-1.5 text-left text-sm leading-tight text-foreground transition-colors",
-                                  "hover:bg-accent/60",
-                                  activo && "bg-accent/60"
+                                  TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+                                  "flex flex-col gap-0.5 px-2 text-left",
+                                  activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                                 )}
                                 onMouseEnter={() => setClienteHighlight(idx)}
                                 onClick={() => aplicarClienteSeleccionado(item)}
@@ -482,7 +498,7 @@ export default function FacturaCrearPageClient({
                                     ({pintor})
                                   </span>
                                 ) : null}
-                              </button>
+                              </div>
                             </li>
                           );
                         })}

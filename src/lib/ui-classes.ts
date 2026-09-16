@@ -138,3 +138,43 @@ export const BALANCE_MODAL_HISTORIAL_RUBRO_TITLE =
  */
 export const MODAL_MICRO_LABEL_CLASS =
   "modal-micro-label modal-field-label text-[0.65rem] font-semibold uppercase tracking-[0.06em] text-foreground";
+
+/**
+ * Typeahead / combobox listbox (Factura productos, clientes, …).
+ * Panel flotante bajo el input; filas = `div role="button"` (no `<Button>` ni `<button>` de formulario).
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_CLASS = [
+  "absolute left-0 top-full z-50 mt-1 flex flex-col overflow-hidden",
+  "rounded-md border border-border bg-popover text-popover-foreground shadow-md",
+].join(" ");
+
+/** Altura fija del panel (scroll en la lista). */
+export const TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS = "h-72";
+
+/**
+ * Panel más ancho que el input (p. ej. clientes: nombre + saldo + pintor).
+ * Combinar con `TYPEAHEAD_LISTBOX_PANEL_CLASS`.
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS =
+  "min-w-full w-[28rem] max-w-[min(28rem,calc(100vw-4rem))]";
+
+/** Panel del mismo ancho que el input (`left-0 right-0`). */
+export const TYPEAHEAD_LISTBOX_PANEL_MATCH_INPUT_WIDTH_CLASS = "right-0";
+
+export const TYPEAHEAD_LISTBOX_UL_CLASS =
+  "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto";
+
+/** Encabezado de columnas opcional encima de la lista. */
+export const TYPEAHEAD_LISTBOX_HEADER_CLASS =
+  "shrink-0 border-b border-border bg-muted/40 py-0.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground";
+
+/**
+ * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.
+ * Hover / activo: `TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS`.
+ */
+export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
+  "w-full cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
+  "hover:bg-accent/60",
+].join(" ");
+
+export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent/60";

@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireEnvios } from "@/lib/actionGates";
+import { requireClientesMutacion, requireEnvios } from "@/lib/actionGates";
 import type {
   ClienteItem,
   EnviosDireccionItem,
   EnviosFinalListItem,
 } from "@/lib/envios";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { REVALIDATE_ENVIOS } from "@/lib/gestionProductosRoutes";
 import type { ActionResult } from "@/lib/types";
 import {
@@ -48,10 +49,11 @@ function revalidateEnvios(): void {
   for (const path of REVALIDATE_ENVIOS) {
     revalidatePath(path);
   }
+  revalidatePath(FACTURACION_ROUTES.factura.crear);
 }
 
 export async function crearClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = crearClienteSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
@@ -67,7 +69,7 @@ export async function crearClienteAction(raw: unknown): Promise<ActionResult<Cli
 }
 
 export async function editarClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = editarClienteSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };

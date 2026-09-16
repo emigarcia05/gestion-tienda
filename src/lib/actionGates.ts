@@ -89,6 +89,31 @@ export function requireEnvios(): Promise<ActionGateFail | null> {
   return requirePermiso(PERMISOS.envios.acceso, "Sin permisos para envíos.");
 }
 
+/**
+ * Alta/edición de catálogo `clientes` (Envíos o Facturación).
+ * Direcciones / envíos finales siguen con `requireEnvios`.
+ */
+export async function requireClientesMutacion(): Promise<ActionGateFail | null> {
+  const rol = await getRol();
+  if (puede(rol, PERMISOS.envios.acceso) || puede(rol, PERMISOS.facturacion.acceso)) {
+    return null;
+  }
+  return { ok: false, error: "Sin permisos para clientes." };
+}
+
+/** Lectura del catálogo ARCA de condiciones IVA (ptos. vta. / clientes / factura). */
+export async function requireCondicionIvaCatalogoLectura(): Promise<ActionGateFail | null> {
+  const rol = await getRol();
+  if (
+    puede(rol, PERMISOS.finanzas.acceso) ||
+    puede(rol, PERMISOS.facturacion.acceso) ||
+    puede(rol, PERMISOS.envios.acceso)
+  ) {
+    return null;
+  }
+  return { ok: false, error: "Sin permisos para el catálogo de condiciones IVA." };
+}
+
 /** Control stock / transf. depósitos. */
 export function requireStockAcceso(): Promise<ActionGateFail | null> {
   return requirePermiso(PERMISOS.stock.acceso, "Sin acceso.");

@@ -24,16 +24,23 @@ import {
   eliminarEnviosDireccionAction,
 } from "@/actions/envios";
 import {
+  formatearCuitMascara,
   CLIENTE_TIPO_LABELS,
   CLIENTE_TIPO_VALUES,
   etiquetaDireccionEnvio,
   etiquetaDireccionEnvioFilaListado,
   nombreCompletoCliente,
+  normalizarCelCliente,
   normalizarNombreCliente,
+  soloDigitos,
   type ClienteItem,
   type ClienteTipoValue,
   type EnviosDireccionItem,
 } from "@/lib/envios";
+import { ARCA_CONDICION_IVA } from "@/lib/facturaFiscal";
+import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
+import { listarPtoVentasCodArcaAction } from "@/actions/globalPtoVtas";
 import {
   CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS,
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -49,6 +56,8 @@ interface Props {
   tipoFijo?: ClienteTipoValue;
   pintores?: ClienteItem[];
   direcciones?: EnviosDireccionItem[];
+  /** Catálogo ARCA; si no se pasa, se carga al abrir el modal. */
+  condicionesIva?: PtoVentasCodArcaItem[];
   onSuccess?: (item: ClienteItem) => void;
   onCatalogoChanged?: () => void;
 }
@@ -61,11 +70,17 @@ export default function CrearEditarClienteModal({
   tipoFijo,
   pintores = [],
   direcciones = [],
+  condicionesIva: condicionesIvaProp,
   onSuccess,
   onCatalogoChanged,
 }: Props) {
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [cel, setCel] = useState("");
+  const [cuitMasked, setCuitMasked] = useState("");
+  const [condicionIva, setCondicionIva] = useState(String(ARCA_CONDICION_IVA.CF));
+  const [condicionesIvaLocal, setCondicionesIvaLocal] = useState<PtoVentasCodArcaItem[]>(
+    condicionesIvaProp ?? []
+  );
   const [cargarComoConsFinal, setCargarComoConsFinal] = useState(false);
   const [tipo, setTipo] = useState<ClienteTipoValue>(tipoFijo ?? "CONSUMIDOR_FINAL");
   const [pintorAsociadoId, setPintorAsociadoId] = useState<string | null>(null);
@@ -89,6 +104,15 @@ export default function CrearEditarClienteModal({
   const muestraPintorAsociado = tipoEfectivo === "CONSUMIDOR_FINAL";
   const muestraDirecciones = tipoEfectivo === "CONSUMIDOR_FINAL";
 
+  const condicionesIva = condicionesIvaProp ?? condicionesIvaLocal;
+  const opcionesIva = useMemo(() => {
+    const activos = condicionesIva.filter((c) => c.activo);
+    const cf = activos.find((c) => c.codigo === ARCA_CONDICION_IVA.CF);
+    if (cf) return activos;
+    const cfCatalogo = condicionesIva.find((c) => c.codigo === ARCA_CONDICION_IVA.CF);
+    return cfCatalogo ? [cfCatalogo, ...activos] : activos;
+  }, [condicionesIva]);
+
   const pintoresDisponibles = useMemo(
     () => pintores.filter((p) => p.tipo === "PINTOR" && p.id !== item?.id),
     [pintores, item?.id]
@@ -104,9 +128,16 @@ export default function CrearEditarClienteModal({
 
   useEffect(() => {
     if (!open) return;
+    if (!condicionesIvaProp) {
+      void listarPtoVentasCodArcaAction().then((res) => {
+        if (res.ok) setCondicionesIvaLocal(res.data);
+      });
+    }
     if (modo === "editar" && item) {
       setNombreCompleto(normalizarNombreCliente(item.nombreCompleto));
       setCel(item.cel);
+      setCuitMasked(item.cuit ? formatearCuitMascara(item.cuit) : "");
+      setCondicionIva(String(item.condicionIva ?? ARCA_CONDICION_IVA.CF));
       setTipo(tipoFijo ?? item.tipo);
       setCargarComoConsFinal(
         (tipoFijo ?? item.tipo) === "CONSUMIDOR_FINAL" &&
@@ -119,6 +150,8 @@ export default function CrearEditarClienteModal({
     }
     setNombreCompleto("");
     setCel("");
+    setCuitMasked("");
+    setCondicionIva(String(ARCA_CONDICION_IVA.CF));
     setCargarComoConsFinal(false);
     setTipo(tipoFijo ?? "CONSUMIDOR_FINAL");
     setPintorAsociadoId(null);
@@ -126,7 +159,7 @@ export default function CrearEditarClienteModal({
     setDireccionesLocal([]);
     // Init al abrir: no re-sincronizar si el catálogo se refresca con el modal abierto.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- direcciones solo al abrir
-  }, [open, modo, item, tipoFijo]);
+  }, [open, modo, item, tipoFijo, condicionesIvaProp]);
 
   const tituloBase = tipoFijo === "PINTOR" || tipoEfectivo === "PINTOR" ? "Pintor" : "Cliente";
   const yaPersistido = Boolean(clienteId);
@@ -134,15 +167,19 @@ export default function CrearEditarClienteModal({
   const nombreRequerido = tipoEfectivo === "PINTOR" || !esConsFinalCargado;
   const nombreValido = nombreRequerido ? normalizarNombreCliente(nombreCompleto) !== "" : true;
   const celValido = esConsFinalCargado ? cel.trim() !== "" : true;
-  const puedeGuardar = nombreValido && celValido;
+  const cuitDigits = soloDigitos(cuitMasked);
+  const cuitValido = cuitDigits === "" || cuitDigits.length === 11;
+  const puedeGuardar = nombreValido && celValido && cuitValido;
 
   async function persistirCliente(): Promise<ClienteItem | null> {
     const tipoGuardar = tipoFijo ?? tipo;
     const payload = {
       nombreCompleto: tipoGuardar === "CONSUMIDOR_FINAL" && cargarComoConsFinal ? "" : nombreCompleto,
-      cel,
+      cel: normalizarCelCliente(cel),
       tipo: tipoGuardar,
       pintorAsociadoId: tipoGuardar === "CONSUMIDOR_FINAL" ? pintorAsociadoId : null,
+      cuit: cuitDigits === "" ? null : cuitDigits,
+      condicionIva: Number(condicionIva),
     };
     const res = clienteId
       ? await editarClienteAction({ id: clienteId, ...payload })
@@ -268,8 +305,51 @@ export default function CrearEditarClienteModal({
             ) : null}
             <label className="flex flex-col gap-1">
               <ModalMicroLabel>{esConsFinalCargado ? "CEL (OBLIGATORIO)" : "CEL"}</ModalMicroLabel>
-              <Input value={cel} onChange={(e) => setCel(e.target.value)} autoComplete="off" />
+              <Input
+                value={cel}
+                onChange={(e) => setCel(e.target.value)}
+                autoComplete="off"
+                inputMode="tel"
+                disabled={saving}
+              />
             </label>
+            <label className="flex flex-col gap-1">
+              <ModalMicroLabel>CUIT</ModalMicroLabel>
+              <Input
+                value={cuitMasked}
+                onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
+                placeholder="##-########-#"
+                autoComplete="off"
+                inputMode="numeric"
+                className={cn("tabular-nums")}
+                disabled={saving}
+                aria-label="CUIT"
+              />
+            </label>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
+              <Select
+                value={condicionIva}
+                onValueChange={setCondicionIva}
+                disabled={saving}
+              >
+                <SelectTrigger className={cn("w-full")} aria-label="Condición IVA">
+                  <SelectValue placeholder="SELECCIONAR" />
+                </SelectTrigger>
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {opcionesIva.map((c) => (
+                    <SelectItem key={c.codigo} value={String(c.codigo)}>
+                      {etiquetaCondicionIvaArca(c.descripcion)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {tipoFijo ? null : (
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>TIPO</ModalMicroLabel>
@@ -459,6 +539,7 @@ export default function CrearEditarClienteModal({
             modo={modalFormPintor.open ? modalFormPintor.modo : "crear"}
             item={modalFormPintor.open ? modalFormPintor.item : null}
             tipoFijo="PINTOR"
+            condicionesIva={condicionesIva}
             onCatalogoChanged={onCatalogoChanged}
             onSuccess={(creado) => {
               setPintorAsociadoId(creado.id);
