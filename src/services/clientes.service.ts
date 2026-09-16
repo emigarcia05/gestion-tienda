@@ -19,6 +19,8 @@ const select = {
   ...resumenSelect,
   pintorAsociadoId: true,
   pintorAsociado: { select: resumenSelect },
+  cuit: true,
+  condicionIva: true,
 } as const;
 
 function mapResumen(row: ClienteResumen): ClienteResumen {
@@ -37,11 +39,15 @@ function mapRow(row: {
   tipo: ClienteResumen["tipo"];
   pintorAsociadoId: string | null;
   pintorAsociado: ClienteResumen | null;
+  cuit: string | null;
+  condicionIva: number | null;
 }): ClienteItem {
   return {
     ...mapResumen(row),
     pintorAsociadoId: row.pintorAsociadoId,
     pintorAsociado: row.pintorAsociado ? mapResumen(row.pintorAsociado) : null,
+    cuit: row.cuit,
+    condicionIva: row.condicionIva,
   };
 }
 
@@ -50,7 +56,7 @@ function prismaErrorMessage(error: unknown, fallback: string): string {
     const code = (error as { code?: string }).code;
     if (code === "P2025") return "El cliente no existe.";
     if (code === "P2003") {
-      return "No se puede eliminar: el cliente está asociado a un envío, a una dirección o como pintor de otro cliente.";
+      return "No se puede eliminar: el cliente está asociado a un envío, a una dirección, a un comprobante o como pintor de otro cliente.";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -84,6 +90,29 @@ async function resolverPintorAsociadoId(input: {
   return { success: true, data: pintor.id };
 }
 
+async function validarCondicionIvaCliente(
+  codigo: number | null | undefined,
+  codigoPersistido?: number | null
+): Promise<ServiceResult<number | null>> {
+  if (codigo == null) return { success: true, data: null };
+  const row = await prisma.ptoVentasCodArca.findUnique({
+    where: { codigo },
+    select: { codigo: true, activo: true },
+  });
+  if (!row) {
+    return { success: false, error: "Seleccioná una condición IVA válida." };
+  }
+  if (!row.activo && row.codigo !== codigoPersistido) {
+    return { success: false, error: "Seleccioná una condición IVA válida." };
+  }
+  return { success: true, data: row.codigo };
+}
+
+function normalizarCuitCliente(cuit: string | null | undefined): string | null {
+  if (cuit == null || cuit === "") return null;
+  return cuit;
+}
+
 export async function listarClientes(): Promise<ClienteItem[]> {
   try {
     const rows = await prisma.cliente.findMany({
@@ -103,12 +132,16 @@ export async function crearCliente(
   try {
     const pintor = await resolverPintorAsociadoId(input);
     if (!pintor.success) return pintor;
+    const condicion = await validarCondicionIvaCliente(input.condicionIva ?? null);
+    if (!condicion.success) return condicion;
     const row = await prisma.cliente.create({
       data: {
         nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
         cel: input.cel.trim(),
         tipo: input.tipo,
         pintorAsociadoId: pintor.data,
+        cuit: normalizarCuitCliente(input.cuit ?? null),
+        condicionIva: condicion.data,
       },
       select,
     });
@@ -148,14 +181,40 @@ export async function editarCliente(
     }
     const pintor = await resolverPintorAsociadoId(input);
     if (!pintor.success) return pintor;
+    const existente = await prisma.cliente.findUnique({
+      where: { id: input.id },
+      select: { condicionIva: true },
+    });
+    if (!existente) {
+      return { success: false, error: "El cliente no existe." };
+    }
+    const data: {
+      nombreCompleto: string;
+      cel: string;
+      tipo: EditarClienteInput["tipo"];
+      pintorAsociadoId: string | null;
+      cuit?: string | null;
+      condicionIva?: number | null;
+    } = {
+      nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
+      cel: input.cel.trim(),
+      tipo: input.tipo,
+      pintorAsociadoId: pintor.data,
+    };
+    if (input.cuit !== undefined) {
+      data.cuit = normalizarCuitCliente(input.cuit);
+    }
+    if (input.condicionIva !== undefined) {
+      const condicion = await validarCondicionIvaCliente(
+        input.condicionIva,
+        existente.condicionIva
+      );
+      if (!condicion.success) return condicion;
+      data.condicionIva = condicion.data;
+    }
     const row = await prisma.cliente.update({
       where: { id: input.id },
-      data: {
-        nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
-        cel: input.cel.trim(),
-        tipo: input.tipo,
-        pintorAsociadoId: pintor.data,
-      },
+      data,
       select,
     });
     return { success: true, data: mapRow(row) };

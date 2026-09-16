@@ -312,7 +312,7 @@ model GlobalPtoVta {
   iiBbMultilateral   Boolean   @default(false) @map("ii_bb_multilateral")
   /** Cuenta IIBB / convenio / `EXENTO`. */
   iiBb               String?   @map("ii_bb") @db.VarChar(64)
-  /** Código ARCA (`pto_ventas_cod_arca.codigo`). Null = sin definir. */
+  /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
   condicionIva       Int?      @map("condicion_iva")
   condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   nombreTitular      String    @map("nombre_titular")
@@ -347,19 +347,20 @@ model GlobalPtoVtaSucursal {
 }
 
 /**
- * Catálogo ARCA de condiciones frente al IVA (`pto_ventas_cod_arca`).
+ * Catálogo ARCA de condiciones frente al IVA (`condicion_iva_cod_arca`, ex `pto_ventas_cod_arca`).
  * Lookup/parámetros: `codigo` = código oficial ARCA.
  */
 model PtoVentasCodArca {
   id          Int     @id @default(autoincrement())
-  codigo      Int     @unique(map: "pto_ventas_cod_arca_codigo_key")
+  codigo      Int     @unique(map: "condicion_iva_cod_arca_codigo_key")
   descripcion String  @db.VarChar(100)
   activo      Boolean @default(true)
 
   ptoVtas                     GlobalPtoVta[]
   comprobantesVtasReceptor    ComprobanteVta[] @relation("ComprobanteVtaReceptorIva")
+  clientes                    Cliente[]
 
-  @@map("pto_ventas_cod_arca")
+  @@map("condicion_iva_cod_arca")
 }
 
 /**
@@ -1676,9 +1677,10 @@ enum EnviosFormaPagado {
 }
 
 /**
- * Catálogo de clientes de envío (`CONSUMIDOR_FINAL` o `PINTOR`).
+ * Catálogo de clientes de envío / facturación (`CONSUMIDOR_FINAL` o `PINTOR`).
  * `nombre_completo` se persiste en mayúsculas.
  * `cel` es opcional (puede persistirse vacío).
+ * `cuit` opcional (11 dígitos). `condicion_iva` opcional → `condicion_iva_cod_arca.codigo`.
  * `pintor_asociado` solo aplica a `CONSUMIDOR_FINAL` y apunta a un `PINTOR` (CHECK SQL + servicio).
  */
 model Cliente {
@@ -1686,19 +1688,27 @@ model Cliente {
   nombreCompleto    String      @map("nombre_completo")
   cel               String      @map("cel")
   tipo              ClienteTipo @map("tipo")
+  /** CUIT 11 dígitos sin guiones (opcional). */
+  cuit              String?     @map("cuit") @db.VarChar(11)
+  /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
+  condicionIva      Int?        @map("condicion_iva")
   pintorAsociadoId  String?     @map("pintor_asociado")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
   pintorAsociado     Cliente?  @relation("ClientePintorAsociado", fields: [pintorAsociadoId], references: [id], onDelete: Restrict)
   clientesAsociados  Cliente[] @relation("ClientePintorAsociado")
+  condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   enviosComoClienteFinal EnviosFinal[] @relation("EnviosFinalClienteFinal")
   enviosComoPintor       EnviosFinal[] @relation("EnviosFinalPintor")
   direcciones            EnviosDireccion[]
+  comprobantesVtas       ComprobanteVta[]
 
   @@index([tipo], map: "clientes_tipo_idx")
   @@index([nombreCompleto], map: "clientes_nombre_completo_idx")
   @@index([pintorAsociadoId], map: "clientes_pintor_asociado_idx")
+  @@index([condicionIva], map: "clientes_condicion_iva_idx")
+  @@index([cuit], map: "clientes_cuit_idx")
   @@map("clientes")
 }
 
@@ -1712,7 +1722,7 @@ enum EnviosDepartamento {
   LUJAN
 }
 
-/** Dirección de envío asociada a un cliente (en el alta, al `CONSUMIDOR_FINAL` seleccionado).
+/** Dirección de cliente (`clientes_direcciones`; ex `envios_direcciones`).
  * Textos: `calle_nombre` y `distrito` en proper case; `numeracion` y `referencia` con primera mayúscula de la oración.
  * Al persistir hace falta al menos un dato (CHECK SQL + Zod + servicio).
  */
@@ -1731,10 +1741,10 @@ model EnviosDireccion {
   persona Cliente @relation(fields: [personaId], references: [id], onDelete: Restrict)
   envios  EnviosFinal[]
 
-  @@index([personaId], map: "envios_direcciones_persona_id_idx")
-  @@index([calleNombre], map: "envios_direcciones_calle_nombre_idx")
-  @@index([departamento], map: "envios_direcciones_departamento_idx")
-  @@map("envios_direcciones")
+  @@index([personaId], map: "clientes_direcciones_persona_id_idx")
+  @@index([calleNombre], map: "clientes_direcciones_calle_nombre_idx")
+  @@index([departamento], map: "clientes_direcciones_departamento_idx")
+  @@map("clientes_direcciones")
 }
 
 /**
@@ -1820,7 +1830,7 @@ model SyncDuxStatus {
 
 /**
  * Cabecera de comprobantes de venta (`comprobantes_vtas`).
- * Receptor fiscal: snapshot en la fila (no usa `clientes` de Envios).
+ * Receptor fiscal: **snapshot** en la fila (`receptor_*`) + FK opcional `cliente_id` → `clientes`.
  * CAE solo si `tipo_local` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
  * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
  */
@@ -1839,6 +1849,8 @@ model ComprobanteVta {
   moneda    String @default("PES") @db.VarChar(8)
   cotizacion Decimal @default(1) @db.Decimal(14, 6)
 
+  /** Catálogo `clientes` (opcional). El snapshot `receptor_*` sigue siendo la fuente fiscal del comprobante. */
+  clienteId            String? @map("cliente_id")
   receptorNombre       String  @map("receptor_nombre")
   receptorDocTipo      Int?    @map("receptor_doc_tipo")
   receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
@@ -1878,6 +1890,7 @@ model ComprobanteVta {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
@@ -1887,6 +1900,7 @@ model ComprobanteVta {
   @@index([tipoLocal, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
   @@index([cae], map: "comprobantes_vtas_cae_idx")
+  @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")
   @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
   @@map("comprobantes_vtas")

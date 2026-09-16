@@ -186,7 +186,7 @@ export function compararClientesParaListado(
   return 0;
 }
 
-/** Textos de `envios_direcciones`: primera letra mayúscula, resto minúsculas (oración). */
+/** Textos de `clientes_direcciones`: primera letra mayúscula, resto minúsculas (oración). */
 export function capitalizarTextoEnvio(value: string): string {
   const t = value.trim().replace(/\s+/g, " ");
   if (t === "") return t;
@@ -230,6 +230,10 @@ export interface ClienteResumen {
 export interface ClienteItem extends ClienteResumen {
   pintorAsociadoId: string | null;
   pintorAsociado: ClienteResumen | null;
+  /** CUIT 11 dígitos o null. */
+  cuit: string | null;
+  /** Código ARCA (`condicion_iva_cod_arca.codigo`) o null. */
+  condicionIva: number | null;
 }
 
 /** Nombre del pintor asociado, solo si el cliente es CONSUMIDOR_FINAL y tiene uno. */

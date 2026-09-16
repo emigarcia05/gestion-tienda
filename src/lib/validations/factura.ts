@@ -5,7 +5,7 @@ import {
   esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
 } from "@/lib/factura";
-import { prismaCuidSchema } from "@/lib/validations/common";
+import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
@@ -76,6 +76,8 @@ export const emitirFacturaComprobanteSchema = z
       .trim()
       .max(200, "El cliente es demasiado largo.")
       .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
+    /** FK opcional a `clientes`. Null = solo snapshot de receptor. */
+    clienteId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
     receptorDocTipo: z.number().int().positive().optional(),

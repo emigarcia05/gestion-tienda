@@ -53,6 +53,35 @@ export const enviosPdfComprobanteSchema = z.object({
   base64: pdfBase64Schema,
 });
 
+const clienteCuitSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value == null) return null;
+  if (typeof value !== "string") return value;
+  const digits = value.trim().replace(/\D/g, "");
+  return digits === "" ? null : digits;
+}, z
+  .union([
+    z.null(),
+    z.string().regex(/^\d{11}$/, "El CUIT debe tener exactamente 11 dígitos (sin guiones)."),
+  ])
+  .optional());
+
+const clienteCondicionIvaSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === "" || value === "none" || value === "__none__" || value == null) {
+    return null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return value;
+}, z
+  .number({ error: "Seleccioná una condición IVA válida." })
+  .int("Seleccioná una condición IVA válida.")
+  .positive("Seleccioná una condición IVA válida.")
+  .nullable()
+  .optional());
+
 const clienteCampos = {
   nombreCompleto: z
     .string()
@@ -62,6 +91,8 @@ const clienteCampos = {
   cel: textoOpcionalSchema(40),
   tipo: z.enum(CLIENTE_TIPO_VALUES),
   pintorAsociadoId: prismaIdOptionalNullableSchema,
+  cuit: clienteCuitSchema,
+  condicionIva: clienteCondicionIvaSchema,
 };
 
 function refineClientePintorAsociado(

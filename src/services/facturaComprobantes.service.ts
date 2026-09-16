@@ -305,6 +305,17 @@ export async function emitirFacturaComprobante(
     return { success: false, error: "El punto de venta no existe o está inactivo." };
   }
 
+  let clienteId: string | null = input.clienteId ?? null;
+  if (clienteId) {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { id: true },
+    });
+    if (!cliente) {
+      return { success: false, error: "El cliente seleccionado no existe." };
+    }
+  }
+
   const fiscal = esTipoLocalFiscal(input.tipo);
   let letra: ArcaLetra | null = null;
   let cbteTipo: number | null = null;
@@ -446,6 +457,7 @@ export async function emitirFacturaComprobante(
             cbteNro,
             fecha,
             concepto,
+            clienteId,
             receptorNombre,
             receptorDocTipo: null,
             receptorDocNro: null,
@@ -496,6 +508,7 @@ export async function emitirFacturaComprobante(
     cbteTipo: cbteTipo as number,
     fecha,
     concepto,
+    clienteId,
     receptorNombre,
     lineas,
     resumen,
@@ -525,6 +538,7 @@ async function emitirFiscal(args: {
   cbteTipo: number;
   fecha: Date;
   concepto: string;
+  clienteId: string | null;
   receptorNombre: string;
   lineas: LineaCalculada[];
   resumen: ReturnType<typeof resumenTotalesFactura>;
@@ -664,6 +678,7 @@ async function emitirFiscal(args: {
           cbteNro,
           fecha: args.fecha,
           concepto: args.concepto,
+          clienteId: args.clienteId,
           receptorNombre: args.receptorNombre,
           receptorDocTipo: args.input.receptorDocTipo ?? null,
           receptorDocNro: args.input.receptorDocNro ?? null,
@@ -801,6 +816,7 @@ export async function emitirNotaCreditoDesdeComprobante(
     fechaIso: dateToIsoYmdArgentina(new Date()),
     tipo: "nota_credito_fiscal",
     cliente: orig.receptorNombre,
+    clienteId: orig.clienteId,
     comentarios: orig.comentarios,
     ptoVtaId: orig.ptoVtaId,
     receptorDocTipo: orig.receptorDocTipo ?? undefined,
