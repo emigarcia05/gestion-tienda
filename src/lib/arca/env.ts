@@ -16,7 +16,7 @@ export type ArcaEnvConfig = {
 };
 
 function readPem(raw: string | undefined): string {
-  return (raw ?? "").replace(/\\n/g, "\n").trim();
+  return (raw ?? "").replace(/^\uFEFF/, "").replace(/\\n/g, "\n").trim();
 }
 
 function cuit11(raw: string | null | undefined): string | null {
