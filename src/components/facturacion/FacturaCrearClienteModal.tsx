@@ -185,7 +185,7 @@ export default function FacturaCrearClienteModal({
               >
                 {opcionesIva.map((c) => (
                   <SelectItem key={c.codigo} value={String(c.codigo)}>
-                    {etiquetaCondicionIvaArca(c)}
+                    {etiquetaCondicionIvaArca(c.descripcion)}
                   </SelectItem>
                 ))}
               </SelectContent>
