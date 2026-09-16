@@ -326,6 +326,8 @@ export default function CrearEditarClienteModal({
                                   ...item.pintorAsociado,
                                   pintorAsociadoId: null,
                                   pintorAsociado: null,
+                                  cuit: null,
+                                  condicionIva: null,
                                 }
                               : null);
                           if (!pintorItem) return;
