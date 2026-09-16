@@ -49,6 +49,21 @@ export const buscarProductosFacturaSchema = z.object({
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
 
+/**
+ * Búsqueda typeahead de clientes para Factura · Crear.
+ * Tokens separados por espacio: AND sobre nombre / cel / cuit.
+ */
+export const buscarClientesFacturaSchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(3, "Escribí al menos 3 letras.")
+    .max(200),
+  take: z.coerce.number().int().min(1).max(10).optional().default(10),
+});
+
+export type BuscarClientesFacturaInput = z.infer<typeof buscarClientesFacturaSchema>;
+
 const facturaLineaEmitirSchema = z.object({
   codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
   descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),

@@ -73,6 +73,12 @@ export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
 /** Mínimo de caracteres (trim) para disparar la búsqueda de productos. */
 export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 
+/** Máximo de sugerencias en el typeahead de clientes (Crear). */
+export const FACTURA_BUSQUEDA_CLIENTES_TAKE = 10;
+
+/** Mínimo de caracteres (trim) para disparar la búsqueda de clientes. */
+export const FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS = 3;
+
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 

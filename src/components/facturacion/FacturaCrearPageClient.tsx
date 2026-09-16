@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { CalendarDays, FileText } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { CalendarDays, FileText, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { emitirFacturaComprobanteAction } from "@/actions/factura";
+import {
+  buscarClientesFacturaAction,
+  emitirFacturaComprobanteAction,
+} from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import FacturaCrearClienteModal from "@/components/facturacion/FacturaCrearClienteModal";
 import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
 } from "@/components/facturacion/FacturaCrearLineasBlock";
@@ -22,6 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
+  FACTURA_BUSQUEDA_CLIENTES_TAKE,
   FACTURA_DOC_TIPO_OPTIONS,
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
@@ -36,7 +42,13 @@ import {
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
-import { ARCA_CONDICION_IVA, ARCA_DOC_TIPO } from "@/lib/facturaFiscal";
+import { ARCA_CONDICION_IVA, ARCA_DOC_TIPO, receptorRequiereCuit } from "@/lib/facturaFiscal";
+import type { ClienteItem } from "@/lib/envios";
+import {
+  nombreCompletoCliente,
+  nombrePintorAsociadoCliente,
+} from "@/lib/envios";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
@@ -45,6 +57,9 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
+
+/** Saldo en typeahead de clientes: pendiente de implementar. */
+const CLIENTE_SALDO_PLACEHOLDER = "";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -70,6 +85,8 @@ export default function FacturaCrearPageClient({
   condicionesIva,
   originalesNc,
 }: Props) {
+  const listboxClientesId = useId();
+  const clienteWrapRef = useRef<HTMLDivElement>(null);
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
   const remitoRef = useRef<FacturaRemitoSnapshot>({
     lineas: [],
@@ -77,7 +94,7 @@ export default function FacturaCrearPageClient({
   });
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
-  const [cliente, setCliente] = useState("");
+  const [clienteId, setClienteId] = useState<string | null>(null);
   const [nroComprobante, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
@@ -86,12 +103,90 @@ export default function FacturaCrearPageClient({
   const [receptorDocNro, setReceptorDocNro] = useState("0");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
+  const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
+  const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteItem[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const [clientesAbierto, setClientesAbierto] = useState(false);
+  const [clienteHighlight, setClienteHighlight] = useState(0);
 
   const handleRemitoChange = useCallback((snapshot: FacturaRemitoSnapshot) => {
     remitoRef.current = snapshot;
+  }, []);
+
+  const fetchSugerenciasClientes = useCallback(async (value: string) => {
+    const q = value.trim();
+    if (q.length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
+      setSugerenciasClientes([]);
+      setLoadingClientes(false);
+      return;
+    }
+    setLoadingClientes(true);
+    const res = await buscarClientesFacturaAction({
+      q,
+      take: FACTURA_BUSQUEDA_CLIENTES_TAKE,
+    });
+    setLoadingClientes(false);
+    if (!res.ok) {
+      setSugerenciasClientes([]);
+      toast.error(res.error);
+      return;
+    }
+    setSugerenciasClientes(res.data.items);
+    setClienteHighlight(0);
+  }, []);
+
+  const {
+    q: cliente,
+    setQ: setCliente,
+    ref: clienteInputRef,
+    handleQChange: handleClienteQChange,
+    isDebouncing: isDebouncingClientes,
+  } = useFiltrosConBusqueda({
+    qActual: "",
+    debounceMs: 300,
+    onDebouncedSearch: (value) => {
+      void fetchSugerenciasClientes(value);
+    },
+  });
+
+  const clienteTrim = cliente.trim();
+  const puedeBuscarClientes =
+    clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
+
+  function aplicarClienteSeleccionado(item: ClienteItem) {
+    const nombre = nombreCompletoCliente(item);
+    setCliente(nombre);
+    setClienteId(item.id);
+    const cond = item.condicionIva ?? ARCA_CONDICION_IVA.CF;
+    setReceptorCondicionIva(String(cond));
+    if (item.cuit) {
+      setReceptorDocTipo(String(ARCA_DOC_TIPO.CUIT));
+      setReceptorDocNro(item.cuit);
+    } else if (receptorRequiereCuit(cond)) {
+      setReceptorDocTipo(String(ARCA_DOC_TIPO.CUIT));
+      setReceptorDocNro("");
+    } else {
+      setReceptorDocTipo(String(ARCA_DOC_TIPO.CF));
+      setReceptorDocNro("0");
+    }
+    setSugerenciasClientes([]);
+    setClientesAbierto(false);
+    setClienteHighlight(0);
+  }
+
+  useEffect(() => {
+    function onDocPointerDown(e: PointerEvent) {
+      const el = clienteWrapRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setClientesAbierto(false);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, []);
 
   const fiscal = esFacturaTipoFiscal(tipo);
@@ -115,6 +210,7 @@ export default function FacturaCrearPageClient({
         fechaIso,
         tipo,
         cliente: clienteEmitir,
+        clienteId,
         comentarios,
         ptoVtaId,
         receptorDocTipo: fiscal
@@ -178,17 +274,32 @@ export default function FacturaCrearPageClient({
       subtitle="Crear"
       contentWidth="full"
       actions={
-        <ToolbarActionButton
-          type="button"
-          variant="default"
-          label="Generar Comprobante"
-          loadingLabel="Emitiendo…"
-          loading={pending}
-          icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
-          onClick={() => void abrirGenerarComprobante()}
-        />
+        <>
+          <ToolbarActionButton
+            type="button"
+            variant="default"
+            label="Crear Cliente"
+            icon={<UserPlus className="h-4 w-4 shrink-0" aria-hidden />}
+            onClick={() => setCrearClienteOpen(true)}
+          />
+          <ToolbarActionButton
+            type="button"
+            variant="default"
+            label="Generar Comprobante"
+            loadingLabel="Emitiendo…"
+            loading={pending}
+            icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
+            onClick={() => void abrirGenerarComprobante()}
+          />
+        </>
       }
     >
+      <FacturaCrearClienteModal
+        open={crearClienteOpen}
+        onOpenChange={setCrearClienteOpen}
+        condicionesIva={condicionesIva}
+        onSuccess={aplicarClienteSeleccionado}
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="grid grid-cols-5 gap-4">
@@ -255,14 +366,131 @@ export default function FacturaCrearPageClient({
 
             <label className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
-              <Input
-                type="text"
-                value={cliente}
-                onChange={(e) => setCliente(e.target.value.toLocaleUpperCase("es-AR"))}
-                placeholder="CONSUMIDOR FINAL"
-                autoComplete="off"
-                aria-label="Cliente"
-              />
+              <div ref={clienteWrapRef} className="relative z-20 w-full">
+                <Input
+                  ref={clienteInputRef}
+                  id="factura-crear-buscar-cliente"
+                  type="text"
+                  value={cliente}
+                  onChange={(e) => {
+                    const next = e.target.value.toLocaleUpperCase("es-AR");
+                    setClienteId(null);
+                    handleClienteQChange(next);
+                    if (next.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
+                      setClientesAbierto(false);
+                      setSugerenciasClientes([]);
+                      setLoadingClientes(false);
+                      return;
+                    }
+                    setClientesAbierto(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown" && sugerenciasClientes.length > 0) {
+                      e.preventDefault();
+                      setClientesAbierto(true);
+                      setClienteHighlight((h) => (h + 1) % sugerenciasClientes.length);
+                      return;
+                    }
+                    if (e.key === "ArrowUp" && sugerenciasClientes.length > 0) {
+                      e.preventDefault();
+                      setClientesAbierto(true);
+                      setClienteHighlight(
+                        (h) =>
+                          (h - 1 + sugerenciasClientes.length) %
+                          sugerenciasClientes.length
+                      );
+                      return;
+                    }
+                    if (e.key === "Enter" && sugerenciasClientes[clienteHighlight]) {
+                      e.preventDefault();
+                      aplicarClienteSeleccionado(
+                        sugerenciasClientes[clienteHighlight]!
+                      );
+                      return;
+                    }
+                    if (e.key === "Escape") {
+                      setClientesAbierto(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (puedeBuscarClientes) setClientesAbierto(true);
+                  }}
+                  placeholder="CONSUMIDOR FINAL"
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={clientesAbierto}
+                  aria-controls={listboxClientesId}
+                  aria-autocomplete="list"
+                  aria-label="Cliente"
+                  className={cn(
+                    "w-full",
+                    (isDebouncingClientes || loadingClientes) && "pr-10"
+                  )}
+                />
+                {(isDebouncingClientes || loadingClientes) && (
+                  <Loader2
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                    aria-hidden
+                  />
+                )}
+                {clientesAbierto && puedeBuscarClientes ? (
+                  <div
+                    id={listboxClientesId}
+                    role="listbox"
+                    className={cn(
+                      "absolute left-0 right-0 top-full z-50 mt-1 flex flex-col",
+                      "max-h-72 overflow-hidden rounded-md border border-border bg-popover",
+                      "text-popover-foreground shadow-md"
+                    )}
+                  >
+                    {loadingClientes || isDebouncingClientes ? (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        Buscando…
+                      </p>
+                    ) : sugerenciasClientes.length === 0 ? (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        Sin resultados.
+                      </p>
+                    ) : (
+                      <ul className="min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto">
+                        {sugerenciasClientes.map((item, idx) => {
+                          const activo = idx === clienteHighlight;
+                          const nombre =
+                            nombreCompletoCliente(item) || "CONSUMIDOR FINAL";
+                          const pintor = nombrePintorAsociadoCliente(item);
+                          return (
+                            <li key={item.id} role="option" aria-selected={activo}>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex w-full flex-col gap-0.5 px-3 py-1.5 text-left text-sm leading-tight text-foreground transition-colors",
+                                  "hover:bg-accent/60",
+                                  activo && "bg-accent/60"
+                                )}
+                                onMouseEnter={() => setClienteHighlight(idx)}
+                                onClick={() => aplicarClienteSeleccionado(item)}
+                              >
+                                <span className="min-w-0 truncate">
+                                  {nombre}
+                                  {" - "}
+                                  <span className="tabular-nums text-muted-foreground">
+                                    {CLIENTE_SALDO_PLACEHOLDER}
+                                  </span>
+                                </span>
+                                {pintor ? (
+                                  <span className="min-w-0 truncate text-xs text-muted-foreground">
+                                    ({pintor})
+                                  </span>
+                                ) : null}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </label>
 
             <label className="flex min-w-0 flex-col gap-1">

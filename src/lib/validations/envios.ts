@@ -6,6 +6,7 @@ import {
   ENVIOS_HORA_VALUES,
   capitalizarTextoEnvio,
   direccionEnvioTieneDato,
+  normalizarCelCliente,
   normalizarNombreCliente,
   properTextoEnvio,
   type ClienteTipoValue,
@@ -88,7 +89,12 @@ const clienteCampos = {
     .trim()
     .max(400, "El nombre completo es demasiado largo.")
     .transform(normalizarNombreCliente),
-  cel: textoOpcionalSchema(40),
+  cel: z
+    .string()
+    .trim()
+    .max(40, "El texto es demasiado largo.")
+    .optional()
+    .transform((v) => normalizarCelCliente(v ?? "")),
   tipo: z.enum(CLIENTE_TIPO_VALUES),
   pintorAsociadoId: prismaIdOptionalNullableSchema,
   cuit: clienteCuitSchema,

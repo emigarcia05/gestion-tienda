@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import {
   compararClientesParaListado,
+  normalizarCelCliente,
   normalizarNombreCliente,
+  soloDigitos,
   type ClienteItem,
   type ClienteResumen,
 } from "@/lib/envios";
@@ -126,6 +129,50 @@ export async function listarClientes(): Promise<ClienteItem[]> {
   }
 }
 
+/**
+ * Typeahead Factura · Crear: tokens AND sobre nombre / cel / cuit (contains, insensitive).
+ */
+export async function buscarClientesParaFactura(params: {
+  q: string;
+  take?: number;
+}): Promise<ServiceResult<{ items: ClienteItem[] }>> {
+  const tokens = params.q
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return { success: true, data: { items: [] } };
+  }
+  const take = Math.min(10, Math.max(1, Math.floor(Number(params.take) || 10)));
+
+  try {
+    const where: Prisma.ClienteWhereInput = {
+      AND: tokens.map((t) => {
+        const digitos = soloDigitos(t);
+        const or: Prisma.ClienteWhereInput[] = [
+          { nombreCompleto: { contains: t, mode: "insensitive" } },
+        ];
+        if (digitos.length > 0) {
+          or.push({ cel: { contains: digitos } });
+          or.push({ cuit: { contains: digitos } });
+        }
+        return { OR: or };
+      }),
+    };
+    const rows = await prisma.cliente.findMany({
+      where,
+      orderBy: [{ nombreCompleto: "asc" }, { createdAt: "asc" }],
+      take,
+      select,
+    });
+    return { success: true, data: { items: rows.map(mapRow) } };
+  } catch (e) {
+    console.error("[clientes][buscarFactura]", e);
+    return { success: false, error: "No se pudo buscar clientes." };
+  }
+}
+
 export async function crearCliente(
   input: CrearClienteInput
 ): Promise<ServiceResult<ClienteItem>> {
@@ -137,7 +184,7 @@ export async function crearCliente(
     const row = await prisma.cliente.create({
       data: {
         nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
-        cel: input.cel.trim(),
+        cel: normalizarCelCliente(input.cel),
         tipo: input.tipo,
         pintorAsociadoId: pintor.data,
         cuit: normalizarCuitCliente(input.cuit ?? null),
@@ -197,7 +244,7 @@ export async function editarCliente(
       condicionIva?: number | null;
     } = {
       nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
-      cel: input.cel.trim(),
+      cel: normalizarCelCliente(input.cel),
       tipo: input.tipo,
       pintorAsociadoId: pintor.data,
     };
