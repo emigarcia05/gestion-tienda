@@ -88,6 +88,39 @@ function primerPass(...raws: (string | undefined)[]): string | null {
   return null;
 }
 
+/**
+ * Next.js inyecta solo `process.env.NOMBRE` escrito en el código.
+ * `process.env[ARCA_CERT_PEM_${cuit}]` queda vacío en Vercel aunque la variable exista.
+ */
+function pemsEstaticosPorCuit(cuit: string): {
+  cert?: string;
+  key?: string;
+  passphrase?: string;
+} {
+  switch (cuit) {
+    case "20372672235":
+      return {
+        cert: process.env.ARCA_CERT_PEM_20372672235,
+        key: process.env.ARCA_KEY_PEM_20372672235,
+        passphrase: process.env.ARCA_KEY_PASSPHRASE_20372672235,
+      };
+    case "23169084289":
+      return {
+        cert: process.env.ARCA_CERT_PEM_23169084289,
+        key: process.env.ARCA_KEY_PEM_23169084289,
+        passphrase: process.env.ARCA_KEY_PASSPHRASE_23169084289,
+      };
+    case "20329808824":
+      return {
+        cert: process.env.ARCA_CERT_PEM_20329808824,
+        key: process.env.ARCA_KEY_PEM_20329808824,
+        passphrase: process.env.ARCA_KEY_PASSPHRASE_20329808824,
+      };
+    default:
+      return {};
+  }
+}
+
 /** `ARCA_*_{CUIT}` compartido; fallback `ARCA_CERT_PEM` / `ARCA_KEY_PEM`. */
 function leerPems(cuit: string | null): {
   certPem: string;
@@ -95,16 +128,20 @@ function leerPems(cuit: string | null): {
   keyPassphrase: string | null;
 } {
   const porCuit = cuit ? nombresPemPorCuit(cuit) : null;
+  const estaticos = cuit ? pemsEstaticosPorCuit(cuit) : {};
   return {
     certPem: primerPem(
+      estaticos.cert,
       porCuit ? process.env[porCuit.cert] : undefined,
       process.env.ARCA_CERT_PEM
     ),
     keyPem: primerPem(
+      estaticos.key,
       porCuit ? process.env[porCuit.key] : undefined,
       process.env.ARCA_KEY_PEM
     ),
     keyPassphrase: primerPass(
+      estaticos.passphrase,
       porCuit ? process.env[porCuit.passphrase] : undefined,
       process.env.ARCA_KEY_PASSPHRASE
     ),
@@ -170,6 +207,10 @@ export function leerArcaEnv(opts?: {
 export function arcaCertificadosConfigurados(): boolean {
   if (readPem(process.env.ARCA_CERT_PEM) && readPem(process.env.ARCA_KEY_PEM)) {
     return true;
+  }
+  for (const cuit of ["20372672235", "23169084289", "20329808824"] as const) {
+    const est = pemsEstaticosPorCuit(cuit);
+    if (readPem(est.cert) && readPem(est.key)) return true;
   }
   for (const name of Object.keys(process.env)) {
     const cuit = /^ARCA_CERT_PEM_(\d{11})$/.exec(name);
