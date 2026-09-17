@@ -330,8 +330,8 @@ export default function FacturaCrearPageClient({
       />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
-          <div className="grid grid-cols-5 gap-4">
-            <label className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 items-end gap-3">
+            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
               <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
               <Select
                 value={tipo}
@@ -352,7 +352,7 @@ export default function FacturaCrearPageClient({
               </Select>
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
                 <Input
@@ -392,7 +392,7 @@ export default function FacturaCrearPageClient({
               />
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="flex min-w-0 flex-[1.35] flex-col gap-1">
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
               <div ref={clienteWrapRef} className="relative z-20 w-full">
                 <Input
@@ -542,59 +542,54 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
-              <Input
-                type="text"
-                readOnly
-                value={nroComprobante}
-                placeholder="—"
-                className="bg-muted/40 tabular-nums"
-                aria-label="Número de comprobante (solo lectura)"
-              />
+            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
+              <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+              <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue placeholder="Punto de venta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ptoVtas.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.ptoVenta} — {p.nombreTitular}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
 
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>COMENTARIOS</ModalMicroLabel>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  comentarios.trim() && "text-primary hover:text-primary"
-                )}
-                onClick={() => setComentarioCabeceraOpen(true)}
-                aria-label={
-                  comentarios.trim()
-                    ? "Editar comentarios del comprobante"
-                    : "Agregar comentarios del comprobante"
-                }
-                title="Comentarios"
+            <div className="flex w-[9rem] shrink-0 flex-col gap-1">
+              <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
+              <p
+                className="flex h-9 items-center truncate text-sm tabular-nums text-muted-foreground"
+                aria-label="Número de comprobante (solo lectura)"
               >
-                <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
-              </Button>
+                {nroComprobante}
+              </p>
             </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+                comentarios.trim() && "text-primary hover:text-primary"
+              )}
+              onClick={() => setComentarioCabeceraOpen(true)}
+              aria-label={
+                comentarios.trim()
+                  ? "Editar comentarios del comprobante"
+                  : "Agregar comentarios del comprobante"
+              }
+              title="Comentarios"
+            >
+              <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+            </Button>
           </div>
 
           {fiscal ? (
-            <div className="mt-4 grid grid-cols-5 gap-4">
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
-                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="Punto de venta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ptoVtas.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.ptoVenta} — {p.nombreTitular}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-
+            <div className="mt-4 grid grid-cols-4 gap-4">
               <label className="flex min-w-0 flex-col gap-1">
                 <ModalMicroLabel>COND. IVA RECEPTOR</ModalMicroLabel>
                 <Select
@@ -664,25 +659,7 @@ export default function FacturaCrearPageClient({
                 <div />
               )}
             </div>
-          ) : (
-            <div className="mt-4 grid grid-cols-5 gap-4">
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
-                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="Punto de venta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ptoVtas.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.ptoVenta} — {p.nombreTitular}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
