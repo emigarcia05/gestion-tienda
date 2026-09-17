@@ -765,12 +765,7 @@ export default function FacturaCrearLineasBlock({
                               type="button"
                               variant="ghost"
                               size="icon-xs"
-                              className={cn(
-                                "size-5 shrink-0",
-                                resaltarSucursal
-                                  ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
-                                  : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
-                              )}
+                              className="size-5 shrink-0 bg-transparent p-0 shadow-none hover:bg-transparent"
                               title={
                                 resaltarSucursal
                                   ? "Hay stock en otra sucursal"
@@ -789,7 +784,12 @@ export default function FacturaCrearLineasBlock({
                               }}
                             >
                               <Store
-                                className={cn(TABLE_ROW_ACTION_ICON_CLASS, "fill-none")}
+                                className={cn(
+                                  TABLE_ROW_ACTION_ICON_CLASS,
+                                  resaltarSucursal
+                                    ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
+                                    : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
+                                )}
                                 aria-hidden
                               />
                             </Button>

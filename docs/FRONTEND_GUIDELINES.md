@@ -1,6 +1,6 @@
 # Guía de Frontend — vigente
 
-Stack: **Next.js 16 (App Router)**, **React 19**, **Tailwind CSS 4**, **shadcn/ui**, **Geist**, **lucide-react**, **sonner**. Desktop-only. Tokens del tema + `cn()` de `@/lib/utils`.
+Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, **Tailwind CSS 4**, **shadcn/ui** (estilo **new-york**, RSC, tokens CSS, `baseColor: neutral`), **CVA** + `cn()` (`clsx` + `tailwind-merge`), **Geist** / Geist Mono, **lucide-react**, **sonner**, **Radix**. Desktop-only. Zod v4 en el borde de formularios. Prompt operativo del agente Front: [`.cursor/front_promp.md`](../.cursor/front_promp.md).
 
 **No leas este archivo entero.** Usá la tabla de abajo y saltá a la sección del patrón o módulo que estás tocando.
 
@@ -18,6 +18,7 @@ Stack: **Next.js 16 (App Router)**, **React 19**, **Tailwind CSS 4**, **shadcn/u
 | Lista Precios / Edición Masiva | **§3 Proveedores** |
 | Ptos. Vtas. | **§3** Ptos. Vtas. |
 | IA Diseño / Asistente IA | `docs/AGENTEIA_GUIDELINES.md` |
+| Prompt agente Front (stack + modo de operación) | [`.cursor/front_promp.md`](../.cursor/front_promp.md) |
 
 `/` , `/finanzas`, `/marketing` y `/facturacion` son **hubs vacíos** (panel central sin datos). El contenido aparece al elegir una **ruta hoja** en el sidenav. Al cambiar de área: **Vendedor** → `/`, **Administración** → `/finanzas`, **Marketing** → `/marketing`, **Facturación** → `/facturacion`.
 
@@ -166,7 +167,7 @@ Patrón de lista de sugerencias bajo un input (`role="combobox"` + panel `role="
 - **Debounce:** `useFiltrosConBusqueda` (≥ 3 caracteres tipico).
 - **Panel:** `TYPEAHEAD_LISTBOX_PANEL_CLASS` (`z-[70]`). Altura fija por defecto: `TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS` (`h-72`). **Estirar al bloque padre** (Factura · Crear productos): overlay `absolute inset-4` del contenedor `p-4` + `TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS` (desde debajo del input hasta el margen inferior interior; tapa tabla y pie). Ancla: `TYPEAHEAD_LISTBOX_ANCHOR_CLASS` / abierto `TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS` (`z-[60]`) para quedar por encima de bloques vecinos. Ancho = input → `TYPEAHEAD_LISTBOX_PANEL_MATCH_INPUT_WIDTH_CLASS`; más ancho → `TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS`.
 - **Lista:** `ul` con `TYPEAHEAD_LISTBOX_UL_CLASS` (`divide-y divide-primary/40` + scroll).
-- **Encabezado de columnas (opcional):** `TYPEAHEAD_LISTBOX_HEADER_CLASS` (altura `--tabla-thead-height`, `bg-primary` + `text-primary-foreground` + `text-xs font-bold` como thead de tabla) + grid propio del módulo. Celdas `w-full text-center`. Con columnas: header **sticky** dentro de `TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS` (mismo ancho que las filas; el scrollbar no desfasá). En productos, **STOCK** engloba cantidad (o alerta) + ícono sucursal `Store` (solo trazo: `TYPEAHEAD_STORE_ICON_OUTLINE_CLASS` = líneas primary y fondo transparente; `TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS` = líneas blancas y fondo primary si la sucursal de emisión no tiene stock y otra sí).
+- **Encabezado de columnas (opcional):** `TYPEAHEAD_LISTBOX_HEADER_CLASS` (altura `--tabla-thead-height`, `bg-primary` + `text-primary-foreground` + `text-xs font-bold` como thead de tabla) + grid propio del módulo. Celdas `w-full text-center`. Con columnas: header **sticky** dentro de `TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS` (mismo ancho que las filas; el scrollbar no desfasá). En productos, **STOCK** engloba cantidad (o alerta) + ícono sucursal `Store` (sin recuadro: `TYPEAHEAD_STORE_ICON_OUTLINE_CLASS` = solo trazo primary; `TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS` = relleno primary en el glifo + trazo `primary-foreground` si la sucursal de emisión no tiene stock y otra sí).
 - **Fila:** `li role="option"` → **`div role="button" tabIndex={-1}`** con `TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS` + activo `TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS`. **No** usar `<Button>` ni `<button>` para la fila completa (sí un `Button` `size="icon"` anidado si hace falta, p. ej. stock).
 - **Cierre:** click fuera del wrap; Escape; al elegir.
 - **Stacking:** si el listbox queda bajo otra zona (p. ej. remito Factura `z-30`), subir el card/ancla al abrir (`relative z-40` en la cabecera).

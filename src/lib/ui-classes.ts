@@ -212,15 +212,14 @@ export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
 export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent/60";
 
 /**
- * Ícono `Store` (solo trazo) en typeahead de productos Factura · Crear.
- * Trazo primary + fondo transparente: sucursal de emisión con stock, o sin stock
- * en ninguna sucursal.
+ * Ícono `Store` en typeahead de productos: solo el glifo, sin recuadro de botón.
+ * Trazo primary, sin relleno: sucursal de emisión con stock, o sin stock en ninguna.
  */
-export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS =
-  "bg-transparent text-primary shadow-none hover:bg-transparent hover:text-primary";
+export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS = "fill-none text-primary";
 
 /**
- * Sucursal de emisión sin stock y otra sucursal sí tiene: trazo blanco + fondo primary.
+ * Sucursal de emisión sin stock y otra sí tiene: relleno primary en el interior
+ * del ícono + trazo `primary-foreground` (sin recuadro).
  */
 export const TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS =
-  "bg-primary text-primary-foreground shadow-none hover:bg-primary/90 hover:text-primary-foreground";
+  "fill-primary text-primary-foreground";
