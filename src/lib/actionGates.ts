@@ -90,8 +90,8 @@ export function requireEnvios(): Promise<ActionGateFail | null> {
 }
 
 /**
- * Alta/edición de catálogo `clientes` (Envíos o Facturación).
- * Direcciones / envíos finales siguen con `requireEnvios`.
+ * Alta/edición de catálogo `clientes` y `clientes_proyectos` (Envíos o Facturación).
+ * Envíos finales siguen con `requireEnvios`.
  */
 export async function requireClientesMutacion(): Promise<ActionGateFail | null> {
   const rol = await getRol();

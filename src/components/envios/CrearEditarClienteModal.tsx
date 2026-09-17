@@ -247,8 +247,8 @@ export default function CrearEditarClienteModal({
     if (!puedeGuardar) {
       toast.error(
         esConsFinalCargado
-          ? "Completá el CEL para asociar una dirección."
-          : "Completá el nombre para asociar una dirección."
+          ? "Completá el CEL para asociar un proyecto."
+          : "Completá el nombre para asociar un proyecto."
       );
       return;
     }
@@ -279,7 +279,7 @@ export default function CrearEditarClienteModal({
         toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
-      toast.success("Dirección eliminada.");
+      toast.success("Proyecto eliminado.");
       setDireccionesLocal((prev) => prev.filter((d) => d.id !== modalEliminarDireccion.item.id));
       setModalEliminarDireccion({ open: false });
       onCatalogoChanged?.();
@@ -510,7 +510,7 @@ export default function CrearEditarClienteModal({
             ) : null}
             {muestraDirecciones ? (
               <div className="flex flex-col gap-2">
-                <ModalMicroLabel>DIRECCIONES</ModalMicroLabel>
+                <ModalMicroLabel>PROYECTOS</ModalMicroLabel>
                 {direccionesLocal.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {direccionesLocal.map((dir) => (
@@ -570,7 +570,7 @@ export default function CrearEditarClienteModal({
                   size="icon"
                   className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
                   title="Nuevo"
-                  aria-label="Asociar dirección"
+                  aria-label="Asociar proyecto"
                   disabled={saving}
                   onClick={() => void handleNuevaDireccion()}
                 >
@@ -636,7 +636,7 @@ export default function CrearEditarClienteModal({
             }}
           >
             <AppModal
-              title="Eliminar Dirección"
+              title="Eliminar Proyecto"
               size="sm"
               actions={
                 <div className="flex w-full justify-end gap-2">

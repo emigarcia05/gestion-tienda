@@ -266,12 +266,19 @@ export function nombrePintorAsociadoCliente(cliente: ClienteItem): string | null
 export interface EnviosDireccionItem {
   id: string;
   personaId: string;
+  /** Nombre del proyecto (MAYÚSCULAS). */
+  nombreProyecto: string;
   calleNombre: string;
   numeracion: string;
   distrito: string;
   departamento: EnviosDepartamento | null;
   urlMaps: string;
   referencia: string;
+}
+
+/** Cliente del listado Facturación · Lista Clientes, con proyectos anidados. */
+export interface ClienteListaItem extends ClienteItem {
+  proyectos: EnviosDireccionItem[];
 }
 
 export interface EnviosSucursalOption {
@@ -330,7 +337,13 @@ export function telefonoEnvio(item: EnviosFinalListItem): string {
   return item.pintor?.cel.trim() ?? "";
 }
 
+export function etiquetaNombreProyecto(dir: EnviosDireccionItem): string {
+  const n = dir.nombreProyecto.trim();
+  return n !== "" ? n : etiquetaDireccionEnvio(dir);
+}
+
 export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
+  const nombre = dir.nombreProyecto.trim();
   const calleNum = [dir.calleNombre.trim(), dir.numeracion.trim()].filter((s) => s !== "").join(" ");
   const distrito = dir.distrito.trim();
   const depto = etiquetaDepartamentoEnvio(dir.departamento);
@@ -341,7 +354,8 @@ export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
   if (depto) {
     texto = texto ? `${texto}. ${depto}` : depto;
   }
-  return texto || "Dirección";
+  if (nombre && texto) return `${nombre} — ${texto}`;
+  return nombre || texto || "Proyecto";
 }
 
 /** Línea de listado wizard: `calle numeracion, distrito - departamento.` */
@@ -354,16 +368,22 @@ export function etiquetaDireccionEnvioListado(dir: EnviosDireccionItem): string 
   if (depto) {
     texto = texto ? `${texto} - ${depto}` : depto;
   }
-  if (!texto) return "Dirección.";
+  if (!texto) return dir.nombreProyecto.trim() || "Proyecto.";
   return texto.endsWith(".") ? texto : `${texto}.`;
 }
 
-/** Listado: `- Dirección (Referencia).` */
+/** Listado: `- NOMBRE. Dirección (Referencia).` */
 export function etiquetaDireccionEnvioFilaListado(dir: EnviosDireccionItem): string {
+  const nombre = dir.nombreProyecto.trim();
   const direccion = etiquetaDireccionEnvioListado(dir).replace(/\.+$/, "");
   const referencia = dir.referencia.trim();
-  const cuerpo = referencia !== "" ? `${direccion} (${referencia}).` : `${direccion}.`;
-  return `- ${cuerpo}`;
+  const cuerpoDir = referencia !== "" ? `${direccion} (${referencia}).` : `${direccion}.`;
+  if (nombre) {
+    const sinFallback =
+      direccion === "Proyecto" || direccion === "Proyecto." ? "" : cuerpoDir;
+    return sinFallback ? `- ${nombre}. ${sinFallback}` : `- ${nombre}.`;
+  }
+  return `- ${cuerpoDir}`;
 }
 
 export function metaDireccionEnvio(dir: EnviosDireccionItem): string {
@@ -371,6 +391,7 @@ export function metaDireccionEnvio(dir: EnviosDireccionItem): string {
 }
 
 export function direccionEnvioTieneDato(data: {
+  nombreProyecto?: string | null;
   calleNombre?: string | null;
   numeracion?: string | null;
   distrito?: string | null;
@@ -379,6 +400,7 @@ export function direccionEnvioTieneDato(data: {
   referencia?: string | null;
 }): boolean {
   return (
+    (data.nombreProyecto ?? "").trim() !== "" ||
     (data.calleNombre ?? "").trim() !== "" ||
     (data.numeracion ?? "").trim() !== "" ||
     (data.distrito ?? "").trim() !== "" ||

@@ -212,6 +212,7 @@ export default function CrearEnvioWizardModal({
     return direccionesDelCliente.filter((item) =>
       matchByMultiTerm(
         [
+          item.nombreProyecto,
           item.calleNombre,
           item.numeracion,
           item.distrito,

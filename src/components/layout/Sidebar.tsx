@@ -33,6 +33,7 @@ import {
   FilePlus2,
   Files,
   ScrollText,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -64,7 +65,7 @@ type ModuleId =
   | "envios"
   | "asistente-ia";
 type MarketingModuleId = "publicaciones" | "base-multimedia";
-type FacturacionModuleId = "factura";
+type FacturacionModuleId = "factura" | "clientes";
 type SidebarModuleId = ModuleId | MarketingModuleId | FacturacionModuleId;
 
 interface SubmoduleItem {
@@ -300,6 +301,19 @@ const FACTURACION_MODULES: NavModule[] = [
       },
     ],
   },
+  {
+    id: "clientes",
+    label: "CLIENTES",
+    icon: <Users className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Lista Clientes",
+        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+    ],
+  },
 ];
 
 function isSubmoduleActive(pathname: string, href: string): boolean {
@@ -329,6 +343,9 @@ function isSubmoduleActive(pathname: string, href: string): boolean {
   }
   if (href === FACTURACION_ROUTES.factura.presupuestos) {
     return pathname === FACTURACION_ROUTES.factura.presupuestos;
+  }
+  if (href === FACTURACION_ROUTES.clientes.lista) {
+    return pathname === FACTURACION_ROUTES.clientes.lista;
   }
   return pathname === href;
 }

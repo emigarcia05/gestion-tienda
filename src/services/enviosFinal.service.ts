@@ -43,6 +43,7 @@ const clienteSelect = {
 const direccionSelect = {
   id: true,
   personaId: true,
+  nombreProyecto: true,
   calleNombre: true,
   numeracion: true,
   distrito: true,
@@ -111,6 +112,7 @@ function mapCliente(row: {
 function mapDireccion(row: {
   id: string;
   personaId: string;
+  nombreProyecto: string;
   calleNombre: string;
   numeracion: string;
   distrito: string;
@@ -121,6 +123,7 @@ function mapDireccion(row: {
   return {
     id: row.id,
     personaId: row.personaId,
+    nombreProyecto: normalizarNombreCliente(row.nombreProyecto),
     calleNombre: properTextoEnvio(row.calleNombre),
     numeracion: capitalizarTextoEnvio(row.numeracion),
     distrito: properTextoEnvio(row.distrito),
@@ -158,6 +161,7 @@ function mapListRow(row: {
   direccion: {
     id: string;
     personaId: string;
+    nombreProyecto: string;
     calleNombre: string;
     numeracion: string;
     distrito: string;
