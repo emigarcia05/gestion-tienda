@@ -39,6 +39,7 @@ import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+  TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
@@ -76,10 +77,13 @@ function parseCantidadDraft(raw: string): number | null {
 }
 
 const FILA_BUSQUEDA_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_4.5rem_2rem] items-center justify-items-stretch gap-1.5 px-2";
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
 const FILA_BUSQUEDA_CELDA =
   "min-w-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap";
+
+const FILA_BUSQUEDA_STOCK =
+  "flex w-full min-w-0 items-center justify-center gap-1";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -658,18 +662,23 @@ export default function FacturaCrearLineasBlock({
               </p>
             ) : (
               <>
-                <div
-                  className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
-                  aria-hidden
-                >
-                  <span className={FILA_BUSQUEDA_CELDA}>COD.</span>
-                  <span className={FILA_BUSQUEDA_CELDA}>DESCRIPCIÓN</span>
-                  <span className={FILA_BUSQUEDA_CELDA}>PRECIOS</span>
-                  <span className={FILA_BUSQUEDA_CELDA}>STOCK</span>
-                  <span className={FILA_BUSQUEDA_CELDA} />
-                </div>
-                <ul className={TYPEAHEAD_LISTBOX_UL_CLASS}>
-                  {sugerencias.map((item, idx) => {
+                <div className={TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS}>
+                  <div
+                    className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
+                    aria-hidden
+                  >
+                    <span className={FILA_BUSQUEDA_CELDA}>COD.</span>
+                    <span className={FILA_BUSQUEDA_CELDA}>DESCRIPCIÓN</span>
+                    <span className={FILA_BUSQUEDA_CELDA}>PRECIOS</span>
+                    <span className={FILA_BUSQUEDA_CELDA}>STOCK</span>
+                  </div>
+                  <ul
+                    className={cn(
+                      TYPEAHEAD_LISTBOX_UL_CLASS,
+                      "flex-none overflow-visible"
+                    )}
+                  >
+                    {sugerencias.map((item, idx) => {
                     const activo = idx === highlight;
                     const sinStockLocal = item.stock <= 0;
                     const stockEnOtra = hayStockEnOtraSucursal(
@@ -695,69 +704,72 @@ export default function FacturaCrearLineasBlock({
                           onMouseEnter={() => setHighlight(idx)}
                           onClick={() => agregarItem(item)}
                         >
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-foreground")}>
                             {item.codTienda}
                           </span>
-                          <span className={FILA_BUSQUEDA_CELDA}>
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "text-foreground")}>
                             {item.descripcion}
                           </span>
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-foreground")}>
                             {`$${fmtPrecio(item.pxLista)}`}
                           </span>
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
-                            {sinStockLocal ? (
-                              <span
-                                className="inline-flex"
-                                title="Sin stock en la sucursal"
-                              >
-                                <AlertTriangle
-                                  className={cn(
-                                    TABLE_ROW_ACTION_ICON_CLASS,
-                                    "text-destructive"
-                                  )}
-                                  aria-label="Sin stock en la sucursal"
-                                />
-                              </span>
-                            ) : (
-                              fmtNumero(item.stock)
-                            )}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "mx-auto size-5 shrink-0 justify-self-center",
-                              resaltarSucursal
-                                ? "text-primary hover:bg-primary/10"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                            title={
-                              resaltarSucursal
-                                ? "Hay stock en otra sucursal"
-                                : "Ver stock por sucursal"
-                            }
-                            aria-label={
-                              resaltarSucursal
-                                ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
-                                : `Stock por sucursal de ${item.descripcion}`
-                            }
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setStockModalItem(item);
-                            }}
-                          >
-                            <Store
-                              className={TABLE_ROW_ACTION_ICON_CLASS}
-                              aria-hidden
-                            />
-                          </Button>
+                          <div className={FILA_BUSQUEDA_STOCK}>
+                            <span className="min-w-0 tabular-nums text-foreground">
+                              {sinStockLocal ? (
+                                <span
+                                  className="inline-flex"
+                                  title="Sin stock en la sucursal"
+                                >
+                                  <AlertTriangle
+                                    className={cn(
+                                      TABLE_ROW_ACTION_ICON_CLASS,
+                                      "text-destructive"
+                                    )}
+                                    aria-label="Sin stock en la sucursal"
+                                  />
+                                </span>
+                              ) : (
+                                fmtNumero(item.stock)
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              className={cn(
+                                "size-5 shrink-0",
+                                resaltarSucursal
+                                  ? "text-primary hover:bg-primary/10"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              )}
+                              title={
+                                resaltarSucursal
+                                  ? "Hay stock en otra sucursal"
+                                  : "Ver stock por sucursal"
+                              }
+                              aria-label={
+                                resaltarSucursal
+                                  ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
+                                  : `Stock por sucursal de ${item.descripcion}`
+                              }
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setStockModalItem(item);
+                              }}
+                            >
+                              <Store
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                          </div>
                         </div>
                       </li>
                     );
                   })}
-                </ul>
+                  </ul>
+                </div>
               </>
             )}
           </div>

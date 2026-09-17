@@ -183,14 +183,21 @@ export const TYPEAHEAD_LISTBOX_UL_CLASS =
   "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto [scrollbar-gutter:stable]";
 
 /**
+ * Scroll único de listbox con encabezado de columnas: el header va sticky
+ * dentro de este contenedor (mismo ancho que las filas; el scrollbar no desfasá).
+ */
+export const TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS =
+  "min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]";
+
+/**
  * Encabezado de columnas opcional encima de la lista.
- * Altura = `--tabla-thead-height` (thead de `.tabla-gestion-compacta`).
- * `scrollbar-gutter: stable` alinea columnas con el `ul` scrolleable.
+ * Misma superficie que thead de `.tabla-gestion-compacta` (`bg-primary`).
+ * Altura = `--tabla-thead-height`. `sticky` cuando vive dentro de
+ * `TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS`.
  */
 export const TYPEAHEAD_LISTBOX_HEADER_CLASS = [
-  "box-border h-[var(--tabla-thead-height)] min-h-[var(--tabla-thead-height)] shrink-0",
-  "border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-  "[scrollbar-gutter:stable]",
+  "sticky top-0 z-10 box-border h-[var(--tabla-thead-height)] min-h-[var(--tabla-thead-height)] shrink-0",
+  "border-b-0 bg-primary text-xs font-bold uppercase tracking-wide text-primary-foreground",
 ].join(" ");
 
 /**
