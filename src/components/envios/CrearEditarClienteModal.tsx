@@ -25,7 +25,11 @@ import {
 } from "@/actions/envios";
 import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
+  CLIENTE_TIPO_LABELS,
+  CLIENTE_TIPO_VALUES,
+  etiquetaDireccionEnvio,
   formatearCuitMascara,
+  nombreCompletoCliente,
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
