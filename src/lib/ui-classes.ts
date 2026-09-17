@@ -180,11 +180,18 @@ export const TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS =
   "bottom-0 left-11 right-0 top-10 mt-0";
 
 export const TYPEAHEAD_LISTBOX_UL_CLASS =
-  "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto";
+  "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto [scrollbar-gutter:stable]";
 
-/** Encabezado de columnas opcional encima de la lista (misma altura que la fila). */
-export const TYPEAHEAD_LISTBOX_HEADER_CLASS =
-  "shrink-0 border-b border-border bg-muted/40 py-0 text-[0.65rem] font-semibold tracking-wide text-muted-foreground";
+/**
+ * Encabezado de columnas opcional encima de la lista.
+ * Altura = `--tabla-thead-height` (thead de `.tabla-gestion-compacta`).
+ * `scrollbar-gutter: stable` alinea columnas con el `ul` scrolleable.
+ */
+export const TYPEAHEAD_LISTBOX_HEADER_CLASS = [
+  "box-border h-[var(--tabla-thead-height)] min-h-[var(--tabla-thead-height)] shrink-0",
+  "border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+  "[scrollbar-gutter:stable]",
+].join(" ");
 
 /**
  * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.

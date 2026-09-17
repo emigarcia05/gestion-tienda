@@ -348,7 +348,7 @@ export default function FacturaCrearPageClient({
         comentarioInicial={comentarios}
         onGuardar={setComentarios}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="flex min-w-0 items-end gap-3">
             <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
@@ -505,15 +505,13 @@ export default function FacturaCrearPageClient({
                 <Button
                   type="button"
                   variant="default"
-                  size="icon"
-                  className={cn(
-                    "absolute right-1 top-1/2 h-7 w-7 shrink-0 -translate-y-1/2"
-                  )}
+                  size="icon-xs"
+                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
                   onClick={() => setCrearClienteOpen(true)}
                   aria-label="Crear cliente"
                   title="Crear cliente"
                 >
-                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  <Plus className="size-4 shrink-0" aria-hidden />
                 </Button>
                 {clientesAbierto && puedeBuscarClientes ? (
                   <div

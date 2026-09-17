@@ -76,7 +76,10 @@ function parseCantidadDraft(raw: string): number | null {
 }
 
 const FILA_BUSQUEDA_GRID =
-  "grid w-full min-h-5 grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_4.5rem_2rem] items-center justify-items-stretch gap-1.5 px-2";
+
+const FILA_BUSQUEDA_CELDA =
+  "min-w-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -659,11 +662,11 @@ export default function FacturaCrearLineasBlock({
                   className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
                   aria-hidden
                 >
-                  <span className="text-center">COD.</span>
-                  <span className="text-center">DESCRIPCIÓN</span>
-                  <span className="text-center">PRECIOS</span>
-                  <span className="text-center">STOCK</span>
-                  <span />
+                  <span className={FILA_BUSQUEDA_CELDA}>COD.</span>
+                  <span className={FILA_BUSQUEDA_CELDA}>DESCRIPCIÓN</span>
+                  <span className={FILA_BUSQUEDA_CELDA}>PRECIOS</span>
+                  <span className={FILA_BUSQUEDA_CELDA}>STOCK</span>
+                  <span className={FILA_BUSQUEDA_CELDA} />
                 </div>
                 <ul className={TYPEAHEAD_LISTBOX_UL_CLASS}>
                   {sugerencias.map((item, idx) => {
@@ -685,23 +688,23 @@ export default function FacturaCrearLineasBlock({
                           tabIndex={-1}
                           className={cn(
                             FILA_BUSQUEDA_GRID,
-                            "cursor-pointer py-0 text-center text-sm leading-tight text-foreground transition-colors",
+                            "min-h-5 cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
                             "hover:bg-accent/60",
                             activo && "bg-accent/60"
                           )}
                           onMouseEnter={() => setHighlight(idx)}
                           onClick={() => agregarItem(item)}
                         >
-                          <span className="truncate tabular-nums text-muted-foreground">
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
                             {item.codTienda}
                           </span>
-                          <span className="min-w-0 truncate">
+                          <span className={FILA_BUSQUEDA_CELDA}>
                             {item.descripcion}
                           </span>
-                          <span className="tabular-nums text-muted-foreground">
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
                             {`$${fmtPrecio(item.pxLista)}`}
                           </span>
-                          <span className="flex items-center justify-center tabular-nums text-muted-foreground">
+                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-muted-foreground")}>
                             {sinStockLocal ? (
                               <span
                                 className="inline-flex"
@@ -724,7 +727,7 @@ export default function FacturaCrearLineasBlock({
                             variant="ghost"
                             size="icon"
                             className={cn(
-                              "mx-auto size-5 shrink-0",
+                              "mx-auto size-5 shrink-0 justify-self-center",
                               resaltarSucursal
                                 ? "text-primary hover:bg-primary/10"
                                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
