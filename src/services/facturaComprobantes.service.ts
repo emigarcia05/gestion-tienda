@@ -26,6 +26,7 @@ import {
   efectoStockPorTipo,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
+  mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
@@ -305,7 +306,15 @@ export async function emitirFacturaComprobante(
     return { success: false, error: "El punto de venta no existe o está inactivo." };
   }
 
-  let clienteId: string | null = input.clienteId ?? null;
+  const clienteNoSel = mensajeClienteFacturaNoSeleccionado(
+    input.cliente,
+    input.clienteId
+  );
+  if (clienteNoSel) {
+    return { success: false, error: clienteNoSel };
+  }
+
+  const clienteId: string | null = input.clienteId ?? null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },

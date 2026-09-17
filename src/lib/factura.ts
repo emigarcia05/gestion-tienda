@@ -67,6 +67,27 @@ export function esClienteFacturaVacio(raw: string): boolean {
   return raw.trim() === "";
 }
 
+/**
+ * Vacío o «CONSUMIDOR FINAL» no exige ítem del catálogo.
+ * Cualquier otro texto (p. ej. «MAT») sí: hay que elegir de la lista.
+ */
+export function clienteFacturaRequiereCatalogo(raw: string): boolean {
+  return nombreClienteFactura(raw) !== FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+}
+
+export const MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO =
+  "Seleccioná un cliente de la lista.";
+
+/** Null si se puede emitir; mensaje si el texto no es CF y falta `clienteId`. */
+export function mensajeClienteFacturaNoSeleccionado(
+  raw: string,
+  clienteId: string | null | undefined
+): string | null {
+  if (!clienteFacturaRequiereCatalogo(raw)) return null;
+  if (clienteId) return null;
+  return MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO;
+}
+
 /** Máximo de sugerencias en el typeahead de productos (Crear). */
 export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
 

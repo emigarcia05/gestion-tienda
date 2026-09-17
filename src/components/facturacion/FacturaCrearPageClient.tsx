@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { CalendarDays, FileText, Loader2, Plus } from "lucide-react";
+import { CalendarDays, FileText, Loader2, MessageSquare, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -13,6 +13,7 @@ import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
 } from "@/components/facturacion/FacturaCrearLineasBlock";
 import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGenerarComprobanteModal";
+import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
@@ -37,6 +38,7 @@ import {
   esFacturaTipo,
   esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
+  mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
@@ -104,8 +106,13 @@ export default function FacturaCrearPageClient({
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [clienteId, setClienteId] = useState<string | null>(null);
+  /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
+  const [clienteQActual, setClienteQActual] = useState(
+    FACTURA_CLIENTE_CONSUMIDOR_FINAL
+  );
   const [nroComprobante, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
+  const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
   const [receptorCondicionIva, setReceptorCondicionIva] = useState("5");
   const [receptorDocTipo, setReceptorDocTipo] = useState("99");
@@ -154,7 +161,7 @@ export default function FacturaCrearPageClient({
     handleQChange: handleClienteQChange,
     isDebouncing: isDebouncingClientes,
   } = useFiltrosConBusqueda({
-    qActual: FACTURA_CLIENTE_CONSUMIDOR_FINAL,
+    qActual: clienteQActual,
     debounceMs: 300,
     onDebouncedSearch: (value) => {
       void fetchSugerenciasClientes(value);
@@ -165,8 +172,16 @@ export default function FacturaCrearPageClient({
   const puedeBuscarClientes =
     clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
 
+  function resetReceptorConsumidorFinal() {
+    setReceptorCondicionIva(String(ARCA_CONDICION_IVA.CF));
+    setReceptorDocTipo(String(ARCA_DOC_TIPO.CF));
+    setReceptorDocNro("0");
+  }
+
   function aplicarClienteSeleccionado(item: ClienteItem) {
-    const nombre = nombreCompletoCliente(item);
+    const nombre =
+      nombreCompletoCliente(item) || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+    setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
     const cond = item.condicionIva ?? ARCA_CONDICION_IVA.CF;
@@ -208,6 +223,11 @@ export default function FacturaCrearPageClient({
     }
     if (!ptoVtaId) {
       toast.error("Seleccioná un punto de venta.");
+      return;
+    }
+    const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
+    if (clienteNoSel) {
+      toast.error(clienteNoSel);
       return;
     }
     const clienteVacio = esClienteFacturaVacio(cliente);
@@ -301,6 +321,13 @@ export default function FacturaCrearPageClient({
         condicionesIva={condicionesIva}
         onSuccess={aplicarClienteSeleccionado}
       />
+      <FacturaLineaComentarioModal
+        key={comentarioCabeceraOpen ? "cabecera-comentario-open" : "cabecera-comentario-closed"}
+        open={comentarioCabeceraOpen}
+        onOpenChange={setComentarioCabeceraOpen}
+        comentarioInicial={comentarios}
+        onGuardar={setComentarios}
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
         <div className="shrink-0 rounded-lg border border-border bg-card p-4">
           <div className="grid grid-cols-5 gap-4">
@@ -376,6 +403,7 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
+                    resetReceptorConsumidorFinal();
                     handleClienteQChange(next);
                     if (next.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
                       setClientesAbierto(false);
@@ -443,7 +471,9 @@ export default function FacturaCrearPageClient({
                   type="button"
                   variant="default"
                   size="icon"
-                  className="absolute right-0 top-0 h-9 w-9 shrink-0 rounded-l-none rounded-r-md"
+                  className={cn(
+                    "absolute right-1 top-1/2 h-7 w-7 shrink-0 -translate-y-1/2"
+                  )}
                   onClick={() => setCrearClienteOpen(true)}
                   aria-label="Crear cliente"
                   title="Crear cliente"
@@ -486,6 +516,7 @@ export default function FacturaCrearPageClient({
                                   activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                                 )}
                                 onMouseEnter={() => setClienteHighlight(idx)}
+                                onPointerDown={(e) => e.preventDefault()}
                                 onClick={() => aplicarClienteSeleccionado(item)}
                               >
                                 <span className="min-w-0 truncate">
@@ -523,17 +554,27 @@ export default function FacturaCrearPageClient({
               />
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel>COMENTARIOS</ModalMicroLabel>
-              <Input
-                type="text"
-                value={comentarios}
-                onChange={(e) => setComentarios(e.target.value)}
-                placeholder="Comentarios"
-                autoComplete="off"
-                aria-label="Comentarios"
-              />
-            </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  comentarios.trim() && "text-primary hover:text-primary"
+                )}
+                onClick={() => setComentarioCabeceraOpen(true)}
+                aria-label={
+                  comentarios.trim()
+                    ? "Editar comentarios del comprobante"
+                    : "Agregar comentarios del comprobante"
+                }
+                title="Comentarios"
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+              </Button>
+            </div>
           </div>
 
           {fiscal ? (

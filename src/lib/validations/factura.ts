@@ -4,6 +4,7 @@ import {
   FACTURA_TIPOS,
   esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
+  mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
@@ -103,6 +104,17 @@ export const emitirFacturaComprobanteSchema = z
     descuento: descuentoEmitirSchema.optional().default(null),
   })
   .superRefine((data, ctx) => {
+    const clienteMsg = mensajeClienteFacturaNoSeleccionado(
+      data.cliente,
+      data.clienteId
+    );
+    if (clienteMsg) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["clienteId"],
+        message: clienteMsg,
+      });
+    }
     const fiscal = esFacturaTipoFiscal(data.tipo);
     if (fiscal) {
       if (data.receptorCondicionIva == null) {
