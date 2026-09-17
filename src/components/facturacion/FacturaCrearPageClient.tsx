@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { CalendarDays, FileText, Loader2, UserPlus } from "lucide-react";
+import { CalendarDays, FileText, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -283,24 +283,15 @@ export default function FacturaCrearPageClient({
       subtitle="Crear"
       contentWidth="full"
       actions={
-        <>
-          <ToolbarActionButton
-            type="button"
-            variant="default"
-            label="Crear Cliente"
-            icon={<UserPlus className="h-4 w-4 shrink-0" aria-hidden />}
-            onClick={() => setCrearClienteOpen(true)}
-          />
-          <ToolbarActionButton
-            type="button"
-            variant="default"
-            label="Generar Comprobante"
-            loadingLabel="Emitiendo…"
-            loading={pending}
-            icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
-            onClick={() => void abrirGenerarComprobante()}
-          />
-        </>
+        <ToolbarActionButton
+          type="button"
+          variant="default"
+          label="Generar Comprobante"
+          loadingLabel="Emitiendo…"
+          loading={pending}
+          icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
+          onClick={() => void abrirGenerarComprobante()}
+        />
       }
     >
       <CrearEditarClienteModal
@@ -438,16 +429,27 @@ export default function FacturaCrearPageClient({
                   aria-autocomplete="list"
                   aria-label="Cliente"
                   className={cn(
-                    "w-full",
-                    (isDebouncingClientes || loadingClientes) && "pr-10"
+                    "w-full pr-10",
+                    (isDebouncingClientes || loadingClientes) && "pr-16"
                   )}
                 />
                 {(isDebouncingClientes || loadingClientes) && (
                   <Loader2
-                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                    className="pointer-events-none absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
                     aria-hidden
                   />
                 )}
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="absolute right-0 top-0 h-9 w-9 shrink-0 rounded-l-none rounded-r-md"
+                  onClick={() => setCrearClienteOpen(true)}
+                  aria-label="Crear cliente"
+                  title="Crear cliente"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
                 {clientesAbierto && puedeBuscarClientes ? (
                   <div
                     id={listboxClientesId}

@@ -108,10 +108,13 @@ export type FacturaRemitoSnapshot = {
 
 interface FacturaCrearLineasBlockProps {
   onRemitoChange?: (snapshot: FacturaRemitoSnapshot) => void;
+  /** Al enfocar el buscador de productos (p. ej. colapsar cabecera). */
+  onBusquedaProductoFocus?: () => void;
 }
 
 export default function FacturaCrearLineasBlock({
   onRemitoChange,
+  onBusquedaProductoFocus,
 }: FacturaCrearLineasBlockProps) {
   const listboxId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -342,6 +345,9 @@ export default function FacturaCrearLineasBlock({
                   return;
                 }
                 setAbierto(true);
+              }}
+              onFocus={() => {
+                onBusquedaProductoFocus?.();
               }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown" && sugerencias.length > 0) {

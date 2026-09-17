@@ -130,7 +130,7 @@ export async function listarClientes(): Promise<ClienteItem[]> {
 }
 
 /**
- * Typeahead Factura · Crear: tokens AND sobre nombre / cel / cuit (contains, insensitive).
+ * Typeahead Factura · Crear: tokens AND sobre nombre / cel / cuit / nombre del pintor asociado.
  */
 export async function buscarClientesParaFactura(params: {
   q: string;
@@ -154,6 +154,11 @@ export async function buscarClientesParaFactura(params: {
           const digitos = soloDigitos(t);
           const or: Prisma.ClienteWhereInput[] = [
             { nombreCompleto: { contains: t, mode: "insensitive" } },
+            {
+              pintorAsociado: {
+                nombreCompleto: { contains: t, mode: "insensitive" },
+              },
+            },
           ];
           if (digitos.length > 0) {
             or.push({ cel: { contains: digitos } });

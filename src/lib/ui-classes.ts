@@ -144,10 +144,18 @@ export const MODAL_MICRO_LABEL_CLASS =
  * Panel flotante bajo el input; filas = `div role="button"` (no `<Button>` ni `<button>` de formulario).
  */
 export const TYPEAHEAD_LISTBOX_PANEL_CLASS = [
-  "absolute left-0 top-full z-50 mt-1 flex flex-col overflow-hidden",
+  "absolute left-0 top-full z-[70] mt-1 flex flex-col overflow-hidden",
   "rounded-md border border-border bg-popover text-popover-foreground shadow-md",
 ].join(" ");
 
+/**
+ * Ancla del combobox cuando el listbox está abierto: debe superar bloques vecinos
+ * (p. ej. remito Factura `z-30`) para que el panel quede por encima en el stacking.
+ */
+export const TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS = "relative z-[60]";
+
+/** Ancla en reposo (por debajo de listboxes abiertos de otras zonas). */
+export const TYPEAHEAD_LISTBOX_ANCHOR_CLASS = "relative z-20";
 /** Altura fija del panel (scroll en la lista). */
 export const TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS = "h-72";
 
