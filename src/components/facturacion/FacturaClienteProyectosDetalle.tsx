@@ -8,7 +8,11 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-import { etiquetaProyectoConDireccion, type EnviosDireccionItem } from "@/lib/envios";
+import {
+  etiquetaProyectoConDireccion,
+  partesProyectoEnvioListado,
+  type EnviosDireccionItem,
+} from "@/lib/envios";
 import { cn } from "@/lib/utils";
 
 const SUBFILA_DETALLE_CLASS = "tabla-fila-detalle-competencia";
@@ -28,10 +32,18 @@ export default function FacturaClienteProyectosDetalle({
   onEliminar,
   onCrear,
 }: Props) {
+  const nombreColCh = Math.max(
+    1,
+    ...proyectos.map((p) => Math.max(partesProyectoEnvioListado(p).nombre.length, 1))
+  );
+
   return (
     <>
       {proyectos.map((proyecto) => {
+        const partes = partesProyectoEnvioListado(proyecto);
         const etiqueta = etiquetaProyectoConDireccion(proyecto);
+        const nombre = partes.nombre || "—";
+        const direccion = partes.direccion;
         return (
           <TableRow
             key={proyecto.id}
@@ -42,9 +54,27 @@ export default function FacturaClienteProyectosDetalle({
               colSpan={5}
               className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}
             >
-              <span className="block truncate text-xs text-foreground" title={etiqueta}>
-                {etiqueta}
-              </span>
+              <div
+                className="flex min-w-0 items-baseline gap-1.5 text-xs text-foreground"
+                title={etiqueta}
+              >
+                <span
+                  className="shrink-0 truncate text-center font-bold"
+                  style={{ width: `${nombreColCh}ch` }}
+                >
+                  {nombre}
+                </span>
+                {direccion ? (
+                  <>
+                    <span className="shrink-0 text-muted-foreground" aria-hidden>
+                      -
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left font-normal">
+                      {direccion}
+                    </span>
+                  </>
+                ) : null}
+              </div>
             </TableCell>
             <TableCell
               className={cn(
