@@ -375,7 +375,10 @@ export default function FacturaCrearPageClient({
 
             <label className="flex min-w-0 flex-[1.35] flex-col gap-1">
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
-              <div ref={clienteWrapRef} className="relative z-20 w-full">
+              <div
+                ref={clienteWrapRef}
+                className="filtro-individual-container relative z-20 w-full"
+              >
                 <Input
                   ref={clienteInputRef}
                   id="factura-crear-buscar-cliente"
@@ -462,19 +465,17 @@ export default function FacturaCrearPageClient({
                     aria-hidden
                   />
                 )}
-                <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="icon-xs"
-                    className="size-full p-0 shadow-none"
-                    onClick={() => setCrearClienteOpen(true)}
-                    aria-label="Crear cliente"
-                    title="Crear cliente"
-                  >
-                    <Plus className="size-3.5 shrink-0" aria-hidden />
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="primaryIcon"
+                  size="icon-lg"
+                  className="filtro-individual-clear-btn"
+                  onClick={() => setCrearClienteOpen(true)}
+                  aria-label="Crear cliente"
+                  title="Crear cliente"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                </Button>
                 {clientesAbierto && puedeBuscarClientes ? (
                   <div
                     id={listboxClientesId}

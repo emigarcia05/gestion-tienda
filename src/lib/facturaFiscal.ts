@@ -6,6 +6,8 @@
 import { parseIsoYmdParts } from "@/lib/fechaArgentina";
 
 export const ARCA_SERVICIO_WSFE = "wsfe" as const;
+/** WSAA id del WS Constancia de Inscripción (ex padrón A5). */
+export const ARCA_SERVICIO_CONSTANCIA = "ws_sr_constancia_inscripcion" as const;
 
 export const ARCA_DOC_TIPO = {
   CUIT: 80,
@@ -32,6 +34,80 @@ export const ARCA_CONDICION_IVA = {
   CLI_EXT: 9,
   MONO_SOCIAL: 13,
 } as const;
+
+/** IDs de impuesto SUPA en constancia de inscripción. */
+export const ARCA_IMPUESTO = {
+  MONOTRIBUTO: 20,
+  IVA: 30,
+  IVA_EXENTO: 32,
+} as const;
+
+/** Categorías de monotributo social (constancia ARCA). */
+const ARCA_CATEGORIA_MONO_SOCIAL = new Set([61, 98, 99, 100]);
+
+export type ArcaPadronImpuesto = {
+  idImpuesto: number;
+  estadoImpuesto: string | null;
+  descripcionImpuesto: string | null;
+};
+
+export type ArcaPadronCategoria = {
+  idCategoria: number | null;
+  descripcionCategoria: string | null;
+};
+
+function impuestoConstanciaActivo(estado: string | null): boolean {
+  const e = (estado ?? "AC").trim().toUpperCase();
+  return e === "" || e === "AC" || e === "ACTIVO";
+}
+
+function tieneImpuestoActivo(list: readonly ArcaPadronImpuesto[], id: number): boolean {
+  return list.some((i) => i.idImpuesto === id && impuestoConstanciaActivo(i.estadoImpuesto));
+}
+
+/**
+ * Condición IVA (`condicion_iva_cod_arca.codigo`) a partir de la constancia.
+ * Null si ARCA no informa un régimen claro (no asumir Consumidor Final).
+ */
+export function condicionIvaDesdeConstanciaArca(args: {
+  tieneDatosMonotributo: boolean;
+  categoriaMonotributo: ArcaPadronCategoria | null;
+  impuestosRegimenGeneral: readonly ArcaPadronImpuesto[];
+}): number | null {
+  if (args.tieneDatosMonotributo) {
+    const cat = args.categoriaMonotributo;
+    const desc = (cat?.descripcionCategoria ?? "").toLocaleUpperCase("es-AR");
+    if (
+      (cat?.idCategoria != null && ARCA_CATEGORIA_MONO_SOCIAL.has(cat.idCategoria)) ||
+      desc.includes("SOCIAL")
+    ) {
+      return ARCA_CONDICION_IVA.MONO_SOCIAL;
+    }
+    return ARCA_CONDICION_IVA.MONO;
+  }
+  if (tieneImpuestoActivo(args.impuestosRegimenGeneral, ARCA_IMPUESTO.IVA)) {
+    return ARCA_CONDICION_IVA.RI;
+  }
+  if (tieneImpuestoActivo(args.impuestosRegimenGeneral, ARCA_IMPUESTO.IVA_EXENTO)) {
+    return ARCA_CONDICION_IVA.EXENTO;
+  }
+  return null;
+}
+
+/** Razón social, o apellido + nombre (persona física). */
+export function nombreDesdeConstanciaArca(args: {
+  razonSocial: string | null;
+  apellido: string | null;
+  nombre: string | null;
+}): string | null {
+  const razon = (args.razonSocial ?? "").trim();
+  if (razon) return razon.replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+  const partes = [args.apellido, args.nombre]
+    .map((s) => (s ?? "").trim())
+    .filter((s) => s.length > 0);
+  if (partes.length === 0) return null;
+  return partes.join(" ").replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
 
 /** Alícuotas WSFEv1 `AlicIva.Id`. */
 export const ARCA_IVA_ALICUOTA_A_ID: Readonly<Record<number, number>> = {

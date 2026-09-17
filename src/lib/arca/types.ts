@@ -89,3 +89,24 @@ export type WsfeCatalogoItem = {
   id: number;
   desc: string;
 };
+
+export type ArcaConstanciaImpuesto = {
+  idImpuesto: number;
+  estadoImpuesto: string | null;
+  descripcionImpuesto: string | null;
+};
+
+export type ArcaConstanciaRaw = {
+  cuit: string;
+  razonSocial: string | null;
+  nombre: string | null;
+  apellido: string | null;
+  tipoPersona: string | null;
+  estadoClave: string | null;
+  tieneDatosMonotributo: boolean;
+  categoriaMonotributo: {
+    idCategoria: number | null;
+    descripcionCategoria: string | null;
+  } | null;
+  impuestosRegimenGeneral: ArcaConstanciaImpuesto[];
+};

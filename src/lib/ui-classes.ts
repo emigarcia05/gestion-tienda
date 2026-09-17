@@ -185,9 +185,11 @@ export const TYPEAHEAD_LISTBOX_UL_CLASS =
 /**
  * Scroll único de listbox con encabezado de columnas: el header va sticky
  * dentro de este contenedor (mismo ancho que las filas; el scrollbar no desfasá).
+ * Fondo sólido (`bg-popover`): el scrollport no hereda el lienzo del panel
+ * (overflow + stacking) y sin esto se ve traslúcido.
  */
 export const TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS =
-  "min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]";
+  "min-h-0 flex-1 overflow-y-auto bg-popover [scrollbar-gutter:stable]";
 
 /**
  * Encabezado de columnas opcional encima de la lista.
@@ -210,10 +212,10 @@ export const TYPEAHEAD_LISTBOX_CELL_CLASS =
  */
 export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
   "w-full cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
-  "hover:bg-accent/60",
+  "hover:bg-accent",
 ].join(" ");
 
-export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent/60";
+export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent";
 
 /**
  * Ícono `Store` en typeahead de productos: solo trazo (sin recuadro ni relleno).

@@ -7,9 +7,11 @@ export {
   leerArcaEnv,
   nombresPemPorCuit,
   topeCfSinDocDesdeEnv,
+  urlConstancia,
   urlWsaa,
   urlWsfev1,
 } from "@/lib/arca/env";
+export { constanciaGetPersonaV2 } from "@/lib/arca/constancia";
 export { wsaaLoginCms } from "@/lib/arca/wsaa";
 export type { WsaaTicket } from "@/lib/arca/wsaa";
 export {
@@ -26,6 +28,7 @@ export {
   wsfeParamGetTiposMonedas,
 } from "@/lib/arca/wsfev1";
 export type {
+  ArcaConstanciaRaw,
   WsfeAuth,
   WsfeCaeRequest,
   WsfeCaeResult,

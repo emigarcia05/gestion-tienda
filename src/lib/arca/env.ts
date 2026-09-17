@@ -203,6 +203,11 @@ export const ARCA_URLS = {
     homo: "https://wswhomo.afip.gov.ar/wsfev1/service.asmx",
     prod: "https://servicios1.afip.gov.ar/wsfev1/service.asmx",
   },
+  /** Constancia de Inscripción (ex A5). Hosts AFIP = mismo servicio que arca.gob.ar. */
+  constancia: {
+    homo: "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5",
+    prod: "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5",
+  },
 } as const;
 
 export function urlWsaa(ambiente: ArcaAmbiente): string {
@@ -211,6 +216,10 @@ export function urlWsaa(ambiente: ArcaAmbiente): string {
 
 export function urlWsfev1(ambiente: ArcaAmbiente): string {
   return ARCA_URLS.wsfev1[ambiente];
+}
+
+export function urlConstancia(ambiente: ArcaAmbiente): string {
+  return ARCA_URLS.constancia[ambiente];
 }
 
 export function topeCfSinDocDesdeEnv(): number {

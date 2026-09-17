@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -37,7 +37,8 @@ import {
   type ClienteTipoValue,
   type EnviosDireccionItem,
 } from "@/lib/envios";
-import { ARCA_CONDICION_IVA } from "@/lib/facturaFiscal";
+import { parseArcaConstanciaApiJson } from "@/lib/arcaConstancia";
+import { ARCA_CONDICION_IVA, esCuitValido } from "@/lib/facturaFiscal";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import { listarPtoVentasCodArcaAction } from "@/actions/globalPtoVtas";
@@ -99,6 +100,7 @@ export default function CrearEditarClienteModal({
     { open: false } | { open: true; item: EnviosDireccionItem }
   >({ open: false });
   const [deletingDireccion, setDeletingDireccion] = useState(false);
+  const [consultandoArca, setConsultandoArca] = useState(false);
 
   const tipoEfectivo = tipoFijo ?? tipo;
   const muestraPintorAsociado = tipoEfectivo === "CONSUMIDOR_FINAL";
@@ -170,6 +172,40 @@ export default function CrearEditarClienteModal({
   const cuitDigits = soloDigitos(cuitMasked);
   const cuitValido = cuitDigits === "" || cuitDigits.length === 11;
   const puedeGuardar = nombreValido && celValido && cuitValido;
+  const puedeConsultarArca = esCuitValido(cuitDigits) && !saving && !consultandoArca;
+
+  async function consultarConstanciaArca() {
+    if (!esCuitValido(cuitDigits)) {
+      toast.error("Ingresá un CUIT válido.");
+      return;
+    }
+    if (consultandoArca || saving) return;
+    setConsultandoArca(true);
+    try {
+      const res = await fetch(
+        `/api/arca/constancia?cuit=${encodeURIComponent(cuitDigits)}`,
+        { cache: "no-store" }
+      );
+      const json: unknown = await res.json().catch(() => null);
+      const parsed = parseArcaConstanciaApiJson(json);
+      if (!parsed.ok) {
+        toast.error(parsed.error);
+        return;
+      }
+      const data = parsed.data;
+      setCargarComoConsFinal(false);
+      setNombreCompleto(data.nombre);
+      if (data.condicionIva != null) {
+        setCondicionIva(String(data.condicionIva));
+      } else {
+        toast.error("ARCA no informó la condición IVA.");
+      }
+    } catch {
+      toast.error("No se pudo consultar el CUIT en ARCA.");
+    } finally {
+      setConsultandoArca(false);
+    }
+  }
 
   async function persistirCliente(): Promise<ClienteItem | null> {
     const tipoGuardar = tipoFijo ?? tipo;
@@ -313,19 +349,45 @@ export default function CrearEditarClienteModal({
                 disabled={saving}
               />
             </label>
-            <label className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
               <ModalMicroLabel>CUIT</ModalMicroLabel>
-              <Input
-                value={cuitMasked}
-                onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
-                placeholder="##-########-#"
-                autoComplete="off"
-                inputMode="numeric"
-                className={cn("tabular-nums")}
-                disabled={saving}
-                aria-label="CUIT"
-              />
-            </label>
+              <div className="relative">
+                <Input
+                  value={cuitMasked}
+                  onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
+                  placeholder="##-########-#"
+                  autoComplete="off"
+                  inputMode="numeric"
+                  className={cn("tabular-nums", "pr-10")}
+                  disabled={saving}
+                  aria-label="CUIT"
+                />
+                <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="icon-xs"
+                    className="size-full p-0 shadow-none"
+                    disabled={!puedeConsultarArca}
+                    onClick={() => void consultarConstanciaArca()}
+                    aria-label={
+                      consultandoArca
+                        ? "Consultando CUIT en ARCA"
+                        : "Consultar CUIT en ARCA"
+                    }
+                    title="Consultar ARCA"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "size-3.5 shrink-0",
+                        consultandoArca && "animate-spin"
+                      )}
+                      aria-hidden
+                    />
+                  </Button>
+                </div>
+              </div>
+            </div>
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
               <Select
