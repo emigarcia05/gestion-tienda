@@ -212,14 +212,15 @@ export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
 export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent/60";
 
 /**
- * Ícono `Store` en typeahead de productos: solo el glifo, sin recuadro de botón.
- * Trazo primary, sin relleno: sucursal de emisión con stock, o sin stock en ninguna.
+ * Ícono `Store` en typeahead de productos: solo trazo (sin recuadro ni relleno).
+ * Mismo tamaño que `AlertTriangle` (`size-4`).
  */
-export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS = "fill-none text-primary";
+export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS =
+  "size-4 fill-none text-primary";
 
 /**
- * Sucursal de emisión sin stock y otra sí tiene: relleno primary en el interior
- * del ícono + trazo `primary-foreground` (sin recuadro).
+ * Sucursal de emisión sin stock y otra sí tiene: mismo glifo en trazo primary,
+ * trazo un poco más marcado (sin relleno: el fill de Lucide se lee como recuadro).
  */
 export const TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS =
-  "fill-primary text-primary-foreground";
+  "size-4 fill-none text-primary [stroke-width:2.5]";

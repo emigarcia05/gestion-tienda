@@ -750,10 +750,7 @@ export default function FacturaCrearLineasBlock({
                                   title="Sin stock en la sucursal"
                                 >
                                   <AlertTriangle
-                                    className={cn(
-                                      TABLE_ROW_ACTION_ICON_CLASS,
-                                      "text-destructive"
-                                    )}
+                                    className="size-4 shrink-0 text-destructive"
                                     aria-label="Sin stock en la sucursal"
                                   />
                                 </span>
@@ -765,7 +762,7 @@ export default function FacturaCrearLineasBlock({
                               type="button"
                               variant="ghost"
                               size="icon-xs"
-                              className="size-5 shrink-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                              className="size-4 shrink-0 bg-transparent p-0 shadow-none hover:bg-transparent"
                               title={
                                 resaltarSucursal
                                   ? "Hay stock en otra sucursal"
@@ -784,12 +781,12 @@ export default function FacturaCrearLineasBlock({
                               }}
                             >
                               <Store
-                                className={cn(
-                                  TABLE_ROW_ACTION_ICON_CLASS,
+                                fill="none"
+                                className={
                                   resaltarSucursal
                                     ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
                                     : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
-                                )}
+                                }
                                 aria-hidden
                               />
                             </Button>
