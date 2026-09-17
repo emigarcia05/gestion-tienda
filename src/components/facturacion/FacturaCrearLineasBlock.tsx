@@ -39,6 +39,10 @@ import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+  TYPEAHEAD_LISTBOX_HEADER_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
+  TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
@@ -72,7 +76,7 @@ function parseCantidadDraft(raw: string): number | null {
 }
 
 const FILA_BUSQUEDA_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
+  "grid w-full min-h-5 grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -315,8 +319,11 @@ export default function FacturaCrearLineasBlock({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-      <div ref={wrapRef} className="relative z-30 shrink-0">
+    <div
+      ref={wrapRef}
+      className="relative flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
+    >
+      <div className="relative z-30 shrink-0">
         <div className="flex items-start gap-2">
           <Button
             type="button"
@@ -387,132 +394,6 @@ export default function FacturaCrearLineasBlock({
                 aria-hidden
               />
             )}
-
-            {abierto && puedeBuscar ? (
-              <div
-                id={listboxId}
-                role="listbox"
-                className={cn(
-                  "absolute left-0 right-0 top-full z-50 mt-1 flex flex-col",
-                  "h-72 overflow-hidden rounded-md border border-border bg-popover",
-                  "text-popover-foreground shadow-md"
-                )}
-              >
-                {loading || isDebouncing ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
-                ) : sugerencias.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
-                    Sin resultados.
-                  </p>
-                ) : (
-                  <>
-                    <div
-                      className={cn(
-                        FILA_BUSQUEDA_GRID,
-                        "shrink-0 border-b border-border bg-muted/40 py-0.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
-                      )}
-                      aria-hidden
-                    >
-                      <span className="text-center">COD.</span>
-                      <span className="text-center">DESCRIPCIÓN</span>
-                      <span className="text-center">PRECIOS</span>
-                      <span className="text-center">STOCK</span>
-                      <span />
-                    </div>
-                    <ul className="min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto">
-                      {sugerencias.map((item, idx) => {
-                        const activo = idx === highlight;
-                        const sinStockLocal = item.stock <= 0;
-                        const stockEnOtra = hayStockEnOtraSucursal(
-                          item,
-                          sucursalUsuario
-                        );
-                        const resaltarSucursal = sinStockLocal && stockEnOtra;
-                        return (
-                          <li
-                            key={item.codTienda}
-                            role="option"
-                            aria-selected={activo}
-                          >
-                            <div
-                              role="button"
-                              tabIndex={-1}
-                              className={cn(
-                                FILA_BUSQUEDA_GRID,
-                                "cursor-pointer py-0 text-center text-sm leading-tight text-foreground transition-colors",
-                                "hover:bg-accent/60",
-                                activo && "bg-accent/60"
-                              )}
-                              onMouseEnter={() => setHighlight(idx)}
-                              onClick={() => agregarItem(item)}
-                            >
-                              <span className="truncate tabular-nums text-muted-foreground">
-                                {item.codTienda}
-                              </span>
-                              <span className="min-w-0 truncate">
-                                {item.descripcion}
-                              </span>
-                              <span className="tabular-nums text-muted-foreground">
-                                {`$${fmtPrecio(item.pxLista)}`}
-                              </span>
-                              <span className="flex items-center justify-center tabular-nums text-muted-foreground">
-                                {sinStockLocal ? (
-                                  <span
-                                    className="inline-flex"
-                                    title="Sin stock en la sucursal"
-                                  >
-                                    <AlertTriangle
-                                      className={cn(
-                                        TABLE_ROW_ACTION_ICON_CLASS,
-                                        "text-destructive"
-                                      )}
-                                      aria-label="Sin stock en la sucursal"
-                                    />
-                                  </span>
-                                ) : (
-                                  fmtNumero(item.stock)
-                                )}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                  "mx-auto size-5 shrink-0",
-                                  resaltarSucursal
-                                    ? "text-primary hover:bg-primary/10"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                                title={
-                                  resaltarSucursal
-                                    ? "Hay stock en otra sucursal"
-                                    : "Ver stock por sucursal"
-                                }
-                                aria-label={
-                                  resaltarSucursal
-                                    ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
-                                    : `Stock por sucursal de ${item.descripcion}`
-                                }
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setStockModalItem(item);
-                                }}
-                              >
-                                <Store
-                                  className={TABLE_ROW_ACTION_ICON_CLASS}
-                                  aria-hidden
-                                />
-                              </Button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </div>
-            ) : null}
           </div>
         </div>
       </div>
@@ -754,6 +635,131 @@ export default function FacturaCrearLineasBlock({
           </div>
         </div>
       </div>
+
+      {abierto && puedeBuscar ? (
+        <div className="pointer-events-none absolute inset-4 z-[70]">
+          <div
+            id={listboxId}
+            role="listbox"
+            className={cn(
+              TYPEAHEAD_LISTBOX_PANEL_CLASS,
+              TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
+              "pointer-events-auto"
+            )}
+          >
+            {loading || isDebouncing ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
+            ) : sugerencias.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">
+                Sin resultados.
+              </p>
+            ) : (
+              <>
+                <div
+                  className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
+                  aria-hidden
+                >
+                  <span className="text-center">COD.</span>
+                  <span className="text-center">DESCRIPCIÓN</span>
+                  <span className="text-center">PRECIOS</span>
+                  <span className="text-center">STOCK</span>
+                  <span />
+                </div>
+                <ul className={TYPEAHEAD_LISTBOX_UL_CLASS}>
+                  {sugerencias.map((item, idx) => {
+                    const activo = idx === highlight;
+                    const sinStockLocal = item.stock <= 0;
+                    const stockEnOtra = hayStockEnOtraSucursal(
+                      item,
+                      sucursalUsuario
+                    );
+                    const resaltarSucursal = sinStockLocal && stockEnOtra;
+                    return (
+                      <li
+                        key={item.codTienda}
+                        role="option"
+                        aria-selected={activo}
+                      >
+                        <div
+                          role="button"
+                          tabIndex={-1}
+                          className={cn(
+                            FILA_BUSQUEDA_GRID,
+                            "cursor-pointer py-0 text-center text-sm leading-tight text-foreground transition-colors",
+                            "hover:bg-accent/60",
+                            activo && "bg-accent/60"
+                          )}
+                          onMouseEnter={() => setHighlight(idx)}
+                          onClick={() => agregarItem(item)}
+                        >
+                          <span className="truncate tabular-nums text-muted-foreground">
+                            {item.codTienda}
+                          </span>
+                          <span className="min-w-0 truncate">
+                            {item.descripcion}
+                          </span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {`$${fmtPrecio(item.pxLista)}`}
+                          </span>
+                          <span className="flex items-center justify-center tabular-nums text-muted-foreground">
+                            {sinStockLocal ? (
+                              <span
+                                className="inline-flex"
+                                title="Sin stock en la sucursal"
+                              >
+                                <AlertTriangle
+                                  className={cn(
+                                    TABLE_ROW_ACTION_ICON_CLASS,
+                                    "text-destructive"
+                                  )}
+                                  aria-label="Sin stock en la sucursal"
+                                />
+                              </span>
+                            ) : (
+                              fmtNumero(item.stock)
+                            )}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "mx-auto size-5 shrink-0",
+                              resaltarSucursal
+                                ? "text-primary hover:bg-primary/10"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                            title={
+                              resaltarSucursal
+                                ? "Hay stock en otra sucursal"
+                                : "Ver stock por sucursal"
+                            }
+                            aria-label={
+                              resaltarSucursal
+                                ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
+                                : `Stock por sucursal de ${item.descripcion}`
+                            }
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setStockModalItem(item);
+                            }}
+                          >
+                            <Store
+                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                              aria-hidden
+                            />
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <FacturaProductoStockModal
         open={stockModalOpen}

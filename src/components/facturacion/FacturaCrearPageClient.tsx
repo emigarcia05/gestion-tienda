@@ -172,6 +172,25 @@ export default function FacturaCrearPageClient({
   const puedeBuscarClientes =
     clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
 
+  function vaciarInputClienteParaBusqueda() {
+    setClienteId(null);
+    resetReceptorConsumidorFinal();
+    setCliente("");
+    setClientesAbierto(false);
+    setSugerenciasClientes([]);
+    setLoadingClientes(false);
+  }
+
+  function restaurarConsumidorFinalSiVacio(raw: string) {
+    if (raw.trim() !== "") return;
+    setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
+    setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
+    setClienteId(null);
+    resetReceptorConsumidorFinal();
+    setClientesAbierto(false);
+    setSugerenciasClientes([]);
+  }
+
   function resetReceptorConsumidorFinal() {
     setReceptorCondicionIva(String(ARCA_CONDICION_IVA.CF));
     setReceptorDocTipo(String(ARCA_DOC_TIPO.CF));
@@ -214,6 +233,7 @@ export default function FacturaCrearPageClient({
   }, []);
 
   const fiscal = esFacturaTipoFiscal(tipo);
+  const hayComentarioCabecera = comentarios.trim().length > 0;
 
   async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
@@ -441,13 +461,28 @@ export default function FacturaCrearPageClient({
                       setClientesAbierto(false);
                     }
                   }}
-                  onFocus={() => {
+                  onFocus={(e) => {
                     if (
-                      puedeBuscarClientes &&
-                      cliente.trim() !== FACTURA_CLIENTE_CONSUMIDOR_FINAL
+                      e.currentTarget.value.trim() ===
+                      FACTURA_CLIENTE_CONSUMIDOR_FINAL
                     ) {
+                      vaciarInputClienteParaBusqueda();
+                      return;
+                    }
+                    if (puedeBuscarClientes) {
                       setClientesAbierto(true);
                     }
+                  }}
+                  onBlur={(e) => {
+                    const wrap = clienteWrapRef.current;
+                    if (
+                      wrap &&
+                      e.relatedTarget instanceof Node &&
+                      wrap.contains(e.relatedTarget)
+                    ) {
+                      return;
+                    }
+                    restaurarConsumidorFinalSiVacio(e.currentTarget.value);
                   }}
                   placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
                   autoComplete="off"
@@ -573,18 +608,26 @@ export default function FacturaCrearPageClient({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-9 w-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
-                comentarios.trim() && "text-primary hover:text-primary"
+                "h-9 w-9 shrink-0 hover:bg-muted",
+                hayComentarioCabecera
+                  ? "text-primary hover:text-primary"
+                  : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => setComentarioCabeceraOpen(true)}
               aria-label={
-                comentarios.trim()
+                hayComentarioCabecera
                   ? "Editar comentarios del comprobante"
                   : "Agregar comentarios del comprobante"
               }
               title="Comentarios"
             >
-              <MessageSquare className="h-4 w-4 shrink-0" aria-hidden />
+              <MessageSquare
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  hayComentarioCabecera ? "fill-primary" : "fill-none"
+                )}
+                aria-hidden
+              />
             </Button>
           </div>
 

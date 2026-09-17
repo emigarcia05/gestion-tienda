@@ -169,12 +169,22 @@ export const TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS =
 /** Panel del mismo ancho que el input (`left-0 right-0`). */
 export const TYPEAHEAD_LISTBOX_PANEL_MATCH_INPUT_WIDTH_CLASS = "right-0";
 
+/**
+ * Panel de productos en Factura · Crear: ocupa desde debajo del input
+ * hasta el margen inferior interior del bloque de líneas (`p-4`).
+ * Posicionar el panel dentro de un overlay `absolute inset-4` del bloque
+ * (coincide con el content box). `left-11` = lupa `size-9` + `gap-2`;
+ * `top-10` = input `h-9` + `mt-1`.
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS =
+  "bottom-0 left-11 right-0 top-10 mt-0";
+
 export const TYPEAHEAD_LISTBOX_UL_CLASS =
   "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto";
 
-/** Encabezado de columnas opcional encima de la lista. */
+/** Encabezado de columnas opcional encima de la lista (misma altura que la fila). */
 export const TYPEAHEAD_LISTBOX_HEADER_CLASS =
-  "shrink-0 border-b border-border bg-muted/40 py-0.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground";
+  "shrink-0 border-b border-border bg-muted/40 py-0 text-[0.65rem] font-semibold tracking-wide text-muted-foreground";
 
 /**
  * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.
