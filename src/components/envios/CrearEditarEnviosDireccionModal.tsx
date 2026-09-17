@@ -54,11 +54,13 @@ export default function CrearEditarEnviosDireccionModal({
   const [departamento, setDepartamento] = useState<EnviosDepartamentoValue | "">("");
   const [urlMaps, setUrlMaps] = useState("");
   const [referencia, setReferencia] = useState("");
+  const [nombreProyecto, setNombreProyecto] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     if (modo === "editar" && item) {
+      setNombreProyecto(item.nombreProyecto);
       setCalleNombre(properTextoEnvio(item.calleNombre));
       setNumeracion(capitalizarTextoEnvio(item.numeracion));
       setDistrito(properTextoEnvio(item.distrito));
@@ -67,6 +69,7 @@ export default function CrearEditarEnviosDireccionModal({
       setReferencia(item.referencia ? capitalizarTextoEnvio(item.referencia) : "");
       return;
     }
+    setNombreProyecto("");
     setCalleNombre("");
     setNumeracion("");
     setDistrito("");
@@ -78,6 +81,7 @@ export default function CrearEditarEnviosDireccionModal({
   const puedeGuardar =
     personaId !== "" &&
     direccionEnvioTieneDato({
+      nombreProyecto,
       calleNombre,
       numeracion,
       distrito,
@@ -92,6 +96,7 @@ export default function CrearEditarEnviosDireccionModal({
     try {
       const payload = {
         personaId,
+        nombreProyecto,
         calleNombre,
         numeracion,
         distrito,
@@ -107,7 +112,7 @@ export default function CrearEditarEnviosDireccionModal({
         toast.error(res.error ?? "No se pudo guardar.");
         return;
       }
-      toast.success(modo === "editar" ? "Dirección actualizada." : "Dirección creada.");
+      toast.success(modo === "editar" ? "Proyecto actualizado." : "Proyecto creado.");
       onOpenChange(false);
       onSuccess?.(res.data);
     } finally {
@@ -118,7 +123,7 @@ export default function CrearEditarEnviosDireccionModal({
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <AppModal
-        title={modo === "editar" ? "Editar Dirección" : "Nueva Dirección"}
+        title={modo === "editar" ? "Editar Proyecto" : "Nuevo Proyecto"}
         size="md"
         actions={
           <div className="flex w-full justify-end gap-2">
@@ -132,6 +137,14 @@ export default function CrearEditarEnviosDireccionModal({
         }
       >
         <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1">
+            <ModalMicroLabel>NOMBRE PROYECTO</ModalMicroLabel>
+            <Input
+              value={nombreProyecto}
+              onChange={(e) => setNombreProyecto(e.target.value.toLocaleUpperCase("es-AR"))}
+              autoComplete="off"
+            />
+          </label>
           <label className="flex flex-col gap-1">
             <ModalMicroLabel>CALLE NOMBRE</ModalMicroLabel>
             <Input

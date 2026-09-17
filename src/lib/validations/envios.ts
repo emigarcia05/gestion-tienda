@@ -169,6 +169,7 @@ const departamentoOpcionalSchema = z.preprocess(
 
 function refineDireccionAlMenosUnDato(
   data: {
+    nombreProyecto?: string;
     calleNombre?: string;
     numeracion?: string;
     distrito?: string;
@@ -181,8 +182,8 @@ function refineDireccionAlMenosUnDato(
   if (!direccionEnvioTieneDato(data)) {
     ctx.addIssue({
       code: "custom",
-      message: "Completá al menos un dato de la dirección.",
-      path: ["calleNombre"],
+      message: "Completá al menos un dato del proyecto.",
+      path: ["nombreProyecto"],
     });
   }
 }
@@ -190,6 +191,9 @@ function refineDireccionAlMenosUnDato(
 export const crearEnviosDireccionSchema = z
   .object({
     personaId: prismaCuidSchema,
+    nombreProyecto: textoOpcionalSchema(200).transform((v) =>
+      v === "" ? "" : normalizarNombreCliente(v)
+    ),
     calleNombre: textoEnvioProperOpcionalSchema(400),
     numeracion: textoEnvioOpcionalSchema(40),
     distrito: textoEnvioProperOpcionalSchema(200),

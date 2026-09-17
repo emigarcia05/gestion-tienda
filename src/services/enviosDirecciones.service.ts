@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   capitalizarTextoEnvio,
   direccionEnvioTieneDato,
+  normalizarNombreCliente,
   properTextoEnvio,
   type EnviosDireccionItem,
 } from "@/lib/envios";
@@ -14,6 +15,7 @@ import type { ServiceResult } from "@/types/service.types";
 const select = {
   id: true,
   personaId: true,
+  nombreProyecto: true,
   calleNombre: true,
   numeracion: true,
   distrito: true,
@@ -22,9 +24,10 @@ const select = {
   referencia: true,
 } as const;
 
-function mapRow(row: {
+export function mapEnviosDireccionItem(row: {
   id: string;
   personaId: string;
+  nombreProyecto: string;
   calleNombre: string;
   numeracion: string;
   distrito: string;
@@ -35,6 +38,7 @@ function mapRow(row: {
   return {
     id: row.id,
     personaId: row.personaId,
+    nombreProyecto: normalizarNombreCliente(row.nombreProyecto),
     calleNombre: properTextoEnvio(row.calleNombre),
     numeracion: capitalizarTextoEnvio(row.numeracion),
     distrito: properTextoEnvio(row.distrito),
@@ -47,9 +51,9 @@ function mapRow(row: {
 function prismaErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
-    if (code === "P2025") return "La dirección no existe.";
+    if (code === "P2025") return "El proyecto no existe.";
     if (code === "P2003") {
-      return "No se puede eliminar: la dirección está asociada a un envío o el cliente no existe.";
+      return "No se puede eliminar: el proyecto está asociado a un envío o el cliente no existe.";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -61,10 +65,10 @@ export async function listarEnviosDirecciones(
   try {
     const rows = await prisma.enviosDireccion.findMany({
       where: personaId ? { personaId } : undefined,
-      orderBy: [{ calleNombre: "asc" }, { numeracion: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ nombreProyecto: "asc" }, { calleNombre: "asc" }, { numeracion: "asc" }, { createdAt: "asc" }],
       select,
     });
-    return rows.map(mapRow);
+    return rows.map(mapEnviosDireccionItem);
   } catch (e) {
     console.error("[enviosDirecciones][listar]", e);
     return [];
@@ -80,14 +84,15 @@ export async function crearEnviosDireccion(
       select: { id: true },
     });
     if (!cliente) {
-      return { success: false, error: "El cliente de la dirección no existe." };
+      return { success: false, error: "El cliente del proyecto no existe." };
     }
     if (!direccionEnvioTieneDato(input)) {
-      return { success: false, error: "Completá al menos un dato de la dirección." };
+      return { success: false, error: "Completá al menos un dato del proyecto." };
     }
     const row = await prisma.enviosDireccion.create({
       data: {
         personaId: input.personaId,
+        nombreProyecto: normalizarNombreCliente(input.nombreProyecto),
         calleNombre: properTextoEnvio(input.calleNombre),
         numeracion: capitalizarTextoEnvio(input.numeracion),
         distrito: properTextoEnvio(input.distrito),
@@ -98,10 +103,10 @@ export async function crearEnviosDireccion(
       },
       select,
     });
-    return { success: true, data: mapRow(row) };
+    return { success: true, data: mapEnviosDireccionItem(row) };
   } catch (error) {
     console.error("[enviosDirecciones][crear]", error);
-    return { success: false, error: prismaErrorMessage(error, "No se pudo crear la dirección.") };
+    return { success: false, error: prismaErrorMessage(error, "No se pudo crear el proyecto.") };
   }
 }
 
@@ -110,12 +115,13 @@ export async function editarEnviosDireccion(
 ): Promise<ServiceResult<EnviosDireccionItem>> {
   try {
     if (!direccionEnvioTieneDato(input)) {
-      return { success: false, error: "Completá al menos un dato de la dirección." };
+      return { success: false, error: "Completá al menos un dato del proyecto." };
     }
     const row = await prisma.enviosDireccion.update({
       where: { id: input.id },
       data: {
         personaId: input.personaId,
+        nombreProyecto: normalizarNombreCliente(input.nombreProyecto),
         calleNombre: properTextoEnvio(input.calleNombre),
         numeracion: capitalizarTextoEnvio(input.numeracion),
         distrito: properTextoEnvio(input.distrito),
@@ -126,12 +132,12 @@ export async function editarEnviosDireccion(
       },
       select,
     });
-    return { success: true, data: mapRow(row) };
+    return { success: true, data: mapEnviosDireccionItem(row) };
   } catch (error) {
     console.error("[enviosDirecciones][editar]", error);
     return {
       success: false,
-      error: prismaErrorMessage(error, "No se pudo actualizar la dirección."),
+      error: prismaErrorMessage(error, "No se pudo actualizar el proyecto."),
     };
   }
 }
@@ -146,7 +152,7 @@ export async function eliminarEnviosDireccion(
     console.error("[enviosDirecciones][eliminar]", error);
     return {
       success: false,
-      error: prismaErrorMessage(error, "No se pudo eliminar la dirección."),
+      error: prismaErrorMessage(error, "No se pudo eliminar el proyecto."),
     };
   }
 }

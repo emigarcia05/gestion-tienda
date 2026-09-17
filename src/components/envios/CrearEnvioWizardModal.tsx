@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import EnviosMapsLink from "@/components/envios/EnviosMapsLink";
+import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import EnviosPintorConsumidoresButton from "@/components/envios/EnviosPintorConsumidoresButton";
 import EnviosFechaHorarioCampos from "@/components/envios/EnviosFechaHorarioCampos";
 import EnviosWizardPasos, {
@@ -39,7 +40,7 @@ import {
   pagadoDesdeFormaPagado,
   etiquetaDepartamentoEnvio,
   etiquetaDireccionEnvio,
-  etiquetaDireccionEnvioFilaListado,
+  etiquetaNombreProyecto,
   etiquetaSucursalEnvio,
   nombreCompletoCliente,
   nombrePintorAsociadoCliente,
@@ -212,6 +213,7 @@ export default function CrearEnvioWizardModal({
     return direccionesDelCliente.filter((item) =>
       matchByMultiTerm(
         [
+          item.nombreProyecto,
           item.calleNombre,
           item.numeracion,
           item.distrito,
@@ -593,8 +595,8 @@ export default function CrearEnvioWizardModal({
                           direccionesFiltradas.map((item) => (
                             <CatalogoFinderRow
                               key={item.id}
-                              nombre={etiquetaDireccionEnvioFilaListado(item)}
-                              nombreLineas={2}
+                              nombre={etiquetaNombreProyecto(item)}
+                              nombreContenido={<EnviosProyectoListadoLineas dir={item} />}
                               nombreAccion={<EnviosMapsLink url={item.urlMaps} />}
                               selected={item.id === direccionId}
                               onClick={() => handleSelectDireccion(item.id)}

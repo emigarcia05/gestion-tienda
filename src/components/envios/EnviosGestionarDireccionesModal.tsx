@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
 import EnviosMapsLink from "@/components/envios/EnviosMapsLink";
+import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import EnviosPintorConsumidoresButton from "@/components/envios/EnviosPintorConsumidoresButton";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import CatalogoFinderColumn from "@/components/shared/catalogo-finder/CatalogoFinderColumn";
@@ -20,7 +21,7 @@ import {
   etiquetaClienteListado,
   etiquetaDepartamentoEnvio,
   etiquetaDireccionEnvio,
-  etiquetaDireccionEnvioFilaListado,
+  etiquetaNombreProyecto,
   nombreCompletoCliente,
   nombrePintorAsociadoCliente,
   partesNombreClienteListado,
@@ -132,6 +133,7 @@ export default function EnviosGestionarDireccionesModal({
     return direccionesDelCliente.filter((item) =>
       matchByMultiTerm(
         [
+          item.nombreProyecto,
           item.calleNombre,
           item.numeracion,
           item.distrito,
@@ -336,8 +338,8 @@ export default function EnviosGestionarDireccionesModal({
                       direccionesFiltradas.map((item) => (
                         <CatalogoFinderRow
                           key={item.id}
-                          nombre={etiquetaDireccionEnvioFilaListado(item)}
-                          nombreLineas={2}
+                          nombre={etiquetaNombreProyecto(item)}
+                          nombreContenido={<EnviosProyectoListadoLineas dir={item} />}
                           nombreAccion={<EnviosMapsLink url={item.urlMaps} />}
                           selected={item.id === direccionId}
                           onClick={() => setDireccionId(item.id)}

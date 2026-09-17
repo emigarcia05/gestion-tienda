@@ -23,13 +23,8 @@ import {
   editarClienteAction,
   eliminarEnviosDireccionAction,
 } from "@/actions/envios";
+import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
-  formatearCuitMascara,
-  CLIENTE_TIPO_LABELS,
-  CLIENTE_TIPO_VALUES,
-  etiquetaDireccionEnvio,
-  etiquetaDireccionEnvioFilaListado,
-  nombreCompletoCliente,
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
@@ -247,8 +242,8 @@ export default function CrearEditarClienteModal({
     if (!puedeGuardar) {
       toast.error(
         esConsFinalCargado
-          ? "Completá el CEL para asociar una dirección."
-          : "Completá el nombre para asociar una dirección."
+          ? "Completá el CEL para asociar un proyecto."
+          : "Completá el nombre para asociar un proyecto."
       );
       return;
     }
@@ -279,7 +274,7 @@ export default function CrearEditarClienteModal({
         toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
-      toast.success("Dirección eliminada.");
+      toast.success("Proyecto eliminado.");
       setDireccionesLocal((prev) => prev.filter((d) => d.id !== modalEliminarDireccion.item.id));
       setModalEliminarDireccion({ open: false });
       onCatalogoChanged?.();
@@ -510,22 +505,17 @@ export default function CrearEditarClienteModal({
             ) : null}
             {muestraDirecciones ? (
               <div className="flex flex-col gap-2">
-                <ModalMicroLabel>DIRECCIONES</ModalMicroLabel>
+                <ModalMicroLabel>PROYECTOS</ModalMicroLabel>
                 {direccionesLocal.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {direccionesLocal.map((dir) => (
                       <div
                         key={dir.id}
                         className={cn(
-                          "flex items-center gap-2 rounded-md border border-input px-3 py-1"
+                          "flex items-start gap-2 rounded-md border border-input px-3 py-1"
                         )}
                       >
-                        <span
-                          className="min-w-0 flex-1 line-clamp-2 break-words text-sm text-foreground"
-                          title={etiquetaDireccionEnvioFilaListado(dir)}
-                        >
-                          {etiquetaDireccionEnvioFilaListado(dir)}
-                        </span>
+                        <EnviosProyectoListadoLineas dir={dir} />
                         <div className="flex shrink-0 items-center gap-1">
                           <EnviosMapsLink url={dir.urlMaps} />
                           <Button
@@ -570,7 +560,7 @@ export default function CrearEditarClienteModal({
                   size="icon"
                   className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
                   title="Nuevo"
-                  aria-label="Asociar dirección"
+                  aria-label="Asociar proyecto"
                   disabled={saving}
                   onClick={() => void handleNuevaDireccion()}
                 >
@@ -636,7 +626,7 @@ export default function CrearEditarClienteModal({
             }}
           >
             <AppModal
-              title="Eliminar Dirección"
+              title="Eliminar Proyecto"
               size="sm"
               actions={
                 <div className="flex w-full justify-end gap-2">

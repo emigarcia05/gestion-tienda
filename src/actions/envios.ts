@@ -50,6 +50,7 @@ function revalidateEnvios(): void {
     revalidatePath(path);
   }
   revalidatePath(FACTURACION_ROUTES.factura.crear);
+  revalidatePath(FACTURACION_ROUTES.clientes.lista);
 }
 
 export async function crearClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {
@@ -85,7 +86,7 @@ export async function editarClienteAction(raw: unknown): Promise<ActionResult<Cl
 }
 
 export async function eliminarClienteAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = eliminarClienteSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
@@ -103,7 +104,7 @@ export async function eliminarClienteAction(raw: unknown): Promise<ActionResult<
 export async function crearEnviosDireccionAction(
   raw: unknown
 ): Promise<ActionResult<EnviosDireccionItem>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = crearEnviosDireccionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
@@ -114,14 +115,14 @@ export async function crearEnviosDireccionAction(
     return { ok: true, data: res.data };
   } catch (e) {
     console.error("[crearEnviosDireccionAction]", e);
-    return { ok: false, error: "No se pudo crear la dirección." };
+    return { ok: false, error: "No se pudo crear el proyecto." };
   }
 }
 
 export async function editarEnviosDireccionAction(
   raw: unknown
 ): Promise<ActionResult<EnviosDireccionItem>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = editarEnviosDireccionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
@@ -132,14 +133,14 @@ export async function editarEnviosDireccionAction(
     return { ok: true, data: res.data };
   } catch (e) {
     console.error("[editarEnviosDireccionAction]", e);
-    return { ok: false, error: "No se pudo actualizar la dirección." };
+    return { ok: false, error: "No se pudo actualizar el proyecto." };
   }
 }
 
 export async function eliminarEnviosDireccionAction(
   raw: unknown
 ): Promise<ActionResult<{ id: string }>> {
-  const gate = await requireEnvios();
+  const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = eliminarEnviosDireccionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
@@ -150,7 +151,7 @@ export async function eliminarEnviosDireccionAction(
     return { ok: true, data: res.data };
   } catch (e) {
     console.error("[eliminarEnviosDireccionAction]", e);
-    return { ok: false, error: "No se pudo eliminar la dirección." };
+    return { ok: false, error: "No se pudo eliminar el proyecto." };
   }
 }
 

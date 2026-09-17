@@ -10,4 +10,7 @@ export const FACTURACION_ROUTES = {
     facturas: "/facturacion/factura/facturas",
     presupuestos: "/facturacion/factura/presupuestos",
   },
+  clientes: {
+    lista: "/facturacion/clientes/lista",
+  },
 } as const;

@@ -6,9 +6,11 @@ import {
   normalizarNombreCliente,
   soloDigitos,
   type ClienteItem,
+  type ClienteListaItem,
   type ClienteResumen,
 } from "@/lib/envios";
 import type { CrearClienteInput, EditarClienteInput } from "@/lib/validations/envios";
+import { mapEnviosDireccionItem } from "@/services/enviosDirecciones.service";
 import type { ServiceResult } from "@/types/service.types";
 
 const resumenSelect = {
@@ -59,7 +61,7 @@ function prismaErrorMessage(error: unknown, fallback: string): string {
     const code = (error as { code?: string }).code;
     if (code === "P2025") return "El cliente no existe.";
     if (code === "P2003") {
-      return "No se puede eliminar: el cliente está asociado a un envío, a una dirección, a un comprobante o como pintor de otro cliente.";
+      return "No se puede eliminar: el cliente está asociado a un envío, a un proyecto, a un comprobante o como pintor de otro cliente.";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -125,6 +127,45 @@ export async function listarClientes(): Promise<ClienteItem[]> {
     return rows.map(mapRow).sort(compararClientesParaListado);
   } catch (e) {
     console.error("[clientes][listar]", e);
+    return [];
+  }
+}
+
+export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> {
+  try {
+    const rows = await prisma.cliente.findMany({
+      orderBy: [{ nombreCompleto: "asc" }, { createdAt: "asc" }],
+      select: {
+        ...select,
+        direcciones: {
+          select: {
+            id: true,
+            personaId: true,
+            nombreProyecto: true,
+            calleNombre: true,
+            numeracion: true,
+            distrito: true,
+            departamento: true,
+            urlMaps: true,
+            referencia: true,
+          },
+          orderBy: [
+            { nombreProyecto: "asc" },
+            { calleNombre: "asc" },
+            { numeracion: "asc" },
+            { createdAt: "asc" },
+          ],
+        },
+      },
+    });
+    return rows
+      .map((row) => ({
+        ...mapRow(row),
+        proyectos: row.direcciones.map(mapEnviosDireccionItem),
+      }))
+      .sort(compararClientesParaListado);
+  } catch (e) {
+    console.error("[clientes][listarConProyectos]", e);
     return [];
   }
 }

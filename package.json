@@ -21,6 +21,7 @@
     "db:migrate-descripciones": "tsx scripts/run-migrate-descripciones-listas.ts",
     "db:create-lista-precios": "tsx scripts/run-create-lista-precios.ts",
     "db:create-lista-precios-tienda": "tsx scripts/run-create-lista-precios-tienda.ts",
+    "db:normalize-clientes-cel": "tsx scripts/normalize-clientes-cel.ts",
     "db:fix-lista-precios-tienda-cod-ext": "tsx scripts/fix-lista-precios-tienda-cod-ext.ts",
     "db:fix-lista-precios-proveedores-columnas": "tsx scripts/fix-lista-precios-proveedores-columnas.ts",
     "db:simulate-api-tienda": "tsx scripts/simulate-api-lista-precios-tienda.ts",

@@ -21,13 +21,22 @@ function hasWholeNumericToken(text: string, token: string): boolean {
   return parts.includes(tokenNorm);
 }
 
+export type MatchByMultiTermOptions = {
+  /**
+   * Dígitos como substring (`2663` en un CEL). Default: token numérico entero
+   * (lista-precios y catálogos).
+   */
+  numericAsContains?: boolean;
+};
+
 /**
  * Búsqueda por términos múltiples: el texto combinado debe contener TODOS los términos.
  * Insensible a mayúsculas y acentos. Reutilizable en lista-precios y otros filtros.
  */
 export function matchByMultiTerm(
   textParts: (string | null | undefined)[],
-  query: string
+  query: string,
+  options?: MatchByMultiTermOptions
 ): boolean {
   const terms = query
     .trim()
@@ -38,7 +47,7 @@ export function matchByMultiTerm(
   const combined = textParts.filter(Boolean).join(" ");
   const combinedNorm = normalizeForSearch(combined);
   return terms.every((term) => {
-    if (isNumericToken(term)) {
+    if (!options?.numericAsContains && isNumericToken(term)) {
       return hasWholeNumericToken(combined, term);
     }
     return combinedNorm.includes(normalizeForSearch(term));
