@@ -210,3 +210,17 @@ export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
 ].join(" ");
 
 export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent/60";
+
+/**
+ * Ícono `Store` (solo trazo) en typeahead de productos Factura · Crear.
+ * Trazo primary + fondo transparente: sucursal de emisión con stock, o sin stock
+ * en ninguna sucursal.
+ */
+export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS =
+  "bg-transparent text-primary shadow-none hover:bg-transparent hover:text-primary";
+
+/**
+ * Sucursal de emisión sin stock y otra sucursal sí tiene: trazo blanco + fondo primary.
+ */
+export const TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS =
+  "bg-primary text-primary-foreground shadow-none hover:bg-primary/90 hover:text-primary-foreground";

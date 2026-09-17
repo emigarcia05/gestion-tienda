@@ -44,6 +44,8 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
+  TYPEAHEAD_STORE_ICON_OUTLINE_CLASS,
+  TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
@@ -263,6 +265,15 @@ export default function FacturaCrearLineasBlock({
     pendingFocusCantidadKeyRef.current = keyFoco;
   }
 
+  function limpiarBusquedaProducto() {
+    handleQChange("");
+    setAbierto(false);
+    setSugerencias([]);
+    setLoading(false);
+    setHighlight(0);
+    ref.current?.focus();
+  }
+
   function actualizarCantidad(key: string, raw: string) {
     const cant = parseCantidadDraft(raw);
     if (cant == null) return;
@@ -344,7 +355,7 @@ export default function FacturaCrearLineasBlock({
             <Search className="h-4 w-4 shrink-0" aria-hidden />
           </Button>
 
-          <div className="relative min-w-0 flex-1">
+          <div className="filtro-individual-container relative min-w-0 flex-1">
             <Input
               ref={ref}
               id="factura-crear-buscar-producto"
@@ -393,14 +404,35 @@ export default function FacturaCrearLineasBlock({
               aria-expanded={abierto}
               aria-controls={listboxId}
               aria-autocomplete="list"
-              className={cn("w-full", (isDebouncing || loading) && "pr-10")}
+              className={cn(
+                "w-full",
+                q && (isDebouncing || loading) && "pr-14",
+                q && !(isDebouncing || loading) && "pr-10",
+                !q && (isDebouncing || loading) && "pr-10"
+              )}
             />
             {(isDebouncing || loading) && (
               <Loader2
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                className={cn(
+                  "pointer-events-none absolute top-1/2 z-[1] h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground",
+                  q ? "right-[2.65rem]" : "right-3"
+                )}
                 aria-hidden
               />
             )}
+            {q ? (
+              <Button
+                type="button"
+                variant="primaryIcon"
+                size="icon-lg"
+                className="filtro-individual-clear-btn"
+                onClick={limpiarBusquedaProducto}
+                aria-label="Limpiar búsqueda"
+                title="Limpiar búsqueda"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -568,21 +600,18 @@ export default function FacturaCrearLineasBlock({
 
       <div
         className={cn(
-          "flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
+          "flex min-h-[2.8125rem] shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
         )}
       >
         <div
-          className={cn(
-            "flex w-[9rem] shrink-0 items-center justify-center px-2 py-1",
-            "border-r-2 border-primary bg-primary/5"
-          )}
+          className="flex shrink-0 items-center justify-center px-2 py-1.5"
           aria-label="Zona de descuentos"
         >
           <Button
             type="button"
             variant="default"
             size="sm"
-            className="h-7 gap-1 px-2.5 text-xs"
+            className="h-8 gap-1 px-2.5 text-xs"
             disabled={lineas.length === 0}
             title="Aplicar descuento"
             aria-label="Aplicar descuento"
@@ -595,7 +624,7 @@ export default function FacturaCrearLineasBlock({
 
         <div
           className={cn(
-            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1 text-center",
+            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1.5 text-center",
             "bg-muted/40"
           )}
           aria-label="Resumen de totales"
@@ -739,8 +768,8 @@ export default function FacturaCrearLineasBlock({
                               className={cn(
                                 "size-5 shrink-0",
                                 resaltarSucursal
-                                  ? "text-primary hover:bg-primary/10"
-                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
+                                  : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
                               )}
                               title={
                                 resaltarSucursal
@@ -755,11 +784,12 @@ export default function FacturaCrearLineasBlock({
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                setAbierto(false);
                                 setStockModalItem(item);
                               }}
                             >
                               <Store
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                className={cn(TABLE_ROW_ACTION_ICON_CLASS, "fill-none")}
                                 aria-hidden
                               />
                             </Button>

@@ -14,7 +14,7 @@ const appModalContentVariants = cva(
     // Base layout (3 rows: header / body / footer)
     "app-modal grid grid-rows-[auto_minmax(0,1fr)_auto] gap-0 p-0 w-full max-h-[90vh]",
     // Position + animation
-    "fixed top-[50%] left-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200",
+    "fixed top-[50%] left-[50%] z-[80] translate-x-[-50%] translate-y-[-50%] duration-200",
     "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
     // Surface
     "max-w-[calc(100%-2rem)] bg-gris rounded-xl overflow-hidden outline-none border-0 shadow-xl",
