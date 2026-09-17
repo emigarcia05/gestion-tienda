@@ -61,6 +61,9 @@ import {
 } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
 import {
+  TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
+  TYPEAHEAD_LISTBOX_CELL_CLASS,
+  TYPEAHEAD_LISTBOX_HEADER_CLASS,
   TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
   TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
@@ -68,6 +71,9 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
+
+const FILA_BUSQUEDA_CLIENTES_GRID =
+  "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
 
 /** Saldo en typeahead de clientes: pendiente de implementar. */
 const CLIENTE_SALDO_PLACEHOLDER = "";
@@ -506,7 +512,7 @@ export default function FacturaCrearPageClient({
                   type="button"
                   variant="default"
                   size="icon-xs"
-                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                  className="absolute top-1.5 right-1.5 shadow-none"
                   onClick={() => setCrearClienteOpen(true)}
                   aria-label="Crear cliente"
                   title="Crear cliente"
@@ -532,43 +538,84 @@ export default function FacturaCrearPageClient({
                         Sin resultados.
                       </p>
                     ) : (
-                      <ul className={TYPEAHEAD_LISTBOX_UL_CLASS}>
-                        {sugerenciasClientes.map((item, idx) => {
-                          const activo = idx === clienteHighlight;
-                          const nombre =
-                            nombreCompletoCliente(item) || "CONSUMIDOR FINAL";
-                          const pintor = nombrePintorAsociadoCliente(item);
-                          return (
-                            <li key={item.id} role="option" aria-selected={activo}>
-                              <div
-                                role="button"
-                                tabIndex={-1}
-                                className={cn(
-                                  TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
-                                  "flex flex-col gap-0.5 px-2 text-left",
-                                  activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
-                                )}
-                                onMouseEnter={() => setClienteHighlight(idx)}
-                                onPointerDown={(e) => e.preventDefault()}
-                                onClick={() => aplicarClienteSeleccionado(item)}
+                      <div className={TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS}>
+                        <div
+                          className={cn(
+                            FILA_BUSQUEDA_CLIENTES_GRID,
+                            TYPEAHEAD_LISTBOX_HEADER_CLASS
+                          )}
+                          aria-hidden
+                        >
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            CLIENTE
+                          </span>
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            SALDO
+                          </span>
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            PINTOR
+                          </span>
+                        </div>
+                        <ul
+                          className={cn(
+                            TYPEAHEAD_LISTBOX_UL_CLASS,
+                            "flex-none overflow-visible"
+                          )}
+                        >
+                          {sugerenciasClientes.map((item, idx) => {
+                            const activo = idx === clienteHighlight;
+                            const nombre =
+                              nombreCompletoCliente(item) || "CONSUMIDOR FINAL";
+                            const pintor = nombrePintorAsociadoCliente(item) ?? "";
+                            return (
+                              <li
+                                key={item.id}
+                                role="option"
+                                aria-selected={activo}
                               >
-                                <span className="min-w-0 truncate">
-                                  {nombre}
-                                  {" - "}
-                                  <span className="tabular-nums text-muted-foreground">
+                                <div
+                                  role="button"
+                                  tabIndex={-1}
+                                  className={cn(
+                                    FILA_BUSQUEDA_CLIENTES_GRID,
+                                    TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+                                    "min-h-5",
+                                    activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
+                                  )}
+                                  onMouseEnter={() => setClienteHighlight(idx)}
+                                  onPointerDown={(e) => e.preventDefault()}
+                                  onClick={() => aplicarClienteSeleccionado(item)}
+                                >
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "text-foreground"
+                                    )}
+                                  >
+                                    {nombre}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "tabular-nums text-foreground"
+                                    )}
+                                  >
                                     {CLIENTE_SALDO_PLACEHOLDER}
                                   </span>
-                                </span>
-                                {pintor ? (
-                                  <span className="min-w-0 truncate text-xs text-muted-foreground">
-                                    ({pintor})
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "text-foreground"
+                                    )}
+                                  >
+                                    {pintor}
                                   </span>
-                                ) : null}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 ) : null}

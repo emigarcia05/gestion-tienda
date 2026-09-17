@@ -200,6 +200,10 @@ export const TYPEAHEAD_LISTBOX_HEADER_CLASS = [
   "border-b-0 bg-primary text-xs font-bold uppercase tracking-wide text-primary-foreground",
 ].join(" ");
 
+/** Celda de encabezado/fila de typeahead con columnas (texto centrado, ellipsis). */
+export const TYPEAHEAD_LISTBOX_CELL_CLASS =
+  "min-w-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap";
+
 /**
  * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.
  * Hover / activo: `TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS`.

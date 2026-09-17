@@ -40,6 +40,7 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
+  TYPEAHEAD_LISTBOX_CELL_CLASS,
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
@@ -81,11 +82,8 @@ function parseCantidadDraft(raw: string): number | null {
 const FILA_BUSQUEDA_GRID =
   "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
-const FILA_BUSQUEDA_CELDA =
-  "min-w-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap";
-
 const FILA_BUSQUEDA_STOCK =
-  "flex w-full min-w-0 items-center justify-center gap-1";
+  "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_1rem] items-center gap-1";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -696,10 +694,17 @@ export default function FacturaCrearLineasBlock({
                     className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
                     aria-hidden
                   >
-                    <span className={FILA_BUSQUEDA_CELDA}>COD.</span>
-                    <span className={FILA_BUSQUEDA_CELDA}>DESCRIPCIÓN</span>
-                    <span className={FILA_BUSQUEDA_CELDA}>PRECIOS</span>
-                    <span className={FILA_BUSQUEDA_CELDA}>STOCK</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>COD.</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESCRIPCIÓN</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PRECIOS</span>
+                    <div className={FILA_BUSQUEDA_STOCK}>
+                      <span
+                        className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-right")}
+                      >
+                        STOCK
+                      </span>
+                      <span className="size-4 shrink-0" aria-hidden />
+                    </div>
                   </div>
                   <ul
                     className={cn(
@@ -733,17 +738,22 @@ export default function FacturaCrearLineasBlock({
                           onMouseEnter={() => setHighlight(idx)}
                           onClick={() => agregarItem(item)}
                         >
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-foreground")}>
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
                             {item.codTienda}
                           </span>
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "text-foreground")}>
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-foreground")}>
                             {item.descripcion}
                           </span>
-                          <span className={cn(FILA_BUSQUEDA_CELDA, "tabular-nums text-foreground")}>
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
                             {`$${fmtPrecio(item.pxLista)}`}
                           </span>
                           <div className={FILA_BUSQUEDA_STOCK}>
-                            <span className="min-w-0 tabular-nums text-foreground">
+                            <span
+                              className={cn(
+                                TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                "text-right tabular-nums text-foreground"
+                              )}
+                            >
                               {sinStockLocal ? (
                                 <span
                                   className="inline-flex"
