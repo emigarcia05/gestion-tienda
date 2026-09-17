@@ -26,16 +26,22 @@ function vigente(expiration: Date, now: Date): boolean {
   return expiration.getTime() - MARGIN_MS > now.getTime();
 }
 
+export type ArcaAuthTicket = {
+  token: string;
+  sign: string;
+  cuit: string;
+  ambiente: "homo" | "prod";
+};
+
 /**
  * Ticket WSAA (token+sign) cacheado en memoria + `arca_wsaa_tickets`.
- * Nunca devolver token/sign a Actions/UI.
+ * Un ticket por CUIT+servicio+ambiente. Nunca devolver token/sign a Actions/UI.
  */
-export async function obtenerAuthWsfe(args: {
-  ptoVenta: string;
+export async function obtenerAuthArca(args: {
+  servicio: string;
+  ptoVenta?: string;
   cuitEmisor?: string | null;
-}): Promise<
-  ServiceResult<{ token: string; sign: string; cuit: string; ambiente: "homo" | "prod" }>
-> {
+}): Promise<ServiceResult<ArcaAuthTicket>> {
   const env = leerArcaEnv({
     ptoVenta: args.ptoVenta,
     cuitFallback: args.cuitEmisor,
@@ -44,7 +50,7 @@ export async function obtenerAuthWsfe(args: {
     return { success: false, error: env.error };
   }
   const now = new Date();
-  const key = cacheKey(env.cuit, ARCA_SERVICIO_WSFE, env.ambiente);
+  const key = cacheKey(env.cuit, args.servicio, env.ambiente);
   const fromMem = mem.get(key);
   if (fromMem && vigente(fromMem.expiration, now)) {
     return {
@@ -63,7 +69,7 @@ export async function obtenerAuthWsfe(args: {
       where: {
         cuit_servicio_ambiente: {
           cuit: env.cuit,
-          servicio: ARCA_SERVICIO_WSFE,
+          servicio: args.servicio,
           ambiente: env.ambiente,
         },
       },
@@ -81,10 +87,10 @@ export async function obtenerAuthWsfe(args: {
       };
     }
   } catch (e) {
-    console.error("[arca][obtenerAuthWsfe] db", e instanceof Error ? e.message : "error");
+    console.error("[arca][obtenerAuthArca] db", e instanceof Error ? e.message : "error");
   }
 
-  const login = await wsaaLoginCms({ env, servicio: ARCA_SERVICIO_WSFE });
+  const login = await wsaaLoginCms({ env, servicio: args.servicio });
   if (!login.ok) {
     return { success: false, error: login.error };
   }
@@ -118,7 +124,7 @@ export async function obtenerAuthWsfe(args: {
       },
     });
   } catch (e) {
-    console.error("[arca][obtenerAuthWsfe] persist", e instanceof Error ? e.message : "error");
+    console.error("[arca][obtenerAuthArca] persist", e instanceof Error ? e.message : "error");
   }
   return {
     success: true,
@@ -129,6 +135,21 @@ export async function obtenerAuthWsfe(args: {
       ambiente: env.ambiente,
     },
   };
+}
+
+/**
+ * Ticket WSAA para WSFEv1.
+ * Nunca devolver token/sign a Actions/UI.
+ */
+export async function obtenerAuthWsfe(args: {
+  ptoVenta: string;
+  cuitEmisor?: string | null;
+}): Promise<ServiceResult<ArcaAuthTicket>> {
+  return obtenerAuthArca({
+    servicio: ARCA_SERVICIO_WSFE,
+    ptoVenta: args.ptoVenta,
+    cuitEmisor: args.cuitEmisor,
+  });
 }
 
 export function ambienteArcaActual(): "homo" | "prod" {

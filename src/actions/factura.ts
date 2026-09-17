@@ -5,12 +5,15 @@ import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import type { FacturaEmitirResultado } from "@/lib/factura";
+import type { ClienteItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
+  buscarClientesFacturaSchema,
   buscarProductosFacturaSchema,
   emitirFacturaComprobanteSchema,
   facturaComprobanteIdSchema,
 } from "@/lib/validations/factura";
+import { buscarClientesParaFactura } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
@@ -21,6 +24,23 @@ function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
   revalidatePath(FACTURACION_ROUTES.factura.facturas);
   revalidatePath(FACTURACION_ROUTES.factura.presupuestos);
+}
+
+export async function buscarClientesFacturaAction(
+  raw: unknown
+): Promise<ActionResult<{ items: ClienteItem[] }>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = buscarClientesFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  return fromServiceResult(
+    await buscarClientesParaFactura({
+      q: parsed.data.q,
+      take: parsed.data.take,
+    })
+  );
 }
 
 export async function buscarProductosFacturaAction(

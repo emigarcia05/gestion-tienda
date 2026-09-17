@@ -138,3 +138,95 @@ export const BALANCE_MODAL_HISTORIAL_RUBRO_TITLE =
  */
 export const MODAL_MICRO_LABEL_CLASS =
   "modal-micro-label modal-field-label text-[0.65rem] font-semibold uppercase tracking-[0.06em] text-foreground";
+
+/**
+ * Typeahead / combobox listbox (Factura productos, clientes, …).
+ * Panel flotante bajo el input; filas = `div role="button"` (no `<Button>` ni `<button>` de formulario).
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_CLASS = [
+  "absolute left-0 top-full z-[70] mt-1 flex flex-col overflow-hidden",
+  "rounded-md border border-border bg-popover text-popover-foreground shadow-md",
+].join(" ");
+
+/**
+ * Ancla del combobox cuando el listbox está abierto: debe superar bloques vecinos
+ * (p. ej. remito Factura `z-30`) para que el panel quede por encima en el stacking.
+ */
+export const TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS = "relative z-[60]";
+
+/** Ancla en reposo (por debajo de listboxes abiertos de otras zonas). */
+export const TYPEAHEAD_LISTBOX_ANCHOR_CLASS = "relative z-20";
+/** Altura fija del panel (scroll en la lista). */
+export const TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS = "h-72";
+
+/**
+ * Panel más ancho que el input (p. ej. clientes: nombre + saldo + pintor).
+ * Combinar con `TYPEAHEAD_LISTBOX_PANEL_CLASS`.
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS =
+  "min-w-full w-[28rem] max-w-[min(28rem,calc(100vw-4rem))]";
+
+/** Panel del mismo ancho que el input (`left-0 right-0`). */
+export const TYPEAHEAD_LISTBOX_PANEL_MATCH_INPUT_WIDTH_CLASS = "right-0";
+
+/**
+ * Panel de productos en Factura · Crear: ocupa desde debajo del input
+ * hasta el margen inferior interior del bloque de líneas (`p-4`).
+ * Posicionar el panel dentro de un overlay `absolute inset-4` del bloque
+ * (coincide con el content box). `left-11` = lupa `size-9` + `gap-2`;
+ * `top-10` = input `h-9` + `mt-1`.
+ */
+export const TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS =
+  "bottom-0 left-11 right-0 top-10 mt-0";
+
+export const TYPEAHEAD_LISTBOX_UL_CLASS =
+  "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto [scrollbar-gutter:stable]";
+
+/**
+ * Scroll único de listbox con encabezado de columnas: el header va sticky
+ * dentro de este contenedor (mismo ancho que las filas; el scrollbar no desfasá).
+ * Fondo sólido (`bg-popover`): el scrollport no hereda el lienzo del panel
+ * (overflow + stacking) y sin esto se ve traslúcido.
+ */
+export const TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS =
+  "min-h-0 flex-1 overflow-y-auto bg-popover [scrollbar-gutter:stable]";
+
+/**
+ * Encabezado de columnas opcional encima de la lista.
+ * Misma superficie que thead de `.tabla-gestion-compacta` (`bg-primary`).
+ * Altura = `--tabla-thead-height`. `sticky` cuando vive dentro de
+ * `TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS`.
+ */
+export const TYPEAHEAD_LISTBOX_HEADER_CLASS = [
+  "sticky top-0 z-10 box-border h-[var(--tabla-thead-height)] min-h-[var(--tabla-thead-height)] shrink-0",
+  "border-b-0 bg-primary text-xs font-bold uppercase tracking-wide text-primary-foreground",
+].join(" ");
+
+/** Celda de encabezado/fila de typeahead con columnas (texto centrado, ellipsis). */
+export const TYPEAHEAD_LISTBOX_CELL_CLASS =
+  "min-w-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap";
+
+/**
+ * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.
+ * Hover / activo: `TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS`.
+ */
+export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
+  "w-full cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
+  "hover:bg-accent",
+].join(" ");
+
+export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent";
+
+/**
+ * Ícono `Store` en typeahead de productos: solo trazo (sin recuadro ni relleno).
+ * Mismo tamaño que `AlertTriangle` (`size-4`).
+ */
+export const TYPEAHEAD_STORE_ICON_OUTLINE_CLASS =
+  "size-4 fill-none text-primary";
+
+/**
+ * Sucursal de emisión sin stock y otra sí tiene: mismo glifo en trazo primary,
+ * trazo un poco más marcado (sin relleno: el fill de Lucide se lee como recuadro).
+ */
+export const TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS =
+  "size-4 fill-none text-primary [stroke-width:2.5]";

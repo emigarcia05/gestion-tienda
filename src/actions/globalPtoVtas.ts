@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
+import { requireCondicionIvaCatalogoLectura, requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage } from "@/lib/actionResult";
 import type { GlobalPtoVtaItem, PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import type { ActionResult } from "@/lib/types";
@@ -27,7 +27,7 @@ function revalidateFactCobros(): void {
 export async function listarPtoVentasCodArcaAction(): Promise<
   ActionResult<PtoVentasCodArcaItem[]>
 > {
-  const gate = await requireFinanzasLectura();
+  const gate = await requireCondicionIvaCatalogoLectura();
   if (gate) return gate;
   try {
     return { ok: true, data: await listarPtoVentasCodArca() };

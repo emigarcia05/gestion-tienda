@@ -2,10 +2,10 @@ import { z } from "zod";
 import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
-  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
+  mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
-import { prismaCuidSchema } from "@/lib/validations/common";
+import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
@@ -49,6 +49,21 @@ export const buscarProductosFacturaSchema = z.object({
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
 
+/**
+ * Búsqueda typeahead de clientes para Factura · Crear.
+ * Tokens separados por espacio: AND sobre nombre / cel / cuit.
+ */
+export const buscarClientesFacturaSchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(3, "Escribí al menos 3 letras.")
+    .max(200),
+  take: z.coerce.number().int().min(1).max(10).optional().default(10),
+});
+
+export type BuscarClientesFacturaInput = z.infer<typeof buscarClientesFacturaSchema>;
+
 const facturaLineaEmitirSchema = z.object({
   codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
   descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),
@@ -76,8 +91,11 @@ export const emitirFacturaComprobanteSchema = z
       .trim()
       .max(200, "El cliente es demasiado largo.")
       .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
+    /** FK opcional a `clientes`. Null = Consumidor Final. */
+    clienteId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
+    /** Solo fallback interno (NC desde original sin cliente). La UI no los envía. */
     receptorDocTipo: z.number().int().positive().optional(),
     receptorDocNro: z.string().trim().max(20).optional(),
     receptorCondicionIva: z.number().int().positive().optional(),
@@ -86,22 +104,16 @@ export const emitirFacturaComprobanteSchema = z
     descuento: descuentoEmitirSchema.optional().default(null),
   })
   .superRefine((data, ctx) => {
-    const fiscal = esFacturaTipoFiscal(data.tipo);
-    if (fiscal) {
-      if (data.receptorCondicionIva == null) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["receptorCondicionIva"],
-          message: "Seleccioná la condición IVA del receptor.",
-        });
-      }
-      if (data.receptorDocTipo == null) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["receptorDocTipo"],
-          message: "Seleccioná el tipo de documento del receptor.",
-        });
-      }
+    const clienteMsg = mensajeClienteFacturaNoSeleccionado(
+      data.cliente,
+      data.clienteId
+    );
+    if (clienteMsg) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["clienteId"],
+        message: clienteMsg,
+      });
     }
     if (esFacturaTipoNotaCredito(data.tipo) && !data.cbteAsocId) {
       ctx.addIssue({

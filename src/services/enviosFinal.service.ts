@@ -36,6 +36,8 @@ const clienteSelect = {
   ...clienteResumenSelect,
   pintorAsociadoId: true,
   pintorAsociado: { select: clienteResumenSelect },
+  cuit: true,
+  condicionIva: true,
 } as const;
 
 const direccionSelect = {
@@ -83,6 +85,8 @@ function mapCliente(row: {
     cel: string;
     tipo: ClienteItem["tipo"];
   } | null;
+  cuit: string | null;
+  condicionIva: number | null;
 } | null): ClienteItem | null {
   if (!row) return null;
   return {
@@ -99,6 +103,8 @@ function mapCliente(row: {
           tipo: row.pintorAsociado.tipo,
         }
       : null,
+    cuit: row.cuit,
+    condicionIva: row.condicionIva,
   };
 }
 

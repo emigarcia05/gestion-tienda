@@ -110,3 +110,12 @@ export async function guardFacturacionLectura(): Promise<NextResponse | null> {
   }
   return null;
 }
+
+/** Consulta constancia ARCA (CUIT → nombre / cond. IVA): Envíos o Facturación. */
+export async function guardClientesMutacion(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.envios.acceso) && !puede(rol, PERMISOS.facturacion.acceso)) {
+    return NextResponse.json({ ok: false, error: "Sin permisos para clientes." }, { status: 403 });
+  }
+  return null;
+}

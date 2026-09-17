@@ -5,7 +5,7 @@ export type GlobalPtoVtaSucursalOption = {
   nombre: string;
 };
 
-/** Fila de `pto_ventas_cod_arca` (código oficial ARCA). */
+/** Fila de `condicion_iva_cod_arca` (código oficial ARCA). */
 export type PtoVentasCodArcaItem = {
   codigo: number;
   descripcion: string;
@@ -20,7 +20,7 @@ export type GlobalPtoVtaItem = {
   cuit: string | null;
   iiBb: string | null;
   iiBbMultilateral: boolean;
-  /** Código ARCA (`pto_ventas_cod_arca.codigo`). */
+  /** Código ARCA (`condicion_iva_cod_arca.codigo`). */
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
   domicilioComercial: string | null;

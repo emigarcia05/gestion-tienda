@@ -118,6 +118,27 @@ export function normalizarNombreCliente(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
 }
 
+/** Solo dígitos (CEL / CUIT sin máscara). */
+export function soloDigitos(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+/**
+ * Máscara visual de CUIT `##-########-#` (hasta 11 dígitos).
+ * Persistencia: usar `soloDigitos`.
+ */
+export function formatearCuitMascara(value: string): string {
+  const d = soloDigitos(value).slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 10) return `${d.slice(0, 2)}-${d.slice(2)}`;
+  return `${d.slice(0, 2)}-${d.slice(2, 10)}-${d.slice(10)}`;
+}
+
+/** CEL: sin guiones ni espacios (solo dígitos). */
+export function normalizarCelCliente(value: string): string {
+  return soloDigitos(value);
+}
+
 export function nombreCompletoCliente(cliente: {
   nombreCompleto: string;
 }): string {
@@ -186,7 +207,7 @@ export function compararClientesParaListado(
   return 0;
 }
 
-/** Textos de `envios_direcciones`: primera letra mayúscula, resto minúsculas (oración). */
+/** Textos de `clientes_direcciones`: primera letra mayúscula, resto minúsculas (oración). */
 export function capitalizarTextoEnvio(value: string): string {
   const t = value.trim().replace(/\s+/g, " ");
   if (t === "") return t;
@@ -230,6 +251,10 @@ export interface ClienteResumen {
 export interface ClienteItem extends ClienteResumen {
   pintorAsociadoId: string | null;
   pintorAsociado: ClienteResumen | null;
+  /** CUIT 11 dígitos o null. */
+  cuit: string | null;
+  /** Código ARCA (`condicion_iva_cod_arca.codigo`) o null. */
+  condicionIva: number | null;
 }
 
 /** Nombre del pintor asociado, solo si el cliente es CONSUMIDOR_FINAL y tiene uno. */

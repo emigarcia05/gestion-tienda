@@ -67,21 +67,41 @@ export function esClienteFacturaVacio(raw: string): boolean {
   return raw.trim() === "";
 }
 
+/**
+ * Vacío o «CONSUMIDOR FINAL» no exige ítem del catálogo.
+ * Cualquier otro texto (p. ej. «MAT») sí: hay que elegir de la lista.
+ */
+export function clienteFacturaRequiereCatalogo(raw: string): boolean {
+  return nombreClienteFactura(raw) !== FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+}
+
+export const MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO =
+  "Seleccioná un cliente de la lista.";
+
+/** Null si se puede emitir; mensaje si el texto no es CF y falta `clienteId`. */
+export function mensajeClienteFacturaNoSeleccionado(
+  raw: string,
+  clienteId: string | null | undefined
+): string | null {
+  if (!clienteFacturaRequiereCatalogo(raw)) return null;
+  if (clienteId) return null;
+  return MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO;
+}
+
 /** Máximo de sugerencias en el typeahead de productos (Crear). */
 export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
 
 /** Mínimo de caracteres (trim) para disparar la búsqueda de productos. */
 export const FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS = 3;
 
+/** Máximo de sugerencias en el typeahead de clientes (Crear). */
+export const FACTURA_BUSQUEDA_CLIENTES_TAKE = 10;
+
+/** Mínimo de caracteres (trim) para disparar la búsqueda de clientes. */
+export const FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS = 3;
+
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
-
-export const FACTURA_DOC_TIPO_OPTIONS = [
-  { id: 80, label: "CUIT" },
-  { id: 86, label: "CUIL" },
-  { id: 96, label: "DNI" },
-  { id: 99, label: "CONSUMIDOR FINAL" },
-] as const;
 
 export type FacturaComprobanteEstado = "borrador" | "autorizado" | "rechazado";
 

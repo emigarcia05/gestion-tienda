@@ -39,6 +39,14 @@ import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+  TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
+  TYPEAHEAD_LISTBOX_CELL_CLASS,
+  TYPEAHEAD_LISTBOX_HEADER_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
+  TYPEAHEAD_LISTBOX_UL_CLASS,
+  TYPEAHEAD_STORE_ICON_OUTLINE_CLASS,
+  TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
@@ -72,7 +80,13 @@ function parseCantidadDraft(raw: string): number | null {
 }
 
 const FILA_BUSQUEDA_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_5.5rem_4.5rem_2rem] items-center gap-1.5 px-2";
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
+
+const FILA_BUSQUEDA_STOCK =
+  "flex w-full min-w-0 items-center justify-center gap-1";
+
+const FILA_BUSQUEDA_STOCK_VALOR =
+  "inline-flex w-[2.75rem] shrink-0 items-center justify-end tabular-nums text-foreground";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -108,10 +122,13 @@ export type FacturaRemitoSnapshot = {
 
 interface FacturaCrearLineasBlockProps {
   onRemitoChange?: (snapshot: FacturaRemitoSnapshot) => void;
+  /** Al enfocar el buscador de productos (p. ej. colapsar cabecera). */
+  onBusquedaProductoFocus?: () => void;
 }
 
 export default function FacturaCrearLineasBlock({
   onRemitoChange,
+  onBusquedaProductoFocus,
 }: FacturaCrearLineasBlockProps) {
   const listboxId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -249,6 +266,15 @@ export default function FacturaCrearLineasBlock({
     pendingFocusCantidadKeyRef.current = keyFoco;
   }
 
+  function limpiarBusquedaProducto() {
+    handleQChange("");
+    setAbierto(false);
+    setSugerencias([]);
+    setLoading(false);
+    setHighlight(0);
+    ref.current?.focus();
+  }
+
   function actualizarCantidad(key: string, raw: string) {
     const cant = parseCantidadDraft(raw);
     if (cant == null) return;
@@ -312,8 +338,11 @@ export default function FacturaCrearLineasBlock({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-      <div ref={wrapRef} className="relative z-30 shrink-0">
+    <div
+      ref={wrapRef}
+      className="relative flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
+    >
+      <div className="relative z-30 shrink-0">
         <div className="flex items-start gap-2">
           <Button
             type="button"
@@ -327,7 +356,7 @@ export default function FacturaCrearLineasBlock({
             <Search className="h-4 w-4 shrink-0" aria-hidden />
           </Button>
 
-          <div className="relative min-w-0 flex-1">
+          <div className="filtro-individual-container relative min-w-0 flex-1">
             <Input
               ref={ref}
               id="factura-crear-buscar-producto"
@@ -342,6 +371,9 @@ export default function FacturaCrearLineasBlock({
                   return;
                 }
                 setAbierto(true);
+              }}
+              onFocus={() => {
+                onBusquedaProductoFocus?.();
               }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown" && sugerencias.length > 0) {
@@ -373,139 +405,34 @@ export default function FacturaCrearLineasBlock({
               aria-expanded={abierto}
               aria-controls={listboxId}
               aria-autocomplete="list"
-              className={cn("w-full", (isDebouncing || loading) && "pr-10")}
+              className={cn(
+                "w-full",
+                q && (isDebouncing || loading) && "pr-14",
+                q && !(isDebouncing || loading) && "pr-10",
+                !q && (isDebouncing || loading) && "pr-10"
+              )}
             />
             {(isDebouncing || loading) && (
               <Loader2
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                className={cn(
+                  "pointer-events-none absolute top-1/2 z-[1] h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground",
+                  q ? "right-[2.65rem]" : "right-3"
+                )}
                 aria-hidden
               />
             )}
-
-            {abierto && puedeBuscar ? (
-              <div
-                id={listboxId}
-                role="listbox"
-                className={cn(
-                  "absolute left-0 right-0 top-full z-50 mt-1 flex flex-col",
-                  "h-72 overflow-hidden rounded-md border border-border bg-popover",
-                  "text-popover-foreground shadow-md"
-                )}
+            {q ? (
+              <Button
+                type="button"
+                variant="primaryIcon"
+                size="icon-lg"
+                className="filtro-individual-clear-btn"
+                onClick={limpiarBusquedaProducto}
+                aria-label="Limpiar búsqueda"
+                title="Limpiar búsqueda"
               >
-                {loading || isDebouncing ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
-                ) : sugerencias.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">
-                    Sin resultados.
-                  </p>
-                ) : (
-                  <>
-                    <div
-                      className={cn(
-                        FILA_BUSQUEDA_GRID,
-                        "shrink-0 border-b border-border bg-muted/40 py-0.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground"
-                      )}
-                      aria-hidden
-                    >
-                      <span className="text-center">COD.</span>
-                      <span className="text-center">DESCRIPCIÓN</span>
-                      <span className="text-center">PRECIOS</span>
-                      <span className="text-center">STOCK</span>
-                      <span />
-                    </div>
-                    <ul className="min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto">
-                      {sugerencias.map((item, idx) => {
-                        const activo = idx === highlight;
-                        const sinStockLocal = item.stock <= 0;
-                        const stockEnOtra = hayStockEnOtraSucursal(
-                          item,
-                          sucursalUsuario
-                        );
-                        const resaltarSucursal = sinStockLocal && stockEnOtra;
-                        return (
-                          <li
-                            key={item.codTienda}
-                            role="option"
-                            aria-selected={activo}
-                          >
-                            <div
-                              role="button"
-                              tabIndex={-1}
-                              className={cn(
-                                FILA_BUSQUEDA_GRID,
-                                "cursor-pointer py-0 text-center text-sm leading-tight text-foreground transition-colors",
-                                "hover:bg-accent/60",
-                                activo && "bg-accent/60"
-                              )}
-                              onMouseEnter={() => setHighlight(idx)}
-                              onClick={() => agregarItem(item)}
-                            >
-                              <span className="truncate tabular-nums text-muted-foreground">
-                                {item.codTienda}
-                              </span>
-                              <span className="min-w-0 truncate">
-                                {item.descripcion}
-                              </span>
-                              <span className="tabular-nums text-muted-foreground">
-                                {`$${fmtPrecio(item.pxLista)}`}
-                              </span>
-                              <span className="flex items-center justify-center tabular-nums text-muted-foreground">
-                                {sinStockLocal ? (
-                                  <span
-                                    className="inline-flex"
-                                    title="Sin stock en la sucursal"
-                                  >
-                                    <AlertTriangle
-                                      className={cn(
-                                        TABLE_ROW_ACTION_ICON_CLASS,
-                                        "text-destructive"
-                                      )}
-                                      aria-label="Sin stock en la sucursal"
-                                    />
-                                  </span>
-                                ) : (
-                                  fmtNumero(item.stock)
-                                )}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                  "mx-auto size-5 shrink-0",
-                                  resaltarSucursal
-                                    ? "text-primary hover:bg-primary/10"
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                                title={
-                                  resaltarSucursal
-                                    ? "Hay stock en otra sucursal"
-                                    : "Ver stock por sucursal"
-                                }
-                                aria-label={
-                                  resaltarSucursal
-                                    ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
-                                    : `Stock por sucursal de ${item.descripcion}`
-                                }
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setStockModalItem(item);
-                                }}
-                              >
-                                <Store
-                                  className={TABLE_ROW_ACTION_ICON_CLASS}
-                                  aria-hidden
-                                />
-                              </Button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </>
-                )}
-              </div>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             ) : null}
           </div>
         </div>
@@ -674,21 +601,18 @@ export default function FacturaCrearLineasBlock({
 
       <div
         className={cn(
-          "flex shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
+          "flex min-h-[2.8125rem] shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
         )}
       >
         <div
-          className={cn(
-            "flex w-[9rem] shrink-0 items-center justify-center px-2 py-1",
-            "border-r-2 border-primary bg-primary/5"
-          )}
+          className="flex shrink-0 items-center justify-center px-2 py-1.5"
           aria-label="Zona de descuentos"
         >
           <Button
             type="button"
             variant="default"
             size="sm"
-            className="h-7 gap-1 px-2.5 text-xs"
+            className="h-8 gap-1 px-2.5 text-xs"
             disabled={lineas.length === 0}
             title="Aplicar descuento"
             aria-label="Aplicar descuento"
@@ -701,7 +625,7 @@ export default function FacturaCrearLineasBlock({
 
         <div
           className={cn(
-            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1 text-center",
+            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1.5 text-center",
             "bg-muted/40"
           )}
           aria-label="Resumen de totales"
@@ -748,6 +672,137 @@ export default function FacturaCrearLineasBlock({
           </div>
         </div>
       </div>
+
+      {abierto && puedeBuscar ? (
+        <div className="pointer-events-none absolute inset-4 z-[70]">
+          <div
+            id={listboxId}
+            role="listbox"
+            className={cn(
+              TYPEAHEAD_LISTBOX_PANEL_CLASS,
+              TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
+              "pointer-events-auto"
+            )}
+          >
+            {loading || isDebouncing ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">Buscando…</p>
+            ) : sugerencias.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">
+                Sin resultados.
+              </p>
+            ) : (
+              <>
+                <div className={TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS}>
+                  <div
+                    className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
+                    aria-hidden
+                  >
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>COD.</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESCRIPCIÓN</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PRECIOS</span>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>STOCK</span>
+                  </div>
+                  <ul
+                    className={cn(
+                      TYPEAHEAD_LISTBOX_UL_CLASS,
+                      "flex-none overflow-visible"
+                    )}
+                  >
+                    {sugerencias.map((item, idx) => {
+                    const activo = idx === highlight;
+                    const sinStockLocal = item.stock <= 0;
+                    const stockEnOtra = hayStockEnOtraSucursal(
+                      item,
+                      sucursalUsuario
+                    );
+                    const resaltarSucursal = sinStockLocal && stockEnOtra;
+                    return (
+                      <li
+                        key={item.codTienda}
+                        role="option"
+                        aria-selected={activo}
+                      >
+                        <div
+                          role="button"
+                          tabIndex={-1}
+                          className={cn(
+                            FILA_BUSQUEDA_GRID,
+                            "min-h-5 cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
+                            "hover:bg-accent/60",
+                            activo && "bg-accent/60"
+                          )}
+                          onMouseEnter={() => setHighlight(idx)}
+                          onClick={() => agregarItem(item)}
+                        >
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
+                            {item.codTienda}
+                          </span>
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-foreground")}>
+                            {item.descripcion}
+                          </span>
+                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
+                            {`$${fmtPrecio(item.pxLista)}`}
+                          </span>
+                          <div className={FILA_BUSQUEDA_STOCK}>
+                            <span className={FILA_BUSQUEDA_STOCK_VALOR}>
+                              {sinStockLocal ? (
+                                <span
+                                  className="inline-flex"
+                                  title="Sin stock en la sucursal"
+                                >
+                                  <AlertTriangle
+                                    className="size-4 shrink-0 text-destructive"
+                                    aria-label="Sin stock en la sucursal"
+                                  />
+                                </span>
+                              ) : (
+                                fmtNumero(item.stock)
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              className="size-4 shrink-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                              title={
+                                resaltarSucursal
+                                  ? "Hay stock en otra sucursal"
+                                  : "Ver stock por sucursal"
+                              }
+                              aria-label={
+                                resaltarSucursal
+                                  ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
+                                  : `Stock por sucursal de ${item.descripcion}`
+                              }
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setAbierto(false);
+                                setStockModalItem(item);
+                              }}
+                            >
+                              <Store
+                                fill="none"
+                                className={
+                                  resaltarSucursal
+                                    ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
+                                    : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
+                                }
+                                aria-hidden
+                              />
+                            </Button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <FacturaProductoStockModal
         open={stockModalOpen}

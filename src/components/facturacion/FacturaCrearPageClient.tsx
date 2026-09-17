@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { CalendarDays, FileText } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { CalendarDays, FileText, Loader2, MessageSquare, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { emitirFacturaComprobanteAction } from "@/actions/factura";
+import {
+  buscarClientesFacturaAction,
+  emitirFacturaComprobanteAction,
+} from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
 } from "@/components/facturacion/FacturaCrearLineasBlock";
 import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGenerarComprobanteModal";
+import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
@@ -22,29 +27,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  FACTURA_DOC_TIPO_OPTIONS,
+  FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
+  FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
   FACTURA_TIPO_LABELS,
-  esClienteFacturaVacio,
   esFacturaTipo,
-  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
+  mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
-import { ARCA_CONDICION_IVA, ARCA_DOC_TIPO } from "@/lib/facturaFiscal";
+import {
+  nombreCompletoCliente,
+  nombrePintorAsociadoCliente,
+  type ClienteItem,
+} from "@/lib/envios";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
-import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
+import {
+  TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
+  TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS,
+  TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
+  TYPEAHEAD_LISTBOX_CELL_CLASS,
+  TYPEAHEAD_LISTBOX_HEADER_CLASS,
+  TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
+  TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS,
+  TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
+  TYPEAHEAD_LISTBOX_UL_CLASS,
+} from "@/lib/ui-classes";
+
+const FILA_BUSQUEDA_CLIENTES_GRID =
+  "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
+
+/** Saldo en typeahead de clientes: pendiente de implementar. */
+const CLIENTE_SALDO_PLACEHOLDER = "";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -70,6 +99,8 @@ export default function FacturaCrearPageClient({
   condicionesIva,
   originalesNc,
 }: Props) {
+  const listboxClientesId = useId();
+  const clienteWrapRef = useRef<HTMLDivElement>(null);
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
   const remitoRef = useRef<FacturaRemitoSnapshot>({
     lineas: [],
@@ -77,24 +108,111 @@ export default function FacturaCrearPageClient({
   });
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
-  const [cliente, setCliente] = useState("");
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
+  const [clienteQActual, setClienteQActual] = useState(
+    FACTURA_CLIENTE_CONSUMIDOR_FINAL
+  );
   const [nroComprobante, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
+  const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
-  const [receptorCondicionIva, setReceptorCondicionIva] = useState("5");
-  const [receptorDocTipo, setReceptorDocTipo] = useState("99");
-  const [receptorDocNro, setReceptorDocNro] = useState("0");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
+  const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
+  const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteItem[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const [clientesAbierto, setClientesAbierto] = useState(false);
+  const [clienteHighlight, setClienteHighlight] = useState(0);
 
   const handleRemitoChange = useCallback((snapshot: FacturaRemitoSnapshot) => {
     remitoRef.current = snapshot;
   }, []);
 
-  const fiscal = esFacturaTipoFiscal(tipo);
+  const fetchSugerenciasClientes = useCallback(async (value: string) => {
+    const q = value.trim();
+    if (q.length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
+      setSugerenciasClientes([]);
+      setLoadingClientes(false);
+      return;
+    }
+    setLoadingClientes(true);
+    const res = await buscarClientesFacturaAction({
+      q,
+      take: FACTURA_BUSQUEDA_CLIENTES_TAKE,
+    });
+    setLoadingClientes(false);
+    if (!res.ok) {
+      setSugerenciasClientes([]);
+      toast.error(res.error);
+      return;
+    }
+    setSugerenciasClientes(res.data.items);
+    setClienteHighlight(0);
+  }, []);
+
+  const {
+    q: cliente,
+    setQ: setCliente,
+    ref: clienteInputRef,
+    handleQChange: handleClienteQChange,
+    isDebouncing: isDebouncingClientes,
+  } = useFiltrosConBusqueda({
+    qActual: clienteQActual,
+    debounceMs: 300,
+    onDebouncedSearch: (value) => {
+      void fetchSugerenciasClientes(value);
+    },
+  });
+
+  const clienteTrim = cliente.trim();
+  const puedeBuscarClientes =
+    clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
+
+  function vaciarInputClienteParaBusqueda() {
+    setClienteId(null);
+    setCliente("");
+    setClientesAbierto(false);
+    setSugerenciasClientes([]);
+    setLoadingClientes(false);
+  }
+
+  function restaurarConsumidorFinalSiVacio(raw: string) {
+    if (raw.trim() !== "") return;
+    setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
+    setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
+    setClienteId(null);
+    setClientesAbierto(false);
+    setSugerenciasClientes([]);
+  }
+
+  function aplicarClienteSeleccionado(item: ClienteItem) {
+    const nombre =
+      nombreCompletoCliente(item) || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+    setClienteQActual(nombre);
+    setCliente(nombre);
+    setClienteId(item.id);
+    setSugerenciasClientes([]);
+    setClientesAbierto(false);
+    setClienteHighlight(0);
+  }
+
+  useEffect(() => {
+    function onDocPointerDown(e: PointerEvent) {
+      const el = clienteWrapRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setClientesAbierto(false);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, []);
+
+  const hayComentarioCabecera = comentarios.trim().length > 0;
 
   async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
@@ -106,7 +224,11 @@ export default function FacturaCrearPageClient({
       toast.error("Seleccioná un punto de venta.");
       return;
     }
-    const clienteVacio = esClienteFacturaVacio(cliente);
+    const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
+    if (clienteNoSel) {
+      toast.error(clienteNoSel);
+      return;
+    }
     const clienteEmitir = nombreClienteFactura(cliente);
     setPending(true);
     try {
@@ -115,23 +237,9 @@ export default function FacturaCrearPageClient({
         fechaIso,
         tipo,
         cliente: clienteEmitir,
+        clienteId,
         comentarios,
         ptoVtaId,
-        receptorDocTipo: fiscal
-          ? clienteVacio
-            ? ARCA_DOC_TIPO.CF
-            : Number(receptorDocTipo)
-          : undefined,
-        receptorDocNro: fiscal
-          ? clienteVacio
-            ? "0"
-            : receptorDocNro
-          : undefined,
-        receptorCondicionIva: fiscal
-          ? clienteVacio
-            ? ARCA_CONDICION_IVA.CF
-            : Number(receptorCondicionIva)
-          : undefined,
         cbteAsocId:
           esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
@@ -189,10 +297,29 @@ export default function FacturaCrearPageClient({
         />
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden py-4">
-        <div className="shrink-0 rounded-lg border border-border bg-card p-4">
-          <div className="grid grid-cols-5 gap-4">
-            <label className="flex min-w-0 flex-col gap-1">
+      <CrearEditarClienteModal
+        open={crearClienteOpen}
+        onOpenChange={setCrearClienteOpen}
+        modo="crear"
+        condicionesIva={condicionesIva}
+        onSuccess={aplicarClienteSeleccionado}
+      />
+      <FacturaLineaComentarioModal
+        key={comentarioCabeceraOpen ? "cabecera-comentario-open" : "cabecera-comentario-closed"}
+        open={comentarioCabeceraOpen}
+        onOpenChange={setComentarioCabeceraOpen}
+        comentarioInicial={comentarios}
+        onGuardar={setComentarios}
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+        <div
+          className={cn(
+            "shrink-0 rounded-lg border border-border bg-card p-4",
+            clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
+          )}
+        >
+          <div className="flex min-w-0 items-end gap-3">
+            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
               <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
               <Select
                 value={tipo}
@@ -213,7 +340,7 @@ export default function FacturaCrearPageClient({
               </Select>
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
                 <Input
@@ -253,149 +380,289 @@ export default function FacturaCrearPageClient({
               />
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="flex min-w-0 flex-[1.35] flex-col gap-1">
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
-              <Input
-                type="text"
-                value={cliente}
-                onChange={(e) => setCliente(e.target.value.toLocaleUpperCase("es-AR"))}
-                placeholder="CONSUMIDOR FINAL"
-                autoComplete="off"
-                aria-label="Cliente"
-              />
+              <div
+                ref={clienteWrapRef}
+                className={cn(
+                  "filtro-individual-container w-full",
+                  TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
+                  clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
+                )}
+              >
+                <Input
+                  ref={clienteInputRef}
+                  id="factura-crear-buscar-cliente"
+                  type="text"
+                  value={cliente}
+                  onChange={(e) => {
+                    const next = e.target.value.toLocaleUpperCase("es-AR");
+                    setClienteId(null);
+                    handleClienteQChange(next);
+                    if (next.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
+                      setClientesAbierto(false);
+                      setSugerenciasClientes([]);
+                      setLoadingClientes(false);
+                      return;
+                    }
+                    setClientesAbierto(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown" && sugerenciasClientes.length > 0) {
+                      e.preventDefault();
+                      setClientesAbierto(true);
+                      setClienteHighlight((h) => (h + 1) % sugerenciasClientes.length);
+                      return;
+                    }
+                    if (e.key === "ArrowUp" && sugerenciasClientes.length > 0) {
+                      e.preventDefault();
+                      setClientesAbierto(true);
+                      setClienteHighlight(
+                        (h) =>
+                          (h - 1 + sugerenciasClientes.length) %
+                          sugerenciasClientes.length
+                      );
+                      return;
+                    }
+                    if (e.key === "Enter" && sugerenciasClientes[clienteHighlight]) {
+                      e.preventDefault();
+                      aplicarClienteSeleccionado(
+                        sugerenciasClientes[clienteHighlight]!
+                      );
+                      return;
+                    }
+                    if (e.key === "Escape") {
+                      setClientesAbierto(false);
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (
+                      e.currentTarget.value.trim() ===
+                      FACTURA_CLIENTE_CONSUMIDOR_FINAL
+                    ) {
+                      vaciarInputClienteParaBusqueda();
+                      return;
+                    }
+                    if (puedeBuscarClientes) {
+                      setClientesAbierto(true);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const wrap = clienteWrapRef.current;
+                    if (
+                      wrap &&
+                      e.relatedTarget instanceof Node &&
+                      wrap.contains(e.relatedTarget)
+                    ) {
+                      return;
+                    }
+                    restaurarConsumidorFinalSiVacio(e.currentTarget.value);
+                  }}
+                  placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={clientesAbierto}
+                  aria-controls={listboxClientesId}
+                  aria-autocomplete="list"
+                  aria-label="Cliente"
+                  className={cn(
+                    "w-full pr-10",
+                    (isDebouncingClientes || loadingClientes) && "pr-16"
+                  )}
+                />
+                {(isDebouncingClientes || loadingClientes) && (
+                  <Loader2
+                    className="pointer-events-none absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                    aria-hidden
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="primaryIcon"
+                  size="icon-lg"
+                  className="filtro-individual-clear-btn"
+                  onClick={() => setCrearClienteOpen(true)}
+                  aria-label="Crear cliente"
+                  title="Crear cliente"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                </Button>
+                {clientesAbierto && puedeBuscarClientes ? (
+                  <div
+                    id={listboxClientesId}
+                    role="listbox"
+                    className={cn(
+                      TYPEAHEAD_LISTBOX_PANEL_CLASS,
+                      TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS,
+                      TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS
+                    )}
+                  >
+                    {loadingClientes || isDebouncingClientes ? (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        Buscando…
+                      </p>
+                    ) : sugerenciasClientes.length === 0 ? (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">
+                        Sin resultados.
+                      </p>
+                    ) : (
+                      <div className={TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS}>
+                        <div
+                          className={cn(
+                            FILA_BUSQUEDA_CLIENTES_GRID,
+                            TYPEAHEAD_LISTBOX_HEADER_CLASS
+                          )}
+                          aria-hidden
+                        >
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            CLIENTE
+                          </span>
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            SALDO
+                          </span>
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
+                            PINTOR
+                          </span>
+                        </div>
+                        <ul
+                          className={cn(
+                            TYPEAHEAD_LISTBOX_UL_CLASS,
+                            "flex-none overflow-visible"
+                          )}
+                        >
+                          {sugerenciasClientes.map((item, idx) => {
+                            const activo = idx === clienteHighlight;
+                            const nombre =
+                              nombreCompletoCliente(item) || "CONSUMIDOR FINAL";
+                            const pintor = nombrePintorAsociadoCliente(item) ?? "";
+                            return (
+                              <li
+                                key={item.id}
+                                role="option"
+                                aria-selected={activo}
+                              >
+                                <div
+                                  role="button"
+                                  tabIndex={-1}
+                                  className={cn(
+                                    FILA_BUSQUEDA_CLIENTES_GRID,
+                                    TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+                                    "min-h-5",
+                                    activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
+                                  )}
+                                  onMouseEnter={() => setClienteHighlight(idx)}
+                                  onPointerDown={(e) => e.preventDefault()}
+                                  onClick={() => aplicarClienteSeleccionado(item)}
+                                >
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "text-foreground"
+                                    )}
+                                  >
+                                    {nombre}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "tabular-nums text-foreground"
+                                    )}
+                                  >
+                                    {CLIENTE_SALDO_PLACEHOLDER}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "text-foreground"
+                                    )}
+                                  >
+                                    {pintor}
+                                  </span>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </label>
 
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
+              <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+              <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue placeholder="Punto de venta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ptoVtas.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.ptoVenta} — {p.nombreTitular}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <div className="flex w-[9rem] shrink-0 flex-col gap-1">
               <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
-              <Input
-                type="text"
-                readOnly
-                value={nroComprobante}
-                placeholder="—"
-                className="bg-muted/40 tabular-nums"
+              <p
+                className="flex h-9 items-center truncate text-sm tabular-nums text-muted-foreground"
                 aria-label="Número de comprobante (solo lectura)"
-              />
-            </label>
+              >
+                {nroComprobante}
+              </p>
+            </div>
 
-            <label className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>COMENTARIOS</ModalMicroLabel>
-              <Input
-                type="text"
-                value={comentarios}
-                onChange={(e) => setComentarios(e.target.value)}
-                placeholder="Comentarios"
-                autoComplete="off"
-                aria-label="Comentarios"
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-9 w-9 shrink-0 hover:bg-muted",
+                hayComentarioCabecera
+                  ? "text-primary hover:text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setComentarioCabeceraOpen(true)}
+              aria-label={
+                hayComentarioCabecera
+                  ? "Editar comentarios del comprobante"
+                  : "Agregar comentarios del comprobante"
+              }
+              title="Comentarios"
+            >
+              <MessageSquare
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  hayComentarioCabecera ? "fill-primary" : "fill-none"
+                )}
+                aria-hidden
               />
-            </label>
+            </Button>
           </div>
 
-          {fiscal ? (
-            <div className="mt-4 grid grid-cols-5 gap-4">
+          {esFacturaTipoNotaCredito(tipo) ? (
+            <div className="mt-4 w-[min(100%,20rem)]">
               <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
-                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
+                <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
+                <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
                   <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="Punto de venta" />
+                    <SelectValue placeholder="Original con CAE" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ptoVtas.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.ptoVenta} — {p.nombreTitular}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>COND. IVA RECEPTOR</ModalMicroLabel>
-                <Select
-                  value={receptorCondicionIva}
-                  onValueChange={setReceptorCondicionIva}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {condicionesIva
-                      .filter((c) => c.activo)
-                      .map((c) => (
-                        <SelectItem key={c.codigo} value={String(c.codigo)}>
-                          {c.codigo} — {etiquetaCondicionIvaArca(c.descripcion)}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>TIPO DOC.</ModalMicroLabel>
-                <Select value={receptorDocTipo} onValueChange={setReceptorDocTipo}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FACTURA_DOC_TIPO_OPTIONS.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>NRO. DOC.</ModalMicroLabel>
-                <Input
-                  type="text"
-                  value={receptorDocNro}
-                  onChange={(e) => setReceptorDocNro(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                  className="tabular-nums"
-                  autoComplete="off"
-                  aria-label="Número de documento del receptor"
-                />
-              </label>
-
-              {esFacturaTipoNotaCredito(tipo) ? (
-                <label className="flex min-w-0 flex-col gap-1">
-                  <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
-                  <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="Original con CAE" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {originalesNc.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
-              ) : (
-                <div />
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 grid grid-cols-5 gap-4">
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
-                <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="Punto de venta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ptoVtas.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.ptoVenta} — {p.nombreTitular}
+                    {originalesNc.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </label>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">

@@ -9,7 +9,7 @@ Contexto de negocio: el área `/facturacion` ya permite armar un comprobante en 
 
 DOCUMENTACIÓN OBLIGATORIA (leer primero, solo secciones relevantes)
 1. docs/README.md
-2. docs/BACKEND_GUIDELINES.md — Guía para IA + §1 (seguridad, ActionResult, Prisma/Neon, TZ) + §2 (patrones Action/API) + **§3.16 Facturación** + **§3.9 Finanzas** (solo `ptos_vtas` / `pto_ventas_cod_arca` / Fact & Cobros) + §4 checklist + §5 anti-patrones
+2. docs/BACKEND_GUIDELINES.md — Guía para IA + §1 (seguridad, ActionResult, Prisma/Neon, TZ) + §2 (patrones Action/API) + **§3.16 Facturación** + **§3.9 Finanzas** (solo `ptos_vtas` / `condicion_iva_cod_arca` / Fact & Cobros) + §4 checklist + §5 anti-patrones
 3. docs/FRONTEND_GUIDELINES.md — tabla “Qué estás haciendo” + subsección Facturación (no rediseñar UI salvo que el contrato fiscal lo exija)
 4. .cursor/rules/manuales-obligatorios.mdc y flujo-fullstack-end-to-end.mdc
 
@@ -27,7 +27,7 @@ STACK DEL PROYECTO (no salirse)
 
 ESTADO ACTUAL (respetar; no reinventar)
 - Módulo UI: `FACTURACION_ROUTES` (`/facturacion/factura/crear|facturas|presupuestos`). Actions vigentes: `src/actions/factura.ts` (solo búsqueda de productos). Constantes/tipos locales: `@/lib/factura` (`FACTURA_TIPOS`: `presupuesto` | `factura` | `factura_fiscal` | `nota_credito`). PDF cliente: `generarPdfFacturaComprobante`
-- **Emisor fiscal ya modelado:** `ptos_vtas` (`GlobalPtoVta`): `pto_venta` CHAR(5) padded, `cuit` 11 dígitos, `condicion_iva` FK a `pto_ventas_cod_arca.codigo`, IIBB, domicilio, inicio actividades, `concepto` default `'1'`, sucursales N:M `global_pto_vta_sucursales`. Lookup ARCA: `PtoVentasCodArca` (códigos 1, 4, 5, 6, 8, 9, 13)
+- **Emisor fiscal ya modelado:** `ptos_vtas` (`GlobalPtoVta`): `pto_venta` CHAR(5) padded, `cuit` 11 dígitos, `condicion_iva` FK a `condicion_iva_cod_arca.codigo`, IIBB, domicilio, inicio actividades, `concepto` default `'1'`, sucursales N:M `global_pto_vta_sucursales`. Lookup ARCA: `PtoVentasCodArca` (códigos 1, 4, 5, 6, 8, 9, 13)
 - **Receptor incompleto:** `clientes` es catálogo de envíos (`CONSUMIDOR_FINAL` | `PINTOR`) **sin CUIT/DNI ni condición IVA**. Factura · Crear usa `cliente` como string libre. Ampliar el modelo de receptor fiscal (extender `clientes` o catálogo propio de facturación) es parte del diseño; preguntar antes de unificar/romper Envios
 - **No confundir con DUX:** `POST /api/sync-facturas-ventas-dux` y `duxRemitosVentaApi.ts` son sync **inbound** de remitos/totales a `fin_fact_cobros_pto_vta_mes`. No emiten CAE. No usar DUX como puente ARCA
 - **No reintroducir** import TXT IVA débito AFIP (§5: `parsearTxtIvaDebitoAfip` / `ImportarIvaDebitoCsvModal`)
@@ -75,7 +75,7 @@ Mapeo inicial sugerido (confirmar si el producto dice otra cosa; no asumir en si
 - `factura_fiscal` → Factura A/B/C según condición IVA emisor+receptor (RI→A a RI; B a CF/mono/exento; C si emisor monotributo)
 - `nota_credito` fiscal → NC A/B/C con `CbtesAsoc` al original (CAE/nro/pto vta/tipo). Sin original autorizado, no emitir
 
-IVA: alícuotas WSFEv1 (`AlicIva`). Condición IVA receptor: códigos de `pto_ventas_cod_arca` (RG 5616+). Consumidor final: `DocTipo` 99 y `DocNro` 0 dentro de los topes vigentes; por encima exigir DNI/CUIT. CUIT emisor y receptor: 11 dígitos, dígito verificador. `ImpTotal` = suma coherente (Neto + IVA − no gravado/exento según tipo). Redondeo 2 decimales ARS. `FchVtoPago` solo si concepto servicios / productos y servicios.
+IVA: alícuotas WSFEv1 (`AlicIva`). Condición IVA receptor: códigos de `condicion_iva_cod_arca` (RG 5616+). Consumidor final: `DocTipo` 99 y `DocNro` 0 dentro de los topes vigentes; por encima exigir DNI/CUIT. CUIT emisor y receptor: 11 dígitos, dígito verificador. `ImpTotal` = suma coherente (Neto + IVA − no gravado/exento según tipo). Redondeo 2 decimales ARS. `FchVtoPago` solo si concepto servicios / productos y servicios.
 
 SEGURIDAD
 - Autorización primero, siempre. Emitir CAE = mutación crítica

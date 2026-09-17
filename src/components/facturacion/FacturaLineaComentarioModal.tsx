@@ -10,13 +10,14 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  descripcionItem: string;
+  /** Descripción del ítem de remito; omitir en comentario de cabecera. */
+  descripcionItem?: string;
   comentarioInicial: string;
   onGuardar: (comentario: string) => void;
 }
 
 /**
- * Modal para comentario de línea del remito (Factura · Crear).
+ * Modal de comentario (línea del remito o cabecera de Factura · Crear).
  * El padre remonta con `key` al abrir.
  */
 export default function FacturaLineaComentarioModal({
@@ -59,7 +60,9 @@ export default function FacturaLineaComentarioModal({
         }
       >
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">{descripcionItem}</p>
+          {descripcionItem ? (
+            <p className="text-sm text-muted-foreground">{descripcionItem}</p>
+          ) : null}
           <label className="flex flex-col gap-1">
             <ModalMicroLabel>COMENTARIO</ModalMicroLabel>
             <Input
@@ -69,7 +72,7 @@ export default function FacturaLineaComentarioModal({
               placeholder="Escribí un comentario…"
               autoComplete="off"
               autoFocus
-              aria-label="Comentario del ítem"
+              aria-label="Comentario"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
