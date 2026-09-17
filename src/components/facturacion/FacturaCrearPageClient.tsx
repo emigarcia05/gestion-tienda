@@ -56,6 +56,8 @@ import {
 } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
 import {
+  TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
+  TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS,
   TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
   TYPEAHEAD_LISTBOX_CELL_CLASS,
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
@@ -310,7 +312,12 @@ export default function FacturaCrearPageClient({
         onGuardar={setComentarios}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-        <div className="shrink-0 rounded-lg border border-border bg-card p-4">
+        <div
+          className={cn(
+            "shrink-0 rounded-lg border border-border bg-card p-4",
+            clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
+          )}
+        >
           <div className="flex min-w-0 items-end gap-3">
             <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
               <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
@@ -377,7 +384,11 @@ export default function FacturaCrearPageClient({
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
               <div
                 ref={clienteWrapRef}
-                className="filtro-individual-container relative z-20 w-full"
+                className={cn(
+                  "filtro-individual-container w-full",
+                  TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
+                  clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
+                )}
               >
                 <Input
                   ref={clienteInputRef}

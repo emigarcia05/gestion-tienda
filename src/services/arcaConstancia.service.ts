@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { constanciaGetPersonaV2, listarCuitsEmisorConPem } from "@/lib/arca";
+import { constanciaGetPersonaV2, leerArcaEnv } from "@/lib/arca";
 import type { ArcaConstanciaPersona } from "@/lib/arcaConstancia";
 import {
   ARCA_SERVICIO_CONSTANCIA,
@@ -10,32 +10,41 @@ import { obtenerAuthArca } from "@/services/arcaAuth.service";
 import type { ServiceResult } from "@/types/service.types";
 
 const MSG_SIN_PEM_EMISOR =
-  "No hay certificado del emisor para consultar ARCA. El par PEM es por CUIT de la empresa (ARCA_CERT_PEM_{CUIT} / ARCA_KEY_PEM_{CUIT}), no por punto de venta ni por el CUIT del cliente.";
+  "No se encontró un certificado PEM del emisor en el entorno. Cargá ARCA_CERT_PEM_{CUIT} y ARCA_KEY_PEM_{CUIT} del CUIT de la empresa (el mismo que usa WSAA para facturar). No hace falta un par por punto de venta ni por el CUIT del cliente.";
 
 async function resolverEmisorConstancia(): Promise<
   ServiceResult<{ ptoVenta?: string; cuitEmisor: string }>
 > {
-  const cuitsPem = listarCuitsEmisorConPem();
-  if (cuitsPem.length === 0) {
-    return { success: false, error: MSG_SIN_PEM_EMISOR };
+  const envSinPto = leerArcaEnv();
+  if (!("error" in envSinPto)) {
+    return { success: true, data: { cuitEmisor: envSinPto.cuit } };
   }
 
-  const pto = await prisma.globalPtoVta.findFirst({
-    where: { estado: "activo", cuit: { in: cuitsPem } },
-    orderBy: { ptoVenta: "asc" },
-    select: { ptoVenta: true, cuit: true },
+  const ptos = await prisma.globalPtoVta.findMany({
+    where: { cuit: { not: null } },
+    orderBy: [{ ptoVenta: "asc" }],
+    select: { ptoVenta: true, cuit: true, estado: true },
   });
-  if (pto?.cuit) {
+  const ordenados = [
+    ...ptos.filter((p) => p.estado === "activo"),
+    ...ptos.filter((p) => p.estado !== "activo"),
+  ];
+  const vistos = new Set<string>();
+  for (const pto of ordenados) {
+    if (!pto.cuit || vistos.has(pto.cuit)) continue;
+    vistos.add(pto.cuit);
+    const env = leerArcaEnv({
+      ptoVenta: pto.ptoVenta,
+      cuitFallback: pto.cuit,
+    });
+    if ("error" in env) continue;
     return {
       success: true,
-      data: { ptoVenta: pto.ptoVenta, cuitEmisor: pto.cuit },
+      data: { ptoVenta: pto.ptoVenta, cuitEmisor: env.cuit },
     };
   }
-  const cuitEmisor = cuitsPem[0];
-  if (!cuitEmisor) {
-    return { success: false, error: MSG_SIN_PEM_EMISOR };
-  }
-  return { success: true, data: { cuitEmisor } };
+
+  return { success: false, error: MSG_SIN_PEM_EMISOR };
 }
 
 /**
