@@ -50,10 +50,12 @@ import {
   formatoNroComprobante,
   ivaIdDesdeAlicuota,
   ptoVentaAEnteroArca,
+  receptorFiscalParaEmitir,
   receptorRequiereCuit,
   resolverLetraYCbteTipo,
   roundArs2,
   type ArcaLetra,
+  type ReceptorFiscalSnapshot,
 } from "@/lib/facturaFiscal";
 import type { EmitirFacturaComprobanteInput } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
@@ -315,15 +317,26 @@ export async function emitirFacturaComprobante(
   }
 
   const clienteId: string | null = input.clienteId ?? null;
+  let clienteFiscal: { cuit: string | null; condicionIva: number | null } | null =
+    null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: { id: true },
+      select: { id: true, cuit: true, condicionIva: true },
     });
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
     }
+    clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
   }
+  const receptor = receptorFiscalParaEmitir({
+    cliente: clienteFiscal,
+    fallback: {
+      docTipo: input.receptorDocTipo,
+      docNro: input.receptorDocNro,
+      condicionIva: input.receptorCondicionIva,
+    },
+  });
 
   const fiscal = esTipoLocalFiscal(input.tipo);
   let letra: ArcaLetra | null = null;
@@ -379,13 +392,9 @@ export async function emitirFacturaComprobante(
     if (pto.condicionIva == null) {
       return { success: false, error: "El punto de venta no tiene condición IVA." };
     }
-    const recIva = input.receptorCondicionIva;
-    if (recIva == null) {
-      return { success: false, error: "Falta la condición IVA del receptor." };
-    }
     const letraRes = resolverLetraYCbteTipo({
       emisorCondicionIva: pto.condicionIva,
-      receptorCondicionIva: recIva,
+      receptorCondicionIva: receptor.condicionIva,
       esNotaCredito: input.tipo === "nota_credito_fiscal",
     });
     if (!letraRes.ok) return { success: false, error: letraRes.error };
@@ -440,9 +449,9 @@ export async function emitirFacturaComprobante(
 
     const recOk = validarReceptorFiscal({
       letra,
-      condicionIva: input.receptorCondicionIva ?? ARCA_CONDICION_IVA.CF,
-      docTipo: input.receptorDocTipo ?? ARCA_DOC_TIPO.CF,
-      docNro: input.receptorDocNro ?? "0",
+      condicionIva: receptor.condicionIva,
+      docTipo: receptor.docTipo,
+      docNro: receptor.docNro,
       impTotal,
     });
     if (!recOk.success) return recOk;
@@ -519,6 +528,7 @@ export async function emitirFacturaComprobante(
     concepto,
     clienteId,
     receptorNombre,
+    receptor,
     lineas,
     resumen,
     impNeto,
@@ -549,6 +559,7 @@ async function emitirFiscal(args: {
   concepto: string;
   clienteId: string | null;
   receptorNombre: string;
+  receptor: ReceptorFiscalSnapshot;
   lineas: LineaCalculada[];
   resumen: ReturnType<typeof resumenTotalesFactura>;
   impNeto: number;
@@ -633,8 +644,8 @@ async function emitirFiscal(args: {
   const cbteFch = isoYmdToYyyymmdd(isoYmdFromPrismaDateOnly(args.fecha));
   if (!cbteFch) return { success: false, error: "Fecha de comprobante inválida." };
   const conceptoN = Number.parseInt(args.concepto, 10) || 1;
-  const docTipo = args.input.receptorDocTipo ?? ARCA_DOC_TIPO.CF;
-  const docNro = docNroAEnteroArca(args.input.receptorDocNro ?? "0");
+  const docTipo = args.receptor.docTipo;
+  const docNro = docNroAEnteroArca(args.receptor.docNro);
 
   const req: WsfeCaeRequest = {
     ptoVta: ptoNro,
@@ -657,7 +668,7 @@ async function emitirFiscal(args: {
       fchVtoPago: conceptoN !== 1 ? cbteFch : undefined,
       monId: "PES",
       monCotiz: 1,
-      condicionIvaReceptorId: args.input.receptorCondicionIva ?? ARCA_CONDICION_IVA.CF,
+      condicionIvaReceptorId: args.receptor.condicionIva,
       iva: args.alicIva.length > 0 ? args.alicIva : undefined,
       cbtesAsoc:
         args.original && args.original.cbteTipo != null && args.original.cbteNro != null
@@ -689,9 +700,9 @@ async function emitirFiscal(args: {
           concepto: args.concepto,
           clienteId: args.clienteId,
           receptorNombre: args.receptorNombre,
-          receptorDocTipo: args.input.receptorDocTipo ?? null,
-          receptorDocNro: args.input.receptorDocNro ?? null,
-          receptorCondicionIva: args.input.receptorCondicionIva ?? null,
+          receptorDocTipo: args.receptor.docTipo,
+          receptorDocNro: args.receptor.docNro,
+          receptorCondicionIva: args.receptor.condicionIva,
           impNeto: args.impNeto,
           impIva: args.impIva,
           impExento: args.impExento,

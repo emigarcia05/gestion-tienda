@@ -83,7 +83,10 @@ const FILA_BUSQUEDA_GRID =
   "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
 const FILA_BUSQUEDA_STOCK =
-  "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_1rem] items-center gap-1";
+  "flex w-full min-w-0 items-center justify-center gap-1";
+
+const FILA_BUSQUEDA_STOCK_VALOR =
+  "inline-flex w-[2.75rem] shrink-0 items-center justify-end tabular-nums text-foreground";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -697,14 +700,7 @@ export default function FacturaCrearLineasBlock({
                     <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>COD.</span>
                     <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESCRIPCIÓN</span>
                     <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PRECIOS</span>
-                    <div className={FILA_BUSQUEDA_STOCK}>
-                      <span
-                        className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-right")}
-                      >
-                        STOCK
-                      </span>
-                      <span className="size-4 shrink-0" aria-hidden />
-                    </div>
+                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>STOCK</span>
                   </div>
                   <ul
                     className={cn(
@@ -748,12 +744,7 @@ export default function FacturaCrearLineasBlock({
                             {`$${fmtPrecio(item.pxLista)}`}
                           </span>
                           <div className={FILA_BUSQUEDA_STOCK}>
-                            <span
-                              className={cn(
-                                TYPEAHEAD_LISTBOX_CELL_CLASS,
-                                "text-right tabular-nums text-foreground"
-                              )}
-                            >
+                            <span className={FILA_BUSQUEDA_STOCK_VALOR}>
                               {sinStockLocal ? (
                                 <span
                                   className="inline-flex"

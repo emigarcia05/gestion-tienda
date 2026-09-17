@@ -103,13 +103,6 @@ export const FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS = 3;
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 
-export const FACTURA_DOC_TIPO_OPTIONS = [
-  { id: 80, label: "CUIT" },
-  { id: 86, label: "CUIL" },
-  { id: 96, label: "DNI" },
-  { id: 99, label: "CONSUMIDOR FINAL" },
-] as const;
-
 export type FacturaComprobanteEstado = "borrador" | "autorizado" | "rechazado";
 
 export type FacturaComprobanteListItem = {

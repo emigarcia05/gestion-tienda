@@ -30,13 +30,10 @@ import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
-  FACTURA_DOC_TIPO_OPTIONS,
   FACTURA_TIPOS,
   FACTURA_TIPO_DEFAULT,
   FACTURA_TIPO_LABELS,
-  esClienteFacturaVacio,
   esFacturaTipo,
-  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
@@ -45,15 +42,13 @@ import {
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
-import { ARCA_CONDICION_IVA, ARCA_DOC_TIPO, receptorRequiereCuit } from "@/lib/facturaFiscal";
-import type { ClienteItem } from "@/lib/envios";
 import {
   nombreCompletoCliente,
   nombrePintorAsociadoCliente,
+  type ClienteItem,
 } from "@/lib/envios";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
-import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   dateToIsoYmdArgentina,
@@ -120,9 +115,6 @@ export default function FacturaCrearPageClient({
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
-  const [receptorCondicionIva, setReceptorCondicionIva] = useState("5");
-  const [receptorDocTipo, setReceptorDocTipo] = useState("99");
-  const [receptorDocNro, setReceptorDocNro] = useState("0");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
@@ -180,7 +172,6 @@ export default function FacturaCrearPageClient({
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
-    resetReceptorConsumidorFinal();
     setCliente("");
     setClientesAbierto(false);
     setSugerenciasClientes([]);
@@ -192,15 +183,8 @@ export default function FacturaCrearPageClient({
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
-    resetReceptorConsumidorFinal();
     setClientesAbierto(false);
     setSugerenciasClientes([]);
-  }
-
-  function resetReceptorConsumidorFinal() {
-    setReceptorCondicionIva(String(ARCA_CONDICION_IVA.CF));
-    setReceptorDocTipo(String(ARCA_DOC_TIPO.CF));
-    setReceptorDocNro("0");
   }
 
   function aplicarClienteSeleccionado(item: ClienteItem) {
@@ -209,18 +193,6 @@ export default function FacturaCrearPageClient({
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
-    const cond = item.condicionIva ?? ARCA_CONDICION_IVA.CF;
-    setReceptorCondicionIva(String(cond));
-    if (item.cuit) {
-      setReceptorDocTipo(String(ARCA_DOC_TIPO.CUIT));
-      setReceptorDocNro(item.cuit);
-    } else if (receptorRequiereCuit(cond)) {
-      setReceptorDocTipo(String(ARCA_DOC_TIPO.CUIT));
-      setReceptorDocNro("");
-    } else {
-      setReceptorDocTipo(String(ARCA_DOC_TIPO.CF));
-      setReceptorDocNro("0");
-    }
     setSugerenciasClientes([]);
     setClientesAbierto(false);
     setClienteHighlight(0);
@@ -238,7 +210,6 @@ export default function FacturaCrearPageClient({
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, []);
 
-  const fiscal = esFacturaTipoFiscal(tipo);
   const hayComentarioCabecera = comentarios.trim().length > 0;
 
   async function abrirGenerarComprobante() {
@@ -256,7 +227,6 @@ export default function FacturaCrearPageClient({
       toast.error(clienteNoSel);
       return;
     }
-    const clienteVacio = esClienteFacturaVacio(cliente);
     const clienteEmitir = nombreClienteFactura(cliente);
     setPending(true);
     try {
@@ -268,21 +238,6 @@ export default function FacturaCrearPageClient({
         clienteId,
         comentarios,
         ptoVtaId,
-        receptorDocTipo: fiscal
-          ? clienteVacio
-            ? ARCA_DOC_TIPO.CF
-            : Number(receptorDocTipo)
-          : undefined,
-        receptorDocNro: fiscal
-          ? clienteVacio
-            ? "0"
-            : receptorDocNro
-          : undefined,
-        receptorCondicionIva: fiscal
-          ? clienteVacio
-            ? ARCA_CONDICION_IVA.CF
-            : Number(receptorCondicionIva)
-          : undefined,
         cbteAsocId:
           esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
@@ -429,7 +384,6 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
-                    resetReceptorConsumidorFinal();
                     handleClienteQChange(next);
                     if (next.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
                       setClientesAbierto(false);
@@ -508,17 +462,19 @@ export default function FacturaCrearPageClient({
                     aria-hidden
                   />
                 )}
-                <Button
-                  type="button"
-                  variant="default"
-                  size="icon-xs"
-                  className="absolute top-1.5 right-1.5 shadow-none"
-                  onClick={() => setCrearClienteOpen(true)}
-                  aria-label="Crear cliente"
-                  title="Crear cliente"
-                >
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                </Button>
+                <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="icon-xs"
+                    className="size-full p-0 shadow-none"
+                    onClick={() => setCrearClienteOpen(true)}
+                    aria-label="Crear cliente"
+                    title="Crear cliente"
+                  >
+                    <Plus className="size-3.5 shrink-0" aria-hidden />
+                  </Button>
+                </div>
                 {clientesAbierto && puedeBuscarClientes ? (
                   <div
                     id={listboxClientesId}
@@ -676,76 +632,23 @@ export default function FacturaCrearPageClient({
             </Button>
           </div>
 
-          {fiscal ? (
-            <div className="mt-4 grid grid-cols-4 gap-4">
+          {esFacturaTipoNotaCredito(tipo) ? (
+            <div className="mt-4 w-[min(100%,20rem)]">
               <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>COND. IVA RECEPTOR</ModalMicroLabel>
-                <Select
-                  value={receptorCondicionIva}
-                  onValueChange={setReceptorCondicionIva}
-                >
+                <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
+                <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
                   <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue />
+                    <SelectValue placeholder="Original con CAE" />
                   </SelectTrigger>
                   <SelectContent>
-                    {condicionesIva
-                      .filter((c) => c.activo)
-                      .map((c) => (
-                        <SelectItem key={c.codigo} value={String(c.codigo)}>
-                          {c.codigo} — {etiquetaCondicionIvaArca(c.descripcion)}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>TIPO DOC.</ModalMicroLabel>
-                <Select value={receptorDocTipo} onValueChange={setReceptorDocTipo}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FACTURA_DOC_TIPO_OPTIONS.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.label}
+                    {originalesNc.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </label>
-
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>NRO. DOC.</ModalMicroLabel>
-                <Input
-                  type="text"
-                  value={receptorDocNro}
-                  onChange={(e) => setReceptorDocNro(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                  className="tabular-nums"
-                  autoComplete="off"
-                  aria-label="Número de documento del receptor"
-                />
-              </label>
-
-              {esFacturaTipoNotaCredito(tipo) ? (
-                <label className="flex min-w-0 flex-col gap-1">
-                  <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
-                  <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="Original con CAE" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {originalesNc.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
-              ) : (
-                <div />
-              )}
             </div>
           ) : null}
         </div>

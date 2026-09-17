@@ -305,6 +305,60 @@ export function receptorRequiereCuit(condicionIva: number): boolean {
   );
 }
 
+export type ReceptorFiscalSnapshot = {
+  docTipo: number;
+  docNro: string;
+  condicionIva: number;
+};
+
+export const RECEPTOR_FISCAL_CONSUMIDOR_FINAL: ReceptorFiscalSnapshot = {
+  docTipo: ARCA_DOC_TIPO.CF,
+  docNro: "0",
+  condicionIva: ARCA_CONDICION_IVA.CF,
+};
+
+/**
+ * Receptor fiscal desde el catálogo de clientes.
+ * CUIT válido + condición IVA → esos datos; si falta alguno → Consumidor Final.
+ */
+export function receptorFiscalDesdeCliente(opts: {
+  cuit: string | null;
+  condicionIva: number | null;
+}): ReceptorFiscalSnapshot {
+  const cuit = (opts.cuit ?? "").replace(/\D/g, "");
+  if (!esCuitValido(cuit) || opts.condicionIva == null) {
+    return { ...RECEPTOR_FISCAL_CONSUMIDOR_FINAL };
+  }
+  return {
+    docTipo: ARCA_DOC_TIPO.CUIT,
+    docNro: cuit,
+    condicionIva: opts.condicionIva,
+  };
+}
+
+/** Catálogo del cliente si hay FK; si no, fallback (NC desde original) o CF. */
+export function receptorFiscalParaEmitir(opts: {
+  cliente: { cuit: string | null; condicionIva: number | null } | null;
+  fallback?: {
+    docTipo?: number;
+    docNro?: string;
+    condicionIva?: number;
+  };
+}): ReceptorFiscalSnapshot {
+  if (opts.cliente) {
+    return receptorFiscalDesdeCliente(opts.cliente);
+  }
+  const fb = opts.fallback;
+  if (fb?.docTipo != null && fb.condicionIva != null && fb.docNro != null && fb.docNro !== "") {
+    return {
+      docTipo: fb.docTipo,
+      docNro: fb.docNro,
+      condicionIva: fb.condicionIva,
+    };
+  }
+  return { ...RECEPTOR_FISCAL_CONSUMIDOR_FINAL };
+}
+
 export function validarFechaCbteIso(fechaIso: string): string | null {
   const p = parseIsoYmdParts(fechaIso);
   if (!p) return "Fecha de comprobante inválida.";

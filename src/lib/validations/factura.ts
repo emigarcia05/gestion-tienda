@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
-  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
@@ -92,10 +91,11 @@ export const emitirFacturaComprobanteSchema = z
       .trim()
       .max(200, "El cliente es demasiado largo.")
       .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
-    /** FK opcional a `clientes`. Null = solo snapshot de receptor. */
+    /** FK opcional a `clientes`. Null = Consumidor Final. */
     clienteId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
+    /** Solo fallback interno (NC desde original sin cliente). La UI no los envía. */
     receptorDocTipo: z.number().int().positive().optional(),
     receptorDocNro: z.string().trim().max(20).optional(),
     receptorCondicionIva: z.number().int().positive().optional(),
@@ -114,23 +114,6 @@ export const emitirFacturaComprobanteSchema = z
         path: ["clienteId"],
         message: clienteMsg,
       });
-    }
-    const fiscal = esFacturaTipoFiscal(data.tipo);
-    if (fiscal) {
-      if (data.receptorCondicionIva == null) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["receptorCondicionIva"],
-          message: "Seleccioná la condición IVA del receptor.",
-        });
-      }
-      if (data.receptorDocTipo == null) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["receptorDocTipo"],
-          message: "Seleccioná el tipo de documento del receptor.",
-        });
-      }
     }
     if (esFacturaTipoNotaCredito(data.tipo) && !data.cbteAsocId) {
       ctx.addIssue({
