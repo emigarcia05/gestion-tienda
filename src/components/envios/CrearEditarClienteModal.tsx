@@ -25,6 +25,7 @@ import {
 } from "@/actions/envios";
 import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
+  formatearCuitMascara,
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
