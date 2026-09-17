@@ -175,18 +175,37 @@ export function leerArcaEnv(opts?: {
 }
 
 export function arcaCertificadosConfigurados(): boolean {
-  if (readPem(envRuntime("ARCA_CERT_PEM")) && readPem(envRuntime("ARCA_KEY_PEM"))) {
-    return true;
-  }
+  return listarCuitsEmisorConPem().length > 0;
+}
+
+/** Par PEM dedicado `ARCA_CERT_PEM_{CUIT}` + `ARCA_KEY_PEM_{CUIT}` (no el fallback genérico). */
+export function tieneParPemPorCuit(cuit: string): boolean {
+  const d = (cuit ?? "").replace(/\D/g, "");
+  if (!/^\d{11}$/.test(d)) return false;
+  const n = nombresPemPorCuit(d);
+  return Boolean(readPem(envRuntime(n.cert)) && readPem(envRuntime(n.key)));
+}
+
+/**
+ * CUITs emisores con certificado en ENV.
+ * Un par por CUIT, no por punto de venta. Incluye fallback `ARCA_CERT_PEM` / `ARCA_CUIT`.
+ */
+export function listarCuitsEmisorConPem(): string[] {
+  const seen = new Set<string>();
   for (const name of Object.keys(nodeProcess.env)) {
-    const cuit = /^ARCA_CERT_PEM_(\d{11})$/.exec(name);
-    if (!cuit?.[1]) continue;
-    const names = nombresPemPorCuit(cuit[1]);
-    if (readPem(envRuntime(name)) && readPem(envRuntime(names.key))) {
-      return true;
-    }
+    const m = /^ARCA_CERT_PEM_(\d{11})$/.exec(name);
+    if (!m?.[1]) continue;
+    if (tieneParPemPorCuit(m[1])) seen.add(m[1]);
   }
-  return false;
+  const fallbackCert = readPem(envRuntime("ARCA_CERT_PEM"));
+  const fallbackKey = readPem(envRuntime("ARCA_KEY_PEM"));
+  if (fallbackCert && fallbackKey) {
+    const fromEnv = cuit11(envRuntime("ARCA_CUIT"));
+    const fromCert = cuitDesdeCertPem(fallbackCert);
+    const cuit = fromEnv ?? fromCert;
+    if (cuit) seen.add(cuit);
+  }
+  return [...seen];
 }
 
 export function arcaAmbienteDesdeEnv(): ArcaAmbiente {
