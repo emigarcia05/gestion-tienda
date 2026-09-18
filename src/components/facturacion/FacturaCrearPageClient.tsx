@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { CalendarDays, FileText, Loader2, MessageSquare, Plus } from "lucide-react";
+import { CalendarDays, FileText, Loader2, MessageSquare, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -19,6 +19,7 @@ import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -29,23 +30,33 @@ import {
 import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  FACTURA_CLASES,
+  FACTURA_CLASE_LABELS,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
-  FACTURA_TIPOS,
+  FACTURA_CONDICIONES_FISCALES,
+  FACTURA_CONDICION_FISCAL_LABELS,
   FACTURA_TIPO_DEFAULT,
-  FACTURA_TIPO_LABELS,
-  esFacturaTipo,
+  claseDesdeFacturaTipo,
+  condicionFiscalDesdeFacturaTipo,
   esFacturaTipoNotaCredito,
+  etiquetaFacturaTipoVisor,
+  facturaTipoDesdeClaseYFiscal,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
+  type FacturaClase,
+  type FacturaCondicionFiscal,
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
 } from "@/lib/factura";
 import {
+  etiquetaNombreProyecto,
   nombreCompletoCliente,
   nombrePintorAsociadoCliente,
   type ClienteItem,
+  type ClienteListaItem,
+  type EnviosDireccionItem,
 } from "@/lib/envios";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
@@ -108,6 +119,7 @@ export default function FacturaCrearPageClient({
   });
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
+  const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
   const [clienteId, setClienteId] = useState<string | null>(null);
   /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
   const [clienteQActual, setClienteQActual] = useState(
@@ -123,7 +135,11 @@ export default function FacturaCrearPageClient({
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
-  const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteItem[]>([]);
+  const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteListaItem[]>([]);
+  const [clienteProyectos, setClienteProyectos] = useState<EnviosDireccionItem[]>(
+    []
+  );
+  const [proyectoId, setProyectoId] = useState<string | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientesAbierto, setClientesAbierto] = useState(false);
   const [clienteHighlight, setClienteHighlight] = useState(0);
@@ -175,6 +191,8 @@ export default function FacturaCrearPageClient({
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
     setCliente("");
+    setClienteProyectos([]);
+    setProyectoId(null);
     setClientesAbierto(false);
     setSugerenciasClientes([]);
     setLoadingClientes(false);
@@ -185,19 +203,52 @@ export default function FacturaCrearPageClient({
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
+    setClienteProyectos([]);
+    setProyectoId(null);
     setClientesAbierto(false);
     setSugerenciasClientes([]);
   }
 
-  function aplicarClienteSeleccionado(item: ClienteItem) {
+  function aplicarClienteSeleccionado(item: ClienteItem | ClienteListaItem) {
     const nombre =
       nombreCompletoCliente(item) || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+    const proyectos =
+      "proyectos" in item ? item.proyectos : [];
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
+    setClienteProyectos(proyectos);
+    setProyectoId(proyectos[0]?.id ?? null);
     setSugerenciasClientes([]);
     setClientesAbierto(false);
     setClienteHighlight(0);
+  }
+
+  const claseActual = claseDesdeFacturaTipo(tipo);
+  const fiscalActual = condicionFiscalDesdeFacturaTipo(tipo);
+  const mostrarFiscal = claseActual !== "presupuesto";
+  const mostrarProyecto = clienteProyectos.length > 1;
+  const proyectoElegido =
+    clienteProyectos.find((p) => p.id === proyectoId) ?? null;
+  const etiquetaClienteVisor = (() => {
+    const nombre = nombreClienteFactura(cliente);
+    if (!proyectoElegido) return nombre;
+    return `${nombre} - ${etiquetaNombreProyecto(proyectoElegido)}`;
+  })();
+
+  function aplicarClase(clase: FacturaClase) {
+    if (clase === "presupuesto") {
+      setTipo("presupuesto");
+      return;
+    }
+    setTipo(
+      facturaTipoDesdeClaseYFiscal(clase, fiscalActual ?? "no_fiscal")
+    );
+  }
+
+  function aplicarFiscal(fiscal: FacturaCondicionFiscal) {
+    if (claseActual === "presupuesto") return;
+    setTipo(facturaTipoDesdeClaseYFiscal(claseActual, fiscal));
   }
 
   useEffect(() => {
@@ -213,6 +264,35 @@ export default function FacturaCrearPageClient({
   }, []);
 
   const hayComentarioCabecera = comentarios.trim().length > 0;
+
+  const botonComentariosCabecera = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className={cn(
+        "h-9 w-9 shrink-0 hover:bg-muted",
+        hayComentarioCabecera
+          ? "text-primary hover:text-primary"
+          : "text-muted-foreground hover:text-foreground"
+      )}
+      onClick={() => setComentarioCabeceraOpen(true)}
+      aria-label={
+        hayComentarioCabecera
+          ? "Editar comentarios del comprobante"
+          : "Agregar comentarios del comprobante"
+      }
+      title="Comentarios"
+    >
+      <MessageSquare
+        className={cn(
+          "h-4 w-4 shrink-0",
+          hayComentarioCabecera ? "fill-primary" : "fill-none"
+        )}
+        aria-hidden
+      />
+    </Button>
+  );
 
   async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
@@ -318,27 +398,82 @@ export default function FacturaCrearPageClient({
             clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
           )}
         >
+          {cabeceraModo === "visor" ? (
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                className="flex min-h-9 min-w-0 flex-1 items-center gap-3 text-left text-sm text-foreground"
+                onClick={() => setCabeceraModo("editor")}
+                aria-label="Editar cabecera del comprobante"
+                title="Editar cabecera"
+              >
+                <Pencil className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="shrink-0 tabular-nums">
+                  {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
+                </span>
+                <Separator orientation="vertical" className="h-6" />
+                <span className="shrink-0">
+                  {etiquetaFacturaTipoVisor(tipo)}
+                </span>
+                <Separator orientation="vertical" className="h-6" />
+                <span className="min-w-0 truncate">{etiquetaClienteVisor}</span>
+              </button>
+              {botonComentariosCabecera}
+            </div>
+          ) : (
+          <div className="flex flex-col gap-3">
           <div className="flex min-w-0 items-end gap-3">
             <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
               <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
               <Select
-                value={tipo}
+                value={claseActual}
                 onValueChange={(value) => {
-                  if (esFacturaTipo(value)) setTipo(value);
+                  if (
+                    value === "presupuesto" ||
+                    value === "venta" ||
+                    value === "nota_credito"
+                  ) {
+                    aplicarClase(value);
+                  }
                 }}
               >
                 <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FACTURA_TIPOS.map((id) => (
+                  {FACTURA_CLASES.map((id) => (
                     <SelectItem key={id} value={id}>
-                      {FACTURA_TIPO_LABELS[id]}
+                      {FACTURA_CLASE_LABELS[id]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </label>
+
+            {mostrarFiscal ? (
+              <label className="flex min-w-0 flex-[1] flex-col gap-1">
+                <ModalMicroLabel>CONDICIÓN FISCAL</ModalMicroLabel>
+                <Select
+                  value={fiscalActual ?? "no_fiscal"}
+                  onValueChange={(value) => {
+                    if (value === "fiscal" || value === "no_fiscal") {
+                      aplicarFiscal(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FACTURA_CONDICIONES_FISCALES.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {FACTURA_CONDICION_FISCAL_LABELS[id]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            ) : null}
 
             <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
               <ModalMicroLabel>FECHA</ModalMicroLabel>
@@ -380,6 +515,10 @@ export default function FacturaCrearPageClient({
               />
             </label>
 
+            {botonComentariosCabecera}
+          </div>
+
+          <div className="flex min-w-0 items-end gap-3">
             <label className="flex min-w-0 flex-[1.35] flex-col gap-1">
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
               <div
@@ -398,6 +537,8 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
+                    setClienteProyectos([]);
+                    setProyectoId(null);
                     handleClienteQChange(next);
                     if (next.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {
                       setClientesAbierto(false);
@@ -590,6 +731,32 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
+            {mostrarProyecto ? (
+              <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
+                <ModalMicroLabel>PROYECTO CLIENTE</ModalMicroLabel>
+                <Select
+                  value={proyectoId ?? "none"}
+                  onValueChange={(value) => {
+                    setProyectoId(value === "none" ? null : value);
+                  }}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="PROYECTO" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">PROYECTO</SelectItem>
+                    {clienteProyectos.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {etiquetaNombreProyecto(p)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            ) : null}
+          </div>
+
+          <div className="flex min-w-0 items-end gap-3">
             <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
               <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
               <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
@@ -615,37 +782,10 @@ export default function FacturaCrearPageClient({
                 {nroComprobante}
               </p>
             </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-9 w-9 shrink-0 hover:bg-muted",
-                hayComentarioCabecera
-                  ? "text-primary hover:text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setComentarioCabeceraOpen(true)}
-              aria-label={
-                hayComentarioCabecera
-                  ? "Editar comentarios del comprobante"
-                  : "Agregar comentarios del comprobante"
-              }
-              title="Comentarios"
-            >
-              <MessageSquare
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  hayComentarioCabecera ? "fill-primary" : "fill-none"
-                )}
-                aria-hidden
-              />
-            </Button>
           </div>
 
           {esFacturaTipoNotaCredito(tipo) ? (
-            <div className="mt-4 w-[min(100%,20rem)]">
+            <div className="w-[min(100%,20rem)]">
               <label className="flex min-w-0 flex-col gap-1">
                 <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
                 <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
@@ -663,10 +803,18 @@ export default function FacturaCrearPageClient({
               </label>
             </div>
           ) : null}
+          </div>
+          )}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
-          <FacturaCrearLineasBlock onRemitoChange={handleRemitoChange} />
+          <FacturaCrearLineasBlock
+            onRemitoChange={handleRemitoChange}
+            onBusquedaProductoFocus={() => {
+              setClientesAbierto(false);
+              setCabeceraModo("visor");
+            }}
+          />
         </div>
       </div>
 

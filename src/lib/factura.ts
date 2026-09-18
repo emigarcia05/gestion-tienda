@@ -24,6 +24,59 @@ export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
 /** Valor inicial del select en Crear. */
 export const FACTURA_TIPO_DEFAULT: FacturaTipo = "presupuesto";
 
+/** Clase de comprobante en la UI de Crear (el persistido sigue siendo `FacturaTipo`). */
+export const FACTURA_CLASES = ["presupuesto", "venta", "nota_credito"] as const;
+export type FacturaClase = (typeof FACTURA_CLASES)[number];
+
+export const FACTURA_CLASE_LABELS: Record<FacturaClase, string> = {
+  presupuesto: "PRESUPUESTO",
+  venta: "VENTA",
+  nota_credito: "NOTA DE CRÉDITO",
+};
+
+export const FACTURA_CONDICIONES_FISCALES = ["fiscal", "no_fiscal"] as const;
+export type FacturaCondicionFiscal = (typeof FACTURA_CONDICIONES_FISCALES)[number];
+
+export const FACTURA_CONDICION_FISCAL_LABELS: Record<FacturaCondicionFiscal, string> = {
+  fiscal: "FISCAL",
+  no_fiscal: "NO FISCAL",
+};
+
+export function claseDesdeFacturaTipo(tipo: FacturaTipo): FacturaClase {
+  if (tipo === "presupuesto") return "presupuesto";
+  if (tipo === "nota_credito_fiscal" || tipo === "nota_credito_no_fiscal") {
+    return "nota_credito";
+  }
+  return "venta";
+}
+
+export function condicionFiscalDesdeFacturaTipo(
+  tipo: FacturaTipo
+): FacturaCondicionFiscal | null {
+  if (tipo === "presupuesto") return null;
+  if (tipo === "factura_fiscal" || tipo === "nota_credito_fiscal") return "fiscal";
+  return "no_fiscal";
+}
+
+export function facturaTipoDesdeClaseYFiscal(
+  clase: FacturaClase,
+  fiscal: FacturaCondicionFiscal
+): FacturaTipo {
+  if (clase === "presupuesto") return "presupuesto";
+  if (clase === "venta") {
+    return fiscal === "fiscal" ? "factura_fiscal" : "factura_no_fiscal";
+  }
+  return fiscal === "fiscal" ? "nota_credito_fiscal" : "nota_credito_no_fiscal";
+}
+
+/** Texto de visor: `PRESUPUESTO` o `VENTA - FISCAL`. */
+export function etiquetaFacturaTipoVisor(tipo: FacturaTipo): string {
+  const clase = claseDesdeFacturaTipo(tipo);
+  const fiscal = condicionFiscalDesdeFacturaTipo(tipo);
+  if (fiscal == null) return FACTURA_CLASE_LABELS[clase];
+  return `${FACTURA_CLASE_LABELS[clase]} - ${FACTURA_CONDICION_FISCAL_LABELS[fiscal]}`;
+}
+
 export function esFacturaTipo(value: string): value is FacturaTipo {
   return (FACTURA_TIPOS as readonly string[]).includes(value);
 }

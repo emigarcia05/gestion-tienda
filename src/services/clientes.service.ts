@@ -176,7 +176,7 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
 export async function buscarClientesParaFactura(params: {
   q: string;
   take?: number;
-}): Promise<ServiceResult<{ items: ClienteItem[] }>> {
+}): Promise<ServiceResult<{ items: ClienteListaItem[] }>> {
   const tokens = params.q
     .trim()
     .split(/\s+/)
@@ -213,9 +213,38 @@ export async function buscarClientesParaFactura(params: {
       where,
       orderBy: [{ nombreCompleto: "asc" }, { createdAt: "asc" }],
       take,
-      select,
+      select: {
+        ...select,
+        direcciones: {
+          select: {
+            id: true,
+            personaId: true,
+            nombreProyecto: true,
+            calleNombre: true,
+            numeracion: true,
+            distrito: true,
+            departamento: true,
+            urlMaps: true,
+            referencia: true,
+          },
+          orderBy: [
+            { nombreProyecto: "asc" },
+            { calleNombre: "asc" },
+            { numeracion: "asc" },
+            { createdAt: "asc" },
+          ],
+        },
+      },
     });
-    return { success: true, data: { items: rows.map(mapRow) } };
+    return {
+      success: true,
+      data: {
+        items: rows.map((row) => ({
+          ...mapRow(row),
+          proyectos: row.direcciones.map(mapEnviosDireccionItem),
+        })),
+      },
+    };
   } catch (e) {
     console.error("[clientes][buscarFactura]", e);
     return { success: false, error: "No se pudo buscar clientes." };
