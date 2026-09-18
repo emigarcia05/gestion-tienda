@@ -325,7 +325,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **IVA:** débito se lee de `fin_bal_iva_deb_import` (sin import TXT/CSV). Saldo manual y comparación pedido. Mutaciones editor (salvo alta de débito por archivo, eliminada). UI: FINANZAS → IMPUESTOS → Posición De IVA (`/finanzas/posicion-iva`).
 
-**Análisis M.C.:** `fin_ana_cos_fina` (matriz marca × pago: `terminal_id` → `cx_fin_cobro_marcas`) + fórmulas `fin_ana_mc_formulas` + categorías `fin_ana_mc_cat`. Signo descuento: `1 + %/100` (negativo = descuento). UI categorías: `reemplazarFinAnaMcCategoriasAction` (no CRUD granular). **Margen Contribución** UI `/finanzas/analisis-mc/margen-contribucion` (filtro TERMINAL = marca). **Cx. Fin. Cobros** UI canónica `/vtas-cobros/cx-fin-cobros` (alias `/finanzas/analisis-mc/costos-financieros`). **Marcas** `cx_fin_cobro_marcas` (ex `fin_ana_cos_fina_terminales_marcas`; `nombre` unique; Prisma `FinAnaCosFinaTerminalMarca`). **Sin** tabla `fin_ana_cos_fina_terminales` ni UI de terminales DUX. Actions `finAnaCosFina.ts`: marcas revalidan la ruta canónica de Cx. Fin., el alias y Margen Contribución.
+**Análisis M.C.:** `fin_ana_cos_fina` (matriz marca × pago: `terminal_id` → `cobros_terminales`) + fórmulas `fin_ana_mc_formulas` + categorías `fin_ana_mc_cat`. Signo descuento: `1 + %/100` (negativo = descuento). UI categorías: `reemplazarFinAnaMcCategoriasAction` (no CRUD granular). **Margen Contribución** UI `/finanzas/analisis-mc/margen-contribucion` (filtro TERMINAL = marca). **Cx. Fin. Cobros** UI canónica `/vtas-cobros/cx-fin-cobros` (alias `/finanzas/analisis-mc/costos-financieros`). **Marcas** `cobros_terminales` (ex `cobros_terminal_marca` / `cobros_cx_fin_marcas` / `cx_fin_cobro_marcas` / `fin_ana_cos_fina_terminales_marcas`; `nombre` unique; Prisma `FinAnaCosFinaTerminalMarca`). **Opciones de pago** `cobros_opciones_pago` (ex `cobros_forma_pago` / `fin_ana_cos_fina_pagos`; Prisma `FinAnaCosFinaPagoCat`). **Sin** tabla `fin_ana_cos_fina_terminales` ni UI de terminales DUX. Actions `finAnaCosFina.ts`: marcas revalidan la ruta canónica de Cx. Fin., el alias y Margen Contribución.
 
 ### 3.9 Estadísticas por producto
 
@@ -475,7 +475,9 @@ Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; C
 | `prod_tienda_bultos` / modelo `ProdTiendaBulto` | `prod_tienda.bulto` (`null` = vacío; CHECK `prod_tienda_bulto_positivo`) |
 | `POST /api/sync-cobros-dux`, `duxCobrosApi.ts`, `syncCobrosDuxRunStep`, `fin_vtas_cobros` | Sin tabla de cobros; `/vtas-cobros/cobros` redirige al hub |
 | `POST /api/sync-facturas-ventas-dux`, `duxRemitosVentaApi.ts`, `fin_fact_cobros_pto_vta_mes`, `fin_fact_cobros_items` | Catálogo `ptos_vtas` en Ptos. Vtas. (sin totales DUX) |
-| `fin_ana_cos_fina_terminales`, `FinAnaCosFinaTerminal`, `GestionarTerminalesFinAnaCosFinaModal` | Marcas en `cx_fin_cobro_marcas` |
+| `fin_ana_cos_fina_terminales`, `FinAnaCosFinaTerminal`, `GestionarTerminalesFinAnaCosFinaModal` | Marcas en `cobros_terminales` |
+| `cx_fin_cobro_marcas`, `cobros_cx_fin_marcas`, `cobros_terminal_marca` | `cobros_terminales` |
+| `fin_ana_cos_fina_pagos`, `cobros_forma_pago` | `cobros_opciones_pago` |
 
 **Deuda aceptada (no copiar en código nuevo):** Prisma / SQL inline en `tienda.ts`, `stock.ts`, `reposicion.ts`, `vinculos.ts`, `tiposPinturaRendimientos.ts`. Extraer a servicio si se toca en profundidad. Firmas tipadas (no `unknown`) en varios listados legacy (`comparacionCategorias`, `getPedidoUrgenteData`, etc.): al tocarlas, pasar a `unknown` + Zod.
 

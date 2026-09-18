@@ -1,4 +1,4 @@
-/** Ítem del catálogo `fin_ana_cos_fina_pagos`. */
+/** Ítem del catálogo `cobros_opciones_pago`. */
 export type FinAnaCosFinaPagoItem = {
   id: string;
   codigo: string;
@@ -8,7 +8,7 @@ export type FinAnaCosFinaPagoItem = {
   enMargenContribucion: boolean;
 };
 
-/** Id de forma de pago en simuladores (FK `fin_ana_cos_fina_pagos`). */
+/** Id de forma de pago en simuladores (FK `cobros_opciones_pago`). */
 export type FormaPagoMargenContribucion = string;
 
 export function filtrarPagosMargenContribucion(

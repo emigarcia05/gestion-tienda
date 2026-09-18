@@ -1232,7 +1232,7 @@ model ProdPedUltComp {
 /** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cx_fin_cobro_marcas_nombre_key")
+  nombre    String   @unique(map: "cobros_terminales_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1240,15 +1240,15 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "cx_fin_cobro_marcas_orden_idx")
-  @@map("cx_fin_cobro_marcas")
+  @@index([orden], map: "cobros_terminales_orden_idx")
+  @@map("cobros_terminales")
 }
 
-/** Catálogo de formas de pago (Análisis M.C.). */
+/** Catálogo de opciones de pago (Análisis M.C. / Cx. Fin. Cobros). */
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
-  codigo               String   @unique
-  nombre               String   @unique
+  codigo               String   @unique(map: "cobros_opciones_pago_codigo_key")
+  nombre               String   @unique(map: "cobros_opciones_pago_nombre_key")
   orden                Int      @default(0)
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
@@ -1258,13 +1258,13 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
 
-  @@index([orden], map: "fin_ana_cos_fina_pagos_orden_idx")
-  @@map("fin_ana_cos_fina_pagos")
+  @@index([orden], map: "cobros_opciones_pago_orden_idx")
+  @@map("cobros_opciones_pago")
 }
 
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`cx_fin_cobro_marcas`).
+ * `terminal_id` = marca (`cobros_terminales`); `pago_id` = `cobros_opciones_pago`.
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
