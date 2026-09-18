@@ -206,13 +206,6 @@ const vtasCobrosScreens: AdmScreenDef[] = [
     permiso: PERMISOS.finanzas.acceso,
   },
   {
-    id: "cobros",
-    label: "Cobros",
-    href: VTAS_COBROS_ROUTES.cobros,
-    icon: "wallet",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
     id: "cx-fin-cobros",
     label: "Cx. Fin. Cobros",
     href: VTAS_COBROS_ROUTES.cxFinCobros,

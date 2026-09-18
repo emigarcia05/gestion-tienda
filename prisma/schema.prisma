@@ -292,7 +292,6 @@ model Sucursal {
   stockTrasnDepositosOrigen  StockTrasnDeposito[] @relation("StockTrasnDepositoOrigen")
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
-  finVtasCobros              FinVtasCobro[]
   cajasTesoreria            CajaTesoreria[]
 
   @@map("global_sucursales")
@@ -326,7 +325,6 @@ model GlobalPtoVta {
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   sucursales       GlobalPtoVtaSucursal[]
-  factCobrosMes    FinFactCobrosPtoVtaMes[]
   comprobantesVtas ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
@@ -631,62 +629,6 @@ model FinBalVtas {
   @@index([sucursalId])
   @@index([anio, mes])
   @@map("fin_bal_vtas")
-}
-
-/**
- * Totales mensuales por punto de venta y letra de comprobante (`fin_fact_cobros_pto_vta_mes`).
- * FK a `ptos_vtas`. No guarda remitos individuales.
- * Recalculado al sincronizar el mes desde GET `/v2/remitos-venta`.
- * `monto_gravado` persiste la suma de `total_factura_asociada` por `(pto, letra)`.
- */
-model FinFactCobrosPtoVtaMes {
-  id           String   @id @default(cuid())
-  ptoVtaId     String   @map("pto_vta_id")
-  /** Mes calendario 1–12. */
-  mes          Int
-  anio         Int      @map("anio")
-  /** Letra del comprobante asociado (A, B, C, …). No usar `letra_comp` del remito. */
-  letra        String   @db.Char(1)
-  /** Suma de `total_factura_asociada` de remitos no anulados con esa letra. */
-  montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
-
-  @@unique([ptoVtaId, mes, anio, letra], map: "fin_fact_cobros_pto_vta_mes_ux")
-  @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
-  @@index([ptoVtaId], map: "fin_fact_cobros_pto_vta_mes_pto_vta_idx")
-  @@map("fin_fact_cobros_pto_vta_mes")
-}
-
-/**
- * Líneas de cobranza persistidas (`fin_vtas_cobros`).
- * Unique `(id_cobro, linea)`. `id_sucursal` = `global_sucursales.id_dux` (Restrict).
- * Sin import DUX: listado por `fecha` en `/vtas-cobros/cobros`.
- */
-model FinVtasCobro {
-  id            String   @id @default(cuid())
-  idCobro       BigInt   @map("id_cobro")
-  /** `global_sucursales.id_dux` (ID sucursal DUX). */
-  idSucursal    String   @map("id_sucursal")
-  fecha         DateTime @map("fecha") @db.Date
-  descripcion   String   @default("") @db.VarChar(500)
-  monto         Decimal  @db.Decimal(14, 2)
-  idTarjeta     BigInt?  @map("id_tarjeta")
-  idPlanTarjeta BigInt?  @map("id_plan_tarjeta")
-  idTerminal    BigInt?  @map("id_terminal")
-  tipoValor     String   @map("tipo_valor") @db.VarChar(40)
-  linea         Int      @default(0)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  sucursal Sucursal @relation(fields: [idSucursal], references: [idDux], onDelete: Restrict, onUpdate: Cascade)
-
-  @@unique([idCobro, linea], map: "fin_vtas_cobros_ux")
-  @@index([fecha], map: "fin_vtas_cobros_fecha_idx")
-  @@index([idSucursal], map: "fin_vtas_cobros_id_sucursal_idx")
-  @@map("fin_vtas_cobros")
 }
 
 /**
