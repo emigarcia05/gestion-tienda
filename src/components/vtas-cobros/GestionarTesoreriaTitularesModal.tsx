@@ -72,7 +72,7 @@ export default function GestionarTesoreriaTitularesModal({
     if (!esEditor || !nuevoNombre.trim() || bloqueado) return;
     setPending(true);
     try {
-      const res = await crearTesoreriaTitularAction({ nombreCompleto: nuevoNombre });
+      const res = await crearTesoreriaTitularAction({ nombre: nuevoNombre });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo crear el titular.");
         return;
@@ -92,7 +92,7 @@ export default function GestionarTesoreriaTitularesModal({
     try {
       const res = await editarTesoreriaTitularAction({
         id: editingId,
-        nombreCompleto: editDraft,
+        nombre: editDraft,
       });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo guardar.");
@@ -149,7 +149,7 @@ export default function GestionarTesoreriaTitularesModal({
                   <Input
                     value={nuevoNombre}
                     onChange={(e) => setNuevoNombre(e.target.value)}
-                    placeholder="Nombre completo (se guardará en mayúsculas)"
+                    placeholder="Nombre (se guardará en mayúsculas)"
                     disabled={bloqueado}
                     className="flex-1"
                     onKeyDown={(e) => {
@@ -214,7 +214,7 @@ export default function GestionarTesoreriaTitularesModal({
                     ) : (
                       <>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                          {titular.nombreCompleto}
+                          {titular.nombre}
                         </span>
                         {esEditor ? (
                           <div className="flex shrink-0 items-center gap-1.5">
@@ -223,11 +223,11 @@ export default function GestionarTesoreriaTitularesModal({
                               variant="ghost"
                               size="icon"
                               className={BOTON_ACCION_TITULAR_CLASS}
-                              aria-label={`Editar ${titular.nombreCompleto}`}
+                              aria-label={`Editar ${titular.nombre}`}
                               disabled={bloqueado}
                               onClick={() => {
                                 setEditingId(titular.id);
-                                setEditDraft(titular.nombreCompleto);
+                                setEditDraft(titular.nombre);
                               }}
                             >
                               <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
@@ -237,7 +237,7 @@ export default function GestionarTesoreriaTitularesModal({
                               variant="ghost"
                               size="icon"
                               className={BOTON_ACCION_TITULAR_CLASS}
-                              aria-label={`Eliminar ${titular.nombreCompleto}`}
+                              aria-label={`Eliminar ${titular.nombre}`}
                               disabled={bloqueado}
                               onClick={() => setBorrarTarget(titular)}
                             >
@@ -282,7 +282,7 @@ export default function GestionarTesoreriaTitularesModal({
         >
           <p className="text-sm text-muted-foreground">
             ¿Eliminar el titular{" "}
-            <span className="font-semibold text-foreground">{borrarTarget?.nombreCompleto}</span>? Esta
+            <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Esta
             acción no se puede deshacer.
           </p>
         </AppModal>

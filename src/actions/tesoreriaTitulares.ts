@@ -46,7 +46,7 @@ export async function crearTesoreriaTitularAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await crearTesoreriaTitular(parsed.data.nombreCompleto);
+  const res = await crearTesoreriaTitular(parsed.data.nombre);
   if (!res.success) return fromServiceResult(res);
   revalidateTesoreriaTitularesPaths();
   return { ok: true, data: res.data };
@@ -61,7 +61,7 @@ export async function editarTesoreriaTitularAction(
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
-  const res = await editarTesoreriaTitular(parsed.data.id, parsed.data.nombreCompleto);
+  const res = await editarTesoreriaTitular(parsed.data.id, parsed.data.nombre);
   if (!res.success) return fromServiceResult(res);
   revalidateTesoreriaTitularesPaths();
   return { ok: true, data: res.data };

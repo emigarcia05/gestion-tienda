@@ -1,19 +1,19 @@
 import { z } from "zod";
 import { prismaCuidOrUuidSchema } from "@/lib/validations/common";
 
-const nombreCompletoTesoreriaTitularSchema = z
+const nombreTesoreriaTitularSchema = z
   .string()
   .trim()
-  .min(1, "Ingresá un nombre completo.")
+  .min(1, "Ingresá un nombre.")
   .max(200, "El nombre es demasiado largo.");
 
 export const crearTesoreriaTitularSchema = z.object({
-  nombreCompleto: nombreCompletoTesoreriaTitularSchema,
+  nombre: nombreTesoreriaTitularSchema,
 });
 
 export const editarTesoreriaTitularSchema = z.object({
   id: prismaCuidOrUuidSchema,
-  nombreCompleto: nombreCompletoTesoreriaTitularSchema,
+  nombre: nombreTesoreriaTitularSchema,
 });
 
 export const eliminarTesoreriaTitularSchema = z.object({

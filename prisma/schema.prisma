@@ -395,14 +395,14 @@ model FinTesoreriaEntidad {
 }
 
 /**
- * Catálogo de titulares de tesorería (`nombre_completo` único en MAYÚSCULAS).
+ * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
  * Aún no sustituye `fin_tesoreria.titular` ni `fin_tesoreria_cheques.tenedor` (siguen TEXT).
  */
 model TesoreriaTitular {
-  id              String   @id @default(cuid())
-  nombreCompleto  String   @unique @map("nombre_completo")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  nombre    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("tesoreria_titulares")
 }

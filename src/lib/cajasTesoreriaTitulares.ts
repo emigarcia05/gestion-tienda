@@ -3,7 +3,7 @@ import { z } from "zod";
 /** Ítem del catálogo `tesoreria_titulares`. */
 export interface TesoreriaTitularItem {
   id: string;
-  nombreCompleto: string;
+  nombre: string;
 }
 
 /** Nombre persistido en `fin_tesoreria.titular` / `fin_tesoreria_cheques.tenedor`. */

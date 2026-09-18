@@ -5,10 +5,10 @@ import {
 } from "@/lib/cajasTesoreriaTitulares";
 import type { ServiceResult } from "@/types";
 
-function mapTitular(row: { id: string; nombreCompleto: string }): TesoreriaTitularItem {
+function mapTitular(row: { id: string; nombre: string }): TesoreriaTitularItem {
   return {
     id: row.id,
-    nombreCompleto: row.nombreCompleto.toLocaleUpperCase("es-AR"),
+    nombre: row.nombre.toLocaleUpperCase("es-AR"),
   };
 }
 
@@ -28,23 +28,23 @@ function mapDbErrorTitular(error: unknown, fallback: string): string {
 
 export async function listarTesoreriaTitulares(): Promise<TesoreriaTitularItem[]> {
   const rows = await prisma.tesoreriaTitular.findMany({
-    orderBy: [{ nombreCompleto: "asc" }],
-    select: { id: true, nombreCompleto: true },
+    orderBy: [{ nombre: "asc" }],
+    select: { id: true, nombre: true },
   });
   return rows.map(mapTitular);
 }
 
 export async function crearTesoreriaTitular(
-  nombreCompleto: string
+  nombre: string
 ): Promise<ServiceResult<TesoreriaTitularItem>> {
-  const norm = normalizarNombreTitularCaja(nombreCompleto);
+  const norm = normalizarNombreTitularCaja(nombre);
   if (!norm) {
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
     const row = await prisma.tesoreriaTitular.create({
-      data: { nombreCompleto: norm },
-      select: { id: true, nombreCompleto: true },
+      data: { nombre: norm },
+      select: { id: true, nombre: true },
     });
     return { success: true, data: mapTitular(row) };
   } catch (error: unknown) {
@@ -57,17 +57,17 @@ export async function crearTesoreriaTitular(
 
 export async function editarTesoreriaTitular(
   id: string,
-  nombreCompleto: string
+  nombre: string
 ): Promise<ServiceResult<TesoreriaTitularItem>> {
-  const norm = normalizarNombreTitularCaja(nombreCompleto);
+  const norm = normalizarNombreTitularCaja(nombre);
   if (!norm) {
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
     const row = await prisma.tesoreriaTitular.update({
       where: { id },
-      data: { nombreCompleto: norm },
-      select: { id: true, nombreCompleto: true },
+      data: { nombre: norm },
+      select: { id: true, nombre: true },
     });
     return { success: true, data: mapTitular(row) };
   } catch (error: unknown) {
@@ -81,13 +81,13 @@ export async function editarTesoreriaTitular(
 export async function eliminarTesoreriaTitular(id: string): Promise<ServiceResult<void>> {
   const existing = await prisma.tesoreriaTitular.findUnique({
     where: { id },
-    select: { nombreCompleto: true },
+    select: { nombre: true },
   });
   if (!existing) {
     return { success: false, error: "Titular no encontrado." };
   }
 
-  const nombre = existing.nombreCompleto;
+  const nombre = existing.nombre;
   const [nPto, nCaja, nCheque] = await Promise.all([
     prisma.globalPtoVta.count({
       where: { nombreTitular: { equals: nombre, mode: "insensitive" } },
