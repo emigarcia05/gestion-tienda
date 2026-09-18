@@ -262,11 +262,12 @@
   /**
    * Botón encubierto: clicable con estética de lectura (no CTA).
    * Fondo transparente + mismo contorno de campo (`1px` `--primary`).
-   * No usar `Button` shadcn: su CVA fuerza `justify-center` / `whitespace-nowrap`.
+   * No usar `Button` shadcn: su CVA fuerza `whitespace-nowrap` y rompe el truncado.
    */
   .boton-encubierto {
     display: flex;
     align-items: center;
+    justify-content: center;
     min-height: 2.25rem;
     padding-inline: 0.75rem;
     padding-block: 0.25rem;
@@ -279,7 +280,7 @@
     font-family: var(--font-sans);
     font-weight: var(--font-weight-normal);
     line-height: var(--text-sm--line-height);
-    text-align: left;
+    text-align: center;
     box-shadow: none;
     cursor: pointer;
   }
@@ -2184,7 +2185,7 @@ main button.boton-encubierto:active:not(:disabled) {
   min-height: 2.25rem !important;
   padding: 0.25rem 0.75rem !important;
   gap: 0.75rem !important;
-  justify-content: flex-start !important;
+  justify-content: center !important;
   align-items: center !important;
   white-space: normal !important;
   font-weight: var(--font-weight-normal) !important;

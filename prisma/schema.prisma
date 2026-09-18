@@ -1741,6 +1741,7 @@ model EnviosDireccion {
 
   persona Cliente @relation(fields: [personaId], references: [id], onDelete: Restrict)
   envios  EnviosFinal[]
+  comprobantesVtas ComprobanteVta[]
 
   @@index([personaId], map: "clientes_proyectos_persona_id_idx")
   @@index([nombreProyecto], map: "clientes_proyectos_nombre_proyecto_idx")
@@ -1833,6 +1834,7 @@ model SyncDuxStatus {
 /**
  * Cabecera de comprobantes de venta (`comprobantes_vtas`).
  * Receptor fiscal: **snapshot** en la fila (`receptor_*`) + FK opcional `cliente_id` → `clientes`.
+ * Proyecto: FK opcional `proyecto_id` → `clientes_proyectos` (solo si hay dato; exige `cliente_id`).
  * CAE solo si `tipo_local` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
  * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
  */
@@ -1853,6 +1855,8 @@ model ComprobanteVta {
 
   /** Catálogo `clientes` (opcional). El snapshot `receptor_*` sigue siendo la fuente fiscal del comprobante. */
   clienteId            String? @map("cliente_id")
+  /** Catálogo `clientes_proyectos` (opcional). Null si no hay proyecto o es CF sin catálogo. */
+  proyectoId           String? @map("proyecto_id")
   receptorNombre       String  @map("receptor_nombre")
   receptorDocTipo      Int?    @map("receptor_doc_tipo")
   receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
@@ -1893,6 +1897,7 @@ model ComprobanteVta {
 
   ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
@@ -1903,6 +1908,7 @@ model ComprobanteVta {
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
   @@index([cae], map: "comprobantes_vtas_cae_idx")
   @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")
+  @@index([proyectoId], map: "comprobantes_vtas_proyecto_id_idx")
   @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
   @@map("comprobantes_vtas")

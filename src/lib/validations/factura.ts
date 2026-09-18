@@ -93,6 +93,8 @@ export const emitirFacturaComprobanteSchema = z
       .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
     /** FK opcional a `clientes`. Null = Consumidor Final. */
     clienteId: prismaIdOptionalNullableSchema,
+    /** FK opcional a `clientes_proyectos`. Null si no hay proyecto. */
+    proyectoId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
     /** Solo fallback interno (NC desde original sin cliente). La UI no los envía. */
@@ -113,6 +115,13 @@ export const emitirFacturaComprobanteSchema = z
         code: "custom",
         path: ["clienteId"],
         message: clienteMsg,
+      });
+    }
+    if (data.proyectoId && !data.clienteId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["proyectoId"],
+        message: "El proyecto requiere un cliente de catálogo.",
       });
     }
     if (esFacturaTipoNotaCredito(data.tipo) && !data.cbteAsocId) {

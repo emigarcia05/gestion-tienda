@@ -69,6 +69,42 @@ function asEstado(raw: string): FacturaComprobanteEstado {
   return "borrador";
 }
 
+/** FK a `clientes_proyectos` si el dato existe y pertenece al cliente. */
+async function resolverProyectoIdComprobante(args: {
+  clienteId: string | null;
+  proyectoId: string | null | undefined;
+}): Promise<ServiceResult<string | null>> {
+  const pedido = args.proyectoId ?? null;
+  if (!args.clienteId) {
+    if (pedido) {
+      return {
+        success: false,
+        error: "El proyecto requiere un cliente de catálogo.",
+      };
+    }
+    return { success: true, data: null };
+  }
+  const proyectos = await prisma.enviosDireccion.findMany({
+    where: { personaId: args.clienteId },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (pedido) {
+    if (!proyectos.some((p) => p.id === pedido)) {
+      return {
+        success: false,
+        error: "El proyecto no pertenece al cliente seleccionado.",
+      };
+    }
+    return { success: true, data: pedido };
+  }
+  if (proyectos.length === 1) {
+    const unico = proyectos[0];
+    return { success: true, data: unico ? unico.id : null };
+  }
+  return { success: true, data: null };
+}
+
 export type FacturaComprobantePdfDatos = {
   tipo: FacturaTipo;
   fechaIso: string;
@@ -329,6 +365,12 @@ export async function emitirFacturaComprobante(
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
   }
+  const proyectoResuelto = await resolverProyectoIdComprobante({
+    clienteId,
+    proyectoId: input.proyectoId,
+  });
+  if (!proyectoResuelto.success) return proyectoResuelto;
+  const proyectoId = proyectoResuelto.data;
   const receptor = receptorFiscalParaEmitir({
     cliente: clienteFiscal,
     fallback: {
@@ -476,6 +518,7 @@ export async function emitirFacturaComprobante(
             fecha,
             concepto,
             clienteId,
+            proyectoId,
             receptorNombre,
             receptorDocTipo: null,
             receptorDocNro: null,
@@ -527,6 +570,7 @@ export async function emitirFacturaComprobante(
     fecha,
     concepto,
     clienteId,
+    proyectoId,
     receptorNombre,
     receptor,
     lineas,
@@ -558,6 +602,7 @@ async function emitirFiscal(args: {
   fecha: Date;
   concepto: string;
   clienteId: string | null;
+  proyectoId: string | null;
   receptorNombre: string;
   receptor: ReceptorFiscalSnapshot;
   lineas: LineaCalculada[];
@@ -699,6 +744,7 @@ async function emitirFiscal(args: {
           fecha: args.fecha,
           concepto: args.concepto,
           clienteId: args.clienteId,
+          proyectoId: args.proyectoId,
           receptorNombre: args.receptorNombre,
           receptorDocTipo: args.receptor.docTipo,
           receptorDocNro: args.receptor.docNro,
@@ -837,6 +883,7 @@ export async function emitirNotaCreditoDesdeComprobante(
     tipo: "nota_credito_fiscal",
     cliente: orig.receptorNombre,
     clienteId: orig.clienteId,
+    proyectoId: orig.proyectoId,
     comentarios: orig.comentarios,
     ptoVtaId: orig.ptoVtaId,
     receptorDocTipo: orig.receptorDocTipo ?? undefined,

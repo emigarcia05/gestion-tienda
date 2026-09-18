@@ -53,7 +53,7 @@ function prismaErrorMessage(error: unknown, fallback: string): string {
     const code = (error as { code?: string }).code;
     if (code === "P2025") return "El proyecto no existe.";
     if (code === "P2003") {
-      return "No se puede eliminar: el proyecto está asociado a un envío o el cliente no existe.";
+      return "No se puede eliminar: el proyecto está asociado a un envío, un comprobante o el cliente no existe.";
     }
   }
   return error instanceof Error ? error.message : fallback;

@@ -329,6 +329,7 @@ export default function FacturaCrearPageClient({
         tipo,
         cliente: clienteEmitir,
         clienteId,
+        proyectoId,
         comentarios,
         ptoVtaId,
         cbteAsocId:
@@ -808,10 +809,10 @@ export default function FacturaCrearPageClient({
             </div>
 
             <div className={CABECERA_EDITOR_SLOT_CLASS}>
-              <ModalMicroLabel>SALDO</ModalMicroLabel>
+              <ModalMicroLabel>SALDO CLIENTE</ModalMicroLabel>
               <p
                 className="flex h-9 items-center truncate text-sm tabular-nums text-foreground"
-                aria-label="Saldo del cliente"
+                aria-label="Saldo cliente"
               >
                 {CLIENTE_SALDO_PLACEHOLDER}
               </p>

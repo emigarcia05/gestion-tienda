@@ -45,8 +45,9 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
-  TYPEAHEAD_STORE_ICON_OUTLINE_CLASS,
-  TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS,
+  TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS,
+  TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS,
+  TYPEAHEAD_STORE_ICON_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
@@ -440,7 +441,7 @@ export default function FacturaCrearLineasBlock({
 
       <div
         ref={tablaScrollRef}
-        className="contenedor-tabla-gestion relative z-0 min-h-0 flex-1 overflow-y-auto"
+        className="contenedor-tabla-gestion relative z-0 min-h-0 flex-1 overflow-y-auto border-primary"
       >
         <Table className="w-full table-fixed" scrollX={false}>
           <colgroup>
@@ -601,7 +602,7 @@ export default function FacturaCrearLineasBlock({
 
       <div
         className={cn(
-          "flex min-h-[2.8125rem] shrink-0 items-center overflow-hidden rounded-md border border-border bg-card"
+          "flex min-h-[2.8125rem] shrink-0 items-center overflow-hidden rounded-md border border-primary bg-card"
         )}
       >
         <div
@@ -715,7 +716,6 @@ export default function FacturaCrearLineasBlock({
                       item,
                       sucursalUsuario
                     );
-                    const resaltarSucursal = sinStockLocal && stockEnOtra;
                     return (
                       <li
                         key={item.codTienda}
@@ -763,16 +763,20 @@ export default function FacturaCrearLineasBlock({
                               type="button"
                               variant="ghost"
                               size="icon-xs"
-                              className="size-4 shrink-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                              className={
+                                stockEnOtra
+                                  ? TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS
+                                  : TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS
+                              }
                               title={
-                                resaltarSucursal
+                                stockEnOtra
                                   ? "Hay stock en otra sucursal"
-                                  : "Ver stock por sucursal"
+                                  : "No hay stock en otras sucursales"
                               }
                               aria-label={
-                                resaltarSucursal
+                                stockEnOtra
                                   ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
-                                  : `Stock por sucursal de ${item.descripcion}`
+                                  : `No hay stock en otras sucursales — ver detalle de ${item.descripcion}`
                               }
                               onClick={(e) => {
                                 e.preventDefault();
@@ -783,11 +787,7 @@ export default function FacturaCrearLineasBlock({
                             >
                               <Store
                                 fill="none"
-                                className={
-                                  resaltarSucursal
-                                    ? TYPEAHEAD_STORE_ICON_STOCK_OTRA_CLASS
-                                    : TYPEAHEAD_STORE_ICON_OUTLINE_CLASS
-                                }
+                                className={TYPEAHEAD_STORE_ICON_CLASS}
                                 aria-hidden
                               />
                             </Button>
