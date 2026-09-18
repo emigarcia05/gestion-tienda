@@ -133,7 +133,12 @@
   --accent: #e0f2fe;
   --accent-foreground: #0072bb;
   --border: var(--gris-inset);
-  --input: var(--gris-inset);
+  /**
+   * Contorno de campos (Input, Select, textarea, combobox): línea 1px de marca.
+   * Tailwind `border-input`. No usar `--input` como relleno (Switch → `bg-gris-inset`).
+   * `--border` sigue gris (cards, tablas, separadores).
+   */
+  --input: var(--primary);
   --ring: #0072bb;
   --sidebar: #0072bb;
   --sidebar-foreground: #fff;
@@ -240,6 +245,55 @@
   .sidebar-user-switcher-surface {
     background-color: var(--sidebar-user-switcher-bg);
     color: var(--sidebar-foreground);
+  }
+
+  /**
+   * Contorno de campos (SSOT de color): `1px solid var(--primary)` vía token `--input`.
+   * Los primitivos `Input` / `SelectTrigger` usan `border-primary`; `border-input` (token `--input`) es el mismo color.
+   * `.input-filtro-unificado` suma altura/tipografía de filtros; el color es el mismo.
+   * Excepción: input interno de máscara/stepper (`border-0`) cuyo cascarón ya tiene el borde.
+   */
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  textarea {
+    border-color: var(--primary);
+  }
+
+  /**
+   * Botón encubierto: clicable con estética de lectura (no CTA).
+   * Fondo transparente + mismo contorno de campo (`1px` `--primary`).
+   * No usar `Button` shadcn: su CVA fuerza `justify-center` / `whitespace-nowrap`.
+   */
+  .boton-encubierto {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding-inline: 0.75rem;
+    padding-block: 0.25rem;
+    gap: 0.75rem;
+    background-color: transparent;
+    border: 1px solid var(--primary);
+    border-radius: calc(var(--radius) - 2px);
+    color: var(--foreground);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--text-sm--line-height);
+    text-align: left;
+    box-shadow: none;
+    cursor: pointer;
+  }
+  .boton-encubierto:hover:not(:disabled) {
+    background-color: transparent;
+  }
+  .boton-encubierto:focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent);
+  }
+  .boton-encubierto:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   /* ─── Clase maestra inputs y selects de filtro (SSOT): misma apariencia para desplegables y filtro descripción ───
@@ -572,7 +626,7 @@
     min-width: 0;
     height: 2rem;
     border-radius: calc(var(--radius) - 2px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--primary);
     background-color: var(--background);
     color: var(--foreground);
     font-size: var(--text-sm);
@@ -1042,15 +1096,15 @@
   max-height: 1.75rem !important;
   height: 1.75rem !important;
 }
-/* Inputs dentro de tabla: fondo transparente y recuadro suave #0072bb (diseño global para toda la app). */
+/* Inputs dentro de tabla: mismo contorno de campos (`--primary` / `--input`). */
 .tabla-gestion-compacta tbody td input:not([type="checkbox"]) {
   background-color: transparent !important;
-  border: 1px solid #0072bb;
+  border: 1px solid var(--primary);
   border-radius: calc(var(--radius) - 2px);
 }
 .tabla-gestion-compacta tbody td input:not([type="checkbox"]):focus {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in oklch, #0072bb 25%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 25%, transparent);
 }
 /* Input con sufijo % fijo (máscara): borde en el contenedor; el `<input>` interno sin recuadro propio. */
 .tabla-gestion-compacta tbody td .input-mascara-sufijo {
@@ -1060,14 +1114,14 @@
   min-width: 0;
   box-sizing: border-box;
   background-color: transparent !important;
-  border: 1px solid #0072bb;
+  border: 1px solid var(--primary);
   border-radius: calc(var(--radius) - 2px);
   max-height: 1.75rem !important;
   height: 1.75rem !important;
 }
 .tabla-gestion-compacta tbody td .input-mascara-sufijo:focus-within {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in oklch, #0072bb 25%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 25%, transparent);
 }
 .tabla-gestion-compacta tbody td .input-mascara-sufijo input:not([type="checkbox"]) {
   border: none !important;
@@ -1138,14 +1192,14 @@
   max-height: none !important;
   min-height: 0;
   border-radius: 0;
-  border: 1px solid #0072bb;
+  border: 1px solid var(--primary);
   background-color: transparent !important;
   box-sizing: border-box;
 }
 .tabla-gestion-compacta tbody td.tabla-celda-cant input:not([type="checkbox"]):focus,
 .tabla-gestion-compacta tbody td.tabla-celda-cant input:not([type="checkbox"]):focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px #0072bb, 0 0 0 2px color-mix(in oklch, #0072bb 25%, transparent);
+  box-shadow: inset 0 0 0 1px var(--primary), 0 0 0 2px color-mix(in oklch, var(--primary) 25%, transparent);
 }
 .tabla-gestion-compacta tbody td button:not(.tabla-check-toggle):not(.tabla-row-btn-filled-brand) {
   max-height: 1.75rem !important;
@@ -2116,6 +2170,35 @@ main button[data-variant="secondary"]:hover:not(:disabled) {
 }
 main button:hover:not(:disabled) {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/*
+ * Botón encubierto: anula `main button` / `:not([data-variant])`
+ * (CTA 2.5rem, fondo primary). Lectura clicable: transparente + contorno `--primary`.
+ */
+main button.boton-encubierto,
+main button.boton-encubierto:hover:not(:disabled),
+main button.boton-encubierto:focus-visible,
+main button.boton-encubierto:active:not(:disabled) {
+  height: auto !important;
+  min-height: 2.25rem !important;
+  padding: 0.25rem 0.75rem !important;
+  gap: 0.75rem !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  white-space: normal !important;
+  font-weight: var(--font-weight-normal) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--primary) !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  display: flex !important;
+}
+main button.boton-encubierto:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent) !important;
 }
 
 /*

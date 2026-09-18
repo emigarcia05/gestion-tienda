@@ -423,7 +423,7 @@ export default function FacturaCrearPageClient({
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
-                className="flex min-h-9 min-w-0 flex-1 items-center gap-3 text-left text-sm text-foreground"
+                className="boton-encubierto min-w-0 flex-1"
                 onClick={() => setCabeceraModo("editor")}
                 aria-label="Editar cabecera del comprobante"
                 title="Editar cabecera"
