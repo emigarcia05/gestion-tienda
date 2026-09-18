@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ListOrdered, Pencil, Plus, Trash2 } from "lucide-react";
+import { ListOrdered, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarGlobalPtoVtaAction } from "@/actions/globalPtoVtas";
 import FilterBar, {
@@ -11,6 +11,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import GestionarGlobalPtoVtasModal from "@/components/finanzas/GestionarGlobalPtoVtasModal";
+import GestionarTesoreriaTitularesModal from "@/components/vtas-cobros/GestionarTesoreriaTitularesModal";
 import ReglasPtosVtasModal from "@/components/vtas-cobros/ReglasPtosVtasModal";
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -68,6 +69,7 @@ export default function PtosVtasPageClient({
     });
   const [formOpen, setFormOpen] = useState(false);
   const [reglasOpen, setReglasOpen] = useState(false);
+  const [titularesOpen, setTitularesOpen] = useState(false);
   const [itemEditar, setItemEditar] = useState<GlobalPtoVtaItem | null>(null);
   const [itemBorrar, setItemBorrar] = useState<GlobalPtoVtaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -142,12 +144,20 @@ export default function PtosVtasPageClient({
               onClick={() => setReglasOpen(true)}
             />
             {esEditor ? (
-              <ToolbarActionButton
-                type="button"
-                icon={<Plus />}
-                label="Crear Punto De Venta"
-                onClick={abrirCrear}
-              />
+              <>
+                <ToolbarActionButton
+                  type="button"
+                  icon={<Users aria-hidden />}
+                  label="Gestionar Titulares"
+                  onClick={() => setTitularesOpen(true)}
+                />
+                <ToolbarActionButton
+                  type="button"
+                  icon={<Plus />}
+                  label="Crear Punto De Venta"
+                  onClick={abrirCrear}
+                />
+              </>
             ) : null}
           </div>
         }
@@ -289,6 +299,12 @@ export default function PtosVtasPageClient({
       />
 
       <ReglasPtosVtasModal open={reglasOpen} onOpenChange={setReglasOpen} />
+
+      <GestionarTesoreriaTitularesModal
+        open={titularesOpen}
+        onOpenChange={setTitularesOpen}
+        esEditor={esEditor}
+      />
 
       <Dialog
         open={Boolean(itemBorrar)}
