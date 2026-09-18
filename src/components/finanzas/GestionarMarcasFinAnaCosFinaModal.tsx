@@ -315,7 +315,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
           <p className="text-sm text-muted-foreground">
             ¿Eliminar la marca{" "}
             <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Se borrarán también
-            sus filas de costos financieros. No se puede eliminar si hay terminales asociadas.
+            sus filas de costos financieros.
           </p>
         </AppModal>
       </Dialog>

@@ -374,7 +374,7 @@ export default function FacturaCrearPageClient({
 
   return (
     <ClassicFilteredTableLayout
-      title="FACTURA"
+      title="COMPROBANTES"
       subtitle="Crear"
       contentWidth="full"
       actions={

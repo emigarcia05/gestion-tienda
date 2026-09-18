@@ -228,15 +228,6 @@ export async function eliminarGlobalPtoVta(
         error: "No se puede eliminar: hay totales de Fact & Cobros.",
       };
     }
-    const terminales = await prisma.finAnaCosFinaTerminal.count({
-      where: { titularId: id },
-    });
-    if (terminales > 0) {
-      return {
-        success: false,
-        error: "No se puede eliminar: hay terminales asociadas.",
-      };
-    }
     await prisma.globalPtoVta.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {

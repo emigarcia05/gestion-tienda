@@ -1,9 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { RefreshCw, Settings2 } from "lucide-react";
-import { toast } from "sonner";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -12,7 +9,6 @@ import FilterBar, {
   FiltroIndividualContainer,
   FilterRowSelection,
 } from "@/components/FilterBar";
-import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import {
   Select,
   SelectContent,
@@ -22,11 +18,7 @@ import {
 } from "@/components/ui/select";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaFinVtasCobros from "@/components/vtas-cobros/TablaFinVtasCobros";
-import GestionarTerminalesFinAnaCosFinaModal from "@/components/finanzas/GestionarTerminalesFinAnaCosFinaModal";
 import type { FinVtasCobroFila } from "@/services/finVtasCobros.service";
-import type { FinAnaCosFinaTerminalItem } from "@/lib/finAnaCosFinaTerminales";
-import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
-import type { GlobalPtoVtaItem } from "@/lib/globalPtoVtas";
 import { cn } from "@/lib/utils";
 
 const MESES_CALENDARIO: { valor: number; etiqueta: string }[] = [
@@ -54,10 +46,6 @@ interface Props {
   anio: number;
   mesActual: number;
   anioActual: number;
-  esEditor: boolean;
-  terminales: FinAnaCosFinaTerminalItem[];
-  marcas: FinAnaCosFinaTerminalMarcaItem[];
-  ptoVtas: GlobalPtoVtaItem[];
 }
 
 export default function VtasCobrosCobrosPageClient({
@@ -66,57 +54,15 @@ export default function VtasCobrosCobrosPageClient({
   anio,
   mesActual,
   anioActual,
-  esEditor,
-  terminales,
-  marcas,
-  ptoVtas,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const [consultando, setConsultando] = useState(false);
-  const [openGestionarTerminales, setOpenGestionarTerminales] = useState(false);
 
   function navigate(next: { mes?: number; anio?: number }) {
     const p = new URLSearchParams();
     p.set("mes", String(next.mes ?? mes));
     p.set("anio", String(next.anio ?? anio));
     router.push(`${pathname}?${p.toString()}`);
-  }
-
-  async function consultarCobros() {
-    setConsultando(true);
-    try {
-      let continuing = true;
-      let first = true;
-
-      while (continuing) {
-        const res = await fetch("/api/sync-cobros-dux", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            continuing: !first,
-          }),
-        });
-        const json: { ok?: boolean; error?: string; continuing?: boolean } = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          continuing?: boolean;
-        };
-        if (!res.ok || !json.ok) {
-          toast.error(json.error ?? "No se pudo consultar cobros.");
-          return;
-        }
-        first = false;
-        continuing = json.continuing === true;
-      }
-
-      toast.success("Consulta de cobros finalizada.");
-      router.refresh();
-    } catch {
-      toast.error("No se pudo consultar cobros.");
-    } finally {
-      setConsultando(false);
-    }
   }
 
   return (
@@ -174,37 +120,9 @@ export default function VtasCobrosCobrosPageClient({
             </span>
           </FilterBar>
         }
-        actions={
-          <div className="flex items-center gap-2">
-            <ToolbarActionButton
-              type="button"
-              icon={<Settings2 />}
-              label="Gestionar Terminales"
-              onClick={() => setOpenGestionarTerminales(true)}
-            />
-            {esEditor ? (
-              <ToolbarActionButton
-                type="button"
-                icon={<RefreshCw />}
-                label="Consultar"
-                loading={consultando}
-                onClick={() => void consultarCobros()}
-              />
-            ) : null}
-          </div>
-        }
       >
         <TablaFinVtasCobros filas={filas} />
       </ClassicFilteredTableLayout>
-      <GestionarTerminalesFinAnaCosFinaModal
-        open={openGestionarTerminales}
-        onOpenChange={setOpenGestionarTerminales}
-        terminalesIniciales={terminales}
-        marcas={marcas}
-        ptoVtas={ptoVtas}
-        esEditor={esEditor}
-        onCatalogoChanged={() => router.refresh()}
-      />
     </div>
   );
 }

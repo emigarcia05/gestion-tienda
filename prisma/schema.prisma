@@ -325,10 +325,9 @@ model GlobalPtoVta {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  sucursales              GlobalPtoVtaSucursal[]
-  factCobrosMes           FinFactCobrosPtoVtaMes[]
-  finAnaCosFinaTerminales FinAnaCosFinaTerminal[]
-  comprobantesVtas        ComprobanteVta[]
+  sucursales       GlobalPtoVtaSucursal[]
+  factCobrosMes    FinFactCobrosPtoVtaMes[]
+  comprobantesVtas ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
   @@map("ptos_vtas")
@@ -662,11 +661,9 @@ model FinFactCobrosPtoVtaMes {
 }
 
 /**
- * Líneas de cobranza DUX (`fin_vtas_cobros`).
- * Una fila por ítem de `cobranza` de GET `/v2/cobros`.
- * Unique `(id_cobro, linea)`: al reconsultar el último día se omiten repetidos.
- * `fecha` habilita la ventana incremental (última fecha persistida → hoy AR).
- * `id_sucursal` = `global_sucursales.id_dux` (Restrict).
+ * Líneas de cobranza persistidas (`fin_vtas_cobros`).
+ * Unique `(id_cobro, linea)`. `id_sucursal` = `global_sucursales.id_dux` (Restrict).
+ * Sin import DUX: listado por `fecha` en `/vtas-cobros/cobros`.
  */
 model FinVtasCobro {
   id            String   @id @default(cuid())
@@ -680,7 +677,6 @@ model FinVtasCobro {
   idPlanTarjeta BigInt?  @map("id_plan_tarjeta")
   idTerminal    BigInt?  @map("id_terminal")
   tipoValor     String   @map("tipo_valor") @db.VarChar(40)
-  /** Índice en el array `cobranza` del cobro DUX. */
   linea         Int      @default(0)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -1278,38 +1274,19 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de marcas de terminal (`nombre` único en MAYÚSCULAS). */
+/** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "fin_ana_cos_fina_terminales_marcas_nombre_key")
+  nombre    String   @unique(map: "cx_fin_cobro_marcas_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  filas       FinAnaCosFina[]
-  mcConfig    FinAnaMcConfig[]
-  terminales  FinAnaCosFinaTerminal[]
+  filas    FinAnaCosFina[]
+  mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "fin_ana_cos_fina_terminales_marcas_orden_idx")
-  @@map("fin_ana_cos_fina_terminales_marcas")
-}
-
-/**
- * Terminal DUX concreta: `id_dux` (carga el usuario) + marca + titular (`ptos_vtas`).
- */
-model FinAnaCosFinaTerminal {
-  id        String   @id @default(cuid())
-  idDux     String   @unique(map: "fin_ana_cos_fina_terminales_id_dux_key") @map("id_dux")
-  marcaId   String   @map("marca_id")
-  marca     FinAnaCosFinaTerminalMarca @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  titularId String   @map("titular_id")
-  titular   GlobalPtoVta @relation(fields: [titularId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([marcaId], map: "fin_ana_cos_fina_terminales_marca_idx")
-  @@index([titularId], map: "fin_ana_cos_fina_terminales_titular_idx")
-  @@map("fin_ana_cos_fina_terminales")
+  @@index([orden], map: "cx_fin_cobro_marcas_orden_idx")
+  @@map("cx_fin_cobro_marcas")
 }
 
 /** Catálogo de formas de pago (Análisis M.C.). */
@@ -1332,7 +1309,7 @@ model FinAnaCosFinaPagoCat {
 
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`fin_ana_cos_fina_terminales_marcas`).
+ * `terminal_id` = marca (`cx_fin_cobro_marcas`).
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())

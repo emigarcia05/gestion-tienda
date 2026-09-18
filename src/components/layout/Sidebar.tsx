@@ -278,7 +278,7 @@ const MARKETING_MODULES: NavModule[] = [
 const FACTURACION_MODULES: NavModule[] = [
   {
     id: "factura",
-    label: "FACTURA",
+    label: "COMPROBANTES",
     icon: <Receipt className={iconClass} />,
     submodules: [
       {
@@ -289,7 +289,7 @@ const FACTURACION_MODULES: NavModule[] = [
       },
       {
         href: FACTURACION_ROUTES.factura.facturas,
-        label: "Facturas",
+        label: "Lista Comprobantes",
         icon: <Files className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
