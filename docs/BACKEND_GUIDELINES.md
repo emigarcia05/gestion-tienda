@@ -122,7 +122,7 @@ Mapas cliente→servidor con claves FK: `z.record(prismaCuidSchema, …)` + tope
 ### 1.4 Arquitectura
 
 - **Servicios** (`src/services/`): Prisma / SQL / reglas. Las Actions los invocan; no al revés.
-- **Prisma / Neon:** `DATABASE_URL` = pooler (runtime `src/lib/prisma.ts`). Migraciones: `DIRECT_URL` (host sin `-pooler`) en `prisma.config.ts`.
+- **Prisma / Neon:** `DATABASE_URL` = pooler (runtime `src/lib/prisma.ts`). Migraciones: `DIRECT_URL` (host sin `-pooler`) en `prisma.config.ts`. **P3009** (migración fallida en `_prisma_migrations`): Prisma no aplica nada más hasta resolverla. No borrar carpetas de migraciones ya aplicadas. Si el SQL falló por un nombre de tabla intermedio, hacer la migración **idempotente**, `prisma migrate resolve --rolled-back <nombre>` y `prisma migrate deploy`. No editar migraciones que ya terminaron `finished_at`.
 - **URLs Gestión de Productos:** prefijo `/gestion-productos/...`. Mutaciones: revalidar la ruta canónica; se permiten rutas legacy (`/proveedores`, `/tienda`, `/stock`, `/pedidos/*`) mientras existan redirects.
 - **`stockeable`:** no hay columna en `prod_tienda`. Se deriva de `prod_tienda_stock.ctd_disponible` no nulo en los depósitos de Guaymallén y Maipú (`computeStockeableDesdeStocks` / `whereProdTiendaStockeable` en `prodTiendaStock.service.ts`). IDs canónicos: `global_sucursales.id_deposito`; el parser de sync usa `DUX_ID_STOCK_*` (deben coincidir).
 - **Vínculo tienda ↔ proveedor:** 100 % manual. Única relación vigente: `prod_precios_provee.cod_tienda`. Sync DUX **no** escribe `proveedor` ni auto-vincula. `prod_tienda.cod_ext` no existe.
@@ -325,7 +325,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 **IVA:** débito se lee de `fin_bal_iva_deb_import` (sin import TXT/CSV). Saldo manual y comparación pedido. Mutaciones editor (salvo alta de débito por archivo, eliminada). UI: FINANZAS → IMPUESTOS → Posición De IVA (`/finanzas/posicion-iva`).
 
-**Análisis M.C.:** `fin_ana_cos_fina` (matriz marca × pago: `terminal_id` → `cobros_terminales`) + fórmulas `fin_ana_mc_formulas` + categorías `fin_ana_mc_cat`. Signo descuento: `1 + %/100` (negativo = descuento). UI categorías: `reemplazarFinAnaMcCategoriasAction` (no CRUD granular). **Margen Contribución** UI `/finanzas/analisis-mc/margen-contribucion` (filtro TERMINAL = marca). **Cx. Fin. Cobros** UI canónica `/vtas-cobros/cx-fin-cobros` (alias `/finanzas/analisis-mc/costos-financieros`). **Marcas** `cobros_terminales` (ex `cobros_terminal_marca` / `cobros_cx_fin_marcas` / `cx_fin_cobro_marcas` / `fin_ana_cos_fina_terminales_marcas`; `nombre` unique; Prisma `FinAnaCosFinaTerminalMarca`). **Opciones de pago** `cobros_opciones_pago` (ex `cobros_forma_pago` / `fin_ana_cos_fina_pagos`; Prisma `FinAnaCosFinaPagoCat`). **Sin** tabla `fin_ana_cos_fina_terminales` ni UI de terminales DUX. Actions `finAnaCosFina.ts`: marcas revalidan la ruta canónica de Cx. Fin., el alias y Margen Contribución.
+**Análisis M.C.:** `fin_ana_cos_fina` (matriz marca × pago: `terminal_id` → `cobros_terminales`) + fórmulas `fin_ana_mc_formulas` + categorías `fin_ana_mc_cat`. Signo descuento: `1 + %/100` (negativo = descuento). UI categorías: `reemplazarFinAnaMcCategoriasAction` (no CRUD granular). **Margen Contribución** UI `/finanzas/analisis-mc/margen-contribucion` (filtro TERMINAL = marca). **Cx. Fin. Cobros** UI canónica `/vtas-cobros/cx-fin-cobros` (alias `/finanzas/analisis-mc/costos-financieros`). **Marcas** `cobros_terminales` (ex `cobros_terminal_marca` / `cobros_cx_fin_marcas` / `cx_fin_cobro_marcas` / `fin_ana_cos_fina_terminales_marcas`; `nombre` unique; Prisma `FinAnaCosFinaTerminalMarca`). **Opciones de pago** `cobros_opciones_pago` (ex `cobros_forma_pago` / `fin_ana_cos_fina_pagos`; Prisma `FinAnaCosFinaPagoCat`; `nombre` unique; **sin** `codigo`; bools `asociado_terminal` / `asociado_banco`). **Bancos** `cobros_bancos` (Prisma `CobrosBanco`). **Sin** tabla `fin_ana_cos_fina_terminales` ni UI de terminales DUX. Actions `finAnaCosFina.ts`: marcas revalidan la ruta canónica de Cx. Fin., el alias y Margen Contribución.
 
 ### 3.9 Estadísticas por producto
 
@@ -477,7 +477,7 @@ Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; C
 | `POST /api/sync-facturas-ventas-dux`, `duxRemitosVentaApi.ts`, `fin_fact_cobros_pto_vta_mes`, `fin_fact_cobros_items` | Catálogo `ptos_vtas` en Ptos. Vtas. (sin totales DUX) |
 | `fin_ana_cos_fina_terminales`, `FinAnaCosFinaTerminal`, `GestionarTerminalesFinAnaCosFinaModal` | Marcas en `cobros_terminales` |
 | `cx_fin_cobro_marcas`, `cobros_cx_fin_marcas`, `cobros_terminal_marca` | `cobros_terminales` |
-| `fin_ana_cos_fina_pagos`, `cobros_forma_pago` | `cobros_opciones_pago` |
+| `fin_ana_cos_fina_pagos`, `cobros_forma_pago` | `cobros_opciones_pago` (sin columna `codigo`) |
 
 **Deuda aceptada (no copiar en código nuevo):** Prisma / SQL inline en `tienda.ts`, `stock.ts`, `reposicion.ts`, `vinculos.ts`, `tiposPinturaRendimientos.ts`. Extraer a servicio si se toca en profundidad. Firmas tipadas (no `unknown`) en varios listados legacy (`comparacionCategorias`, `getPedidoUrgenteData`, etc.): al tocarlas, pasar a `unknown` + Zod.
 

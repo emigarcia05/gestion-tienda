@@ -527,7 +527,7 @@ export const MC_GRAFICO_PORC_UTILIDAD_MAX = 200;
 export const MC_GRAFICO_PORC_UTILIDAD_STEP = 5;
 
 /**
- * Resuelve la forma de pago **3 Cuotas** por nombre/código del catálogo
+ * Resuelve la forma de pago **3 Cuotas** por nombre del catálogo
  * (`cobros_opciones_pago`), sin hardcodear id.
  */
 export function idFormaPagoTresCuotasMargenContribucion(
@@ -536,15 +536,7 @@ export function idFormaPagoTresCuotasMargenContribucion(
   const candidatos = filtrarPagosMargenContribucion([...pagos]);
   const exacto = candidatos.find((p) => {
     const nombre = p.nombre.trim().toLocaleUpperCase("es");
-    const codigo = p.codigo.trim().toLocaleUpperCase("es");
-    return (
-      nombre === "3 CUOTAS" ||
-      nombre === "3 CUOTA" ||
-      codigo === "3_CUOTAS" ||
-      codigo === "CUOTAS_3" ||
-      codigo === "CUOTA_3" ||
-      codigo === "3_CUOTA"
-    );
+    return nombre === "3 CUOTAS" || nombre === "3 CUOTA";
   });
   if (exacto) return exacto.id;
   const aproximado = candidatos.find((p) => {

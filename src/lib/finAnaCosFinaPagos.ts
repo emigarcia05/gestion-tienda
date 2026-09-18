@@ -1,11 +1,12 @@
 /** Ítem del catálogo `cobros_opciones_pago`. */
 export type FinAnaCosFinaPagoItem = {
   id: string;
-  codigo: string;
   nombre: string;
   orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+  asociadoTerminal: boolean;
+  asociadoBanco: boolean;
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_opciones_pago`). */
@@ -36,15 +37,4 @@ export function buscarPagoPorId(
   id: string
 ): FinAnaCosFinaPagoItem | undefined {
   return pagos.find((p) => p.id === id);
-}
-
-export function codigoDesdeNombrePago(nombre: string): string {
-  const base = nombre
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase();
-  return base.length > 0 ? base.slice(0, 48) : "PAGO";
 }
