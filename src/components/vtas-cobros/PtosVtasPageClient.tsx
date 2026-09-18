@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ListOrdered, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarGlobalPtoVtaAction } from "@/actions/globalPtoVtas";
 import FilterBar, {
@@ -11,6 +11,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import GestionarGlobalPtoVtasModal from "@/components/finanzas/GestionarGlobalPtoVtasModal";
+import ReglasPtosVtasModal from "@/components/vtas-cobros/ReglasPtosVtasModal";
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
@@ -66,6 +67,7 @@ export default function PtosVtasPageClient({
       onDebouncedSearch: setQDebounced,
     });
   const [formOpen, setFormOpen] = useState(false);
+  const [reglasOpen, setReglasOpen] = useState(false);
   const [itemEditar, setItemEditar] = useState<GlobalPtoVtaItem | null>(null);
   const [itemBorrar, setItemBorrar] = useState<GlobalPtoVtaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -132,14 +134,22 @@ export default function PtosVtasPageClient({
         subtitle="Ptos. Vtas."
         contentWidth="full"
         actions={
-          esEditor ? (
+          <div className="flex items-center gap-2">
             <ToolbarActionButton
               type="button"
-              icon={<Plus />}
-              label="Crear Punto De Venta"
-              onClick={abrirCrear}
+              icon={<ListOrdered aria-hidden />}
+              label="Reglas Ptos. Vtas."
+              onClick={() => setReglasOpen(true)}
             />
-          ) : null
+            {esEditor ? (
+              <ToolbarActionButton
+                type="button"
+                icon={<Plus />}
+                label="Crear Punto De Venta"
+                onClick={abrirCrear}
+              />
+            ) : null}
+          </div>
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
@@ -277,6 +287,8 @@ export default function PtosVtasPageClient({
         esEditor={esEditor}
         onCatalogoChanged={() => router.refresh()}
       />
+
+      <ReglasPtosVtasModal open={reglasOpen} onOpenChange={setReglasOpen} />
 
       <Dialog
         open={Boolean(itemBorrar)}

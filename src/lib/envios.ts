@@ -342,6 +342,37 @@ export function etiquetaNombreProyecto(dir: EnviosDireccionItem): string {
   return n !== "" ? n : etiquetaDireccionEnvio(dir);
 }
 
+<<<<<<< HEAD
+=======
+/** Subtabla Lista Clientes: `NOMBRE - Dirección`. */
+export function etiquetaProyectoConDireccion(dir: EnviosDireccionItem): string {
+  const nombre = dir.nombreProyecto.trim();
+  const direccion = etiquetaDireccionEnvioListado(dir).replace(/\.+$/, "");
+  const direccionOk =
+    direccion !== "" && direccion !== "Proyecto" && direccion !== "Proyecto.";
+  if (nombre && direccionOk) return `${nombre} - ${direccion}`;
+  return nombre || (direccionOk ? direccion : "") || "Proyecto";
+}
+
+export function partesProyectoEnvioListado(dir: EnviosDireccionItem): {
+  nombre: string;
+  direccion: string;
+  referencia: string;
+} {
+  const nombre = dir.nombreProyecto.trim();
+  const direccionRaw = etiquetaDireccionEnvioListado(dir).replace(/\.+$/, "");
+  const direccion =
+    direccionRaw !== "" && direccionRaw !== "Proyecto" && direccionRaw !== "Proyecto."
+      ? direccionRaw
+      : "";
+  return {
+    nombre,
+    direccion,
+    referencia: dir.referencia.trim(),
+  };
+}
+
+>>>>>>> facturacion
 export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
   const nombre = dir.nombreProyecto.trim();
   const calleNum = [dir.calleNombre.trim(), dir.numeracion.trim()].filter((s) => s !== "").join(" ");

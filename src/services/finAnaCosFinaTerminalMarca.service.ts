@@ -34,7 +34,7 @@ function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
     if (code === "P2002") return "Ya existe una marca con ese nombre.";
-    if (code === "P2003") return "No se puede eliminar: hay terminales asociadas.";
+    if (code === "P2003") return "No se puede eliminar: hay registros asociados.";
     if (code === "P2025") return "Marca no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;

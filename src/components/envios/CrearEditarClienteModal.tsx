@@ -23,12 +23,12 @@ import {
   editarClienteAction,
   eliminarEnviosDireccionAction,
 } from "@/actions/envios";
+import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
-  formatearCuitMascara,
   CLIENTE_TIPO_LABELS,
   CLIENTE_TIPO_VALUES,
   etiquetaDireccionEnvio,
-  etiquetaDireccionEnvioFilaListado,
+  formatearCuitMascara,
   nombreCompletoCliente,
   normalizarCelCliente,
   normalizarNombreCliente,
@@ -517,15 +517,10 @@ export default function CrearEditarClienteModal({
                       <div
                         key={dir.id}
                         className={cn(
-                          "flex items-center gap-2 rounded-md border border-input px-3 py-1"
+                          "flex items-start gap-2 rounded-md border border-input px-3 py-1"
                         )}
                       >
-                        <span
-                          className="min-w-0 flex-1 line-clamp-2 break-words text-sm text-foreground"
-                          title={etiquetaDireccionEnvioFilaListado(dir)}
-                        >
-                          {etiquetaDireccionEnvioFilaListado(dir)}
-                        </span>
+                        <EnviosProyectoListadoLineas dir={dir} />
                         <div className="flex shrink-0 items-center gap-1">
                           <EnviosMapsLink url={dir.urlMaps} />
                           <Button

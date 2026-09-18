@@ -5,6 +5,7 @@ import { MapPin } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import CatalogoFinderEmpty from "@/components/shared/catalogo-finder/CatalogoFinderEmpty";
+import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import CatalogoFinderRow from "@/components/shared/catalogo-finder/CatalogoFinderRow";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -13,7 +14,7 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   etiquetaClienteListado,
   etiquetaDireccionEnvio,
-  etiquetaDireccionEnvioFilaListado,
+  etiquetaNombreProyecto,
   nombrePintorAsociadoCliente,
   partesNombreClienteListado,
   type ClienteItem,
@@ -185,8 +186,8 @@ export default function EnviosConductorDireccionesModal({
                   direccionesCliente.map((item) => (
                     <CatalogoFinderRow
                       key={item.id}
-                      nombre={etiquetaDireccionEnvioFilaListado(item)}
-                      nombreLineas={2}
+                      nombre={etiquetaNombreProyecto(item)}
+                      nombreContenido={<EnviosProyectoListadoLineas dir={item} />}
                       selected={item.id === direccionId}
                       onClick={() => handleSelectDireccion(item)}
                       mostrarAcciones={false}

@@ -124,6 +124,7 @@ export function FilterRowDateRange({
 /**
  * Clase global única para input y SelectTrigger de filtros (SSOT en globals.css).
  * Un cambio en .input-filtro-unificado se propaga a todos los filtros.
+ * El contorno azul (`--primary`) es la misma regla que `Input` / `SelectTrigger` (`--input`).
  */
 export const INPUT_FILTER_CLASS = "input-filtro-unificado";
 

@@ -1,4 +1,4 @@
-/** Catálogo `fin_ana_cos_fina_terminales_marcas`. */
+/** Catálogo `cx_fin_cobro_marcas`. */
 export type FinAnaCosFinaTerminalMarcaItem = {
   id: string;
   nombre: string;

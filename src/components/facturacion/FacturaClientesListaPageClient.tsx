@@ -2,7 +2,11 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+<<<<<<< HEAD
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+=======
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Users } from "lucide-react";
+>>>>>>> facturacion
 import { toast } from "sonner";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import FilterBar, {
@@ -12,6 +16,10 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
+<<<<<<< HEAD
+=======
+import FacturaClienteAsociadosDetalle from "@/components/facturacion/FacturaClienteAsociadosDetalle";
+>>>>>>> facturacion
 import FacturaClienteProyectosDetalle from "@/components/facturacion/FacturaClienteProyectosDetalle";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
@@ -81,7 +89,14 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
     debounceMs: 300,
     onDebouncedSearch: setQDebounced,
   });
+<<<<<<< HEAD
   const [expandedId, setExpandedId] = useState<string | null>(null);
+=======
+  const [expanded, setExpanded] = useState<{
+    id: string;
+    kind: "proyectos" | "asociados";
+  } | null>(null);
+>>>>>>> facturacion
   const [modalCliente, setModalCliente] = useState<ModalCliente>({ open: false });
   const [modalProyecto, setModalProyecto] = useState<ModalProyecto>({ open: false });
   const [modalEliminar, setModalEliminar] = useState<ModalEliminar>({ open: false });
@@ -110,7 +125,12 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
           etiquetaCondicionIvaCliente(item.condicionIva, condicionesIva),
           ...item.proyectos.map((p) => etiquetaNombreProyecto(p)),
         ],
+<<<<<<< HEAD
         qDebounced
+=======
+        qDebounced,
+        { numericAsContains: true }
+>>>>>>> facturacion
       )
     );
   }, [items, qDebounced, condicionesIva]);
@@ -133,8 +153,13 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         return;
       }
       toast.success(modalEliminar.kind === "cliente" ? "Cliente eliminado." : "Proyecto eliminado.");
+<<<<<<< HEAD
       if (modalEliminar.kind === "cliente" && expandedId === modalEliminar.id) {
         setExpandedId(null);
+=======
+      if (modalEliminar.kind === "cliente" && expanded?.id === modalEliminar.id) {
+        setExpanded(null);
+>>>>>>> facturacion
       }
       setModalEliminar({ open: false });
       router.refresh();
@@ -216,7 +241,20 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
               ) : (
                 itemsFiltrados.map((item) => {
                   const tieneVariosProyectos = item.proyectos.length > 1;
+<<<<<<< HEAD
                   const expandido = tieneVariosProyectos && expandedId === item.id;
+=======
+                  const esPintor = item.tipo === "PINTOR";
+                  const expandidoProyectos =
+                    tieneVariosProyectos &&
+                    expanded?.id === item.id &&
+                    expanded.kind === "proyectos";
+                  const expandidoAsociados =
+                    esPintor && expanded?.id === item.id && expanded.kind === "asociados";
+                  const asociados = esPintor
+                    ? items.filter((c) => c.pintorAsociadoId === item.id)
+                    : [];
+>>>>>>> facturacion
                   const nombre = etiquetaClienteListado(item);
                   return (
                     <Fragment key={item.id}>
@@ -241,12 +279,44 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                         </TableCell>
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                           <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+<<<<<<< HEAD
+=======
+                            {esPintor ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title={
+                                  expandidoAsociados
+                                    ? "Ocultar clientes asociados"
+                                    : "Ver clientes asociados"
+                                }
+                                aria-label={
+                                  expandidoAsociados
+                                    ? `Ocultar clientes asociados de ${nombre}`
+                                    : `Ver clientes asociados de ${nombre}`
+                                }
+                                aria-expanded={expandidoAsociados}
+                                onClick={() =>
+                                  setExpanded((prev) =>
+                                    prev?.id === item.id && prev.kind === "asociados"
+                                      ? null
+                                      : { id: item.id, kind: "asociados" }
+                                  )
+                                }
+                              >
+                                <Users className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                              </Button>
+                            ) : null}
+>>>>>>> facturacion
                             {tieneVariosProyectos ? (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+<<<<<<< HEAD
                                 title={expandido ? "Ocultar proyectos" : "Ver proyectos"}
                                 aria-label={
                                   expandido
@@ -259,6 +329,26 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                                 }
                               >
                                 {expandido ? (
+=======
+                                title={
+                                  expandidoProyectos ? "Ocultar proyectos" : "Ver proyectos"
+                                }
+                                aria-label={
+                                  expandidoProyectos
+                                    ? `Ocultar proyectos de ${nombre}`
+                                    : `Ver proyectos de ${nombre}`
+                                }
+                                aria-expanded={expandidoProyectos}
+                                onClick={() =>
+                                  setExpanded((prev) =>
+                                    prev?.id === item.id && prev.kind === "proyectos"
+                                      ? null
+                                      : { id: item.id, kind: "proyectos" }
+                                  )
+                                }
+                              >
+                                {expandidoProyectos ? (
+>>>>>>> facturacion
                                   <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                                 ) : (
                                   <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
@@ -299,7 +389,14 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                           </div>
                         </TableCell>
                       </TableRow>
+<<<<<<< HEAD
                       {expandido ? (
+=======
+                      {expandidoAsociados ? (
+                        <FacturaClienteAsociadosDetalle asociados={asociados} />
+                      ) : null}
+                      {expandidoProyectos ? (
+>>>>>>> facturacion
                         <FacturaClienteProyectosDetalle
                           proyectos={item.proyectos}
                           onEditar={(proyecto) =>

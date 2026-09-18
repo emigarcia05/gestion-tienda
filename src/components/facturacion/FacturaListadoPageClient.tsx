@@ -132,8 +132,8 @@ export default function FacturaListadoPageClient({
 
   return (
     <ClassicFilteredTableLayout
-      title="FACTURA"
-      subtitle={esFacturas ? "Facturas" : "Presupuestos"}
+      title="COMPROBANTES"
+      subtitle={esFacturas ? "Lista Comprobantes" : "Presupuestos"}
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">

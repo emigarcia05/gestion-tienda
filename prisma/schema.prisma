@@ -292,7 +292,6 @@ model Sucursal {
   stockTrasnDepositosOrigen  StockTrasnDeposito[] @relation("StockTrasnDepositoOrigen")
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
-  finVtasCobros              FinVtasCobro[]
   cajasTesoreria            CajaTesoreria[]
 
   @@map("global_sucursales")
@@ -325,10 +324,8 @@ model GlobalPtoVta {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  sucursales              GlobalPtoVtaSucursal[]
-  factCobrosMes           FinFactCobrosPtoVtaMes[]
-  finAnaCosFinaTerminales FinAnaCosFinaTerminal[]
-  comprobantesVtas        ComprobanteVta[]
+  sucursales       GlobalPtoVtaSucursal[]
+  comprobantesVtas ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
   @@map("ptos_vtas")
@@ -632,65 +629,6 @@ model FinBalVtas {
   @@index([sucursalId])
   @@index([anio, mes])
   @@map("fin_bal_vtas")
-}
-
-/**
- * Totales mensuales por punto de venta y letra de comprobante (`fin_fact_cobros_pto_vta_mes`).
- * FK a `ptos_vtas`. No guarda remitos individuales.
- * Recalculado al sincronizar el mes desde GET `/v2/remitos-venta`.
- * `monto_gravado` persiste la suma de `total_factura_asociada` por `(pto, letra)`.
- */
-model FinFactCobrosPtoVtaMes {
-  id           String   @id @default(cuid())
-  ptoVtaId     String   @map("pto_vta_id")
-  /** Mes calendario 1–12. */
-  mes          Int
-  anio         Int      @map("anio")
-  /** Letra del comprobante asociado (A, B, C, …). No usar `letra_comp` del remito. */
-  letra        String   @db.Char(1)
-  /** Suma de `total_factura_asociada` de remitos no anulados con esa letra. */
-  montoGravado Decimal  @map("monto_gravado") @db.Decimal(14, 4)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
-
-  @@unique([ptoVtaId, mes, anio, letra], map: "fin_fact_cobros_pto_vta_mes_ux")
-  @@index([anio, mes], map: "fin_fact_cobros_pto_vta_mes_anio_mes_idx")
-  @@index([ptoVtaId], map: "fin_fact_cobros_pto_vta_mes_pto_vta_idx")
-  @@map("fin_fact_cobros_pto_vta_mes")
-}
-
-/**
- * Líneas de cobranza DUX (`fin_vtas_cobros`).
- * Una fila por ítem de `cobranza` de GET `/v2/cobros`.
- * Unique `(id_cobro, linea)`: al reconsultar el último día se omiten repetidos.
- * `fecha` habilita la ventana incremental (última fecha persistida → hoy AR).
- * `id_sucursal` = `global_sucursales.id_dux` (Restrict).
- */
-model FinVtasCobro {
-  id            String   @id @default(cuid())
-  idCobro       BigInt   @map("id_cobro")
-  /** `global_sucursales.id_dux` (ID sucursal DUX). */
-  idSucursal    String   @map("id_sucursal")
-  fecha         DateTime @map("fecha") @db.Date
-  descripcion   String   @default("") @db.VarChar(500)
-  monto         Decimal  @db.Decimal(14, 2)
-  idTarjeta     BigInt?  @map("id_tarjeta")
-  idPlanTarjeta BigInt?  @map("id_plan_tarjeta")
-  idTerminal    BigInt?  @map("id_terminal")
-  tipoValor     String   @map("tipo_valor") @db.VarChar(40)
-  /** Índice en el array `cobranza` del cobro DUX. */
-  linea         Int      @default(0)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  sucursal Sucursal @relation(fields: [idSucursal], references: [idDux], onDelete: Restrict, onUpdate: Cascade)
-
-  @@unique([idCobro, linea], map: "fin_vtas_cobros_ux")
-  @@index([fecha], map: "fin_vtas_cobros_fecha_idx")
-  @@index([idSucursal], map: "fin_vtas_cobros_id_sucursal_idx")
-  @@map("fin_vtas_cobros")
 }
 
 /**
@@ -1278,38 +1216,19 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de marcas de terminal (`nombre` único en MAYÚSCULAS). */
+/** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "fin_ana_cos_fina_terminales_marcas_nombre_key")
+  nombre    String   @unique(map: "cx_fin_cobro_marcas_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  filas       FinAnaCosFina[]
-  mcConfig    FinAnaMcConfig[]
-  terminales  FinAnaCosFinaTerminal[]
+  filas    FinAnaCosFina[]
+  mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "fin_ana_cos_fina_terminales_marcas_orden_idx")
-  @@map("fin_ana_cos_fina_terminales_marcas")
-}
-
-/**
- * Terminal DUX concreta: `id_dux` (carga el usuario) + marca + titular (`ptos_vtas`).
- */
-model FinAnaCosFinaTerminal {
-  id        String   @id @default(cuid())
-  idDux     String   @unique(map: "fin_ana_cos_fina_terminales_id_dux_key") @map("id_dux")
-  marcaId   String   @map("marca_id")
-  marca     FinAnaCosFinaTerminalMarca @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  titularId String   @map("titular_id")
-  titular   GlobalPtoVta @relation(fields: [titularId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([marcaId], map: "fin_ana_cos_fina_terminales_marca_idx")
-  @@index([titularId], map: "fin_ana_cos_fina_terminales_titular_idx")
-  @@map("fin_ana_cos_fina_terminales")
+  @@index([orden], map: "cx_fin_cobro_marcas_orden_idx")
+  @@map("cx_fin_cobro_marcas")
 }
 
 /** Catálogo de formas de pago (Análisis M.C.). */
@@ -1332,7 +1251,7 @@ model FinAnaCosFinaPagoCat {
 
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`fin_ana_cos_fina_terminales_marcas`).
+ * `terminal_id` = marca (`cx_fin_cobro_marcas`).
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
@@ -1741,6 +1660,7 @@ model EnviosDireccion {
 
   persona Cliente @relation(fields: [personaId], references: [id], onDelete: Restrict)
   envios  EnviosFinal[]
+  comprobantesVtas ComprobanteVta[]
 
   @@index([personaId], map: "clientes_proyectos_persona_id_idx")
   @@index([nombreProyecto], map: "clientes_proyectos_nombre_proyecto_idx")
@@ -1833,6 +1753,7 @@ model SyncDuxStatus {
 /**
  * Cabecera de comprobantes de venta (`comprobantes_vtas`).
  * Receptor fiscal: **snapshot** en la fila (`receptor_*`) + FK opcional `cliente_id` → `clientes`.
+ * Proyecto: FK opcional `proyecto_id` → `clientes_proyectos` (solo si hay dato; exige `cliente_id`).
  * CAE solo si `tipo_local` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
  * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
  */
@@ -1853,6 +1774,8 @@ model ComprobanteVta {
 
   /** Catálogo `clientes` (opcional). El snapshot `receptor_*` sigue siendo la fuente fiscal del comprobante. */
   clienteId            String? @map("cliente_id")
+  /** Catálogo `clientes_proyectos` (opcional). Null si no hay proyecto o es CF sin catálogo. */
+  proyectoId           String? @map("proyecto_id")
   receptorNombre       String  @map("receptor_nombre")
   receptorDocTipo      Int?    @map("receptor_doc_tipo")
   receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
@@ -1893,6 +1816,7 @@ model ComprobanteVta {
 
   ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
@@ -1903,6 +1827,7 @@ model ComprobanteVta {
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
   @@index([cae], map: "comprobantes_vtas_cae_idx")
   @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")
+  @@index([proyectoId], map: "comprobantes_vtas_proyecto_id_idx")
   @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
   @@map("comprobantes_vtas")

@@ -44,6 +44,7 @@ export default function CatalogoFinderRow({
   eliminarSiempreVisible = false,
   accionesSiempreVisibles = false,
   nombreLineas = 1,
+  nombreContenido,
 }: {
   nombre: string;
   meta?: string;
@@ -76,6 +77,8 @@ export default function CatalogoFinderRow({
   accionesSiempreVisibles?: boolean;
   /** `2` permite hasta dos renglones (Envios · DIRECCIÓN). Default: una línea con ellipsis. */
   nombreLineas?: 1 | 2;
+  /** Sustituye el texto de `nombre` (Envios · proyecto: 3 líneas). */
+  nombreContenido?: ReactNode;
 }) {
   const isClickable = typeof onClick === "function";
   const gastoFinalComentarios = gastoFinalDetalle?.comentarios?.trim() ?? "";
@@ -84,7 +87,8 @@ export default function CatalogoFinderRow({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-2 border-b px-3 py-2 text-sm transition-colors",
+        "group relative flex gap-2 border-b px-3 py-2 text-sm transition-colors",
+        nombreContenido ? "items-start" : "items-center",
         isClickable && CATALOGO_FINDER_ROW_INTERACTIVE_CLASS,
         !isClickable && "cursor-default",
         selected && CATALOGO_FINDER_ROW_SELECTED_CLASS
@@ -170,27 +174,31 @@ export default function CatalogoFinderRow({
                   {iconoIzquierda}
                 </div>
               ) : null}
-              <div
-                className={cn(
-                  "min-w-0 font-medium",
-                  nombreLineas === 2 ? "line-clamp-2 break-words leading-snug" : "truncate",
-                  nombreCentrado && !etiquetaIzquierda ? "w-full text-center" : "flex-1",
-                  nombreCentrado && nombreAccion && !etiquetaIzquierda ? "px-16" : null
-                )}
-                title={
-                  [
-                    etiquetaIzquierda,
-                    nombreSufijo ? `${nombre} - ${nombreSufijo}` : nombre,
-                  ]
-                    .filter((s): s is string => Boolean(s))
-                    .join(" ")
-                }
-              >
-                {nombre}
-                {nombreSufijo ? (
-                  <span className="font-normal text-[0.75em]"> - {nombreSufijo}</span>
-                ) : null}
-              </div>
+              {nombreContenido ? (
+                <div className="min-w-0 flex-1">{nombreContenido}</div>
+              ) : (
+                <div
+                  className={cn(
+                    "min-w-0 font-medium",
+                    nombreLineas === 2 ? "line-clamp-2 break-words leading-snug" : "truncate",
+                    nombreCentrado && !etiquetaIzquierda ? "w-full text-center" : "flex-1",
+                    nombreCentrado && nombreAccion && !etiquetaIzquierda ? "px-16" : null
+                  )}
+                  title={
+                    [
+                      etiquetaIzquierda,
+                      nombreSufijo ? `${nombre} - ${nombreSufijo}` : nombre,
+                    ]
+                      .filter((s): s is string => Boolean(s))
+                      .join(" ")
+                  }
+                >
+                  {nombre}
+                  {nombreSufijo ? (
+                    <span className="font-normal text-[0.75em]"> - {nombreSufijo}</span>
+                  ) : null}
+                </div>
+              )}
               {nombreAccion && !accionJuntoAEliminar ? (
                 <div
                   className={cn("shrink-0", nombreCentrado && "absolute right-0 top-1/2 -translate-y-1/2")}

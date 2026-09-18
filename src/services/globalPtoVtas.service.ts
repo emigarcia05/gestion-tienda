@@ -219,22 +219,13 @@ export async function eliminarGlobalPtoVta(
   id: string
 ): Promise<ServiceResult<{ id: string }>> {
   try {
-    const usados = await prisma.finFactCobrosPtoVtaMes.count({
+    const usados = await prisma.comprobanteVta.count({
       where: { ptoVtaId: id },
     });
     if (usados > 0) {
       return {
         success: false,
-        error: "No se puede eliminar: hay totales de Fact & Cobros.",
-      };
-    }
-    const terminales = await prisma.finAnaCosFinaTerminal.count({
-      where: { titularId: id },
-    });
-    if (terminales > 0) {
-      return {
-        success: false,
-        error: "No se puede eliminar: hay terminales asociadas.",
+        error: "No se puede eliminar: hay comprobantes asociados.",
       };
     }
     await prisma.globalPtoVta.delete({ where: { id } });

@@ -5,7 +5,7 @@ import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import type { FacturaEmitirResultado } from "@/lib/factura";
-import type { ClienteItem } from "@/lib/envios";
+import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
@@ -28,7 +28,7 @@ function revalidateFacturacion(): void {
 
 export async function buscarClientesFacturaAction(
   raw: unknown
-): Promise<ActionResult<{ items: ClienteItem[] }>> {
+): Promise<ActionResult<{ items: ClienteListaItem[] }>> {
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
