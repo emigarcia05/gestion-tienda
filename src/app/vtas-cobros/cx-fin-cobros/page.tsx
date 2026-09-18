@@ -6,6 +6,7 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import { listarFinAnaCosFina } from "@/services/finAnaCosFina.service";
 import { listarFinAnaCosFinaTerminalesMarcas } from "@/services/finAnaCosFinaTerminalMarca.service";
 import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
+import { listarCobrosBancos } from "@/services/cobrosBancos.service";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,11 @@ export default async function VtasCobrosCxFinCobrosPage() {
   }
 
   const esEditor = rol === "editor";
-  const [filas, marcas, pagos] = await Promise.all([
+  const [filas, marcas, pagos, bancos] = await Promise.all([
     listarFinAnaCosFina(),
     listarFinAnaCosFinaTerminalesMarcas(),
     listarFinAnaCosFinaPagos(),
+    listarCobrosBancos(),
   ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function VtasCobrosCxFinCobrosPage() {
       filas={filas}
       marcas={marcas}
       pagos={pagos}
+      bancos={bancos}
       esEditor={esEditor}
     />
   );

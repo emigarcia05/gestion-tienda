@@ -1,14 +1,15 @@
-/** Ítem del catálogo `fin_ana_cos_fina_pagos`. */
+/** Ítem del catálogo `cobros_forma_pago`. */
 export type FinAnaCosFinaPagoItem = {
   id: string;
-  codigo: string;
   nombre: string;
   orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+  asociadoTerminal: boolean;
+  asociadoBanco: boolean;
 };
 
-/** Id de forma de pago en simuladores (FK `fin_ana_cos_fina_pagos`). */
+/** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */
 export type FormaPagoMargenContribucion = string;
 
 export function filtrarPagosMargenContribucion(
@@ -38,13 +39,9 @@ export function buscarPagoPorId(
   return pagos.find((p) => p.id === id);
 }
 
-export function codigoDesdeNombrePago(nombre: string): string {
-  const base = nombre
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[^A-Za-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toUpperCase();
-  return base.length > 0 ? base.slice(0, 48) : "PAGO";
+export function etiquetaAsociacionPago(item: FinAnaCosFinaPagoItem): string {
+  const partes: string[] = [];
+  if (item.asociadoTerminal) partes.push("TERMINAL");
+  if (item.asociadoBanco) partes.push("BANCO");
+  return partes.join(" · ");
 }

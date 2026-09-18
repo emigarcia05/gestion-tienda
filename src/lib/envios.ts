@@ -342,8 +342,6 @@ export function etiquetaNombreProyecto(dir: EnviosDireccionItem): string {
   return n !== "" ? n : etiquetaDireccionEnvio(dir);
 }
 
-<<<<<<< HEAD
-=======
 /** Subtabla Lista Clientes: `NOMBRE - Dirección`. */
 export function etiquetaProyectoConDireccion(dir: EnviosDireccionItem): string {
   const nombre = dir.nombreProyecto.trim();
@@ -372,7 +370,6 @@ export function partesProyectoEnvioListado(dir: EnviosDireccionItem): {
   };
 }
 
->>>>>>> facturacion
 export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
   const nombre = dir.nombreProyecto.trim();
   const calleNum = [dir.calleNombre.trim(), dir.numeracion.trim()].filter((s) => s !== "").join(" ");

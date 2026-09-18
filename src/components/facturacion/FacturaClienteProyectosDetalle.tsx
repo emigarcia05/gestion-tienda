@@ -1,10 +1,6 @@
 "use client";
 
-<<<<<<< HEAD
-import { Plus, Trash2 } from "lucide-react";
-=======
 import { Pencil, Plus, Trash2 } from "lucide-react";
->>>>>>> facturacion
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import {
@@ -12,15 +8,11 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-<<<<<<< HEAD
-import { etiquetaNombreProyecto, type EnviosDireccionItem } from "@/lib/envios";
-=======
 import {
   etiquetaProyectoConDireccion,
   partesProyectoEnvioListado,
   type EnviosDireccionItem,
 } from "@/lib/envios";
->>>>>>> facturacion
 import { cn } from "@/lib/utils";
 
 const SUBFILA_DETALLE_CLASS = "tabla-fila-detalle-competencia";
@@ -40,12 +32,6 @@ export default function FacturaClienteProyectosDetalle({
   onEliminar,
   onCrear,
 }: Props) {
-<<<<<<< HEAD
-  return (
-    <>
-      {proyectos.map((proyecto) => {
-        const nombre = etiquetaNombreProyecto(proyecto);
-=======
   const nombreColCh = Math.max(
     1,
     ...proyectos.map((p) => Math.max(partesProyectoEnvioListado(p).nombre.length, 1))
@@ -58,7 +44,6 @@ export default function FacturaClienteProyectosDetalle({
         const etiqueta = etiquetaProyectoConDireccion(proyecto);
         const nombre = partes.nombre || "—";
         const direccion = partes.direccion;
->>>>>>> facturacion
         return (
           <TableRow
             key={proyecto.id}
@@ -69,16 +54,6 @@ export default function FacturaClienteProyectosDetalle({
               colSpan={5}
               className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}
             >
-<<<<<<< HEAD
-              <button
-                type="button"
-                className="block w-full truncate text-left text-xs text-foreground"
-                title={nombre}
-                onClick={() => onEditar(proyecto)}
-              >
-                {nombre}
-              </button>
-=======
               <div
                 className="flex min-w-0 items-baseline gap-1.5 text-xs text-foreground"
                 title={etiqueta}
@@ -100,7 +75,6 @@ export default function FacturaClienteProyectosDetalle({
                   </>
                 ) : null}
               </div>
->>>>>>> facturacion
             </TableCell>
             <TableCell
               className={cn(
@@ -114,10 +88,6 @@ export default function FacturaClienteProyectosDetalle({
                   variant="ghost"
                   size="icon"
                   className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-<<<<<<< HEAD
-                  title="Eliminar"
-                  aria-label={`Eliminar ${nombre}`}
-=======
                   title="Editar"
                   aria-label={`Editar ${etiqueta}`}
                   onClick={() => onEditar(proyecto)}
@@ -131,7 +101,6 @@ export default function FacturaClienteProyectosDetalle({
                   className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                   title="Eliminar"
                   aria-label={`Eliminar ${etiqueta}`}
->>>>>>> facturacion
                   onClick={() => onEliminar(proyecto)}
                 >
                   <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
@@ -150,17 +119,7 @@ export default function FacturaClienteProyectosDetalle({
       >
         <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
         <TableCell colSpan={5} className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}>
-<<<<<<< HEAD
-          <button
-            type="button"
-            className="text-left text-xs font-medium text-foreground"
-            onClick={onCrear}
-          >
-            CREAR PROYECTO
-          </button>
-=======
           <span className="text-xs font-medium text-foreground">CREAR PROYECTO</span>
->>>>>>> facturacion
         </TableCell>
         <TableCell
           className={cn(

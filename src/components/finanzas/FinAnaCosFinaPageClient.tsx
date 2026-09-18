@@ -7,6 +7,7 @@ import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTable
 import TablaFinAnaCosFina, { type FinAnaCosFinaFila } from "@/components/finanzas/TablaFinAnaCosFina";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPagosFinAnaCosFinaModal";
+import GestionarBancosCobrosModal from "@/components/finanzas/GestionarBancosCobrosModal";
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -28,11 +29,13 @@ import {
 import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { CobrosBancoItem } from "@/lib/cobrosBancos";
 
 interface Props {
   filas: FinAnaCosFinaFila[];
   marcas: FinAnaCosFinaTerminalMarcaItem[];
   pagos: FinAnaCosFinaPagoItem[];
+  bancos: CobrosBancoItem[];
   esEditor: boolean;
 }
 
@@ -44,6 +47,7 @@ export default function FinAnaCosFinaPageClient({
   filas,
   marcas,
   pagos,
+  bancos,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -54,6 +58,7 @@ export default function FinAnaCosFinaPageClient({
   const [filtroHabilitado, setFiltroHabilitado] = useState("");
   const [openGestionarMarcas, setOpenGestionarMarcas] = useState(false);
   const [openGestionarPagos, setOpenGestionarPagos] = useState(false);
+  const [openGestionarBancos, setOpenGestionarBancos] = useState(false);
   const [openCalculoCxTotal, setOpenCalculoCxTotal] = useState(false);
 
   const filasState = useMemo(
@@ -93,6 +98,10 @@ export default function FinAnaCosFinaPageClient({
     router.refresh();
   }
 
+  function handleCatalogoBancosChanged() {
+    router.refresh();
+  }
+
   return (
     <>
       <ClassicFilteredTableLayout
@@ -115,6 +124,14 @@ export default function FinAnaCosFinaPageClient({
             >
               <Settings2 className="size-4 shrink-0" aria-hidden />
               Gestionar Pagos
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setOpenGestionarBancos(true)}
+              className="h-10 gap-2 px-4"
+            >
+              <Settings2 className="size-4 shrink-0" aria-hidden />
+              Gestionar Bancos
             </Button>
             <Button
               type="button"
@@ -227,6 +244,14 @@ export default function FinAnaCosFinaPageClient({
         pagosIniciales={pagos}
         esEditor={esEditor}
         onCatalogoChanged={handleCatalogoPagosChanged}
+      />
+
+      <GestionarBancosCobrosModal
+        open={openGestionarBancos}
+        onOpenChange={setOpenGestionarBancos}
+        bancosIniciales={bancos}
+        esEditor={esEditor}
+        onCatalogoChanged={handleCatalogoBancosChanged}
       />
 
       <GestionarMarcasFinAnaCosFinaModal

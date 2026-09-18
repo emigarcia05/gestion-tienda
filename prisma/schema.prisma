@@ -1219,7 +1219,7 @@ model ProdPedUltComp {
 /** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cx_fin_cobro_marcas_nombre_key")
+  nombre    String   @unique(map: "cobros_cx_fin_marcas_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1227,31 +1227,44 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "cx_fin_cobro_marcas_orden_idx")
-  @@map("cx_fin_cobro_marcas")
+  @@index([orden], map: "cobros_cx_fin_marcas_orden_idx")
+  @@map("cobros_cx_fin_marcas")
 }
 
-/** Catálogo de formas de pago (Análisis M.C.). */
+/** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
-  codigo               String   @unique
-  nombre               String   @unique
+  nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   orden                Int      @default(0)
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
+  asociadoTerminal     Boolean  @default(false) @map("asociado_terminal")
+  asociadoBanco        Boolean  @default(false) @map("asociado_banco")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
 
-  @@index([orden], map: "fin_ana_cos_fina_pagos_orden_idx")
-  @@map("fin_ana_cos_fina_pagos")
+  @@index([orden], map: "cobros_forma_pago_orden_idx")
+  @@map("cobros_forma_pago")
+}
+
+/** Catálogo de bancos Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
+model CobrosBanco {
+  id        String   @id @default(cuid())
+  nombre    String   @unique(map: "cobros_bancos_nombre_key")
+  orden     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([orden], map: "cobros_bancos_orden_idx")
+  @@map("cobros_bancos")
 }
 
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`cx_fin_cobro_marcas`).
+ * `terminal_id` = marca (`cobros_cx_fin_marcas`).
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
