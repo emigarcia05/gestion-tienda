@@ -9,6 +9,7 @@ import {
 } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
+import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
 import FacturaCrearLineasBlock, {
   type FacturaRemitoSnapshot,
 } from "@/components/facturacion/FacturaCrearLineasBlock";
@@ -36,6 +37,7 @@ import {
   FACTURA_CONDICIONES_FISCALES,
   FACTURA_CONDICION_FISCAL_LABELS,
   FACTURA_TIPO_DEFAULT,
+  MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO,
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   esFacturaTipoNotaCredito,
@@ -83,6 +85,14 @@ import {
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
 
+const CABECERA_EDITOR_FILA1_CLASS =
+  "grid w-full min-w-0 grid-cols-[10.5rem_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-end gap-3";
+
+const CABECERA_EDITOR_FILA2_CLASS =
+  "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
+
+const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
+
 /** Saldo en typeahead de clientes: pendiente de implementar. */
 const CLIENTE_SALDO_PLACEHOLDER = "";
 
@@ -125,13 +135,14 @@ export default function FacturaCrearPageClient({
   const [clienteQActual, setClienteQActual] = useState(
     FACTURA_CLIENTE_CONSUMIDOR_FINAL
   );
-  const [nroComprobante, setNroComprobante] = useState("");
+  const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [ptoVtaId, setPtoVtaId] = useState(ptoVtas[0]?.id ?? "");
+  const [ptoVtaId] = useState(ptoVtas[0]?.id ?? "");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
+  const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
@@ -384,6 +395,16 @@ export default function FacturaCrearPageClient({
         condicionesIva={condicionesIva}
         onSuccess={aplicarClienteSeleccionado}
       />
+      <CrearEditarEnviosDireccionModal
+        open={crearProyectoOpen}
+        onOpenChange={setCrearProyectoOpen}
+        modo="crear"
+        personaId={clienteId ?? ""}
+        onSuccess={(proyecto) => {
+          setClienteProyectos((prev) => [...prev, proyecto]);
+          setProyectoId(proyecto.id);
+        }}
+      />
       <FacturaLineaComentarioModal
         key={comentarioCabeceraOpen ? "cabecera-comentario-open" : "cabecera-comentario-closed"}
         open={comentarioCabeceraOpen}
@@ -422,60 +443,8 @@ export default function FacturaCrearPageClient({
             </div>
           ) : (
           <div className="flex flex-col gap-3">
-          <div className="flex min-w-0 items-end gap-3">
-            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
-              <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
-              <Select
-                value={claseActual}
-                onValueChange={(value) => {
-                  if (
-                    value === "presupuesto" ||
-                    value === "venta" ||
-                    value === "nota_credito"
-                  ) {
-                    aplicarClase(value);
-                  }
-                }}
-              >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FACTURA_CLASES.map((id) => (
-                    <SelectItem key={id} value={id}>
-                      {FACTURA_CLASE_LABELS[id]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-
-            {mostrarFiscal ? (
-              <label className="flex min-w-0 flex-[1] flex-col gap-1">
-                <ModalMicroLabel>CONDICIÓN FISCAL</ModalMicroLabel>
-                <Select
-                  value={fiscalActual ?? "no_fiscal"}
-                  onValueChange={(value) => {
-                    if (value === "fiscal" || value === "no_fiscal") {
-                      aplicarFiscal(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FACTURA_CONDICIONES_FISCALES.map((id) => (
-                      <SelectItem key={id} value={id}>
-                        {FACTURA_CONDICION_FISCAL_LABELS[id]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            ) : null}
-
-            <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
+          <div className={CABECERA_EDITOR_FILA1_CLASS}>
+            <label className={cn(CABECERA_EDITOR_SLOT_CLASS, "w-full")}>
               <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
                 <Input
@@ -515,11 +484,67 @@ export default function FacturaCrearPageClient({
               />
             </label>
 
+            <label className={CABECERA_EDITOR_SLOT_CLASS}>
+              <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
+              <Select
+                value={claseActual}
+                onValueChange={(value) => {
+                  if (
+                    value === "presupuesto" ||
+                    value === "venta" ||
+                    value === "nota_credito"
+                  ) {
+                    aplicarClase(value);
+                  }
+                }}
+              >
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FACTURA_CLASES.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {FACTURA_CLASE_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <div
+              className={cn(!mostrarFiscal && "invisible pointer-events-none")}
+              aria-hidden={!mostrarFiscal}
+              inert={mostrarFiscal ? undefined : true}
+            >
+              <label className={CABECERA_EDITOR_SLOT_CLASS}>
+                <ModalMicroLabel>CONDICIÓN FISCAL</ModalMicroLabel>
+                <Select
+                  value={fiscalActual ?? "no_fiscal"}
+                  onValueChange={(value) => {
+                    if (value === "fiscal" || value === "no_fiscal") {
+                      aplicarFiscal(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FACTURA_CONDICIONES_FISCALES.map((id) => (
+                      <SelectItem key={id} value={id}>
+                        {FACTURA_CONDICION_FISCAL_LABELS[id]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+
             {botonComentariosCabecera}
           </div>
 
-          <div className="flex min-w-0 items-end gap-3">
-            <label className="flex min-w-0 flex-[1.35] flex-col gap-1">
+          <div className={CABECERA_EDITOR_FILA2_CLASS}>
+            <label className={CABECERA_EDITOR_SLOT_CLASS}>
               <ModalMicroLabel>CLIENTE</ModalMicroLabel>
               <div
                 ref={clienteWrapRef}
@@ -622,7 +647,10 @@ export default function FacturaCrearPageClient({
                   variant="primaryIcon"
                   size="icon-lg"
                   className="filtro-individual-clear-btn"
-                  onClick={() => setCrearClienteOpen(true)}
+                  onClick={() => {
+                    setCrearProyectoOpen(false);
+                    setCrearClienteOpen(true);
+                  }}
                   aria-label="Crear cliente"
                   title="Crear cliente"
                 >
@@ -731,55 +759,61 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
-            {mostrarProyecto ? (
-              <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
+            <div
+              className={cn(!mostrarProyecto && "invisible pointer-events-none")}
+              aria-hidden={!mostrarProyecto}
+              inert={mostrarProyecto ? undefined : true}
+            >
+              <label className={CABECERA_EDITOR_SLOT_CLASS}>
                 <ModalMicroLabel>PROYECTO CLIENTE</ModalMicroLabel>
-                <Select
-                  value={proyectoId ?? "none"}
-                  onValueChange={(value) => {
-                    setProyectoId(value === "none" ? null : value);
-                  }}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="PROYECTO" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">PROYECTO</SelectItem>
-                    {clienteProyectos.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {etiquetaNombreProyecto(p)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="filtro-individual-container relative w-full">
+                  <Select
+                    value={proyectoId ?? "none"}
+                    onValueChange={(value) => {
+                      setProyectoId(value === "none" ? null : value);
+                    }}
+                  >
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="PROYECTO" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">PROYECTO</SelectItem>
+                      {clienteProyectos.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {etiquetaNombreProyecto(p)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="primaryIcon"
+                    size="icon-lg"
+                    className="filtro-individual-clear-btn"
+                    onClick={() => {
+                      if (!clienteId) {
+                        toast.error(MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO);
+                        return;
+                      }
+                      setCrearClienteOpen(false);
+                      setCrearProyectoOpen(true);
+                    }}
+                    aria-label="Crear proyecto"
+                    title="Crear proyecto"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden />
+                  </Button>
+                </div>
               </label>
-            ) : null}
-          </div>
+            </div>
 
-          <div className="flex min-w-0 items-end gap-3">
-            <label className="flex min-w-0 flex-[1.1] flex-col gap-1">
-              <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
-              <Select value={ptoVtaId} onValueChange={setPtoVtaId}>
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="Punto de venta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ptoVtas.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.ptoVenta} — {p.nombreTitular}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-
-            <div className="flex w-[9rem] shrink-0 flex-col gap-1">
-              <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
+            <div className={CABECERA_EDITOR_SLOT_CLASS}>
+              <ModalMicroLabel>SALDO</ModalMicroLabel>
               <p
-                className="flex h-9 items-center truncate text-sm tabular-nums text-muted-foreground"
-                aria-label="Número de comprobante (solo lectura)"
+                className="flex h-9 items-center truncate text-sm tabular-nums text-foreground"
+                aria-label="Saldo del cliente"
               >
-                {nroComprobante}
+                {CLIENTE_SALDO_PLACEHOLDER}
               </p>
             </div>
           </div>
