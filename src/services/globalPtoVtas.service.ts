@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
+import { normalizarNombreTitularCaja } from "@/lib/cajasTesoreriaTitulares";
 import type {
   GlobalPtoVtaItem,
   GlobalPtoVtaSucursalOption,
@@ -31,7 +32,7 @@ function mapRow(row: PtoVtaRow): GlobalPtoVtaItem {
   return {
     id: row.id,
     ptoVenta: row.ptoVenta,
-    nombreTitular: row.nombreTitular.toLocaleUpperCase("es-AR"),
+    titular: row.titular.toLocaleUpperCase("es-AR"),
     cuit: row.cuit,
     iiBb: row.iiBb,
     iiBbMultilateral: row.iiBbMultilateral,
@@ -51,14 +52,10 @@ function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
     if (code === "P2002") return "Ya existe un punto de venta con ese número.";
-    if (code === "P2003") return "Hay sucursales o condición IVA inválidas.";
+    if (code === "P2003") return "Hay sucursales, condición IVA o titular inválidos.";
     if (code === "P2025") return "El punto de venta no existe.";
   }
   return error instanceof Error ? error.message : fallback;
-}
-
-function normalizarNombre(nombre: string): string {
-  return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
 }
 
 function datosFiscalesDesdeInput(
@@ -115,6 +112,21 @@ async function validarCondicionIva(
   return { success: true, data: undefined };
 }
 
+async function validarTitularCatalogo(nombre: string): Promise<ServiceResult<string>> {
+  const norm = normalizarNombreTitularCaja(nombre);
+  if (!norm) {
+    return { success: false, error: "Seleccioná un titular válido." };
+  }
+  const row = await prisma.tesoreriaTitular.findUnique({
+    where: { nombre: norm },
+    select: { nombre: true },
+  });
+  if (!row) {
+    return { success: false, error: "Seleccioná un titular válido." };
+  }
+  return { success: true, data: row.nombre };
+}
+
 /** Catálogo ARCA de condiciones frente al IVA (para el Select de pto. vta.). */
 export async function listarPtoVentasCodArca(): Promise<PtoVentasCodArcaItem[]> {
   const rows = await prisma.ptoVentasCodArca.findMany({
@@ -155,11 +167,13 @@ export async function crearGlobalPtoVta(
   if (!sucursalesOk.success) return sucursalesOk;
   const condicionOk = await validarCondicionIva(input.condicionIva);
   if (!condicionOk.success) return condicionOk;
+  const titularOk = await validarTitularCatalogo(input.titular);
+  if (!titularOk.success) return titularOk;
   try {
     const row = await prisma.globalPtoVta.create({
       data: {
         ptoVenta: input.ptoVenta,
-        nombreTitular: normalizarNombre(input.nombreTitular),
+        titular: titularOk.data,
         ...datosFiscalesDesdeInput(input),
         sucursales: {
           create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
@@ -192,6 +206,8 @@ export async function editarGlobalPtoVta(
       existente.condicionIva
     );
     if (!condicionOk.success) return condicionOk;
+    const titularOk = await validarTitularCatalogo(input.titular);
+    if (!titularOk.success) return titularOk;
 
     const row = await prisma.$transaction(async (tx) => {
       await tx.globalPtoVtaSucursal.deleteMany({ where: { ptoVtaId: input.id } });
@@ -199,7 +215,7 @@ export async function editarGlobalPtoVta(
         where: { id: input.id },
         data: {
           ptoVenta: input.ptoVenta,
-          nombreTitular: normalizarNombre(input.nombreTitular),
+          titular: titularOk.data,
           ...datosFiscalesDesdeInput(input),
           sucursales: {
             create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),

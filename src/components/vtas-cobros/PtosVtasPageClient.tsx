@@ -38,6 +38,7 @@ import {
   type GlobalPtoVtaSucursalOption,
   type PtoVentasCodArcaItem,
 } from "@/lib/globalPtoVtas";
+import type { TesoreriaTitularItem } from "@/lib/cajasTesoreriaTitulares";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -50,6 +51,7 @@ type Props = {
   ptoVtas: GlobalPtoVtaItem[];
   sucursales: GlobalPtoVtaSucursalOption[];
   condicionesArca: PtoVentasCodArcaItem[];
+  titulares: TesoreriaTitularItem[];
   esEditor: boolean;
 };
 
@@ -57,6 +59,7 @@ export default function PtosVtasPageClient({
   ptoVtas,
   sucursales,
   condicionesArca,
+  titulares,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -80,7 +83,7 @@ export default function PtosVtasPageClient({
       matchByMultiTerm(
         [
           item.ptoVenta,
-          item.nombreTitular,
+          item.titular,
           etiquetaSucursalesPtoVta(item),
           item.cuit ?? "",
           item.iiBb ?? "",
@@ -230,7 +233,7 @@ export default function PtosVtasPageClient({
                       {item.ptoVenta}
                     </TableCell>
                     <TableCell className="celda-datos uppercase">
-                      {item.nombreTitular}
+                      {item.titular}
                     </TableCell>
                     <TableCell className="celda-datos uppercase">
                       {fmtCelda(etiquetaSucursalesPtoVta(item))}
@@ -261,7 +264,7 @@ export default function PtosVtasPageClient({
                             size="icon"
                             className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                             title="Editar"
-                            aria-label={`Editar ${item.ptoVenta} ${item.nombreTitular}`}
+                            aria-label={`Editar ${item.ptoVenta} ${item.titular}`}
                             onClick={() => abrirEditar(item)}
                           >
                             <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
@@ -272,7 +275,7 @@ export default function PtosVtasPageClient({
                             size="icon"
                             className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                             title="Eliminar"
-                            aria-label={`Eliminar ${item.ptoVenta} ${item.nombreTitular}`}
+                            aria-label={`Eliminar ${item.ptoVenta} ${item.titular}`}
                             onClick={() => setItemBorrar(item)}
                           >
                             <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
@@ -294,6 +297,7 @@ export default function PtosVtasPageClient({
         itemEditar={itemEditar}
         sucursales={sucursales}
         condicionesArca={condicionesArca}
+        titulares={titulares}
         esEditor={esEditor}
         onCatalogoChanged={() => router.refresh()}
       />
@@ -304,6 +308,7 @@ export default function PtosVtasPageClient({
         open={titularesOpen}
         onOpenChange={setTitularesOpen}
         esEditor={esEditor}
+        onCatalogoChanged={() => router.refresh()}
       />
 
       <Dialog
@@ -337,7 +342,7 @@ export default function PtosVtasPageClient({
           <p className="text-sm text-muted-foreground">
             ¿Eliminar el punto de venta{" "}
             <span className="font-semibold text-foreground">
-              {itemBorrar?.ptoVenta} · {itemBorrar?.nombreTitular}
+              {itemBorrar?.ptoVenta} · {itemBorrar?.titular}
             </span>
             ? Esta acción no se puede deshacer.
           </p>

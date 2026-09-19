@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { titularCajaTesoreriaSchema } from "@/lib/cajasTesoreriaTitulares";
 import { normalizarPtoVentaCodigo } from "@/lib/globalPtoVtas";
 import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/common";
 
@@ -15,12 +16,6 @@ const ptoVentaSchema = z
     }
     return codigo;
   });
-
-const nombreTitularSchema = z
-  .string()
-  .trim()
-  .min(1, "Ingresá el titular.")
-  .max(200, "El titular es demasiado largo.");
 
 const sucursalIdsSchema = z
   .array(globalSucursalIdSchema)
@@ -95,7 +90,7 @@ const camposFiscalesSchema = {
 
 export const crearGlobalPtoVtaSchema = z.object({
   ptoVenta: ptoVentaSchema,
-  nombreTitular: nombreTitularSchema,
+  titular: titularCajaTesoreriaSchema,
   sucursalIds: sucursalIdsSchema,
   ...camposFiscalesSchema,
 });
@@ -103,7 +98,7 @@ export const crearGlobalPtoVtaSchema = z.object({
 export const editarGlobalPtoVtaSchema = z.object({
   id: prismaCuidSchema,
   ptoVenta: ptoVentaSchema,
-  nombreTitular: nombreTitularSchema,
+  titular: titularCajaTesoreriaSchema,
   sucursalIds: sucursalIdsSchema,
   ...camposFiscalesSchema,
 });

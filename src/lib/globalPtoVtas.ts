@@ -1,5 +1,10 @@
 /** Catálogo `ptos_vtas` (ex `global_pto_vtas`) + sucursales (`global_pto_vta_sucursales`). */
 
+import {
+  normalizarNombreTitularCaja,
+  type TesoreriaTitularItem,
+} from "@/lib/cajasTesoreriaTitulares";
+
 export type GlobalPtoVtaSucursalOption = {
   id: string;
   nombre: string;
@@ -16,7 +21,8 @@ export type GlobalPtoVtaItem = {
   id: string;
   /** CHAR(5) con ceros a la izquierda (ej. `00002`). */
   ptoVenta: string;
-  nombreTitular: string;
+  /** `tesoreria_titulares.nombre`. */
+  titular: string;
   cuit: string | null;
   iiBb: string | null;
   iiBbMultilateral: boolean;
@@ -55,6 +61,22 @@ export function opcionesCondicionIvaArca(
     out.push(item);
   }
   return out.sort((a, b) => a.codigo - b.codigo);
+}
+
+/** Opciones del Select de titular: catálogo + el valor persistido si ya no está. */
+export function opcionesTitularPtoVta(
+  catalogo: readonly TesoreriaTitularItem[],
+  nombreActual: string | null
+): TesoreriaTitularItem[] {
+  const actual = nombreActual ? normalizarNombreTitularCaja(nombreActual) : "";
+  const out = catalogo.map((item) => ({
+    id: item.id,
+    nombre: normalizarNombreTitularCaja(item.nombre),
+  }));
+  if (actual && !out.some((item) => item.nombre === actual)) {
+    out.unshift({ id: `legado:${actual}`, nombre: actual });
+  }
+  return out.sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR"));
 }
 
 /** Normaliza a CHAR(5) con relleno de ceros (1…99999 → `00001`…`99999`). */

@@ -314,7 +314,9 @@ model GlobalPtoVta {
   /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
   condicionIva       Int?      @map("condicion_iva")
   condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  nombreTitular      String    @map("nombre_titular")
+  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). */
+  titular            String    @map("titular")
+  titularTesoreria   TesoreriaTitular @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
   domicilioComercial String?   @map("domicilio_comercial") @db.Text
   inicioActividades  DateTime? @map("inicio_actividades") @db.Date
   /** Default `1` = Productos. */
@@ -328,6 +330,7 @@ model GlobalPtoVta {
   comprobantesVtas ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
+  @@index([titular], map: "ptos_vtas_titular_idx")
   @@map("ptos_vtas")
 }
 
@@ -396,13 +399,17 @@ model FinTesoreriaEntidad {
 
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
+ * Referenciado por `ptos_vtas.titular` y `cobros_bancos.titular`.
  * Aún no sustituye `fin_tesoreria.titular` ni `fin_tesoreria_cheques.tenedor` (siguen TEXT).
  */
 model TesoreriaTitular {
   id        String   @id @default(cuid())
-  nombre    String   @unique
+  nombre    String   @unique(map: "tesoreria_titulares_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  ptoVtas      GlobalPtoVta[]
+  cobrosBancos CobrosBanco[]
 
   @@map("tesoreria_titulares")
 }
@@ -1265,13 +1272,19 @@ model FinAnaCosFinaPagoCat {
 
 /** Catálogo de bancos Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
 model CobrosBanco {
-  id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cobros_bancos_nombre_key")
-  orden     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(cuid())
+  nombre           String   @unique(map: "cobros_bancos_nombre_key")
+  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). */
+  titular          String   @map("titular")
+  titularTesoreria TesoreriaTitular @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
+  /** Texto libre del usuario. */
+  alias            String   @map("alias")
+  orden            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([orden], map: "cobros_bancos_orden_idx")
+  @@index([titular], map: "cobros_bancos_titular_idx")
   @@map("cobros_bancos")
 }
 

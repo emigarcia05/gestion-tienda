@@ -177,7 +177,7 @@ export type FacturaComprobanteListItem = {
 export type FacturaPtoVtaOpcion = {
   id: string;
   ptoVenta: string;
-  nombreTitular: string;
+  titular: string;
   cuit: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
