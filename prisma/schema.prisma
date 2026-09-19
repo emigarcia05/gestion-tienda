@@ -417,14 +417,14 @@ model TesoreriaTitular {
 /** Catálogo de tipos de caja (`codigo` = literal de enum `TipoCajaTesoreria`; `nombre` para UI). */
 model FinTesoreriaTipoCaja {
   id        String   @id @default(cuid())
-  codigo    String   @unique
+  codigo    String   @unique(map: "tesoreria_tipo_caja_codigo_key")
   nombre    String
   orden     Int      @map("orden")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([orden], map: "fin_tesoreria_tipo_caja_orden_idx")
-  @@map("fin_tesoreria_tipo_caja")
+  @@index([orden], map: "tesoreria_tipo_caja_orden_idx")
+  @@map("tesoreria_tipo_caja")
 }
 
 // Cajas de tesorería con saldo actual y marca temporal del último cambio de saldo.
