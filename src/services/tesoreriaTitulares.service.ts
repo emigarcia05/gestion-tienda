@@ -21,7 +21,7 @@ function mapDbErrorTitular(error: unknown, fallback: string): string {
   ) {
     const code = (error as { code: string }).code;
     if (code === "P2002") return "Ya existe un titular con ese nombre.";
-    if (code === "P2003") return "No se puede eliminar: el titular figura en un punto de venta.";
+    if (code === "P2003") return "No se puede eliminar: el titular figura en un punto de venta o banco.";
     if (code === "P2025") return "Titular no encontrado.";
   }
   return error instanceof Error ? error.message : fallback;

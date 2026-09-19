@@ -1274,9 +1274,9 @@ model FinAnaCosFinaPagoCat {
 model CobrosBanco {
   id               String   @id @default(cuid())
   nombre           String   @unique(map: "cobros_bancos_nombre_key")
-  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). */
-  titular          String   @map("titular")
-  titularTesoreria TesoreriaTitular @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
+  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). Null = aún no asignado. */
+  titular          String?  @map("titular")
+  titularTesoreria TesoreriaTitular? @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
   /** Texto libre del usuario. */
   alias            String   @map("alias")
   orden            Int      @default(0)
