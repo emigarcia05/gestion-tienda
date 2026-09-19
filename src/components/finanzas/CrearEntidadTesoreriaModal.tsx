@@ -118,7 +118,7 @@ export default function CrearEntidadTesoreriaModal({
     <>
       <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
         <AppModal
-          title="Crear Entidad"
+          title="GESTIONAR ENTIDADES"
           size="lg"
           className="max-w-xl"
           scrollBody

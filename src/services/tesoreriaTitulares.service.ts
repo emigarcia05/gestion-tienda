@@ -21,7 +21,7 @@ function mapDbErrorTitular(error: unknown, fallback: string): string {
   ) {
     const code = (error as { code: string }).code;
     if (code === "P2002") return "Ya existe un titular con ese nombre.";
-    if (code === "P2003") return "No se puede eliminar: el titular figura en un punto de venta o banco.";
+    if (code === "P2003") return "No se puede eliminar: el titular figura en un punto de venta.";
     if (code === "P2025") return "Titular no encontrado.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -89,11 +89,8 @@ export async function eliminarTesoreriaTitular(id: string): Promise<ServiceResul
   }
 
   const nombre = existing.nombre;
-  const [nPto, nBanco, nCaja, nCheque] = await Promise.all([
+  const [nPto, nCaja, nCheque] = await Promise.all([
     prisma.globalPtoVta.count({
-      where: { titular: nombre },
-    }),
-    prisma.cobrosBanco.count({
       where: { titular: nombre },
     }),
     prisma.cajaTesoreria.count({
@@ -103,10 +100,10 @@ export async function eliminarTesoreriaTitular(id: string): Promise<ServiceResul
       where: { tenedor: { equals: nombre, mode: "insensitive" } },
     }),
   ]);
-  if (nPto > 0 || nBanco > 0 || nCaja > 0 || nCheque > 0) {
+  if (nPto > 0 || nCaja > 0 || nCheque > 0) {
     return {
       success: false,
-      error: "No se puede eliminar: el titular figura en un punto de venta, banco o tesorería.",
+      error: "No se puede eliminar: el titular figura en un punto de venta o tesorería.",
     };
   }
 

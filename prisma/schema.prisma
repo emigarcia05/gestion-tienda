@@ -399,7 +399,7 @@ model FinTesoreriaEntidad {
 
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
- * Referenciado por `ptos_vtas.titular` y `cobros_bancos.titular`.
+ * Referenciado por `ptos_vtas.titular`.
  * Aún no sustituye `fin_tesoreria.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
  */
 model TesoreriaTitular {
@@ -408,8 +408,7 @@ model TesoreriaTitular {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ptoVtas      GlobalPtoVta[]
-  cobrosBancos CobrosBanco[]
+  ptoVtas GlobalPtoVta[]
 
   @@map("tesoreria_titulares")
 }
@@ -1236,10 +1235,10 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
+/** Catálogo de marcas / entidades Cx. Fin. Cobros (`cobros_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cobros_terminales_nombre_key")
+  nombre    String   @unique(map: "cobros_entidades_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1247,8 +1246,8 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "cobros_terminales_orden_idx")
-  @@map("cobros_terminales")
+  @@index([orden], map: "cobros_entidades_orden_idx")
+  @@map("cobros_entidades")
 }
 
 /** Catálogo de opciones de pago (Análisis M.C. / Cx. Fin. Cobros). */
@@ -1270,27 +1269,9 @@ model FinAnaCosFinaPagoCat {
   @@map("cobros_opciones_pago")
 }
 
-/** Catálogo de bancos Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
-model CobrosBanco {
-  id               String   @id @default(cuid())
-  nombre           String   @unique(map: "cobros_bancos_nombre_key")
-  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). Null = aún no asignado. */
-  titular          String?  @map("titular")
-  titularTesoreria TesoreriaTitular? @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
-  /** Texto libre del usuario. */
-  alias            String   @map("alias")
-  orden            Int      @default(0)
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-
-  @@index([orden], map: "cobros_bancos_orden_idx")
-  @@index([titular], map: "cobros_bancos_titular_idx")
-  @@map("cobros_bancos")
-}
-
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`cobros_terminales`); `pago_id` = `cobros_opciones_pago`.
+ * `terminal_id` = marca (`cobros_entidades`); `pago_id` = `cobros_opciones_pago`.
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
