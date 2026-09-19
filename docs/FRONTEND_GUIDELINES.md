@@ -1,6 +1,6 @@
 # Guía de Frontend — vigente
 
-Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, **Tailwind CSS 4**, **shadcn/ui** (estilo **new-york**, RSC, tokens CSS, `baseColor: neutral`), **CVA** + `cn()` (`clsx` + `tailwind-merge`), **Geist** / Geist Mono, **lucide-react**, **sonner**, **Radix**. Desktop-only. Zod v4 en el borde de formularios. Prompt operativo del agente Front: [`.cursor/front_promp.md`](../.cursor/front_promp.md).
+Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, **Tailwind CSS 4**, **shadcn/ui** (estilo **new-york**, RSC, tokens CSS, `baseColor: neutral`), **CVA** + `cn()` (`clsx` + `tailwind-merge`), **Geist** / Geist Mono, **lucide-react**, **sonner**, **Radix**, ESLint 9 + `eslint-config-next`. Desktop-only. Zod v4 en el borde de formularios. Inventario de tecnología + prompt operativo del agente Front (incluye protocolo de mantenimiento de esta guía): [`.cursor/front_promp.md`](../.cursor/front_promp.md).
 
 **No leas este archivo entero.** Usá la tabla de abajo y saltá a la sección del patrón o módulo que estás tocando.
 
@@ -19,7 +19,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 | Lista Precios / Edición Masiva | **§3 Proveedores** |
 | Ptos. Vtas. | **§3** Ptos. Vtas. |
 | IA Diseño / Asistente IA | `docs/AGENTEIA_GUIDELINES.md` |
-| Prompt agente Front (stack + modo de operación) | [`.cursor/front_promp.md`](../.cursor/front_promp.md) |
+| Prompt agente Front (inventario de stack + docs + mantenimiento de esta guía) | [`.cursor/front_promp.md`](../.cursor/front_promp.md) |
 
 `/` , `/finanzas`, `/marketing` y `/facturacion` son **hubs vacíos** (panel central sin datos). El contenido aparece al elegir una **ruta hoja** en el sidenav. Al cambiar de área: **Vendedor** → `/`, **Administración** → `/finanzas`, **Marketing** → `/marketing`, **Facturación** → `/facturacion`.
 
@@ -102,7 +102,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 | Tabla + filtros + selección | `ModalTablaConFiltros` (`single` / `singleConfirm` / `multi` / `multiQuantity`) |
 | Tabla de selección “vieja” ya migrada | Preferir `ModalTablaConFiltros` o `AppModal`; `modal-app` BEM sigue en call sites existentes (`SeleccionarProductoModal`) |
 
-`AppModal`: `size` `sm|md|lg|xl` (md = `max-w-lg`), `padding`, `scrollBody` (default true), `hideBodyScrollbars`, `bodyShellClassName`. Tabla + pie fijo: tabla `flex-1 min-h-0`; no `h-0`. Wizard Envios · Nuevo Envío: `size="xl"` `h-[85vh]`. No apilar dos `Dialog` a la vez: el aviso **Transferencia Pendiente!** espera a que **Elegir Usuario** cierre (~450 ms) y usa un evento de ventana si hay navegación. **Stacking:** overlay/contenido `z-[80]` (por encima del typeahead `z-[70]`); `SelectContent` en modal `z-[90]`.
+`AppModal`: `size` `sm|md|lg|xl` (md = `max-w-lg`), `padding`, `scrollBody` (default true), `hideBodyScrollbars`, `bodyShellClassName`. Tabla + pie fijo: tabla `flex-1 min-h-0`; no `h-0`. Wizard Envios · Nuevo Envío: `size="xl"` `h-[85vh]`. No apilar dos `Dialog` a la vez: el aviso **Transferencia Pendiente!** espera a que **Elegir Usuario** cierre (~450 ms) y usa un evento de ventana si hay navegación. **Stacking:** overlay/contenido `z-[80]` (por encima del typeahead `z-[70]`); `SelectContent` en modal `z-[90]`. **Catálogos «Gestionar…»** (Cx. Fin. Cobros, etc.): el modal de lista **permanece abierto** tras crear/editar/eliminar; solo cierra con Cerrar / X. No usar `key` en el page client que remonte al `router.refresh()` del catálogo. Si hay `Dialog` hijo (alta/edición/confirmación), ignorar el `onOpenChange(false)` del padre al cerrar el hijo.
 
 ### 1.5 Finder
 

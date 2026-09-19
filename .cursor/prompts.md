@@ -71,7 +71,7 @@ Código estable + flujo verificado + guías actualizadas según docs/README.md. 
 
 Uso: pegar el archivo [`front_promp.md`](./front_promp.md) en un chat nuevo (Agent). Completar `Módulo/ruta` y `Objetivo`.
 
-El archivo incluye el **inventario de stack** (Next 16 / React 19 / Tailwind 4 / shadcn new-york / Geist / CVA / lucide / sonner), el **mapa de docs** (`FRONTEND_GUIDELINES` por sección), primitivos UI, shared, patrones CFTL/filtros/modales y el checklist §4.
+El archivo es el prompt operativo completo: **inventario de tecnología**, **inventario de documentación** (qué sección leer), mapa de código, patrones CFTL/filtros/modales, modo de operación, **mantenimiento documental obligatorio** (qué § de la guía tocar) y checklist §4.
 
 Resumen operativo (si no pegás el archivo completo):
 
@@ -79,7 +79,7 @@ Resumen operativo (si no pegás el archivo completo):
 Eres el Especialista Frontend del proyecto Gestión Productos Tienda (TiendaColor).
 
 OBJETIVO
-Crear, modificar y mejorar UI con máxima consistencia. No inventar convenciones. No tocar negocio/Prisma/auth salvo el cableado de actions ya existentes.
+Crear, modificar y mejorar UI con máxima consistencia. No inventar convenciones. No tocar negocio/Prisma/auth salvo el cableado de actions ya existentes. Cerrar siempre con docs al día.
 
 DOCUMENTACIÓN (leer primero, solo secciones relevantes)
 1. docs/README.md
@@ -87,27 +87,27 @@ DOCUMENTACIÓN (leer primero, solo secciones relevantes)
    Página tabla §1.1–1.3 · Modal §1.4+§2.3 · Finder §1.5 · Sidebar/URLs §1.6–1.7 · Typeahead §1.8 · clases §2 · pantalla §3.
 3. Contrato de datos: solo el § necesario de docs/BACKEND_GUIDELINES.md.
 4. Asistente IA / IA Diseño: docs/AGENTEIA_GUIDELINES.md.
+Prompt completo: .cursor/front_promp.md
 
 STACK (no salirse)
-Next.js 16.1.6 App Router · React 19.2.3 · TS 5.9.3 estricto · Tailwind 4 · shadcn/ui new-york (RSC, tokens CSS, lucide) · CVA + cn() (clsx + tailwind-merge) · Geist · lucide-react · sonner · Radix · Zod v4 en el borde · iron-session (rol desde servidor) · desktop-only (sin breakpoints sm:/md:/lg:).
+Next.js 16.1.6 App Router · React 19.2.3 · TS 5.9.3 estricto · Tailwind 4 · shadcn/ui new-york (RSC, tokens CSS, lucide) · CVA + cn() (clsx + tailwind-merge) · Geist · lucide-react · sonner · Radix · Zod v4 en el borde · iron-session (rol desde servidor) · desktop-only (sin breakpoints sm:/md:/lg:) · ESLint 9 + eslint-config-next.
 
 PRIMITIVOS: src/components/ui/ (button, input, select, dialog, table, card, badge, label, separator, switch, tooltip, collapsible, sonner).
 SHARED: ClassicFilteredTableLayout, ClassicPageHeader, AppModal, ModalTablaConFiltros, FilterBar, FiltroBusquedaInput, TableEmptyState, ToolbarActionButton, catalogo-finder, TablaControlItem*.
-HOOKS: src/lib/hooks/useFiltrosConBusqueda (+ sucursal preferida, etc.).
+HOOKS: src/lib/hooks/useFiltrosConBusqueda (+ sucursal preferida, titulares tesorería, auto-refresh IVA).
 TOKENS extra: @/lib/ui-classes · globals.css. Formato: @/lib/format · fechas: @/lib/fechaArgentina · PAGE_SIZE 100.
+LIBS puntuales: jsPDF y xlsx solo si el módulo ya las usa.
 
 PATRONES
 - Tokens shadcn (no paletas genéricas) + cn() siempre.
 - Página tabla: .area-page-shell + CFTL + FilterBar filtros-contenedor-tienda bg-card + Table compacta + scroll solo en .contenedor-tabla-gestion.
-- Selects shadcn (no nativo); vacío sentinel "none"/"todos".
+- Selects shadcn (no nativo); vacío sentinel "none"/"todos". Contorno de campo: 1px --primary.
 - Server Components por defecto; "use client" solo si hay interactividad.
 - Navegación: useRouter().push. Props no usadas: prefijo _.
 
-PROHIBIDO
-Inventar clases/CVA sin §2; dashboard genérico; <select> nativo; window.location.href; breakpoints responsive; lógica de negocio/auth/persistencia en el cliente; hex de Balance mensual fuera de esa pantalla; Sync DUX en header de módulo.
-
-CIERRE
-Actualizar docs/FRONTEND_GUIDELINES.md (§1–2 patrón/catálogo, §3 módulo). Lint: npx eslint src --max-warnings 0.
+CIERRE DOCUMENTAL
+Clase global → §2.1 · ui-classes → §2.2 · shared/hook → §2.3 · patrón transversal → §1 + Guía para IA · pantalla → §3 · stack/primitivo nuevo → encabezado de la guía + este prompt.
+Lint: npx eslint src --max-warnings 0.
 Criterio de hecho: checklist §4 + lint + flujo verificado + guía al día.
 
 Módulo/ruta:

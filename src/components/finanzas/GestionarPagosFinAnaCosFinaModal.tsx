@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -73,9 +73,17 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
+  const ignoreParentCloseRef = useRef(false);
 
   const bloqueado = pending || reordenando || borrando;
   const puedeArrastrar = esEditor && !editingId && !bloqueado;
+
+  function markNestedDialogClosing() {
+    ignoreParentCloseRef.current = true;
+    queue.setTimeout(() => {
+      ignoreParentCloseRef.current = false;
+    }, 0);
+  }
 
   const cargar = useCallback(async () => {
     const res = await listarFinAnaCosFinaPagosAction();
@@ -96,7 +104,9 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditDraft("");
     setDraggingId(null);
     setBorrarTarget(null);
-  }, [open, cargar, pagosIniciales]);
+    // Solo al abrir: no resetear en refresh de props (evita cerrar edición / modal).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open
+  }, [open]);
 
   async function handleCrear() {
     if (!esEditor || !nuevoNombre.trim() || bloqueado) return;
@@ -170,6 +180,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
         return;
       }
       toast.success("Forma de pago eliminada.");
+      markNestedDialogClosing();
       setBorrarTarget(null);
       await cargar();
       onCatalogoChanged?.();
@@ -180,7 +191,15 @@ export default function GestionarPagosFinAnaCosFinaModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !bloqueado && onOpenChange(next)}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next && (bloqueado || ignoreParentCloseRef.current || Boolean(borrarTarget) || Boolean(editingId))) {
+            return;
+          }
+          onOpenChange(next);
+        }}
+      >
         <AppModal
           title="Gestionar Formas Pago"
           size="lg"
@@ -348,13 +367,29 @@ export default function GestionarPagosFinAnaCosFinaModal({
         </AppModal>
       </Dialog>
 
-      <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
+      <Dialog
+        open={Boolean(borrarTarget)}
+        onOpenChange={(o) => {
+          if (!o && !borrando) {
+            markNestedDialogClosing();
+            setBorrarTarget(null);
+          }
+        }}
+      >
         <AppModal
           title="Eliminar Forma de Pago"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={borrando} onClick={() => setBorrarTarget(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={borrando}
+                onClick={() => {
+                  markNestedDialogClosing();
+                  setBorrarTarget(null);
+                }}
+              >
                 Cancelar
               </Button>
               <Button

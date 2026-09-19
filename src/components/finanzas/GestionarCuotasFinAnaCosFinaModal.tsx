@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -52,6 +52,14 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<CobrosCuotaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
+  const ignoreParentCloseRef = useRef(false);
+
+  function markNestedDialogClosing() {
+    ignoreParentCloseRef.current = true;
+    window.setTimeout(() => {
+      ignoreParentCloseRef.current = false;
+    }, 0);
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -77,7 +85,9 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     setFormCantidad("");
     setBorrarTarget(null);
     void cargar();
-  }, [open, cargar, cuotasIniciales]);
+    // Solo al abrir: no resetear en refresh de props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open
+  }, [open]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -134,6 +144,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         }
         toast.success("Cuota creada.");
       }
+      markNestedDialogClosing();
       setFormOpen(false);
       resetForm();
       await cargar();
@@ -153,6 +164,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         return;
       }
       toast.success("Cuota eliminada.");
+      markNestedDialogClosing();
       setBorrarTarget(null);
       await cargar();
       onCatalogoChanged?.();
@@ -163,7 +175,18 @@ export default function GestionarCuotasFinAnaCosFinaModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (
+            !next &&
+            (pending || borrando || formOpen || Boolean(borrarTarget) || ignoreParentCloseRef.current)
+          ) {
+            return;
+          }
+          onOpenChange(next);
+        }}
+      >
         <AppModal
           title="GESTIONAR CUOTAS"
           size="lg"
@@ -260,6 +283,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         open={formOpen}
         onOpenChange={(next) => {
           if (pending) return;
+          if (!next) markNestedDialogClosing();
           setFormOpen(next);
           if (!next) resetForm();
         }}
@@ -274,6 +298,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                 variant="outline"
                 disabled={pending}
                 onClick={() => {
+                  markNestedDialogClosing();
                   setFormOpen(false);
                   resetForm();
                 }}
@@ -304,13 +329,29 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         </AppModal>
       </Dialog>
 
-      <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
+      <Dialog
+        open={Boolean(borrarTarget)}
+        onOpenChange={(o) => {
+          if (!o && !borrando) {
+            markNestedDialogClosing();
+            setBorrarTarget(null);
+          }
+        }}
+      >
         <AppModal
           title="ELIMINAR CUOTA"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={borrando} onClick={() => setBorrarTarget(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={borrando}
+                onClick={() => {
+                  markNestedDialogClosing();
+                  setBorrarTarget(null);
+                }}
+              >
                 Cancelar
               </Button>
               <Button

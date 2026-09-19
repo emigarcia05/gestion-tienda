@@ -26,7 +26,6 @@ export default async function VtasCobrosCxFinCobrosPage() {
 
   return (
     <FinAnaCosFinaPageClient
-      key={pagos.map((p) => `${p.id}:${p.orden}`).join("|")}
       filas={filas}
       marcas={marcas}
       pagos={pagos}
