@@ -385,22 +385,22 @@ model GlobalPersonal {
   @@map("global_personal")
 }
 
-/** Catálogo de entidades de caja (`nombre` único en MAYÚSCULAS). */
+/** Catálogo de entidades de caja (`tesoreria_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinTesoreriaEntidad {
   id        String   @id @default(cuid())
-  nombre    String   @unique
+  nombre    String   @unique(map: "tesoreria_entidades_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   cajas CajaTesoreria[]
 
-  @@map("fin_tesoreria_entidades")
+  @@map("tesoreria_entidades")
 }
 
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
  * Referenciado por `ptos_vtas.titular` y `cobros_bancos.titular`.
- * Aún no sustituye `fin_tesoreria.titular` ni `fin_tesoreria_cheques.tenedor` (siguen TEXT).
+ * Aún no sustituye `fin_tesoreria.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
  */
 model TesoreriaTitular {
   id        String   @id @default(cuid())
@@ -485,11 +485,11 @@ model FinTesoreriaCheque {
   cajaDestino       CajaTesoreria? @relation("FinTesoreriaChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: SetNull)
   proveedor         Proveedor?     @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
 
-  @@index([cajaId], map: "fin_tesoreria_cheques_caja_id_idx")
-  @@index([cajaId, fechaAcreditacion], map: "fin_tesoreria_cheques_caja_id_fecha_acreditacion_idx")
-  @@index([cajaId, fechaTransferencia], map: "fin_tesoreria_cheques_caja_id_fecha_transferencia_idx")
-  @@index([proveedorId], map: "fin_tesoreria_cheques_proveedor_id_idx")
-  @@map("fin_tesoreria_cheques")
+  @@index([cajaId], map: "tesoreria_cheques_caja_id_idx")
+  @@index([cajaId, fechaAcreditacion], map: "tesoreria_cheques_caja_id_fecha_acreditacion_idx")
+  @@index([cajaId, fechaTransferencia], map: "tesoreria_cheques_caja_id_fecha_transferencia_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_proveedor_id_idx")
+  @@map("tesoreria_cheques")
 }
 
 // Catálogo raíz de la jerarquía Finanzas → Balance → Gastos: Tipo (1) ─→ Rubros (N) ─→ Gastos (N).

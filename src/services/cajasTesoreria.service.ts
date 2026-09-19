@@ -29,7 +29,7 @@ type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
 export interface CajaTesoreriaItem {
   id: string;
   entidadId: string;
-  /** Texto del catálogo `fin_tesoreria_entidades.nombre` (MAYÚSCULAS). */
+  /** Texto del catálogo `tesoreria_entidades.nombre` (MAYÚSCULAS). */
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
@@ -40,7 +40,7 @@ export interface CajaTesoreriaItem {
   /** Valor persistido en `fin_tesoreria.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
   monto: number;
   /**
-   * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `fin_tesoreria_cheques`
+   * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `tesoreria_cheques`
    * con `fecha_acreditacion` ≤ hoy (calendario Argentina); en otros tipos, igual a `monto`.
    */
   montoDisponible: number;

@@ -128,7 +128,7 @@ export async function sumarMontosChequesAcreditadosHasta(
 ): Promise<Map<string, number>> {
   const rows = await prisma.$queryRaw<Array<{ caja_id: string; suma: bigint }>>`
     SELECT "caja_id", COALESCE(SUM("monto"), 0)::bigint AS suma
-    FROM "fin_tesoreria_cheques"
+    FROM "tesoreria_cheques"
     WHERE "fecha_transferencia" IS NULL
       AND "fecha_acreditacion" <= ${hoyIso}::date
     GROUP BY "caja_id"
@@ -146,7 +146,7 @@ export async function sumarMontosChequesDiferidosPorCaja(
 ): Promise<Map<string, number>> {
   const rows = await prisma.$queryRaw<Array<{ caja_id: string; suma: bigint }>>`
     SELECT "caja_id", COALESCE(SUM("monto"), 0)::bigint AS suma
-    FROM "fin_tesoreria_cheques"
+    FROM "tesoreria_cheques"
     WHERE "fecha_transferencia" IS NULL
       AND "fecha_acreditacion" > ${hoyIso}::date
     GROUP BY "caja_id"
@@ -168,7 +168,7 @@ export async function sumarMontosChequesDiferidosPorFechaAcreditacion(
   const rows = await prisma.$queryRaw<Array<{ fecha: string; suma: bigint }>>`
     SELECT to_char("fecha_acreditacion", 'YYYY-MM-DD') AS fecha,
            COALESCE(SUM("monto"), 0)::bigint AS suma
-    FROM "fin_tesoreria_cheques"
+    FROM "tesoreria_cheques"
     WHERE "fecha_transferencia" IS NULL
       AND "fecha_acreditacion" > ${hoyIso}::date
     GROUP BY "fecha_acreditacion"
@@ -259,7 +259,7 @@ export async function crearFinTesoreriaCheque(
     const msg = mapDbError(error, "No se pudo registrar el cheque.");
     if (typeof error === "object" && error !== null && "message" in error) {
       const m = String((error as { message: unknown }).message);
-      if (m.includes("fin_tesoreria_cheques:")) {
+      if (m.includes("tesoreria_cheques:")) {
         return { success: false, error: "La caja debe ser de tipo CHEQUE." };
       }
     }

@@ -121,7 +121,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 
 **Vendedor** (acordeón, módulos cerrados al inicio): **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
-**Administración** (`AdministracionAccordionNav`): **FINANZAS** (BALANCE | OPERACIONES → FLUJOS / COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** (PX TIENDA | PROVEEDORES | ANÁLISIS M.C.) → **VTAS. & COBROS** (Ptos. Vtas. / Cx. Fin. Cobros, pantallas directas) → **PEDIDO A FÁB.** → **ESTADÍSTICAS** → **USUARIOS**. Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
+**Administración** (`AdministracionAccordionNav`): **FINANZAS** (FLUJO → Tesorería / Flujo De Fondos | BALANCE | OPERACIONES → COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** (PX TIENDA | PROVEEDORES | ANÁLISIS M.C.) → **VTAS. & COBROS** (Ptos. Vtas. / Cx. Fin. Cobros, pantallas directas) → **PEDIDO A FÁB.** → **ESTADÍSTICAS** → **USUARIOS**. Acordeón anidado: el grupo padre sigue abierto mientras un subgrupo hijo está expandido. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
 
 **Marketing:** **PUBLICACIONES** (Calendario, Ideas Contenido, Objetivos) → **BASE MULTIMEDIA** (Base Multimedia, Colores Marca). Lectura libre; mutaciones `editor`.
 
