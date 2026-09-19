@@ -528,7 +528,7 @@ export const MC_GRAFICO_PORC_UTILIDAD_STEP = 5;
 
 /**
  * Resuelve la forma de pago **3 Cuotas** por nombre del catálogo
- * (`cobros_opciones_pago`), sin hardcodear id.
+ * (`cobros_forma_pago`), sin hardcodear id.
  */
 export function idFormaPagoTresCuotasMargenContribucion(
   pagos: readonly FinAnaCosFinaPagoItem[]

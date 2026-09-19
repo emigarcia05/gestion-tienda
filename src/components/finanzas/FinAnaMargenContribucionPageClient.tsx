@@ -391,7 +391,7 @@ export default function FinAnaMargenContribucionPageClient({
               className="h-10 gap-2 px-4"
             >
               <Settings2 className="size-4 shrink-0" aria-hidden />
-              Gestionar Pagos
+              Gestionar Formas Pago
             </Button>
           </div>
         }

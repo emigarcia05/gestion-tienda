@@ -1250,10 +1250,10 @@ model FinAnaCosFinaTerminalMarca {
   @@map("cobros_entidades")
 }
 
-/** Catálogo de opciones de pago (Análisis M.C. / Cx. Fin. Cobros). */
+/** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
-  nombre               String   @unique(map: "cobros_opciones_pago_nombre_key")
+  nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   orden                Int      @default(0)
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
@@ -1265,13 +1265,25 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
 
-  @@index([orden], map: "cobros_opciones_pago_orden_idx")
-  @@map("cobros_opciones_pago")
+  @@index([orden], map: "cobros_forma_pago_orden_idx")
+  @@map("cobros_forma_pago")
+}
+
+/** Catálogo de cantidades de cuotas (Cx. Fin. Cobros). */
+model CobrosCuota {
+  id        String   @id @default(cuid())
+  cantidad  Int      @unique(map: "cobros_cuotas_cantidad_key")
+  orden     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([orden], map: "cobros_cuotas_orden_idx")
+  @@map("cobros_cuotas")
 }
 
 /**
- * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`cobros_entidades`); `pago_id` = `cobros_opciones_pago`.
+ * Matriz entidad × forma de pago para costos financieros (Análisis M.C.).
+ * `terminal_id` = entidad (`cobros_entidades`); `pago_id` = `cobros_forma_pago`.
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())

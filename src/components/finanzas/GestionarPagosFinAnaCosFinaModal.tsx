@@ -182,7 +182,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     <>
       <Dialog open={open} onOpenChange={(next) => !bloqueado && onOpenChange(next)}>
         <AppModal
-          title="Gestionar Pagos"
+          title="Gestionar Formas Pago"
           size="lg"
           className="max-w-xl"
           scrollBody

@@ -9,20 +9,20 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  crearFinAnaCosFinaTerminalMarcaAction,
-  editarFinAnaCosFinaTerminalMarcaAction,
-  eliminarFinAnaCosFinaTerminalMarcaAction,
-  listarFinAnaCosFinaTerminalesMarcasAction,
+  crearCobrosCuotaAction,
+  editarCobrosCuotaAction,
+  eliminarCobrosCuotaAction,
+  listarCobrosCuotasAction,
 } from "@/actions/finAnaCosFina";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  marcasIniciales: FinAnaCosFinaTerminalMarcaItem[];
+  cuotasIniciales: CobrosCuotaItem[];
   esEditor: boolean;
   onCatalogoChanged?: () => void;
 }
@@ -32,29 +32,33 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   "h-9 w-9 min-h-9 max-h-9"
 );
 
-export default function GestionarMarcasFinAnaCosFinaModal({
+function etiquetaCuota(cantidad: number): string {
+  return `${cantidad} ${cantidad === 1 ? "CUOTA" : "CUOTAS"}`;
+}
+
+export default function GestionarCuotasFinAnaCosFinaModal({
   open,
   onOpenChange,
-  marcasIniciales,
+  cuotasIniciales,
   esEditor,
   onCatalogoChanged,
 }: Props) {
-  const [items, setItems] = useState<FinAnaCosFinaTerminalMarcaItem[]>(marcasIniciales);
+  const [items, setItems] = useState<CobrosCuotaItem[]>(cuotasIniciales);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<FinAnaCosFinaTerminalMarcaItem | null>(null);
-  const [formNombre, setFormNombre] = useState("");
+  const [editingItem, setEditingItem] = useState<CobrosCuotaItem | null>(null);
+  const [formCantidad, setFormCantidad] = useState("");
   const [pending, setPending] = useState(false);
-  const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaTerminalMarcaItem | null>(null);
+  const [borrarTarget, setBorrarTarget] = useState<CobrosCuotaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listarFinAnaCosFinaTerminalesMarcasAction();
+      const res = await listarCobrosCuotasAction();
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron cargar las entidades.");
+        toast.error(res.error ?? "No se pudieron cargar las cuotas.");
         setItems([]);
         return;
       }
@@ -66,24 +70,26 @@ export default function GestionarMarcasFinAnaCosFinaModal({
 
   useEffect(() => {
     if (!open) return;
-    setItems(marcasIniciales);
+    setItems(cuotasIniciales);
     setBusqueda("");
     setFormOpen(false);
     setEditingItem(null);
-    setFormNombre("");
+    setFormCantidad("");
     setBorrarTarget(null);
     void cargar();
-  }, [open, cargar, marcasIniciales]);
+  }, [open, cargar, cuotasIniciales]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
     if (!q) return items;
-    return items.filter((item) => matchByMultiTerm([item.nombre], q));
+    return items.filter((item) =>
+      matchByMultiTerm([String(item.cantidad), etiquetaCuota(item.cantidad)], q)
+    );
   }, [items, busqueda]);
 
   function resetForm() {
     setEditingItem(null);
-    setFormNombre("");
+    setFormCantidad("");
   }
 
   function abrirCrear() {
@@ -92,36 +98,41 @@ export default function GestionarMarcasFinAnaCosFinaModal({
     setFormOpen(true);
   }
 
-  function abrirEditar(item: FinAnaCosFinaTerminalMarcaItem) {
+  function abrirEditar(item: CobrosCuotaItem) {
     if (!esEditor || pending) return;
     setEditingItem(item);
-    setFormNombre(item.nombre);
+    setFormCantidad(String(item.cantidad));
     setFormOpen(true);
   }
 
-  const formValido = formNombre.trim().length > 0;
+  const cantidadParsed = Number(formCantidad.trim());
+  const formValido =
+    formCantidad.trim().length > 0 &&
+    Number.isInteger(cantidadParsed) &&
+    cantidadParsed >= 1 &&
+    cantidadParsed <= 99;
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
     setPending(true);
     try {
       if (editingItem) {
-        const res = await editarFinAnaCosFinaTerminalMarcaAction({
+        const res = await editarCobrosCuotaAction({
           id: editingItem.id,
-          nombre: formNombre,
+          cantidad: cantidadParsed,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
           return;
         }
-        toast.success("Entidad actualizada.");
+        toast.success("Cuota actualizada.");
       } else {
-        const res = await crearFinAnaCosFinaTerminalMarcaAction({ nombre: formNombre });
+        const res = await crearCobrosCuotaAction({ cantidad: cantidadParsed });
         if (!res.ok) {
-          toast.error(res.error ?? "No se pudo crear la entidad.");
+          toast.error(res.error ?? "No se pudo crear la cuota.");
           return;
         }
-        toast.success("Entidad creada.");
+        toast.success("Cuota creada.");
       }
       setFormOpen(false);
       resetForm();
@@ -136,12 +147,12 @@ export default function GestionarMarcasFinAnaCosFinaModal({
     if (!borrarTarget || borrando) return;
     setBorrando(true);
     try {
-      const res = await eliminarFinAnaCosFinaTerminalMarcaAction({ id: borrarTarget.id });
+      const res = await eliminarCobrosCuotaAction({ id: borrarTarget.id });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
-      toast.success("Entidad eliminada.");
+      toast.success("Cuota eliminada.");
       setBorrarTarget(null);
       await cargar();
       onCatalogoChanged?.();
@@ -154,7 +165,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
     <>
       <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
         <AppModal
-          title="GESTIONAR ENTIDADES"
+          title="GESTIONAR CUOTAS"
           size="lg"
           scrollBody
           hideBodyScrollbars
@@ -171,9 +182,9 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                 <Input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="BUSCAR ENTIDAD..."
+                  placeholder="BUSCAR CUOTA..."
                   className="h-10 pl-9"
-                  aria-label="Buscar entidad"
+                  aria-label="Buscar cuota"
                 />
               </div>
               {esEditor ? (
@@ -182,7 +193,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                   variant="default"
                   size="icon"
                   className="h-10 w-10 shrink-0"
-                  aria-label="Agregar entidad"
+                  aria-label="Agregar cuota"
                   disabled={pending}
                   onClick={abrirCrear}
                 >
@@ -196,10 +207,10 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                 <p className="text-sm text-muted-foreground">Cargando...</p>
               ) : items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay entidades. Usá el botón + para agregar la primera.
+                  No hay cuotas. Usá el botón + para agregar la primera.
                 </p>
               ) : listaFiltrada.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ninguna entidad coincide con la búsqueda.</p>
+                <p className="text-sm text-muted-foreground">Ninguna cuota coincide con la búsqueda.</p>
               ) : (
                 <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-1">
                   {listaFiltrada.map((item) => (
@@ -208,7 +219,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
                       <p className="min-w-0 flex-1 truncate text-left font-medium text-foreground">
-                        {item.nombre}
+                        {etiquetaCuota(item.cantidad)}
                       </p>
                       {esEditor ? (
                         <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
@@ -217,7 +228,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Editar ${item.nombre}`}
+                            aria-label={`Editar ${etiquetaCuota(item.cantidad)}`}
                             disabled={pending}
                             onClick={() => abrirEditar(item)}
                           >
@@ -228,7 +239,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Eliminar ${item.nombre}`}
+                            aria-label={`Eliminar ${etiquetaCuota(item.cantidad)}`}
                             disabled={pending}
                             onClick={() => setBorrarTarget(item)}
                           >
@@ -254,7 +265,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
         }}
       >
         <AppModal
-          title={editingItem ? "EDITAR ENTIDAD" : "NUEVA ENTIDAD"}
+          title={editingItem ? "EDITAR CUOTA" : "NUEVA CUOTA"}
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
@@ -280,11 +291,12 @@ export default function GestionarMarcasFinAnaCosFinaModal({
           }
         >
           <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Nombre</ModalMicroLabel>
+            <ModalMicroLabel>Cantidad</ModalMicroLabel>
             <Input
-              value={formNombre}
-              onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
-              placeholder="NOMBRE (SE GUARDARÁ EN MAYÚSCULAS)"
+              value={formCantidad}
+              onChange={(e) => setFormCantidad(e.target.value.replace(/\D/g, "").slice(0, 2))}
+              placeholder="Ej. 3"
+              inputMode="numeric"
               disabled={pending}
               autoFocus
             />
@@ -294,7 +306,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
 
       <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
         <AppModal
-          title="ELIMINAR ENTIDAD"
+          title="ELIMINAR CUOTA"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
@@ -313,9 +325,11 @@ export default function GestionarMarcasFinAnaCosFinaModal({
           }
         >
           <p className="text-sm text-muted-foreground">
-            ¿Eliminar la entidad{" "}
-            <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Se borrarán también
-            sus filas de costos financieros.
+            ¿Eliminar{" "}
+            <span className="font-semibold text-foreground">
+              {borrarTarget ? etiquetaCuota(borrarTarget.cantidad) : ""}
+            </span>
+            ?
           </p>
         </AppModal>
       </Dialog>

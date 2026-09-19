@@ -33,9 +33,9 @@ function normalizarNombreMarca(nombre: string): string {
 function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
-    if (code === "P2002") return "Ya existe una marca con ese nombre.";
+    if (code === "P2002") return "Ya existe una entidad con ese nombre.";
     if (code === "P2003") return "No se puede eliminar: hay registros asociados.";
-    if (code === "P2025") return "Marca no encontrada.";
+    if (code === "P2025") return "Entidad no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
 }
@@ -107,7 +107,7 @@ export async function crearFinAnaCosFinaTerminalMarca(
 
     return { success: true, data: mapMarca(marca) };
   } catch (error: unknown) {
-    return { success: false, error: mapDbError(error, "No se pudo crear la marca.") };
+    return { success: false, error: mapDbError(error, "No se pudo crear la entidad.") };
   }
 }
 
@@ -127,7 +127,7 @@ export async function editarFinAnaCosFinaTerminalMarca(
     });
     return { success: true, data: mapMarca(updated) };
   } catch (error: unknown) {
-    return { success: false, error: mapDbError(error, "No se pudo editar la marca.") };
+    return { success: false, error: mapDbError(error, "No se pudo editar la entidad.") };
   }
 }
 
@@ -138,6 +138,6 @@ export async function eliminarFinAnaCosFinaTerminalMarca(
     await prisma.finAnaCosFinaTerminalMarca.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
-    return { success: false, error: mapDbError(error, "No se pudo eliminar la marca.") };
+    return { success: false, error: mapDbError(error, "No se pudo eliminar la entidad.") };
   }
 }
