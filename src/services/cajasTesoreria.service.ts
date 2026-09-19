@@ -29,7 +29,7 @@ type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
 export interface CajaTesoreriaItem {
   id: string;
   entidadId: string;
-  /** Texto del catálogo `tesoreria_entidades.nombre` (MAYÚSCULAS). */
+  /** Texto del catálogo `tesoreria_cobros_entidades.nombre` (MAYÚSCULAS). */
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
@@ -125,7 +125,7 @@ function normalizarNombreEntidadFinTesoreria(nombre: string): string {
 }
 
 export async function listarEntidadesFinTesoreria(): Promise<FinTesoreriaEntidadItem[]> {
-  const rows = await prisma.finTesoreriaEntidad.findMany({
+  const rows = await prisma.finAnaCosFinaTerminalMarca.findMany({
     orderBy: [{ nombre: "asc" }],
     select: { id: true, nombre: true },
   });
@@ -182,8 +182,12 @@ export async function crearFinTesoreriaEntidad(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const row = await prisma.finTesoreriaEntidad.create({
-      data: { nombre: norm },
+    const maxOrden = await prisma.finAnaCosFinaTerminalMarca.aggregate({
+      _max: { orden: true },
+    });
+    const orden = (maxOrden._max.orden ?? -1) + 1;
+    const row = await prisma.finAnaCosFinaTerminalMarca.create({
+      data: { nombre: norm, orden },
       select: { id: true, nombre: true },
     });
     return {
@@ -207,7 +211,7 @@ export async function editarFinTesoreriaEntidad(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const row = await prisma.finTesoreriaEntidad.update({
+    const row = await prisma.finAnaCosFinaTerminalMarca.update({
       where: { id },
       data: { nombre: norm },
       select: { id: true, nombre: true },
@@ -233,7 +237,7 @@ export async function eliminarFinTesoreriaEntidad(id: string): Promise<ServiceRe
     };
   }
   try {
-    await prisma.finTesoreriaEntidad.delete({ where: { id } });
+    await prisma.finAnaCosFinaTerminalMarca.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
     return {

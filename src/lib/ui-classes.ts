@@ -90,10 +90,13 @@ export const TABLE_ROW_ACTION_ICON_CLASS = "h-4 w-4 shrink-0";
 /** Cascarón del menú **ACCIONES** del header de página (`HeaderAccionesMenu`). */
 export const HEADER_ACCIONES_MENU_CLASS = "header-acciones-menu relative shrink-0";
 
+/** Eleva el cascarón cuando el panel está abierto (sobre filtros / tabla / typeahead). */
+export const HEADER_ACCIONES_MENU_OPEN_CLASS = "z-[90]";
+
 export const HEADER_ACCIONES_TRIGGER_CLASS = "header-acciones-trigger";
 
 export const HEADER_ACCIONES_PANEL_CLASS = [
-  "header-acciones-panel pointer-events-none invisible absolute right-0 top-full z-[60] pt-1",
+  "header-acciones-panel pointer-events-none invisible absolute right-0 top-full z-[90] pt-1",
   "opacity-0",
 ].join(" ");
 
@@ -101,9 +104,9 @@ export const HEADER_ACCIONES_PANEL_OPEN_CLASS =
   "header-acciones-panel--open pointer-events-auto visible opacity-100";
 
 export const HEADER_ACCIONES_LIST_CLASS =
-  "header-acciones-list flex max-h-[min(24rem,70vh)] min-w-[16rem] max-w-[24rem] flex-col overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md";
+  "header-acciones-list flex max-h-[min(24rem,70vh)] min-w-[16rem] max-w-[24rem] flex-col overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md divide-y divide-primary";
 
-export const HEADER_ACCIONES_ITEM_CLASS = "header-acciones-item w-full min-w-0";
+export const HEADER_ACCIONES_ITEM_CLASS = "header-acciones-item w-full min-w-0 py-1 first:pt-0 last:pb-0";
 
 /**
  * Columna **Control de ítem** (`TablaControlItemHead` / `TablaControlItemCelda`):

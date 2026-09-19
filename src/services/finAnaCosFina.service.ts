@@ -60,9 +60,10 @@ function mapRow(row: {
 
 function sortItems(items: FinAnaCosFinaItem[]): FinAnaCosFinaItem[] {
   return [...items].sort((a, b) => {
-    const byTerminal = a.terminalOrden - b.terminalOrden;
-    if (byTerminal !== 0) return byTerminal;
-    return a.pagoOrden - b.pagoOrden;
+    // Alfabetico: Forma de pago → Entidad (Cuotas cuando se cablee FK).
+    const byPago = a.pagoNombre.localeCompare(b.pagoNombre, "es", { sensitivity: "base" });
+    if (byPago !== 0) return byPago;
+    return a.terminalNombre.localeCompare(b.terminalNombre, "es", { sensitivity: "base" });
   });
 }
 

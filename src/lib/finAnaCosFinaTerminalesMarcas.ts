@@ -1,4 +1,4 @@
-/** Catálogo `cobros_entidades`. */
+/** Catálogo `tesoreria_cobros_entidades` (Cx. Fin. Cobros / Fondos). */
 export type FinAnaCosFinaTerminalMarcaItem = {
   id: string;
   nombre: string;

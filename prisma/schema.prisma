@@ -385,18 +385,6 @@ model GlobalPersonal {
   @@map("global_personal")
 }
 
-/** Catálogo de entidades de caja (`tesoreria_entidades`; `nombre` único en MAYÚSCULAS). */
-model FinTesoreriaEntidad {
-  id        String   @id @default(cuid())
-  nombre    String   @unique(map: "tesoreria_entidades_nombre_key")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  cajas CajaTesoreria[]
-
-  @@map("tesoreria_entidades")
-}
-
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
  * Referenciado por `ptos_vtas.titular`.
@@ -430,7 +418,7 @@ model FinTesoreriaTipoCaja {
 model CajaTesoreria {
   id               String            @id @default(cuid())
   entidadId        String            @map("entidad_id")
-  entidad          FinTesoreriaEntidad @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  entidad          FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
   /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
   /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `global_sucursales`. */
@@ -1235,19 +1223,20 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de marcas / entidades Cx. Fin. Cobros (`cobros_entidades`; `nombre` único en MAYÚSCULAS). */
+/** Catálogo unificado de entidades cobros/tesorería (`tesoreria_cobros_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cobros_entidades_nombre_key")
+  nombre    String   @unique(map: "tesoreria_cobros_entidades_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  cajas    CajaTesoreria[]
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
 
-  @@index([orden], map: "cobros_entidades_orden_idx")
-  @@map("cobros_entidades")
+  @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
+  @@map("tesoreria_cobros_entidades")
 }
 
 /** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
@@ -1283,7 +1272,7 @@ model CobrosCuota {
 
 /**
  * Matriz entidad × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = entidad (`cobros_entidades`); `pago_id` = `cobros_forma_pago`.
+ * `terminal_id` = entidad (`tesoreria_cobros_entidades`); `pago_id` = `cobros_forma_pago`.
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())

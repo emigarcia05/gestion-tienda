@@ -98,7 +98,7 @@ export default function FinanzasTesoreriaPageClient({
     <div className="area-page-shell">
       <ClassicFilteredTableLayout
         title="Finanzas"
-        subtitle="Tesorería"
+        subtitle="Fondos"
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>

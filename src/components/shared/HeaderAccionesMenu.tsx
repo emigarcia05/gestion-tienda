@@ -17,6 +17,7 @@ import {
   HEADER_ACCIONES_ITEM_CLASS,
   HEADER_ACCIONES_LIST_CLASS,
   HEADER_ACCIONES_MENU_CLASS,
+  HEADER_ACCIONES_MENU_OPEN_CLASS,
   HEADER_ACCIONES_PANEL_CLASS,
   HEADER_ACCIONES_PANEL_OPEN_CLASS,
   HEADER_ACCIONES_TRIGGER_CLASS,
@@ -91,7 +92,7 @@ export default function HeaderAccionesMenu({ children, className }: HeaderAccion
   return (
     <div
       ref={rootRef}
-      className={cn(HEADER_ACCIONES_MENU_CLASS, className)}
+      className={cn(HEADER_ACCIONES_MENU_CLASS, open && HEADER_ACCIONES_MENU_OPEN_CLASS, className)}
       onMouseEnter={openMenu}
       onMouseLeave={scheduleClose}
       onFocusCapture={openMenu}

@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
- * FINANZAS → FLUJO | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
+ * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * VTAS. & COBROS → Ptos. Vtas. / Cobros / Cx. Fin. Cobros
  * PEDIDO A FÁB. → pantallas
@@ -125,7 +125,7 @@ const balanceScreens: AdmScreenDef[] = [
 const flujosScreens: AdmScreenDef[] = [
   {
     id: "tesoreria",
-    label: "Tesorería",
+    label: "Fondos",
     href: "/finanzas/tesoreria",
     icon: "banknote",
     permiso: PERMISOS.finanzas.acceso,
@@ -322,7 +322,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     groups: [
       {
         id: "flujo",
-        label: "FLUJO",
+        label: "TESORERIA",
         icon: "calendar-days",
         screens: flujosScreens,
       },

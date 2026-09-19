@@ -1,4 +1,4 @@
-/** Catálogo `tesoreria_entidades` (lista cerrada; alta en BD / migraciones). */
+/** Catálogo unificado `tesoreria_cobros_entidades` (Cobros + Fondos/Tesorería). */
 export interface FinTesoreriaEntidadItem {
   id: string;
   nombre: string;
