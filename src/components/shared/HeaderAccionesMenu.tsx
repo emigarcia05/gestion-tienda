@@ -31,9 +31,8 @@ function elementChildren(el: ReactElement): ReactNode {
 
 /** Aplana fragments y un wrapper `div`/`span` de layout (fila de botones del header). */
 export function unwrapHeaderActionNodes(node: ReactNode): ReactNode[] {
-  const parts = Children.toArray(node).filter(
-    (item) => item !== null && item !== false && item !== undefined && item !== ""
-  );
+  // `Children.toArray` ya excluye `null` / `undefined` / booleanos.
+  const parts = Children.toArray(node).filter((item) => item !== "");
   if (parts.length === 1 && isValidElement(parts[0])) {
     const el = parts[0];
     if (el.type === Fragment) {
