@@ -52,9 +52,9 @@ export default function GestionarMarcasFinAnaCosFinaModal({
 
   function markNestedDialogClosing() {
     ignoreParentCloseRef.current = true;
-    window.setTimeout(() => {
+    queueMicrotask(() => {
       ignoreParentCloseRef.current = false;
-    }, 0);
+    });
   }
 
   const cargar = useCallback(async () => {

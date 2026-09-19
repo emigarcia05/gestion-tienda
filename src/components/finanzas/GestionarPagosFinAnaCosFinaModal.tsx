@@ -80,9 +80,9 @@ export default function GestionarPagosFinAnaCosFinaModal({
 
   function markNestedDialogClosing() {
     ignoreParentCloseRef.current = true;
-    queue.setTimeout(() => {
+    queueMicrotask(() => {
       ignoreParentCloseRef.current = false;
-    }, 0);
+    });
   }
 
   const cargar = useCallback(async () => {
