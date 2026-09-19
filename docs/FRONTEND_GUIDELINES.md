@@ -65,6 +65,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 ```
 
 - Header: `ClassicFilteredTableLayout` usa `ClassicPageHeader` (`tone="card"`). API ES: `SectionHeader`. Núcleo: `PageSectionHeader`. Visual: **MÓDULO** → **SUBMÓDULO 1** → **Submódulo 2**.
+- **`actions` del header:** `PageSectionHeader` las envuelve en `HeaderAccionesMenu`. En pantalla hay **un** botón **ACCIONES**; al hover (o foco) se despliega la lista de la ventana. No dejar una fila de botones sueltos en el header. Los call sites siguen pasando `Button` / `ToolbarActionButton` / triggers de modal como `actions`. Escape cierra el menú.
 - `contentWidth`: `default` (`max-w-7xl`) | `wide150` (Comp. Categorías) | `full` (Balance, Gastos, Flujo, Calcular Lts, Px Tintométricos, Envios).
 - El hueco encabezado → primer bloque lo pone `.contenedor-pagina-con-filtros` (`--espacio-filtros-vertical` = `1rem`). No añadir `py-4` en `children`.
 - Card envolviendo tabla: `className={cn("card-tabla-envoltorio", "flex-1")}`.
@@ -186,7 +187,8 @@ Constantes: `@/lib/ui-classes` (`TYPEAHEAD_LISTBOX_*`).
 |-------|-----|
 | `.area-page-shell` | Cascarón de página |
 | `.contenedor-pagina-con-filtros` | Gap header / filtros / tabla |
-| `.section-header` + `__titulo` `__subtitulo-*` | Encabezado |
+| `.section-header` + `__titulo` `__subtitulo-*` | Encabezado. `z-index: 20` para que el menú ACCIONES cubra filtros/tabla |
+| `.header-acciones-menu` `.header-acciones-trigger` `.header-acciones-panel` `.header-acciones-list` `.header-acciones-item` | Menú **ACCIONES** del header (`HeaderAccionesMenu`) |
 | `.filtros-contenedor-tienda` `.filtros-doble-bloque-compacto` `.input-filtro-unificado` `.select-content-filtro` `.select-search-input` `.fila-filtros-4\|5\|6` `.filtro-individual-*` `.filtro-count-label` | Filtros. Contorno de `.input-filtro-unificado` / `.select-search-input` = `--primary` (misma regla que `Input`) |
 | `.contenedor-tabla-gestion` (+ `--pie-fijo`, `--mc-overlay`, `no-scroll-x`) | Scrollport de tabla |
 | `.card-tabla-envoltorio` | Card alrededor de tabla |
@@ -203,7 +205,7 @@ Variantes de tabla (misma familia compacta): `tabla-flujo-de-fondo`, `tabla-deud
 
 ### 2.2 `@/lib/ui-classes`
 
-Éxito/aviso: `BADGE_SUCCESS_TINT_CLASS`, `TEXT_SUCCESS_CLASS`, `TEXT_WARNING_CLASS`, `ICON_WARNING_INTERACTIVE_CLASS`, `CALLOUT_WARNING_CLASS`, `IMPORT_STAT_BADGE_CLASSES`. Finder: `CATALOGO_FINDER_*`. Tabla: `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`, `TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS`, `TABLE_ROW_ACTION_ICON_CLASS`, `TABLA_CONTROL_ITEM_*`. Balance modales: `BALANCE_MODAL_*`. Labels: `MODAL_MICRO_LABEL_CLASS`. Typeahead listbox: `TYPEAHEAD_LISTBOX_*` (**§1.8**; ancla abierta `z-[60]`, panel `z-[70]`; celdas `TYPEAHEAD_LISTBOX_CELL_CLASS`). Store productos: `TYPEAHEAD_STORE_BTN_*` / `TYPEAHEAD_STORE_ICON_CLASS`.
+Éxito/aviso: `BADGE_SUCCESS_TINT_CLASS`, `TEXT_SUCCESS_CLASS`, `TEXT_WARNING_CLASS`, `ICON_WARNING_INTERACTIVE_CLASS`, `CALLOUT_WARNING_CLASS`, `IMPORT_STAT_BADGE_CLASSES`. Finder: `CATALOGO_FINDER_*`. Tabla: `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`, `TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS`, `TABLE_ROW_ACTION_ICON_CLASS`, `TABLA_CONTROL_ITEM_*`. Header ACCIONES: `HEADER_ACCIONES_*`. Balance modales: `BALANCE_MODAL_*`. Labels: `MODAL_MICRO_LABEL_CLASS`. Typeahead listbox: `TYPEAHEAD_LISTBOX_*` (**§1.8**; ancla abierta `z-[60]`, panel `z-[70]`; celdas `TYPEAHEAD_LISTBOX_CELL_CLASS`). Store productos: `TYPEAHEAD_STORE_BTN_*` / `TYPEAHEAD_STORE_ICON_CLASS`.
 
 ### 2.3 Shared (`src/components/shared/`)
 
@@ -211,8 +213,9 @@ Nuevo shared: CVA + tokens + `"use client"` solo si hay estado/hooks. Documentar
 
 | Componente | Rol |
 |------------|-----|
-| `ClassicFilteredTableLayout` | Template página. Props: `title`, `subtitle?`, `subtitleSecondary?`, `actions?`, `filters?`, `children`, `tone` gray\|card, `contentWidth`, `density` |
-| `ClassicPageHeader` / `SectionHeader` | Header. Núcleo `PageSectionHeader` |
+| `ClassicFilteredTableLayout` | Template página. Props: `title`, `subtitle?`, `subtitleSecondary?`, `actions?` (menú **ACCIONES**), `filters?`, `children`, `tone` gray\|card, `contentWidth`, `density` |
+| `ClassicPageHeader` / `SectionHeader` | Header. Núcleo `PageSectionHeader`. `actions` → `HeaderAccionesMenu` |
+| `HeaderAccionesMenu` | Botón **ACCIONES** + lista hover/foco. Aplana `<>` y un `div` flex de botones. No usarlo a mano si ya pasa por el header |
 | `AppModal` | Modal estándar. `title`, `children`, `actions`, `size`, `padding`, `scrollBody`, `hideBodyScrollbars` |
 | `ModalTablaConFiltros` | Modal tabla + filtros. `selectionMode`, `columns`, `rows`, `getRowId` |
 | `FiltroBusquedaInput` | Búsqueda con debounce (junto al hook) |
@@ -324,6 +327,7 @@ UI en `src/components/asistente-ia/`. Pasos secuenciales: `ProcesoPaso` (alias `
 - [ ] Página con tabla: CFTL + `FilterBar` `filtros-contenedor-tienda bg-card` + `Table` compacta + sticky thead + vacío `TableEmptyState`.
 - [ ] Búsqueda: `useFiltrosConBusqueda` + `FiltroBusquedaInput`. Selects shadcn con buscador. Fila desplegables: 5 cols (6 solo si hay 6).
 - [ ] Contorno de campos: `Input` / `Select` / `textarea` / combobox = `1px` `--primary` (`border-input`). No `border-border` en el recuadro. Máscara/stepper: borde en el cascarón. Lectura clicable: `.boton-encubierto`.
+- [ ] Header: un botón **ACCIONES** (`HeaderAccionesMenu`); las acciones de la ventana van en `actions` del CFTL, no en una fila suelta.
 - [ ] Íconos de fila: `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`. Toolbar ícono+label: `ToolbarActionButton`.
 - [ ] MAYÚSCULAS / Title Case / abreviaturas con punto según **Guía para IA** punto 11.
 - [ ] Labels de modal en `text-foreground`.
@@ -339,6 +343,7 @@ UI en `src/components/asistente-ia/`. Pasos secuenciales: `ProcesoPaso` (alias `
 - `<button>` suelto en páginas/modales (usar `Button`). Excepciones: celdas de calendario, checkbox de tabla, `TooltipTrigger`, barras de gráfico, dock/sidebar, trigger de multi-select, `.boton-encubierto` (lectura clicable; el CVA de `Button` rompe truncado / `text-left`).
 - Sync DUX en el header de un módulo (vive en slidenav).
 - Inventar layout “dashboard” o segunda variante de tabla.
+- Fila de botones sueltos en el header de página (usar `actions` → menú **ACCIONES**).
 - Recrear páginas en URLs redirigidas (`/proveedores`, `/proveedores/gestion`, `/finanzas/flujo-de-fondo`, `/precios-competencia`, …).
 - Copiar el hex de Balance mensual a otras pantallas.
 - Lógica de negocio, auth o persistencia en el cliente.

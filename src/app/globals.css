@@ -2061,6 +2061,8 @@ button.tabla-row-btn-filled-brand {
 
 /* ─── Título de sección (SectionHeader): diseño global, misma apariencia en todas las rutas ─── */
 .section-header {
+  position: relative;
+  z-index: 20;
   padding: 0.75rem 1.5rem 0;
   background-color: var(--card);
 }
@@ -2106,9 +2108,8 @@ button.tabla-row-btn-filled-brand {
   background-color: var(--border);
 }
 
-/* Tarjeta de título de módulo: todos los botones mismo tamaño y texto centrado.
- * Selector header + clase para ganar especificidad a Tailwind en producción. */
-header .section-header-actions button {
+/* Header: un solo botón ACCIONES; las acciones de la ventana viven en el menú hover. */
+header .section-header-actions .header-acciones-trigger {
   height: 2.5rem !important;
   min-height: 2.5rem !important;
   padding: 0 1rem !important;
@@ -2124,29 +2125,43 @@ header .section-header-actions button {
   flex-shrink: 0;
   transition: box-shadow 0.15s, background-color 0.15s;
   box-shadow: 0 1px 2px #0000000d;
-}
-header .section-header-actions button[data-variant="default"],
-header .section-header-actions button:not([data-variant]) {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
-header .section-header-actions button[data-variant="outline"],
-header .section-header-actions button[data-variant="secondary"] {
-  background-color: var(--secondary) !important;
-  color: var(--secondary-foreground) !important;
-  border: 1px solid var(--border);
-}
-/* Nota: colores desde :root (--primary, --secondary). Evitar especificidad mayor. */
-header .section-header-actions button:hover:not(:disabled) {
+header .section-header-actions .header-acciones-trigger:hover:not(:disabled) {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-}
-header .section-header-actions button[data-variant="default"]:hover:not(:disabled),
-header .section-header-actions button:not([data-variant]):hover:not(:disabled) {
   filter: brightness(0.9);
 }
-header .section-header-actions button[data-variant="outline"]:hover:not(:disabled),
-header .section-header-actions button[data-variant="secondary"]:hover:not(:disabled) {
-  filter: brightness(0.97);
+header .section-header-actions .header-acciones-list button {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 0.75rem !important;
+  font-size: var(--text-sm) !important;
+  font-weight: var(--font-weight-medium) !important;
+  font-family: var(--font-geist-sans);
+  white-space: nowrap;
+  border-radius: calc(var(--radius) - 2px) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  box-shadow: none !important;
+  filter: none !important;
+  background-color: transparent !important;
+  color: var(--foreground) !important;
+  border-color: transparent !important;
+}
+header .section-header-actions .header-acciones-list button:hover:not(:disabled) {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+header .section-header-actions .header-acciones-list button:disabled {
+  opacity: 0.5;
 }
 /* Primario (default): Importar Lista, Guardar, Gestionar, etc. */
 main button[data-variant="default"],
@@ -2171,6 +2186,22 @@ main button[data-variant="secondary"]:hover:not(:disabled) {
 }
 main button:hover:not(:disabled) {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Gana a `main button[data-variant=default]` (!important) para ítems del menú ACCIONES. */
+main header .section-header-actions .header-acciones-list button,
+main header .section-header-actions .header-acciones-list button[data-variant="default"],
+main header .section-header-actions .header-acciones-list button:not([data-variant]) {
+  background-color: transparent !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+main header .section-header-actions .header-acciones-list button:hover:not(:disabled) {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /*

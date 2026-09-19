@@ -128,6 +128,7 @@ Página con tabla
 </div>
 ```
 - `filters` = `FilterBar` `filtros-contenedor-tienda bg-card`
+- Header `actions`: `PageSectionHeader` muestra un botón **ACCIONES**; hover/foco abre la lista. No fila de botones sueltos.
 - Tabla: `.tabla-gestion-compacta` + `Table` de `@/components/ui/table`. Encabezados MAYÚSCULAS + negrita. Celdas `.celda-datos`
 - Scroll **solo** en `.contenedor-tabla-gestion` (el wrapper `data-slot="table-container"` no lleva `overflow-y-auto`). Sticky: `thead th`
 - Vacío: `TableEmptyState`. Ícono de fila: `variant="ghost"` `size="icon"` + `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`
@@ -171,6 +172,7 @@ Excepción hex (no copiar)
 - Recuadro gris (`border-border` / `--gris-inset`) en `Input`, `SelectTrigger`, `textarea` o combobox (el contorno de campo es `--primary`)
 - `<button>` suelto en páginas/modales (usar `Button`). Excepciones: celdas de calendario, checkbox de tabla, `TooltipTrigger`, barras de gráfico, dock/sidebar, trigger de multi-select, `.boton-encubierto`
 - Layout “dashboard genérico” o segunda variante de tabla
+- Fila de botones sueltos en el header de página (menú **ACCIONES**)
 - Recrear páginas en URLs redirigidas (`/proveedores`, `/finanzas/flujo-de-fondo`, `/precios-competencia`, …)
 - Copiar el hex de Balance mensual a otras pantallas
 - Sync DUX en el header de un módulo (vive en el slidenav)
@@ -208,6 +210,7 @@ Al cerrar, listá en la respuesta: archivos de código tocados + secciones de do
 - [ ] Tokens + `cn()`; sin paletas genéricas; banners con `CALLOUT_WARNING_CLASS`
 - [ ] `.area-page-shell`; sin `px-*` duplicado; sin breakpoints `sm:`/`md:`/`lg:`
 - [ ] Página con tabla: CFTL + `FilterBar` `filtros-contenedor-tienda bg-card` + `Table` compacta + sticky thead + vacío `TableEmptyState`
+- [ ] Header: un botón **ACCIONES**; acciones de la ventana en `actions` del CFTL
 - [ ] Búsqueda: `useFiltrosConBusqueda` + `FiltroBusquedaInput`. Selects shadcn con buscador. Fila desplegables: 5 cols (6 solo si hay 6)
 - [ ] Contorno de campos: `Input` / `Select` / `textarea` / combobox = `1px` `--primary` (`border-input`). Lectura clicable: `.boton-encubierto`
 - [ ] Íconos de fila: `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`. Toolbar ícono+label: `ToolbarActionButton`
