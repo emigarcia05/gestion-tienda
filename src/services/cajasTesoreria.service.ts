@@ -10,7 +10,7 @@ import {
   sumarMontosChequesAcreditadosHasta,
   sumarMontosChequesDiferidosPorCaja,
 } from "@/services/finTesoreriaCheques.service";
-import { tipoValorDesdeTipoCaja } from "@/lib/cajasTesoreriaTipos";
+import { tipoValorCompatibleConTipoCaja } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
 
@@ -289,8 +289,8 @@ export async function listarCajasTesoreriaPorTipoCaja(
 export async function crearCajaTesoreria(
   input: CrearCajaTesoreriaInput
 ): Promise<ServiceResult<CajaTesoreriaItem>> {
-  const esperadoTv = tipoValorDesdeTipoCaja(input.tipoCaja);
-  if (input.tipoValor !== esperadoTv) {
+  const esperadoTvOk = tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor);
+  if (!esperadoTvOk) {
     return {
       success: false,
       error: "La combinación tipo de caja / tipo de valor no es válida para las reglas de tesorería.",
@@ -343,6 +343,13 @@ export async function editarCajaTesoreria(
           error: "No se puede cambiar el tipo: la caja tiene cheques registrados.",
         };
       }
+    }
+
+    if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
+      return {
+        success: false,
+        error: "La combinación tipo de caja / tipo de valor no es válida para las reglas de tesorería.",
+      };
     }
 
     const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);

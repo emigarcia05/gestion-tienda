@@ -14,14 +14,41 @@ export const OPCIONES_TIPO_CAJA_TESORERIA_UI: { value: TipoCajaTesoreria; label:
 
 export const OPCIONES_TIPO_VALOR_TESORERIA_UI: { value: TipoValorTesoreria; label: string }[] = [
   { value: "DIGITAL", label: "DIGITAL" },
-  { value: "EFECTIVO", label: "EFECTIVO" },
+  { value: "EFECTIVO", label: "FÍSICO" },
   { value: "CHEQUE", label: "CHEQUE" },
+];
+
+/** Alta/edición de caja: no se elige CHEQUE (queda implícito si `tipoCaja = CHEQUE`). */
+export const OPCIONES_TIPO_VALOR_CAJA_MODAL_UI: {
+  value: Exclude<TipoValorTesoreria, "CHEQUE">;
+  label: string;
+}[] = [
+  { value: "EFECTIVO", label: "FÍSICO" },
+  { value: "DIGITAL", label: "DIGITAL" },
 ];
 
 export function tipoValorDesdeTipoCaja(tipo: TipoCajaTesoreria): TipoValorTesoreria {
   if (tipo === "BANCO" || tipo === "BILLETERA_DIGITAL" || tipo === "TARJETAS_A_COBRAR") return "DIGITAL";
   if (tipo === "EFECTIVO") return "EFECTIVO";
   return "CHEQUE";
+}
+
+/** CHEQUE de caja exige `tipo_valor = CHEQUE`; el resto elige FÍSICO (`EFECTIVO`) o DIGITAL. */
+export function tipoValorCompatibleConTipoCaja(
+  tipoCaja: TipoCajaTesoreria,
+  tipoValor: TipoValorTesoreria
+): boolean {
+  if (tipoCaja === "CHEQUE") return tipoValor === "CHEQUE";
+  return tipoValor === "DIGITAL" || tipoValor === "EFECTIVO";
+}
+
+export function siguienteTipoValorAlCambiarTipoCaja(
+  nextTipoCaja: TipoCajaTesoreria,
+  tipoValorActual: TipoValorTesoreria
+): TipoValorTesoreria {
+  if (nextTipoCaja === "CHEQUE") return "CHEQUE";
+  if (tipoValorCompatibleConTipoCaja(nextTipoCaja, tipoValorActual)) return tipoValorActual;
+  return tipoValorDesdeTipoCaja(nextTipoCaja);
 }
 
 /** Las cajas CHEQUE no tienen sucursal. */

@@ -4,7 +4,7 @@
  *
  * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
- * VTAS. & COBROS → Ptos. Vtas. / Cobros / Cx. Fin. Cobros
+ * VTAS. & COBROS → Ptos. Vtas. / Cx. Fin. Cobros / Cobros por sucursal
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
  * USUARIOS → pantallas
@@ -204,6 +204,13 @@ const vtasCobrosScreens: AdmScreenDef[] = [
     label: "Cx. Fin. Cobros",
     href: VTAS_COBROS_ROUTES.cxFinCobros,
     icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cobros-por-sucursal",
+    label: "Cobros por sucursal",
+    href: VTAS_COBROS_ROUTES.cobrosPorSucursal,
+    icon: "wallet",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];

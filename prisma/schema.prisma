@@ -288,6 +288,7 @@ model Sucursal {
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   cajasTesoreria            CajaTesoreria[]
+  cobrosPorSucursal         CobrosPorSucursal[]
 
   @@map("sucursales")
 }
@@ -430,6 +431,7 @@ model CajaTesoreria {
 
   cheques                        FinTesoreriaCheque[]
   chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
+  cobrosPorSucursalDestino       CobrosPorSucursal[]
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
@@ -1283,7 +1285,7 @@ model CobrosCuota {
 }
 
 /**
- * Matriz entidad × forma de pago [× cuota] para costos financieros (Análisis M.C.).
+ * Matriz entidad × forma de pago [× cuota] para costos financieros (`cobros_cx_fin`, ex `fin_ana_cos_fina`).
  * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
  * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
  */
@@ -1303,10 +1305,33 @@ model FinAnaCosFina {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  @@index([terminalId], map: "fin_ana_cos_fina_terminal_idx")
-  @@index([pagoId], map: "fin_ana_cos_fina_pago_idx")
-  @@index([cuotaId], map: "fin_ana_cos_fina_cuota_idx")
-  @@map("fin_ana_cos_fina")
+  destinosPorSucursal CobrosPorSucursal[]
+
+  @@index([terminalId], map: "cobros_cx_fin_terminal_idx")
+  @@index([pagoId], map: "cobros_cx_fin_pago_idx")
+  @@index([cuotaId], map: "cobros_cx_fin_cuota_idx")
+  @@map("cobros_cx_fin")
+}
+
+/**
+ * Destino de acreditación por sucursal para cada fila habilitada de `cobros_cx_fin`.
+ * Suc1 y Suc2 pueden tener el mismo `caja_destino_id` (misma cuenta).
+ */
+model CobrosPorSucursal {
+  id             String   @id @default(cuid())
+  cobrosCxFinId  String   @map("cobros_cx_fin_id")
+  cobrosCxFin    FinAnaCosFina @relation(fields: [cobrosCxFinId], references: [id], onDelete: Cascade)
+  sucursalId     String   @map("sucursal_id")
+  sucursal       Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  cajaDestinoId  String?  @map("caja_destino_id")
+  cajaDestino    CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([cobrosCxFinId, sucursalId], map: "cobros_por_sucursal_cx_fin_sucursal_ux")
+  @@index([sucursalId], map: "cobros_por_sucursal_sucursal_idx")
+  @@index([cajaDestinoId], map: "cobros_por_sucursal_caja_destino_idx")
+  @@map("cobros_por_sucursal")
 }
 
 /** Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución. */
