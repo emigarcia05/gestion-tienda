@@ -1,6 +1,6 @@
 /** Ítem del catálogo `cobros_cuotas`. */
 export type CobrosCuotaItem = {
   id: string;
-  cantidad: number;
-  orden: number;
+  /** Etiqueta libre (ej. `01`, `03`, `06 PROMOCION`). */
+  cuotas: string;
 };

@@ -335,8 +335,8 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                 <TableCell className="celda-datos text-center text-xs font-medium">
                   {fila.terminalNombre}
                 </TableCell>
-                <TableCell className="celda-datos text-center text-xs text-muted-foreground">
-                  —
+                <TableCell className="celda-datos text-center text-xs">
+                  {fila.cuotas ?? "—"}
                 </TableCell>
                 <TableCell className="celda-datos">
                   <CeldaDiasAcreditacion

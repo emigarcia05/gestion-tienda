@@ -23,7 +23,7 @@ export async function sincronizarMatrizFinAnaCosFina(tx: DbClient): Promise<void
       },
     }),
     tx.cobrosCuota.findMany({
-      orderBy: [{ orden: "asc" }, { cantidad: "asc" }],
+      orderBy: [{ cuotas: "asc" }],
       select: { id: true },
     }),
     tx.finAnaCosFina.findMany({

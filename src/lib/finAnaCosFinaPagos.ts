@@ -2,11 +2,10 @@
 export type FinAnaCosFinaPagoItem = {
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
+  /** Si true, Cx. Fin. Cobros genera filas por cada cuota del catálogo. */
+  aceptaCuotas: boolean;
   /** IDs de `tesoreria_cobros_entidades` vinculados (mín. 1). */
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
@@ -21,7 +20,7 @@ export function filtrarPagosMargenContribucion(
 ): FinAnaCosFinaPagoItem[] {
   return pagos
     .filter((p) => p.enMargenContribucion)
-    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, "es"));
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 export function filtrarPagosCostosFinancieros(
@@ -29,7 +28,7 @@ export function filtrarPagosCostosFinancieros(
 ): FinAnaCosFinaPagoItem[] {
   return pagos
     .filter((p) => p.enCostosFinancieros)
-    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, "es"));
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 export function etiquetaPagoDesdeItem(item: FinAnaCosFinaPagoItem): string {

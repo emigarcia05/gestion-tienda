@@ -32,10 +32,6 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   "h-9 w-9 min-h-9 max-h-9"
 );
 
-function etiquetaCuota(cantidad: number): string {
-  return `${cantidad} ${cantidad === 1 ? "CUOTA" : "CUOTAS"}`;
-}
-
 export default function GestionarCuotasFinAnaCosFinaModal({
   open,
   onOpenChange,
@@ -48,7 +44,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CobrosCuotaItem | null>(null);
-  const [formCantidad, setFormCantidad] = useState("");
+  const [formCuotas, setFormCuotas] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<CobrosCuotaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -82,7 +78,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     setBusqueda("");
     setFormOpen(false);
     setEditingItem(null);
-    setFormCantidad("");
+    setFormCuotas("");
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -92,14 +88,12 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
     if (!q) return items;
-    return items.filter((item) =>
-      matchByMultiTerm([String(item.cantidad), etiquetaCuota(item.cantidad)], q)
-    );
+    return items.filter((item) => matchByMultiTerm([item.cuotas], q));
   }, [items, busqueda]);
 
   function resetForm() {
     setEditingItem(null);
-    setFormCantidad("");
+    setFormCuotas("");
   }
 
   function abrirCrear() {
@@ -111,16 +105,11 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   function abrirEditar(item: CobrosCuotaItem) {
     if (!esEditor || pending) return;
     setEditingItem(item);
-    setFormCantidad(String(item.cantidad));
+    setFormCuotas(item.cuotas);
     setFormOpen(true);
   }
 
-  const cantidadParsed = Number(formCantidad.trim());
-  const formValido =
-    formCantidad.trim().length > 0 &&
-    Number.isInteger(cantidadParsed) &&
-    cantidadParsed >= 1 &&
-    cantidadParsed <= 99;
+  const formValido = formCuotas.trim().length > 0;
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
@@ -129,7 +118,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
       if (editingItem) {
         const res = await editarCobrosCuotaAction({
           id: editingItem.id,
-          cantidad: cantidadParsed,
+          cuotas: formCuotas,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -137,7 +126,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         }
         toast.success("Cuota actualizada.");
       } else {
-        const res = await crearCobrosCuotaAction({ cantidad: cantidadParsed });
+        const res = await crearCobrosCuotaAction({ cuotas: formCuotas });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la cuota.");
           return;
@@ -225,6 +214,12 @@ export default function GestionarCuotasFinAnaCosFinaModal({
               ) : null}
             </div>
 
+            {esEditor ? (
+              <p className="text-sm text-muted-foreground">
+                Texto libre: número y/o descripción (ej. 01, 03, 06 PROMOCION).
+              </p>
+            ) : null}
+
             <div className="min-h-[12rem]">
               {loading ? (
                 <p className="text-sm text-muted-foreground">Cargando...</p>
@@ -242,7 +237,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
                       <p className="min-w-0 flex-1 truncate text-left font-medium text-foreground">
-                        {etiquetaCuota(item.cantidad)}
+                        {item.cuotas}
                       </p>
                       {esEditor ? (
                         <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
@@ -251,7 +246,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Editar ${etiquetaCuota(item.cantidad)}`}
+                            aria-label={`Editar ${item.cuotas}`}
                             disabled={pending}
                             onClick={() => abrirEditar(item)}
                           >
@@ -262,7 +257,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Eliminar ${etiquetaCuota(item.cantidad)}`}
+                            aria-label={`Eliminar ${item.cuotas}`}
                             disabled={pending}
                             onClick={() => setBorrarTarget(item)}
                           >
@@ -316,12 +311,11 @@ export default function GestionarCuotasFinAnaCosFinaModal({
           }
         >
           <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Cantidad</ModalMicroLabel>
+            <ModalMicroLabel>Cuotas</ModalMicroLabel>
             <Input
-              value={formCantidad}
-              onChange={(e) => setFormCantidad(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              placeholder="Ej. 3"
-              inputMode="numeric"
+              value={formCuotas}
+              onChange={(e) => setFormCuotas(e.target.value.toLocaleUpperCase("es-AR"))}
+              placeholder="Ej. 01, 03, 06 PROMOCION"
               disabled={pending}
               autoFocus
             />
@@ -367,10 +361,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         >
           <p className="text-sm text-muted-foreground">
             ¿Eliminar{" "}
-            <span className="font-semibold text-foreground">
-              {borrarTarget ? etiquetaCuota(borrarTarget.cantidad) : ""}
-            </span>
-            ?
+            <span className="font-semibold text-foreground">{borrarTarget?.cuotas}</span>?
           </p>
         </AppModal>
       </Dialog>

@@ -22,23 +22,20 @@ const entidadIdsFormaPagoSchema = z
 export const crearFinAnaCosFinaPagoSchema = z.object({
   nombre: nombreFinAnaCosFinaPagoSchema,
   entidadIds: entidadIdsFormaPagoSchema,
+  aceptaCuotas: z.boolean().optional().default(false),
 });
 
 export const editarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
   nombre: nombreFinAnaCosFinaPagoSchema,
   entidadIds: entidadIdsFormaPagoSchema,
+  aceptaCuotas: z.boolean(),
 });
 
 export const eliminarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
 });
 
-export const reordenarFinAnaCosFinaPagosSchema = z.object({
-  ordenIds: z.array(prismaCuidOrUuidSchema).min(1, "Ingresá al menos un pago."),
-});
-
 export type CrearFinAnaCosFinaPagoInput = z.infer<typeof crearFinAnaCosFinaPagoSchema>;
 export type EditarFinAnaCosFinaPagoInput = z.infer<typeof editarFinAnaCosFinaPagoSchema>;
 export type EliminarFinAnaCosFinaPagoInput = z.infer<typeof eliminarFinAnaCosFinaPagoSchema>;
-export type ReordenarFinAnaCosFinaPagosInput = z.infer<typeof reordenarFinAnaCosFinaPagosSchema>;

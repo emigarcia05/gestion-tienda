@@ -1240,7 +1240,6 @@ model FinAnaCosFinaTerminalMarca {
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
-  orden                Int      @default(0)
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
   /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
@@ -1252,7 +1251,6 @@ model FinAnaCosFinaPagoCat {
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
 
-  @@index([orden], map: "cobros_forma_pago_orden_idx")
   @@map("cobros_forma_pago")
 }
 
@@ -1272,21 +1270,22 @@ model CobrosFormaPagoEntidad {
   @@map("cobros_forma_pago_entidades")
 }
 
-/** Catálogo de cantidades de cuotas (Cx. Fin. Cobros). */
+/** Catálogo de etiquetas de cuotas (Cx. Fin. Cobros). Texto libre (ej. `01`, `06 PROMOCION`). */
 model CobrosCuota {
   id        String   @id @default(cuid())
-  cantidad  Int      @unique(map: "cobros_cuotas_cantidad_key")
-  orden     Int      @default(0)
+  cuotas    String   @unique(map: "cobros_cuotas_cuotas_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([orden], map: "cobros_cuotas_orden_idx")
+  filasCostos FinAnaCosFina[]
+
   @@map("cobros_cuotas")
 }
 
 /**
- * Matriz entidad × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = entidad (`tesoreria_cobros_entidades`); `pago_id` = `cobros_forma_pago`.
+ * Matriz entidad × forma de pago [× cuota] para costos financieros (Análisis M.C.).
+ * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
+ * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
@@ -1296,15 +1295,17 @@ model FinAnaCosFina {
   terminal         FinAnaCosFinaTerminalMarca @relation(fields: [terminalId], references: [id], onDelete: Cascade)
   pagoId           String              @map("pago_id")
   pago             FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  cuotaId          String?             @map("cuota_id")
+  cuota            CobrosCuota?        @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
   diasAcreditacion Int?                @map("dias_acreditacion")
   arancel          Decimal             @default(0) @db.Decimal(5, 2)
   costoFinanciero  Decimal             @default(0) @map("costo_financiero") @db.Decimal(5, 2)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  @@unique([terminalId, pagoId], map: "fin_ana_cos_fina_terminal_pago_ux")
   @@index([terminalId], map: "fin_ana_cos_fina_terminal_idx")
   @@index([pagoId], map: "fin_ana_cos_fina_pago_idx")
+  @@index([cuotaId], map: "fin_ana_cos_fina_cuota_idx")
   @@map("fin_ana_cos_fina")
 }
 

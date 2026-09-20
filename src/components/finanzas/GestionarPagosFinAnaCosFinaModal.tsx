@@ -1,20 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   crearFinAnaCosFinaPagoAction,
   editarFinAnaCosFinaPagoAction,
   eliminarFinAnaCosFinaPagoAction,
   listarFinAnaCosFinaPagosAction,
   listarFinAnaCosFinaTerminalesMarcasAction,
-  reordenarFinAnaCosFinaPagosAction,
 } from "@/actions/finAnaCosFina";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
@@ -31,32 +31,10 @@ interface Props {
   onCatalogoChanged?: () => void;
 }
 
-const DRAG_PAGO_ID_KEY = "fin-ana-cos-fina-pago-id";
-
 const LIST_ROW_ICON_BTN_CLASS = cn(
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   "h-9 w-9 min-h-9 max-h-9"
 );
-
-const BOTON_ARRASTRE_PAGO_CLASS = cn(
-  "flex size-9 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground",
-  "hover:bg-muted/60 hover:text-foreground active:cursor-grabbing",
-  "disabled:pointer-events-none disabled:opacity-40"
-);
-
-function reordenarPagosLista(
-  items: FinAnaCosFinaPagoItem[],
-  origenId: string,
-  destinoId: string
-): FinAnaCosFinaPagoItem[] {
-  const from = items.findIndex((p) => p.id === origenId);
-  const to = items.findIndex((p) => p.id === destinoId);
-  if (from < 0 || to < 0 || from === to) return items;
-  const next = [...items];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved);
-  return next;
-}
 
 function toggleEntidadId(ids: string[], id: string): string[] {
   return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
@@ -79,15 +57,13 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [editingItem, setEditingItem] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
+  const [formAceptaCuotas, setFormAceptaCuotas] = useState(false);
   const [pending, setPending] = useState(false);
-  const [reordenando, setReordenando] = useState(false);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
   const ignoreParentCloseRef = useRef(false);
 
-  const bloqueado = pending || reordenando || borrando;
-  const puedeArrastrar = esEditor && !formOpen && !bloqueado;
+  const bloqueado = pending || borrando;
 
   function markNestedDialogClosing() {
     ignoreParentCloseRef.current = true;
@@ -129,7 +105,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setDraggingId(null);
+    setFormAceptaCuotas(false);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -140,7 +116,14 @@ export default function GestionarPagosFinAnaCosFinaModal({
     const q = busqueda.trim();
     if (!q) return items;
     return items.filter((item) =>
-      matchByMultiTerm([item.nombre, ...item.entidadNombres], q)
+      matchByMultiTerm(
+        [
+          item.nombre,
+          ...item.entidadNombres,
+          item.aceptaCuotas ? "cuotas" : "",
+        ],
+        q
+      )
     );
   }, [items, busqueda]);
 
@@ -148,6 +131,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
+    setFormAceptaCuotas(false);
   }
 
   function abrirCrear() {
@@ -165,6 +149,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(item);
     setFormNombre(item.nombre);
     setFormEntidadIds([...item.entidadIds]);
+    setFormAceptaCuotas(item.aceptaCuotas);
     setFormOpen(true);
   }
 
@@ -179,6 +164,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
           id: editingItem.id,
           nombre: formNombre,
           entidadIds: formEntidadIds,
+          aceptaCuotas: formAceptaCuotas,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -189,6 +175,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
           entidadIds: formEntidadIds,
+          aceptaCuotas: formAceptaCuotas,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la forma de pago.");
@@ -203,31 +190,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
       onCatalogoChanged?.();
     } finally {
       setPending(false);
-    }
-  }
-
-  async function handleReordenar(origenId: string, destinoId: string) {
-    if (!puedeArrastrar || origenId === destinoId) return;
-
-    const prev = items;
-    const next = reordenarPagosLista(prev, origenId, destinoId);
-    setItems(next);
-    setDraggingId(null);
-    setReordenando(true);
-
-    try {
-      const res = await reordenarFinAnaCosFinaPagosAction({
-        ordenIds: next.map((p) => p.id),
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo guardar el orden.");
-        setItems(prev);
-        return;
-      }
-      setItems(res.data);
-      onCatalogoChanged?.();
-    } finally {
-      setReordenando(false);
     }
   }
 
@@ -304,8 +266,8 @@ export default function GestionarPagosFinAnaCosFinaModal({
 
             {esEditor ? (
               <p className="text-sm text-muted-foreground">
-                Arrastrá con el ícono de agarre para definir el orden. Las entidades de cada forma
-                de pago se eligen al crear o editar.
+                Cada forma de pago requiere al menos una entidad. Si acepta cuotas, Cx. Fin. Cobros
+                genera una fila por cada cuota del catálogo.
               </p>
             ) : null}
 
@@ -325,43 +287,16 @@ export default function GestionarPagosFinAnaCosFinaModal({
                   {listaFiltrada.map((pago) => (
                     <li
                       key={pago.id}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2",
-                        draggingId === pago.id && "border-primary/50 bg-primary/5",
-                        draggingId && draggingId !== pago.id && puedeArrastrar && "border-dashed"
-                      )}
-                      onDragOver={(e) => {
-                        if (!puedeArrastrar) return;
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const origenId = e.dataTransfer.getData(DRAG_PAGO_ID_KEY);
-                        if (!origenId) return;
-                        void handleReordenar(origenId, pago.id);
-                      }}
+                      className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
-                      {esEditor ? (
-                        <button
-                          type="button"
-                          draggable={puedeArrastrar}
-                          disabled={!puedeArrastrar}
-                          className={BOTON_ARRASTRE_PAGO_CLASS}
-                          aria-label={`Reordenar ${pago.nombre}`}
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData(DRAG_PAGO_ID_KEY, pago.id);
-                            e.dataTransfer.effectAllowed = "move";
-                            setDraggingId(pago.id);
-                          }}
-                          onDragEnd={() => setDraggingId(null)}
-                        >
-                          <GripVertical className="size-4 shrink-0" aria-hidden />
-                        </button>
-                      ) : null}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">
                           {pago.nombre}
+                          {pago.aceptaCuotas ? (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              · CUOTAS
+                            </span>
+                          ) : null}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {pago.entidadNombres.length > 0
@@ -450,6 +385,20 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 placeholder="NOMBRE (SE GUARDARÁ EN MAYÚSCULAS)"
                 disabled={pending}
                 autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Acepta cuotas</p>
+                <p className="text-xs text-muted-foreground">
+                  Genera filas en Cx. Fin. Cobros por cada cuota del catálogo.
+                </p>
+              </div>
+              <Switch
+                checked={formAceptaCuotas}
+                disabled={pending}
+                onCheckedChange={setFormAceptaCuotas}
+                aria-label="Acepta cuotas"
               />
             </div>
             <div className="flex flex-col gap-2">

@@ -17,7 +17,6 @@ import {
   crearFinAnaCosFinaPagoSchema,
   editarFinAnaCosFinaPagoSchema,
   eliminarFinAnaCosFinaPagoSchema,
-  reordenarFinAnaCosFinaPagosSchema,
 } from "@/lib/validations/finAnaCosFinaPago";
 import {
   crearCobrosCuotaSchema,
@@ -39,7 +38,6 @@ import {
   editarFinAnaCosFinaPago,
   eliminarFinAnaCosFinaPago,
   listarFinAnaCosFinaPagos,
-  reordenarFinAnaCosFinaPagos,
 } from "@/services/finAnaCosFinaPago.service";
 import {
   crearCobrosCuota,
@@ -260,26 +258,6 @@ export async function eliminarFinAnaCosFinaPagoAction(
 
   revalidateRutasAnalisisMc();
   return { ok: true, data: undefined };
-}
-
-export async function reordenarFinAnaCosFinaPagosAction(
-  raw: unknown
-): Promise<ActionResult<FinAnaCosFinaPagoItem[]>> {
-  const gate = await requireEditorFinanzas();
-  if (gate) return gate;
-
-  const parsed = reordenarFinAnaCosFinaPagosSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  }
-
-  const res = await reordenarFinAnaCosFinaPagos(parsed.data);
-  if (!res.success) {
-    return { ok: false, error: res.error };
-  }
-
-  revalidateRutasAnalisisMc();
-  return { ok: true, data: res.data };
 }
 
 export async function actualizarFinAnaCosFinaAction(

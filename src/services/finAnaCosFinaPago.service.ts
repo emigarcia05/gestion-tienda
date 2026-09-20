@@ -1,21 +1,18 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type {
   CrearFinAnaCosFinaPagoInput,
   EditarFinAnaCosFinaPagoInput,
-  ReordenarFinAnaCosFinaPagosInput,
 } from "@/lib/validations/finAnaCosFinaPago";
+import { sincronizarMatrizFinAnaCosFina } from "@/services/finAnaCosFinaMatriz.service";
 import type { ServiceResult } from "@/types";
 
 const pagoSelect = {
   id: true,
   nombre: true,
-  orden: true,
   enCostosFinancieros: true,
   enMargenContribucion: true,
-  asociadoTerminal: true,
-  asociadoBanco: true,
+  aceptaCuotas: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
     select: {
@@ -28,11 +25,9 @@ const pagoSelect = {
 type PagoRowConEntidades = {
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
+  aceptaCuotas: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
@@ -40,11 +35,9 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
   return {
     id: row.id,
     nombre: row.nombre.toUpperCase(),
-    orden: row.orden,
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
-    asociadoTerminal: row.asociadoTerminal,
-    asociadoBanco: row.asociadoBanco,
+    aceptaCuotas: row.aceptaCuotas,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };
@@ -72,20 +65,31 @@ function mapDbError(error: unknown, fallback: string): string {
 const PAGOS_SEMILLA: {
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
+  aceptaCuotas: boolean;
 }[] = [
-  { id: "clfinapago0000008efe", nombre: "EFECTIVO", orden: 0, enCostosFinancieros: false, enMargenContribucion: true, asociadoTerminal: false, asociadoBanco: false },
-  { id: "clfinapago0000001deb", nombre: "DÉBITO", orden: 1, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000002c01", nombre: "1 CUOTA", orden: 2, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000003c03", nombre: "3 CUOTAS", orden: 3, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000004c06", nombre: "6 CUOTAS", orden: 4, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000005c09", nombre: "9 CUOTAS", orden: 5, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000006c12", nombre: "12 CUOTAS", orden: 6, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
-  { id: "clfinapago0000007c18", nombre: "18 CUOTAS", orden: 7, enCostosFinancieros: true, enMargenContribucion: true, asociadoTerminal: true, asociadoBanco: false },
+  {
+    id: "clfinapago0000008efe",
+    nombre: "EFECTIVO",
+    enCostosFinancieros: false,
+    enMargenContribucion: true,
+    aceptaCuotas: false,
+  },
+  {
+    id: "clfinapago0000001deb",
+    nombre: "DÉBITO",
+    enCostosFinancieros: true,
+    enMargenContribucion: true,
+    aceptaCuotas: false,
+  },
+  {
+    id: "clfinapago0000002c01",
+    nombre: "CRÉDITO",
+    enCostosFinancieros: true,
+    enMargenContribucion: true,
+    aceptaCuotas: true,
+  },
 ];
 
 async function resolverEntidadIdsExistentes(
@@ -103,42 +107,6 @@ async function resolverEntidadIdsExistentes(
     return { success: false, error: "Hay entidades inválidas." };
   }
   return { success: true, data: unique };
-}
-
-async function sincronizarFilasCostosPago(
-  tx: Prisma.TransactionClient,
-  pagoId: string,
-  entidadIds: string[],
-  enCostosFinancieros: boolean
-): Promise<void> {
-  if (!enCostosFinancieros) {
-    await tx.finAnaCosFina.deleteMany({ where: { pagoId } });
-    return;
-  }
-
-  if (entidadIds.length === 0) {
-    await tx.finAnaCosFina.deleteMany({ where: { pagoId } });
-    return;
-  }
-
-  await tx.finAnaCosFina.deleteMany({
-    where: {
-      pagoId,
-      terminalId: { notIn: entidadIds },
-    },
-  });
-
-  await tx.finAnaCosFina.createMany({
-    data: entidadIds.map((entidadId) => ({
-      terminalId: entidadId,
-      pagoId,
-      habilitado: true,
-      impCheque: false,
-      arancel: new Prisma.Decimal(0),
-      costoFinanciero: new Prisma.Decimal(0),
-    })),
-    skipDuplicates: true,
-  });
 }
 
 export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
@@ -167,7 +135,7 @@ export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
 export async function listarFinAnaCosFinaPagos(): Promise<FinAnaCosFinaPagoItem[]> {
   await ensureFinAnaCosFinaPagosSeed();
   const rows = await prisma.finAnaCosFinaPagoCat.findMany({
-    orderBy: [{ orden: "asc" }, { nombre: "asc" }],
+    orderBy: [{ nombre: "asc" }],
     select: pagoSelect,
   });
   return rows.map(mapPago);
@@ -186,33 +154,19 @@ export async function crearFinAnaCosFinaPago(
   const entidadIds = entidadesOk.data;
 
   try {
-    const maxOrden = await prisma.finAnaCosFinaPagoCat.aggregate({
-      _max: { orden: true },
-    });
-    const orden = (maxOrden._max.orden ?? -1) + 1;
-
     const pago = await prisma.$transaction(async (tx) => {
       const created = await tx.finAnaCosFinaPagoCat.create({
         data: {
           nombre,
-          orden,
           enCostosFinancieros: true,
           enMargenContribucion: true,
-          asociadoTerminal: true,
-          asociadoBanco: false,
+          aceptaCuotas: input.aceptaCuotas,
           entidades: {
             create: entidadIds.map((entidadId) => ({ entidadId })),
           },
         },
         select: pagoSelect,
       });
-
-      await sincronizarFilasCostosPago(
-        tx,
-        created.id,
-        entidadIds,
-        created.enCostosFinancieros
-      );
 
       if (created.enMargenContribucion) {
         await tx.finAnaMcDescuentoFp.upsert({
@@ -222,6 +176,7 @@ export async function crearFinAnaCosFinaPago(
         });
       }
 
+      await sincronizarMatrizFinAnaCosFina(tx);
       return created;
     });
 
@@ -250,7 +205,7 @@ export async function editarFinAnaCosFinaPago(
     const updated = await prisma.$transaction(async (tx) => {
       const existing = await tx.finAnaCosFinaPagoCat.findUnique({
         where: { id: input.id },
-        select: { id: true, enCostosFinancieros: true },
+        select: { id: true },
       });
       if (!existing) {
         throw Object.assign(new Error("Forma de pago no encontrada."), { code: "P2025" });
@@ -269,17 +224,14 @@ export async function editarFinAnaCosFinaPago(
 
       const row = await tx.finAnaCosFinaPagoCat.update({
         where: { id: input.id },
-        data: { nombre },
+        data: {
+          nombre,
+          aceptaCuotas: input.aceptaCuotas,
+        },
         select: pagoSelect,
       });
 
-      await sincronizarFilasCostosPago(
-        tx,
-        input.id,
-        entidadIds,
-        existing.enCostosFinancieros
-      );
-
+      await sincronizarMatrizFinAnaCosFina(tx);
       return row;
     });
 
@@ -310,39 +262,6 @@ export async function eliminarFinAnaCosFinaPago(
     return {
       success: false,
       error: mapDbError(error, "No se pudo eliminar la forma de pago."),
-    };
-  }
-}
-
-export async function reordenarFinAnaCosFinaPagos(
-  input: ReordenarFinAnaCosFinaPagosInput
-): Promise<ServiceResult<FinAnaCosFinaPagoItem[]>> {
-  try {
-    const pagos = await listarFinAnaCosFinaPagos();
-    if (input.ordenIds.length !== pagos.length) {
-      return { success: false, error: "El orden enviado no coincide con el catálogo." };
-    }
-
-    const idsExistentes = new Set(pagos.map((p) => p.id));
-    if (!input.ordenIds.every((id) => idsExistentes.has(id))) {
-      return { success: false, error: "Hay formas de pago inválidas en el orden." };
-    }
-
-    await prisma.$transaction(
-      input.ordenIds.map((id, orden) =>
-        prisma.finAnaCosFinaPagoCat.update({
-          where: { id },
-          data: { orden },
-        })
-      )
-    );
-
-    const actualizados = await listarFinAnaCosFinaPagos();
-    return { success: true, data: actualizados };
-  } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo guardar el orden de las formas de pago."),
     };
   }
 }

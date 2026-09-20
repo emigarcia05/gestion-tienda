@@ -1,19 +1,22 @@
 import { z } from "zod";
 import { prismaCuidOrUuidSchema } from "@/lib/validations/common";
 
-const cantidadCuotaSchema = z.coerce
-  .number({ error: "Ingresá la cantidad de cuotas." })
-  .int("La cantidad debe ser un entero.")
-  .min(1, "La cantidad mínima es 1.")
-  .max(99, "La cantidad máxima es 99.");
+/** Texto libre de cuotas (número y/o descripción). Se normaliza a MAYÚSCULAS es-AR. */
+const cuotasTextoSchema = z
+  .string()
+  .trim()
+  .min(1, "Ingresá las cuotas.")
+  .max(60, "El texto es demasiado largo.")
+  .transform((value) => value.replace(/\s+/g, " ").toLocaleUpperCase("es-AR"))
+  .refine((value) => value.length > 0, "Ingresá las cuotas.");
 
 export const crearCobrosCuotaSchema = z.object({
-  cantidad: cantidadCuotaSchema,
+  cuotas: cuotasTextoSchema,
 });
 
 export const editarCobrosCuotaSchema = z.object({
   id: prismaCuidOrUuidSchema,
-  cantidad: cantidadCuotaSchema,
+  cuotas: cuotasTextoSchema,
 });
 
 export const eliminarCobrosCuotaSchema = z.object({
