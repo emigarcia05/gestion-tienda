@@ -36,7 +36,7 @@ export interface CajaTesoreriaItem {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   supervisionFiscal: boolean;
-  /** Valor persistido en `tesoreria_cajas.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
+  /** Valor persistido en `fin_tesoreria.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
   monto: number;
   /**
    * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `tesoreria_cheques`
@@ -385,15 +385,6 @@ export async function editarCajaTesoreria(
 
 export async function eliminarCajaTesoreria(id: string): Promise<ServiceResult<void>> {
   try {
-    const chequesAsociados = await prisma.finTesoreriaCheque.count({ where: { cajaId: id } });
-    if (chequesAsociados > 0) {
-      return {
-        success: false,
-        error:
-          "No se puede eliminar la caja: tiene cheques asociados. Transferí o eliminá los cheques primero.",
-      };
-    }
-
     await prisma.cajaTesoreria.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
