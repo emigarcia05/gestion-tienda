@@ -9,6 +9,7 @@ import TablaTesoreriaCajas, { type TesoreriaCajaFila } from "@/components/finanz
 import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaModal";
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
+import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
 import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
@@ -45,6 +46,7 @@ export default function FinanzasTesoreriaPageClient({
   const [openGestionarTitulares, setOpenGestionarTitulares] = useState(false);
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
   const [cajaChequeSeleccionada, setCajaChequeSeleccionada] = useState<TesoreriaCajaFila | null>(null);
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
@@ -108,7 +110,7 @@ export default function FinanzasTesoreriaPageClient({
     <div className="area-page-shell">
       <ClassicFilteredTableLayout
         title="Finanzas"
-        subtitle="Fondos"
+        subtitle="Cajas"
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
@@ -289,6 +291,7 @@ export default function FinanzasTesoreriaPageClient({
           onEditMontoClick={esEditor ? (fila) => setCajaParaEditarMonto(fila) : undefined}
           onChequeRowClick={(fila) => setCajaChequeSeleccionada(fila)}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
+          onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
         />
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}
@@ -310,6 +313,14 @@ export default function FinanzasTesoreriaPageClient({
           }}
           caja={cajaParaEditarDatos}
           onUpdated={refreshCatalogos}
+        />
+        <EliminarCajaTesoreriaModal
+          open={cajaParaEliminar != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaParaEliminar(null);
+          }}
+          caja={cajaParaEliminar}
+          onDeleted={refreshCatalogos}
         />
         <ChequesCajaTesoreriaModal
           open={cajaChequeSeleccionada != null}

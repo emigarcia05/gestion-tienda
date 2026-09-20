@@ -125,7 +125,7 @@ const balanceScreens: AdmScreenDef[] = [
 const flujosScreens: AdmScreenDef[] = [
   {
     id: "tesoreria",
-    label: "Fondos",
+    label: "Cajas",
     href: "/finanzas/tesoreria",
     icon: "banknote",
     permiso: PERMISOS.finanzas.acceso,

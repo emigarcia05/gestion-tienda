@@ -11,7 +11,7 @@ import { ivaPoliticaFormSchema } from "@/lib/validations/iva";
  * fin_bal_gasto_tipo (1) ─→ fin_bal_gasto_rubro (N) ─→ fin_bal_cat_gasto (N) + fin_bal_gasto_final (gasto + proveedor + sucursal opcional si gasto eventual; la terna puede repetirse entre filas).
  *
  * Convención de normalización: todos los `nombre` se normalizan con `trim + toUpperCase`,
- * consistente con fin_tesoreria y demás catálogos financieros.
+ * consistente con tesoreria_cajas y demás catálogos financieros.
  */
 
 const nombreCatalogoSchema = z

@@ -335,7 +335,7 @@ export async function listarProveedoresMercaderiaParaPagoChequeTesoreria(): Prom
 }
 
 /**
- * Transfiere el importe del cheque a otra caja (`fin_tesoreria.monto`) y marca el cheque como transferido.
+ * Transfiere el importe del cheque a otra caja (`tesoreria_cajas.monto`) y marca el cheque como transferido.
  * El registro se conserva en BD durante {@link CHEQUE_TESORERIA_DIAS_RETENCION_TRAS_TRANSFERENCIA} días y luego se purga.
  * Requiere `fecha_acreditacion` ≤ hoy (calendario Argentina).
  * Destino: `tipo_valor = DIGITAL` y `tipo_caja = BANCO`.

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
-import { Banknote, Pencil, ScrollText } from "lucide-react";
+import { Banknote, Pencil, ScrollText, Trash2 } from "lucide-react";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -49,12 +49,13 @@ interface Props {
   /** Cajas no CHEQUE: abrir modal de actualización de monto. */
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
+  onDeleteClick?: (fila: TesoreriaCajaFila) => void;
 }
 
 /** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO [, ACCIONES]. */
 const COLS = 5;
 
-const COL_WIDTHS_PCT_CON_ACCIONES = [16, 18, 16, 18, 18, 14] as const;
+const COL_WIDTHS_PCT_CON_ACCIONES = [16, 18, 16, 17, 17, 16] as const;
 const COL_WIDTHS_PCT_SIN_ACCIONES = [18, 22, 18, 22, 20] as const;
 
 const TH_NUM = "text-right whitespace-nowrap";
@@ -169,6 +170,7 @@ export default function TablaTesoreriaCajas({
   onChequeRowClick,
   onEditMontoClick,
   onEditDataClick,
+  onDeleteClick,
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
@@ -284,6 +286,22 @@ export default function TablaTesoreriaCajas({
                           >
                             <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                           </Button>
+                          {onDeleteClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onDeleteClick(f);
+                              }}
+                              aria-label="Eliminar caja"
+                              title="Eliminar caja"
+                            >
+                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
                         </div>
                       </TableCell>
                     ) : null}

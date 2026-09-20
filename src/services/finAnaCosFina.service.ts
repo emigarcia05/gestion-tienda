@@ -1,15 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ActualizarFinAnaCosFinaInput } from "@/lib/validations/finAnaCosFina";
-import {
-  ensureFinAnaCosFinaTerminalesMarcasSeed,
-  listarFinAnaCosFinaTerminalesMarcas,
-} from "@/services/finAnaCosFinaTerminalMarca.service";
-import {
-  ensureFinAnaCosFinaPagosSeed,
-  listarFinAnaCosFinaPagos,
-} from "@/services/finAnaCosFinaPago.service";
-import { filtrarPagosCostosFinancieros } from "@/lib/finAnaCosFinaPagos";
+import { ensureFinAnaCosFinaTerminalesMarcasSeed } from "@/services/finAnaCosFinaTerminalMarca.service";
+import { ensureFinAnaCosFinaPagosSeed } from "@/services/finAnaCosFinaPago.service";
 
 export type FinAnaCosFinaItem = {
   id: string;
@@ -67,40 +60,53 @@ function sortItems(items: FinAnaCosFinaItem[]): FinAnaCosFinaItem[] {
   });
 }
 
-/** Asegura la matriz marca × pago (idempotente; útil si la migración no corrió en un entorno). */
+/**
+ * Sincroniza `fin_ana_cos_fina` con `cobros_forma_pago_entidades`:
+ * una fila por cada par forma de pago (en costos) × entidad vinculada.
+ * Crea faltantes y elimina huérfanas (producto cartesiano legacy).
+ */
 export async function ensureFinAnaCosFinaSeed(): Promise<void> {
   await ensureFinAnaCosFinaTerminalesMarcasSeed();
   await ensureFinAnaCosFinaPagosSeed();
-  const marcas = await listarFinAnaCosFinaTerminalesMarcas();
-  const pagos = filtrarPagosCostosFinancieros(await listarFinAnaCosFinaPagos());
+
+  const vinculos = await prisma.cobrosFormaPagoEntidad.findMany({
+    where: { pago: { enCostosFinancieros: true } },
+    select: { pagoId: true, entidadId: true },
+  });
+  const deseados = new Set(vinculos.map((v) => `${v.entidadId}:${v.pagoId}`));
 
   const existentes = await prisma.finAnaCosFina.findMany({
-    select: { terminalId: true, pagoId: true },
+    select: { id: true, terminalId: true, pagoId: true },
   });
-  const claves = new Set(existentes.map((row) => `${row.terminalId}:${row.pagoId}`));
-  const faltantes: { terminalId: string; pagoId: string }[] = [];
+  const clavesExistentes = new Set(
+    existentes.map((row) => `${row.terminalId}:${row.pagoId}`)
+  );
 
-  for (const marca of marcas) {
-    for (const pago of pagos) {
-      if (!claves.has(`${marca.id}:${pago.id}`)) {
-        faltantes.push({ terminalId: marca.id, pagoId: pago.id });
-      }
-    }
+  const faltantes = vinculos.filter(
+    (v) => !clavesExistentes.has(`${v.entidadId}:${v.pagoId}`)
+  );
+  if (faltantes.length > 0) {
+    await prisma.finAnaCosFina.createMany({
+      data: faltantes.map((row) => ({
+        terminalId: row.entidadId,
+        pagoId: row.pagoId,
+        habilitado: true,
+        impCheque: false,
+        arancel: new Prisma.Decimal(0),
+        costoFinanciero: new Prisma.Decimal(0),
+      })),
+      skipDuplicates: true,
+    });
   }
 
-  if (faltantes.length === 0) return;
-
-  await prisma.finAnaCosFina.createMany({
-    data: faltantes.map((row) => ({
-      terminalId: row.terminalId,
-      pagoId: row.pagoId,
-      habilitado: true,
-      impCheque: false,
-      arancel: new Prisma.Decimal(0),
-      costoFinanciero: new Prisma.Decimal(0),
-    })),
-    skipDuplicates: true,
-  });
+  const huerfanosIds = existentes
+    .filter((row) => !deseados.has(`${row.terminalId}:${row.pagoId}`))
+    .map((row) => row.id);
+  if (huerfanosIds.length > 0) {
+    await prisma.finAnaCosFina.deleteMany({
+      where: { id: { in: huerfanosIds } },
+    });
+  }
 }
 
 export async function listarFinAnaCosFina(): Promise<FinAnaCosFinaItem[]> {

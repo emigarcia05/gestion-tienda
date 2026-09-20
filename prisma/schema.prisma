@@ -383,7 +383,7 @@ model GlobalPersonal {
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
  * Referenciado por `ptos_vtas.titular`.
- * Aún no sustituye `fin_tesoreria.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
+ * Aún no sustituye `tesoreria_cajas.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
  */
 model TesoreriaTitular {
   id        String   @id @default(cuid())
@@ -431,11 +431,11 @@ model CajaTesoreria {
   cheques                        FinTesoreriaCheque[]
   chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
 
-  @@index([tipoCaja], map: "fin_tesoreria_tipo_caja_idx")
-  @@index([tipoValor], map: "fin_tesoreria_tipo_valor_idx")
-  @@index([entidadId], map: "fin_tesoreria_entidad_id_idx")
-  @@index([sucursalId], map: "fin_tesoreria_sucursal_id_idx")
-  @@map("fin_tesoreria")
+  @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
+  @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
+  @@index([entidadId], map: "tesoreria_cajas_entidad_id_idx")
+  @@index([sucursalId], map: "tesoreria_cajas_sucursal_id_idx")
+  @@map("tesoreria_cajas")
 }
 
 // Cheques asociados a una caja de tesorería tipo CHEQUE. El disponible para totales
@@ -446,7 +446,7 @@ model FinTesoreriaCheque {
   cajaId              String               @map("caja_id")
   tipo                TipoChequeTesoreria  @map("tipo")
   emisor              String
-  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `fin_tesoreria.titular`). */
+  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `tesoreria_cajas.titular`). */
   tenedor             String                 @map("tenedor")
   /** Custodia: en tienda (alta), depositado (transferido a caja con tipo_valor DIGITAL), proveedor (pago a proveedor mercadería). */
   tenencia            TenenciaChequeTesoreria @default(TIENDA) @map("tenencia")
