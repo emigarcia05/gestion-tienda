@@ -58,7 +58,7 @@ export async function listarEntidadesFinTesoreriaAction(): Promise<ActionResult<
   }
 }
 
-/** Catálogo `global_sucursales` para alta/edición de cajas. */
+/** Catálogo `sucursales` para alta/edición de cajas. */
 export async function listarSucursalesTesoreriaAction(): Promise<
   ActionResult<SucursalTesoreriaOption[]>
 > {

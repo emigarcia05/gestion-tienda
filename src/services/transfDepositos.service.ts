@@ -214,7 +214,7 @@ export type SucursalTransfDepositoOption = {
   id: string;
   codigo: string;
   nombre: string;
-  /** `global_sucursales.id_deposito` no nulo. */
+  /** `sucursales.id_deposito` no nulo. */
   tieneDeposito: boolean;
 };
 
@@ -224,7 +224,7 @@ export type PendienteTransfDepositoItem = {
   cantidad: number;
 };
 
-/** Sucursales de `global_sucursales` para selectores origen/destino. */
+/** Sucursales de `sucursales` para selectores origen/destino. */
 export async function listarSucursalesTransfDepositos(): Promise<
   SucursalTransfDepositoOption[]
 > {

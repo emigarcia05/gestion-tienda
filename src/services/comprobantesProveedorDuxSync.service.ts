@@ -219,7 +219,7 @@ export interface SyncComprobantesProveedorDuxResult {
 }
 
 /**
- * Consulta `/compras` en DUX **una vez por sucursal** (`global_sucursales.id_dux`).
+ * Consulta `/compras` en DUX **una vez por sucursal** (`sucursales.id_dux`).
  * Usa ventana fija de consulta:
  * - `fechaDesde`: hoy AR − `DIAS_VENTANA_COMPRAS_DUX` (150) días.
  * - `fechaHasta`: hoy AR + 1 día.

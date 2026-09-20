@@ -1,5 +1,4 @@
 import type {
-  DisponibilidadCajaTesoreria,
   Prisma,
   TipoCajaTesoreria,
   TipoValorTesoreria,
@@ -11,7 +10,7 @@ import {
   sumarMontosChequesAcreditadosHasta,
   sumarMontosChequesDiferidosPorCaja,
 } from "@/services/finTesoreriaCheques.service";
-import { disponibilidadDesdeTipoCaja, tipoValorDesdeTipoCaja } from "@/lib/cajasTesoreriaTipos";
+import { tipoValorDesdeTipoCaja } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
 
@@ -36,7 +35,7 @@ export interface CajaTesoreriaItem {
   sucursalNombre: string;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
+  supervisionFiscal: boolean;
   /** Valor persistido en `fin_tesoreria.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
   monto: number;
   /**
@@ -59,7 +58,6 @@ export interface CrearCajaTesoreriaInput {
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
   monto: number;
 }
 
@@ -70,7 +68,6 @@ export interface EditarCajaTesoreriaInput {
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
   monto: number;
 }
 
@@ -95,7 +92,7 @@ function mapCaja(
       : "",
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
-    disponibilidad: row.disponibilidad,
+    supervisionFiscal: row.supervisionFiscal,
     monto: row.monto,
     montoDisponible,
     montoChequesDiferidos,
@@ -293,12 +290,10 @@ export async function crearCajaTesoreria(
   input: CrearCajaTesoreriaInput
 ): Promise<ServiceResult<CajaTesoreriaItem>> {
   const esperadoTv = tipoValorDesdeTipoCaja(input.tipoCaja);
-  const esperadoDisp = disponibilidadDesdeTipoCaja(input.tipoCaja);
-  if (input.tipoValor !== esperadoTv || input.disponibilidad !== esperadoDisp) {
+  if (input.tipoValor !== esperadoTv) {
     return {
       success: false,
-      error:
-        "La combinación tipo de caja / tipo de valor / disponibilidad no es válida para las reglas de tesorería.",
+      error: "La combinación tipo de caja / tipo de valor no es válida para las reglas de tesorería.",
     };
   }
   const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);
@@ -313,7 +308,6 @@ export async function crearCajaTesoreria(
         sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
-        disponibilidad: input.disponibilidad,
         monto: input.monto,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
@@ -367,7 +361,6 @@ export async function editarCajaTesoreria(
         sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
-        disponibilidad: input.disponibilidad,
         monto: input.monto,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,

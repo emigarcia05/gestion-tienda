@@ -24,7 +24,6 @@ export default async function FinanzasTesoreriaPage() {
     sucursalNombre: c.sucursalNombre,
     tipoCaja: c.tipoCaja,
     tipoValor: c.tipoValor,
-    disponibilidad: c.disponibilidad,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
     montoChequesDiferidos: c.montoChequesDiferidos,

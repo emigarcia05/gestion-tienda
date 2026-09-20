@@ -123,7 +123,7 @@ export async function fetchComprasPage(params: {
   fechaDesde: string;
   fechaHasta: string;
   idEmpresa: number;
-  /** Filtro por sucursal DUX (`global_sucursales.id_dux`). */
+  /** Filtro por sucursal DUX (`sucursales.id_dux`). */
   idSucursal?: number;
   limit?: number;
   offset?: number;

@@ -17,17 +17,15 @@ import { crearCajaTesoreriaAction, listarEntidadesFinTesoreriaAction, listarSucu
 import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import {
-  OPCIONES_DISPONIBILIDAD_CAJA_UI,
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
   OPCIONES_TIPO_VALOR_TESORERIA_UI,
-  disponibilidadDesdeTipoCaja,
   tipoValorDesdeTipoCaja,
   cajaTesoreriaUsaSucursal,
 } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import type { SucursalTesoreriaOption } from "@/services/cajasTesoreria.service";
 import { useTitularesFinancierosTesoreria } from "@/lib/hooks/useTitularesFinancierosTesoreria";
-import type { DisponibilidadCajaTesoreria, TipoCajaTesoreria, TipoValorTesoreria } from "@prisma/client";
+import type { TipoCajaTesoreria, TipoValorTesoreria } from "@prisma/client";
 import CrearEntidadTesoreriaModal from "@/components/finanzas/CrearEntidadTesoreriaModal";
 import { Plus } from "lucide-react";
 
@@ -45,8 +43,6 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
-  const [disponibilidad, setDisponibilidad] =
-    useState<DisponibilidadCajaTesoreria>("INMEDIATA");
   const [saving, setSaving] = useState(false);
   const [openEntidades, setOpenEntidades] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open);
@@ -81,17 +77,11 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
 
   useEffect(() => {
     setTipoValor(tipoValorDesdeTipoCaja(tipoCaja));
-    setDisponibilidad(disponibilidadDesdeTipoCaja(tipoCaja));
     if (!cajaTesoreriaUsaSucursal(tipoCaja)) setSucursalId("");
   }, [tipoCaja]);
 
   const opcionesTipoValor = useMemo(
     () => OPCIONES_TIPO_VALOR_TESORERIA_UI.filter((o) => o.value === tipoValorDesdeTipoCaja(tipoCaja)),
-    [tipoCaja]
-  );
-
-  const opcionesDisponibilidad = useMemo(
-    () => OPCIONES_DISPONIBILIDAD_CAJA_UI.filter((o) => o.value === disponibilidadDesdeTipoCaja(tipoCaja)),
     [tipoCaja]
   );
 
@@ -111,7 +101,6 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor(tipoValorDesdeTipoCaja("EFECTIVO"));
-    setDisponibilidad(disponibilidadDesdeTipoCaja("EFECTIVO"));
   }
 
   async function handleSubmit() {
@@ -124,7 +113,6 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
         sucursalId: cajaTesoreriaUsaSucursal(tipoCaja) ? sucursalId : null,
         tipoCaja,
         tipoValor,
-        disponibilidad,
       });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo crear la caja.");
@@ -309,31 +297,6 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
                   className="select-content-filtro"
                 >
                   {opcionesTipoValor.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <ModalMicroLabel>DISPONIBILIDAD</ModalMicroLabel>
-              <Select
-                value={disponibilidad}
-                onValueChange={(value) => setDisponibilidad(value as DisponibilidadCajaTesoreria)}
-                disabled={saving}
-              >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="SELECCIONAR DISPONIBILIDAD" />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                  className="select-content-filtro"
-                >
-                  {opcionesDisponibilidad.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

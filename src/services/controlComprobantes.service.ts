@@ -90,7 +90,7 @@ export async function listarControlComprobantes(): Promise<ControlComprobanteFil
       ((NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date)::text AS hoy
     FROM fin_compras_comprobante c
     INNER JOIN global_proveedores p ON p.id_proveedor_dux = c.id_proveedor
-    LEFT JOIN global_sucursales s ON COALESCE(s.id_dux, '') = c.id_sucursal_empresa
+    LEFT JOIN sucursales s ON COALESCE(s.id_dux, '') = c.id_sucursal_empresa
     ORDER BY c.fecha_comp ASC, COALESCE(p.prefijo, p.nombre) ASC, c.comprobante ASC
   `;
 

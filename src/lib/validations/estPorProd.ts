@@ -7,7 +7,7 @@ const MAX_LINEAS_IMPORT = 20_000;
 
 /**
  * ID de sucursal para este módulo: acepta cuid/uuid/`suc_corporativo` y otros ids
- * legados de `global_sucursales` (no forzar solo cuid/uuid).
+ * legados de `sucursales` (no forzar solo cuid/uuid).
  */
 export const estPorProdSucursalIdSchema = z
   .string()

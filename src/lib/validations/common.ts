@@ -7,7 +7,7 @@ export const uuidSchema = z.string().uuid("ID inválido.");
 export const prismaCuidSchema = z.string().cuid("ID inválido.");
 
 /**
- * FK string aceptada como **UUID** (filas legacy, p. ej. `global_sucursales.id`) o **CUID** (default Prisma).
+ * FK string aceptada como **UUID** (filas legacy, p. ej. `sucursales.id`) o **CUID** (default Prisma).
  */
 export const prismaCuidOrUuidSchema = z.union([
   z.string().uuid("ID inválido."),
@@ -31,7 +31,7 @@ export const prismaIdOptionalNullableSchema = z.preprocess(
 );
 
 /**
- * `global_sucursales.id`: CUID, UUID, o id fijo de seed **CORPORATIVO** (`suc_corporativo`, migración `20260418150000_seed_sucursal_corporativo`).
+ * `sucursales.id`: CUID, UUID, o id fijo de seed **CORPORATIVO** (`suc_corporativo`, migración `20260418150000_seed_sucursal_corporativo`).
  */
 export const globalSucursalIdSchema = z.union([
   z.string().uuid("ID inválido."),

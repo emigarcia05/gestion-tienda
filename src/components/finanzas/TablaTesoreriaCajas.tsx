@@ -31,7 +31,6 @@ export interface TesoreriaCajaFila {
   sucursalNombre: string;
   tipoCaja: string;
   tipoValor: string;
-  disponibilidad: string;
   /** Valor persistido en BD (p. ej. edición de caja); no usar para totales si existe `montoDisponible`. */
   monto: number;
   /** Monto que cuenta hoy para totales y columna MONTO (cajas CHEQUE: cheques con fecha de acreditación ≤ hoy AR). */
@@ -74,23 +73,17 @@ function ColgroupAnchos({ anchos }: { anchos: readonly number[] }) {
 
 /**
  * Pie de resumen (filas ya filtradas en cliente).
- * - Fila 1: subtotales por `tipoValor` (**CHEQUE** = disponible + diferido por caja).
- * - Fila 2: **Inmediato + Diferido** / **INMEDIATO** / **DIFERIDO** — no cheque según `disponibilidad`; cheque según
- *   `montoDisponible` / `montoChequesDiferidos` (misma regla que backend: `fecha_acreditacion`
- *   ≤ hoy AR vs &gt; hoy en cheques no transferidos).
+ * Subtotales por `tipoValor` (**CHEQUE** = disponible + diferido por caja según
+ * `fecha_acreditacion` ≤ / > hoy AR en cheques no transferidos).
  */
 function totalesPieResumenTesoreria(filas: TesoreriaCajaFila[]): {
   efectivoTipoValor: number;
   digitalTipoValor: number;
   chequeTipoValor: number;
-  inmediato: number;
-  diferido: number;
 } {
   let efectivoTipoValor = 0;
   let digitalTipoValor = 0;
   let chequeTipoValor = 0;
-  let inmediato = 0;
-  let diferido = 0;
 
   for (const f of filas) {
     const m = f.montoDisponible;
@@ -99,18 +92,9 @@ function totalesPieResumenTesoreria(filas: TesoreriaCajaFila[]): {
     if (f.tipoValor === "EFECTIVO") efectivoTipoValor += m;
     else if (f.tipoValor === "DIGITAL") digitalTipoValor += m;
     else if (f.tipoValor === "CHEQUE") chequeTipoValor += m + cheqDif;
-
-    if (f.tipoValor === "CHEQUE") {
-      inmediato += m;
-      diferido += cheqDif;
-    } else if (f.disponibilidad === "INMEDIATA") {
-      inmediato += m;
-    } else if (f.disponibilidad === "DIFERIDO") {
-      diferido += m;
-    }
   }
 
-  return { efectivoTipoValor, digitalTipoValor, chequeTipoValor, inmediato, diferido };
+  return { efectivoTipoValor, digitalTipoValor, chequeTipoValor };
 }
 
 function TarjetaResumenTesoreria({
@@ -186,9 +170,8 @@ export default function TablaTesoreriaCajas({
   onEditMontoClick,
   onEditDataClick,
 }: Props) {
-  const { efectivoTipoValor, digitalTipoValor, chequeTipoValor, inmediato, diferido } =
+  const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
-  const totalInmediatoDiferido = inmediato + diferido;
   const colCount = esEditor ? COLS + 1 : COLS;
   const anchosColPct = esEditor ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
 
@@ -315,7 +298,7 @@ export default function TablaTesoreriaCajas({
           <div
             className="w-full shrink-0 border-t border-border px-2 py-1"
             role="region"
-            aria-label="Totales por tipo de caja y por tipo de tiempo"
+            aria-label="Totales por tipo de valor"
             aria-live="polite"
           >
             <div
@@ -327,7 +310,7 @@ export default function TablaTesoreriaCajas({
               <div className={RESUMEN_FILA_GRID_CLASS}>
                 <EtiquetaFilaResumenTesoreria
                   linea1="Totales por"
-                  linea2="tipo de caja"
+                  linea2="tipo de valor"
                 />
                 <TarjetaResumenTesoreria etiqueta="EFECTIVO" compact>
                   ${fmtPrecio(efectivoTipoValor)}
@@ -337,23 +320,6 @@ export default function TablaTesoreriaCajas({
                 </TarjetaResumenTesoreria>
                 <TarjetaResumenTesoreria etiqueta="CHEQUE" compact>
                   ${fmtPrecio(chequeTipoValor)}
-                </TarjetaResumenTesoreria>
-              </div>
-              <div className={RESUMEN_FILA_GRID_CLASS}>
-                <EtiquetaFilaResumenTesoreria
-                  linea1="Totales por"
-                  linea2="tipo de tiempo"
-                />
-                <div className="min-w-0" title="INMEDIATO + DIFERIDO">
-                  <TarjetaResumenTesoreria etiqueta="Inmediato + Diferido" compact>
-                    ${fmtPrecio(totalInmediatoDiferido)}
-                  </TarjetaResumenTesoreria>
-                </div>
-                <TarjetaResumenTesoreria etiqueta="INMEDIATO" compact>
-                  ${fmtPrecio(inmediato)}
-                </TarjetaResumenTesoreria>
-                <TarjetaResumenTesoreria etiqueta="DIFERIDO" compact>
-                  ${fmtPrecio(diferido)}
                 </TarjetaResumenTesoreria>
               </div>
             </div>

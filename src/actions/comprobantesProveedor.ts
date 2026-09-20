@@ -9,7 +9,7 @@ import {
 } from "@/services/comprobantesProveedorDuxSync.service";
 
 /**
- * Descarga compras desde DUX por cada `global_sucursales.id_dux` y hace upsert en `fin_compras_comprobante`.
+ * Descarga compras desde DUX por cada `sucursales.id_dux` y hace upsert en `fin_compras_comprobante`.
  * Solo editor (misma sensibilidad que otras integraciones DUX de escritura).
  */
 export async function sincronizarComprobantesProveedorDesdeDuxAction(): Promise<

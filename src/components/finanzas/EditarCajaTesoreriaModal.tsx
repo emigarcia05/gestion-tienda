@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import {
-  OPCIONES_DISPONIBILIDAD_CAJA_UI,
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
   OPCIONES_TIPO_VALOR_TESORERIA_UI,
   cajaTesoreriaUsaSucursal,
@@ -27,7 +26,6 @@ import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import type { SucursalTesoreriaOption } from "@/services/cajasTesoreria.service";
 import { useTitularesFinancierosTesoreria } from "@/lib/hooks/useTitularesFinancierosTesoreria";
 import type {
-  DisponibilidadCajaTesoreria,
   TipoCajaTesoreria,
   TipoValorTesoreria,
 } from "@prisma/client";
@@ -55,8 +53,6 @@ export default function EditarCajaTesoreriaModal({
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
-  const [disponibilidad, setDisponibilidad] =
-    useState<DisponibilidadCajaTesoreria>("INMEDIATA");
   const [saving, setSaving] = useState(false);
   const [openEliminar, setOpenEliminar] = useState(false);
   const [openEntidades, setOpenEntidades] = useState(false);
@@ -97,7 +93,6 @@ export default function EditarCajaTesoreriaModal({
     setEntidadId(caja.entidadId);
     setTipoCaja(caja.tipoCaja as TipoCajaTesoreria);
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
-    setDisponibilidad(caja.disponibilidad as DisponibilidadCajaTesoreria);
   }, [open, caja]);
 
   function resetForm() {
@@ -106,7 +101,6 @@ export default function EditarCajaTesoreriaModal({
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor("EFECTIVO");
-    setDisponibilidad("INMEDIATA");
     setOpenEliminar(false);
   }
 
@@ -117,10 +111,9 @@ export default function EditarCajaTesoreriaModal({
       sucursalId !== (caja.sucursalId ?? "") ||
       titular.trim() !== caja.titular ||
       tipoCaja !== caja.tipoCaja ||
-      tipoValor !== caja.tipoValor ||
-      disponibilidad !== caja.disponibilidad
+      tipoValor !== caja.tipoValor
     );
-  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, disponibilidad]);
+  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor]);
 
   const disabledSubmit = useMemo(
     () =>
@@ -144,7 +137,6 @@ export default function EditarCajaTesoreriaModal({
         sucursalId: cajaTesoreriaUsaSucursal(tipoCaja) ? sucursalId : null,
         tipoCaja,
         tipoValor,
-        disponibilidad,
         monto: caja.monto,
       });
 
@@ -313,26 +305,6 @@ export default function EditarCajaTesoreriaModal({
                 </SelectTrigger>
                 <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
                   {OPCIONES_TIPO_VALOR_TESORERIA_UI.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <ModalMicroLabel>DISPONIBILIDAD</ModalMicroLabel>
-              <Select
-                value={disponibilidad}
-                onValueChange={(value) => setDisponibilidad(value as DisponibilidadCajaTesoreria)}
-                disabled={saving}
-              >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="SELECCIONAR DISPONIBILIDAD" />
-                </SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                  {OPCIONES_DISPONIBILIDAD_CAJA_UI.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

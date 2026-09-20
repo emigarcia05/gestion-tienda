@@ -47,7 +47,7 @@ export interface BalanceGastoMensualFila {
   /** Fecha de devengo (mes/año de la fila + día devengado del catálogo). */
   fechaDevengoIso: string;
   sucursalNombre: string;
-  /** Flags de `global_sucursales` al momento de la imputación (lectura en vivo). */
+  /** Flags de `sucursales` al momento de la imputación (lectura en vivo). */
   sucursalGeneraBalance: boolean;
   sucursalCentroCosto: boolean;
   tipoGastoNombre: string;

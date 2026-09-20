@@ -1,5 +1,4 @@
 import type {
-  DisponibilidadCajaTesoreria,
   TipoCajaTesoreria,
   TipoValorTesoreria,
 } from "@prisma/client";
@@ -19,20 +18,10 @@ export const OPCIONES_TIPO_VALOR_TESORERIA_UI: { value: TipoValorTesoreria; labe
   { value: "CHEQUE", label: "CHEQUE" },
 ];
 
-export const OPCIONES_DISPONIBILIDAD_CAJA_UI: { value: DisponibilidadCajaTesoreria; label: string }[] = [
-  { value: "INMEDIATA", label: "INMEDIATA" },
-  { value: "DIFERIDO", label: "DIFERIDO" },
-];
-
 export function tipoValorDesdeTipoCaja(tipo: TipoCajaTesoreria): TipoValorTesoreria {
   if (tipo === "BANCO" || tipo === "BILLETERA_DIGITAL" || tipo === "TARJETAS_A_COBRAR") return "DIGITAL";
   if (tipo === "EFECTIVO") return "EFECTIVO";
   return "CHEQUE";
-}
-
-export function disponibilidadDesdeTipoCaja(tipo: TipoCajaTesoreria): DisponibilidadCajaTesoreria {
-  if (tipo === "CHEQUE" || tipo === "TARJETAS_A_COBRAR") return "DIFERIDO";
-  return "INMEDIATA";
 }
 
 /** Las cajas CHEQUE no tienen sucursal. */

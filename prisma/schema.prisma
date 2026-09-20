@@ -22,11 +22,6 @@ enum TipoValorTesoreria {
   CHEQUE
 }
 
-enum DisponibilidadCajaTesoreria {
-  INMEDIATA
-  DIFERIDO
-}
-
 enum TipoChequeTesoreria {
   FISICO
   ECHEQUE
@@ -250,10 +245,10 @@ model GlobalDeposito {
 // Sucursales: código estable (guaymallen, maipu), nombre, whatsapp (emisor), id DUX y flag de habilitación para pedidos.
 model Sucursal {
   id             String   @id @default(cuid())
-  codigo         String   @unique(map: "global_sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
+  codigo         String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
   nombre         String
   /** Depósito DUX de esta sucursal (1 sucursal → 1 depósito). Null = sin depósito (p. ej. corporativo). */
-  idDeposito     Int?     @unique(map: "global_sucursales_id_deposito_key") @map("id_deposito")
+  idDeposito     Int?     @unique(map: "sucursales_id_deposito_key") @map("id_deposito")
   depositoCatalogo GlobalDeposito? @relation(fields: [idDeposito], references: [idDeposito], onDelete: Restrict)
   whatsapp       String?  @map("whatsapp")
   pedido         Boolean  @default(true) @map("pedido")
@@ -277,7 +272,7 @@ model Sucursal {
    */
   generaEst      Boolean  @default(false) @map("genera_est")
   /** ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo). */
-  idDux          String?  @unique(map: "global_sucursales_id_dux_key") @map("id_dux")
+  idDux          String?  @unique(map: "sucursales_id_dux_key") @map("id_dux")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -294,13 +289,13 @@ model Sucursal {
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   cajasTesoreria            CajaTesoreria[]
 
-  @@map("global_sucursales")
+  @@map("sucursales")
 }
 
 /**
  * Catálogo de puntos de venta DUX (`ptos_vtas`, ex `global_pto_vtas`).
  * PK `id` = cuid (TEXT); no serial. `pto_venta` = CHAR(5) con ceros a la izquierda.
- * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales` `genera_est = true`).
+ * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `sucursales` `genera_est = true`).
  */
 model GlobalPtoVta {
   id                 String    @id @default(cuid())
@@ -373,7 +368,7 @@ model GlobalPersonal {
   nombrePersonal     String   @map("nombre_personal")
   /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
   idDux              String?  @unique(map: "global_personal_id_dux_key") @map("id_dux")
-  /** Código de `global_sucursales` (guaymallen | maipu). */
+  /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
   /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
@@ -421,12 +416,13 @@ model CajaTesoreria {
   entidad          FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
   /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
-  /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `global_sucursales`. */
+  /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `sucursales`. */
   sucursalId       String?           @map("sucursal_id")
   sucursal         Sucursal?         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   tipoCaja         TipoCajaTesoreria @map("tipo_caja")
   tipoValor        TipoValorTesoreria @map("tipo_valor")
-  disponibilidad   DisponibilidadCajaTesoreria @map("disponibilidad")
+  /** Supervisión fiscal (TRUE/FALSE). */
+  supervisionFiscal Boolean @default(false) @map("supervision_fiscal")
   monto            Int               @default(0)
   ultActualizacion DateTime          @map("ult_actualizacion") @default(now())
   createdAt        DateTime          @default(now()) @map("created_at")
@@ -615,7 +611,7 @@ model FinBalGastoMensual {
 
 /**
  * Cargas de ventas para balance (`fin_bal_vtas`).
- * La sucursal debe existir en `global_sucursales` con `genera_balance = true` (validado en servicio).
+ * La sucursal debe existir en `sucursales` con `genera_balance = true` (validado en servicio).
  * `mes` / `anio`: periodo calendario (1–12 / año) al que aplica el monto.
  */
 model FinBalVtas {
@@ -640,7 +636,7 @@ model FinBalVtas {
 
 /**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
- * La sucursal debe existir en `global_sucursales` con `genera_est = true` (validado en servicio).
+ * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
  * `cod_tienda` referencia `prod_tienda.cod_tienda` (código numérico DUX importado como texto).
  */
 model EstPorProd {
@@ -1053,7 +1049,7 @@ model ProdTienda {
 /**
  * Transferencias entre depósitos (Trans. Depósitos).
  * Nombre de tabla pedido: `stock_trasn_depositos`.
- * `cod_tienda` → `prod_tienda`; `suc_origen` / `suc_destino` → `global_sucursales.id`.
+ * `cod_tienda` → `prod_tienda`; `suc_origen` / `suc_destino` → `sucursales.id`.
  * No mueve stock DUX. Historial / anti-duplicado: 14 días.
  */
 model StockTrasnDeposito {

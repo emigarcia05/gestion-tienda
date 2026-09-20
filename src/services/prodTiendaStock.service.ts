@@ -15,7 +15,7 @@ export {
 
 /**
  * Fallback env (`DUX_ID_STOCK_*`) para filtros sync/stockeable.
- * El mapeo de negocio es `global_sucursales.id_deposito` → `obtenerIdDepositoPorCodigoSucursal`.
+ * El mapeo de negocio es `sucursales.id_deposito` → `obtenerIdDepositoPorCodigoSucursal`.
  */
 export function getIdDepositoPorSucursalCodigo(codigo: string): number {
   return codigo.trim().toLowerCase() === "maipu"
@@ -23,7 +23,7 @@ export function getIdDepositoPorSucursalCodigo(codigo: string): number {
     : getIdDepositoGuaymallen();
 }
 
-/** Depósito DUX de la sucursal (`global_sucursales.id_deposito`). Null si no hay FK (p. ej. corporativo). */
+/** Depósito DUX de la sucursal (`sucursales.id_deposito`). Null si no hay FK (p. ej. corporativo). */
 export async function obtenerIdDepositoPorCodigoSucursal(
   codigo: string
 ): Promise<number | null> {
