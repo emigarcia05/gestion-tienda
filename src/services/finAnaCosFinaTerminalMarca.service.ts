@@ -1,11 +1,5 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { filtrarPagosCostosFinancieros } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
-import {
-  ensureFinAnaCosFinaPagosSeed,
-  listarFinAnaCosFinaPagos,
-} from "@/services/finAnaCosFinaPago.service";
 import type {
   CrearFinAnaCosFinaTerminalMarcaInput,
   EditarFinAnaCosFinaTerminalMarcaInput,
@@ -81,28 +75,9 @@ export async function crearFinAnaCosFinaTerminalMarca(
     });
     const orden = (maxOrden._max.orden ?? -1) + 1;
 
-    const marca = await prisma.$transaction(async (tx) => {
-      const created = await tx.finAnaCosFinaTerminalMarca.create({
-        data: { nombre, orden },
-        select: MARCA_SELECT,
-      });
-
-      await ensureFinAnaCosFinaPagosSeed();
-      const pagosCostos = filtrarPagosCostosFinancieros(await listarFinAnaCosFinaPagos());
-
-      await tx.finAnaCosFina.createMany({
-        data: pagosCostos.map((pago) => ({
-          terminalId: created.id,
-          pagoId: pago.id,
-          habilitado: true,
-          impCheque: false,
-          arancel: new Prisma.Decimal(0),
-          costoFinanciero: new Prisma.Decimal(0),
-        })),
-        skipDuplicates: true,
-      });
-
-      return created;
+    const marca = await prisma.finAnaCosFinaTerminalMarca.create({
+      data: { nombre, orden },
+      select: MARCA_SELECT,
     });
 
     return { success: true, data: mapMarca(marca) };
@@ -135,7 +110,36 @@ export async function eliminarFinAnaCosFinaTerminalMarca(
   id: string
 ): Promise<ServiceResult<void>> {
   try {
-    await prisma.finAnaCosFinaTerminalMarca.delete({ where: { id } });
+    const pagosSoloEsta = await prisma.cobrosFormaPagoEntidad.findMany({
+      where: { entidadId: id },
+      select: { pagoId: true },
+    });
+    for (const link of pagosSoloEsta) {
+      const n = await prisma.cobrosFormaPagoEntidad.count({
+        where: { pagoId: link.pagoId },
+      });
+      if (n <= 1) {
+        return {
+          success: false,
+          error:
+            "No se puede eliminar: es la única entidad de al menos una forma de pago. Asociá otra entidad desde Gestionar Formas Pago.",
+        };
+      }
+    }
+
+    const cajas = await prisma.cajaTesoreria.count({ where: { entidadId: id } });
+    if (cajas > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: hay cajas de tesorería que usan esta entidad.",
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cobrosFormaPagoEntidad.deleteMany({ where: { entidadId: id } });
+      await tx.finAnaCosFina.deleteMany({ where: { terminalId: id } });
+      await tx.finAnaCosFinaTerminalMarca.delete({ where: { id } });
+    });
     return { success: true, data: undefined };
   } catch (error: unknown) {
     return { success: false, error: mapDbError(error, "No se pudo eliminar la entidad.") };

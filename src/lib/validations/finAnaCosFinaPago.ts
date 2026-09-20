@@ -7,13 +7,27 @@ const nombreFinAnaCosFinaPagoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
+const entidadIdsFormaPagoSchema = z
+  .array(prismaCuidOrUuidSchema)
+  .min(1, "Seleccioná al menos una entidad.")
+  .superRefine((ids, ctx) => {
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Hay entidades duplicadas.",
+      });
+    }
+  });
+
 export const crearFinAnaCosFinaPagoSchema = z.object({
   nombre: nombreFinAnaCosFinaPagoSchema,
+  entidadIds: entidadIdsFormaPagoSchema,
 });
 
 export const editarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
   nombre: nombreFinAnaCosFinaPagoSchema,
+  entidadIds: entidadIdsFormaPagoSchema,
 });
 
 export const eliminarFinAnaCosFinaPagoSchema = z.object({

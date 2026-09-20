@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Settings2, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaTesoreriaCajas, { type TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
@@ -10,6 +10,9 @@ import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaMod
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
+import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
+import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
+import GestionarTesoreriaTitularesModal from "@/components/vtas-cobros/GestionarTesoreriaTitularesModal";
 import FilterBar, {
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -37,6 +40,9 @@ export default function FinanzasTesoreriaPageClient({
 }: Props) {
   const router = useRouter();
   const [openNuevaCaja, setOpenNuevaCaja] = useState(false);
+  const [openGestionarTipoCaja, setOpenGestionarTipoCaja] = useState(false);
+  const [openGestionarEntidades, setOpenGestionarEntidades] = useState(false);
+  const [openGestionarTitulares, setOpenGestionarTitulares] = useState(false);
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaChequeSeleccionada, setCajaChequeSeleccionada] = useState<TesoreriaCajaFila | null>(null);
@@ -93,6 +99,10 @@ export default function FinanzasTesoreriaPageClient({
         }),
     [filas, filtroEntidad, filtroSucursal, filtroTitular, filtroTipoCaja, filtroTipoValor]
   );
+
+  function refreshCatalogos() {
+    router.refresh();
+  }
 
   return (
     <div className="area-page-shell">
@@ -236,14 +246,40 @@ export default function FinanzasTesoreriaPageClient({
         }
         actions={
           esEditor ? (
-            <Button
-              type="button"
-              onClick={() => setOpenNuevaCaja(true)}
-              className="h-10 px-4 gap-2"
-            >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              Nueva Caja
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                onClick={() => setOpenGestionarTipoCaja(true)}
+                className="h-10 gap-2 px-4"
+              >
+                <Wallet className="size-4 shrink-0" aria-hidden />
+                Gestionar Tipo Caja
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setOpenGestionarEntidades(true)}
+                className="h-10 gap-2 px-4"
+              >
+                <Settings2 className="size-4 shrink-0" aria-hidden />
+                Gestionar Entidad
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setOpenGestionarTitulares(true)}
+                className="h-10 gap-2 px-4"
+              >
+                <Users className="size-4 shrink-0" aria-hidden />
+                Gestionar Titulares
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setOpenNuevaCaja(true)}
+                className="h-10 gap-2 px-4"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Nueva Caja
+              </Button>
+            </div>
           ) : undefined
         }
       >
@@ -257,7 +293,7 @@ export default function FinanzasTesoreriaPageClient({
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}
           onOpenChange={setOpenNuevaCaja}
-          onCreated={() => router.refresh()}
+          onCreated={refreshCatalogos}
         />
         <ActualizarMontoCajaTesoreriaModal
           open={cajaParaEditarMonto != null}
@@ -265,7 +301,7 @@ export default function FinanzasTesoreriaPageClient({
             if (!open) setCajaParaEditarMonto(null);
           }}
           caja={cajaParaEditarMonto}
-          onUpdated={() => router.refresh()}
+          onUpdated={refreshCatalogos}
         />
         <EditarCajaTesoreriaModal
           open={cajaParaEditarDatos != null}
@@ -273,7 +309,7 @@ export default function FinanzasTesoreriaPageClient({
             if (!open) setCajaParaEditarDatos(null);
           }}
           caja={cajaParaEditarDatos}
-          onUpdated={() => router.refresh()}
+          onUpdated={refreshCatalogos}
         />
         <ChequesCajaTesoreriaModal
           open={cajaChequeSeleccionada != null}
@@ -282,7 +318,26 @@ export default function FinanzasTesoreriaPageClient({
           }}
           caja={cajaChequeSeleccionada}
           esEditor={esEditor}
-          onChequesChanged={() => router.refresh()}
+          onChequesChanged={refreshCatalogos}
+        />
+        <GestionarTesoreriaTipoCajaModal
+          open={openGestionarTipoCaja}
+          onOpenChange={setOpenGestionarTipoCaja}
+          esEditor={esEditor}
+          onCatalogoChanged={refreshCatalogos}
+        />
+        <GestionarMarcasFinAnaCosFinaModal
+          open={openGestionarEntidades}
+          onOpenChange={setOpenGestionarEntidades}
+          marcasIniciales={[]}
+          esEditor={esEditor}
+          onCatalogoChanged={refreshCatalogos}
+        />
+        <GestionarTesoreriaTitularesModal
+          open={openGestionarTitulares}
+          onOpenChange={setOpenGestionarTitulares}
+          esEditor={esEditor}
+          onCatalogoChanged={refreshCatalogos}
         />
       </ClassicFilteredTableLayout>
     </div>

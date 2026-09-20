@@ -61,6 +61,11 @@ function revalidateRutasAnalisisMc(): void {
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);
 }
 
+function revalidateRutasEntidadesCompartidas(): void {
+  revalidateRutasAnalisisMc();
+  revalidatePath("/finanzas/tesoreria");
+}
+
 export async function listarFinAnaCosFinaTerminalesMarcasAction(): Promise<
   ActionResult<FinAnaCosFinaTerminalMarcaItem[]>
 > {
@@ -87,7 +92,7 @@ export async function crearFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await crearFinAnaCosFinaTerminalMarca(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasEntidadesCompartidas();
   return fromServiceResult(res);
 }
 
@@ -103,7 +108,7 @@ export async function editarFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await editarFinAnaCosFinaTerminalMarca(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasEntidadesCompartidas();
   return fromServiceResult(res);
 }
 
@@ -119,7 +124,7 @@ export async function eliminarFinAnaCosFinaTerminalMarcaAction(
   }
 
   const res = await eliminarFinAnaCosFinaTerminalMarca(parsed.data.id);
-  if (res.success) revalidateRutasAnalisisMc();
+  if (res.success) revalidateRutasEntidadesCompartidas();
   return fromServiceResult(res);
 }
 

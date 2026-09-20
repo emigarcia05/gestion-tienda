@@ -1,4 +1,4 @@
-/** Ítem del catálogo `cobros_forma_pago`. */
+/** Ítem del catálogo `cobros_forma_pago` (con entidades N:M). */
 export type FinAnaCosFinaPagoItem = {
   id: string;
   nombre: string;
@@ -7,6 +7,10 @@ export type FinAnaCosFinaPagoItem = {
   enMargenContribucion: boolean;
   asociadoTerminal: boolean;
   asociadoBanco: boolean;
+  /** IDs de `tesoreria_cobros_entidades` vinculados (mín. 1). */
+  entidadIds: string[];
+  /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
+  entidadNombres: string[];
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */

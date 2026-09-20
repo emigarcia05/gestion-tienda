@@ -555,6 +555,7 @@ export default function FinAnaMargenContribucionPageClient({
         open={modalGestionarPagosAbierto}
         onOpenChange={setModalGestionarPagosAbierto}
         pagosIniciales={pagos}
+        entidadesIniciales={terminales}
         esEditor={esEditor}
         onCatalogoChanged={handleCatalogoPagosChanged}
       />

@@ -243,6 +243,7 @@ export default function FinAnaCosFinaPageClient({
         open={openGestionarPagos}
         onOpenChange={setOpenGestionarPagos}
         pagosIniciales={pagos}
+        entidadesIniciales={marcas}
         esEditor={esEditor}
         onCatalogoChanged={handleCatalogoPagosChanged}
       />

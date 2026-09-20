@@ -1230,6 +1230,7 @@ model FinAnaCosFinaTerminalMarca {
   cajas    CajaTesoreria[]
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
+  formasPago CobrosFormaPagoEntidad[]
 
   @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
   @@map("tesoreria_cobros_entidades")
@@ -1249,9 +1250,26 @@ model FinAnaCosFinaPagoCat {
 
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
+  entidades     CobrosFormaPagoEntidad[]
 
   @@index([orden], map: "cobros_forma_pago_orden_idx")
   @@map("cobros_forma_pago")
+}
+
+/**
+ * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `tesoreria_cobros_entidades`).
+ * Regla de negocio: cada forma de pago debe tener **al menos una** entidad (validado en servicio/Zod).
+ */
+model CobrosFormaPagoEntidad {
+  pagoId    String @map("pago_id")
+  entidadId String @map("entidad_id")
+
+  pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+
+  @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
+  @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
+  @@map("cobros_forma_pago_entidades")
 }
 
 /** Catálogo de cantidades de cuotas (Cx. Fin. Cobros). */
