@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Link2, Pencil } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -29,53 +30,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import SeleccionarCajaCobrosModal from "@/components/vtas-cobros/SeleccionarCajaCobrosModal";
-import { guardarCobroPorSucursalDestinoAction } from "@/actions/cobrosPorSucursal";
-import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
+import { Dialog } from "@/components/ui/dialog";
+import AppModal from "@/components/shared/AppModal";
+import CrearEditarCobroModal from "@/components/vtas-cobros/CrearEditarCobroModal";
+import { eliminarCobroPorSucursalAction } from "@/actions/cobrosPorSucursal";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import type {
   CobrosPorSucursalCajaOption,
+  CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalSucursalCol,
+  CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
 
 const TH_CLASS = "text-center text-xs font-bold uppercase tracking-wide";
-
-const CELDA_ICON_BTN_CLASS = cn(
-  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-  "h-9 w-9 min-h-9 max-h-9"
-);
 
 interface Props {
   filas: CobrosPorSucursalFila[];
   sucursales: CobrosPorSucursalSucursalCol[];
   cajas: CobrosPorSucursalCajaOption[];
+  pagos: CobrosPorSucursalCatalogoItem[];
+  entidades: CobrosPorSucursalCatalogoItem[];
+  vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   esEditor: boolean;
 }
 
-type DestinoModalTarget = {
-  pagoId: string;
-  entidadId: string;
-  sucursalId: string;
-  pagoNombre: string;
-  entidadNombre: string;
-  sucursalNombre: string;
-  cajaDestinoId: string | null;
-};
+type ModalState =
+  | { open: false }
+  | { open: true; mode: "crear" }
+  | { open: true; mode: "editar"; fila: CobrosPorSucursalFila };
 
 export default function CobrosPorSucursalPageClient({
   filas: filasIniciales,
   sucursales,
   cajas,
+  pagos,
+  entidades,
+  vinculosPagoEntidad,
   esEditor,
 }: Props) {
   const [filas, setFilas] = useState(filasIniciales);
   const [filtroPagoId, setFiltroPagoId] = useState("");
   const [filtroEntidadId, setFiltroEntidadId] = useState("");
-  const [filtroVinculado, setFiltroVinculado] = useState("");
-  const [modalTarget, setModalTarget] = useState<DestinoModalTarget | null>(null);
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState>({ open: false });
+  const [filaBorrar, setFilaBorrar] = useState<CobrosPorSucursalFila | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const cajasPorId = useMemo(() => {
+    const map = new Map<string, CobrosPorSucursalCajaOption>();
+    for (const c of cajas) map.set(c.id, c);
+    return map;
+  }, [cajas]);
 
   const opcionesPago = useMemo(() => {
     const map = new Map<string, string>();
@@ -97,84 +107,64 @@ export default function CobrosPorSucursalPageClient({
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
   }, [filas]);
 
-  function filaCompletamenteVinculada(fila: CobrosPorSucursalFila): boolean {
-    if (sucursales.length === 0) return false;
-    return sucursales.every((suc) => Boolean(fila.destinosPorSucursalId[suc.id]));
-  }
-
   const filasFiltradas = useMemo(
     () =>
       filas.filter((f) => {
         if (filtroPagoId && f.pagoId !== filtroPagoId) return false;
         if (filtroEntidadId && f.entidadId !== filtroEntidadId) return false;
-        if (filtroVinculado === "si" && !filaCompletamenteVinculada(f)) return false;
-        if (filtroVinculado === "no" && filaCompletamenteVinculada(f)) return false;
         return true;
       }),
-    [filas, filtroPagoId, filtroEntidadId, filtroVinculado, sucursales]
+    [filas, filtroPagoId, filtroEntidadId]
   );
-
-  const cajasModal = useMemo(() => {
-    if (!modalTarget) return [];
-    return cajas.filter((c) => c.entidadId === modalTarget.entidadId);
-  }, [cajas, modalTarget]);
 
   function limpiarFiltros() {
     setFiltroPagoId("");
     setFiltroEntidadId("");
-    setFiltroVinculado("");
   }
 
-  function abrirModal(
-    fila: CobrosPorSucursalFila,
-    suc: CobrosPorSucursalSucursalCol
-  ) {
-    if (!esEditor || isPending) return;
-    setModalTarget({
-      pagoId: fila.pagoId,
-      entidadId: fila.entidadId,
-      sucursalId: suc.id,
-      pagoNombre: fila.pagoNombre,
-      entidadNombre: fila.entidadNombre,
-      sucursalNombre: suc.nombre,
-      cajaDestinoId: fila.destinosPorSucursalId[suc.id] ?? null,
+  function etiquetaCajaCelda(cajaId: string | null): string {
+    if (!cajaId) return "—";
+    const caja = cajasPorId.get(cajaId);
+    if (!caja) return "VINCULADA";
+    return caja.titular;
+  }
+
+  function handleSaved(fila: CobrosPorSucursalFila) {
+    setFilas((prev) => {
+      const idx = prev.findIndex(
+        (f) => f.pagoId === fila.pagoId && f.entidadId === fila.entidadId
+      );
+      if (idx === -1) {
+        return [...prev, fila].sort((a, b) => {
+          const byPago = a.pagoNombre.localeCompare(b.pagoNombre, "es", {
+            sensitivity: "base",
+          });
+          if (byPago !== 0) return byPago;
+          return a.entidadNombre.localeCompare(b.entidadNombre, "es", {
+            sensitivity: "base",
+          });
+        });
+      }
+      const next = [...prev];
+      next[idx] = fila;
+      return next;
     });
   }
 
-  function guardarDestino(cajaDestinoId: string | null) {
-    if (!modalTarget || isPending) return;
-    const { pagoId, entidadId, sucursalId } = modalTarget;
-    const key = `${pagoId}:${entidadId}:${sucursalId}`;
-    setPendingKey(key);
-
+  function confirmarBorrar() {
+    if (!filaBorrar || isPending) return;
+    const { pagoId, entidadId } = filaBorrar;
     startTransition(async () => {
-      const res = await guardarCobroPorSucursalDestinoAction({
-        pagoId,
-        entidadId,
-        sucursalId,
-        cajaDestinoId,
-      });
-      setPendingKey(null);
+      const res = await eliminarCobroPorSucursalAction({ pagoId, entidadId });
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudo guardar.");
+        toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
       setFilas((prev) =>
-        prev.map((fila) => {
-          if (fila.pagoId !== pagoId || fila.entidadId !== entidadId) return fila;
-          return {
-            ...fila,
-            destinosPorSucursalId: {
-              ...fila.destinosPorSucursalId,
-              [sucursalId]: cajaDestinoId,
-            },
-          };
-        })
+        prev.filter((f) => !(f.pagoId === pagoId && f.entidadId === entidadId))
       );
-      setModalTarget(null);
-      toast.success(
-        cajaDestinoId ? "Caja vinculada." : "Vínculo de caja eliminado."
-      );
+      setFilaBorrar(null);
+      toast.success("Cobro eliminado.");
     });
   }
 
@@ -184,6 +174,16 @@ export default function CobrosPorSucursalPageClient({
         title="VTAS. & COBROS"
         subtitle="Cobros & Cajas"
         contentWidth="full"
+        actions={
+          esEditor ? (
+            <ToolbarActionButton
+              type="button"
+              icon={<Plus aria-hidden />}
+              label="Crear Cobro"
+              onClick={() => setModal({ open: true, mode: "crear" })}
+            />
+          ) : undefined
+        }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
@@ -246,32 +246,6 @@ export default function CobrosPorSucursalPageClient({
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={filtroVinculado === "si" || filtroVinculado === "no"}
-                  onLimpiar={() => setFiltroVinculado("")}
-                >
-                  <Select
-                    value={filtroVinculado || undefined}
-                    onValueChange={setFiltroVinculado}
-                  >
-                    <SelectTrigger
-                      className={SELECT_TRIGGER_FILTER_CLASS}
-                      aria-label="Vinculado"
-                    >
-                      <SelectValue placeholder="VINCULADO" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="select-content-filtro"
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                    >
-                      <SelectItem value="si">SI</SelectItem>
-                      <SelectItem value="no">NO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
               </FilaFiltrosDesplegables>
               <div className="flex items-center gap-3">
                 <p className={FILTER_COUNT_CLASS}>
@@ -289,7 +263,7 @@ export default function CobrosPorSucursalPageClient({
               <TableHeader>
                 <TableRow>
                   <TableHead className={cn("min-w-[12rem]", TH_CLASS)}>
-                    FORMA DE PAGO
+                    FORMA PAGO
                   </TableHead>
                   <TableHead className={cn("min-w-[10rem]", TH_CLASS)}>ENTIDAD</TableHead>
                   {sucursales.map((suc) => (
@@ -297,17 +271,20 @@ export default function CobrosPorSucursalPageClient({
                       {suc.nombre}
                     </TableHead>
                   ))}
+                  {esEditor ? (
+                    <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>ACCIONES</TableHead>
+                  ) : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filasFiltradas.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={2 + sucursales.length}
+                      colSpan={2 + sucursales.length + (esEditor ? 1 : 0)}
                       className="celda-datos text-center text-muted-foreground"
                     >
                       {filas.length === 0
-                        ? "No hay combinaciones habilitadas en Cx. Fin. Cobros."
+                        ? "No hay cobros creados. Usá Crear Cobro en ACCIONES."
                         : "Ninguna combinación coincide con los filtros."}
                     </TableCell>
                   </TableRow>
@@ -321,46 +298,64 @@ export default function CobrosPorSucursalPageClient({
                         {fila.entidadNombre}
                       </TableCell>
                       {sucursales.map((suc) => {
-                        const actual = fila.destinosPorSucursalId[suc.id] ?? null;
-                        const cellKey = `${fila.pagoId}:${fila.entidadId}:${suc.id}`;
-                        const disabled =
-                          !esEditor || (isPending && pendingKey === cellKey);
-                        const vinculada = actual != null;
+                        const cajaId = fila.destinosPorSucursalId[suc.id] ?? null;
                         return (
                           <TableCell
                             key={suc.id}
-                            className="celda-datos celda-datos--accion-relleno-fila"
+                            className="celda-datos text-center text-xs"
+                            title={
+                              cajaId
+                                ? (cajasPorId.get(cajaId)?.etiqueta ?? undefined)
+                                : undefined
+                            }
                           >
-                            <div className="flex items-center justify-center">
-                              {esEditor ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className={CELDA_ICON_BTN_CLASS}
-                                  disabled={disabled}
-                                  aria-label={
-                                    vinculada
-                                      ? `Editar caja destino ${suc.nombre} para ${fila.pagoNombre} ${fila.entidadNombre}`
-                                      : `Vincular caja destino ${suc.nombre} para ${fila.pagoNombre} ${fila.entidadNombre}`
-                                  }
-                                  onClick={() => abrirModal(fila, suc)}
-                                >
-                                  {vinculada ? (
-                                    <Pencil className="h-4 w-4" />
-                                  ) : (
-                                    <Link2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  {vinculada ? "VINCULADA" : "—"}
-                                </span>
-                              )}
-                            </div>
+                            {etiquetaCajaCelda(cajaId)}
                           </TableCell>
                         );
                       })}
+                      {esEditor ? (
+                        <TableCell className="celda-datos celda-datos--accion-relleno-fila">
+                          <div
+                            className={cn(
+                              TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                              "flex-wrap justify-center gap-1"
+                            )}
+                          >
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={isPending}
+                              aria-label={`Editar cobro ${fila.pagoNombre} ${fila.entidadNombre}`}
+                              title="Editar"
+                              onClick={() =>
+                                setModal({ open: true, mode: "editar", fila })
+                              }
+                            >
+                              <Pencil
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={isPending}
+                              aria-label={`Eliminar cobro ${fila.pagoNombre} ${fila.entidadNombre}`}
+                              title="Eliminar"
+                              onClick={() => setFilaBorrar(fila)}
+                            >
+                              <Trash2
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))
                 )}
@@ -370,21 +365,60 @@ export default function CobrosPorSucursalPageClient({
         </div>
       </ClassicFilteredTableLayout>
 
-      <SeleccionarCajaCobrosModal
-        open={Boolean(modalTarget)}
+      <CrearEditarCobroModal
+        open={modal.open}
         onOpenChange={(open) => {
-          if (!open && !isPending) setModalTarget(null);
+          if (!open) setModal({ open: false });
         }}
-        contexto={
-          modalTarget
-            ? `${modalTarget.pagoNombre} · ${modalTarget.entidadNombre} · ${modalTarget.sucursalNombre}`
-            : ""
-        }
-        cajas={cajasModal}
-        cajaSeleccionadaId={modalTarget?.cajaDestinoId ?? null}
-        pending={isPending}
-        onSeleccionar={guardarDestino}
+        mode={modal.open ? modal.mode : "crear"}
+        fila={modal.open && modal.mode === "editar" ? modal.fila : null}
+        pagos={pagos}
+        entidades={entidades}
+        vinculosPagoEntidad={vinculosPagoEntidad}
+        cajas={cajas}
+        onSaved={handleSaved}
       />
+
+      <Dialog
+        open={Boolean(filaBorrar)}
+        onOpenChange={(open) => {
+          if (!open && !isPending) setFilaBorrar(null);
+        }}
+      >
+        <AppModal
+          title="ELIMINAR COBRO"
+          size="sm"
+          className="max-w-md"
+          actions={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => setFilaBorrar(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isPending || !filaBorrar}
+                onClick={() => confirmarBorrar()}
+              >
+                Eliminar
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            ¿Eliminar el cobro{" "}
+            <span className="font-semibold text-foreground">
+              {filaBorrar?.pagoNombre} · {filaBorrar?.entidadNombre}
+            </span>
+            ? Se quitan todos los vínculos de caja por sucursal.
+          </p>
+        </AppModal>
+      </Dialog>
     </>
   );
 }

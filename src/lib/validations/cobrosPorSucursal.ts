@@ -1,14 +1,31 @@
 import { z } from "zod";
-import { prismaCuidOrUuidSchema, globalSucursalIdSchema } from "@/lib/validations/common";
+import { prismaCuidOrUuidSchema } from "@/lib/validations/common";
 
-export const guardarCobroPorSucursalDestinoSchema = z.object({
+export const crearCobroPorSucursalSchema = z.object({
   pagoId: prismaCuidOrUuidSchema,
   entidadId: prismaCuidOrUuidSchema,
-  sucursalId: globalSucursalIdSchema,
-  /** `null` limpia el destino. */
-  cajaDestinoId: prismaCuidOrUuidSchema.nullable(),
+  cajaDestinoId: prismaCuidOrUuidSchema,
+  observacion: z.string().max(2000).default(""),
 });
 
-export type GuardarCobroPorSucursalDestinoInput = z.infer<
-  typeof guardarCobroPorSucursalDestinoSchema
+export type CrearCobroPorSucursalInput = z.infer<typeof crearCobroPorSucursalSchema>;
+
+export const actualizarCobroPorSucursalSchema = z.object({
+  pagoId: prismaCuidOrUuidSchema,
+  entidadId: prismaCuidOrUuidSchema,
+  cajaDestinoId: prismaCuidOrUuidSchema,
+  observacion: z.string().max(2000).default(""),
+});
+
+export type ActualizarCobroPorSucursalInput = z.infer<
+  typeof actualizarCobroPorSucursalSchema
+>;
+
+export const eliminarCobroPorSucursalSchema = z.object({
+  pagoId: prismaCuidOrUuidSchema,
+  entidadId: prismaCuidOrUuidSchema,
+});
+
+export type EliminarCobroPorSucursalInput = z.infer<
+  typeof eliminarCobroPorSucursalSchema
 >;

@@ -1314,8 +1314,9 @@ model FinAnaCosFina {
 
 /**
  * Destino de acreditación por sucursal para cada combinación forma de pago × entidad (`cobros_vinc_cajas`).
- * Todas las cuotas de esa combinación comparten el mismo destino por sucursal.
- * Suc1 y Suc2 pueden apuntar a cajas distintas (o a la misma).
+ * Alta manual (UI Cobros & Cajas); no se genera desde `cobros_cx_fin.habilitado`.
+ * Una forma × entidad puede tener caja en una o varias sucursales (columnas SUC).
+ * `observacion` se replica en todas las filas del mismo pago × entidad.
  */
 model CobrosPorSucursal {
   id            String   @id @default(cuid())
@@ -1326,6 +1327,8 @@ model CobrosPorSucursal {
   sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   cajaDestinoId String?  @map("caja_destino_id")
   cajaDestino   CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  /** Texto libre; mismo valor en todas las filas del grupo pago × entidad. */
+  observacion   String   @default("") @map("observacion") @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -5,10 +5,17 @@ import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates
 import { firstZodErrorMessage } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
-import { guardarCobroPorSucursalDestinoSchema } from "@/lib/validations/cobrosPorSucursal";
 import {
-  guardarCobroPorSucursalDestino,
+  actualizarCobroPorSucursalSchema,
+  crearCobroPorSucursalSchema,
+  eliminarCobroPorSucursalSchema,
+} from "@/lib/validations/cobrosPorSucursal";
+import {
+  actualizarCobroPorSucursal,
+  crearCobroPorSucursal,
+  eliminarCobroPorSucursal,
   listarVistaCobrosPorSucursal,
+  type CobrosPorSucursalFila,
   type CobrosPorSucursalVista,
 } from "@/services/cobrosPorSucursal.service";
 
@@ -26,25 +33,58 @@ export async function listarVistaCobrosPorSucursalAction(): Promise<
   }
 }
 
-export async function guardarCobroPorSucursalDestinoAction(
+export async function crearCobroPorSucursalAction(
   raw: unknown
-): Promise<
-  ActionResult<{
-    pagoId: string;
-    entidadId: string;
-    sucursalId: string;
-    cajaDestinoId: string | null;
-  }>
-> {
+): Promise<ActionResult<CobrosPorSucursalFila>> {
   const gate = await requireEditorFinanzas();
   if (gate) return gate;
 
-  const parsed = guardarCobroPorSucursalDestinoSchema.safeParse(raw);
+  const parsed = crearCobroPorSucursalSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
 
-  const res = await guardarCobroPorSucursalDestino(parsed.data);
+  const res = await crearCobroPorSucursal(parsed.data);
+  if (!res.success) {
+    return { ok: false, error: res.error };
+  }
+
+  revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  return { ok: true, data: res.data };
+}
+
+export async function actualizarCobroPorSucursalAction(
+  raw: unknown
+): Promise<ActionResult<CobrosPorSucursalFila>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+
+  const parsed = actualizarCobroPorSucursalSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await actualizarCobroPorSucursal(parsed.data);
+  if (!res.success) {
+    return { ok: false, error: res.error };
+  }
+
+  revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  return { ok: true, data: res.data };
+}
+
+export async function eliminarCobroPorSucursalAction(
+  raw: unknown
+): Promise<ActionResult<{ pagoId: string; entidadId: string }>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+
+  const parsed = eliminarCobroPorSucursalSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await eliminarCobroPorSucursal(parsed.data);
   if (!res.success) {
     return { ok: false, error: res.error };
   }

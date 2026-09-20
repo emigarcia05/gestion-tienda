@@ -20,6 +20,9 @@ export default async function VtasCobrosPorSucursalPage() {
       filas={vista.filas}
       sucursales={vista.sucursales}
       cajas={vista.cajas}
+      pagos={vista.pagos}
+      entidades={vista.entidades}
+      vinculosPagoEntidad={vista.vinculosPagoEntidad}
       esEditor={rol === "editor"}
     />
   );
