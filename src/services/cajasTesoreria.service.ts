@@ -385,6 +385,15 @@ export async function editarCajaTesoreria(
 
 export async function eliminarCajaTesoreria(id: string): Promise<ServiceResult<void>> {
   try {
+    const chequesAsociados = await prisma.finTesoreriaCheque.count({
+      where: { cajaId: id },
+    });
+    if (chequesAsociados > 0) {
+      return {
+        success: false,
+        error: "Primero hay que transferir o eliminar los cheques asociados a esta caja.",
+      };
+    }
     await prisma.cajaTesoreria.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {

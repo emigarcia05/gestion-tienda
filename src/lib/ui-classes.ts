@@ -160,6 +160,13 @@ export const BALANCE_MODAL_HISTORIAL_RUBRO_TITLE =
 export const MODAL_MICRO_LABEL_CLASS =
   "modal-micro-label modal-field-label text-[0.65rem] font-semibold uppercase tracking-[0.06em] text-foreground";
 
+/** Fila de configuración TRUE/FALSE (SÍ/NO) en modal: etiqueta + `Switch`. Ver `ModalSiNoChoice`. */
+export const MODAL_BOOLEAN_SWITCH_ROW_CLASS =
+  "flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2";
+
+export const MODAL_BOOLEAN_SWITCH_LABEL_CLASS =
+  "min-w-0 truncate text-sm font-medium uppercase text-foreground";
+
 /**
  * Typeahead / combobox listbox (Factura productos, clientes, …).
  * Panel flotante bajo el input; filas = `div role="button"` (no `<Button>` ni `<button>` de formulario).

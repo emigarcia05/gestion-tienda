@@ -11,7 +11,6 @@ import GestionarCuotasFinAnaCosFinaModal from "@/components/finanzas/GestionarCu
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
-  FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
@@ -26,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
@@ -53,9 +51,11 @@ export default function FinAnaCosFinaPageClient({
   const router = useRouter();
   const pagosCostos = useMemo(() => filtrarPagosCostosFinancieros(pagos), [pagos]);
   const [filasOverrides, setFilasOverrides] = useState<Record<string, FinAnaCosFinaFila>>({});
-  const [filtroTerminalId, setFiltroTerminalId] = useState("");
-  const [filtroPago, setFiltroPago] = useState("");
   const [filtroHabilitado, setFiltroHabilitado] = useState("");
+  const [filtroPago, setFiltroPago] = useState("");
+  const [filtroTerminalId, setFiltroTerminalId] = useState("");
+  const [filtroCuotaId, setFiltroCuotaId] = useState("");
+  const [filtroImpCheque, setFiltroImpCheque] = useState("");
   const [openGestionarMarcas, setOpenGestionarMarcas] = useState(false);
   const [openGestionarPagos, setOpenGestionarPagos] = useState(false);
   const [openGestionarCuotas, setOpenGestionarCuotas] = useState(false);
@@ -69,19 +69,24 @@ export default function FinAnaCosFinaPageClient({
   const filasFiltradas = useMemo(
     () =>
       filasState.filter((fila) => {
-        if (filtroTerminalId && fila.terminalId !== filtroTerminalId) return false;
-        if (filtroPago && fila.pagoId !== filtroPago) return false;
         if (filtroHabilitado === "si" && !fila.habilitado) return false;
         if (filtroHabilitado === "no" && fila.habilitado) return false;
+        if (filtroPago && fila.pagoId !== filtroPago) return false;
+        if (filtroTerminalId && fila.terminalId !== filtroTerminalId) return false;
+        if (filtroCuotaId && fila.cuotaId !== filtroCuotaId) return false;
+        if (filtroImpCheque === "si" && !fila.impCheque) return false;
+        if (filtroImpCheque === "no" && fila.impCheque) return false;
         return true;
       }),
-    [filasState, filtroTerminalId, filtroPago, filtroHabilitado]
+    [filasState, filtroHabilitado, filtroPago, filtroTerminalId, filtroCuotaId, filtroImpCheque]
   );
 
   function limpiarFiltros() {
-    setFiltroTerminalId("");
-    setFiltroPago("");
     setFiltroHabilitado("");
+    setFiltroPago("");
+    setFiltroTerminalId("");
+    setFiltroCuotaId("");
+    setFiltroImpCheque("");
   }
 
   function handleFilaActualizada(fila: FinAnaCosFinaFila) {
@@ -150,6 +155,52 @@ export default function FinAnaCosFinaPageClient({
               <FilaFiltrosDesplegables>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={filtroHabilitado === "si" || filtroHabilitado === "no"}
+                  onLimpiar={() => setFiltroHabilitado("")}
+                >
+                  <Select
+                    value={filtroHabilitado ?? ""}
+                    onValueChange={(value) => setFiltroHabilitado(value)}
+                  >
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Habilitado">
+                      <SelectValue placeholder="HABILITADO" />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                      className="select-content-filtro"
+                    >
+                      <SelectItem value="si">HABILITADO</SelectItem>
+                      <SelectItem value="no">NO HABILITADO</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={Boolean(filtroPago)}
+                  onLimpiar={() => setFiltroPago("")}
+                >
+                  <Select value={filtroPago ?? ""} onValueChange={(value) => setFiltroPago(value)}>
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Forma de pago">
+                      <SelectValue placeholder="FORMA DE PAGO" />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                      className="select-content-filtro"
+                    >
+                      {pagosCostos.map((pago) => (
+                        <SelectItem key={pago.id} value={pago.id}>
+                          {etiquetaFiltroMayusculas(pago.nombre)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={Boolean(filtroTerminalId)}
                   onLimpiar={() => setFiltroTerminalId("")}
                 >
@@ -157,7 +208,7 @@ export default function FinAnaCosFinaPageClient({
                     value={filtroTerminalId ?? ""}
                     onValueChange={(value) => setFiltroTerminalId(value)}
                   >
-                    <SelectTrigger className="input-filtro-unificado">
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Entidad">
                       <SelectValue placeholder="ENTIDAD" />
                     </SelectTrigger>
                     <SelectContent
@@ -176,12 +227,15 @@ export default function FinAnaCosFinaPageClient({
                 </FiltroIndividualContainer>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtroPago)}
-                  onLimpiar={() => setFiltroPago("")}
+                  activo={Boolean(filtroCuotaId)}
+                  onLimpiar={() => setFiltroCuotaId("")}
                 >
-                  <Select value={filtroPago ?? ""} onValueChange={(value) => setFiltroPago(value)}>
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="PAGO" />
+                  <Select
+                    value={filtroCuotaId ?? ""}
+                    onValueChange={(value) => setFiltroCuotaId(value)}
+                  >
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Cuotas">
+                      <SelectValue placeholder="CUOTAS" />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -189,9 +243,9 @@ export default function FinAnaCosFinaPageClient({
                       align="start"
                       className="select-content-filtro"
                     >
-                      {pagosCostos.map((pago) => (
-                        <SelectItem key={pago.id} value={pago.id}>
-                          {etiquetaFiltroMayusculas(pago.nombre)}
+                      {cuotas.map((cuota) => (
+                        <SelectItem key={cuota.id} value={cuota.id}>
+                          {etiquetaFiltroMayusculas(cuota.cuotas)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -199,15 +253,15 @@ export default function FinAnaCosFinaPageClient({
                 </FiltroIndividualContainer>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={filtroHabilitado === "si" || filtroHabilitado === "no"}
-                  onLimpiar={() => setFiltroHabilitado("")}
+                  activo={filtroImpCheque === "si" || filtroImpCheque === "no"}
+                  onLimpiar={() => setFiltroImpCheque("")}
                 >
                   <Select
-                    value={filtroHabilitado ?? ""}
-                    onValueChange={(value) => setFiltroHabilitado(value)}
+                    value={filtroImpCheque ?? ""}
+                    onValueChange={(value) => setFiltroImpCheque(value)}
                   >
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="HABILITADO" />
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Imp. cheque">
+                      <SelectValue placeholder="IMP. CHEQUE" />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -215,19 +269,19 @@ export default function FinAnaCosFinaPageClient({
                       align="start"
                       className="select-content-filtro"
                     >
-                      <SelectItem value="si">HABILITADO</SelectItem>
-                      <SelectItem value="no">NO HABILITADO</SelectItem>
+                      <SelectItem value="si">SI</SelectItem>
+                      <SelectItem value="no">NO</SelectItem>
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-                <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "col-span-2")}>
-                  <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                    {filasFiltradas.length} COMBINACIÓN(ES)
-                  </span>
-                  <LimpiarFiltrosButton onClick={limpiarFiltros} />
-                </div>
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
+            <div className="flex items-center justify-end gap-3">
+              <span className={FILTER_COUNT_CLASS}>
+                {filasFiltradas.length} COMBINACIÓN(ES)
+              </span>
+              <LimpiarFiltrosButton onClick={limpiarFiltros} />
+            </div>
           </FilterBar>
         }
         filtersAriaLabel="Filtros de costos financieros"

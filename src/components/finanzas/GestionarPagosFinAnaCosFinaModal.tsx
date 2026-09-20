@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   crearFinAnaCosFinaPagoAction,
   editarFinAnaCosFinaPagoAction,
@@ -387,20 +387,12 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 autoFocus
               />
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Acepta cuotas</p>
-                <p className="text-xs text-muted-foreground">
-                  Genera filas en Cx. Fin. Cobros por cada cuota del catálogo.
-                </p>
-              </div>
-              <Switch
-                checked={formAceptaCuotas}
-                disabled={pending}
-                onCheckedChange={setFormAceptaCuotas}
-                aria-label="Acepta cuotas"
-              />
-            </div>
+            <ModalSiNoChoice
+              label="ACEPTA CUOTAS"
+              value={formAceptaCuotas}
+              onChange={setFormAceptaCuotas}
+              disabled={pending}
+            />
             <div className="flex flex-col gap-2">
               <ModalMicroLabel>Entidades (mínimo 1)</ModalMicroLabel>
               {entidades.length === 0 ? (

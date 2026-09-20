@@ -49,6 +49,7 @@ interface Props {
   /** Cajas no CHEQUE: abrir modal de actualización de monto. */
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
+  onDeleteClick?: (fila: TesoreriaCajaFila) => void;
 }
 
 /** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO [, ACCIONES]. */
@@ -169,6 +170,7 @@ export default function TablaTesoreriaCajas({
   onChequeRowClick,
   onEditMontoClick,
   onEditDataClick,
+  onDeleteClick,
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
@@ -284,6 +286,22 @@ export default function TablaTesoreriaCajas({
                           >
                             <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                           </Button>
+                          {onDeleteClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onDeleteClick(f);
+                              }}
+                              aria-label="Eliminar caja"
+                              title="Eliminar caja"
+                            >
+                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
                         </div>
                       </TableCell>
                     ) : null}

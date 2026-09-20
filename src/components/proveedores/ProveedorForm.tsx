@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { crearProveedor, editarProveedor } from "@/actions/proveedores";
 
 type IvaProveedorValue = "SIEMPRE" | "NUNCA" | "PREGUNTA";
@@ -226,20 +227,12 @@ export default function ProveedorForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="esFabrica">ES FÁBRICA</Label>
-        <Select
-          value={esFabrica}
-          onValueChange={(v) => setEsFabrica(v as EsFabricaSel)}
+        <ModalSiNoChoice
+          label="ES FÁBRICA"
+          value={esFabrica === "si"}
+          onChange={(checked) => setEsFabrica(checked ? "si" : "no")}
           disabled={pending}
-        >
-          <SelectTrigger id="esFabrica" className="w-full">
-            <SelectValue placeholder="SELECCIONAR SI O NO" />
-          </SelectTrigger>
-          <SelectContent position="popper" side="bottom" align="start">
-            <SelectItem value="si">SI</SelectItem>
-            <SelectItem value="no">NO</SelectItem>
-          </SelectContent>
-        </Select>
+        />
         <input type="hidden" name="esFabrica" value={esFabrica} />
       </div>
 

@@ -9,6 +9,7 @@ import TablaTesoreriaCajas, { type TesoreriaCajaFila } from "@/components/finanz
 import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaModal";
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
+import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
 import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
@@ -45,12 +46,12 @@ export default function FinanzasTesoreriaPageClient({
   const [openGestionarTitulares, setOpenGestionarTitulares] = useState(false);
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
   const [cajaChequeSeleccionada, setCajaChequeSeleccionada] = useState<TesoreriaCajaFila | null>(null);
+  const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroTitular, setFiltroTitular] = useState("");
-  const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
-  const [filtroTipoValor, setFiltroTipoValor] = useState("");
 
   const entidadesOptions = useMemo(
     () => [...new Set(filas.map((f) => f.entidadNombre))].sort((a, b) => a.localeCompare(b, "es")),
@@ -71,20 +72,15 @@ export default function FinanzasTesoreriaPageClient({
     () => [...new Set(filas.map((f) => f.tipoCaja))].sort((a, b) => a.localeCompare(b, "es")),
     [filas]
   );
-  const tiposValorOptions = useMemo(
-    () => [...new Set(filas.map((f) => f.tipoValor))].sort((a, b) => a.localeCompare(b, "es")),
-    [filas]
-  );
 
   const filasFiltradas = useMemo(
     () =>
       filas
         .filter((fila) => {
+          if (filtroTipoCaja && fila.tipoCaja !== filtroTipoCaja) return false;
           if (filtroEntidad && fila.entidadNombre !== filtroEntidad) return false;
           if (filtroSucursal && fila.sucursalNombre !== filtroSucursal) return false;
           if (filtroTitular && fila.titular !== filtroTitular) return false;
-          if (filtroTipoCaja && fila.tipoCaja !== filtroTipoCaja) return false;
-          if (filtroTipoValor && fila.tipoValor !== filtroTipoValor) return false;
           return true;
         })
         .sort((a, b) => {
@@ -97,7 +93,7 @@ export default function FinanzasTesoreriaPageClient({
           if (!bOk) return -1;
           return ta - tb;
         }),
-    [filas, filtroEntidad, filtroSucursal, filtroTitular, filtroTipoCaja, filtroTipoValor]
+    [filas, filtroTipoCaja, filtroEntidad, filtroSucursal, filtroTitular]
   );
 
   function refreshCatalogos() {
@@ -112,14 +108,40 @@ export default function FinanzasTesoreriaPageClient({
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
-              <FilaFiltrosDesplegables columnas={5}>
+              <FilaFiltrosDesplegables columnas={4}>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={Boolean(filtroTipoCaja)}
+                  onLimpiar={() => setFiltroTipoCaja("")}
+                >
+                  <Select
+                    value={filtroTipoCaja ?? ""}
+                    onValueChange={(v) => setFiltroTipoCaja(v)}
+                  >
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Tipo caja">
+                      <SelectValue placeholder="TIPO CAJA" />
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                      className="select-content-filtro"
+                    >
+                      {tiposCajaOptions.map((tipo) => (
+                        <SelectItem key={tipo} value={tipo}>
+                          {etiquetaTipoCajaEnPantalla(tipo as TipoCajaTesoreria)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={Boolean(filtroEntidad)}
                   onLimpiar={() => setFiltroEntidad("")}
                 >
                   <Select value={filtroEntidad ?? ""} onValueChange={(v) => setFiltroEntidad(v)}>
-                    <SelectTrigger className="input-filtro-unificado">
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Entidad">
                       <SelectValue placeholder="ENTIDAD" />
                     </SelectTrigger>
                     <SelectContent
@@ -145,7 +167,7 @@ export default function FinanzasTesoreriaPageClient({
                     value={filtroSucursal ?? ""}
                     onValueChange={(v) => setFiltroSucursal(v)}
                   >
-                    <SelectTrigger className="input-filtro-unificado">
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Sucursal">
                       <SelectValue placeholder="SUCURSAL" />
                     </SelectTrigger>
                     <SelectContent
@@ -171,7 +193,7 @@ export default function FinanzasTesoreriaPageClient({
                     value={filtroTitular ?? ""}
                     onValueChange={(v) => setFiltroTitular(v)}
                   >
-                    <SelectTrigger className="input-filtro-unificado">
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Titular">
                       <SelectValue placeholder="TITULAR" />
                     </SelectTrigger>
                     <SelectContent
@@ -183,58 +205,6 @@ export default function FinanzasTesoreriaPageClient({
                       {titularesOptions.map((titular) => (
                         <SelectItem key={titular} value={titular}>
                           {titular}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtroTipoCaja)}
-                  onLimpiar={() => setFiltroTipoCaja("")}
-                >
-                  <Select
-                    value={filtroTipoCaja ?? ""}
-                    onValueChange={(v) => setFiltroTipoCaja(v)}
-                  >
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="TIPO CAJA" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      className="select-content-filtro"
-                    >
-                      {tiposCajaOptions.map((tipo) => (
-                        <SelectItem key={tipo} value={tipo}>
-                          {etiquetaTipoCajaEnPantalla(tipo as TipoCajaTesoreria)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtroTipoValor)}
-                  onLimpiar={() => setFiltroTipoValor("")}
-                >
-                  <Select
-                    value={filtroTipoValor ?? ""}
-                    onValueChange={(v) => setFiltroTipoValor(v)}
-                  >
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="TIPO DE VALOR" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      className="select-content-filtro"
-                    >
-                      {tiposValorOptions.map((tipo) => (
-                        <SelectItem key={tipo} value={tipo}>
-                          {tipo}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -289,6 +259,7 @@ export default function FinanzasTesoreriaPageClient({
           onEditMontoClick={esEditor ? (fila) => setCajaParaEditarMonto(fila) : undefined}
           onChequeRowClick={(fila) => setCajaChequeSeleccionada(fila)}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
+          onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
         />
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}
@@ -310,6 +281,17 @@ export default function FinanzasTesoreriaPageClient({
           }}
           caja={cajaParaEditarDatos}
           onUpdated={refreshCatalogos}
+        />
+        <EliminarCajaTesoreriaModal
+          open={cajaParaEliminar != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaParaEliminar(null);
+          }}
+          caja={cajaParaEliminar}
+          onDeleted={() => {
+            setCajaParaEliminar(null);
+            refreshCatalogos();
+          }}
         />
         <ChequesCajaTesoreriaModal
           open={cajaChequeSeleccionada != null}

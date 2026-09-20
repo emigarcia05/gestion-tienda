@@ -138,7 +138,7 @@ Página con tabla
 Modales
 - Formulario / confirmación: `AppModal` dentro de `Dialog`
 - Tabla + filtros + selección: `ModalTablaConFiltros`
-- Botones: `Button` shadcn (`default` / `outline`). Pares SÍ/NO: `ModalSiNoChoice`
+- Botones: `Button` shadcn (`default` / `outline`). Configuración TRUE/FALSE o SÍ/NO: `ModalSiNoChoice` (etiqueta MAYÚSCULAS + `Switch`; sin texto de ayuda). No pares SÍ/NO ni Select SI/NO si el valor ya es booleano.
 - Labels: `text-foreground` (`ModalMicroLabel`). Títulos de modal: MAYÚSCULAS
 - No `max-w-*` extra si coincide con `size`. No apilar dos `Dialog` a la vez (stacking: overlay `z-[80]` / typeahead `z-[70]` / Select en modal `z-[90]`)
 

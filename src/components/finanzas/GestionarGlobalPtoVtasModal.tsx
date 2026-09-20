@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -301,32 +302,14 @@ export default function GestionarGlobalPtoVtasModal({
               aria-label="IIBB"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>IIBB Multilateral</ModalMicroLabel>
-            <Select
-              value={formFiscal.iiBbMultilateral ? "si" : "no"}
-              onValueChange={(value) =>
-                setFormFiscal((prev) => ({ ...prev, iiBbMultilateral: value === "si" }))
-              }
-              disabled={pending}
-            >
-              <SelectTrigger
-                className="input-filtro-unificado w-full"
-                aria-label="IIBB multilateral"
-              >
-                <SelectValue placeholder="SELECCIONAR SI O NO" />
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                side="bottom"
-                align="start"
-                className="select-content-filtro"
-              >
-                <SelectItem value="si">SI</SelectItem>
-                <SelectItem value="no">NO</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <ModalSiNoChoice
+            label="IIBB MULTILATERAL"
+            value={formFiscal.iiBbMultilateral}
+            onChange={(checked) =>
+              setFormFiscal((prev) => ({ ...prev, iiBbMultilateral: checked }))
+            }
+            disabled={pending}
+          />
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Condición IVA</ModalMicroLabel>
             <Select

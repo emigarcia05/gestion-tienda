@@ -1,37 +1,41 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  MODAL_BOOLEAN_SWITCH_LABEL_CLASS,
+  MODAL_BOOLEAN_SWITCH_ROW_CLASS,
+} from "@/lib/ui-classes";
+import { cn } from "@/lib/utils";
 
 interface ModalSiNoChoiceProps {
+  /** Etiqueta MAYÚSCULAS. Sin texto de ayuda debajo. */
+  label: string;
   value: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  className?: string;
 }
 
-/** Par SÍ / NO en modales: opción activa `default` (primary), inactiva `outline`. */
-export default function ModalSiNoChoice({ value, onChange, disabled }: ModalSiNoChoiceProps) {
+/**
+ * Configuración TRUE/FALSE (SÍ/NO) en modales: fila con etiqueta a la izquierda y `Switch` a la derecha.
+ * No usar pares de botones SÍ/NO ni Select SI/NO para un booleano con valor conocido.
+ */
+export default function ModalSiNoChoice({
+  label,
+  value,
+  onChange,
+  disabled,
+  className,
+}: ModalSiNoChoiceProps) {
   return (
-    <div className="flex w-full min-w-0 gap-2">
-      <Button
-        type="button"
-        variant={value ? "default" : "outline"}
-        size="default"
-        className="min-w-0 flex-1"
+    <div className={cn(MODAL_BOOLEAN_SWITCH_ROW_CLASS, className)}>
+      <p className={MODAL_BOOLEAN_SWITCH_LABEL_CLASS}>{label}</p>
+      <Switch
+        checked={value}
         disabled={disabled}
-        onClick={() => onChange(true)}
-      >
-        SÍ
-      </Button>
-      <Button
-        type="button"
-        variant={!value ? "default" : "outline"}
-        size="default"
-        className="min-w-0 flex-1"
-        disabled={disabled}
-        onClick={() => onChange(false)}
-      >
-        NO
-      </Button>
+        onCheckedChange={(checked) => onChange(checked === true)}
+        aria-label={label}
+      />
     </div>
   );
 }
