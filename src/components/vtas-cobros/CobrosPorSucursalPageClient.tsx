@@ -114,8 +114,6 @@ export default function CobrosPorSucursalPageClient({
     [filas, filtroPagoId, filtroEntidadId, filtroVinculado, sucursales]
   );
 
-  const hayFiltros = Boolean(filtroPagoId || filtroEntidadId || filtroVinculado);
-
   const cajasModal = useMemo(() => {
     if (!modalTarget) return [];
     return cajas.filter((c) => c.entidadId === modalTarget.entidadId);
@@ -279,7 +277,7 @@ export default function CobrosPorSucursalPageClient({
                 <p className={FILTER_COUNT_CLASS}>
                   {filasFiltradas.length} / {filas.length}
                 </p>
-                <LimpiarFiltrosButton disabled={!hayFiltros} onClick={limpiarFiltros} />
+                <LimpiarFiltrosButton onClick={limpiarFiltros} />
               </div>
             </FilterRowSelection>
           </FilterBar>

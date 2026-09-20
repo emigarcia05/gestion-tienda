@@ -1313,7 +1313,7 @@ model FinAnaCosFina {
 }
 
 /**
- * Destino de acreditación por sucursal para cada combinación forma de pago × entidad.
+ * Destino de acreditación por sucursal para cada combinación forma de pago × entidad (`cobros_vinc_cajas`).
  * Todas las cuotas de esa combinación comparten el mismo destino por sucursal.
  * Suc1 y Suc2 pueden apuntar a cajas distintas (o a la misma).
  */
@@ -1329,11 +1329,11 @@ model CobrosPorSucursal {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  @@unique([pagoId, entidadId, sucursalId], map: "cobros_por_sucursal_pago_entidad_sucursal_ux")
-  @@index([sucursalId], map: "cobros_por_sucursal_sucursal_idx")
-  @@index([cajaDestinoId], map: "cobros_por_sucursal_caja_destino_idx")
-  @@index([entidadId], map: "cobros_por_sucursal_entidad_idx")
-  @@map("cobros_por_sucursal")
+  @@unique([pagoId, entidadId, sucursalId], map: "cobros_vinc_cajas_pago_entidad_sucursal_ux")
+  @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
+  @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
+  @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")
+  @@map("cobros_vinc_cajas")
 }
 
 /** Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución. */
