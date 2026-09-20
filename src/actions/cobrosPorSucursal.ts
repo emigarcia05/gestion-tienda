@@ -22,7 +22,7 @@ export async function listarVistaCobrosPorSucursalAction(): Promise<
     const data = await listarVistaCobrosPorSucursal();
     return { ok: true, data };
   } catch {
-    return { ok: false, error: "No se pudo cargar cobros por sucursal." };
+    return { ok: false, error: "No se pudo cargar Cobros & Cajas." };
   }
 }
 

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
 import type { GuardarCobroPorSucursalDestinoInput } from "@/lib/validations/cobrosPorSucursal";
 import { ensureFinAnaCosFinaSeed } from "@/services/finAnaCosFina.service";
+import type { TipoCajaTesoreria } from "@prisma/client";
 import type { ServiceResult } from "@/types";
 
 export type CobrosPorSucursalSucursalCol = {
@@ -11,6 +13,11 @@ export type CobrosPorSucursalSucursalCol = {
 export type CobrosPorSucursalCajaOption = {
   id: string;
   entidadId: string;
+  tipoCaja: string;
+  entidadNombre: string;
+  sucursalNombre: string;
+  titular: string;
+  /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR` */
   etiqueta: string;
 };
 
@@ -39,14 +46,17 @@ function mapDbError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function etiquetaCaja(row: {
+function etiquetaCajaLista(row: {
   entidad: { nombre: string };
   titular: string;
   sucursal: { nombre: string } | null;
-  tipoCaja: string;
+  tipoCaja: TipoCajaTesoreria;
 }): string {
+  const tipo = etiquetaTipoCajaEnPantalla(row.tipoCaja);
+  const entidad = row.entidad.nombre.toLocaleUpperCase("es-AR");
   const suc = row.sucursal?.nombre.toLocaleUpperCase("es-AR") ?? "SIN SUC.";
-  return `${row.entidad.nombre.toLocaleUpperCase("es-AR")} · ${row.titular.toLocaleUpperCase("es-AR")} · ${suc} · ${row.tipoCaja}`;
+  const titular = row.titular.toLocaleUpperCase("es-AR");
+  return `${tipo} - ${entidad} - ${suc} - ${titular}`;
 }
 
 /** Sucursales operativas (con depósito): columnas de la grilla. */
@@ -135,7 +145,11 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
   const cajas: CobrosPorSucursalCajaOption[] = cajasRows.map((row) => ({
     id: row.id,
     entidadId: row.entidadId,
-    etiqueta: etiquetaCaja(row),
+    tipoCaja: row.tipoCaja,
+    entidadNombre: row.entidad.nombre.toLocaleUpperCase("es-AR"),
+    sucursalNombre: row.sucursal?.nombre.toLocaleUpperCase("es-AR") ?? "SIN SUC.",
+    titular: row.titular.toLocaleUpperCase("es-AR"),
+    etiqueta: etiquetaCajaLista(row),
   }));
 
   return { filas, sucursales, cajas };

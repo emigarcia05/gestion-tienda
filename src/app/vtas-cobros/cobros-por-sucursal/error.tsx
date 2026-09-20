@@ -10,7 +10,7 @@ export default function VtasCobrosPorSucursalError({
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
       <p className="text-sm text-muted-foreground">
-        No se pudo cargar Cobros por sucursal.
+        No se pudo cargar Cobros & Cajas.
       </p>
       <button
         type="button"
