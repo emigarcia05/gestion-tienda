@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FilterBar, {
@@ -9,7 +10,6 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -46,9 +46,7 @@ interface Props {
 }
 
 function etiquetaMedio(fila: CobrosPorSucursalFila): string {
-  const partes = [fila.pagoNombre, fila.entidadNombre];
-  if (fila.cuotas) partes.push(fila.cuotas);
-  return partes.join(" · ");
+  return `${fila.pagoNombre} · ${fila.entidadNombre}`;
 }
 
 export default function CobrosPorSucursalPageClient({
@@ -66,7 +64,7 @@ export default function CobrosPorSucursalPageClient({
     const q = busqueda.trim();
     if (!q) return filas;
     return filas.filter((f) =>
-      matchByMultiTerm([f.pagoNombre, f.entidadNombre, f.cuotas ?? ""], q)
+      matchByMultiTerm([f.pagoNombre, f.entidadNombre], q)
     );
   }, [filas, busqueda]);
 
@@ -75,18 +73,20 @@ export default function CobrosPorSucursalPageClient({
   }
 
   function handleCambioDestino(
-    cobrosCxFinId: string,
+    pagoId: string,
+    entidadId: string,
     sucursalId: string,
     value: string
   ) {
     if (!esEditor || isPending) return;
     const cajaDestinoId = value === SIN_CAJA ? null : value;
-    const key = `${cobrosCxFinId}:${sucursalId}`;
+    const key = `${pagoId}:${entidadId}:${sucursalId}`;
     setPendingKey(key);
 
     startTransition(async () => {
       const res = await guardarCobroPorSucursalDestinoAction({
-        cobrosCxFinId,
+        pagoId,
+        entidadId,
         sucursalId,
         cajaDestinoId,
       });
@@ -97,7 +97,7 @@ export default function CobrosPorSucursalPageClient({
       }
       setFilas((prev) =>
         prev.map((fila) => {
-          if (fila.cobrosCxFinId !== cobrosCxFinId) return fila;
+          if (fila.pagoId !== pagoId || fila.entidadId !== entidadId) return fila;
           return {
             ...fila,
             destinosPorSucursalId: {
@@ -118,20 +118,24 @@ export default function CobrosPorSucursalPageClient({
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
           <div className="flex items-center gap-3">
-            <div className="relative min-w-0 flex-1 max-w-md">
+            <div className="relative min-w-0 max-w-md flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
               <Input
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="BUSCAR FORMA / ENTIDAD / CUOTAS..."
+                placeholder="BUSCAR FORMA DE PAGO O ENTIDAD..."
                 className={cn(INPUT_FILTER_CLASS, "pl-9")}
-                aria-label="Buscar medio de cobro"
+                aria-label="Buscar forma de pago o entidad"
               />
             </div>
             <p className={FILTER_COUNT_CLASS}>
               {filasFiltradas.length} / {filas.length}
             </p>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Una fila por forma de pago × entidad. Todas las cuotas de esa combinación
+            se acreditan en la caja elegida por sucursal.
+          </p>
         </FilterBar>
       }
     >
@@ -140,9 +144,8 @@ export default function CobrosPorSucursalPageClient({
           <Table variant="compact">
             <TableHeader>
               <TableRow>
-                <TableHead className={cn("min-w-[14rem]", TH_CLASS)}>MEDIO DE COBRO</TableHead>
-                <TableHead className={cn("w-[8%]", TH_CLASS)}>ENTIDAD</TableHead>
-                <TableHead className={cn("w-[7%]", TH_CLASS)}>CUOTAS</TableHead>
+                <TableHead className={cn("min-w-[12rem]", TH_CLASS)}>FORMA DE PAGO</TableHead>
+                <TableHead className={cn("min-w-[10rem]", TH_CLASS)}>ENTIDAD</TableHead>
                 {sucursales.map((suc) => (
                   <TableHead key={suc.id} className={cn("min-w-[14rem]", TH_CLASS)}>
                     {suc.nombre}
@@ -154,31 +157,28 @@ export default function CobrosPorSucursalPageClient({
               {filasFiltradas.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={3 + sucursales.length}
+                    colSpan={2 + sucursales.length}
                     className="celda-datos text-center text-muted-foreground"
                   >
                     {filas.length === 0
-                      ? "No hay medios habilitados en Cx. Fin. Cobros."
-                      : "Ningún medio coincide con la búsqueda."}
+                      ? "No hay combinaciones habilitadas en Cx. Fin. Cobros."
+                      : "Ninguna combinación coincide con la búsqueda."}
                   </TableCell>
                 </TableRow>
               ) : (
                 filasFiltradas.map((fila) => {
                   const opciones = cajasParaEntidad(fila.entidadId);
                   return (
-                    <TableRow key={fila.cobrosCxFinId}>
+                    <TableRow key={`${fila.pagoId}:${fila.entidadId}`}>
                       <TableCell className="celda-datos text-left text-xs font-medium">
-                        {etiquetaMedio(fila)}
+                        {fila.pagoNombre}
                       </TableCell>
-                      <TableCell className="celda-datos text-center text-xs">
+                      <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.entidadNombre}
-                      </TableCell>
-                      <TableCell className="celda-datos text-center text-xs">
-                        {fila.cuotas ?? ""}
                       </TableCell>
                       {sucursales.map((suc) => {
                         const actual = fila.destinosPorSucursalId[suc.id] ?? null;
-                        const cellKey = `${fila.cobrosCxFinId}:${suc.id}`;
+                        const cellKey = `${fila.pagoId}:${fila.entidadId}:${suc.id}`;
                         const disabled =
                           !esEditor || (isPending && pendingKey === cellKey);
                         return (
@@ -187,7 +187,12 @@ export default function CobrosPorSucursalPageClient({
                               value={actual ?? SIN_CAJA}
                               disabled={disabled}
                               onValueChange={(v) =>
-                                handleCambioDestino(fila.cobrosCxFinId, suc.id, v)
+                                handleCambioDestino(
+                                  fila.pagoId,
+                                  fila.entidadId,
+                                  suc.id,
+                                  v
+                                )
                               }
                             >
                               <SelectTrigger

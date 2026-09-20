@@ -1266,6 +1266,7 @@ model CobrosFormaPagoEntidad {
 
   pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  destinosPorSucursal CobrosPorSucursal[]
 
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
@@ -1305,8 +1306,6 @@ model FinAnaCosFina {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  destinosPorSucursal CobrosPorSucursal[]
-
   @@index([terminalId], map: "cobros_cx_fin_terminal_idx")
   @@index([pagoId], map: "cobros_cx_fin_pago_idx")
   @@index([cuotaId], map: "cobros_cx_fin_cuota_idx")
@@ -1314,23 +1313,26 @@ model FinAnaCosFina {
 }
 
 /**
- * Destino de acreditación por sucursal para cada fila habilitada de `cobros_cx_fin`.
- * Suc1 y Suc2 pueden tener el mismo `caja_destino_id` (misma cuenta).
+ * Destino de acreditación por sucursal para cada combinación forma de pago × entidad.
+ * Todas las cuotas de esa combinación comparten el mismo destino por sucursal.
+ * Suc1 y Suc2 pueden apuntar a cajas distintas (o a la misma).
  */
 model CobrosPorSucursal {
-  id             String   @id @default(cuid())
-  cobrosCxFinId  String   @map("cobros_cx_fin_id")
-  cobrosCxFin    FinAnaCosFina @relation(fields: [cobrosCxFinId], references: [id], onDelete: Cascade)
-  sucursalId     String   @map("sucursal_id")
-  sucursal       Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  cajaDestinoId  String?  @map("caja_destino_id")
-  cajaDestino    CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(cuid())
+  pagoId        String   @map("pago_id")
+  entidadId     String   @map("entidad_id")
+  formaPagoEntidad CobrosFormaPagoEntidad @relation(fields: [pagoId, entidadId], references: [pagoId, entidadId], onDelete: Cascade)
+  sucursalId    String   @map("sucursal_id")
+  sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  cajaDestinoId String?  @map("caja_destino_id")
+  cajaDestino   CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  @@unique([cobrosCxFinId, sucursalId], map: "cobros_por_sucursal_cx_fin_sucursal_ux")
+  @@unique([pagoId, entidadId, sucursalId], map: "cobros_por_sucursal_pago_entidad_sucursal_ux")
   @@index([sucursalId], map: "cobros_por_sucursal_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_por_sucursal_caja_destino_idx")
+  @@index([entidadId], map: "cobros_por_sucursal_entidad_idx")
   @@map("cobros_por_sucursal")
 }
 

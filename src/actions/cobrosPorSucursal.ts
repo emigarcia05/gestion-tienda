@@ -29,7 +29,12 @@ export async function listarVistaCobrosPorSucursalAction(): Promise<
 export async function guardarCobroPorSucursalDestinoAction(
   raw: unknown
 ): Promise<
-  ActionResult<{ cobrosCxFinId: string; sucursalId: string; cajaDestinoId: string | null }>
+  ActionResult<{
+    pagoId: string;
+    entidadId: string;
+    sucursalId: string;
+    cajaDestinoId: string | null;
+  }>
 > {
   const gate = await requireEditorFinanzas();
   if (gate) return gate;

@@ -14,12 +14,12 @@ export type CobrosPorSucursalCajaOption = {
   etiqueta: string;
 };
 
+/** Una fila = forma de pago × entidad (todas las cuotas comparten destino). */
 export type CobrosPorSucursalFila = {
-  cobrosCxFinId: string;
+  pagoId: string;
   pagoNombre: string;
   entidadId: string;
   entidadNombre: string;
-  cuotas: string | null;
   /** sucursalId → cajaDestinoId (null = sin configurar). */
   destinosPorSucursalId: Record<string, string | null>;
 };
@@ -33,7 +33,7 @@ export type CobrosPorSucursalVista = {
 function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
-    if (code === "P2003") return "Hay referencias inválidas (medio, sucursal o caja).";
+    if (code === "P2003") return "Hay referencias inválidas (forma, entidad, sucursal o caja).";
     if (code === "P2025") return "Registro no encontrado.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -67,7 +67,7 @@ export async function listarSucursalesCobrosPorSucursal(): Promise<
 export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalVista> {
   await ensureFinAnaCosFinaSeed();
 
-  const [sucursales, cajasRows, cxRows, destinos] = await Promise.all([
+  const [sucursales, cajasRows, cxHabilitados, destinos] = await Promise.all([
     listarSucursalesCobrosPorSucursal(),
     prisma.cajaTesoreria.findMany({
       where: { tipoCaja: { not: "CHEQUE" } },
@@ -83,17 +83,18 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     }),
     prisma.finAnaCosFina.findMany({
       where: { habilitado: true },
+      distinct: ["pagoId", "terminalId"],
       select: {
-        id: true,
+        pagoId: true,
         terminalId: true,
-        terminal: { select: { nombre: true } },
         pago: { select: { nombre: true } },
-        cuota: { select: { cuotas: true } },
+        terminal: { select: { nombre: true } },
       },
     }),
     prisma.cobrosPorSucursal.findMany({
       select: {
-        cobrosCxFinId: true,
+        pagoId: true,
+        entidadId: true,
         sucursalId: true,
         cajaDestinoId: true,
       },
@@ -101,22 +102,23 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
   ]);
 
   const destinosPorClave = new Map(
-    destinos.map((d) => [`${d.cobrosCxFinId}:${d.sucursalId}`, d.cajaDestinoId])
+    destinos.map(
+      (d) => [`${d.pagoId}:${d.entidadId}:${d.sucursalId}`, d.cajaDestinoId] as const
+    )
   );
 
-  const filas: CobrosPorSucursalFila[] = cxRows
+  const filas: CobrosPorSucursalFila[] = cxHabilitados
     .map((row) => {
       const destinosPorSucursalId: Record<string, string | null> = {};
       for (const suc of sucursales) {
         destinosPorSucursalId[suc.id] =
-          destinosPorClave.get(`${row.id}:${suc.id}`) ?? null;
+          destinosPorClave.get(`${row.pagoId}:${row.terminalId}:${suc.id}`) ?? null;
       }
       return {
-        cobrosCxFinId: row.id,
+        pagoId: row.pagoId,
         pagoNombre: row.pago.nombre.toLocaleUpperCase("es-AR"),
         entidadId: row.terminalId,
         entidadNombre: row.terminal.nombre.toLocaleUpperCase("es-AR"),
-        cuotas: row.cuota?.cuotas ?? null,
         destinosPorSucursalId,
       };
     })
@@ -125,11 +127,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
         sensitivity: "base",
       });
       if (byPago !== 0) return byPago;
-      const byEnt = a.entidadNombre.localeCompare(b.entidadNombre, "es", {
-        sensitivity: "base",
-      });
-      if (byEnt !== 0) return byEnt;
-      return (a.cuotas ?? "").localeCompare(b.cuotas ?? "", "es", {
+      return a.entidadNombre.localeCompare(b.entidadNombre, "es", {
         sensitivity: "base",
       });
     });
@@ -145,14 +143,41 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
 
 export async function guardarCobroPorSucursalDestino(
   input: GuardarCobroPorSucursalDestinoInput
-): Promise<ServiceResult<{ cobrosCxFinId: string; sucursalId: string; cajaDestinoId: string | null }>> {
+): Promise<
+  ServiceResult<{
+    pagoId: string;
+    entidadId: string;
+    sucursalId: string;
+    cajaDestinoId: string | null;
+  }>
+> {
   try {
-    const cx = await prisma.finAnaCosFina.findFirst({
-      where: { id: input.cobrosCxFinId, habilitado: true },
-      select: { id: true, terminalId: true },
+    const vinculo = await prisma.cobrosFormaPagoEntidad.findUnique({
+      where: {
+        pagoId_entidadId: {
+          pagoId: input.pagoId,
+          entidadId: input.entidadId,
+        },
+      },
+      select: { pagoId: true, entidadId: true },
     });
-    if (!cx) {
-      return { success: false, error: "Medio de cobro no encontrado o no habilitado." };
+    if (!vinculo) {
+      return { success: false, error: "Combinación forma de pago × entidad inválida." };
+    }
+
+    const hayHabilitado = await prisma.finAnaCosFina.findFirst({
+      where: {
+        pagoId: input.pagoId,
+        terminalId: input.entidadId,
+        habilitado: true,
+      },
+      select: { id: true },
+    });
+    if (!hayHabilitado) {
+      return {
+        success: false,
+        error: "No hay filas habilitadas en Cx. Fin. para esa forma × entidad.",
+      };
     }
 
     const sucursal = await prisma.sucursal.findFirst({
@@ -174,23 +199,25 @@ export async function guardarCobroPorSucursalDestino(
       if (!caja) {
         return { success: false, error: "Caja destino inválida." };
       }
-      if (caja.entidadId !== cx.terminalId) {
+      if (caja.entidadId !== input.entidadId) {
         return {
           success: false,
-          error: "La caja debe ser de la misma entidad que el medio de cobro.",
+          error: "La caja debe ser de la misma entidad que la forma de pago.",
         };
       }
     }
 
     await prisma.cobrosPorSucursal.upsert({
       where: {
-        cobrosCxFinId_sucursalId: {
-          cobrosCxFinId: input.cobrosCxFinId,
+        pagoId_entidadId_sucursalId: {
+          pagoId: input.pagoId,
+          entidadId: input.entidadId,
           sucursalId: input.sucursalId,
         },
       },
       create: {
-        cobrosCxFinId: input.cobrosCxFinId,
+        pagoId: input.pagoId,
+        entidadId: input.entidadId,
         sucursalId: input.sucursalId,
         cajaDestinoId: input.cajaDestinoId,
       },
@@ -202,7 +229,8 @@ export async function guardarCobroPorSucursalDestino(
     return {
       success: true,
       data: {
-        cobrosCxFinId: input.cobrosCxFinId,
+        pagoId: input.pagoId,
+        entidadId: input.entidadId,
         sucursalId: input.sucursalId,
         cajaDestinoId: input.cajaDestinoId,
       },
