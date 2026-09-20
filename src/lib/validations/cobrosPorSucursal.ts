@@ -11,8 +11,7 @@ export const crearCobroPorSucursalSchema = z.object({
 export type CrearCobroPorSucursalInput = z.infer<typeof crearCobroPorSucursalSchema>;
 
 export const actualizarCobroPorSucursalSchema = z.object({
-  pagoId: prismaCuidOrUuidSchema,
-  entidadId: prismaCuidOrUuidSchema,
+  id: prismaCuidOrUuidSchema,
   cajaDestinoId: prismaCuidOrUuidSchema,
   observacion: z.string().max(2000).default(""),
 });
@@ -22,8 +21,7 @@ export type ActualizarCobroPorSucursalInput = z.infer<
 >;
 
 export const eliminarCobroPorSucursalSchema = z.object({
-  pagoId: prismaCuidOrUuidSchema,
-  entidadId: prismaCuidOrUuidSchema,
+  id: prismaCuidOrUuidSchema,
 });
 
 export type EliminarCobroPorSucursalInput = z.infer<

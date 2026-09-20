@@ -32,27 +32,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: CrearEditarCobroModalMode;
-  /** Solo en editar: fila actual. */
   fila?: CobrosPorSucursalFila | null;
   pagos: CobrosPorSucursalCatalogoItem[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   cajas: CobrosPorSucursalCajaOption[];
   onSaved: (fila: CobrosPorSucursalFila) => void;
-}
-
-function cajaInicialParaEditar(
-  fila: CobrosPorSucursalFila | null | undefined,
-  cajas: CobrosPorSucursalCajaOption[]
-): string {
-  if (!fila) return "";
-  const ids = Object.values(fila.destinosPorSucursalId).filter(
-    (id): id is string => Boolean(id)
-  );
-  for (const id of ids) {
-    if (cajas.some((c) => c.id === id)) return id;
-  }
-  return "";
 }
 
 export default function CrearEditarCobroModal({
@@ -79,7 +64,7 @@ export default function CrearEditarCobroModal({
     if (esEditar && fila) {
       setPagoId(fila.pagoId);
       setEntidadId(fila.entidadId);
-      setCajaDestinoId(cajaInicialParaEditar(fila, cajas));
+      setCajaDestinoId(fila.cajaDestinoId ?? "");
       setObservacion(fila.observacion);
       return;
     }
@@ -87,7 +72,7 @@ export default function CrearEditarCobroModal({
     setEntidadId("");
     setCajaDestinoId("");
     setObservacion("");
-  }, [open, esEditar, fila, cajas]);
+  }, [open, esEditar, fila]);
 
   const entidadesDisponibles = useMemo(() => {
     if (!pagoId) return [];
@@ -129,15 +114,18 @@ export default function CrearEditarCobroModal({
     if (disabledSubmit) return;
     setSaving(true);
     try {
-      const payload = {
-        pagoId,
-        entidadId,
-        cajaDestinoId,
-        observacion,
-      };
-      const res = esEditar
-        ? await actualizarCobroPorSucursalAction(payload)
-        : await crearCobroPorSucursalAction(payload);
+      const res = esEditar && fila
+        ? await actualizarCobroPorSucursalAction({
+            id: fila.id,
+            cajaDestinoId,
+            observacion,
+          })
+        : await crearCobroPorSucursalAction({
+            pagoId,
+            entidadId,
+            cajaDestinoId,
+            observacion,
+          });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo guardar el cobro.");
         return;

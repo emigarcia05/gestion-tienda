@@ -75,7 +75,7 @@ export async function actualizarCobroPorSucursalAction(
 
 export async function eliminarCobroPorSucursalAction(
   raw: unknown
-): Promise<ActionResult<{ pagoId: string; entidadId: string }>> {
+): Promise<ActionResult<{ id: string }>> {
   const gate = await requireEditorFinanzas();
   if (gate) return gate;
 
