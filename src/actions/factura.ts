@@ -12,13 +12,18 @@ import {
   buscarProductosFacturaSchema,
   emitirFacturaComprobanteSchema,
   facturaComprobanteIdSchema,
+  guardarDiasVencimientoFacturaSchema,
 } from "@/lib/validations/factura";
 import { buscarClientesParaFactura } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
 } from "@/services/facturaProductos.service";
+import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
+import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
+import { listarCobrosCuotas } from "@/services/cobrosCuotas.service";
+import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
 
 function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
@@ -148,5 +153,43 @@ export async function obtenerFacturaComprobantePdfAction(
   } catch (e) {
     console.error("[obtenerFacturaComprobantePdfAction]", e);
     return { ok: false, error: "No se pudo leer el comprobante." };
+  }
+}
+
+export async function listarCatalogoCobroFacturaAction(): Promise<
+  ActionResult<{ pagos: FinAnaCosFinaPagoItem[]; cuotas: CobrosCuotaItem[] }>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  try {
+    const [pagos, cuotas] = await Promise.all([
+      listarFinAnaCosFinaPagos(),
+      listarCobrosCuotas(),
+    ]);
+    return { ok: true, data: { pagos, cuotas } };
+  } catch (e) {
+    console.error("[listarCatalogoCobroFacturaAction]", e);
+    return { ok: false, error: "No se pudieron cargar las formas de pago." };
+  }
+}
+
+export async function guardarDiasVencimientoFacturaAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = guardarDiasVencimientoFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { guardarDiasVencimientoComprobante } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await guardarDiasVencimientoComprobante(parsed.data));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[guardarDiasVencimientoFacturaAction]", e);
+    return { ok: false, error: "No se pudieron guardar los días de vencimiento." };
   }
 }

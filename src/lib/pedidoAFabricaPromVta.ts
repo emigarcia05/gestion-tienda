@@ -29,7 +29,7 @@ export const PEDIDO_A_FABRICA_MESES_PROM_VTA = 2;
 export const PEDIDO_A_FABRICA_DIAS_PROM_VTA =
   PEDIDO_A_FABRICA_DIAS_VENTA_POR_MES * PEDIDO_A_FABRICA_MESES_PROM_VTA;
 
-/** STOCK / UN. ACT.: sucursal con `global_sucursales.id_deposito`. */
+/** STOCK / UN. ACT.: sucursal con `sucursales.id_deposito`. */
 export function sucursalPedidoAFabricaTieneDeposito(s: {
   idDeposito: number | null;
 }): boolean {

@@ -72,7 +72,7 @@ async function copiarDatoTransf(texto: string, toastTitle: string): Promise<void
 
 /**
  * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** (sucursal del usuario)
- * y **SUC. DESTINO** (`global_sucursales` distintas, con `deposito` no vacío);
+ * y **SUC. DESTINO** (`sucursales` distintas, con `deposito` no vacío);
  * al abrir, si la página ya tiene destino, precarga el lote pendiente en la tabla
  * (reabrir el modal sin haber pulsado Transferido muestra los mismos ítems);
  * al elegir destino abre (o enfoca) transferencia de depósitos en DUX;

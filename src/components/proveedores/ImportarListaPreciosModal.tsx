@@ -271,28 +271,28 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
                   }}
                 />
               </div>
-
-              {/* Fila 2: Los datos tienen encabezados — SÍ / NO */}
-              <span className="text-sm font-medium text-foreground min-w-0 truncate">LOS DATOS TIENEN ENCABEZADOS</span>
-              <ModalSiNoChoice value={tieneEncabezados} onChange={setTieneEncabezados} />
-
-              {/* Fila 3: Habilitado — SÍ / NO */}
-              <span className="text-sm font-medium text-foreground min-w-0 truncate">HABILITADO</span>
-              <ModalSiNoChoice value={habilitado} onChange={setHabilitado} />
-
-              {/* Fila 4: Precio en dólares — SÍ / NO */}
-              <span className="text-sm font-medium text-foreground min-w-0 truncate">PRECIO EN DÓLARES</span>
-              <ModalSiNoChoice value={precioEnDolares} onChange={setPrecioEnDolares} />
-              {precioEnDolares && (
-                <p className="col-span-2 text-xs text-muted-foreground">
-                  Se aplicará la cotización global vigente:{" "}
-                  <strong className="text-foreground tabular-nums">
-                    $ {cotizacionUsd.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                  </strong>
-                  . Editá el valor en <strong className="text-foreground">Cotiz. US$</strong> en la barra de acciones.
-                </p>
-              )}
             </div>
+
+            <ModalSiNoChoice
+              label="LOS DATOS TIENEN ENCABEZADOS"
+              value={tieneEncabezados}
+              onChange={setTieneEncabezados}
+            />
+            <ModalSiNoChoice label="HABILITADO" value={habilitado} onChange={setHabilitado} />
+            <ModalSiNoChoice
+              label="PRECIO EN DÓLARES"
+              value={precioEnDolares}
+              onChange={setPrecioEnDolares}
+            />
+            {precioEnDolares ? (
+              <p className="text-xs text-muted-foreground">
+                Se aplicará la cotización global vigente:{" "}
+                <strong className="text-foreground tabular-nums">
+                  $ {cotizacionUsd.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                </strong>
+                . Editá el valor en <strong className="text-foreground">Cotiz. US$</strong> en la barra de acciones.
+              </p>
+            ) : null}
 
             {/* Zona de arrastre cuando no hay archivo (opcional, para drag & drop) */}
             {!fileName && (

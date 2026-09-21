@@ -12,8 +12,6 @@ export const tipoCajaTesoreriaSchema = z.enum([
 
 export const tipoValorTesoreriaSchema = z.enum(["DIGITAL", "EFECTIVO", "CHEQUE"]);
 
-export const disponibilidadCajaTesoreriaSchema = z.enum(["INMEDIATA", "DIFERIDO"]);
-
 export const montoCajaTesoreriaSchema = z
   .coerce
   .number()
@@ -74,7 +72,6 @@ const cajaTesoreriaCamposSchema = z.object({
   sucursalId: sucursalCajaTesoreriaSchema,
   tipoCaja: tipoCajaTesoreriaSchema,
   tipoValor: tipoValorTesoreriaSchema,
-  disponibilidad: disponibilidadCajaTesoreriaSchema,
   monto: montoCajaTesoreriaSchema.optional().default(0),
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -48,13 +48,21 @@ export default function GestionarMarcasFinAnaCosFinaModal({
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaTerminalMarcaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
+  const ignoreParentCloseRef = useRef(false);
+
+  function markNestedDialogClosing() {
+    ignoreParentCloseRef.current = true;
+    queueMicrotask(() => {
+      ignoreParentCloseRef.current = false;
+    });
+  }
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listarFinAnaCosFinaTerminalesMarcasAction();
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron cargar las marcas.");
+        toast.error(res.error ?? "No se pudieron cargar las entidades.");
         setItems([]);
         return;
       }
@@ -73,7 +81,9 @@ export default function GestionarMarcasFinAnaCosFinaModal({
     setFormNombre("");
     setBorrarTarget(null);
     void cargar();
-  }, [open, cargar, marcasIniciales]);
+    // Solo al abrir: no resetear en refresh de props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open
+  }, [open]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -114,15 +124,16 @@ export default function GestionarMarcasFinAnaCosFinaModal({
           toast.error(res.error ?? "No se pudo guardar.");
           return;
         }
-        toast.success("Marca actualizada.");
+        toast.success("Entidad actualizada.");
       } else {
         const res = await crearFinAnaCosFinaTerminalMarcaAction({ nombre: formNombre });
         if (!res.ok) {
-          toast.error(res.error ?? "No se pudo crear la marca.");
+          toast.error(res.error ?? "No se pudo crear la entidad.");
           return;
         }
-        toast.success("Marca creada.");
+        toast.success("Entidad creada.");
       }
+      markNestedDialogClosing();
       setFormOpen(false);
       resetForm();
       await cargar();
@@ -141,7 +152,8 @@ export default function GestionarMarcasFinAnaCosFinaModal({
         toast.error(res.error ?? "No se pudo eliminar.");
         return;
       }
-      toast.success("Marca eliminada.");
+      toast.success("Entidad eliminada.");
+      markNestedDialogClosing();
       setBorrarTarget(null);
       await cargar();
       onCatalogoChanged?.();
@@ -152,9 +164,20 @@ export default function GestionarMarcasFinAnaCosFinaModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (
+            !next &&
+            (pending || borrando || formOpen || Boolean(borrarTarget) || ignoreParentCloseRef.current)
+          ) {
+            return;
+          }
+          onOpenChange(next);
+        }}
+      >
         <AppModal
-          title="GESTIONAR MARCAS"
+          title="GESTIONAR ENTIDADES"
           size="lg"
           scrollBody
           hideBodyScrollbars
@@ -171,9 +194,9 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                 <Input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="BUSCAR MARCA..."
+                  placeholder="BUSCAR ENTIDAD..."
                   className="h-10 pl-9"
-                  aria-label="Buscar marca"
+                  aria-label="Buscar entidad"
                 />
               </div>
               {esEditor ? (
@@ -182,7 +205,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                   variant="default"
                   size="icon"
                   className="h-10 w-10 shrink-0"
-                  aria-label="Agregar marca"
+                  aria-label="Agregar entidad"
                   disabled={pending}
                   onClick={abrirCrear}
                 >
@@ -196,10 +219,10 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                 <p className="text-sm text-muted-foreground">Cargando...</p>
               ) : items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No hay marcas. Usá el botón + para agregar la primera.
+                  No hay entidades. Usá el botón + para agregar la primera.
                 </p>
               ) : listaFiltrada.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ninguna marca coincide con la búsqueda.</p>
+                <p className="text-sm text-muted-foreground">Ninguna entidad coincide con la búsqueda.</p>
               ) : (
                 <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto pr-1">
                   {listaFiltrada.map((item) => (
@@ -249,12 +272,13 @@ export default function GestionarMarcasFinAnaCosFinaModal({
         open={formOpen}
         onOpenChange={(next) => {
           if (pending) return;
+          if (!next) markNestedDialogClosing();
           setFormOpen(next);
           if (!next) resetForm();
         }}
       >
         <AppModal
-          title={editingItem ? "EDITAR MARCA" : "NUEVA MARCA"}
+          title={editingItem ? "EDITAR ENTIDAD" : "NUEVA ENTIDAD"}
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
@@ -263,6 +287,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
                 variant="outline"
                 disabled={pending}
                 onClick={() => {
+                  markNestedDialogClosing();
                   setFormOpen(false);
                   resetForm();
                 }}
@@ -292,13 +317,29 @@ export default function GestionarMarcasFinAnaCosFinaModal({
         </AppModal>
       </Dialog>
 
-      <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
+      <Dialog
+        open={Boolean(borrarTarget)}
+        onOpenChange={(o) => {
+          if (!o && !borrando) {
+            markNestedDialogClosing();
+            setBorrarTarget(null);
+          }
+        }}
+      >
         <AppModal
-          title="ELIMINAR MARCA"
+          title="ELIMINAR ENTIDAD"
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={borrando} onClick={() => setBorrarTarget(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={borrando}
+                onClick={() => {
+                  markNestedDialogClosing();
+                  setBorrarTarget(null);
+                }}
+              >
                 Cancelar
               </Button>
               <Button
@@ -313,7 +354,7 @@ export default function GestionarMarcasFinAnaCosFinaModal({
           }
         >
           <p className="text-sm text-muted-foreground">
-            ¿Eliminar la marca{" "}
+            ¿Eliminar la entidad{" "}
             <span className="font-semibold text-foreground">{borrarTarget?.nombre}</span>? Se borrarán también
             sus filas de costos financieros.
           </p>

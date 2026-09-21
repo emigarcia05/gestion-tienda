@@ -83,7 +83,7 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     select: {
       id: true,
       ptoVenta: true,
-      nombreTitular: true,
+      titular: true,
       cuit: true,
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
@@ -92,7 +92,7 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
   return rows.map((r) => ({
     id: r.id,
     ptoVenta: r.ptoVenta,
-    nombreTitular: r.nombreTitular.toLocaleUpperCase("es-AR"),
+    titular: r.titular.toLocaleUpperCase("es-AR"),
     cuit: r.cuit,
     condicionIva: r.condicionIva,
     condicionIvaDescripcion: r.condicionIvaArca?.descripcion ?? null,

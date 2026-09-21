@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,15 +23,18 @@ import {
 import {
   etiquetaCondicionIvaArca,
   opcionesCondicionIvaArca,
+  opcionesTitularPtoVta,
   type GlobalPtoVtaItem,
   type GlobalPtoVtaSucursalOption,
   type PtoVentasCodArcaItem,
 } from "@/lib/globalPtoVtas";
+import type { TesoreriaTitularItem } from "@/lib/cajasTesoreriaTitulares";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 const CONDICION_VACIA = "__none__";
+const TITULAR_VACIO = "__none__";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -48,6 +52,7 @@ interface Props {
   itemEditar: GlobalPtoVtaItem | null;
   sucursales: GlobalPtoVtaSucursalOption[];
   condicionesArca: PtoVentasCodArcaItem[];
+  titulares: TesoreriaTitularItem[];
   esEditor: boolean;
   onCatalogoChanged?: () => void;
 }
@@ -76,12 +81,13 @@ export default function GestionarGlobalPtoVtasModal({
   itemEditar,
   sucursales,
   condicionesArca,
+  titulares,
   esEditor,
   onCatalogoChanged,
 }: Props) {
   const hiddenInicioRef = useRef<HTMLInputElement>(null);
   const [formPtoVenta, setFormPtoVenta] = useState("");
-  const [formNombre, setFormNombre] = useState("");
+  const [formTitular, setFormTitular] = useState("");
   const [formSucursalIds, setFormSucursalIds] = useState<string[]>([]);
   const [formFiscal, setFormFiscal] = useState<FormFiscalState>(FORM_FISCAL_VACIO);
   const [pending, setPending] = useState(false);
@@ -95,17 +101,22 @@ export default function GestionarGlobalPtoVtasModal({
     [condicionesArca, formFiscal.condicionIva]
   );
 
+  const opcionesTitular = useMemo(
+    () => opcionesTitularPtoVta(titulares, formTitular || null),
+    [titulares, formTitular]
+  );
+
   const hydrateFromItem = useCallback(
     (item: GlobalPtoVtaItem | null) => {
       if (!item) {
         setFormPtoVenta("");
-        setFormNombre("");
+        setFormTitular("");
         setFormSucursalIds([]);
         setFormFiscal(FORM_FISCAL_VACIO);
         return;
       }
       setFormPtoVenta(item.ptoVenta);
-      setFormNombre(item.nombreTitular);
+      setFormTitular(item.titular);
       setFormSucursalIds(
         item.sucursales
           .map((s) => s.id)
@@ -136,7 +147,7 @@ export default function GestionarGlobalPtoVtasModal({
 
   const formValido =
     formPtoVenta.trim().length > 0 &&
-    formNombre.trim().length > 0 &&
+    formTitular.trim().length > 0 &&
     formSucursalIds.length > 0;
 
   async function handleGuardarForm() {
@@ -145,7 +156,7 @@ export default function GestionarGlobalPtoVtasModal({
     try {
       const payload = {
         ptoVenta: formPtoVenta,
-        nombreTitular: formNombre,
+        titular: formTitular,
         sucursalIds: formSucursalIds,
         cuit: formFiscal.cuit,
         iiBb: formFiscal.iiBb,
@@ -225,12 +236,39 @@ export default function GestionarGlobalPtoVtasModal({
           </div>
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Titular</ModalMicroLabel>
-            <Input
-              value={formNombre}
-              onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
-              placeholder="TITULAR (SE GUARDARÁ EN MAYÚSCULAS)"
-              disabled={pending}
-            />
+            {opcionesTitular.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay titulares. Creá uno con Gestionar Titulares.
+              </p>
+            ) : (
+              <Select
+                value={formTitular === "" ? TITULAR_VACIO : formTitular}
+                onValueChange={(value) =>
+                  setFormTitular(value === TITULAR_VACIO ? "" : value)
+                }
+                disabled={pending}
+              >
+                <SelectTrigger
+                  className="input-filtro-unificado w-full"
+                  aria-label="Titular"
+                >
+                  <SelectValue placeholder="ELEGIR TITULAR" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  <SelectItem value={TITULAR_VACIO}>ELEGIR TITULAR</SelectItem>
+                  {opcionesTitular.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.nombre}>
+                      {opt.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>CUIT</ModalMicroLabel>
@@ -264,32 +302,14 @@ export default function GestionarGlobalPtoVtasModal({
               aria-label="IIBB"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>IIBB Multilateral</ModalMicroLabel>
-            <Select
-              value={formFiscal.iiBbMultilateral ? "si" : "no"}
-              onValueChange={(value) =>
-                setFormFiscal((prev) => ({ ...prev, iiBbMultilateral: value === "si" }))
-              }
-              disabled={pending}
-            >
-              <SelectTrigger
-                className="input-filtro-unificado w-full"
-                aria-label="IIBB multilateral"
-              >
-                <SelectValue placeholder="SELECCIONAR SI O NO" />
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                side="bottom"
-                align="start"
-                className="select-content-filtro"
-              >
-                <SelectItem value="si">SI</SelectItem>
-                <SelectItem value="no">NO</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <ModalSiNoChoice
+            label="IIBB MULTILATERAL"
+            value={formFiscal.iiBbMultilateral}
+            onChange={(checked) =>
+              setFormFiscal((prev) => ({ ...prev, iiBbMultilateral: checked }))
+            }
+            disabled={pending}
+          />
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Condición IVA</ModalMicroLabel>
             <Select

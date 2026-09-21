@@ -9,7 +9,7 @@ export interface ClassicFilteredTableLayoutProps {
   subtitle?: string;
   /** Submódulo 2 (normal), separado por " - ". */
   subtitleSecondary?: string;
-  /** Botones/acciones en la zona derecha del header. */
+  /** Botones de la ventana: `PageSectionHeader` los muestra como menú **ACCIONES** (hover). */
   actions?: React.ReactNode;
   /** Contenedor de filtros (inputs, selects). Padding y gap consistentes. */
   filters?: React.ReactNode;
@@ -29,7 +29,7 @@ export interface ClassicFilteredTableLayoutProps {
   filtersAriaLabel?: string;
 }
 
-const rootVariants = cva("h-full min-h-0 flex flex-col overflow-hidden", {
+const rootVariants = cva("h-full min-h-0 flex flex-col", {
   variants: {
     tone: {
       gray: "bg-gris",

@@ -4,6 +4,7 @@ export const VTAS_COBROS_ROUTES = {
   ptosVenta: "/vtas-cobros/ptos-venta",
   cobros: "/vtas-cobros/cobros",
   cxFinCobros: "/vtas-cobros/cx-fin-cobros",
+  cobrosPorSucursal: "/vtas-cobros/cobros-por-sucursal",
 } as const;
 
 export const VTAS_COBROS_LEGACY_FACT_COBROS_PATH = "/finanzas/fact-cobros";

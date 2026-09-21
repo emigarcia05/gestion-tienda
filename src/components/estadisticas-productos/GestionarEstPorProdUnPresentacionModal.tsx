@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -364,27 +365,12 @@ export default function GestionarEstPorProdUnPresentacionModal({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Suma</ModalMicroLabel>
-              <Select
-                value={formSuma}
-                onValueChange={(v) => setFormSuma(v as "true" | "false")}
-                disabled={pending}
-              >
-                <SelectTrigger className={SELECT_TRIGGER_CLASS} aria-label="Suma">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                  className="select-content-filtro"
-                >
-                  <SelectItem value="true">SI</SelectItem>
-                  <SelectItem value="false">NO</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <ModalSiNoChoice
+              label="SUMA"
+              value={formSuma === "true"}
+              onChange={(checked) => setFormSuma(checked ? "true" : "false")}
+              disabled={pending}
+            />
           </div>
         </AppModal>
       </Dialog>

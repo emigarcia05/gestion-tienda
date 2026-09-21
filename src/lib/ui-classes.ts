@@ -87,6 +87,27 @@ export const TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS =
 /** Tamaño uniforme del ícono dentro de botones de acción en tabla. */
 export const TABLE_ROW_ACTION_ICON_CLASS = "h-4 w-4 shrink-0";
 
+/** Cascarón del menú **ACCIONES** del header de página (`HeaderAccionesMenu`). */
+export const HEADER_ACCIONES_MENU_CLASS = "header-acciones-menu relative shrink-0";
+
+/** Eleva el cascarón cuando el panel está abierto (sobre filtros / tabla / typeahead). */
+export const HEADER_ACCIONES_MENU_OPEN_CLASS = "z-[90]";
+
+export const HEADER_ACCIONES_TRIGGER_CLASS = "header-acciones-trigger";
+
+export const HEADER_ACCIONES_PANEL_CLASS = [
+  "header-acciones-panel pointer-events-none invisible absolute right-0 top-full z-[90] pt-1",
+  "opacity-0",
+].join(" ");
+
+export const HEADER_ACCIONES_PANEL_OPEN_CLASS =
+  "header-acciones-panel--open pointer-events-auto visible opacity-100";
+
+export const HEADER_ACCIONES_LIST_CLASS =
+  "header-acciones-list flex max-h-[min(24rem,70vh)] min-w-[16rem] max-w-[24rem] flex-col overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md divide-y divide-primary";
+
+export const HEADER_ACCIONES_ITEM_CLASS = "header-acciones-item w-full min-w-0 py-1 first:pt-0 last:pb-0";
+
 /**
  * Columna **Control de ítem** (`TablaControlItemHead` / `TablaControlItemCelda`):
  * checklist local en tablas tipo Recepción / Trans. Depósitos.
@@ -138,6 +159,13 @@ export const BALANCE_MODAL_HISTORIAL_RUBRO_TITLE =
  */
 export const MODAL_MICRO_LABEL_CLASS =
   "modal-micro-label modal-field-label text-[0.65rem] font-semibold uppercase tracking-[0.06em] text-foreground";
+
+/** Fila de configuración TRUE/FALSE (SÍ/NO) en modal: etiqueta + `Switch`. Ver `ModalSiNoChoice`. */
+export const MODAL_BOOLEAN_SWITCH_ROW_CLASS =
+  "flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2";
+
+export const MODAL_BOOLEAN_SWITCH_LABEL_CLASS =
+  "min-w-0 truncate text-sm font-medium uppercase text-foreground";
 
 /**
  * Typeahead / combobox listbox (Factura productos, clientes, …).

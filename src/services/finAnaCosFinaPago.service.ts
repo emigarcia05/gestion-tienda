@@ -1,13 +1,13 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type {
   CrearFinAnaCosFinaPagoInput,
   EditarFinAnaCosFinaPagoInput,
-  ReordenarFinAnaCosFinaPagosInput,
 } from "@/lib/validations/finAnaCosFinaPago";
+import { sincronizarMatrizFinAnaCosFina } from "@/services/finAnaCosFinaMatriz.service";
 import type { ServiceResult } from "@/types";
 
+<<<<<<< HEAD
 const SELECT_PAGO = {
   id: true,
   nombre: true,
@@ -19,22 +19,52 @@ const SELECT_PAGO = {
 } as const;
 
 function mapPago(row: {
+=======
+const pagoSelect = {
+  id: true,
+  nombre: true,
+  enCostosFinancieros: true,
+  enMargenContribucion: true,
+  aceptaCuotas: true,
+  entidades: {
+    orderBy: { entidad: { nombre: "asc" as const } },
+    select: {
+      entidadId: true,
+      entidad: { select: { nombre: true } },
+    },
+  },
+} as const;
+
+type PagoRowConEntidades = {
+>>>>>>> facturacion
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+<<<<<<< HEAD
   asociadoTerminal: boolean;
   asociadoBanco: boolean;
 }): FinAnaCosFinaPagoItem {
+=======
+  aceptaCuotas: boolean;
+  entidades: { entidadId: string; entidad: { nombre: string } }[];
+};
+
+function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
+>>>>>>> facturacion
   return {
     id: row.id,
     nombre: row.nombre.toUpperCase(),
-    orden: row.orden,
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
+<<<<<<< HEAD
     asociadoTerminal: row.asociadoTerminal,
     asociadoBanco: row.asociadoBanco,
+=======
+    aceptaCuotas: row.aceptaCuotas,
+    entidadIds: row.entidades.map((e) => e.entidadId),
+    entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
+>>>>>>> facturacion
   };
 }
 
@@ -51,6 +81,10 @@ function mapDbError(error: unknown, fallback: string): string {
   ) {
     const code = (error as { code: string }).code;
     if (code === "P2002") return "Ya existe un pago con ese nombre.";
+<<<<<<< HEAD
+=======
+    if (code === "P2003") return "Hay entidades inválidas o asociadas.";
+>>>>>>> facturacion
     if (code === "P2025") return "Forma de pago no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -59,24 +93,34 @@ function mapDbError(error: unknown, fallback: string): string {
 const PAGOS_SEMILLA: {
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+<<<<<<< HEAD
   asociadoTerminal: boolean;
   asociadoBanco: boolean;
+=======
+  aceptaCuotas: boolean;
+>>>>>>> facturacion
 }[] = [
   {
     id: "clfinapago0000008efe",
     nombre: "EFECTIVO",
+<<<<<<< HEAD
     orden: 0,
     enCostosFinancieros: false,
     enMargenContribucion: true,
     asociadoTerminal: false,
     asociadoBanco: false,
+=======
+    enCostosFinancieros: false,
+    enMargenContribucion: true,
+    aceptaCuotas: false,
+>>>>>>> facturacion
   },
   {
     id: "clfinapago0000001deb",
     nombre: "DÉBITO",
+<<<<<<< HEAD
     orden: 1,
     enCostosFinancieros: true,
     enMargenContribucion: true,
@@ -136,8 +180,37 @@ const PAGOS_SEMILLA: {
     enMargenContribucion: true,
     asociadoTerminal: true,
     asociadoBanco: false,
+=======
+    enCostosFinancieros: true,
+    enMargenContribucion: true,
+    aceptaCuotas: false,
+  },
+  {
+    id: "clfinapago0000002c01",
+    nombre: "CRÉDITO",
+    enCostosFinancieros: true,
+    enMargenContribucion: true,
+    aceptaCuotas: true,
+>>>>>>> facturacion
   },
 ];
+
+async function resolverEntidadIdsExistentes(
+  entidadIds: string[]
+): Promise<ServiceResult<string[]>> {
+  const unique = [...new Set(entidadIds)];
+  if (unique.length === 0) {
+    return { success: false, error: "Seleccioná al menos una entidad." };
+  }
+  const encontradas = await prisma.finAnaCosFinaTerminalMarca.findMany({
+    where: { id: { in: unique } },
+    select: { id: true },
+  });
+  if (encontradas.length !== unique.length) {
+    return { success: false, error: "Hay entidades inválidas." };
+  }
+  return { success: true, data: unique };
+}
 
 export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
   const count = await prisma.finAnaCosFinaPagoCat.count();
@@ -147,13 +220,31 @@ export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
     data: PAGOS_SEMILLA,
     skipDuplicates: true,
   });
+
+  const entidades = await prisma.finAnaCosFinaTerminalMarca.findMany({
+    select: { id: true },
+  });
+  if (entidades.length === 0) return;
+
+  const pagos = await prisma.finAnaCosFinaPagoCat.findMany({ select: { id: true } });
+  await prisma.cobrosFormaPagoEntidad.createMany({
+    data: pagos.flatMap((p) =>
+      entidades.map((e) => ({ pagoId: p.id, entidadId: e.id }))
+    ),
+    skipDuplicates: true,
+  });
 }
 
 export async function listarFinAnaCosFinaPagos(): Promise<FinAnaCosFinaPagoItem[]> {
   await ensureFinAnaCosFinaPagosSeed();
   const rows = await prisma.finAnaCosFinaPagoCat.findMany({
+<<<<<<< HEAD
     orderBy: [{ orden: "asc" }, { nombre: "asc" }],
     select: SELECT_PAGO,
+=======
+    orderBy: [{ nombre: "asc" }],
+    select: pagoSelect,
+>>>>>>> facturacion
   });
   return rows.map(mapPago);
 }
@@ -166,16 +257,24 @@ export async function crearFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
+<<<<<<< HEAD
   try {
     const maxOrden = await prisma.finAnaCosFinaPagoCat.aggregate({
       _max: { orden: true },
     });
     const orden = (maxOrden._max.orden ?? -1) + 1;
+=======
+  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
+  if (!entidadesOk.success) return entidadesOk;
+  const entidadIds = entidadesOk.data;
+>>>>>>> facturacion
 
+  try {
     const pago = await prisma.$transaction(async (tx) => {
       const created = await tx.finAnaCosFinaPagoCat.create({
         data: {
           nombre,
+<<<<<<< HEAD
           orden,
           enCostosFinancieros: true,
           enMargenContribucion: true,
@@ -183,24 +282,17 @@ export async function crearFinAnaCosFinaPago(
           asociadoBanco: input.asociadoBanco,
         },
         select: SELECT_PAGO,
+=======
+          enCostosFinancieros: true,
+          enMargenContribucion: true,
+          aceptaCuotas: input.aceptaCuotas,
+          entidades: {
+            create: entidadIds.map((entidadId) => ({ entidadId })),
+          },
+        },
+        select: pagoSelect,
+>>>>>>> facturacion
       });
-
-      if (created.enCostosFinancieros) {
-        const marcas = await tx.finAnaCosFinaTerminalMarca.findMany({
-          select: { id: true },
-        });
-        const filas = marcas.map((marca) => ({
-          terminalId: marca.id,
-          pagoId: created.id,
-          habilitado: true,
-          impCheque: false,
-          arancel: new Prisma.Decimal(0),
-          costoFinanciero: new Prisma.Decimal(0),
-        }));
-        if (filas.length > 0) {
-          await tx.finAnaCosFina.createMany({ data: filas, skipDuplicates: true });
-        }
-      }
 
       if (created.enMargenContribucion) {
         await tx.finAnaMcDescuentoFp.upsert({
@@ -210,6 +302,7 @@ export async function crearFinAnaCosFinaPago(
         });
       }
 
+      await sincronizarMatrizFinAnaCosFina(tx);
       return created;
     });
 
@@ -230,7 +323,12 @@ export async function editarFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
+  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
+  if (!entidadesOk.success) return entidadesOk;
+  const entidadIds = entidadesOk.data;
+
   try {
+<<<<<<< HEAD
     const updated = await prisma.finAnaCosFinaPagoCat.update({
       where: { id: input.id },
       data: {
@@ -239,7 +337,41 @@ export async function editarFinAnaCosFinaPago(
         asociadoBanco: input.asociadoBanco,
       },
       select: SELECT_PAGO,
+=======
+    const updated = await prisma.$transaction(async (tx) => {
+      const existing = await tx.finAnaCosFinaPagoCat.findUnique({
+        where: { id: input.id },
+        select: { id: true },
+      });
+      if (!existing) {
+        throw Object.assign(new Error("Forma de pago no encontrada."), { code: "P2025" });
+      }
+
+      await tx.cobrosFormaPagoEntidad.deleteMany({
+        where: {
+          pagoId: input.id,
+          entidadId: { notIn: entidadIds },
+        },
+      });
+      await tx.cobrosFormaPagoEntidad.createMany({
+        data: entidadIds.map((entidadId) => ({ pagoId: input.id, entidadId })),
+        skipDuplicates: true,
+      });
+
+      const row = await tx.finAnaCosFinaPagoCat.update({
+        where: { id: input.id },
+        data: {
+          nombre,
+          aceptaCuotas: input.aceptaCuotas,
+        },
+        select: pagoSelect,
+      });
+
+      await sincronizarMatrizFinAnaCosFina(tx);
+      return row;
+>>>>>>> facturacion
     });
+
     return { success: true, data: mapPago(updated) };
   } catch (error: unknown) {
     return {
@@ -267,39 +399,6 @@ export async function eliminarFinAnaCosFinaPago(
     return {
       success: false,
       error: mapDbError(error, "No se pudo eliminar la forma de pago."),
-    };
-  }
-}
-
-export async function reordenarFinAnaCosFinaPagos(
-  input: ReordenarFinAnaCosFinaPagosInput
-): Promise<ServiceResult<FinAnaCosFinaPagoItem[]>> {
-  try {
-    const pagos = await listarFinAnaCosFinaPagos();
-    if (input.ordenIds.length !== pagos.length) {
-      return { success: false, error: "El orden enviado no coincide con el catálogo." };
-    }
-
-    const idsExistentes = new Set(pagos.map((p) => p.id));
-    if (!input.ordenIds.every((id) => idsExistentes.has(id))) {
-      return { success: false, error: "Hay formas de pago inválidas en el orden." };
-    }
-
-    await prisma.$transaction(
-      input.ordenIds.map((id, orden) =>
-        prisma.finAnaCosFinaPagoCat.update({
-          where: { id },
-          data: { orden },
-        })
-      )
-    );
-
-    const actualizados = await listarFinAnaCosFinaPagos();
-    return { success: true, data: actualizados };
-  } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo guardar el orden de las formas de pago."),
     };
   }
 }

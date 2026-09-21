@@ -26,7 +26,6 @@ export default async function FinAnaMargenContribucionPage() {
 
   return (
     <FinAnaMargenContribucionPageClient
-      key={pagos.map((p) => `${p.id}:${p.orden}`).join("|")}
       filasCostosFinancieros={filasCostosFinancieros}
       terminales={terminales}
       pagos={pagos}

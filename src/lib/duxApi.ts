@@ -35,7 +35,7 @@ export type StockDepositoDux = {
 export const ID_STOCK_GUAYMALLEN = 4565;
 export const ID_STOCK_MAIPU = 16923;
 
-/** Depósito DUX Guaymallén. Override: `DUX_ID_STOCK_GUAYMALLEN`. Debe coincidir con `global_sucursales.id_deposito` de `guaymallen`. */
+/** Depósito DUX Guaymallén. Override: `DUX_ID_STOCK_GUAYMALLEN`. Debe coincidir con `sucursales.id_deposito` de `guaymallen`. */
 export function getIdDepositoGuaymallen(): number {
   const raw = process.env.DUX_ID_STOCK_GUAYMALLEN;
   if (raw != null && raw !== "") {
@@ -45,7 +45,7 @@ export function getIdDepositoGuaymallen(): number {
   return ID_STOCK_GUAYMALLEN;
 }
 
-/** Depósito DUX Maipú. Override: `DUX_ID_STOCK_MAIPU`. Debe coincidir con `global_sucursales.id_deposito` de `maipu`. */
+/** Depósito DUX Maipú. Override: `DUX_ID_STOCK_MAIPU`. Debe coincidir con `sucursales.id_deposito` de `maipu`. */
 export function getIdDepositoMaipu(): number {
   const raw = process.env.DUX_ID_STOCK_MAIPU;
   if (raw != null && raw !== "") {

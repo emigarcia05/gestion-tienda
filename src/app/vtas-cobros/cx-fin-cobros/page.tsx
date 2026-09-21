@@ -6,7 +6,11 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import { listarFinAnaCosFina } from "@/services/finAnaCosFina.service";
 import { listarFinAnaCosFinaTerminalesMarcas } from "@/services/finAnaCosFinaTerminalMarca.service";
 import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
+<<<<<<< HEAD
 import { listarCobrosBancos } from "@/services/cobrosBancos.service";
+=======
+import { listarCobrosCuotas } from "@/services/cobrosCuotas.service";
+>>>>>>> facturacion
 
 export const dynamic = "force-dynamic";
 
@@ -17,20 +21,31 @@ export default async function VtasCobrosCxFinCobrosPage() {
   }
 
   const esEditor = rol === "editor";
+<<<<<<< HEAD
   const [filas, marcas, pagos, bancos] = await Promise.all([
     listarFinAnaCosFina(),
     listarFinAnaCosFinaTerminalesMarcas(),
     listarFinAnaCosFinaPagos(),
     listarCobrosBancos(),
+=======
+  const [filas, marcas, pagos, cuotas] = await Promise.all([
+    listarFinAnaCosFina(),
+    listarFinAnaCosFinaTerminalesMarcas(),
+    listarFinAnaCosFinaPagos(),
+    listarCobrosCuotas(),
+>>>>>>> facturacion
   ]);
 
   return (
     <FinAnaCosFinaPageClient
-      key={pagos.map((p) => `${p.id}:${p.orden}`).join("|")}
       filas={filas}
       marcas={marcas}
       pagos={pagos}
+<<<<<<< HEAD
       bancos={bancos}
+=======
+      cuotas={cuotas}
+>>>>>>> facturacion
       esEditor={esEditor}
     />
   );

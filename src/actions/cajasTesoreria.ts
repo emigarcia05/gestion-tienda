@@ -42,7 +42,7 @@ function revalidateCajasTesoreriaPaths(): void {
   revalidatePath("/finanzas/tesoreria");
 }
 
-/** Catálogo `fin_tesoreria_entidades` para alta/edición de cajas. */
+/** Catálogo `tesoreria_cobros_entidades` para alta/edición de cajas. */
 export async function listarEntidadesFinTesoreriaAction(): Promise<ActionResult<FinTesoreriaEntidadItem[]>> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.finanzas.acceso)) {
@@ -58,7 +58,7 @@ export async function listarEntidadesFinTesoreriaAction(): Promise<ActionResult<
   }
 }
 
-/** Catálogo `global_sucursales` para alta/edición de cajas. */
+/** Catálogo `sucursales` para alta/edición de cajas. */
 export async function listarSucursalesTesoreriaAction(): Promise<
   ActionResult<SucursalTesoreriaOption[]>
 > {

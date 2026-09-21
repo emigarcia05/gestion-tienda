@@ -22,11 +22,6 @@ enum TipoValorTesoreria {
   CHEQUE
 }
 
-enum DisponibilidadCajaTesoreria {
-  INMEDIATA
-  DIFERIDO
-}
-
 enum TipoChequeTesoreria {
   FISICO
   ECHEQUE
@@ -37,6 +32,26 @@ enum TenenciaChequeTesoreria {
   TIENDA
   DEPOSITADO
   PROVEEDOR
+}
+
+/**
+ * Tipo de movimiento en el ledger `tesoreria_movimientos`.
+ * El saldo de una caja será la suma de `monto` (firmado) de sus movimientos.
+ */
+enum TipoMovimientoTesoreria {
+  COBRO
+  NOTA_CREDITO_VENTA
+  PAGO
+  ARQUEO
+  TRANSFERENCIA_ENTRE_CAJAS
+}
+
+/** Subtipo cuando `tipo = PAGO` (proveedores, personal, gastos, etc.). */
+enum CategoriaPagoTesoreria {
+  PROVEEDOR
+  PERSONAL
+  GASTO
+  OTRO
 }
 
 /**
@@ -250,10 +265,10 @@ model GlobalDeposito {
 // Sucursales: código estable (guaymallen, maipu), nombre, whatsapp (emisor), id DUX y flag de habilitación para pedidos.
 model Sucursal {
   id             String   @id @default(cuid())
-  codigo         String   @unique(map: "global_sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
+  codigo         String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
   nombre         String
   /** Depósito DUX de esta sucursal (1 sucursal → 1 depósito). Null = sin depósito (p. ej. corporativo). */
-  idDeposito     Int?     @unique(map: "global_sucursales_id_deposito_key") @map("id_deposito")
+  idDeposito     Int?     @unique(map: "sucursales_id_deposito_key") @map("id_deposito")
   depositoCatalogo GlobalDeposito? @relation(fields: [idDeposito], references: [idDeposito], onDelete: Restrict)
   whatsapp       String?  @map("whatsapp")
   pedido         Boolean  @default(true) @map("pedido")
@@ -277,7 +292,7 @@ model Sucursal {
    */
   generaEst      Boolean  @default(false) @map("genera_est")
   /** ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo). */
-  idDux          String?  @unique(map: "global_sucursales_id_dux_key") @map("id_dux")
+  idDux          String?  @unique(map: "sucursales_id_dux_key") @map("id_dux")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -293,14 +308,16 @@ model Sucursal {
   stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   cajasTesoreria            CajaTesoreria[]
+  cobrosPorSucursal         CobrosPorSucursal[]
+  movimientosTesoreria      TesoreriaMovimiento[]
 
-  @@map("global_sucursales")
+  @@map("sucursales")
 }
 
 /**
  * Catálogo de puntos de venta DUX (`ptos_vtas`, ex `global_pto_vtas`).
  * PK `id` = cuid (TEXT); no serial. `pto_venta` = CHAR(5) con ceros a la izquierda.
- * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `global_sucursales` `genera_est = true`).
+ * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `sucursales` `genera_est = true`).
  */
 model GlobalPtoVta {
   id                 String    @id @default(cuid())
@@ -314,7 +331,9 @@ model GlobalPtoVta {
   /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
   condicionIva       Int?      @map("condicion_iva")
   condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  nombreTitular      String    @map("nombre_titular")
+  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). */
+  titular            String    @map("titular")
+  titularTesoreria   TesoreriaTitular @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
   domicilioComercial String?   @map("domicilio_comercial") @db.Text
   inicioActividades  DateTime? @map("inicio_actividades") @db.Date
   /** Default `1` = Productos. */
@@ -328,6 +347,7 @@ model GlobalPtoVta {
   comprobantesVtas ComprobanteVta[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
+  @@index([titular], map: "ptos_vtas_titular_idx")
   @@map("ptos_vtas")
 }
 
@@ -370,7 +390,7 @@ model GlobalPersonal {
   nombrePersonal     String   @map("nombre_personal")
   /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
   idDux              String?  @unique(map: "global_personal_id_dux_key") @map("id_dux")
-  /** Código de `global_sucursales` (guaymallen | maipu). */
+  /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
   /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
@@ -382,44 +402,50 @@ model GlobalPersonal {
   @@map("global_personal")
 }
 
-/** Catálogo de entidades de caja (`nombre` único en MAYÚSCULAS). */
-model FinTesoreriaEntidad {
+/**
+ * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
+ * Referenciado por `ptos_vtas.titular`.
+ * Aún no sustituye `tesoreria_cajas.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
+ */
+model TesoreriaTitular {
   id        String   @id @default(cuid())
-  nombre    String   @unique
+  nombre    String   @unique(map: "tesoreria_titulares_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cajas CajaTesoreria[]
+  ptoVtas GlobalPtoVta[]
 
-  @@map("fin_tesoreria_entidades")
+  @@map("tesoreria_titulares")
 }
 
 /** Catálogo de tipos de caja (`codigo` = literal de enum `TipoCajaTesoreria`; `nombre` para UI). */
 model FinTesoreriaTipoCaja {
   id        String   @id @default(cuid())
-  codigo    String   @unique
+  codigo    String   @unique(map: "tesoreria_tipo_caja_codigo_key")
   nombre    String
   orden     Int      @map("orden")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([orden], map: "fin_tesoreria_tipo_caja_orden_idx")
-  @@map("fin_tesoreria_tipo_caja")
+  @@index([orden], map: "tesoreria_tipo_caja_orden_idx")
+  @@map("tesoreria_tipo_caja")
 }
 
-// Cajas de tesorería con saldo actual y marca temporal del último cambio de saldo.
+// Cajas de tesorería. `monto` / `ult_actualizacion` siguen como caché legacy;
+// el SSOT del saldo pasará a ser SUM(`tesoreria_movimientos.monto`) por caja.
 model CajaTesoreria {
   id               String            @id @default(cuid())
   entidadId        String            @map("entidad_id")
-  entidad          FinTesoreriaEntidad @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  entidad          FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
   /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
-  /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `global_sucursales`. */
+  /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `sucursales`. */
   sucursalId       String?           @map("sucursal_id")
   sucursal         Sucursal?         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   tipoCaja         TipoCajaTesoreria @map("tipo_caja")
   tipoValor        TipoValorTesoreria @map("tipo_valor")
-  disponibilidad   DisponibilidadCajaTesoreria @map("disponibilidad")
+  /** Supervisión fiscal (TRUE/FALSE). */
+  supervisionFiscal Boolean @default(false) @map("supervision_fiscal")
   monto            Int               @default(0)
   ultActualizacion DateTime          @map("ult_actualizacion") @default(now())
   createdAt        DateTime          @default(now()) @map("created_at")
@@ -427,12 +453,61 @@ model CajaTesoreria {
 
   cheques                        FinTesoreriaCheque[]
   chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
+  cobrosPorSucursalDestino       CobrosPorSucursal[]
+  movimientos                    TesoreriaMovimiento[] @relation("MovimientoCaja")
+  movimientosComoContraparte     TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
 
-  @@index([tipoCaja], map: "fin_tesoreria_tipo_caja_idx")
-  @@index([tipoValor], map: "fin_tesoreria_tipo_valor_idx")
-  @@index([entidadId], map: "fin_tesoreria_entidad_id_idx")
-  @@index([sucursalId], map: "fin_tesoreria_sucursal_id_idx")
-  @@map("fin_tesoreria")
+  @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
+  @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
+  @@index([entidadId], map: "tesoreria_cajas_entidad_id_idx")
+  @@index([sucursalId], map: "tesoreria_cajas_sucursal_id_idx")
+  @@map("tesoreria_cajas")
+}
+
+/**
+ * Ledger de movimientos por caja (`tesoreria_movimientos`).
+ * Una fila afecta **una** caja (`caja_id`). `monto` firmado: positivo = ingreso, negativo = egreso.
+ * - COBRO: +
+ * - NOTA_CREDITO_VENTA: −
+ * - PAGO: − (detalle en `categoria_pago`)
+ * - ARQUEO: delta +/−
+ * - TRANSFERENCIA_ENTRE_CAJAS: dos filas con el mismo `transferencia_grupo_id`
+ *   (origen −monto, destino +monto); `caja_contraparte_id` apunta a la otra caja.
+ */
+model TesoreriaMovimiento {
+  id                   String                   @id @default(cuid())
+  cajaId               String                   @map("caja_id")
+  caja                 CajaTesoreria            @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  tipo                 TipoMovimientoTesoreria
+  /** Obligatorio en servicio si `tipo = PAGO`; null en el resto. */
+  categoriaPago        CategoriaPagoTesoreria?  @map("categoria_pago")
+  /** Importe firmado (≠ 0). CHECK en SQL. */
+  monto                Int
+  /** Fecha de negocio (calendario Argentina). */
+  fecha                DateTime                 @map("fecha") @db.Date
+  observacion          String                   @default("") @map("observacion") @db.Text
+  /** Pareja de piernas en TRANSFERENCIA_ENTRE_CAJAS. */
+  transferenciaGrupoId String?                  @map("transferencia_grupo_id")
+  /** La otra caja en una transferencia (informativo / UI). */
+  cajaContraparteId    String?                  @map("caja_contraparte_id")
+  cajaContraparte      CajaTesoreria?           @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
+  /**
+   * Sucursal del operador que creó el registro (sesión / `global_personal.sucursal_por_defecto`).
+   * Distinta de `tesoreria_cajas.sucursal_id` (sucursal de la caja).
+   */
+  sucursalId           String?                  @map("sucursal_id")
+  sucursal             Sucursal?                @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+
+  @@index([cajaId, fecha], map: "tesoreria_movimientos_caja_fecha_idx")
+  @@index([tipo], map: "tesoreria_movimientos_tipo_idx")
+  @@index([fecha], map: "tesoreria_movimientos_fecha_idx")
+  @@index([transferenciaGrupoId], map: "tesoreria_movimientos_transferencia_grupo_idx")
+  @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
+  @@index([categoriaPago], map: "tesoreria_movimientos_categoria_pago_idx")
+  @@index([sucursalId], map: "tesoreria_movimientos_sucursal_idx")
+  @@map("tesoreria_movimientos")
 }
 
 // Cheques asociados a una caja de tesorería tipo CHEQUE. El disponible para totales
@@ -443,7 +518,7 @@ model FinTesoreriaCheque {
   cajaId              String               @map("caja_id")
   tipo                TipoChequeTesoreria  @map("tipo")
   emisor              String
-  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `fin_tesoreria.titular`). */
+  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `tesoreria_cajas.titular`). */
   tenedor             String                 @map("tenedor")
   /** Custodia: en tienda (alta), depositado (transferido a caja con tipo_valor DIGITAL), proveedor (pago a proveedor mercadería). */
   tenencia            TenenciaChequeTesoreria @default(TIENDA) @map("tenencia")
@@ -465,11 +540,11 @@ model FinTesoreriaCheque {
   cajaDestino       CajaTesoreria? @relation("FinTesoreriaChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: SetNull)
   proveedor         Proveedor?     @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
 
-  @@index([cajaId], map: "fin_tesoreria_cheques_caja_id_idx")
-  @@index([cajaId, fechaAcreditacion], map: "fin_tesoreria_cheques_caja_id_fecha_acreditacion_idx")
-  @@index([cajaId, fechaTransferencia], map: "fin_tesoreria_cheques_caja_id_fecha_transferencia_idx")
-  @@index([proveedorId], map: "fin_tesoreria_cheques_proveedor_id_idx")
-  @@map("fin_tesoreria_cheques")
+  @@index([cajaId], map: "tesoreria_cheques_caja_id_idx")
+  @@index([cajaId, fechaAcreditacion], map: "tesoreria_cheques_caja_id_fecha_acreditacion_idx")
+  @@index([cajaId, fechaTransferencia], map: "tesoreria_cheques_caja_id_fecha_transferencia_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_proveedor_id_idx")
+  @@map("tesoreria_cheques")
 }
 
 // Catálogo raíz de la jerarquía Finanzas → Balance → Gastos: Tipo (1) ─→ Rubros (N) ─→ Gastos (N).
@@ -608,7 +683,7 @@ model FinBalGastoMensual {
 
 /**
  * Cargas de ventas para balance (`fin_bal_vtas`).
- * La sucursal debe existir en `global_sucursales` con `genera_balance = true` (validado en servicio).
+ * La sucursal debe existir en `sucursales` con `genera_balance = true` (validado en servicio).
  * `mes` / `anio`: periodo calendario (1–12 / año) al que aplica el monto.
  */
 model FinBalVtas {
@@ -633,7 +708,7 @@ model FinBalVtas {
 
 /**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
- * La sucursal debe existir en `global_sucursales` con `genera_est = true` (validado en servicio).
+ * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
  * `cod_tienda` referencia `prod_tienda.cod_tienda` (código numérico DUX importado como texto).
  */
 model EstPorProd {
@@ -1046,7 +1121,7 @@ model ProdTienda {
 /**
  * Transferencias entre depósitos (Trans. Depósitos).
  * Nombre de tabla pedido: `stock_trasn_depositos`.
- * `cod_tienda` → `prod_tienda`; `suc_origen` / `suc_destino` → `global_sucursales.id`.
+ * `cod_tienda` → `prod_tienda`; `suc_origen` / `suc_destino` → `sucursales.id`.
  * No mueve stock DUX. Historial / anti-duplicado: 14 días.
  */
 model StockTrasnDeposito {
@@ -1216,36 +1291,56 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo de marcas Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
+/** Catálogo unificado de entidades cobros/tesorería (`tesoreria_cobros_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
+<<<<<<< HEAD
   nombre    String   @unique(map: "cobros_cx_fin_marcas_nombre_key")
+=======
+  nombre    String   @unique(map: "tesoreria_cobros_entidades_nombre_key")
+>>>>>>> facturacion
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  cajas    CajaTesoreria[]
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
+  formasPago CobrosFormaPagoEntidad[]
 
+<<<<<<< HEAD
   @@index([orden], map: "cobros_cx_fin_marcas_orden_idx")
   @@map("cobros_cx_fin_marcas")
+=======
+  @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
+  @@map("tesoreria_cobros_entidades")
+>>>>>>> facturacion
 }
 
 /** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
+<<<<<<< HEAD
   orden                Int      @default(0)
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
   asociadoTerminal     Boolean  @default(false) @map("asociado_terminal")
   asociadoBanco        Boolean  @default(false) @map("asociado_banco")
+=======
+  enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
+  enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
+  /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
+  aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
+>>>>>>> facturacion
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
+  entidades     CobrosFormaPagoEntidad[]
 
+<<<<<<< HEAD
   @@index([orden], map: "cobros_forma_pago_orden_idx")
   @@map("cobros_forma_pago")
 }
@@ -1265,6 +1360,44 @@ model CobrosBanco {
 /**
  * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
  * `terminal_id` = marca (`cobros_cx_fin_marcas`).
+=======
+  @@map("cobros_forma_pago")
+}
+
+/**
+ * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `tesoreria_cobros_entidades`).
+ * Regla de negocio: cada forma de pago debe tener **al menos una** entidad (validado en servicio/Zod).
+ */
+model CobrosFormaPagoEntidad {
+  pagoId    String @map("pago_id")
+  entidadId String @map("entidad_id")
+
+  pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  destinosPorSucursal CobrosPorSucursal[]
+
+  @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
+  @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
+  @@map("cobros_forma_pago_entidades")
+}
+
+/** Catálogo de etiquetas de cuotas (Cx. Fin. Cobros). Texto libre (ej. `01`, `06 PROMOCION`). */
+model CobrosCuota {
+  id        String   @id @default(cuid())
+  cuotas    String   @unique(map: "cobros_cuotas_cuotas_key")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  filasCostos FinAnaCosFina[]
+
+  @@map("cobros_cuotas")
+}
+
+/**
+ * Matriz entidad × forma de pago [× cuota] para costos financieros (`cobros_cx_fin`, ex `fin_ana_cos_fina`).
+ * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
+ * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
+>>>>>>> facturacion
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
@@ -1274,16 +1407,45 @@ model FinAnaCosFina {
   terminal         FinAnaCosFinaTerminalMarca @relation(fields: [terminalId], references: [id], onDelete: Cascade)
   pagoId           String              @map("pago_id")
   pago             FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  cuotaId          String?             @map("cuota_id")
+  cuota            CobrosCuota?        @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
   diasAcreditacion Int?                @map("dias_acreditacion")
   arancel          Decimal             @default(0) @db.Decimal(5, 2)
   costoFinanciero  Decimal             @default(0) @map("costo_financiero") @db.Decimal(5, 2)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  @@unique([terminalId, pagoId], map: "fin_ana_cos_fina_terminal_pago_ux")
-  @@index([terminalId], map: "fin_ana_cos_fina_terminal_idx")
-  @@index([pagoId], map: "fin_ana_cos_fina_pago_idx")
-  @@map("fin_ana_cos_fina")
+  @@index([terminalId], map: "cobros_cx_fin_terminal_idx")
+  @@index([pagoId], map: "cobros_cx_fin_pago_idx")
+  @@index([cuotaId], map: "cobros_cx_fin_cuota_idx")
+  @@map("cobros_cx_fin")
+}
+
+/**
+ * Vínculo de acreditación (`cobros_vinc_cajas`): una fila = forma × entidad × **una** sucursal.
+ * Alta manual (UI Cobros & Cajas); no se genera desde `cobros_cx_fin.habilitado`.
+ * La misma forma × entidad puede repetirse en otra sucursal (otra fila).
+ * UNIQUE `(pago_id, entidad_id, sucursal_id)`.
+ */
+model CobrosPorSucursal {
+  id            String   @id @default(cuid())
+  pagoId        String   @map("pago_id")
+  entidadId     String   @map("entidad_id")
+  formaPagoEntidad CobrosFormaPagoEntidad @relation(fields: [pagoId, entidadId], references: [pagoId, entidadId], onDelete: Cascade)
+  sucursalId    String   @map("sucursal_id")
+  sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  cajaDestinoId String?  @map("caja_destino_id")
+  cajaDestino   CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  /** Texto libre de la fila. */
+  observacion   String   @default("") @map("observacion") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([pagoId, entidadId, sucursalId], map: "cobros_vinc_cajas_pago_entidad_sucursal_ux")
+  @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
+  @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
+  @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")
+  @@map("cobros_vinc_cajas")
 }
 
 /** Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución. */
@@ -1823,6 +1985,9 @@ model ComprobanteVta {
   cbteAsocPtoVta Int?    @map("cbte_asoc_pto_vta")
   cbteAsocNro    Int?    @map("cbte_asoc_nro")
   cbteAsocCae    String? @map("cbte_asoc_cae") @db.VarChar(14)
+
+  /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
+  diasVencimiento Int? @map("dias_vencimiento")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

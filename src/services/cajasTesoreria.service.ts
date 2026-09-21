@@ -1,5 +1,4 @@
 import type {
-  DisponibilidadCajaTesoreria,
   Prisma,
   TipoCajaTesoreria,
   TipoValorTesoreria,
@@ -11,7 +10,7 @@ import {
   sumarMontosChequesAcreditadosHasta,
   sumarMontosChequesDiferidosPorCaja,
 } from "@/services/finTesoreriaCheques.service";
-import { disponibilidadDesdeTipoCaja, tipoValorDesdeTipoCaja } from "@/lib/cajasTesoreriaTipos";
+import { tipoValorCompatibleConTipoCaja } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
 
@@ -29,18 +28,18 @@ type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
 export interface CajaTesoreriaItem {
   id: string;
   entidadId: string;
-  /** Texto del catálogo `fin_tesoreria_entidades.nombre` (MAYÚSCULAS). */
+  /** Texto del catálogo `tesoreria_cobros_entidades.nombre` (MAYÚSCULAS). */
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
   sucursalNombre: string;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
+  supervisionFiscal: boolean;
   /** Valor persistido en `fin_tesoreria.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
   monto: number;
   /**
-   * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `fin_tesoreria_cheques`
+   * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `tesoreria_cheques`
    * con `fecha_acreditacion` ≤ hoy (calendario Argentina); en otros tipos, igual a `monto`.
    */
   montoDisponible: number;
@@ -59,7 +58,6 @@ export interface CrearCajaTesoreriaInput {
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
   monto: number;
 }
 
@@ -70,7 +68,6 @@ export interface EditarCajaTesoreriaInput {
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
-  disponibilidad: DisponibilidadCajaTesoreria;
   monto: number;
 }
 
@@ -95,7 +92,7 @@ function mapCaja(
       : "",
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
-    disponibilidad: row.disponibilidad,
+    supervisionFiscal: row.supervisionFiscal,
     monto: row.monto,
     montoDisponible,
     montoChequesDiferidos,
@@ -125,7 +122,7 @@ function normalizarNombreEntidadFinTesoreria(nombre: string): string {
 }
 
 export async function listarEntidadesFinTesoreria(): Promise<FinTesoreriaEntidadItem[]> {
-  const rows = await prisma.finTesoreriaEntidad.findMany({
+  const rows = await prisma.finAnaCosFinaTerminalMarca.findMany({
     orderBy: [{ nombre: "asc" }],
     select: { id: true, nombre: true },
   });
@@ -182,8 +179,12 @@ export async function crearFinTesoreriaEntidad(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const row = await prisma.finTesoreriaEntidad.create({
-      data: { nombre: norm },
+    const maxOrden = await prisma.finAnaCosFinaTerminalMarca.aggregate({
+      _max: { orden: true },
+    });
+    const orden = (maxOrden._max.orden ?? -1) + 1;
+    const row = await prisma.finAnaCosFinaTerminalMarca.create({
+      data: { nombre: norm, orden },
       select: { id: true, nombre: true },
     });
     return {
@@ -207,7 +208,7 @@ export async function editarFinTesoreriaEntidad(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const row = await prisma.finTesoreriaEntidad.update({
+    const row = await prisma.finAnaCosFinaTerminalMarca.update({
       where: { id },
       data: { nombre: norm },
       select: { id: true, nombre: true },
@@ -233,7 +234,7 @@ export async function eliminarFinTesoreriaEntidad(id: string): Promise<ServiceRe
     };
   }
   try {
-    await prisma.finTesoreriaEntidad.delete({ where: { id } });
+    await prisma.finAnaCosFinaTerminalMarca.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
     return {
@@ -288,13 +289,11 @@ export async function listarCajasTesoreriaPorTipoCaja(
 export async function crearCajaTesoreria(
   input: CrearCajaTesoreriaInput
 ): Promise<ServiceResult<CajaTesoreriaItem>> {
-  const esperadoTv = tipoValorDesdeTipoCaja(input.tipoCaja);
-  const esperadoDisp = disponibilidadDesdeTipoCaja(input.tipoCaja);
-  if (input.tipoValor !== esperadoTv || input.disponibilidad !== esperadoDisp) {
+  const esperadoTvOk = tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor);
+  if (!esperadoTvOk) {
     return {
       success: false,
-      error:
-        "La combinación tipo de caja / tipo de valor / disponibilidad no es válida para las reglas de tesorería.",
+      error: "La combinación tipo de caja / tipo de valor no es válida para las reglas de tesorería.",
     };
   }
   const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);
@@ -309,7 +308,6 @@ export async function crearCajaTesoreria(
         sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
-        disponibilidad: input.disponibilidad,
         monto: input.monto,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
@@ -347,6 +345,13 @@ export async function editarCajaTesoreria(
       }
     }
 
+    if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
+      return {
+        success: false,
+        error: "La combinación tipo de caja / tipo de valor no es válida para las reglas de tesorería.",
+      };
+    }
+
     const sucursalOk = await resolverSucursalCajaTesoreria(input.tipoCaja, input.sucursalId);
     if (!sucursalOk.success) return sucursalOk;
     const titularOk = await resolverNombreTitularFinanciero(
@@ -363,7 +368,6 @@ export async function editarCajaTesoreria(
         sucursalId: sucursalOk.data,
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
-        disponibilidad: input.disponibilidad,
         monto: input.monto,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
@@ -388,6 +392,26 @@ export async function editarCajaTesoreria(
 
 export async function eliminarCajaTesoreria(id: string): Promise<ServiceResult<void>> {
   try {
+    const chequesAsociados = await prisma.finTesoreriaCheque.count({
+      where: { cajaId: id },
+    });
+    if (chequesAsociados > 0) {
+      return {
+        success: false,
+        error: "Primero hay que transferir o eliminar los cheques asociados a esta caja.",
+      };
+    }
+    const movimientosAsociados = await prisma.tesoreriaMovimiento.count({
+      where: {
+        OR: [{ cajaId: id }, { cajaContraparteId: id }],
+      },
+    });
+    if (movimientosAsociados > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: la caja tiene movimientos de tesorería registrados.",
+      };
+    }
     await prisma.cajaTesoreria.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {

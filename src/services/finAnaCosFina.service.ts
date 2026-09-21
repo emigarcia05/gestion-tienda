@@ -1,15 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ActualizarFinAnaCosFinaInput } from "@/lib/validations/finAnaCosFina";
-import {
-  ensureFinAnaCosFinaTerminalesMarcasSeed,
-  listarFinAnaCosFinaTerminalesMarcas,
-} from "@/services/finAnaCosFinaTerminalMarca.service";
-import {
-  ensureFinAnaCosFinaPagosSeed,
-  listarFinAnaCosFinaPagos,
-} from "@/services/finAnaCosFinaPago.service";
-import { filtrarPagosCostosFinancieros } from "@/lib/finAnaCosFinaPagos";
+import { ensureFinAnaCosFinaTerminalesMarcasSeed } from "@/services/finAnaCosFinaTerminalMarca.service";
+import { ensureFinAnaCosFinaPagosSeed } from "@/services/finAnaCosFinaPago.service";
+import { sincronizarMatrizFinAnaCosFina } from "@/services/finAnaCosFinaMatriz.service";
 
 export type FinAnaCosFinaItem = {
   id: string;
@@ -20,7 +14,9 @@ export type FinAnaCosFinaItem = {
   terminalOrden: number;
   pagoId: string;
   pagoNombre: string;
-  pagoOrden: number;
+  cuotaId: string | null;
+  /** Etiqueta del catálogo `cobros_cuotas.cuotas`; null si la forma no acepta cuotas. */
+  cuotas: string | null;
   diasAcreditacion: number | null;
   arancel: number;
   costoFinanciero: number;
@@ -30,18 +26,28 @@ function decimalToNumber(value: Prisma.Decimal): number {
   return Number(value);
 }
 
-function mapRow(row: {
+const FIN_ANA_COS_FINA_INCLUDE = {
+  terminal: { select: { nombre: true, orden: true } },
+  pago: { select: { nombre: true } },
+  cuota: { select: { cuotas: true } },
+} as const;
+
+type FinAnaCosFinaRow = {
   id: string;
   habilitado: boolean;
   impCheque: boolean;
   terminalId: string;
   pagoId: string;
+  cuotaId: string | null;
   diasAcreditacion: number | null;
   arancel: Prisma.Decimal;
   costoFinanciero: Prisma.Decimal;
   terminal: { nombre: string; orden: number };
-  pago: { nombre: string; orden: number };
-}): FinAnaCosFinaItem {
+  pago: { nombre: string };
+  cuota: { cuotas: string } | null;
+};
+
+function mapRow(row: FinAnaCosFinaRow): FinAnaCosFinaItem {
   return {
     id: row.id,
     habilitado: row.habilitado,
@@ -51,7 +57,8 @@ function mapRow(row: {
     terminalOrden: row.terminal.orden,
     pagoId: row.pagoId,
     pagoNombre: row.pago.nombre.toUpperCase(),
-    pagoOrden: row.pago.orden,
+    cuotaId: row.cuotaId,
+    cuotas: row.cuota?.cuotas ?? null,
     diasAcreditacion: row.diasAcreditacion,
     arancel: decimalToNumber(row.arancel),
     costoFinanciero: decimalToNumber(row.costoFinanciero),
@@ -60,55 +67,29 @@ function mapRow(row: {
 
 function sortItems(items: FinAnaCosFinaItem[]): FinAnaCosFinaItem[] {
   return [...items].sort((a, b) => {
-    const byTerminal = a.terminalOrden - b.terminalOrden;
-    if (byTerminal !== 0) return byTerminal;
-    return a.pagoOrden - b.pagoOrden;
+    const byPago = a.pagoNombre.localeCompare(b.pagoNombre, "es", { sensitivity: "base" });
+    if (byPago !== 0) return byPago;
+    const byEntidad = a.terminalNombre.localeCompare(b.terminalNombre, "es", {
+      sensitivity: "base",
+    });
+    if (byEntidad !== 0) return byEntidad;
+    return (a.cuotas ?? "").localeCompare(b.cuotas ?? "", "es", { sensitivity: "base" });
   });
 }
 
-/** Asegura la matriz marca × pago (idempotente; útil si la migración no corrió en un entorno). */
+/** Sincroniza la matriz con vínculos N:M y `acepta_cuotas`. */
 export async function ensureFinAnaCosFinaSeed(): Promise<void> {
   await ensureFinAnaCosFinaTerminalesMarcasSeed();
   await ensureFinAnaCosFinaPagosSeed();
-  const marcas = await listarFinAnaCosFinaTerminalesMarcas();
-  const pagos = filtrarPagosCostosFinancieros(await listarFinAnaCosFinaPagos());
-
-  const existentes = await prisma.finAnaCosFina.findMany({
-    select: { terminalId: true, pagoId: true },
-  });
-  const claves = new Set(existentes.map((row) => `${row.terminalId}:${row.pagoId}`));
-  const faltantes: { terminalId: string; pagoId: string }[] = [];
-
-  for (const marca of marcas) {
-    for (const pago of pagos) {
-      if (!claves.has(`${marca.id}:${pago.id}`)) {
-        faltantes.push({ terminalId: marca.id, pagoId: pago.id });
-      }
-    }
-  }
-
-  if (faltantes.length === 0) return;
-
-  await prisma.finAnaCosFina.createMany({
-    data: faltantes.map((row) => ({
-      terminalId: row.terminalId,
-      pagoId: row.pagoId,
-      habilitado: true,
-      impCheque: false,
-      arancel: new Prisma.Decimal(0),
-      costoFinanciero: new Prisma.Decimal(0),
-    })),
-    skipDuplicates: true,
+  await prisma.$transaction(async (tx) => {
+    await sincronizarMatrizFinAnaCosFina(tx);
   });
 }
 
 export async function listarFinAnaCosFina(): Promise<FinAnaCosFinaItem[]> {
   await ensureFinAnaCosFinaSeed();
   const rows = await prisma.finAnaCosFina.findMany({
-    include: {
-      terminal: { select: { nombre: true, orden: true } },
-      pago: { select: { nombre: true, orden: true } },
-    },
+    include: FIN_ANA_COS_FINA_INCLUDE,
   });
   return sortItems(rows.map(mapRow));
 }
@@ -138,10 +119,7 @@ export async function actualizarFinAnaCosFina(
   const updated = await prisma.finAnaCosFina.update({
     where: { id },
     data,
-    include: {
-      terminal: { select: { nombre: true, orden: true } },
-      pago: { select: { nombre: true, orden: true } },
-    },
+    include: FIN_ANA_COS_FINA_INCLUDE,
   });
 
   return mapRow(updated);

@@ -18,22 +18,19 @@ import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import {
-  OPCIONES_DISPONIBILIDAD_CAJA_UI,
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
-  OPCIONES_TIPO_VALOR_TESORERIA_UI,
+  OPCIONES_TIPO_VALOR_CAJA_MODAL_UI,
   cajaTesoreriaUsaSucursal,
+  siguienteTipoValorAlCambiarTipoCaja,
 } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import type { SucursalTesoreriaOption } from "@/services/cajasTesoreria.service";
 import { useTitularesFinancierosTesoreria } from "@/lib/hooks/useTitularesFinancierosTesoreria";
 import type {
-  DisponibilidadCajaTesoreria,
   TipoCajaTesoreria,
   TipoValorTesoreria,
 } from "@prisma/client";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
-import CrearEntidadTesoreriaModal from "@/components/finanzas/CrearEntidadTesoreriaModal";
-import { Plus } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -55,12 +52,10 @@ export default function EditarCajaTesoreriaModal({
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
-  const [disponibilidad, setDisponibilidad] =
-    useState<DisponibilidadCajaTesoreria>("INMEDIATA");
   const [saving, setSaving] = useState(false);
   const [openEliminar, setOpenEliminar] = useState(false);
-  const [openEntidades, setOpenEntidades] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open, caja?.titular);
+  const muestraTipoValor = cajaTesoreriaUsaSucursal(tipoCaja);
 
   const cargarCatalogos = useCallback(async () => {
     const [resEntidades, resSucursales] = await Promise.all([
@@ -87,17 +82,12 @@ export default function EditarCajaTesoreriaModal({
   }, [open, cargarCatalogos]);
 
   useEffect(() => {
-    if (!open) setOpenEntidades(false);
-  }, [open]);
-
-  useEffect(() => {
     if (!open || !caja) return;
     setTitular(caja.titular);
     setSucursalId(caja.sucursalId ?? "");
     setEntidadId(caja.entidadId);
     setTipoCaja(caja.tipoCaja as TipoCajaTesoreria);
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
-    setDisponibilidad(caja.disponibilidad as DisponibilidadCajaTesoreria);
   }, [open, caja]);
 
   function resetForm() {
@@ -106,7 +96,6 @@ export default function EditarCajaTesoreriaModal({
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor("EFECTIVO");
-    setDisponibilidad("INMEDIATA");
     setOpenEliminar(false);
   }
 
@@ -117,10 +106,9 @@ export default function EditarCajaTesoreriaModal({
       sucursalId !== (caja.sucursalId ?? "") ||
       titular.trim() !== caja.titular ||
       tipoCaja !== caja.tipoCaja ||
-      tipoValor !== caja.tipoValor ||
-      disponibilidad !== caja.disponibilidad
+      tipoValor !== caja.tipoValor
     );
-  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, disponibilidad]);
+  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor]);
 
   const disabledSubmit = useMemo(
     () =>
@@ -144,7 +132,6 @@ export default function EditarCajaTesoreriaModal({
         sucursalId: cajaTesoreriaUsaSucursal(tipoCaja) ? sucursalId : null,
         tipoCaja,
         tipoValor,
-        disponibilidad,
         monto: caja.monto,
       });
 
@@ -173,7 +160,7 @@ export default function EditarCajaTesoreriaModal({
         }}
       >
         <AppModal
-          title="Editar Caja"
+          title="EDITAR CAJA"
           size="md"
           className="max-w-xl"
           actions={
@@ -200,59 +187,50 @@ export default function EditarCajaTesoreriaModal({
         >
           <div className="grid min-h-0 grid-cols-1 gap-3">
             <label className="flex flex-col gap-1">
-              <ModalMicroLabel>TITULAR</ModalMicroLabel>
+              <ModalMicroLabel>TIPO DE CAJA</ModalMicroLabel>
               <Select
-                value={titular || "none"}
-                onValueChange={(value) => setTitular(value === "none" ? "" : value)}
+                value={tipoCaja}
+                onValueChange={(value) => {
+                  const next = value as TipoCajaTesoreria;
+                  setTipoCaja(next);
+                  if (!cajaTesoreriaUsaSucursal(next)) setSucursalId("");
+                  setTipoValor((actual) => siguienteTipoValorAlCambiarTipoCaja(next, actual));
+                }}
                 disabled={saving}
               >
                 <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="SELECCIONAR TITULAR" />
+                  <SelectValue placeholder="SELECCIONAR TIPO DE CAJA" />
                 </SelectTrigger>
                 <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                  <SelectItem value="none">SELECCIONAR TITULAR</SelectItem>
-                  {titulares.map((titularOption) => (
-                    <SelectItem key={titularOption} value={titularOption}>
-                      {titularOption}
+                  {OPCIONES_TIPO_CAJA_TESORERIA_UI.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </label>
 
-            <div className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1">
               <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-              <div className="flex gap-2">
-                <Select
-                  value={entidadId || "none"}
-                  onValueChange={(value) => setEntidadId(value === "none" ? "" : value)}
-                  disabled={saving}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "min-w-0 flex-1")}>
-                    <SelectValue placeholder="SELECCIONAR ENTIDAD" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                    <SelectItem value="none">SELECCIONAR ENTIDAD</SelectItem>
-                    {entidades.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 shrink-0"
-                  aria-label="Gestionar entidades"
-                  disabled={saving}
-                  onClick={() => setOpenEntidades(true)}
-                >
-                  <Plus className="size-4" />
-                </Button>
-              </div>
-            </div>
+              <Select
+                value={entidadId || "none"}
+                onValueChange={(value) => setEntidadId(value === "none" ? "" : value)}
+                disabled={saving}
+              >
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue placeholder="SELECCIONAR ENTIDAD" />
+                </SelectTrigger>
+                <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
+                  <SelectItem value="none">SELECCIONAR ENTIDAD</SelectItem>
+                  {entidades.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
 
             {cajaTesoreriaUsaSucursal(tipoCaja) ? (
             <label className="flex flex-col gap-1">
@@ -278,29 +256,27 @@ export default function EditarCajaTesoreriaModal({
             ) : null}
 
             <label className="flex flex-col gap-1">
-              <ModalMicroLabel>TIPO DE CAJA</ModalMicroLabel>
+              <ModalMicroLabel>TITULAR</ModalMicroLabel>
               <Select
-                value={tipoCaja}
-                onValueChange={(value) => {
-                  const next = value as TipoCajaTesoreria;
-                  setTipoCaja(next);
-                  if (!cajaTesoreriaUsaSucursal(next)) setSucursalId("");
-                }}
+                value={titular || "none"}
+                onValueChange={(value) => setTitular(value === "none" ? "" : value)}
                 disabled={saving}
               >
                 <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="SELECCIONAR TIPO DE CAJA" />
+                  <SelectValue placeholder="SELECCIONAR TITULAR" />
                 </SelectTrigger>
                 <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                  {OPCIONES_TIPO_CAJA_TESORERIA_UI.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                  <SelectItem value="none">SELECCIONAR TITULAR</SelectItem>
+                  {titulares.map((titularOption) => (
+                    <SelectItem key={titularOption} value={titularOption}>
+                      {titularOption}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </label>
 
+            {muestraTipoValor ? (
             <label className="flex flex-col gap-1">
               <ModalMicroLabel>TIPO DE VALOR</ModalMicroLabel>
               <Select
@@ -312,7 +288,7 @@ export default function EditarCajaTesoreriaModal({
                   <SelectValue placeholder="SELECCIONAR TIPO DE VALOR" />
                 </SelectTrigger>
                 <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                  {OPCIONES_TIPO_VALOR_TESORERIA_UI.map((opt) => (
+                  {OPCIONES_TIPO_VALOR_CAJA_MODAL_UI.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -320,26 +296,7 @@ export default function EditarCajaTesoreriaModal({
                 </SelectContent>
               </Select>
             </label>
-
-            <label className="flex flex-col gap-1">
-              <ModalMicroLabel>DISPONIBILIDAD</ModalMicroLabel>
-              <Select
-                value={disponibilidad}
-                onValueChange={(value) => setDisponibilidad(value as DisponibilidadCajaTesoreria)}
-                disabled={saving}
-              >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                  <SelectValue placeholder="SELECCIONAR DISPONIBILIDAD" />
-                </SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                  {OPCIONES_DISPONIBILIDAD_CAJA_UI.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
+            ) : null}
           </div>
         </AppModal>
       </Dialog>
@@ -354,13 +311,6 @@ export default function EditarCajaTesoreriaModal({
           resetForm();
           onUpdated?.();
         }}
-      />
-
-      <CrearEntidadTesoreriaModal
-        open={openEntidades}
-        onOpenChange={setOpenEntidades}
-        onCatalogoChanged={() => void cargarCatalogos()}
-        onEntidadCreadaSeleccion={(id) => setEntidadId(id)}
       />
     </>
   );

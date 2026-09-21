@@ -4,7 +4,6 @@ import FinanzasTesoreriaPageClient from "@/components/finanzas/FinanzasTesoreria
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { listarCajasTesoreria } from "@/services/cajasTesoreria.service";
-import { formatFechaCortaArgentina } from "@/lib/fechaArgentina";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +24,9 @@ export default async function FinanzasTesoreriaPage() {
     sucursalNombre: c.sucursalNombre,
     tipoCaja: c.tipoCaja,
     tipoValor: c.tipoValor,
-    disponibilidad: c.disponibilidad,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
     montoChequesDiferidos: c.montoChequesDiferidos,
-    ultActualizacion: formatFechaCortaArgentina(c.ultActualizacion),
     ultActualizacionIso: c.ultActualizacion.toISOString(),
   }));
 

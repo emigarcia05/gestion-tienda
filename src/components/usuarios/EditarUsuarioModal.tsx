@@ -230,8 +230,8 @@ export default function EditarUsuarioModal({
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Titular Financiero</ModalMicroLabel>
             <ModalSiNoChoice
+              label="TITULAR FINANCIERO"
               value={titularFinanciero}
               onChange={setTitularFinanciero}
               disabled={saving}

@@ -20,7 +20,7 @@ export type SucursalPedidoAFabrica = {
   id: string;
   codigo: string;
   nombre: string;
-  /** `global_sucursales.id_deposito`. `null` = sin depósito (no entra en STOCK / UN. ACT.). */
+  /** `sucursales.id_deposito`. `null` = sin depósito (no entra en STOCK / UN. ACT.). */
   idDeposito: number | null;
 };
 

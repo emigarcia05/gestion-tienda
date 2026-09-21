@@ -56,9 +56,9 @@ export default function ActualizarMontoCajaTesoreriaModal({
         id: caja.id,
         entidadId: caja.entidadId,
         titular: caja.titular,
+        sucursalId: caja.sucursalId,
         tipoCaja: caja.tipoCaja,
         tipoValor: caja.tipoValor,
-        disponibilidad: caja.disponibilidad,
         monto: parsedMonto,
       });
 

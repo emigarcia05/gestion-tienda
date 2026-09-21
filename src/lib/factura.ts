@@ -69,6 +69,15 @@ export function facturaTipoDesdeClaseYFiscal(
   return fiscal === "fiscal" ? "nota_credito_fiscal" : "nota_credito_no_fiscal";
 }
 
+/** Entero 1–365 o null si el texto está vacío / inválido. */
+export function parseDiasVencimiento(raw: string): number | null {
+  const t = raw.trim();
+  if (!t || !/^\d+$/.test(t)) return null;
+  const n = Number.parseInt(t, 10);
+  if (!Number.isInteger(n) || n < 1 || n > 365) return null;
+  return n;
+}
+
 /** Texto de visor: `PRESUPUESTO` o `VENTA - FISCAL`. */
 export function etiquetaFacturaTipoVisor(tipo: FacturaTipo): string {
   const clase = claseDesdeFacturaTipo(tipo);
@@ -90,6 +99,13 @@ export function esFacturaTipoFiscal(
 
 export function esFacturaTipoNotaCredito(tipo: FacturaTipo): boolean {
   return tipo === "nota_credito_no_fiscal" || tipo === "nota_credito_fiscal";
+}
+
+/** Ventas (fiscal y no fiscal): el modal post-emisión muestra sección cobro. */
+export function esFacturaTipoVenta(
+  tipo: FacturaTipo
+): tipo is "factura_fiscal" | "factura_no_fiscal" {
+  return tipo === "factura_fiscal" || tipo === "factura_no_fiscal";
 }
 
 export type FacturaEfectoStock = "salida" | "ingreso" | "ninguno";
@@ -177,7 +193,7 @@ export type FacturaComprobanteListItem = {
 export type FacturaPtoVtaOpcion = {
   id: string;
   ptoVenta: string;
-  nombreTitular: string;
+  titular: string;
   cuit: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;

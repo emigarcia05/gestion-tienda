@@ -7,6 +7,7 @@ import {
   listarPtoVentasCodArca,
   listarSucursalesParaPtoVtas,
 } from "@/services/globalPtoVtas.service";
+import { listarTesoreriaTitulares } from "@/services/tesoreriaTitulares.service";
 import PtosVtasPageClient from "@/components/vtas-cobros/PtosVtasPageClient";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +18,11 @@ export default async function VtasCobrosPtosVentaPage() {
     redirect(GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido);
   }
 
-  const [ptoVtas, sucursales, condicionesArca] = await Promise.all([
+  const [ptoVtas, sucursales, condicionesArca, titulares] = await Promise.all([
     listarGlobalPtoVtas(),
     listarSucursalesParaPtoVtas(),
     listarPtoVentasCodArca(),
+    listarTesoreriaTitulares(),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function VtasCobrosPtosVentaPage() {
         ptoVtas={ptoVtas}
         sucursales={sucursales}
         condicionesArca={condicionesArca}
+        titulares={titulares}
         esEditor={rol === "editor"}
       />
     </div>

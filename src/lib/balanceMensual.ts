@@ -13,7 +13,7 @@ export interface BalanceMensualBloque {
 export interface BalanceMensualSucursalBloque {
   /** `sucursalNombre` en MAYÚSCULAS (como en imputaciones). */
   nombre: string;
-  /** `global_sucursales.id` si la sucursal está en el listado con `genera_balance` (vacío si solo aparece por imputaciones huérfanas). */
+  /** `sucursales.id` si la sucursal está en el listado con `genera_balance` (vacío si solo aparece por imputaciones huérfanas). */
   sucursalId: string;
   bloque: BalanceMensualBloque;
 }

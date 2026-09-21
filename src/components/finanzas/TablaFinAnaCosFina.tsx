@@ -282,11 +282,16 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
         <Table variant="compact">
           <TableHeader>
             <TableRow>
-              <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>HABILITADO</TableHead>
-              <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>MARCA</TableHead>
-              <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>PAGO</TableHead>
+              <TableHead className={cn("w-[5%]", TH_COLUMNA_CLASS)}>HAB.</TableHead>
+              <TableHead className={cn("w-[12%]", TH_COLUMNA_CLASS)}>
+                FORMA DE
+                <br />
+                PAGO
+              </TableHead>
+              <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>ENTIDAD</TableHead>
+              <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>CUOTAS</TableHead>
               <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>
-                DÍAS
+                DÍAS DE
                 <br />
                 ACREDITACIÓN
               </TableHead>
@@ -324,11 +329,14 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                     onFilaActualizada={onFilaActualizada}
                   />
                 </TableCell>
+                <TableCell className="celda-datos text-center text-xs">
+                  {fila.pagoNombre}
+                </TableCell>
                 <TableCell className="celda-datos text-center text-xs font-medium">
                   {fila.terminalNombre}
                 </TableCell>
                 <TableCell className="celda-datos text-center text-xs">
-                  {fila.pagoNombre}
+                  {fila.cuotas ?? "—"}
                 </TableCell>
                 <TableCell className="celda-datos">
                   <CeldaDiasAcreditacion

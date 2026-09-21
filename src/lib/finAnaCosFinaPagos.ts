@@ -1,12 +1,24 @@
+<<<<<<< HEAD
 /** Ítem del catálogo `cobros_forma_pago`. */
+=======
+/** Ítem del catálogo `cobros_forma_pago` (con entidades N:M). */
+>>>>>>> facturacion
 export type FinAnaCosFinaPagoItem = {
   id: string;
   nombre: string;
-  orden: number;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+<<<<<<< HEAD
   asociadoTerminal: boolean;
   asociadoBanco: boolean;
+=======
+  /** Si true, Cx. Fin. Cobros genera filas por cada cuota del catálogo. */
+  aceptaCuotas: boolean;
+  /** IDs de `tesoreria_cobros_entidades` vinculados (mín. 1). */
+  entidadIds: string[];
+  /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
+  entidadNombres: string[];
+>>>>>>> facturacion
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */
@@ -17,7 +29,7 @@ export function filtrarPagosMargenContribucion(
 ): FinAnaCosFinaPagoItem[] {
   return pagos
     .filter((p) => p.enMargenContribucion)
-    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, "es"));
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 export function filtrarPagosCostosFinancieros(
@@ -25,7 +37,7 @@ export function filtrarPagosCostosFinancieros(
 ): FinAnaCosFinaPagoItem[] {
   return pagos
     .filter((p) => p.enCostosFinancieros)
-    .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, "es"));
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 export function etiquetaPagoDesdeItem(item: FinAnaCosFinaPagoItem): string {
@@ -38,6 +50,7 @@ export function buscarPagoPorId(
 ): FinAnaCosFinaPagoItem | undefined {
   return pagos.find((p) => p.id === id);
 }
+<<<<<<< HEAD
 
 export function etiquetaAsociacionPago(item: FinAnaCosFinaPagoItem): string {
   const partes: string[] = [];
@@ -45,3 +58,5 @@ export function etiquetaAsociacionPago(item: FinAnaCosFinaPagoItem): string {
   if (item.asociadoBanco) partes.push("BANCO");
   return partes.join(" · ");
 }
+=======
+>>>>>>> facturacion

@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-/** Nombre persistido en `fin_tesoreria.titular` / `fin_tesoreria_cheques.tenedor`. */
+/** Ítem del catálogo `tesoreria_titulares`. */
+export interface TesoreriaTitularItem {
+  id: string;
+  nombre: string;
+}
+
+/** Nombre persistido en `tesoreria_cajas.titular` / `tesoreria_cheques.tenedor`. */
 export const titularCajaTesoreriaSchema = z
   .string()
   .trim()

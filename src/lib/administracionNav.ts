@@ -2,9 +2,9 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
  *
- * FINANZAS → BALANCE | OPERACIONES (FLUJOS / COMPRAS / GASTOS) | IMPUESTOS → pantallas
+ * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
- * VTAS. & COBROS → Ptos. Vtas. / Cobros / Cx. Fin. Cobros
+ * VTAS. & COBROS → Ptos. Vtas. / Cx. Fin. Cobros / Cobros & Cajas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
  * USUARIOS → pantallas
@@ -125,7 +125,7 @@ const balanceScreens: AdmScreenDef[] = [
 const flujosScreens: AdmScreenDef[] = [
   {
     id: "tesoreria",
-    label: "Tesorería",
+    label: "Cajas",
     href: "/finanzas/tesoreria",
     icon: "banknote",
     permiso: PERMISOS.finanzas.acceso,
@@ -178,12 +178,6 @@ const gastosScreens: AdmScreenDef[] = [
 
 const operacionesGroups: AdmGroupDef[] = [
   {
-    id: "flujos",
-    label: "FLUJOS",
-    icon: "calendar-days",
-    screens: flujosScreens,
-  },
-  {
     id: "compras",
     label: "COMPRAS",
     icon: "file-search",
@@ -210,6 +204,13 @@ const vtasCobrosScreens: AdmScreenDef[] = [
     label: "Cx. Fin. Cobros",
     href: VTAS_COBROS_ROUTES.cxFinCobros,
     icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cobros-por-sucursal",
+    label: "Cobros & Cajas",
+    href: VTAS_COBROS_ROUTES.cobrosPorSucursal,
+    icon: "wallet",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -326,6 +327,12 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     label: "FINANZAS",
     icon: "landmark",
     groups: [
+      {
+        id: "flujo",
+        label: "TESORERIA",
+        icon: "calendar-days",
+        screens: flujosScreens,
+      },
       {
         id: "balance",
         label: "BALANCE",
