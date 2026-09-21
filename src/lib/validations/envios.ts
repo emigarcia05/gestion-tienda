@@ -83,6 +83,36 @@ const clienteCondicionIvaSchema = z.preprocess((value) => {
   .nullable()
   .optional());
 
+const clienteCtaCorrientePlazoSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === "" || value == null) return null;
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return value;
+}, z
+  .number({ error: "Ingresá los días de plazo." })
+  .int("Ingresá los días de plazo.")
+  .min(1, "Ingresá los días de plazo.")
+  .max(365, "Máximo 365 días.")
+  .nullable()
+  .optional());
+
+const clienteCtaCorrienteMontoMaxSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined;
+  if (value === "" || value == null) return null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return value;
+}, z
+  .number({ error: "Ingresá un monto máximo válido." })
+  .min(0, "El monto máximo no puede ser negativo.")
+  .max(999_999_999, "El monto máximo es demasiado alto.")
+  .nullable()
+  .optional());
+
 const clienteCampos = {
   nombreCompleto: z
     .string()
@@ -99,6 +129,8 @@ const clienteCampos = {
   pintorAsociadoId: prismaIdOptionalNullableSchema,
   cuit: clienteCuitSchema,
   condicionIva: clienteCondicionIvaSchema,
+  ctaCorrientePlazo: clienteCtaCorrientePlazoSchema,
+  ctaCorrienteMontoMax: clienteCtaCorrienteMontoMaxSchema,
 };
 
 function refineClientePintorAsociado(

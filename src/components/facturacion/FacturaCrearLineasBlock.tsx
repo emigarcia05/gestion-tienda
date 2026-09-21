@@ -56,6 +56,12 @@ import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.se
 const DESC_INPUT_CLASS =
   "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
 
+const PIE_METRICA_CLASS =
+  "flex min-w-0 flex-col gap-0.5 overflow-hidden leading-none";
+const PIE_ETIQUETA_CLASS =
+  "truncate text-xs font-semibold tracking-wide text-muted-foreground";
+const PIE_VALOR_CLASS = "truncate text-sm font-semibold tabular-nums text-foreground";
+
 function pctToNorm(pct: number): string {
   if (pct <= 0) return "";
   return (Math.round(pct * 100) / 100).toFixed(2);
@@ -602,7 +608,7 @@ export default function FacturaCrearLineasBlock({
 
       <div
         className={cn(
-          "flex min-h-[2.8125rem] shrink-0 items-center overflow-hidden rounded-md border border-primary bg-card"
+          "flex min-h-12 shrink-0 items-center overflow-hidden rounded-md border border-primary bg-card"
         )}
       >
         <div
@@ -631,45 +637,27 @@ export default function FacturaCrearLineasBlock({
           )}
           aria-label="Resumen de totales"
         >
-          <div className="flex min-w-0 flex-col gap-0 leading-none">
-            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
-              TOTAL ITEM
-            </span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">
-              {fmtNumero(resumen.totalItem)}
-            </span>
+          <div className={PIE_METRICA_CLASS}>
+            <span className={PIE_ETIQUETA_CLASS}>TOTAL ITEM</span>
+            <span className={PIE_VALOR_CLASS}>{fmtNumero(resumen.totalItem)}</span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0 leading-none">
-            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
-              TOTAL $
-            </span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">
-              {`$${fmtPrecio(resumen.totalLista)}`}
-            </span>
+          <div className={PIE_METRICA_CLASS}>
+            <span className={PIE_ETIQUETA_CLASS}>TOTAL $</span>
+            <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalLista)}`}</span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0 leading-none">
-            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
-              DESC. % PROMEDIO
-            </span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">
+          <div className={PIE_METRICA_CLASS}>
+            <span className={PIE_ETIQUETA_CLASS}>DESC. % PROMEDIO</span>
+            <span className={PIE_VALOR_CLASS}>
               {fmtPorcentajeTabla(resumen.descPctPromedio)}
             </span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0 leading-none">
-            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
-              DESC. $
-            </span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">
-              {`$${fmtPrecio(resumen.descPesos)}`}
-            </span>
+          <div className={PIE_METRICA_CLASS}>
+            <span className={PIE_ETIQUETA_CLASS}>DESC. $</span>
+            <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.descPesos)}`}</span>
           </div>
-          <div className="flex min-w-0 flex-col gap-0 leading-none">
-            <span className="text-[0.6rem] font-semibold tracking-wide text-muted-foreground">
-              TOTAL C/ DESC.
-            </span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">
-              {`$${fmtPrecio(resumen.totalConDesc)}`}
-            </span>
+          <div className={PIE_METRICA_CLASS}>
+            <span className={PIE_ETIQUETA_CLASS}>TOTAL C/ DESC.</span>
+            <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalConDesc)}`}</span>
           </div>
         </div>
       </div>

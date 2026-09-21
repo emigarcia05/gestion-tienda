@@ -38,9 +38,12 @@ import {
   FACTURA_CONDICION_FISCAL_LABELS,
   FACTURA_TIPO_DEFAULT,
   MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO,
+  MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
+  clienteSuperaTopeCtaCorriente,
   esFacturaTipoNotaCredito,
+  esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
   facturaTipoDesdeClaseYFiscal,
   mensajeClienteFacturaNoSeleccionado,
@@ -67,7 +70,7 @@ import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
-import { cn } from "@/lib/utils";
+import { fmtPrecio } from "@/lib/format";
 import {
   TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
   TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS,
@@ -81,6 +84,7 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
+import { cn } from "@/lib/utils";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
@@ -92,9 +96,6 @@ const CABECERA_EDITOR_FILA2_CLASS =
   "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
-
-/** Saldo en typeahead de clientes: pendiente de implementar. */
-const CLIENTE_SALDO_PLACEHOLDER = "";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -131,6 +132,15 @@ export default function FacturaCrearPageClient({
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
   const [clienteId, setClienteId] = useState<string | null>(null);
+  const [plazoCuentaCorrienteCliente, setPlazoCuentaCorrienteCliente] = useState<
+    number | null
+  >(null);
+  const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
+    number | null
+  >(null);
+  const [saldoCuentaCorrienteCliente, setSaldoCuentaCorrienteCliente] = useState<
+    number | null
+  >(null);
   /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
   const [clienteQActual, setClienteQActual] = useState(
     FACTURA_CLIENTE_CONSUMIDOR_FINAL
@@ -202,6 +212,9 @@ export default function FacturaCrearPageClient({
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
+    setPlazoCuentaCorrienteCliente(null);
+    setCtaCorrienteMontoMaxCliente(null);
+    setSaldoCuentaCorrienteCliente(null);
     setCliente("");
     setClienteProyectos([]);
     setProyectoId(null);
@@ -215,6 +228,9 @@ export default function FacturaCrearPageClient({
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
+    setPlazoCuentaCorrienteCliente(null);
+    setCtaCorrienteMontoMaxCliente(null);
+    setSaldoCuentaCorrienteCliente(null);
     setClienteProyectos([]);
     setProyectoId(null);
     setClientesAbierto(false);
@@ -229,6 +245,11 @@ export default function FacturaCrearPageClient({
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
+    setPlazoCuentaCorrienteCliente(item.ctaCorrientePlazo);
+    setCtaCorrienteMontoMaxCliente(item.ctaCorrienteMontoMax);
+    setSaldoCuentaCorrienteCliente(
+      "saldoCuentaCorriente" in item ? item.saldoCuentaCorriente : 0
+    );
     setClienteProyectos(proyectos);
     setProyectoId(proyectos[0]?.id ?? null);
     setSugerenciasClientes([]);
@@ -319,6 +340,16 @@ export default function FacturaCrearPageClient({
     const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
     if (clienteNoSel) {
       toast.error(clienteNoSel);
+      return;
+    }
+    if (
+      esFacturaTipoVenta(tipo) &&
+      clienteSuperaTopeCtaCorriente(
+        saldoCuentaCorrienteCliente ?? 0,
+        ctaCorrienteMontoMaxCliente
+      )
+    ) {
+      toast.error(MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE);
       return;
     }
     const clienteEmitir = nombreClienteFactura(cliente);
@@ -565,6 +596,7 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
+                    setPlazoCuentaCorrienteCliente(null);
                     setClienteProyectos([]);
                     setProyectoId(null);
                     handleClienteQChange(next);
@@ -740,7 +772,7 @@ export default function FacturaCrearPageClient({
                                       "tabular-nums text-foreground"
                                     )}
                                   >
-                                    {CLIENTE_SALDO_PLACEHOLDER}
+                                    {`$${fmtPrecio(item.saldoCuentaCorriente)}`}
                                   </span>
                                   <span
                                     className={cn(
@@ -816,7 +848,9 @@ export default function FacturaCrearPageClient({
                 className="flex h-9 items-center truncate text-sm tabular-nums text-foreground"
                 aria-label="Saldo cliente"
               >
-                {CLIENTE_SALDO_PLACEHOLDER}
+                {clienteId != null && saldoCuentaCorrienteCliente != null
+                  ? `$${fmtPrecio(saldoCuentaCorrienteCliente)}`
+                  : ""}
               </p>
             </div>
           </div>
@@ -866,6 +900,7 @@ export default function FacturaCrearPageClient({
         }}
         comprobante={comprobantePdf}
         comprobanteId={comprobanteId}
+        plazoCuentaCorrienteCliente={plazoCuentaCorrienteCliente}
       />
     </ClassicFilteredTableLayout>
   );

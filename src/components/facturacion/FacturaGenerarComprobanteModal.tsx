@@ -24,6 +24,9 @@ import {
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esFacturaTipoVenta,
+  esFormaPagoCuentaCorriente,
+  FACTURA_FORMA_PAGO_CUENTA_CORRIENTE,
+  FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL,
   FACTURA_TIPO_LABELS,
   parseDiasVencimiento,
   resumenTotalesFactura,
@@ -60,6 +63,8 @@ type CobroRegistrado = {
   entidadNombre: string;
   cuotaEtiqueta: string | null;
   montoCents: number;
+  esCuentaCorriente: boolean;
+  plazoDias: number | null;
 };
 
 interface Props {
@@ -67,6 +72,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   comprobante: FacturaComprobantePdfInput | null;
   comprobanteId: string | null;
+  plazoCuentaCorrienteCliente?: number | null;
 }
 
 function tituloComprobante(comprobante: FacturaComprobantePdfInput | null): string {
@@ -82,14 +88,19 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
   return Math.max(0, Math.round(total * 100));
 }
 
+function plazoClienteTexto(plazo: number | null | undefined): string {
+  return plazo != null ? String(plazo) : "";
+}
+
 /**
- * Modal post **Generar Comprobante**: PDF + cobro (solo ventas).
+ * Modal post **Generar Comprobante**: cobro (solo ventas) + PDF.
  */
 export default function FacturaGenerarComprobanteModal({
   open,
   onOpenChange,
   comprobante,
   comprobanteId,
+  plazoCuentaCorrienteCliente = null,
 }: Props) {
   const [pending, setPending] = useState<FacturaGenerarComprobanteAccion | null>(null);
   const [guardandoVto, setGuardandoVto] = useState(false);
@@ -100,30 +111,35 @@ export default function FacturaGenerarComprobanteModal({
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
-  const [diasVencimiento, setDiasVencimiento] = useState("");
+  const [plazoDias, setPlazoDias] = useState("");
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
   const totalCents = totalCentsDeComprobante(comprobante);
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
+  const esCuentaCorriente = esFormaPagoCuentaCorriente(pagoId);
 
   const pagoSel = useMemo(
     () => pagos.find((p) => p.id === pagoId) ?? null,
     [pagos, pagoId]
   );
-  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
+  const muestraCuotas = Boolean(!esCuentaCorriente && pagoSel?.aceptaCuotas);
+  const yaHayCuentaCorriente = cobros.some((c) => c.esCuentaCorriente);
 
-  const resetFormularioCobro = useCallback((pendiente: number) => {
-    setPagoId("");
-    setEntidadId("");
-    setCuotaId("");
-    setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
-  }, []);
+  const resetFormularioCobro = useCallback(
+    (pendiente: number) => {
+      setPagoId("");
+      setEntidadId("");
+      setCuotaId("");
+      setPlazoDias(plazoClienteTexto(plazoCuentaCorrienteCliente));
+      setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
+    },
+    [plazoCuentaCorrienteCliente]
+  );
 
   useEffect(() => {
     if (!open) return;
     setCobros([]);
-    setDiasVencimiento("");
     resetFormularioCobro(totalCentsDeComprobante(comprobante));
   }, [open, comprobante, resetFormularioCobro]);
 
@@ -149,6 +165,15 @@ export default function FacturaGenerarComprobanteModal({
   function handlePagoChange(value: string) {
     const nextId = value === VACIO ? "" : value;
     setPagoId(nextId);
+    if (esFormaPagoCuentaCorriente(nextId)) {
+      setEntidadId("");
+      setCuotaId("");
+      setPlazoDias(plazoClienteTexto(plazoCuentaCorrienteCliente));
+      if (pendienteCents > 0) {
+        setMontoNorm(montoArNumberToNormalizedString(pendienteCents / 100));
+      }
+      return;
+    }
     const next = pagos.find((p) => p.id === nextId);
     const unicas = next?.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
@@ -164,6 +189,40 @@ export default function FacturaGenerarComprobanteModal({
   }
 
   function agregarCobro() {
+    if (!pagoId) {
+      toast.error("Seleccioná una forma de pago.");
+      return;
+    }
+    if (esCuentaCorriente) {
+      if (yaHayCuentaCorriente) {
+        toast.error("El saldo diferido ya está registrado en cuenta corriente.");
+        return;
+      }
+      const dias = parseDiasVencimiento(plazoDias);
+      if (dias == null) {
+        toast.error("Ingresá el plazo de cuenta corriente (1 a 365 días).");
+        return;
+      }
+      const montoCents = pendienteCents;
+      if (montoCents <= 0) {
+        toast.error("No hay saldo pendiente para cuenta corriente.");
+        return;
+      }
+      setCobros((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          pagoNombre: FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL,
+          entidadNombre: "",
+          cuotaEtiqueta: null,
+          montoCents,
+          esCuentaCorriente: true,
+          plazoDias: dias,
+        },
+      ]);
+      resetFormularioCobro(0);
+      return;
+    }
     if (!pagoSel) {
       toast.error("Seleccioná una forma de pago.");
       return;
@@ -197,6 +256,8 @@ export default function FacturaGenerarComprobanteModal({
         entidadNombre,
         cuotaEtiqueta: cuota?.cuotas ?? null,
         montoCents,
+        esCuentaCorriente: false,
+        plazoDias: null,
       },
     ]);
     resetFormularioCobro(siguientePendiente);
@@ -213,32 +274,28 @@ export default function FacturaGenerarComprobanteModal({
 
   async function persistirDiasVencimiento(): Promise<boolean> {
     if (!esVenta) return true;
-    if (!comprobanteId) {
-      if (pendienteCents > 0) {
-        toast.error("No se pudieron guardar los días de vencimiento.");
-        return false;
-      }
-      return true;
-    }
     if (pendienteCents > 0) {
-      const dias = parseDiasVencimiento(diasVencimiento);
-      if (dias == null) {
-        toast.error("Ingresá los días de vencimiento (1 a 365).");
-        return false;
-      }
-      const res = await guardarDiasVencimientoFacturaAction({
-        id: comprobanteId,
-        diasVencimiento: dias,
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron guardar los días de vencimiento.");
+      toast.error(
+        "Registrá el saldo pendiente en CUENTA CORRIENTE (el plazo es obligatorio)."
+      );
+      return false;
+    }
+    const cuenta = cobros.find((c) => c.esCuentaCorriente);
+    const dias = cuenta?.plazoDias ?? null;
+    if (cuenta && dias == null) {
+      toast.error("Ingresá el plazo de cuenta corriente (1 a 365 días).");
+      return false;
+    }
+    if (!comprobanteId) {
+      if (dias != null) {
+        toast.error("No se pudieron guardar los días de vencimiento.");
         return false;
       }
       return true;
     }
     const res = await guardarDiasVencimientoFacturaAction({
       id: comprobanteId,
-      diasVencimiento: null,
+      diasVencimiento: dias,
     });
     if (!res.ok) {
       toast.error(res.error ?? "No se pudieron guardar los días de vencimiento.");
@@ -302,7 +359,7 @@ export default function FacturaGenerarComprobanteModal({
       }}
     >
       <AppModal
-        size={esVenta ? "lg" : "sm"}
+        size={esVenta ? "xl" : "sm"}
         padding="sm"
         title={tituloComprobante(comprobante)}
         actions={
@@ -317,70 +374,8 @@ export default function FacturaGenerarComprobanteModal({
         }
       >
         <div className="flex flex-col gap-5">
-          <section className="flex flex-col gap-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-              COMPROBANTE
-            </p>
-            {comprobante?.cae ? (
-              <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
-                <p className="font-semibold tabular-nums">CAE: {comprobante.cae}</p>
-                <p className="tabular-nums">
-                  N°: {comprobante.nroComprobante.trim() || ""}
-                </p>
-                <p>
-                  Vto. CAE:{" "}
-                  {comprobante.caeVtoIso
-                    ? formatIsoYmdDdMmYyyyArgentina(comprobante.caeVtoIso)
-                    : ""}
-                </p>
-              </div>
-            ) : null}
-            <Button
-              type="button"
-              variant="default"
-              className="h-10 w-full justify-center gap-2"
-              disabled={ocupado}
-              onClick={() => void ejecutar("imprimir")}
-            >
-              {pending === "imprimir" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Printer className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              Imprimir
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              className="h-10 w-full justify-center gap-2"
-              disabled={ocupado}
-              onClick={() => void ejecutar("descargar")}
-            >
-              {pending === "descargar" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Download className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              Descargar
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              className="h-10 w-full justify-center gap-2"
-              disabled={ocupado}
-              onClick={() => void ejecutar("ambos")}
-            >
-              {pending === "ambos" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <PrinterCheck className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              Imprimir & Descargar
-            </Button>
-          </section>
-
           {esVenta ? (
-            <section className="flex flex-col gap-3 border-t border-border pt-4">
+            <section className="flex flex-col gap-3">
               <p className="text-xs font-bold uppercase tracking-wide text-foreground">
                 COBRO
               </p>
@@ -389,8 +384,8 @@ export default function FacturaGenerarComprobanteModal({
               </p>
 
               {formCobroVisible ? (
-                <div className="flex flex-col gap-3">
-                  <label className="flex flex-col gap-1">
+                <div className="flex items-end gap-2">
+                  <label className="flex min-w-0 flex-1 flex-col gap-1">
                     <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
                     <Select
                       value={pagoId || VACIO}
@@ -412,86 +407,106 @@ export default function FacturaGenerarComprobanteModal({
                             {pago.nombre}
                           </SelectItem>
                         ))}
+                        <SelectItem value={FACTURA_FORMA_PAGO_CUENTA_CORRIENTE}>
+                          {FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </label>
 
-                  <label className="flex flex-col gap-1">
-                    <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-                    <Select
-                      value={entidadId || VACIO}
-                      onValueChange={handleEntidadChange}
-                      disabled={ocupado || !pagoSel}
-                    >
-                      <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                        <SelectValue placeholder="ENTIDAD" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="bottom"
-                        align="start"
-                        className="select-content-filtro"
-                      >
-                        <SelectItem value={VACIO}>ENTIDAD</SelectItem>
-                        {pagoSel
-                          ? pagoSel.entidadIds.map((id, idx) => (
-                              <SelectItem key={id} value={id}>
-                                {pagoSel.entidadNombres[idx] ?? ""}
-                              </SelectItem>
-                            ))
-                          : null}
-                      </SelectContent>
-                    </Select>
-                  </label>
-
-                  {muestraCuotas ? (
-                    <label className="flex flex-col gap-1">
-                      <ModalMicroLabel>CUOTAS</ModalMicroLabel>
-                      <Select
-                        value={cuotaId || VACIO}
-                        onValueChange={handleCuotaChange}
+                  {esCuentaCorriente ? (
+                    <label className="flex w-[7.5rem] shrink-0 flex-col gap-1">
+                      <ModalMicroLabel>PLAZO</ModalMicroLabel>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={plazoDias}
                         disabled={ocupado}
-                      >
-                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                          <SelectValue placeholder="CUOTAS" />
-                        </SelectTrigger>
-                        <SelectContent
-                          position="popper"
-                          side="bottom"
-                          align="start"
-                          className="select-content-filtro"
-                        >
-                          <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
-                            <SelectItem key={cuota.id} value={cuota.id}>
-                              {cuota.cuotas}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </label>
-                  ) : null}
-
-                  <div className="flex items-end gap-2">
-                    <label className="flex min-w-0 flex-1 flex-col gap-1">
-                      <ModalMicroLabel>MONTO A PAGAR</ModalMicroLabel>
-                      <MontoArInput
-                        valueNormalized={montoNorm}
-                        onValueNormalizedChange={setMontoNorm}
-                        disabled={ocupado}
-                        aria-label="Monto a pagar"
+                        placeholder="DÍAS"
+                        onChange={(e) => {
+                          const next = e.target.value.replace(/\D/g, "").slice(0, 3);
+                          setPlazoDias(next);
+                        }}
+                        aria-label="Plazo cuenta corriente"
                       />
                     </label>
-                    <Button
-                      type="button"
-                      className="h-9 shrink-0 gap-2"
-                      disabled={ocupado}
-                      onClick={agregarCobro}
-                    >
-                      <Plus className="size-4 shrink-0" aria-hidden />
-                      Agregar
-                    </Button>
-                  </div>
+                  ) : (
+                    <>
+                      <label className="flex min-w-0 flex-1 flex-col gap-1">
+                        <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                        <Select
+                          value={entidadId || VACIO}
+                          onValueChange={handleEntidadChange}
+                          disabled={ocupado || !pagoSel}
+                        >
+                          <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                            <SelectValue placeholder="ENTIDAD" />
+                          </SelectTrigger>
+                          <SelectContent
+                            position="popper"
+                            side="bottom"
+                            align="start"
+                            className="select-content-filtro"
+                          >
+                            <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                            {pagoSel
+                              ? pagoSel.entidadIds.map((id, idx) => (
+                                  <SelectItem key={id} value={id}>
+                                    {pagoSel.entidadNombres[idx] ?? ""}
+                                  </SelectItem>
+                                ))
+                              : null}
+                          </SelectContent>
+                        </Select>
+                      </label>
+                      {muestraCuotas ? (
+                        <label className="flex min-w-0 flex-1 flex-col gap-1">
+                          <ModalMicroLabel>CUOTAS</ModalMicroLabel>
+                          <Select
+                            value={cuotaId || VACIO}
+                            onValueChange={handleCuotaChange}
+                            disabled={ocupado}
+                          >
+                            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                              <SelectValue placeholder="CUOTAS" />
+                            </SelectTrigger>
+                            <SelectContent
+                              position="popper"
+                              side="bottom"
+                              align="start"
+                              className="select-content-filtro"
+                            >
+                              <SelectItem value={VACIO}>CUOTAS</SelectItem>
+                              {cuotas.map((cuota) => (
+                                <SelectItem key={cuota.id} value={cuota.id}>
+                                  {cuota.cuotas}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </label>
+                      ) : null}
+                    </>
+                  )}
+
+                  <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    <ModalMicroLabel>MONTO</ModalMicroLabel>
+                    <MontoArInput
+                      valueNormalized={montoNorm}
+                      onValueNormalizedChange={setMontoNorm}
+                      disabled={ocupado || esCuentaCorriente}
+                      aria-label="Monto a pagar"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    className="h-9 shrink-0 gap-2"
+                    disabled={ocupado}
+                    onClick={agregarCobro}
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    Agregar
+                  </Button>
                 </div>
               ) : null}
 
@@ -506,6 +521,9 @@ export default function FacturaGenerarComprobanteModal({
                         {cobro.pagoNombre}
                         {cobro.entidadNombre ? ` · ${cobro.entidadNombre}` : ""}
                         {cobro.cuotaEtiqueta ? ` · ${cobro.cuotaEtiqueta}` : ""}
+                        {cobro.esCuentaCorriente && cobro.plazoDias != null
+                          ? ` · ${cobro.plazoDias} DÍAS`
+                          : ""}
                         {` · ${montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}`}
                       </span>
                       <Button
@@ -523,26 +541,72 @@ export default function FacturaGenerarComprobanteModal({
                   ))}
                 </ul>
               ) : null}
-
-              {pendienteCents > 0 ? (
-                <label className="flex flex-col gap-1">
-                  <ModalMicroLabel>DÍAS DE VENCIMIENTO</ModalMicroLabel>
-                  <Input
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={diasVencimiento}
-                    disabled={ocupado}
-                    placeholder="DÍAS"
-                    onChange={(e) => {
-                      const next = e.target.value.replace(/\D/g, "").slice(0, 3);
-                      setDiasVencimiento(next);
-                    }}
-                    aria-label="Días de vencimiento"
-                  />
-                </label>
-              ) : null}
             </section>
           ) : null}
+
+          <section className={cn("flex flex-col gap-2", esVenta && "border-t border-border pt-4")}>
+            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              COMPROBANTE
+            </p>
+            {comprobante?.cae ? (
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+                <p className="font-semibold tabular-nums">CAE: {comprobante.cae}</p>
+                <p className="tabular-nums">
+                  N°: {comprobante.nroComprobante.trim() || ""}
+                </p>
+                <p>
+                  Vto. CAE:{" "}
+                  {comprobante.caeVtoIso
+                    ? formatIsoYmdDdMmYyyyArgentina(comprobante.caeVtoIso)
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+            <div className="flex flex-nowrap items-center gap-2">
+              <Button
+                type="button"
+                variant="default"
+                className="h-10 min-w-0 flex-1 justify-center gap-2"
+                disabled={ocupado}
+                onClick={() => void ejecutar("imprimir")}
+              >
+                {pending === "imprimir" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Printer className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Imprimir
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                className="h-10 min-w-0 flex-1 justify-center gap-2"
+                disabled={ocupado}
+                onClick={() => void ejecutar("descargar")}
+              >
+                {pending === "descargar" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Descargar
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                className="h-10 min-w-0 flex-1 justify-center gap-2"
+                disabled={ocupado}
+                onClick={() => void ejecutar("ambos")}
+              >
+                {pending === "ambos" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <PrinterCheck className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Imprimir & Descargar
+              </Button>
+            </div>
+          </section>
         </div>
       </AppModal>
     </Dialog>

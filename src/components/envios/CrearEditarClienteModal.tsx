@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,6 +42,10 @@ import { parseArcaConstanciaApiJson } from "@/lib/arcaConstancia";
 import { ARCA_CONDICION_IVA, esCuitValido } from "@/lib/facturaFiscal";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
+import {
+  montoArNormalizedStringToCents,
+  montoArNumberToNormalizedString,
+} from "@/lib/montoArMask";
 import { listarPtoVentasCodArcaAction } from "@/actions/globalPtoVtas";
 import {
   CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS,
@@ -79,6 +84,8 @@ export default function CrearEditarClienteModal({
   const [cel, setCel] = useState("");
   const [cuitMasked, setCuitMasked] = useState("");
   const [condicionIva, setCondicionIva] = useState(String(ARCA_CONDICION_IVA.CF));
+  const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState("");
+  const [ctaCorrienteMontoMaxNorm, setCtaCorrienteMontoMaxNorm] = useState("");
   const [condicionesIvaLocal, setCondicionesIvaLocal] = useState<PtoVentasCodArcaItem[]>(
     condicionesIvaProp ?? []
   );
@@ -140,6 +147,14 @@ export default function CrearEditarClienteModal({
       setCel(item.cel);
       setCuitMasked(item.cuit ? formatearCuitMascara(item.cuit) : "");
       setCondicionIva(String(item.condicionIva ?? ARCA_CONDICION_IVA.CF));
+      setCtaCorrientePlazo(
+        item.ctaCorrientePlazo != null ? String(item.ctaCorrientePlazo) : ""
+      );
+      setCtaCorrienteMontoMaxNorm(
+        item.ctaCorrienteMontoMax != null
+          ? montoArNumberToNormalizedString(item.ctaCorrienteMontoMax)
+          : ""
+      );
       setTipo(tipoFijo ?? item.tipo);
       setCargarComoConsFinal(
         (tipoFijo ?? item.tipo) === "CONSUMIDOR_FINAL" &&
@@ -154,6 +169,8 @@ export default function CrearEditarClienteModal({
     setCel("");
     setCuitMasked("");
     setCondicionIva(String(ARCA_CONDICION_IVA.CF));
+    setCtaCorrientePlazo("");
+    setCtaCorrienteMontoMaxNorm("");
     setCargarComoConsFinal(false);
     setTipo(tipoFijo ?? "CONSUMIDOR_FINAL");
     setPintorAsociadoId(null);
@@ -216,6 +233,11 @@ export default function CrearEditarClienteModal({
       pintorAsociadoId: tipoGuardar === "CONSUMIDOR_FINAL" ? pintorAsociadoId : null,
       cuit: cuitDigits === "" ? null : cuitDigits,
       condicionIva: Number(condicionIva),
+      ctaCorrientePlazo: ctaCorrientePlazo.trim() === "" ? null : Number(ctaCorrientePlazo),
+      ctaCorrienteMontoMax:
+        ctaCorrienteMontoMaxNorm.trim() === ""
+          ? null
+          : montoArNormalizedStringToCents(ctaCorrienteMontoMaxNorm) / 100,
     };
     const res = clienteId
       ? await editarClienteAction({ id: clienteId, ...payload })
@@ -412,6 +434,31 @@ export default function CrearEditarClienteModal({
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>PLAZO CUENTA CORRIENTE</ModalMicroLabel>
+              <Input
+                inputMode="numeric"
+                autoComplete="off"
+                value={ctaCorrientePlazo}
+                disabled={saving}
+                placeholder="DÍAS"
+                onChange={(e) => {
+                  const next = e.target.value.replace(/\D/g, "").slice(0, 3);
+                  setCtaCorrientePlazo(next);
+                }}
+                aria-label="Plazo cuenta corriente"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>MONTO MÁX. CTA. CTE.</ModalMicroLabel>
+              <MontoArInput
+                valueNormalized={ctaCorrienteMontoMaxNorm}
+                onValueNormalizedChange={setCtaCorrienteMontoMaxNorm}
+                treatEmptyNormalizedAsBlank
+                disabled={saving}
+                aria-label="Monto máximo cuenta corriente"
+              />
+            </div>
             {tipoFijo ? null : (
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>TIPO</ModalMicroLabel>
@@ -470,6 +517,8 @@ export default function CrearEditarClienteModal({
                                   pintorAsociado: null,
                                   cuit: null,
                                   condicionIva: null,
+                                  ctaCorrientePlazo: null,
+                                  ctaCorrienteMontoMax: null,
                                 }
                               : null);
                           if (!pintorItem) return;

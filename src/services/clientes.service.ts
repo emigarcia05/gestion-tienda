@@ -13,6 +13,9 @@ import type { CrearClienteInput, EditarClienteInput } from "@/lib/validations/en
 import { mapEnviosDireccionItem } from "@/services/enviosDirecciones.service";
 import type { ServiceResult } from "@/types/service.types";
 
+const TIPOS_VENTA_CTA_CTE = ["factura_fiscal", "factura_no_fiscal"] as const;
+const TIPOS_NC_CTA_CTE = ["nota_credito_fiscal", "nota_credito_no_fiscal"] as const;
+
 const resumenSelect = {
   id: true,
   nombreCompleto: true,
@@ -26,6 +29,8 @@ const select = {
   pintorAsociado: { select: resumenSelect },
   cuit: true,
   condicionIva: true,
+  ctaCorrientePlazo: true,
+  ctaCorrienteMontoMax: true,
 } as const;
 
 function mapResumen(row: ClienteResumen): ClienteResumen {
@@ -46,6 +51,8 @@ function mapRow(row: {
   pintorAsociado: ClienteResumen | null;
   cuit: string | null;
   condicionIva: number | null;
+  ctaCorrientePlazo: number | null;
+  ctaCorrienteMontoMax: { toString(): string } | number | null;
 }): ClienteItem {
   return {
     ...mapResumen(row),
@@ -53,7 +60,54 @@ function mapRow(row: {
     pintorAsociado: row.pintorAsociado ? mapResumen(row.pintorAsociado) : null,
     cuit: row.cuit,
     condicionIva: row.condicionIva,
+    ctaCorrientePlazo: row.ctaCorrientePlazo,
+    ctaCorrienteMontoMax: numeroMontoCtaCorriente(row.ctaCorrienteMontoMax),
   };
+}
+
+function numeroMontoCtaCorriente(
+  value: { toString(): string } | number | null | undefined
+): number | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Saldo CC: ventas con `dias_vencimiento` − notas de crédito (no rechazadas). */
+export async function saldosCuentaCorrientePorCliente(
+  clienteIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (clienteIds.length === 0) return out;
+  const rows = await prisma.comprobanteVta.groupBy({
+    by: ["clienteId", "tipoLocal"],
+    where: {
+      clienteId: { in: clienteIds },
+      estado: { not: "rechazado" },
+      OR: [
+        { tipoLocal: { in: [...TIPOS_VENTA_CTA_CTE] }, diasVencimiento: { not: null } },
+        { tipoLocal: { in: [...TIPOS_NC_CTA_CTE] } },
+      ],
+    },
+    _sum: { impTotal: true },
+  });
+  for (const row of rows) {
+    if (row.clienteId == null) continue;
+    const total = Number(row._sum.impTotal ?? 0);
+    const signo = (TIPOS_NC_CTA_CTE as readonly string[]).includes(row.tipoLocal) ? -1 : 1;
+    out.set(row.clienteId, (out.get(row.clienteId) ?? 0) + signo * total);
+  }
+  return out;
+}
+
+async function conSaldoCuentaCorriente(
+  items: Omit<ClienteListaItem, "saldoCuentaCorriente">[]
+): Promise<ClienteListaItem[]> {
+  const saldos = await saldosCuentaCorrientePorCliente(items.map((item) => item.id));
+  return items.map((item) => ({
+    ...item,
+    saldoCuentaCorriente: saldos.get(item.id) ?? 0,
+  }));
 }
 
 function prismaErrorMessage(error: unknown, fallback: string): string {
@@ -158,12 +212,13 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
         },
       },
     });
-    return rows
-      .map((row) => ({
+    const items = await conSaldoCuentaCorriente(
+      rows.map((row) => ({
         ...mapRow(row),
         proyectos: row.direcciones.map(mapEnviosDireccionItem),
       }))
-      .sort(compararClientesParaListado);
+    );
+    return items.sort(compararClientesParaListado);
   } catch (e) {
     console.error("[clientes][listarConProyectos]", e);
     return [];
@@ -239,10 +294,12 @@ export async function buscarClientesParaFactura(params: {
     return {
       success: true,
       data: {
-        items: rows.map((row) => ({
-          ...mapRow(row),
-          proyectos: row.direcciones.map(mapEnviosDireccionItem),
-        })),
+        items: await conSaldoCuentaCorriente(
+          rows.map((row) => ({
+            ...mapRow(row),
+            proyectos: row.direcciones.map(mapEnviosDireccionItem),
+          }))
+        ),
       },
     };
   } catch (e) {
@@ -267,6 +324,8 @@ export async function crearCliente(
         pintorAsociadoId: pintor.data,
         cuit: normalizarCuitCliente(input.cuit ?? null),
         condicionIva: condicion.data,
+        ctaCorrientePlazo: input.ctaCorrientePlazo ?? null,
+        ctaCorrienteMontoMax: input.ctaCorrienteMontoMax ?? null,
       },
       select,
     });
@@ -320,6 +379,8 @@ export async function editarCliente(
       pintorAsociadoId: string | null;
       cuit?: string | null;
       condicionIva?: number | null;
+      ctaCorrientePlazo?: number | null;
+      ctaCorrienteMontoMax?: number | null;
     } = {
       nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
       cel: normalizarCelCliente(input.cel),
@@ -336,6 +397,12 @@ export async function editarCliente(
       );
       if (!condicion.success) return condicion;
       data.condicionIva = condicion.data;
+    }
+    if (input.ctaCorrientePlazo !== undefined) {
+      data.ctaCorrientePlazo = input.ctaCorrientePlazo;
+    }
+    if (input.ctaCorrienteMontoMax !== undefined) {
+      data.ctaCorrienteMontoMax = input.ctaCorrienteMontoMax;
     }
     const row = await prisma.cliente.update({
       where: { id: input.id },

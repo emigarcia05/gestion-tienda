@@ -38,6 +38,8 @@ const clienteSelect = {
   pintorAsociado: { select: clienteResumenSelect },
   cuit: true,
   condicionIva: true,
+  ctaCorrientePlazo: true,
+  ctaCorrienteMontoMax: true,
 } as const;
 
 const direccionSelect = {
@@ -88,6 +90,8 @@ function mapCliente(row: {
   } | null;
   cuit: string | null;
   condicionIva: number | null;
+  ctaCorrientePlazo: number | null;
+  ctaCorrienteMontoMax: { toString(): string } | number | null;
 } | null): ClienteItem | null {
   if (!row) return null;
   return {
@@ -106,6 +110,9 @@ function mapCliente(row: {
       : null,
     cuit: row.cuit,
     condicionIva: row.condicionIva,
+    ctaCorrientePlazo: row.ctaCorrientePlazo,
+    ctaCorrienteMontoMax:
+      row.ctaCorrienteMontoMax == null ? null : Number(row.ctaCorrienteMontoMax),
   };
 }
 

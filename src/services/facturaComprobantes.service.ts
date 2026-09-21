@@ -15,6 +15,7 @@ import {
   ambienteArcaActual,
   obtenerAuthWsfe,
 } from "@/services/arcaAuth.service";
+import { saldosCuentaCorrientePorCliente } from "@/services/clientes.service";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -26,6 +27,9 @@ import {
   efectoStockPorTipo,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
+  esFacturaTipoVenta,
+  MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
+  clienteSuperaTopeCtaCorriente,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
@@ -361,10 +365,17 @@ export async function emitirFacturaComprobante(
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: { id: true, cuit: true, condicionIva: true },
+      select: { id: true, cuit: true, condicionIva: true, ctaCorrienteMontoMax: true },
     });
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
+    }
+    if (esFacturaTipoVenta(input.tipo) && cliente.ctaCorrienteMontoMax != null) {
+      const saldos = await saldosCuentaCorrientePorCliente([clienteId]);
+      const saldo = saldos.get(clienteId) ?? 0;
+      if (clienteSuperaTopeCtaCorriente(saldo, Number(cliente.ctaCorrienteMontoMax))) {
+        return { success: false, error: MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE };
+      }
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
   }

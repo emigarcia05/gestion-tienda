@@ -1748,6 +1748,10 @@ model Cliente {
   /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
   condicionIva      Int?        @map("condicion_iva")
   pintorAsociadoId  String?     @map("pintor_asociado")
+  /** Días de plazo para ventas a cuenta corriente. Null = sin configurar. */
+  ctaCorrientePlazo Int? @map("cta_corriente_plazo")
+  /** Tope de saldo CC. Null = sin tope. Si el saldo supera este valor no se emiten más facturas. */
+  ctaCorrienteMontoMax Decimal? @map("cta_corriente_monto_max") @db.Decimal(14, 2)
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 

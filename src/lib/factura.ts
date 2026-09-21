@@ -69,6 +69,26 @@ export function facturaTipoDesdeClaseYFiscal(
   return fiscal === "fiscal" ? "nota_credito_fiscal" : "nota_credito_no_fiscal";
 }
 
+/** Sentinel UI: cobro diferido (no es fila de `cobros_forma_pago`). */
+export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE = "cuenta-corriente";
+export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL = "CUENTA CORRIENTE";
+
+export function esFormaPagoCuentaCorriente(pagoId: string): boolean {
+  return pagoId === FACTURA_FORMA_PAGO_CUENTA_CORRIENTE;
+}
+
+export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
+  "El cliente superó el monto máximo de cuenta corriente. No se pueden emitir más facturas.";
+
+/** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
+export function clienteSuperaTopeCtaCorriente(
+  saldo: number,
+  tope: number | null | undefined
+): boolean {
+  if (tope == null) return false;
+  return saldo > tope;
+}
+
 /** Entero 1–365 o null si el texto está vacío / inválido. */
 export function parseDiasVencimiento(raw: string): number | null {
   const t = raw.trim();

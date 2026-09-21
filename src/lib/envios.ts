@@ -255,6 +255,10 @@ export interface ClienteItem extends ClienteResumen {
   cuit: string | null;
   /** Código ARCA (`condicion_iva_cod_arca.codigo`) o null. */
   condicionIva: number | null;
+  /** Días de plazo de cuenta corriente; null = sin configurar. */
+  ctaCorrientePlazo: number | null;
+  /** Tope de saldo CC; null = sin tope. */
+  ctaCorrienteMontoMax: number | null;
 }
 
 /** Nombre del pintor asociado, solo si el cliente es CONSUMIDOR_FINAL y tiene uno. */
@@ -279,6 +283,8 @@ export interface EnviosDireccionItem {
 /** Cliente del listado Facturación · Lista Clientes, con proyectos anidados. */
 export interface ClienteListaItem extends ClienteItem {
   proyectos: EnviosDireccionItem[];
+  /** Saldo de cuenta corriente (ventas con plazo − notas de crédito). */
+  saldoCuentaCorriente: number;
 }
 
 export interface EnviosSucursalOption {
