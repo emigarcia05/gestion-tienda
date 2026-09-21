@@ -39,7 +39,7 @@ import {
   type ClienteListaItem,
   type EnviosDireccionItem,
 } from "@/lib/envios";
-import { fmtCelda } from "@/lib/format";
+import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { etiquetaCondicionIvaArca, type PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -49,7 +49,7 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-const COL_SPAN = 7;
+const COL_SPAN = 9;
 
 type ModalCliente = { open: false } | { open: true; modo: "crear" | "editar"; item: ClienteListaItem | null };
 type ModalProyecto =
@@ -111,6 +111,8 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
           item.cuit ? formatearCuitMascara(item.cuit) : "",
           item.cel,
           nombrePintorAsociadoCliente(item) ?? "",
+          item.ctaCorrientePlazo != null ? String(item.ctaCorrientePlazo) : "",
+          item.ctaCorrienteMontoMax != null ? String(item.ctaCorrienteMontoMax) : "",
           etiquetaCondicionIvaCliente(item.condicionIva, condicionesIva),
           ...item.proyectos.map((p) => etiquetaNombreProyecto(p)),
         ],
@@ -187,12 +189,14 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[24%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[16%]" />
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
               <col className="w-[12%]" />
-              <col className="w-[12%]" />
+              <col className="w-[14%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[10%]" />
               <col className="w-[8%]" />
             </colgroup>
             <TableHeader>
@@ -203,6 +207,8 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                 <TableHead>COND. IVA</TableHead>
                 <TableHead className="text-center">CEL</TableHead>
                 <TableHead>PINTOR</TableHead>
+                <TableHead className="text-center">PLAZO CTA. CTE.</TableHead>
+                <TableHead className="text-right">MONTO MÁX. CTA. CTE.</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -252,6 +258,16 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                         </TableCell>
                         <TableCell className="celda-datos">
                           {fmtCelda(nombrePintorAsociadoCliente(item) ?? "")}
+                        </TableCell>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          {item.ctaCorrientePlazo != null
+                            ? String(item.ctaCorrientePlazo)
+                            : fmtCelda("")}
+                        </TableCell>
+                        <TableCell className="celda-datos text-right tabular-nums">
+                          {item.ctaCorrienteMontoMax != null
+                            ? `$${fmtPrecio(item.ctaCorrienteMontoMax)}`
+                            : fmtCelda("")}
                         </TableCell>
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                           <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

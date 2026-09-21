@@ -19,6 +19,7 @@ import {
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
 import EnviosMapsLink from "@/components/envios/EnviosMapsLink";
 import SeleccionarPintorModal from "@/components/envios/SeleccionarPintorModal";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import {
   crearClienteAction,
   editarClienteAction,
@@ -26,8 +27,6 @@ import {
 } from "@/actions/envios";
 import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
-  CLIENTE_TIPO_LABELS,
-  CLIENTE_TIPO_VALUES,
   etiquetaDireccionEnvio,
   formatearCuitMascara,
   nombreCompletoCliente,
@@ -315,7 +314,7 @@ export default function CrearEditarClienteModal({
       <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
         <AppModal
           title={modo === "editar" ? `Editar ${tituloBase}` : `Nuevo ${tituloBase}`}
-          size="md"
+          size="lg"
           actions={
             <div className="flex w-full justify-end gap-2">
               <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
@@ -327,239 +326,248 @@ export default function CrearEditarClienteModal({
             </div>
           }
         >
-          <div className="flex flex-col gap-4">
-            <label className="flex flex-col gap-1">
-              <ModalMicroLabel>NOMBRE COMPLETO</ModalMicroLabel>
-              <Input
-                value={esConsFinalCargado ? "CONS. FINAL" : nombreCompleto}
-                onChange={(e) =>
-                  setNombreCompleto(e.target.value.toLocaleUpperCase("es-AR"))
-                }
-                autoComplete="off"
-                disabled={esConsFinalCargado}
-              />
-            </label>
-            {tipoEfectivo === "CONSUMIDOR_FINAL" ? (
-              <label className="inline-flex cursor-pointer items-center gap-2 self-start text-sm font-medium text-foreground select-none">
-                <input
-                  type="checkbox"
-                  checked={cargarComoConsFinal}
-                  onChange={(e) => {
-                    const activo = e.target.checked;
-                    setCargarComoConsFinal(activo);
-                    if (activo) {
-                      setNombreCompleto("CONS. FINAL");
-                    } else if (normalizarNombreCliente(nombreCompleto) === "CONS. FINAL") {
-                      setNombreCompleto("");
-                    }
-                  }}
-                  className="sr-only"
-                />
-                <span className="flex h-5 w-5 items-center justify-center rounded-sm border-2 border-primary bg-white">
-                  {cargarComoConsFinal ? <Check className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
-                </span>
-                <span>Cargar como CONS. FINAL</span>
-              </label>
-            ) : null}
-            <label className="flex flex-col gap-1">
-              <ModalMicroLabel>{esConsFinalCargado ? "CEL (OBLIGATORIO)" : "CEL"}</ModalMicroLabel>
-              <Input
-                value={cel}
-                onChange={(e) => setCel(e.target.value)}
-                autoComplete="off"
-                inputMode="tel"
-                disabled={saving}
-              />
-            </label>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>CUIT</ModalMicroLabel>
-              <div className="relative">
+          <div className="flex flex-col gap-5">
+            <section className="flex flex-col gap-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                DATOS CONTACTO
+              </p>
+              <label className="flex flex-col gap-1">
+                <ModalMicroLabel>NOMBRE</ModalMicroLabel>
                 <Input
-                  value={cuitMasked}
-                  onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
-                  placeholder="##-########-#"
+                  value={esConsFinalCargado ? "CONS. FINAL" : nombreCompleto}
+                  onChange={(e) =>
+                    setNombreCompleto(e.target.value.toLocaleUpperCase("es-AR"))
+                  }
                   autoComplete="off"
-                  inputMode="numeric"
-                  className={cn("tabular-nums", "pr-10")}
-                  disabled={saving}
-                  aria-label="CUIT"
+                  disabled={esConsFinalCargado}
                 />
-                <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="icon-xs"
-                    className="size-full p-0 shadow-none"
-                    disabled={!puedeConsultarArca}
-                    onClick={() => void consultarConstanciaArca()}
-                    aria-label={
-                      consultandoArca
-                        ? "Consultando CUIT en ARCA"
-                        : "Consultar CUIT en ARCA"
-                    }
-                    title="Consultar ARCA"
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "size-3.5 shrink-0",
-                        consultandoArca && "animate-spin"
-                      )}
-                      aria-hidden
-                    />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
-              <Select
-                value={condicionIva}
-                onValueChange={setCondicionIva}
-                disabled={saving}
-              >
-                <SelectTrigger className={cn("w-full")} aria-label="Condición IVA">
-                  <SelectValue placeholder="SELECCIONAR" />
-                </SelectTrigger>
-                <SelectContent
-                  className="select-content-filtro"
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                >
-                  {opcionesIva.map((c) => (
-                    <SelectItem key={c.codigo} value={String(c.codigo)}>
-                      {etiquetaCondicionIvaArca(c.descripcion)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>PLAZO CUENTA CORRIENTE</ModalMicroLabel>
-              <Input
-                inputMode="numeric"
-                autoComplete="off"
-                value={ctaCorrientePlazo}
-                disabled={saving}
-                placeholder="DÍAS"
-                onChange={(e) => {
-                  const next = e.target.value.replace(/\D/g, "").slice(0, 3);
-                  setCtaCorrientePlazo(next);
-                }}
-                aria-label="Plazo cuenta corriente"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>MONTO MÁX. CTA. CTE.</ModalMicroLabel>
-              <MontoArInput
-                valueNormalized={ctaCorrienteMontoMaxNorm}
-                onValueNormalizedChange={setCtaCorrienteMontoMaxNorm}
-                treatEmptyNormalizedAsBlank
-                disabled={saving}
-                aria-label="Monto máximo cuenta corriente"
-              />
-            </div>
-            {tipoFijo ? null : (
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>TIPO</ModalMicroLabel>
-                <Select
-                  value={tipo}
-                  onValueChange={(v) => {
-                    const next = v as ClienteTipoValue;
-                    setTipo(next);
-                    if (next === "PINTOR") {
+              </label>
+              {tipoEfectivo === "CONSUMIDOR_FINAL" ? (
+                <label className="inline-flex cursor-pointer items-center gap-2 self-start text-sm font-medium text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={cargarComoConsFinal}
+                    onChange={(e) => {
+                      const activo = e.target.checked;
+                      setCargarComoConsFinal(activo);
+                      if (activo) {
+                        setNombreCompleto("CONS. FINAL");
+                      } else if (normalizarNombreCliente(nombreCompleto) === "CONS. FINAL") {
+                        setNombreCompleto("");
+                      }
+                    }}
+                    className="sr-only"
+                  />
+                  <span className="flex h-5 w-5 items-center justify-center rounded-sm border-2 border-primary bg-white">
+                    {cargarComoConsFinal ? <Check className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
+                  </span>
+                  <span>Cargar como CONS. FINAL</span>
+                </label>
+              ) : null}
+              <label className="flex flex-col gap-1">
+                <ModalMicroLabel>{esConsFinalCargado ? "CEL (OBLIGATORIO)" : "CEL"}</ModalMicroLabel>
+                <Input
+                  value={cel}
+                  onChange={(e) => setCel(e.target.value)}
+                  autoComplete="off"
+                  inputMode="tel"
+                  disabled={saving}
+                />
+              </label>
+              {tipoFijo ? null : (
+                <ModalSiNoChoice
+                  label="ES PINTOR"
+                  value={tipo === "PINTOR"}
+                  disabled={saving}
+                  onChange={(esPintor) => {
+                    setTipo(esPintor ? "PINTOR" : "CONSUMIDOR_FINAL");
+                    if (esPintor) {
                       setPintorAsociadoId(null);
                       setCargarComoConsFinal(false);
                     }
                   }}
+                />
+              )}
+              {muestraPintorAsociado ? (
+                <div className="flex flex-col gap-2">
+                  <ModalMicroLabel>PINTOR ASOCIADO</ModalMicroLabel>
+                  {pintorAsociado ? (
+                    <div
+                      className={cn(
+                        "flex min-h-9 items-center gap-2 rounded-md border border-input px-3 py-1"
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                        {nombreCompletoCliente(pintorAsociado)}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
+                          title="Editar"
+                          aria-label={`Editar ${nombreCompletoCliente(pintorAsociado)}`}
+                          disabled={saving}
+                          onClick={() => {
+                            const pintorItem =
+                              pintoresDisponibles.find((p) => p.id === pintorAsociado.id) ??
+                              (item?.pintorAsociado?.id === pintorAsociado.id
+                                ? {
+                                    ...item.pintorAsociado,
+                                    pintorAsociadoId: null,
+                                    pintorAsociado: null,
+                                    cuit: null,
+                                    condicionIva: null,
+                                    ctaCorrientePlazo: null,
+                                    ctaCorrienteMontoMax: null,
+                                  }
+                                : null);
+                            if (!pintorItem) return;
+                            setModalFormPintor({ open: true, modo: "editar", item: pintorItem });
+                          }}
+                        >
+                          <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
+                          title="Borrar"
+                          aria-label={`Quitar pintor asociado ${nombreCompletoCliente(pintorAsociado)}`}
+                          disabled={saving}
+                          onClick={() => setPintorAsociadoId(null)}
+                        >
+                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
+                      title="Nuevo"
+                      aria-label="Asociar pintor"
+                      disabled={saving}
+                      onClick={() => setModalListaPintores(true)}
+                    >
+                      <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="flex flex-col gap-3 border-t border-border pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                DATOS FISCALES
+              </p>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CUIT</ModalMicroLabel>
+                <div className="relative">
+                  <Input
+                    value={cuitMasked}
+                    onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
+                    placeholder="##-########-#"
+                    autoComplete="off"
+                    inputMode="numeric"
+                    className={cn("tabular-nums", "pr-10")}
+                    disabled={saving}
+                    aria-label="CUIT"
+                  />
+                  <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon-xs"
+                      className="size-full p-0 shadow-none"
+                      disabled={!puedeConsultarArca}
+                      onClick={() => void consultarConstanciaArca()}
+                      aria-label={
+                        consultandoArca
+                          ? "Consultando CUIT en ARCA"
+                          : "Consultar CUIT en ARCA"
+                      }
+                      title="Consultar ARCA"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "size-3.5 shrink-0",
+                          consultandoArca && "animate-spin"
+                        )}
+                        aria-hidden
+                      />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
+                <Select
+                  value={condicionIva}
+                  onValueChange={setCondicionIva}
+                  disabled={saving}
                 >
-                  <SelectTrigger className={cn("w-full")}>
-                    <SelectValue placeholder="ELEGIR TIPO..." />
+                  <SelectTrigger className={cn("w-full")} aria-label="Condición IVA">
+                    <SelectValue placeholder="SELECCIONAR" />
                   </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                    {CLIENTE_TIPO_VALUES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {CLIENTE_TIPO_LABELS[value]}
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    {opcionesIva.map((c) => (
+                      <SelectItem key={c.codigo} value={String(c.codigo)}>
+                        {etiquetaCondicionIvaArca(c.descripcion)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            {muestraPintorAsociado ? (
-              <div className="flex flex-col gap-2">
-                <ModalMicroLabel>PINTOR ASOCIADO</ModalMicroLabel>
-                {pintorAsociado ? (
-                  <div
-                    className={cn(
-                      "flex min-h-9 items-center gap-2 rounded-md border border-input px-3 py-1"
-                    )}
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                      {nombreCompletoCliente(pintorAsociado)}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
-                        title="Editar"
-                        aria-label={`Editar ${nombreCompletoCliente(pintorAsociado)}`}
-                        disabled={saving}
-                        onClick={() => {
-                          const pintorItem =
-                            pintoresDisponibles.find((p) => p.id === pintorAsociado.id) ??
-                            (item?.pintorAsociado?.id === pintorAsociado.id
-                              ? {
-                                  ...item.pintorAsociado,
-                                  pintorAsociadoId: null,
-                                  pintorAsociado: null,
-                                  cuit: null,
-                                  condicionIva: null,
-                                  ctaCorrientePlazo: null,
-                                  ctaCorrienteMontoMax: null,
-                                }
-                              : null);
-                          if (!pintorItem) return;
-                          setModalFormPintor({ open: true, modo: "editar", item: pintorItem });
-                        }}
-                      >
-                        <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
-                        title="Borrar"
-                        aria-label={`Quitar pintor asociado ${nombreCompletoCliente(pintorAsociado)}`}
-                        disabled={saving}
-                        onClick={() => setPintorAsociadoId(null)}
-                      >
-                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
-                    title="Nuevo"
-                    aria-label="Asociar pintor"
+            </section>
+
+            <section className="flex flex-col gap-3 border-t border-border pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                CUENTA CORRIENTE
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <ModalMicroLabel>PLAZO DÍAS</ModalMicroLabel>
+                  <Input
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={ctaCorrientePlazo}
                     disabled={saving}
-                    onClick={() => setModalListaPintores(true)}
-                  >
-                    <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                  </Button>
-                )}
+                    placeholder="DÍAS"
+                    onChange={(e) => {
+                      const next = e.target.value.replace(/\D/g, "").slice(0, 3);
+                      setCtaCorrientePlazo(next);
+                    }}
+                    aria-label="Plazo días cuenta corriente"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <ModalMicroLabel>MONTO MÁX.</ModalMicroLabel>
+                  <MontoArInput
+                    valueNormalized={ctaCorrienteMontoMaxNorm}
+                    onValueNormalizedChange={setCtaCorrienteMontoMaxNorm}
+                    treatEmptyNormalizedAsBlank
+                    disabled={saving}
+                    aria-label="Monto máximo cuenta corriente"
+                  />
+                </div>
               </div>
-            ) : null}
+            </section>
+
             {muestraDirecciones ? (
-              <div className="flex flex-col gap-2">
-                <ModalMicroLabel>PROYECTOS</ModalMicroLabel>
+              <section className="flex flex-col gap-3 border-t border-border pt-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                  PROYECTOS
+                </p>
                 {direccionesLocal.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {direccionesLocal.map((dir) => (
@@ -620,7 +628,7 @@ export default function CrearEditarClienteModal({
                 >
                   <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                 </Button>
-              </div>
+              </section>
             ) : null}
           </div>
         </AppModal>
