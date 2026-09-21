@@ -16,22 +16,10 @@ import {
   listarFinAnaCosFinaPagosAction,
   listarFinAnaCosFinaTerminalesMarcasAction,
 } from "@/actions/finAnaCosFina";
-<<<<<<< HEAD
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
-import {
-  etiquetaAsociacionPago,
-  type FinAnaCosFinaPagoItem,
-} from "@/lib/finAnaCosFinaPagos";
-import {
-  TABLE_ROW_ACTION_ICON_CLASS,
-  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-} from "@/lib/ui-classes";
-=======
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
->>>>>>> facturacion
 import { cn } from "@/lib/utils";
 import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
 
@@ -49,64 +37,6 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   "h-9 w-9 min-h-9 max-h-9"
 );
 
-<<<<<<< HEAD
-const BOTON_ARRASTRE_PAGO_CLASS = cn(
-  "flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground",
-  "hover:bg-muted/60 hover:text-foreground active:cursor-grabbing",
-  "disabled:pointer-events-none disabled:opacity-40"
-);
-
-function FlagsAsociacionPagoFields({
-  asociadoTerminal,
-  asociadoBanco,
-  onTerminalChange,
-  onBancoChange,
-  disabled,
-}: {
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
-  onTerminalChange: (value: boolean) => void;
-  onBancoChange: (value: boolean) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>ASOCIADO TERMINAL</ModalMicroLabel>
-        <ModalSiNoChoice
-          value={asociadoTerminal}
-          onChange={onTerminalChange}
-          disabled={disabled}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>ASOCIADO BANCO</ModalMicroLabel>
-        <ModalSiNoChoice
-          value={asociadoBanco}
-          onChange={onBancoChange}
-          disabled={disabled}
-        />
-      </div>
-    </div>
-  );
-}
-
-function reordenarPagosLista(
-  items: FinAnaCosFinaPagoItem[],
-  origenId: string,
-  destinoId: string
-): FinAnaCosFinaPagoItem[] {
-  const from = items.findIndex((p) => p.id === origenId);
-  const to = items.findIndex((p) => p.id === destinoId);
-  if (from < 0 || to < 0 || from === to) return items;
-  const next = [...items];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved);
-  return next;
-}
-
-=======
->>>>>>> facturacion
 export default function GestionarPagosFinAnaCosFinaModal({
   open,
   onOpenChange,
@@ -116,15 +46,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
   onCatalogoChanged,
 }: Props) {
   const [items, setItems] = useState<FinAnaCosFinaPagoItem[]>(pagosIniciales);
-<<<<<<< HEAD
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoAsociadoTerminal, setNuevoAsociadoTerminal] = useState(false);
-  const [nuevoAsociadoBanco, setNuevoAsociadoBanco] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState("");
-  const [editAsociadoTerminal, setEditAsociadoTerminal] = useState(false);
-  const [editAsociadoBanco, setEditAsociadoBanco] = useState(false);
-=======
   const [entidades, setEntidades] =
     useState<FinAnaCosFinaTerminalMarcaItem[]>(entidadesIniciales);
   const [loading, setLoading] = useState(false);
@@ -134,7 +55,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
   const [formAceptaCuotas, setFormAceptaCuotas] = useState(false);
->>>>>>> facturacion
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -176,17 +96,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
   useEffect(() => {
     if (!open) return;
     setItems(pagosIniciales);
-<<<<<<< HEAD
-    void cargar();
-    setNuevoNombre("");
-    setNuevoAsociadoTerminal(false);
-    setNuevoAsociadoBanco(false);
-    setEditingId(null);
-    setEditDraft("");
-    setEditAsociadoTerminal(false);
-    setEditAsociadoBanco(false);
-    setDraggingId(null);
-=======
     setEntidades(entidadesIniciales);
     setBusqueda("");
     setFormOpen(false);
@@ -194,7 +103,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setFormNombre("");
     setFormEntidadIds([]);
     setFormAceptaCuotas(false);
->>>>>>> facturacion
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -248,21 +156,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     if (!esEditor || !formValido || pending) return;
     setPending(true);
     try {
-<<<<<<< HEAD
-      const res = await crearFinAnaCosFinaPagoAction({
-        nombre: nuevoNombre,
-        asociadoTerminal: nuevoAsociadoTerminal,
-        asociadoBanco: nuevoAsociadoBanco,
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo crear la forma de pago.");
-        return;
-      }
-      toast.success("Forma de pago creada.");
-      setNuevoNombre("");
-      setNuevoAsociadoTerminal(false);
-      setNuevoAsociadoBanco(false);
-=======
       if (editingItem) {
         const res = await editarFinAnaCosFinaPagoAction({
           id: editingItem.id,
@@ -290,7 +183,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
       markNestedDialogClosing();
       setFormOpen(false);
       resetForm();
->>>>>>> facturacion
       await cargar();
       onCatalogoChanged?.();
     } finally {
@@ -298,60 +190,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     }
   }
 
-<<<<<<< HEAD
-  async function handleGuardarEdicion() {
-    if (!esEditor || !editingId || !editDraft.trim() || bloqueado) return;
-    setPending(true);
-    try {
-      const res = await editarFinAnaCosFinaPagoAction({
-        id: editingId,
-        nombre: editDraft,
-        asociadoTerminal: editAsociadoTerminal,
-        asociadoBanco: editAsociadoBanco,
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo guardar.");
-        return;
-      }
-      toast.success("Forma de pago actualizada.");
-      setEditingId(null);
-      setEditDraft("");
-      setEditAsociadoTerminal(false);
-      setEditAsociadoBanco(false);
-      await cargar();
-      onCatalogoChanged?.();
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleReordenar(origenId: string, destinoId: string) {
-    if (!puedeArrastrar || origenId === destinoId) return;
-
-    const prev = items;
-    const next = reordenarPagosLista(prev, origenId, destinoId);
-    setItems(next);
-    setDraggingId(null);
-    setReordenando(true);
-
-    try {
-      const res = await reordenarFinAnaCosFinaPagosAction({
-        ordenIds: next.map((p) => p.id),
-      });
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudo guardar el orden.");
-        setItems(prev);
-        return;
-      }
-      setItems(res.data);
-      onCatalogoChanged?.();
-    } finally {
-      setReordenando(false);
-    }
-  }
-
-=======
->>>>>>> facturacion
   async function confirmarBorrar() {
     if (!borrarTarget || borrando) return;
     setBorrando(true);
@@ -396,44 +234,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
             </Button>
           }
         >
-<<<<<<< HEAD
-          <div className="flex min-h-0 flex-col gap-4">
-            {esEditor ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <ModalMicroLabel>NUEVA FORMA DE PAGO</ModalMicroLabel>
-                  <div className="flex gap-2">
-                    <Input
-                      value={nuevoNombre}
-                      onChange={(e) => setNuevoNombre(e.target.value)}
-                      placeholder="Nombre (se guardará en mayúsculas)"
-                      disabled={bloqueado}
-                      className="flex-1"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void handleCrear();
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      disabled={bloqueado || !nuevoNombre.trim()}
-                      onClick={() => void handleCrear()}
-                      className="gap-2"
-                    >
-                      <Plus className="size-4 shrink-0" aria-hidden />
-                      Crear
-                    </Button>
-                  </div>
-                </div>
-                <FlagsAsociacionPagoFields
-                  asociadoTerminal={nuevoAsociadoTerminal}
-                  asociadoBanco={nuevoAsociadoBanco}
-                  onTerminalChange={setNuevoAsociadoTerminal}
-                  onBancoChange={setNuevoAsociadoBanco}
-                  disabled={bloqueado}
-=======
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <div className="relative min-w-0 flex-1">
@@ -444,7 +244,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                   placeholder="BUSCAR FORMA DE PAGO O ENTIDAD..."
                   className="h-10 pl-9"
                   aria-label="Buscar forma de pago"
->>>>>>> facturacion
                 />
               </div>
               {esEditor ? (
@@ -476,77 +275,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 <p className="text-sm text-muted-foreground">
                   No hay formas de pago. Usá el botón + para agregar la primera.
                 </p>
-<<<<<<< HEAD
-              ) : null}
-              <ul className="max-h-[min(22rem,55vh)] space-y-2 overflow-y-auto pr-1">
-                {items.map((pago) => (
-                  <li
-                    key={pago.id}
-                    className={cn(
-                      "flex gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 transition-colors",
-                      editingId === pago.id ? "flex-col items-stretch" : "items-center",
-                      draggingId === pago.id && "border-primary/50 bg-primary/5",
-                      draggingId && draggingId !== pago.id && puedeArrastrar && "border-dashed"
-                    )}
-                    onDragOver={(e) => {
-                      if (!puedeArrastrar) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const origenId = e.dataTransfer.getData(DRAG_PAGO_ID_KEY);
-                      if (!origenId) return;
-                      void handleReordenar(origenId, pago.id);
-                    }}
-                  >
-                    {editingId === pago.id && esEditor ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={editDraft}
-                            onChange={(ev) => setEditDraft(ev.target.value)}
-                            className="h-8 flex-1 text-xs"
-                            disabled={bloqueado}
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-8 shrink-0"
-                            disabled={bloqueado}
-                            onClick={() => void handleGuardarEdicion()}
-                          >
-                            Guardar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 shrink-0"
-                            disabled={bloqueado}
-                            onClick={() => {
-                              setEditingId(null);
-                              setEditDraft("");
-                              setEditAsociadoTerminal(false);
-                              setEditAsociadoBanco(false);
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                        </div>
-                        <FlagsAsociacionPagoFields
-                          asociadoTerminal={editAsociadoTerminal}
-                          asociadoBanco={editAsociadoBanco}
-                          onTerminalChange={setEditAsociadoTerminal}
-                          onBancoChange={setEditAsociadoBanco}
-                          disabled={bloqueado}
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        {esEditor ? (
-                          <button
-=======
               ) : listaFiltrada.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Ninguna forma de pago coincide con la búsqueda.
@@ -576,7 +304,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                       {esEditor ? (
                         <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
                           <Button
->>>>>>> facturacion
                             type="button"
                             variant="ghost"
                             size="icon"
@@ -585,60 +312,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                             disabled={bloqueado}
                             onClick={() => abrirEditar(pago)}
                           >
-<<<<<<< HEAD
-                            <GripVertical className="size-4 shrink-0" aria-hidden />
-                          </button>
-                        ) : null}
-                        <div className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{pago.nombre}</span>
-                          {etiquetaAsociacionPago(pago) !== "" ? (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {etiquetaAsociacionPago(pago)}
-                            </span>
-                          ) : null}
-                        </div>
-                        {esEditor ? (
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={BOTON_ACCION_PAGO_CLASS}
-                              aria-label={`Editar ${pago.nombre}`}
-                              disabled={bloqueado}
-                              onClick={() => {
-                                setEditingId(pago.id);
-                                setEditDraft(pago.nombre);
-                                setEditAsociadoTerminal(pago.asociadoTerminal);
-                                setEditAsociadoBanco(pago.asociadoBanco);
-                              }}
-                            >
-                              <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={BOTON_ACCION_PAGO_CLASS}
-                              aria-label={`Eliminar ${pago.nombre}`}
-                              disabled={bloqueado}
-                              onClick={() => setBorrarTarget(pago)}
-                            >
-                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-                  </li>
-                ))}
-                {items.length === 0 ? (
-                  <li className="py-6 text-center text-sm text-muted-foreground">
-                    No hay formas de pago.
-                  </li>
-                ) : null}
-              </ul>
-=======
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
@@ -658,7 +331,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                   ))}
                 </ul>
               )}
->>>>>>> facturacion
             </div>
           </div>
         </AppModal>

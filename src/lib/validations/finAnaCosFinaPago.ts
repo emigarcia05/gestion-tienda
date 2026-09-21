@@ -7,16 +7,6 @@ const nombreFinAnaCosFinaPagoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-<<<<<<< HEAD
-const flagsAsociacionPagoSchema = {
-  asociadoTerminal: z.boolean(),
-  asociadoBanco: z.boolean(),
-};
-
-export const crearFinAnaCosFinaPagoSchema = z.object({
-  nombre: nombreFinAnaCosFinaPagoSchema,
-  ...flagsAsociacionPagoSchema,
-=======
 const entidadIdsFormaPagoSchema = z
   .array(prismaCuidOrUuidSchema)
   .min(1, "Seleccioná al menos una entidad.")
@@ -33,18 +23,13 @@ export const crearFinAnaCosFinaPagoSchema = z.object({
   nombre: nombreFinAnaCosFinaPagoSchema,
   entidadIds: entidadIdsFormaPagoSchema,
   aceptaCuotas: z.boolean().optional().default(false),
->>>>>>> facturacion
 });
 
 export const editarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
   nombre: nombreFinAnaCosFinaPagoSchema,
-<<<<<<< HEAD
-  ...flagsAsociacionPagoSchema,
-=======
   entidadIds: entidadIdsFormaPagoSchema,
   aceptaCuotas: z.boolean(),
->>>>>>> facturacion
 });
 
 export const eliminarFinAnaCosFinaPagoSchema = z.object({

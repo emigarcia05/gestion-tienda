@@ -7,11 +7,7 @@ import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTable
 import TablaFinAnaCosFina, { type FinAnaCosFinaFila } from "@/components/finanzas/TablaFinAnaCosFina";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPagosFinAnaCosFinaModal";
-<<<<<<< HEAD
-import GestionarBancosCobrosModal from "@/components/finanzas/GestionarBancosCobrosModal";
-=======
 import GestionarCuotasFinAnaCosFinaModal from "@/components/finanzas/GestionarCuotasFinAnaCosFinaModal";
->>>>>>> facturacion
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -33,21 +29,13 @@ import {
 import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
-<<<<<<< HEAD
-import type { CobrosBancoItem } from "@/lib/cobrosBancos";
-=======
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
->>>>>>> facturacion
 
 interface Props {
   filas: FinAnaCosFinaFila[];
   marcas: FinAnaCosFinaTerminalMarcaItem[];
   pagos: FinAnaCosFinaPagoItem[];
-<<<<<<< HEAD
-  bancos: CobrosBancoItem[];
-=======
   cuotas: CobrosCuotaItem[];
->>>>>>> facturacion
   esEditor: boolean;
 }
 
@@ -59,11 +47,7 @@ export default function FinAnaCosFinaPageClient({
   filas,
   marcas,
   pagos,
-<<<<<<< HEAD
-  bancos,
-=======
   cuotas,
->>>>>>> facturacion
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -76,11 +60,7 @@ export default function FinAnaCosFinaPageClient({
   const [filtroImpCheque, setFiltroImpCheque] = useState("");
   const [openGestionarMarcas, setOpenGestionarMarcas] = useState(false);
   const [openGestionarPagos, setOpenGestionarPagos] = useState(false);
-<<<<<<< HEAD
-  const [openGestionarBancos, setOpenGestionarBancos] = useState(false);
-=======
   const [openGestionarCuotas, setOpenGestionarCuotas] = useState(false);
->>>>>>> facturacion
   const [openCalculoCxTotal, setOpenCalculoCxTotal] = useState(false);
 
   const filasState = useMemo(
@@ -125,12 +105,8 @@ export default function FinAnaCosFinaPageClient({
     router.refresh();
   }
 
-<<<<<<< HEAD
-  function handleCatalogoBancosChanged() {
-=======
   function handleCatalogoCuotasChanged() {
     setFilasOverrides({});
->>>>>>> facturacion
     router.refresh();
   }
 
@@ -156,14 +132,6 @@ export default function FinAnaCosFinaPageClient({
             >
               <Settings2 className="size-4 shrink-0" aria-hidden />
               Gestionar Formas Pago
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setOpenGestionarBancos(true)}
-              className="h-10 gap-2 px-4"
-            >
-              <Settings2 className="size-4 shrink-0" aria-hidden />
-              Gestionar Bancos
             </Button>
             <Button
               type="button"
@@ -337,14 +305,6 @@ export default function FinAnaCosFinaPageClient({
         entidadesIniciales={marcas}
         esEditor={esEditor}
         onCatalogoChanged={handleCatalogoPagosChanged}
-      />
-
-      <GestionarBancosCobrosModal
-        open={openGestionarBancos}
-        onOpenChange={setOpenGestionarBancos}
-        bancosIniciales={bancos}
-        esEditor={esEditor}
-        onCatalogoChanged={handleCatalogoBancosChanged}
       />
 
       <GestionarMarcasFinAnaCosFinaModal

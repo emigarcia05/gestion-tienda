@@ -7,19 +7,6 @@ import type {
 import { sincronizarMatrizFinAnaCosFina } from "@/services/finAnaCosFinaMatriz.service";
 import type { ServiceResult } from "@/types";
 
-<<<<<<< HEAD
-const SELECT_PAGO = {
-  id: true,
-  nombre: true,
-  orden: true,
-  enCostosFinancieros: true,
-  enMargenContribucion: true,
-  asociadoTerminal: true,
-  asociadoBanco: true,
-} as const;
-
-function mapPago(row: {
-=======
 const pagoSelect = {
   id: true,
   nombre: true,
@@ -36,35 +23,23 @@ const pagoSelect = {
 } as const;
 
 type PagoRowConEntidades = {
->>>>>>> facturacion
   id: string;
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-<<<<<<< HEAD
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
-}): FinAnaCosFinaPagoItem {
-=======
   aceptaCuotas: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
 function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
->>>>>>> facturacion
   return {
     id: row.id,
     nombre: row.nombre.toUpperCase(),
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
-<<<<<<< HEAD
-    asociadoTerminal: row.asociadoTerminal,
-    asociadoBanco: row.asociadoBanco,
-=======
     aceptaCuotas: row.aceptaCuotas,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
->>>>>>> facturacion
   };
 }
 
@@ -81,10 +56,7 @@ function mapDbError(error: unknown, fallback: string): string {
   ) {
     const code = (error as { code: string }).code;
     if (code === "P2002") return "Ya existe un pago con ese nombre.";
-<<<<<<< HEAD
-=======
     if (code === "P2003") return "Hay entidades inválidas o asociadas.";
->>>>>>> facturacion
     if (code === "P2025") return "Forma de pago no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -95,92 +67,18 @@ const PAGOS_SEMILLA: {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-<<<<<<< HEAD
-  asociadoTerminal: boolean;
-  asociadoBanco: boolean;
-=======
   aceptaCuotas: boolean;
->>>>>>> facturacion
 }[] = [
   {
     id: "clfinapago0000008efe",
     nombre: "EFECTIVO",
-<<<<<<< HEAD
-    orden: 0,
-    enCostosFinancieros: false,
-    enMargenContribucion: true,
-    asociadoTerminal: false,
-    asociadoBanco: false,
-=======
     enCostosFinancieros: false,
     enMargenContribucion: true,
     aceptaCuotas: false,
->>>>>>> facturacion
   },
   {
     id: "clfinapago0000001deb",
     nombre: "DÉBITO",
-<<<<<<< HEAD
-    orden: 1,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000002c01",
-    nombre: "1 CUOTA",
-    orden: 2,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000003c03",
-    nombre: "3 CUOTAS",
-    orden: 3,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000004c06",
-    nombre: "6 CUOTAS",
-    orden: 4,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000005c09",
-    nombre: "9 CUOTAS",
-    orden: 5,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000006c12",
-    nombre: "12 CUOTAS",
-    orden: 6,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-  },
-  {
-    id: "clfinapago0000007c18",
-    nombre: "18 CUOTAS",
-    orden: 7,
-    enCostosFinancieros: true,
-    enMargenContribucion: true,
-    asociadoTerminal: true,
-    asociadoBanco: false,
-=======
     enCostosFinancieros: true,
     enMargenContribucion: true,
     aceptaCuotas: false,
@@ -191,7 +89,6 @@ const PAGOS_SEMILLA: {
     enCostosFinancieros: true,
     enMargenContribucion: true,
     aceptaCuotas: true,
->>>>>>> facturacion
   },
 ];
 
@@ -238,13 +135,8 @@ export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
 export async function listarFinAnaCosFinaPagos(): Promise<FinAnaCosFinaPagoItem[]> {
   await ensureFinAnaCosFinaPagosSeed();
   const rows = await prisma.finAnaCosFinaPagoCat.findMany({
-<<<<<<< HEAD
-    orderBy: [{ orden: "asc" }, { nombre: "asc" }],
-    select: SELECT_PAGO,
-=======
     orderBy: [{ nombre: "asc" }],
     select: pagoSelect,
->>>>>>> facturacion
   });
   return rows.map(mapPago);
 }
@@ -257,32 +149,15 @@ export async function crearFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
-<<<<<<< HEAD
-  try {
-    const maxOrden = await prisma.finAnaCosFinaPagoCat.aggregate({
-      _max: { orden: true },
-    });
-    const orden = (maxOrden._max.orden ?? -1) + 1;
-=======
   const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
   if (!entidadesOk.success) return entidadesOk;
   const entidadIds = entidadesOk.data;
->>>>>>> facturacion
 
   try {
     const pago = await prisma.$transaction(async (tx) => {
       const created = await tx.finAnaCosFinaPagoCat.create({
         data: {
           nombre,
-<<<<<<< HEAD
-          orden,
-          enCostosFinancieros: true,
-          enMargenContribucion: true,
-          asociadoTerminal: input.asociadoTerminal,
-          asociadoBanco: input.asociadoBanco,
-        },
-        select: SELECT_PAGO,
-=======
           enCostosFinancieros: true,
           enMargenContribucion: true,
           aceptaCuotas: input.aceptaCuotas,
@@ -291,7 +166,6 @@ export async function crearFinAnaCosFinaPago(
           },
         },
         select: pagoSelect,
->>>>>>> facturacion
       });
 
       if (created.enMargenContribucion) {
@@ -328,16 +202,6 @@ export async function editarFinAnaCosFinaPago(
   const entidadIds = entidadesOk.data;
 
   try {
-<<<<<<< HEAD
-    const updated = await prisma.finAnaCosFinaPagoCat.update({
-      where: { id: input.id },
-      data: {
-        nombre,
-        asociadoTerminal: input.asociadoTerminal,
-        asociadoBanco: input.asociadoBanco,
-      },
-      select: SELECT_PAGO,
-=======
     const updated = await prisma.$transaction(async (tx) => {
       const existing = await tx.finAnaCosFinaPagoCat.findUnique({
         where: { id: input.id },
@@ -369,7 +233,6 @@ export async function editarFinAnaCosFinaPago(
 
       await sincronizarMatrizFinAnaCosFina(tx);
       return row;
->>>>>>> facturacion
     });
 
     return { success: true, data: mapPago(updated) };

@@ -1294,11 +1294,7 @@ model ProdPedUltComp {
 /** Catálogo unificado de entidades cobros/tesorería (`tesoreria_cobros_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-<<<<<<< HEAD
-  nombre    String   @unique(map: "cobros_cx_fin_marcas_nombre_key")
-=======
   nombre    String   @unique(map: "tesoreria_cobros_entidades_nombre_key")
->>>>>>> facturacion
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1308,31 +1304,18 @@ model FinAnaCosFinaTerminalMarca {
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
 
-<<<<<<< HEAD
-  @@index([orden], map: "cobros_cx_fin_marcas_orden_idx")
-  @@map("cobros_cx_fin_marcas")
-=======
   @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
   @@map("tesoreria_cobros_entidades")
->>>>>>> facturacion
 }
 
 /** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
 model FinAnaCosFinaPagoCat {
   id                   String   @id @default(cuid())
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
-<<<<<<< HEAD
-  orden                Int      @default(0)
-  enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
-  enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
-  asociadoTerminal     Boolean  @default(false) @map("asociado_terminal")
-  asociadoBanco        Boolean  @default(false) @map("asociado_banco")
-=======
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
   /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
   aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
->>>>>>> facturacion
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -1340,27 +1323,6 @@ model FinAnaCosFinaPagoCat {
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
 
-<<<<<<< HEAD
-  @@index([orden], map: "cobros_forma_pago_orden_idx")
-  @@map("cobros_forma_pago")
-}
-
-/** Catálogo de bancos Cx. Fin. Cobros (`nombre` único en MAYÚSCULAS). */
-model CobrosBanco {
-  id        String   @id @default(cuid())
-  nombre    String   @unique(map: "cobros_bancos_nombre_key")
-  orden     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([orden], map: "cobros_bancos_orden_idx")
-  @@map("cobros_bancos")
-}
-
-/**
- * Matriz marca × forma de pago para costos financieros (Análisis M.C.).
- * `terminal_id` = marca (`cobros_cx_fin_marcas`).
-=======
   @@map("cobros_forma_pago")
 }
 
@@ -1397,7 +1359,6 @@ model CobrosCuota {
  * Matriz entidad × forma de pago [× cuota] para costos financieros (`cobros_cx_fin`, ex `fin_ana_cos_fina`).
  * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
  * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
->>>>>>> facturacion
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())

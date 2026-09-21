@@ -6,11 +6,7 @@ import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
-<<<<<<< HEAD
-import type { CobrosBancoItem } from "@/lib/cobrosBancos";
-=======
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
->>>>>>> facturacion
 import { actualizarFinAnaCosFinaSchema } from "@/lib/validations/finAnaCosFina";
 import {
   crearFinAnaCosFinaTerminalMarcaSchema,
@@ -23,17 +19,10 @@ import {
   eliminarFinAnaCosFinaPagoSchema,
 } from "@/lib/validations/finAnaCosFinaPago";
 import {
-<<<<<<< HEAD
-  crearCobrosBancoSchema,
-  editarCobrosBancoSchema,
-  eliminarCobrosBancoSchema,
-} from "@/lib/validations/cobrosBancos";
-=======
   crearCobrosCuotaSchema,
   editarCobrosCuotaSchema,
   eliminarCobrosCuotaSchema,
 } from "@/lib/validations/cobrosCuota";
->>>>>>> facturacion
 import {
   actualizarFinAnaCosFina,
   type FinAnaCosFinaItem,
@@ -51,19 +40,11 @@ import {
   listarFinAnaCosFinaPagos,
 } from "@/services/finAnaCosFinaPago.service";
 import {
-<<<<<<< HEAD
-  crearCobrosBanco,
-  editarCobrosBanco,
-  eliminarCobrosBanco,
-  listarCobrosBancos,
-} from "@/services/cobrosBancos.service";
-=======
   crearCobrosCuota,
   editarCobrosCuota,
   eliminarCobrosCuota,
   listarCobrosCuotas,
 } from "@/services/cobrosCuotas.service";
->>>>>>> facturacion
 import {
   VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH,
   VTAS_COBROS_ROUTES,
@@ -78,70 +59,9 @@ function revalidateRutasAnalisisMc(): void {
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);
 }
 
-<<<<<<< HEAD
-export async function listarCobrosBancosAction(): Promise<ActionResult<CobrosBancoItem[]>> {
-  const gate = await requireFinanzasLectura();
-  if (gate) return gate;
-
-  try {
-    const data = await listarCobrosBancos();
-    return { ok: true, data };
-  } catch {
-    return { ok: false, error: "No se pudieron cargar los bancos." };
-  }
-}
-
-export async function crearCobrosBancoAction(
-  raw: unknown
-): Promise<ActionResult<CobrosBancoItem>> {
-  const gate = await requireEditorFinanzas();
-  if (gate) return gate;
-
-  const parsed = crearCobrosBancoSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  }
-
-  const res = await crearCobrosBanco(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
-  return fromServiceResult(res);
-}
-
-export async function editarCobrosBancoAction(
-  raw: unknown
-): Promise<ActionResult<CobrosBancoItem>> {
-  const gate = await requireEditorFinanzas();
-  if (gate) return gate;
-
-  const parsed = editarCobrosBancoSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  }
-
-  const res = await editarCobrosBanco(parsed.data);
-  if (res.success) revalidateRutasAnalisisMc();
-  return fromServiceResult(res);
-}
-
-export async function eliminarCobrosBancoAction(
-  raw: unknown
-): Promise<ActionResult<void>> {
-  const gate = await requireEditorFinanzas();
-  if (gate) return gate;
-
-  const parsed = eliminarCobrosBancoSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  }
-
-  const res = await eliminarCobrosBanco(parsed.data.id);
-  if (res.success) revalidateRutasAnalisisMc();
-  return fromServiceResult(res);
-=======
 function revalidateRutasEntidadesCompartidas(): void {
   revalidateRutasAnalisisMc();
   revalidatePath("/finanzas/tesoreria");
->>>>>>> facturacion
 }
 
 export async function listarFinAnaCosFinaTerminalesMarcasAction(): Promise<
