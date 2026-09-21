@@ -33,7 +33,7 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   etiquetaClienteListado,
   etiquetaNombreProyecto,
-  etiquetaTipoCliente,
+  etiquetaEsPintor,
   formatearCuitMascara,
   nombrePintorAsociadoCliente,
   type ClienteListaItem,
@@ -54,7 +54,7 @@ const COL_SPAN = 9;
 type ModalCliente = { open: false } | { open: true; modo: "crear" | "editar"; item: ClienteListaItem | null };
 type ModalProyecto =
   | { open: false }
-  | { open: true; modo: "crear" | "editar"; personaId: string; item: EnviosDireccionItem | null };
+  | { open: true; personaId: string; item: EnviosDireccionItem };
 type ModalEliminar =
   | { open: false }
   | { open: true; kind: "cliente"; id: string; label: string }
@@ -92,7 +92,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
   const [deleting, setDeleting] = useState(false);
 
   const pintores = useMemo(
-    () => items.filter((item) => item.tipo === "PINTOR"),
+    () => items.filter((item) => item.esPintor),
     [items]
   );
   const direcciones = useMemo(
@@ -106,7 +106,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
       matchByMultiTerm(
         [
           etiquetaClienteListado(item),
-          etiquetaTipoCliente(item.tipo),
+          etiquetaEsPintor(item.esPintor),
           item.cuit ?? "",
           item.cuit ? formatearCuitMascara(item.cuit) : "",
           item.cel,
@@ -170,7 +170,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-clientes-lista-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, CUIT, CEL, TIPO O PROYECTO..."
+                  placeholder="BUSCAR POR NOMBRE, CUIT, CEL, ES PINTOR O PROYECTO..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -202,7 +202,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
             <TableHeader>
               <TableRow>
                 <TableHead>CLIENTE</TableHead>
-                <TableHead className="text-center">TIPO</TableHead>
+                <TableHead className="text-center">ES PINTOR</TableHead>
                 <TableHead className="text-center">CUIT</TableHead>
                 <TableHead>COND. IVA</TableHead>
                 <TableHead className="text-center">CEL</TableHead>
@@ -227,7 +227,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
               ) : (
                 itemsFiltrados.map((item) => {
                   const tieneVariosProyectos = item.proyectos.length > 1;
-                  const esPintor = item.tipo === "PINTOR";
+                  const esPintor = item.esPintor;
                   const expandidoProyectos =
                     tieneVariosProyectos &&
                     expanded?.id === item.id &&
@@ -245,7 +245,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                           {nombre}
                         </TableCell>
                         <TableCell className="celda-datos text-center">
-                          {etiquetaTipoCliente(item.tipo)}
+                          {etiquetaEsPintor(item.esPintor)}
                         </TableCell>
                         <TableCell className="celda-datos text-center tabular-nums">
                           {item.cuit ? formatearCuitMascara(item.cuit) : fmtCelda("")}
@@ -372,7 +372,6 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                           onEditar={(proyecto) =>
                             setModalProyecto({
                               open: true,
-                              modo: "editar",
                               personaId: item.id,
                               item: proyecto,
                             })
@@ -383,14 +382,6 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                               kind: "proyecto",
                               id: proyecto.id,
                               label: etiquetaNombreProyecto(proyecto),
-                            })
-                          }
-                          onCrear={() =>
-                            setModalProyecto({
-                              open: true,
-                              modo: "crear",
-                              personaId: item.id,
-                              item: null,
                             })
                           }
                         />
@@ -421,7 +412,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         onOpenChange={(open) => {
           if (!open) setModalProyecto({ open: false });
         }}
-        modo={modalProyecto.open ? modalProyecto.modo : "crear"}
+        modo="editar"
         personaId={modalProyecto.open ? modalProyecto.personaId : ""}
         item={modalProyecto.open ? modalProyecto.item : null}
         onSuccess={() => router.refresh()}

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  CLIENTE_TIPO_VALUES,
   ENVIOS_DEPARTAMENTO_VALUES,
   ENVIOS_FORMA_PAGADO_VALUES,
   ENVIOS_HORA_VALUES,
@@ -9,7 +8,6 @@ import {
   normalizarCelCliente,
   normalizarNombreCliente,
   properTextoEnvio,
-  type ClienteTipoValue,
 } from "@/lib/envios";
 import {
   prismaCuidSchema,
@@ -125,7 +123,7 @@ const clienteCampos = {
     .max(40, "El texto es demasiado largo.")
     .optional()
     .transform((v) => normalizarCelCliente(v ?? "")),
-  tipo: z.enum(CLIENTE_TIPO_VALUES),
+  esPintor: z.boolean(),
   pintorAsociadoId: prismaIdOptionalNullableSchema,
   cuit: clienteCuitSchema,
   condicionIva: clienteCondicionIvaSchema,
@@ -136,14 +134,14 @@ const clienteCampos = {
 function refineClientePintorAsociado(
   data: {
     id?: string;
-    tipo: ClienteTipoValue;
+    esPintor: boolean;
     nombreCompleto: string;
     cel: string;
     pintorAsociadoId?: string | null;
   },
   ctx: z.RefinementCtx
 ): void {
-  if (data.tipo === "PINTOR" && data.nombreCompleto === "") {
+  if (data.esPintor && data.nombreCompleto === "") {
     ctx.addIssue({
       code: "custom",
       message: "Ingresá el nombre completo.",
@@ -159,7 +157,7 @@ function refineClientePintorAsociado(
     });
   }
 
-  if (data.tipo === "PINTOR" && data.pintorAsociadoId) {
+  if (data.esPintor && data.pintorAsociadoId) {
     ctx.addIssue({
       code: "custom",
       message: "Un pintor no puede tener pintor asociado.",

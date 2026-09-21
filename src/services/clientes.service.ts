@@ -20,7 +20,7 @@ const resumenSelect = {
   id: true,
   nombreCompleto: true,
   cel: true,
-  tipo: true,
+  esPintor: true,
 } as const;
 
 const select = {
@@ -38,7 +38,7 @@ function mapResumen(row: ClienteResumen): ClienteResumen {
     id: row.id,
     nombreCompleto: normalizarNombreCliente(row.nombreCompleto),
     cel: row.cel.trim(),
-    tipo: row.tipo,
+    esPintor: row.esPintor,
   };
 }
 
@@ -46,7 +46,7 @@ function mapRow(row: {
   id: string;
   nombreCompleto: string;
   cel: string;
-  tipo: ClienteResumen["tipo"];
+  esPintor: boolean;
   pintorAsociadoId: string | null;
   pintorAsociado: ClienteResumen | null;
   cuit: string | null;
@@ -123,10 +123,10 @@ function prismaErrorMessage(error: unknown, fallback: string): string {
 
 async function resolverPintorAsociadoId(input: {
   id?: string;
-  tipo: CrearClienteInput["tipo"];
+  esPintor: boolean;
   pintorAsociadoId?: string | null;
 }): Promise<ServiceResult<string | null>> {
-  if (input.tipo === "PINTOR") {
+  if (input.esPintor) {
     return { success: true, data: null };
   }
   const pintorAsociadoId = input.pintorAsociadoId ?? null;
@@ -138,13 +138,13 @@ async function resolverPintorAsociadoId(input: {
   }
   const pintor = await prisma.cliente.findUnique({
     where: { id: pintorAsociadoId },
-    select: { id: true, tipo: true },
+    select: { id: true, esPintor: true },
   });
   if (!pintor) {
     return { success: false, error: "El pintor asociado no existe." };
   }
-  if (pintor.tipo !== "PINTOR") {
-    return { success: false, error: "El pintor asociado debe ser de tipo PINTOR." };
+  if (!pintor.esPintor) {
+    return { success: false, error: "El pintor asociado debe tener ES PINTOR." };
   }
   return { success: true, data: pintor.id };
 }
@@ -320,7 +320,7 @@ export async function crearCliente(
       data: {
         nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
         cel: normalizarCelCliente(input.cel),
-        tipo: input.tipo,
+        esPintor: input.esPintor,
         pintorAsociadoId: pintor.data,
         cuit: normalizarCuitCliente(input.cuit ?? null),
         condicionIva: condicion.data,
@@ -341,17 +341,17 @@ export async function editarCliente(
 ): Promise<ServiceResult<ClienteItem>> {
   try {
     const usada = await prisma.enviosFinal.findFirst({
-      where: input.tipo === "CONSUMIDOR_FINAL" ? { pintorId: input.id } : { clienteFinalId: input.id },
+      where: input.esPintor ? { clienteFinalId: input.id } : { pintorId: input.id },
       select: { id: true },
     });
     if (usada) {
       return {
         success: false,
         error:
-          "No se puede cambiar el tipo: el cliente ya está asociado a un envío con el tipo actual.",
+          "No se puede cambiar ES PINTOR: el cliente ya está asociado a un envío con el rol actual.",
       };
     }
-    if (input.tipo === "CONSUMIDOR_FINAL") {
+    if (!input.esPintor) {
       const asociadoComoPintor = await prisma.cliente.findFirst({
         where: { pintorAsociadoId: input.id },
         select: { id: true },
@@ -359,7 +359,7 @@ export async function editarCliente(
       if (asociadoComoPintor) {
         return {
           success: false,
-          error: "No se puede cambiar a CONSUMIDOR FINAL: hay clientes que lo tienen como pintor asociado.",
+          error: "No se puede desmarcar ES PINTOR: hay clientes que lo tienen como pintor asociado.",
         };
       }
     }
@@ -375,7 +375,7 @@ export async function editarCliente(
     const data: {
       nombreCompleto: string;
       cel: string;
-      tipo: EditarClienteInput["tipo"];
+      esPintor: boolean;
       pintorAsociadoId: string | null;
       cuit?: string | null;
       condicionIva?: number | null;
@@ -384,7 +384,7 @@ export async function editarCliente(
     } = {
       nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
       cel: normalizarCelCliente(input.cel),
-      tipo: input.tipo,
+      esPintor: input.esPintor,
       pintorAsociadoId: pintor.data,
     };
     if (input.cuit !== undefined) {

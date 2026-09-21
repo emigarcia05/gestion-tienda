@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import {
@@ -23,14 +23,12 @@ interface Props {
   proyectos: EnviosDireccionItem[];
   onEditar: (item: EnviosDireccionItem) => void;
   onEliminar: (item: EnviosDireccionItem) => void;
-  onCrear: () => void;
 }
 
 export default function FacturaClienteProyectosDetalle({
   proyectos,
   onEditar,
   onEliminar,
-  onCrear,
 }: Props) {
   const nombreColCh = Math.max(
     1,
@@ -39,15 +37,20 @@ export default function FacturaClienteProyectosDetalle({
 
   return (
     <>
-      {proyectos.map((proyecto) => {
+      {proyectos.map((proyecto, index) => {
         const partes = partesProyectoEnvioListado(proyecto);
         const etiqueta = etiquetaProyectoConDireccion(proyecto);
         const nombre = partes.nombre || "—";
         const direccion = partes.direccion;
+        const esUltima = index === proyectos.length - 1;
         return (
           <TableRow
             key={proyecto.id}
-            className={cn(SUBFILA_DETALLE_CLASS, "hover:bg-transparent")}
+            className={cn(
+              SUBFILA_DETALLE_CLASS,
+              esUltima && "tabla-fila-detalle-competencia--cierre",
+              "hover:bg-transparent"
+            )}
           >
             <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
             <TableCell
@@ -110,38 +113,6 @@ export default function FacturaClienteProyectosDetalle({
           </TableRow>
         );
       })}
-      <TableRow
-        className={cn(
-          SUBFILA_DETALLE_CLASS,
-          "tabla-fila-detalle-competencia--cierre",
-          "hover:bg-transparent"
-        )}
-      >
-        <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
-        <TableCell colSpan={7} className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}>
-          <span className="text-xs font-medium text-foreground">CREAR PROYECTO</span>
-        </TableCell>
-        <TableCell
-          className={cn(
-            "celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider",
-            SUBFILA_CELDA_BLOQUE_CLASS
-          )}
-        >
-          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-              title="Crear Proyecto"
-              aria-label="Crear proyecto"
-              onClick={onCrear}
-            >
-              <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
     </>
   );
 }

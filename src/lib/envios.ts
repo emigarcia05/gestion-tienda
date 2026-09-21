@@ -1,7 +1,4 @@
-import type { ClienteTipo, EnviosDepartamento, EnviosFormaPagado } from "@prisma/client";
-
-export const CLIENTE_TIPO_VALUES = ["CONSUMIDOR_FINAL", "PINTOR"] as const;
-export type ClienteTipoValue = (typeof CLIENTE_TIPO_VALUES)[number];
+import type { EnviosDepartamento, EnviosFormaPagado } from "@prisma/client";
 
 export const ENVIOS_FORMA_PAGADO_VALUES = [
   "PAGADO",
@@ -11,11 +8,6 @@ export const ENVIOS_FORMA_PAGADO_VALUES = [
   "CUENTA_CORRIENTE",
 ] as const;
 export type EnviosFormaPagadoValue = (typeof ENVIOS_FORMA_PAGADO_VALUES)[number];
-
-export const CLIENTE_TIPO_LABELS: Record<ClienteTipo, string> = {
-  CONSUMIDOR_FINAL: "CONSUMIDOR FINAL",
-  PINTOR: "PINTOR",
-};
 
 export const ENVIOS_DEPARTAMENTO_VALUES = [
   "CIUDAD",
@@ -105,8 +97,8 @@ export function etiquetaHorarioEnvio(horaDesde: string, horaHasta: string): stri
   return `${horaDesde} – ${horaHasta}`;
 }
 
-export function etiquetaTipoCliente(tipo: ClienteTipo): string {
-  return CLIENTE_TIPO_LABELS[tipo];
+export function etiquetaEsPintor(esPintor: boolean): "TRUE" | "FALSE" {
+  return esPintor ? "TRUE" : "FALSE";
 }
 
 export function etiquetaFormaPagadoEnvio(forma: EnviosFormaPagado): string {
@@ -146,44 +138,42 @@ export function nombreCompletoCliente(cliente: {
 }
 
 export function esConsumidorFinalSinNombre(cliente: {
-  tipo: ClienteTipo;
+  esPintor: boolean;
   nombreCompleto: string;
 }): boolean {
-  return cliente.tipo === "CONSUMIDOR_FINAL" && normalizarNombreCliente(cliente.nombreCompleto) === "";
+  return !cliente.esPintor && normalizarNombreCliente(cliente.nombreCompleto) === "";
 }
 
 export function etiquetaClienteListado(cliente: {
-  tipo: ClienteTipo;
+  esPintor: boolean;
   nombreCompleto: string;
   cel: string;
 }): string {
   if (esConsumidorFinalSinNombre(cliente)) {
-    const cel = cliente.cel.trim();
-    return cel ? `CONS. FINAL - ${cel}` : "CONS. FINAL";
+    return cliente.cel.trim();
   }
   return nombreCompletoCliente(cliente);
 }
 
 export function partesNombreClienteListado(cliente: {
-  tipo: ClienteTipo;
+  esPintor: boolean;
   nombreCompleto: string;
   cel: string;
 }): { principal: string; sufijo?: string } {
   if (!esConsumidorFinalSinNombre(cliente)) {
     return { principal: nombreCompletoCliente(cliente) };
   }
-  const cel = cliente.cel.trim();
-  return cel ? { principal: "CONS. FINAL", sufijo: cel } : { principal: "CONS. FINAL" };
+  return { principal: cliente.cel.trim() };
 }
 
 /**
  * Listados de clientes:
  * 1) con nombre (A-Z)
- * 2) sin nombre (CONS. FINAL), ordenados por cel.
+ * 2) sin nombre (identificados por CEL), ordenados por cel.
  */
 export function compararClientesParaListado(
-  a: Pick<ClienteResumen, "nombreCompleto" | "cel" | "tipo">,
-  b: Pick<ClienteResumen, "nombreCompleto" | "cel" | "tipo">
+  a: Pick<ClienteResumen, "nombreCompleto" | "cel">,
+  b: Pick<ClienteResumen, "nombreCompleto" | "cel">
 ): number {
   const nombreA = normalizarNombreCliente(a.nombreCompleto);
   const nombreB = normalizarNombreCliente(b.nombreCompleto);
@@ -245,7 +235,7 @@ export interface ClienteResumen {
   id: string;
   nombreCompleto: string;
   cel: string;
-  tipo: ClienteTipo;
+  esPintor: boolean;
 }
 
 export interface ClienteItem extends ClienteResumen {
@@ -261,9 +251,9 @@ export interface ClienteItem extends ClienteResumen {
   ctaCorrienteMontoMax: number | null;
 }
 
-/** Nombre del pintor asociado, solo si el cliente es CONSUMIDOR_FINAL y tiene uno. */
+/** Nombre del pintor asociado, solo si el cliente no es pintor y tiene uno. */
 export function nombrePintorAsociadoCliente(cliente: ClienteItem): string | null {
-  if (cliente.tipo !== "CONSUMIDOR_FINAL" || !cliente.pintorAsociado) return null;
+  if (cliente.esPintor || !cliente.pintorAsociado) return null;
   return nombreCompletoCliente(cliente.pintorAsociado);
 }
 
@@ -332,7 +322,7 @@ export function compararEnvioPorProximidad(
 }
 
 export function nombreDestinatarioEnvio(item: EnviosFinalListItem): string {
-  if (item.clienteFinal) return nombreCompletoCliente(item.clienteFinal);
+  if (item.clienteFinal) return etiquetaClienteListado(item.clienteFinal);
   if (item.pintor) return nombreCompletoCliente(item.pintor);
   return "";
 }

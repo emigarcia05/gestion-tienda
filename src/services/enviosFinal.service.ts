@@ -29,7 +29,7 @@ const clienteResumenSelect = {
   id: true,
   nombreCompleto: true,
   cel: true,
-  tipo: true,
+  esPintor: true,
 } as const;
 
 const clienteSelect = {
@@ -80,13 +80,13 @@ function mapCliente(row: {
   id: string;
   nombreCompleto: string;
   cel: string;
-  tipo: ClienteItem["tipo"];
+  esPintor: boolean;
   pintorAsociadoId: string | null;
   pintorAsociado: {
     id: string;
     nombreCompleto: string;
     cel: string;
-    tipo: ClienteItem["tipo"];
+    esPintor: boolean;
   } | null;
   cuit: string | null;
   condicionIva: number | null;
@@ -98,14 +98,14 @@ function mapCliente(row: {
     id: row.id,
     nombreCompleto: normalizarNombreCliente(row.nombreCompleto),
     cel: row.cel.trim(),
-    tipo: row.tipo,
+    esPintor: row.esPintor,
     pintorAsociadoId: row.pintorAsociadoId,
     pintorAsociado: row.pintorAsociado
       ? {
           id: row.pintorAsociado.id,
           nombreCompleto: normalizarNombreCliente(row.pintorAsociado.nombreCompleto),
           cel: row.pintorAsociado.cel.trim(),
-          tipo: row.pintorAsociado.tipo,
+          esPintor: row.pintorAsociado.esPintor,
         }
       : null,
     cuit: row.cuit,
@@ -264,11 +264,11 @@ async function validarPersonasYDireccion(input: {
   if (clienteFinalId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteFinalId },
-      select: { tipo: true },
+      select: { esPintor: true },
     });
     if (!cliente) return { success: false, error: "El cliente final no existe." };
-    if (cliente.tipo !== "CONSUMIDOR_FINAL") {
-      return { success: false, error: "El cliente debe ser de tipo CONSUMIDOR FINAL." };
+    if (cliente.esPintor) {
+      return { success: false, error: "El cliente no puede ser pintor." };
     }
     if (direccion.personaId !== clienteFinalId) {
       return { success: false, error: "La dirección debe pertenecer al cliente final seleccionado." };
@@ -278,11 +278,11 @@ async function validarPersonasYDireccion(input: {
   if (pintorId) {
     const clientePintor = await prisma.cliente.findUnique({
       where: { id: pintorId },
-      select: { tipo: true },
+      select: { esPintor: true },
     });
     if (!clientePintor) return { success: false, error: "El pintor no existe." };
-    if (clientePintor.tipo !== "PINTOR") {
-      return { success: false, error: "El pintor debe ser de tipo PINTOR." };
+    if (!clientePintor.esPintor) {
+      return { success: false, error: "El pintor debe tener ES PINTOR." };
     }
     if (!clienteFinalId && direccion.personaId !== pintorId) {
       return { success: false, error: "La dirección debe pertenecer al pintor seleccionado." };

@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import {
   compararEnvioPorProximidad,
-  esConsumidorFinalSinNombre,
   etiquetaDepartamentoEnvio,
   etiquetaSucursalEnvio,
   etiquetaHorarioEnvio,
@@ -218,10 +217,7 @@ export default function EnviosConductorPageClient({
                 const referencia = item.direccion.referencia.trim();
                 const lineaCalle = [calle, numeracion].filter(Boolean).join(", ");
                 const lineaDistrito = [distrito, departamento].filter(Boolean).join(", ");
-                const nombreDestinatario =
-                  item.clienteFinal && esConsumidorFinalSinNombre(item.clienteFinal)
-                    ? "CONS. FINAL"
-                    : nombreDestinatarioEnvio(item);
+                const nombreDestinatario = nombreDestinatarioEnvio(item);
                 const nombrePintorAsociado = item.clienteFinal
                   ? nombrePintorAsociadoCliente(item.clienteFinal)
                   : null;

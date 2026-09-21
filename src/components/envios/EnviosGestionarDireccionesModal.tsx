@@ -73,7 +73,7 @@ export default function EnviosGestionarDireccionesModal({
   const [deleting, setDeleting] = useState(false);
 
   const pintores = useMemo(
-    () => clientesCatalogo.filter((c) => c.tipo === "PINTOR"),
+    () => clientesCatalogo.filter((c) => c.esPintor),
     [clientesCatalogo]
   );
 
@@ -254,7 +254,7 @@ export default function EnviosGestionarDireccionesModal({
                     <CatalogoFinderRow
                       key={item.id}
                       iconoIzquierda={
-                        item.tipo === "PINTOR" ? (
+                        item.esPintor ? (
                           <EnviosPintorConsumidoresButton
                             pintorNombre={nombreCompletoCliente(item)}
                             activo={filtroPintorId === item.id}

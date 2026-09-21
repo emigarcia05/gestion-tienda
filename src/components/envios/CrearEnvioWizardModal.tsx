@@ -171,7 +171,7 @@ export default function CrearEnvioWizardModal({
   }, [open, item]);
 
   const pintores = useMemo(
-    () => clientesCatalogo.filter((c) => c.tipo === "PINTOR"),
+    () => clientesCatalogo.filter((c) => c.esPintor),
     [clientesCatalogo]
   );
 
@@ -363,7 +363,7 @@ export default function CrearEnvioWizardModal({
     }
     setSaving(true);
     try {
-      const esPintor = clienteSeleccionado?.tipo === "PINTOR";
+      const esPintor = clienteSeleccionado?.esPintor === true;
       const payload = {
         sucursalId,
         clienteFinalId: esPintor ? null : clienteId,
@@ -535,7 +535,7 @@ export default function CrearEnvioWizardModal({
                           <CatalogoFinderRow
                             key={item.id}
                             iconoIzquierda={
-                              item.tipo === "PINTOR" ? (
+                              item.esPintor ? (
                                 <EnviosPintorConsumidoresButton
                                   pintorNombre={nombreCompletoCliente(item)}
                                   activo={filtroPintorId === item.id}

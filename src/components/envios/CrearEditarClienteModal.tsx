@@ -34,7 +34,6 @@ import {
   normalizarNombreCliente,
   soloDigitos,
   type ClienteItem,
-  type ClienteTipoValue,
   type EnviosDireccionItem,
 } from "@/lib/envios";
 import { parseArcaConstanciaApiJson } from "@/lib/arcaConstancia";
@@ -57,8 +56,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   modo: "crear" | "editar";
   item?: ClienteItem | null;
-  /** Si está definido, el tipo no se elige en el formulario. */
-  tipoFijo?: ClienteTipoValue;
+  /** Si está definido, ES PINTOR no se elige en el formulario. */
+  esPintorFijo?: boolean;
   pintores?: ClienteItem[];
   direcciones?: EnviosDireccionItem[];
   /** Catálogo ARCA; si no se pasa, se carga al abrir el modal. */
@@ -72,7 +71,7 @@ export default function CrearEditarClienteModal({
   onOpenChange,
   modo,
   item = null,
-  tipoFijo,
+  esPintorFijo,
   pintores = [],
   direcciones = [],
   condicionesIva: condicionesIvaProp,
@@ -89,7 +88,7 @@ export default function CrearEditarClienteModal({
     condicionesIvaProp ?? []
   );
   const [cargarComoConsFinal, setCargarComoConsFinal] = useState(false);
-  const [tipo, setTipo] = useState<ClienteTipoValue>(tipoFijo ?? "CONSUMIDOR_FINAL");
+  const [esPintor, setEsPintor] = useState(esPintorFijo ?? false);
   const [pintorAsociadoId, setPintorAsociadoId] = useState<string | null>(null);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [direccionesLocal, setDireccionesLocal] = useState<EnviosDireccionItem[]>([]);
@@ -108,9 +107,9 @@ export default function CrearEditarClienteModal({
   const [deletingDireccion, setDeletingDireccion] = useState(false);
   const [consultandoArca, setConsultandoArca] = useState(false);
 
-  const tipoEfectivo = tipoFijo ?? tipo;
-  const muestraPintorAsociado = tipoEfectivo === "CONSUMIDOR_FINAL";
-  const muestraDirecciones = tipoEfectivo === "CONSUMIDOR_FINAL";
+  const esPintorEfectivo = esPintorFijo ?? esPintor;
+  const muestraPintorAsociado = !esPintorEfectivo;
+  const muestraDirecciones = !esPintorEfectivo;
 
   const condicionesIva = condicionesIvaProp ?? condicionesIvaLocal;
   const opcionesIva = useMemo(() => {
@@ -122,7 +121,7 @@ export default function CrearEditarClienteModal({
   }, [condicionesIva]);
 
   const pintoresDisponibles = useMemo(
-    () => pintores.filter((p) => p.tipo === "PINTOR" && p.id !== item?.id),
+    () => pintores.filter((p) => p.esPintor && p.id !== item?.id),
     [pintores, item?.id]
   );
 
@@ -154,9 +153,9 @@ export default function CrearEditarClienteModal({
           ? montoArNumberToNormalizedString(item.ctaCorrienteMontoMax)
           : ""
       );
-      setTipo(tipoFijo ?? item.tipo);
+      setEsPintor(esPintorFijo ?? item.esPintor);
       setCargarComoConsFinal(
-        (tipoFijo ?? item.tipo) === "CONSUMIDOR_FINAL" &&
+        !(esPintorFijo ?? item.esPintor) &&
           normalizarNombreCliente(item.nombreCompleto) === ""
       );
       setPintorAsociadoId(item.pintorAsociadoId);
@@ -171,18 +170,18 @@ export default function CrearEditarClienteModal({
     setCtaCorrientePlazo("");
     setCtaCorrienteMontoMaxNorm("");
     setCargarComoConsFinal(false);
-    setTipo(tipoFijo ?? "CONSUMIDOR_FINAL");
+    setEsPintor(esPintorFijo ?? false);
     setPintorAsociadoId(null);
     setClienteId(null);
     setDireccionesLocal([]);
     // Init al abrir: no re-sincronizar si el catálogo se refresca con el modal abierto.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- direcciones solo al abrir
-  }, [open, modo, item, tipoFijo, condicionesIvaProp]);
+  }, [open, modo, item, esPintorFijo, condicionesIvaProp]);
 
-  const tituloBase = tipoFijo === "PINTOR" || tipoEfectivo === "PINTOR" ? "Pintor" : "Cliente";
+  const tituloBase = esPintorEfectivo ? "Pintor" : "Cliente";
   const yaPersistido = Boolean(clienteId);
-  const esConsFinalCargado = tipoEfectivo === "CONSUMIDOR_FINAL" && cargarComoConsFinal;
-  const nombreRequerido = tipoEfectivo === "PINTOR" || !esConsFinalCargado;
+  const esConsFinalCargado = !esPintorEfectivo && cargarComoConsFinal;
+  const nombreRequerido = esPintorEfectivo || !esConsFinalCargado;
   const nombreValido = nombreRequerido ? normalizarNombreCliente(nombreCompleto) !== "" : true;
   const celValido = esConsFinalCargado ? cel.trim() !== "" : true;
   const cuitDigits = soloDigitos(cuitMasked);
@@ -224,12 +223,12 @@ export default function CrearEditarClienteModal({
   }
 
   async function persistirCliente(): Promise<ClienteItem | null> {
-    const tipoGuardar = tipoFijo ?? tipo;
+    const esPintorGuardar = esPintorFijo ?? esPintor;
     const payload = {
-      nombreCompleto: tipoGuardar === "CONSUMIDOR_FINAL" && cargarComoConsFinal ? "" : nombreCompleto,
+      nombreCompleto: !esPintorGuardar && cargarComoConsFinal ? "" : nombreCompleto,
       cel: normalizarCelCliente(cel),
-      tipo: tipoGuardar,
-      pintorAsociadoId: tipoGuardar === "CONSUMIDOR_FINAL" ? pintorAsociadoId : null,
+      esPintor: esPintorGuardar,
+      pintorAsociadoId: esPintorGuardar ? null : pintorAsociadoId,
       cuit: cuitDigits === "" ? null : cuitDigits,
       condicionIva: Number(condicionIva),
       ctaCorrientePlazo: ctaCorrientePlazo.trim() === "" ? null : Number(ctaCorrientePlazo),
@@ -334,7 +333,7 @@ export default function CrearEditarClienteModal({
               <label className="flex flex-col gap-1">
                 <ModalMicroLabel>NOMBRE</ModalMicroLabel>
                 <Input
-                  value={esConsFinalCargado ? "CONS. FINAL" : nombreCompleto}
+                  value={nombreCompleto}
                   onChange={(e) =>
                     setNombreCompleto(e.target.value.toLocaleUpperCase("es-AR"))
                   }
@@ -342,7 +341,7 @@ export default function CrearEditarClienteModal({
                   disabled={esConsFinalCargado}
                 />
               </label>
-              {tipoEfectivo === "CONSUMIDOR_FINAL" ? (
+              {!esPintorEfectivo ? (
                 <label className="inline-flex cursor-pointer items-center gap-2 self-start text-sm font-medium text-foreground select-none">
                   <input
                     type="checkbox"
@@ -351,8 +350,6 @@ export default function CrearEditarClienteModal({
                       const activo = e.target.checked;
                       setCargarComoConsFinal(activo);
                       if (activo) {
-                        setNombreCompleto("CONS. FINAL");
-                      } else if (normalizarNombreCliente(nombreCompleto) === "CONS. FINAL") {
                         setNombreCompleto("");
                       }
                     }}
@@ -361,7 +358,7 @@ export default function CrearEditarClienteModal({
                   <span className="flex h-5 w-5 items-center justify-center rounded-sm border-2 border-primary bg-white">
                     {cargarComoConsFinal ? <Check className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
                   </span>
-                  <span>Cargar como CONS. FINAL</span>
+                  <span>Cliente Sin Nombre - Identificado por Num. Celular</span>
                 </label>
               ) : null}
               <label className="flex flex-col gap-1">
@@ -374,20 +371,20 @@ export default function CrearEditarClienteModal({
                   disabled={saving}
                 />
               </label>
-              {tipoFijo ? null : (
+              {esPintorFijo == null ? (
                 <ModalSiNoChoice
                   label="ES PINTOR"
-                  value={tipo === "PINTOR"}
+                  value={esPintor}
                   disabled={saving}
-                  onChange={(esPintor) => {
-                    setTipo(esPintor ? "PINTOR" : "CONSUMIDOR_FINAL");
-                    if (esPintor) {
+                  onChange={(next) => {
+                    setEsPintor(next);
+                    if (next) {
                       setPintorAsociadoId(null);
                       setCargarComoConsFinal(false);
                     }
                   }}
                 />
-              )}
+              ) : null}
               {muestraPintorAsociado ? (
                 <div className="flex flex-col gap-2">
                   <ModalMicroLabel>PINTOR ASOCIADO</ModalMicroLabel>
@@ -652,7 +649,7 @@ export default function CrearEditarClienteModal({
             }}
             modo={modalFormPintor.open ? modalFormPintor.modo : "crear"}
             item={modalFormPintor.open ? modalFormPintor.item : null}
-            tipoFijo="PINTOR"
+            esPintorFijo
             condicionesIva={condicionesIva}
             onCatalogoChanged={onCatalogoChanged}
             onSuccess={(creado) => {

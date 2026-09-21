@@ -1716,12 +1716,6 @@ model ProdIaDisenoCatalogo {
   @@map("prod_ia_diseno_catalogo")
 }
 
-/** Tipo de fila en `clientes` (como máximo una de cada tipo por `envios_final`). */
-enum ClienteTipo {
-  CONSUMIDOR_FINAL
-  PINTOR
-}
-
 /** Forma de cobro del envío. `PAGADO` implica `envios_final.pagado = true`. */
 enum EnviosFormaPagado {
   PAGADO
@@ -1732,17 +1726,17 @@ enum EnviosFormaPagado {
 }
 
 /**
- * Catálogo de clientes de envío / facturación (`CONSUMIDOR_FINAL` o `PINTOR`).
- * `nombre_completo` se persiste en mayúsculas.
+ * Catálogo de clientes de envío / facturación.
+ * `es_pintor` TRUE/FALSE. `nombre_completo` se persiste en mayúsculas.
  * `cel` es opcional (puede persistirse vacío).
  * `cuit` opcional (11 dígitos). `condicion_iva` opcional → `condicion_iva_cod_arca.codigo`.
- * `pintor_asociado` solo aplica a `CONSUMIDOR_FINAL` y apunta a un `PINTOR` (CHECK SQL + servicio).
+ * `pintor_asociado` solo si `es_pintor = FALSE` y apunta a un cliente con `es_pintor = TRUE` (CHECK SQL + servicio).
  */
 model Cliente {
   id                String      @id @default(cuid())
   nombreCompleto    String      @map("nombre_completo")
   cel               String      @map("cel")
-  tipo              ClienteTipo @map("tipo")
+  esPintor          Boolean     @default(false) @map("es_pintor")
   /** CUIT 11 dígitos sin guiones (opcional). */
   cuit              String?     @map("cuit") @db.VarChar(11)
   /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
@@ -1763,7 +1757,7 @@ model Cliente {
   direcciones            EnviosDireccion[]
   comprobantesVtas       ComprobanteVta[]
 
-  @@index([tipo], map: "clientes_tipo_idx")
+  @@index([esPintor], map: "clientes_es_pintor_idx")
   @@index([nombreCompleto], map: "clientes_nombre_completo_idx")
   @@index([pintorAsociadoId], map: "clientes_pintor_asociado_idx")
   @@index([condicionIva], map: "clientes_condicion_iva_idx")
