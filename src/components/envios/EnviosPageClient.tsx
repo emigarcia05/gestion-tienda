@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CheckCheck, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, CheckCheck, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEnvioWizardModal from "@/components/envios/CrearEnvioWizardModal";
-import EnviosGestionarDireccionesModal from "@/components/envios/EnviosGestionarDireccionesModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -117,7 +116,6 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
   const [modalWizard, setModalWizard] = useState<
     { open: false } | { open: true; item: EnviosFinalListItem | null }
   >({ open: false });
-  const [modalDirecciones, setModalDirecciones] = useState(false);
   const [modalEliminar, setModalEliminar] = useState<
     { open: false } | { open: true; id: string; label: string }
   >({ open: false });
@@ -223,24 +221,14 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         subtitle="Programados"
         contentWidth="full"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              className="h-10 gap-2 px-4"
-              onClick={() => setModalDirecciones(true)}
-            >
-              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-              Gestionar Direcciones
-            </Button>
-            <Button
-              type="button"
-              className="h-10 gap-2 px-4"
-              onClick={() => setModalWizard({ open: true, item: null })}
-            >
-              <Plus className="h-4 w-4 shrink-0" aria-hidden />
-              Crear Envío
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="h-10 gap-2 px-4"
+            onClick={() => setModalWizard({ open: true, item: null })}
+          >
+            <Plus className="h-4 w-4 shrink-0" aria-hidden />
+            Crear Envío
+          </Button>
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
@@ -470,13 +458,6 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         </div>
       </ClassicFilteredTableLayout>
 
-      <EnviosGestionarDireccionesModal
-        open={modalDirecciones}
-        onOpenChange={setModalDirecciones}
-        clientesCatalogo={clientes}
-        direcciones={direcciones}
-        onCatalogoChanged={refresh}
-      />
       <CrearEnvioWizardModal
         open={modalWizard.open}
         onOpenChange={(open) => {

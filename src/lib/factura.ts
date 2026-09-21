@@ -202,6 +202,10 @@ export type FacturaComprobanteListItem = {
   nroComprobante: string;
   cliente: string;
   impTotal: number;
+  /** `imp_total` si es venta CC con saldo pendiente; si no, `null`. */
+  saldoPendiente: number | null;
+  /** Días hasta el vencimiento (`fecha` + `dias_vencimiento` − hoy AR); negativo si vencido. */
+  diasParaVencer: number | null;
   cae: string | null;
   caeVtoIso: string | null;
   resultado: string | null;

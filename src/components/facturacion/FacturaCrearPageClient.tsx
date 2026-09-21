@@ -57,7 +57,7 @@ import {
 } from "@/lib/factura";
 import {
   etiquetaNombreProyecto,
-  nombreCompletoCliente,
+  etiquetaClienteListado,
   nombrePintorAsociadoCliente,
   type ClienteItem,
   type ClienteListaItem,
@@ -238,8 +238,7 @@ export default function FacturaCrearPageClient({
   }
 
   function aplicarClienteSeleccionado(item: ClienteItem | ClienteListaItem) {
-    const nombre =
-      nombreCompletoCliente(item) || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+    const nombre = etiquetaClienteListado(item);
     const proyectos =
       "proyectos" in item ? item.proyectos : [];
     setClienteQActual(nombre);
@@ -736,8 +735,7 @@ export default function FacturaCrearPageClient({
                         >
                           {sugerenciasClientes.map((item, idx) => {
                             const activo = idx === clienteHighlight;
-                            const nombre =
-                              nombreCompletoCliente(item) || "CONSUMIDOR FINAL";
+                            const nombre = etiquetaClienteListado(item);
                             const pintor = nombrePintorAsociadoCliente(item) ?? "";
                             return (
                               <li

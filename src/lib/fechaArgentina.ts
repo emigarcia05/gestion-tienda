@@ -173,13 +173,26 @@ export function isoYmdFromPrismaDateOnly(d: Date): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function isoYmdToUtcNoonMs(isoYmd: string): number | null {
+  const [y, m, d] = isoYmd.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return Date.UTC(y, m - 1, d, 12, 0, 0);
+}
+
 /** Suma días calendario a `YYYY-MM-DD` (negocio en `TIMEZONE_ARGENTINA`). */
 export function addDaysToIsoYmdArgentina(isoYmd: string, deltaDays: number): string {
-  const [y, m, d] = isoYmd.split("-").map(Number);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return isoYmd;
-  const utc = Date.UTC(y, m - 1, d, 12, 0, 0);
+  const utc = isoYmdToUtcNoonMs(isoYmd);
+  if (utc == null) return isoYmd;
   const next = new Date(utc + deltaDays * 86400000);
   return dateToIsoYmdArgentina(next);
+}
+
+/** Días calendario (`toIso` − `fromIso`) sobre `YYYY-MM-DD` de negocio. */
+export function diffCalendarDaysIsoYmdArgentina(fromIso: string, toIso: string): number | null {
+  const from = isoYmdToUtcNoonMs(fromIso);
+  const to = isoYmdToUtcNoonMs(toIso);
+  if (from == null || to == null) return null;
+  return Math.round((to - from) / 86400000);
 }
 
 /** Etiqueta de mes para tablas: `MARZO 2026` (nombre del mes en mayúsculas + año). */

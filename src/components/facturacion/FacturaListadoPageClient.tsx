@@ -33,7 +33,7 @@ import {
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
-import { fmtPrecio } from "@/lib/format";
+import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -72,6 +72,8 @@ export default function FacturaListadoPageClient({
           item.cae ?? "",
           FACTURA_TIPO_LABELS[item.tipo],
           item.letra ?? "",
+          item.saldoPendiente != null ? String(item.saldoPendiente) : "",
+          item.diasParaVencer != null ? String(item.diasParaVencer) : "",
         ],
         qDebounced
       )
@@ -128,7 +130,7 @@ export default function FacturaListadoPageClient({
   }
 
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 8 : 5;
+  const colSpan = esFacturas ? 10 : 5;
 
   return (
     <ClassicFilteredTableLayout
@@ -172,6 +174,16 @@ export default function FacturaListadoPageClient({
               <TableHead>CLIENTE</TableHead>
               <TableHead className="text-right">TOTAL</TableHead>
               {esFacturas ? <TableHead>CAE</TableHead> : null}
+              {esFacturas ? (
+                <TableHead className="tabla-bloque-secundario-head-divider text-right">
+                  SALDO PEND.
+                </TableHead>
+              ) : null}
+              {esFacturas ? (
+                <TableHead className="tabla-bloque-secundario-head text-center">
+                  DÍAS P/ VENC.
+                </TableHead>
+              ) : null}
               <TableHead className="tabla-bloque-secundario-head-divider text-center">
                 ACCIONES
               </TableHead>
@@ -208,6 +220,27 @@ export default function FacturaListadoPageClient({
                   </TableCell>
                   {esFacturas ? (
                     <TableCell className="tabular-nums">{item.cae ?? "—"}</TableCell>
+                  ) : null}
+                  {esFacturas ? (
+                    <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
+                      {item.saldoPendiente != null
+                        ? `$${fmtPrecio(item.saldoPendiente)}`
+                        : fmtCelda("")}
+                    </TableCell>
+                  ) : null}
+                  {esFacturas ? (
+                    <TableCell
+                      className={cn(
+                        "celda-datos text-center tabular-nums tabla-bloque-secundario-cell",
+                        item.diasParaVencer != null &&
+                          item.diasParaVencer < 0 &&
+                          "text-destructive"
+                      )}
+                    >
+                      {item.diasParaVencer != null
+                        ? String(item.diasParaVencer)
+                        : fmtCelda("")}
+                    </TableCell>
                   ) : null}
                   <TableCell className="tabla-bloque-secundario-cell-divider">
                     <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

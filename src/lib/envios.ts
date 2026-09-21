@@ -137,11 +137,25 @@ export function nombreCompletoCliente(cliente: {
   return normalizarNombreCliente(cliente.nombreCompleto);
 }
 
+export const ETIQUETA_CLIENTE_SIN_NOMBRE = "SIN NOMBRE";
+
 export function esConsumidorFinalSinNombre(cliente: {
   esPintor: boolean;
   nombreCompleto: string;
 }): boolean {
   return !cliente.esPintor && normalizarNombreCliente(cliente.nombreCompleto) === "";
+}
+
+export function etiquetaClienteSinNombrePorCel(cel: string): string {
+  const n = cel.trim();
+  return n === "" ? ETIQUETA_CLIENTE_SIN_NOMBRE : `${ETIQUETA_CLIENTE_SIN_NOMBRE} (${n})`;
+}
+
+/** Token de búsqueda (p. ej. `SIN` / `NOMBRE`) contra la etiqueta `SIN NOMBRE`. */
+export function tokenCoincideClienteSinNombre(token: string): boolean {
+  const t = token.trim().toLocaleUpperCase("es-AR");
+  if (t.length < 3) return false;
+  return ETIQUETA_CLIENTE_SIN_NOMBRE.includes(t);
 }
 
 export function etiquetaClienteListado(cliente: {
@@ -150,7 +164,7 @@ export function etiquetaClienteListado(cliente: {
   cel: string;
 }): string {
   if (esConsumidorFinalSinNombre(cliente)) {
-    return cliente.cel.trim();
+    return etiquetaClienteSinNombrePorCel(cliente.cel);
   }
   return nombreCompletoCliente(cliente);
 }
@@ -163,13 +177,13 @@ export function partesNombreClienteListado(cliente: {
   if (!esConsumidorFinalSinNombre(cliente)) {
     return { principal: nombreCompletoCliente(cliente) };
   }
-  return { principal: cliente.cel.trim() };
+  return { principal: etiquetaClienteSinNombrePorCel(cliente.cel) };
 }
 
 /**
  * Listados de clientes:
  * 1) con nombre (A-Z)
- * 2) sin nombre (identificados por CEL), ordenados por cel.
+ * 2) sin nombre (`SIN NOMBRE (CEL)`), ordenados por cel.
  */
 export function compararClientesParaListado(
   a: Pick<ClienteResumen, "nombreCompleto" | "cel">,

@@ -51,13 +51,13 @@ export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaS
 
 /**
  * Búsqueda typeahead de clientes para Factura · Crear.
- * Tokens separados por espacio: AND sobre nombre / cel / cuit.
+ * Tokens separados por espacio: AND sobre nombre / CEL / CUIT / `SIN NOMBRE`.
  */
 export const buscarClientesFacturaSchema = z.object({
   q: z
     .string()
     .trim()
-    .min(3, "Escribí al menos 3 letras.")
+    .min(3, "Escribí al menos 3 caracteres.")
     .max(200),
   take: z.coerce.number().int().min(1).max(10).optional().default(10),
 });

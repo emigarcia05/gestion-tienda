@@ -5,6 +5,7 @@ import {
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
+  tokenCoincideClienteSinNombre,
   type ClienteItem,
   type ClienteListaItem,
   type ClienteResumen,
@@ -226,7 +227,8 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
 }
 
 /**
- * Typeahead Factura · Crear: tokens AND sobre nombre / cel / cuit / nombre del pintor asociado.
+ * Typeahead Factura · Crear: tokens AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
+ * Incluye clientes con nombre vacío si tienen CEL (trazables al agregar nombre después).
  */
 export async function buscarClientesParaFactura(params: {
   q: string;
@@ -245,7 +247,12 @@ export async function buscarClientesParaFactura(params: {
   try {
     const where: Prisma.ClienteWhereInput = {
       AND: [
-        { nombreCompleto: { not: "" } },
+        {
+          OR: [
+            { nombreCompleto: { not: "" } },
+            { AND: [{ nombreCompleto: "" }, { cel: { not: "" } }] },
+          ],
+        },
         ...tokens.map((t) => {
           const digitos = soloDigitos(t);
           const or: Prisma.ClienteWhereInput[] = [
@@ -259,6 +266,9 @@ export async function buscarClientesParaFactura(params: {
           if (digitos.length > 0) {
             or.push({ cel: { contains: digitos } });
             or.push({ cuit: { contains: digitos } });
+          }
+          if (tokenCoincideClienteSinNombre(t)) {
+            or.push({ AND: [{ nombreCompleto: "" }, { cel: { not: "" } }] });
           }
           return { OR: or };
         }),
@@ -294,12 +304,14 @@ export async function buscarClientesParaFactura(params: {
     return {
       success: true,
       data: {
-        items: await conSaldoCuentaCorriente(
-          rows.map((row) => ({
-            ...mapRow(row),
-            proyectos: row.direcciones.map(mapEnviosDireccionItem),
-          }))
-        ),
+        items: (
+          await conSaldoCuentaCorriente(
+            rows.map((row) => ({
+              ...mapRow(row),
+              proyectos: row.direcciones.map(mapEnviosDireccionItem),
+            }))
+          )
+        ).sort(compararClientesParaListado),
       },
     };
   } catch (e) {
