@@ -91,7 +91,8 @@ function fmtNominalCuenta(
   return tipo === "descuento" ? `−${monto}` : `+${monto}`;
 }
 
-const LINEA_DESCUENTOS_RECARGOS_CLASS = "border-b border-primary";
+const LINEA_TOTAL_CON_DESCUENTOS_CLASS =
+  "border-t border-primary bg-muted/50";
 const REGLA_ANULADA_CLASS = "text-muted-foreground line-through";
 const HUECO_INFO_CLASS = "flex h-7 w-7 shrink-0 items-center justify-center";
 
@@ -137,13 +138,11 @@ function FilaReglaAplicada({
   descuento,
   pxPromo,
   onVerRegla,
-  className,
 }: {
   fila: FilaListaPrecioParaCliente;
   descuento: DescuentoActivoListaPrecio;
   pxPromo: number | null;
   onVerRegla: (descuento: DescuentoActivoListaPrecio) => void;
-  className?: string;
 }) {
   const esDescuento = descuento.tipo === "descuento";
   const hayPromo = pxPromo != null && pxPromo > 0;
@@ -152,7 +151,6 @@ function FilaReglaAplicada({
 
   return (
     <TableRow
-      className={className}
       title={anuladoPorPromo ? "No aplicado: hay Px. Promo Fijo" : undefined}
     >
       <TableCell
@@ -209,17 +207,15 @@ function FilaReglaAplicada({
 function FilaDescPxPromoFijo({
   pxLista,
   pxPromo,
-  className,
 }: {
   pxLista: number;
   pxPromo: number;
-  className?: string;
 }) {
   const monto = Math.max(0, pxLista - pxPromo);
   const pct = pxLista > 0 ? (monto / pxLista) * 100 : null;
 
   return (
-    <TableRow className={className}>
+    <TableRow>
       <TableCell className="celda-datos text-left font-normal">
         DESC. PX. PROMO FIJO
       </TableCell>
@@ -273,11 +269,14 @@ export default function DescuentosAplicadosListaPreciosModal({
     return n > 0 ? n : null;
   }, [pxPromoFijoNorm]);
   const hayPromoVista = pxPromoVista != null;
-  const hayBloqueDescuentos = reglasDescuento.length > 0 || hayPromoVista;
-  const lineaTrasDescuentos =
-    hayBloqueDescuentos && reglasRecargo.length > 0;
   const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
   const mostrarBasura = puedeEditar && (hayPromoPersistido || hayValorPromoInput);
+  const totalConDescuentos =
+    fila == null
+      ? null
+      : hayPromoVista && pxPromoVista != null
+        ? pxPromoVista
+        : fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -438,35 +437,32 @@ export default function DescuentosAplicadosListaPreciosModal({
                   </TableRow>
                   {reglasDescuento.length > 0 || hayPromoVista ? (
                     <>
-                      {reglasDescuento.map((descuento, i) => (
+                      {reglasDescuento.map((descuento) => (
                         <FilaReglaAplicada
                           key={descuento.campo}
                           fila={fila}
                           descuento={descuento}
                           pxPromo={pxPromoVista}
                           onVerRegla={onVerRegla}
-                          className={
-                            lineaTrasDescuentos &&
-                            !hayPromoVista &&
-                            i === reglasDescuento.length - 1
-                              ? LINEA_DESCUENTOS_RECARGOS_CLASS
-                              : undefined
-                          }
                         />
                       ))}
                       {pxPromoVista != null ? (
                         <FilaDescPxPromoFijo
                           pxLista={fila.pxListaProveedor}
                           pxPromo={pxPromoVista}
-                          className={
-                            lineaTrasDescuentos
-                              ? LINEA_DESCUENTOS_RECARGOS_CLASS
-                              : undefined
-                          }
                         />
                       ) : null}
                     </>
                   ) : null}
+                  <TableRow className={LINEA_TOTAL_CON_DESCUENTOS_CLASS}>
+                    <TableCell className="celda-datos text-left font-semibold">
+                      TOTAL CON DESCUENTOS
+                    </TableCell>
+                    <TableCell className="celda-datos celda-numero text-center font-semibold">
+                      {fmtPesos(totalConDescuentos)}
+                    </TableCell>
+                    <TableCell className="celda-datos" />
+                  </TableRow>
                   {reglasRecargo.map((descuento) => (
                     <FilaReglaAplicada
                       key={descuento.campo}
