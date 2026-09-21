@@ -11,6 +11,7 @@ import GestionarCuotasFinAnaCosFinaModal from "@/components/finanzas/GestionarCu
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
+  FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
@@ -25,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { filtrarPagosCostosFinancieros, type FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
@@ -151,8 +153,9 @@ export default function FinAnaCosFinaPageClient({
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilterRowSelection>
-              <FilaFiltrosDesplegables>
+            <FilterRowSelection className="flex-nowrap">
+              <div className="min-w-0 flex-1">
+                <FilaFiltrosDesplegables>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={filtroHabilitado === "si" || filtroHabilitado === "no"}
@@ -274,14 +277,16 @@ export default function FinAnaCosFinaPageClient({
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-              </FilaFiltrosDesplegables>
+                </FilaFiltrosDesplegables>
+              </div>
+              <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "shrink-0 gap-2")}>
+                <span className={FILTER_COUNT_CLASS}>
+                  {filasFiltradas.length.toLocaleString("es-AR")} COMBINACIÓN
+                  {filasFiltradas.length === 1 ? "" : "ES"}
+                </span>
+                <LimpiarFiltrosButton onClick={limpiarFiltros} />
+              </div>
             </FilterRowSelection>
-            <div className="flex items-center justify-end gap-3">
-              <span className={FILTER_COUNT_CLASS}>
-                {filasFiltradas.length} COMBINACIÓN(ES)
-              </span>
-              <LimpiarFiltrosButton onClick={limpiarFiltros} />
-            </div>
           </FilterBar>
         }
         filtersAriaLabel="Filtros de costos financieros"

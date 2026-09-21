@@ -21,6 +21,7 @@ import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
 
 interface Props {
   open: boolean;
@@ -35,10 +36,6 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   "h-9 w-9 min-h-9 max-h-9"
 );
-
-function toggleEntidadId(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-}
 
 export default function GestionarPagosFinAnaCosFinaModal({
   open,
@@ -393,39 +390,24 @@ export default function GestionarPagosFinAnaCosFinaModal({
               onChange={setFormAceptaCuotas}
               disabled={pending}
             />
-            <div className="flex flex-col gap-2">
-              <ModalMicroLabel>Entidades (mínimo 1)</ModalMicroLabel>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>ENTIDADES</ModalMicroLabel>
               {entidades.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No hay entidades. Creá una desde Gestionar Entidades.
                 </p>
               ) : (
-                <ul className="max-h-[min(16rem,40vh)] space-y-1.5 overflow-y-auto pr-1">
-                  {entidades.map((entidad) => {
-                    const checked = formEntidadIds.includes(entidad.id);
-                    return (
-                      <li key={entidad.id}>
-                        <label
-                          className={cn(
-                            "flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm",
-                            checked ? "border-primary bg-primary/5" : "bg-card"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            className="size-4 shrink-0 accent-primary"
-                            checked={checked}
-                            disabled={pending}
-                            onChange={() =>
-                              setFormEntidadIds((prev) => toggleEntidadId(prev, entidad.id))
-                            }
-                          />
-                          <span className="min-w-0 truncate font-medium">{entidad.nombre}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <FiltroMultiSelect
+                  opciones={entidades.map((entidad) => ({
+                    value: entidad.id,
+                    label: entidad.nombre,
+                  }))}
+                  selected={formEntidadIds}
+                  onChange={setFormEntidadIds}
+                  placeholder="SELECCIONAR ENTIDADES"
+                  ariaLabel="Entidades"
+                  disabled={pending}
+                />
               )}
             </div>
           </div>

@@ -35,6 +35,26 @@ enum TenenciaChequeTesoreria {
 }
 
 /**
+ * Tipo de movimiento en el ledger `tesoreria_movimientos`.
+ * El saldo de una caja será la suma de `monto` (firmado) de sus movimientos.
+ */
+enum TipoMovimientoTesoreria {
+  COBRO
+  NOTA_CREDITO_VENTA
+  PAGO
+  ARQUEO
+  TRANSFERENCIA_ENTRE_CAJAS
+}
+
+/** Subtipo cuando `tipo = PAGO` (proveedores, personal, gastos, etc.). */
+enum CategoriaPagoTesoreria {
+  PROVEEDOR
+  PERSONAL
+  GASTO
+  OTRO
+}
+
+/**
  * Política de IVA por proveedor (`global_proveedores.iva`).
  * - SIEMPRE  : el proveedor siempre factura con IVA.
  * - NUNCA    : el proveedor nunca factura con IVA.
@@ -410,7 +430,8 @@ model FinTesoreriaTipoCaja {
   @@map("tesoreria_tipo_caja")
 }
 
-// Cajas de tesorería con saldo actual y marca temporal del último cambio de saldo.
+// Cajas de tesorería. `monto` / `ult_actualizacion` siguen como caché legacy;
+// el SSOT del saldo pasará a ser SUM(`tesoreria_movimientos.monto`) por caja.
 model CajaTesoreria {
   id               String            @id @default(cuid())
   entidadId        String            @map("entidad_id")
@@ -432,12 +453,53 @@ model CajaTesoreria {
   cheques                        FinTesoreriaCheque[]
   chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
   cobrosPorSucursalDestino       CobrosPorSucursal[]
+  movimientos                    TesoreriaMovimiento[] @relation("MovimientoCaja")
+  movimientosComoContraparte     TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
   @@index([entidadId], map: "tesoreria_cajas_entidad_id_idx")
   @@index([sucursalId], map: "tesoreria_cajas_sucursal_id_idx")
   @@map("tesoreria_cajas")
+}
+
+/**
+ * Ledger de movimientos por caja (`tesoreria_movimientos`).
+ * Una fila afecta **una** caja (`caja_id`). `monto` firmado: positivo = ingreso, negativo = egreso.
+ * - COBRO: +
+ * - NOTA_CREDITO_VENTA: −
+ * - PAGO: − (detalle en `categoria_pago`)
+ * - ARQUEO: delta +/−
+ * - TRANSFERENCIA_ENTRE_CAJAS: dos filas con el mismo `transferencia_grupo_id`
+ *   (origen −monto, destino +monto); `caja_contraparte_id` apunta a la otra caja.
+ */
+model TesoreriaMovimiento {
+  id                   String                   @id @default(cuid())
+  cajaId               String                   @map("caja_id")
+  caja                 CajaTesoreria            @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  tipo                 TipoMovimientoTesoreria
+  /** Obligatorio en servicio si `tipo = PAGO`; null en el resto. */
+  categoriaPago        CategoriaPagoTesoreria?  @map("categoria_pago")
+  /** Importe firmado (≠ 0). CHECK en SQL. */
+  monto                Int
+  /** Fecha de negocio (calendario Argentina). */
+  fecha                DateTime                 @map("fecha") @db.Date
+  observacion          String                   @default("") @map("observacion") @db.Text
+  /** Pareja de piernas en TRANSFERENCIA_ENTRE_CAJAS. */
+  transferenciaGrupoId String?                  @map("transferencia_grupo_id")
+  /** La otra caja en una transferencia (informativo / UI). */
+  cajaContraparteId    String?                  @map("caja_contraparte_id")
+  cajaContraparte      CajaTesoreria?           @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+
+  @@index([cajaId, fecha], map: "tesoreria_movimientos_caja_fecha_idx")
+  @@index([tipo], map: "tesoreria_movimientos_tipo_idx")
+  @@index([fecha], map: "tesoreria_movimientos_fecha_idx")
+  @@index([transferenciaGrupoId], map: "tesoreria_movimientos_transferencia_grupo_idx")
+  @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
+  @@index([categoriaPago], map: "tesoreria_movimientos_categoria_pago_idx")
+  @@map("tesoreria_movimientos")
 }
 
 // Cheques asociados a una caja de tesorería tipo CHEQUE. El disponible para totales

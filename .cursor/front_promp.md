@@ -40,7 +40,7 @@ Idioma de la app y de la UI: **español (Argentina)**. Código, comentarios y do
 ### Primitivos UI (`src/components/ui/` — no reinventar)
 `button`, `input`, `select`, `dialog`, `table`, `card`, `badge`, `label`, `separator`, `switch`, `tooltip`, `collapsible`, `sonner`.
 
-Selects: prohibido `<select>` nativo. `Select` shadcn; `SelectContent` incluye buscador **BUSCAR...**. Valor vacío: sentinel `"none"` / `"todos"` (Radix no admite `""`). Triggers de filtro: `SELECT_TRIGGER_FILTER_CLASS` + `className="select-content-filtro"` `position="popper" side="bottom" align="start"`.
+Selects / listas desplegables: prohibido `<select>` nativo y `<select multiple>`. Elegir **una**: `Select` shadcn (`SelectContent` con buscador **BUSCAR...**). Elegir **una o más**: `FiltroMultiSelect` (trigger `SELECT_TRIGGER_FILTER_CLASS` + panel portal `z-[90]` + buscador; checkboxes **dentro** del panel). No lista siempre visible de recuadros con checkbox. Valor vacío: sentinel `"none"` / `"todos"` (Radix no admite `""`). Triggers de filtro: `SELECT_TRIGGER_FILTER_CLASS` + `className="select-content-filtro"` `position="popper" side="bottom" align="start"`.
 
 ### Datos en el borde de la UI (no negocio)
 | Pieza | Uso frontend |
@@ -75,6 +75,7 @@ Selects: prohibido `<select>` nativo. `Select` shadcn; `SelectContent` incluye b
 | Cualquier UI nueva o cambio visual | `docs/FRONTEND_GUIDELINES.md` — **Guía para IA** + **§4 Checklist** |
 | Página con tabla/filtros | **§1.1–1.3** |
 | Modal | **§1.4** + `AppModal` / `ModalTablaConFiltros` en **§2.3** |
+| Lista desplegable (elegir una o varias) | **Guía para IA** punto 8 + `FiltroMultiSelect` en **§1.2** / **§2.3** |
 | Checklist de ítem en tabla | **§1.3** Control de ítem |
 | Finder (columnas de catálogo) | **§1.5** |
 | Sidebar / áreas / URLs | **§1.6–1.7** |
@@ -134,13 +135,14 @@ Página con tabla
 - Vacío: `TableEmptyState`. Ícono de fila: `variant="ghost"` `size="icon"` + `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`
 - Búsqueda: `useFiltrosConBusqueda` + `FiltroBusquedaInput` (no reimplementar debounce ni foco)
 - Fila de Selects: default 5 columnas; `columnas={6}` solo con 6 Selects. `LimpiarFiltrosButton` siempre visible en página
+- Elegir una o más: `FiltroMultiSelect`. No `<ul>` de checkboxes a la vista.
 
 Modales
 - Formulario / confirmación: `AppModal` dentro de `Dialog`
 - Tabla + filtros + selección: `ModalTablaConFiltros`
 - Botones: `Button` shadcn (`default` / `outline`). Configuración TRUE/FALSE o SÍ/NO: `ModalSiNoChoice` (etiqueta MAYÚSCULAS + `Switch`; sin texto de ayuda). No pares SÍ/NO ni Select SI/NO si el valor ya es booleano.
 - Labels: `text-foreground` (`ModalMicroLabel`). Títulos de modal: MAYÚSCULAS
-- No `max-w-*` extra si coincide con `size`. No apilar dos `Dialog` a la vez (stacking: overlay `z-[80]` / typeahead `z-[70]` / Select en modal `z-[90]`)
+- No `max-w-*` extra si coincide con `size`. No apilar dos `Dialog` a la vez (stacking: overlay `z-[80]` / typeahead `z-[70]` / Select y `FiltroMultiSelect` en modal `z-[90]`)
 
 Texto (Guía para IA punto 11)
 - Sidebar: módulo MAYÚSCULAS, submódulo Title Case
@@ -167,7 +169,7 @@ Excepción hex (no copiar)
 ## 6. PROHIBIDO
 
 - Inventar clases globales, tokens o variantes CVA sin documentarlas en `FRONTEND_GUIDELINES` §2
-- Paletas genéricas, breakpoints responsive, `<select>` nativo, `window.location.href`, template literals en `className`
+- Paletas genéricas, breakpoints responsive, `<select>` nativo, `<select multiple>`, lista siempre visible de checkboxes para elegir catálogo, `window.location.href`, template literals en `className`
 - Cascarón `h-screen flex…` duplicado; sombra mágica en Card de tabla
 - Recuadro gris (`border-border` / `--gris-inset`) en `Input`, `SelectTrigger`, `textarea` o combobox (el contorno de campo es `--primary`)
 - `<button>` suelto en páginas/modales (usar `Button`). Excepciones: celdas de calendario, checkbox de tabla, `TooltipTrigger`, barras de gráfico, dock/sidebar, trigger de multi-select, `.boton-encubierto`
@@ -215,7 +217,7 @@ Al cerrar, listá en la respuesta: archivos de código tocados + secciones de do
 - [ ] Contorno de campos: `Input` / `Select` / `textarea` / combobox = `1px` `--primary` (`border-input`). Lectura clicable: `.boton-encubierto`
 - [ ] Íconos de fila: `TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS`. Toolbar ícono+label: `ToolbarActionButton`
 - [ ] MAYÚSCULAS / Title Case / abreviaturas con punto
-- [ ] Labels de modal en `text-foreground`
+- [ ] Labels de modal en `text-foreground`. Elegir una o más: `Select` / `FiltroMultiSelect` (no lista visible de checkboxes)
 - [ ] lucide-react + sonner + Geist. Sin `any`. Zod en el borde si hay input
 - [ ] Clase global o shared nuevo → **§2**. Comportamiento único de pantalla → **§3**
 - [ ] `npx eslint src --max-warnings 0` limpio

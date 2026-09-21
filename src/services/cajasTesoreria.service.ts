@@ -401,6 +401,17 @@ export async function eliminarCajaTesoreria(id: string): Promise<ServiceResult<v
         error: "Primero hay que transferir o eliminar los cheques asociados a esta caja.",
       };
     }
+    const movimientosAsociados = await prisma.tesoreriaMovimiento.count({
+      where: {
+        OR: [{ cajaId: id }, { cajaContraparteId: id }],
+      },
+    });
+    if (movimientosAsociados > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: la caja tiene movimientos de tesorería registrados.",
+      };
+    }
     await prisma.cajaTesoreria.delete({ where: { id } });
     return { success: true, data: undefined };
   } catch (error: unknown) {
