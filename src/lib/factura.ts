@@ -206,12 +206,20 @@ export type FacturaComprobanteListItem = {
   saldoPendiente: number | null;
   /** Días hasta el vencimiento (`fecha` + `dias_vencimiento` − hoy AR); negativo si vencido. */
   diasParaVencer: number | null;
+  /** Códigos de `sucursales` asociadas al pto. vta. del comprobante (`global_pto_vta_sucursales`). */
+  sucursalCodigos: string[];
   cae: string | null;
   caeVtoIso: string | null;
   resultado: string | null;
   estado: FacturaComprobanteEstado;
   ambiente: string;
   puedeNc: boolean;
+};
+
+/** Opción del filtro SUCURSAL en Lista Comprobantes / Presupuestos. */
+export type FacturaSucursalFiltroOption = {
+  codigo: string;
+  nombre: string;
 };
 
 export type FacturaPtoVtaOpcion = {

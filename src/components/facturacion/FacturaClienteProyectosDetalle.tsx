@@ -54,7 +54,7 @@ export default function FacturaClienteProyectosDetalle({
           >
             <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
             <TableCell
-              colSpan={7}
+              colSpan={6}
               className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}
             >
               <div

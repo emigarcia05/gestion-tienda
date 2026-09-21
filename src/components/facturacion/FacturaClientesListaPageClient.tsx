@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { ChevronDown, ChevronUp, Paintbrush, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import FilterBar, {
@@ -49,7 +49,7 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-const COL_SPAN = 9;
+const COL_SPAN = 8;
 
 type ModalCliente = { open: false } | { open: true; modo: "crear" | "editar"; item: ClienteListaItem | null };
 type ModalProyecto =
@@ -107,6 +107,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         [
           etiquetaClienteListado(item),
           etiquetaEsPintor(item.esPintor),
+          item.esPintor ? "PINTOR" : "",
           item.cuit ?? "",
           item.cuit ? formatearCuitMascara(item.cuit) : "",
           item.cel,
@@ -170,7 +171,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-clientes-lista-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, CUIT, CEL, ES PINTOR O PROYECTO..."
+                  placeholder="BUSCAR POR NOMBRE, CUIT, CEL, PINTOR O PROYECTO..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -190,19 +191,17 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
               <col className="w-[18%]" />
-              <col className="w-[10%]" />
               <col className="w-[12%]" />
               <col className="w-[14%]" />
               <col className="w-[10%]" />
               <col className="w-[10%]" />
               <col className="w-[8%]" />
-              <col className="w-[10%]" />
-              <col className="w-[8%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>CLIENTE</TableHead>
-                <TableHead className="text-center">ES PINTOR</TableHead>
                 <TableHead className="text-center">CUIT</TableHead>
                 <TableHead>COND. IVA</TableHead>
                 <TableHead className="text-center">CEL</TableHead>
@@ -244,9 +243,6 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                         <TableCell className="celda-datos font-medium uppercase">
                           {nombre}
                         </TableCell>
-                        <TableCell className="celda-datos text-center">
-                          {etiquetaEsPintor(item.esPintor)}
-                        </TableCell>
                         <TableCell className="celda-datos text-center tabular-nums">
                           {item.cuit ? formatearCuitMascara(item.cuit) : fmtCelda("")}
                         </TableCell>
@@ -270,65 +266,90 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                             : fmtCelda("")}
                         </TableCell>
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
-                          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                            {esPintor ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                title={
-                                  expandidoAsociados
+                          <div
+                            className={cn(
+                              TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                              "flex-nowrap"
+                            )}
+                          >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                                !esPintor && "invisible"
+                              )}
+                              disabled={!esPintor}
+                              tabIndex={esPintor ? undefined : -1}
+                              aria-hidden={!esPintor}
+                              title={
+                                !esPintor
+                                  ? undefined
+                                  : expandidoAsociados
                                     ? "Ocultar clientes asociados"
                                     : "Ver clientes asociados"
-                                }
-                                aria-label={
-                                  expandidoAsociados
+                              }
+                              aria-label={
+                                !esPintor
+                                  ? undefined
+                                  : expandidoAsociados
                                     ? `Ocultar clientes asociados de ${nombre}`
                                     : `Ver clientes asociados de ${nombre}`
-                                }
-                                aria-expanded={expandidoAsociados}
-                                onClick={() =>
-                                  setExpanded((prev) =>
-                                    prev?.id === item.id && prev.kind === "asociados"
-                                      ? null
-                                      : { id: item.id, kind: "asociados" }
-                                  )
-                                }
-                              >
-                                <Users className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                              </Button>
-                            ) : null}
-                            {tieneVariosProyectos ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                title={
-                                  expandidoProyectos ? "Ocultar proyectos" : "Ver proyectos"
-                                }
-                                aria-label={
-                                  expandidoProyectos
+                              }
+                              aria-expanded={esPintor ? expandidoAsociados : undefined}
+                              onClick={() =>
+                                setExpanded((prev) =>
+                                  prev?.id === item.id && prev.kind === "asociados"
+                                    ? null
+                                    : { id: item.id, kind: "asociados" }
+                                )
+                              }
+                            >
+                              <Paintbrush className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                                !tieneVariosProyectos && "invisible"
+                              )}
+                              disabled={!tieneVariosProyectos}
+                              tabIndex={tieneVariosProyectos ? undefined : -1}
+                              aria-hidden={!tieneVariosProyectos}
+                              title={
+                                !tieneVariosProyectos
+                                  ? undefined
+                                  : expandidoProyectos
+                                    ? "Ocultar proyectos"
+                                    : "Ver proyectos"
+                              }
+                              aria-label={
+                                !tieneVariosProyectos
+                                  ? undefined
+                                  : expandidoProyectos
                                     ? `Ocultar proyectos de ${nombre}`
                                     : `Ver proyectos de ${nombre}`
-                                }
-                                aria-expanded={expandidoProyectos}
-                                onClick={() =>
-                                  setExpanded((prev) =>
-                                    prev?.id === item.id && prev.kind === "proyectos"
-                                      ? null
-                                      : { id: item.id, kind: "proyectos" }
-                                  )
-                                }
-                              >
-                                {expandidoProyectos ? (
-                                  <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                                ) : (
-                                  <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                                )}
-                              </Button>
-                            ) : null}
+                              }
+                              aria-expanded={
+                                tieneVariosProyectos ? expandidoProyectos : undefined
+                              }
+                              onClick={() =>
+                                setExpanded((prev) =>
+                                  prev?.id === item.id && prev.kind === "proyectos"
+                                    ? null
+                                    : { id: item.id, kind: "proyectos" }
+                                )
+                              }
+                            >
+                              {expandidoProyectos ? (
+                                <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                              ) : (
+                                <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                              )}
+                            </Button>
                             <Button
                               type="button"
                               variant="ghost"

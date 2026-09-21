@@ -5,6 +5,7 @@ import {
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
   type FacturaPtoVtaOpcion,
+  type FacturaSucursalFiltroOption,
   type FacturaTipo,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
@@ -66,6 +67,9 @@ function mapListItem(
     estado: string;
     ambiente: string;
     notasCredito: { id: string }[];
+    ptoVta: {
+      sucursales: { sucursal: { codigo: string } }[];
+    };
   },
   hoyIso: string
 ): FacturaComprobanteListItem {
@@ -94,6 +98,9 @@ function mapListItem(
     impTotal,
     saldoPendiente,
     diasParaVencer,
+    sucursalCodigos: [
+      ...new Set(row.ptoVta.sucursales.map((link) => link.sucursal.codigo)),
+    ],
     cae: row.cae,
     caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
     resultado: row.resultado,
@@ -123,7 +130,28 @@ const listSelect = {
   estado: true,
   ambiente: true,
   notasCredito: { select: { id: true }, take: 1 },
+  ptoVta: {
+    select: {
+      sucursales: {
+        select: { sucursal: { select: { codigo: true } } },
+      },
+    },
+  },
 } as const;
+
+export async function listarSucursalesFiltroFacturas(): Promise<
+  FacturaSucursalFiltroOption[]
+> {
+  const rows = await prisma.sucursal.findMany({
+    where: { generaEst: true },
+    select: { codigo: true, nombre: true },
+    orderBy: { nombre: "asc" },
+  });
+  return rows.map((r) => ({
+    codigo: r.codigo,
+    nombre: r.nombre.toLocaleUpperCase("es-AR"),
+  }));
+}
 
 export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion[]> {
   const rows = await prisma.globalPtoVta.findMany({

@@ -24,7 +24,7 @@ export default function FacturaClienteAsociadosDetalle({ asociados }: Props) {
       >
         <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
         <TableCell
-          colSpan={8}
+          colSpan={7}
           className={cn("celda-datos text-xs text-muted-foreground", SUBFILA_CELDA_BLOQUE_CLASS)}
         >
           NO HAY CLIENTES ASOCIADOS.
@@ -49,7 +49,7 @@ export default function FacturaClienteAsociadosDetalle({ asociados }: Props) {
           >
             <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
             <TableCell
-              colSpan={8}
+              colSpan={7}
               className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}
             >
               <span className="block truncate text-xs text-foreground" title={nombre}>

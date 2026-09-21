@@ -3,7 +3,10 @@ import FacturaListadoPageClient from "@/components/facturacion/FacturaListadoPag
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
-import { listarPresupuestosComprobantes } from "@/services/facturaComprobantesListado.service";
+import {
+  listarPresupuestosComprobantes,
+  listarSucursalesFiltroFacturas,
+} from "@/services/facturaComprobantesListado.service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +16,18 @@ export default async function FacturaPresupuestosPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const items = await listarPresupuestosComprobantes();
+  const [items, sucursales] = await Promise.all([
+    listarPresupuestosComprobantes(),
+    listarSucursalesFiltroFacturas(),
+  ]);
 
   return (
     <div className="area-page-shell">
-      <FacturaListadoPageClient items={items} variant="presupuestos" />
+      <FacturaListadoPageClient
+        items={items}
+        sucursales={sucursales}
+        variant="presupuestos"
+      />
     </div>
   );
 }

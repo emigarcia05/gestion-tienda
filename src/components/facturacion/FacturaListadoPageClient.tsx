@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RefreshCw, Undo2 } from "lucide-react";
+import { CalendarDays, ChevronDown, FileText, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
@@ -11,12 +11,25 @@ import {
 } from "@/actions/factura";
 import FilterBar, {
   FILTER_COUNT_CLASS,
+  FILTER_DATE_RANGE_TRIGGER_CLASS,
+  FILTER_SELECT_WRAPPER_CLASS,
+  FilaFiltrosDesplegables,
   FilterRowSearch,
+  FiltroIndividualContainer,
   LimpiarFiltrosButton,
+  SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
+import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   EmptyTableRow,
   Table,
@@ -30,11 +43,16 @@ import {
   FACTURA_TIPO_LABELS,
   esFacturaTipoFiscal,
   type FacturaComprobanteListItem,
+  type FacturaSucursalFiltroOption,
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
-import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import {
+  dateToIsoYmdArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
+import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -43,13 +61,24 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
+const FILTRO_SUCURSAL_TODAS = "todas";
+const PERIODO_TODOS = "todos";
+
+type PeriodoFiltro = "hoy" | "mes" | "todos" | "rango";
+
+function esPeriodoFiltro(value: string): value is PeriodoFiltro {
+  return value === "hoy" || value === "mes" || value === "todos" || value === "rango";
+}
+
 type Props = {
   items: FacturaComprobanteListItem[];
+  sucursales: FacturaSucursalFiltroOption[];
   variant: "facturas" | "presupuestos";
 };
 
 export default function FacturaListadoPageClient({
   items,
+  sucursales,
   variant,
 }: Props) {
   const router = useRouter();
@@ -61,11 +90,58 @@ export default function FacturaListadoPageClient({
       onDebouncedSearch: setQDebounced,
     });
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_TODOS);
+  const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [filtroPendiente, setFiltroPendiente] = useState("");
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
+  const [openRangoFechas, setOpenRangoFechas] = useState(false);
+
+  const sucursalCodigos = useMemo(
+    () => new Set(sucursales.map((s) => s.codigo)),
+    [sucursales]
+  );
+  useAplicarSucursalPreferidaSiVacia(
+    filtroSucursal === FILTRO_SUCURSAL_TODAS ? FILTRO_SUCURSAL_TODAS : filtroSucursal,
+    setFiltroSucursal,
+    (codigo) => sucursalCodigos.has(codigo)
+  );
+
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+  const rangoFechasLabel = (() => {
+    if (filtroFechaDesde && filtroFechaHasta) {
+      return `${formatIsoYmdDdMmYyyyArgentina(filtroFechaDesde)} — ${formatIsoYmdDdMmYyyyArgentina(filtroFechaHasta)}`;
+    }
+    if (filtroFechaDesde) {
+      return `Desde ${formatIsoYmdDdMmYyyyArgentina(filtroFechaDesde)}`;
+    }
+    if (filtroFechaHasta) {
+      return `Hasta ${formatIsoYmdDdMmYyyyArgentina(filtroFechaHasta)}`;
+    }
+    return "RANGO PERSONALIZADO";
+  })();
 
   const itemsFiltrados = useMemo(() => {
-    if (!qDebounced.trim()) return items;
-    return items.filter((item) =>
-      matchByMultiTerm(
+    return items.filter((item) => {
+      if (periodo === "hoy" && item.fechaIso !== hoyIso) return false;
+      if (periodo === "mes" && item.fechaIso.slice(0, 7) !== hoyIso.slice(0, 7)) {
+        return false;
+      }
+      if (periodo === "rango") {
+        if (filtroFechaDesde && item.fechaIso < filtroFechaDesde) return false;
+        if (filtroFechaHasta && item.fechaIso > filtroFechaHasta) return false;
+      }
+      if (
+        filtroSucursal &&
+        filtroSucursal !== FILTRO_SUCURSAL_TODAS &&
+        !item.sucursalCodigos.includes(filtroSucursal)
+      ) {
+        return false;
+      }
+      if (filtroPendiente === "si" && item.saldoPendiente == null) return false;
+      if (filtroPendiente === "no" && item.saldoPendiente != null) return false;
+      if (!qDebounced.trim()) return true;
+      return matchByMultiTerm(
         [
           item.cliente,
           item.nroComprobante,
@@ -76,13 +152,38 @@ export default function FacturaListadoPageClient({
           item.diasParaVencer != null ? String(item.diasParaVencer) : "",
         ],
         qDebounced
-      )
-    );
-  }, [items, qDebounced]);
+      );
+    });
+  }, [
+    items,
+    qDebounced,
+    periodo,
+    hoyIso,
+    filtroFechaDesde,
+    filtroFechaHasta,
+    filtroSucursal,
+    filtroPendiente,
+  ]);
+
+  function onPeriodoChange(value: string) {
+    if (!esPeriodoFiltro(value)) return;
+    setPeriodo(value);
+    if (value !== "rango") {
+      setFiltroFechaDesde("");
+      setFiltroFechaHasta("");
+      return;
+    }
+    setOpenRangoFechas(true);
+  }
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
+    setPeriodo(PERIODO_TODOS);
+    setFiltroSucursal("");
+    setFiltroPendiente("");
+    setFiltroFechaDesde("");
+    setFiltroFechaHasta("");
   }
 
   async function handlePdf(id: string) {
@@ -139,29 +240,145 @@ export default function FacturaListadoPageClient({
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
-          <div className="flex items-center gap-3">
-            <FilterRowSearch className="flex-1">
-              <FiltroBusquedaInput
-                id={
-                  esFacturas
-                    ? "filtro-facturas-busqueda"
-                    : "filtro-presupuestos-busqueda"
-                }
-                placeholder="BUSCAR POR CLIENTE, N°, CAE…"
-                value={q}
-                onChange={handleQChange}
-                isDebouncing={isDebouncing}
-                inputRef={searchRef}
-              />
-            </FilterRowSearch>
-            <LimpiarFiltrosButton onClick={limpiarFiltros} />
-            <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-              {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
-              {itemsFiltrados.length === 1 ? "" : "S"}
-            </span>
-          </div>
-        </FilterBar>
-      }
+            <FilaFiltrosDesplegables>
+              <FiltroIndividualContainer
+                activo={periodo !== PERIODO_TODOS}
+                onLimpiar={() => {
+                  setPeriodo(PERIODO_TODOS);
+                  setFiltroFechaDesde("");
+                  setFiltroFechaHasta("");
+                }}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={periodo} onValueChange={onPeriodoChange}>
+                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                    <SelectValue placeholder="PERIODO DE TIEMPO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value="hoy">HOY</SelectItem>
+                    <SelectItem value="mes">ESTE MES</SelectItem>
+                    <SelectItem value="todos">TODO</SelectItem>
+                    <SelectItem value="rango">RANGO PERSONALIZADO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              {periodo === "rango" ? (
+                <FiltroIndividualContainer
+                  activo={Boolean(filtroFechaDesde || filtroFechaHasta)}
+                  onLimpiar={() => {
+                    setFiltroFechaDesde("");
+                    setFiltroFechaHasta("");
+                  }}
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(FILTER_DATE_RANGE_TRIGGER_CLASS, "h-10")}
+                    onClick={() => setOpenRangoFechas(true)}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2 truncate">
+                      <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+                      <span className="truncate">{rangoFechasLabel}</span>
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                  </Button>
+                </FiltroIndividualContainer>
+              ) : null}
+              <FiltroIndividualContainer
+                activo={Boolean(filtroSucursal) && filtroSucursal !== FILTRO_SUCURSAL_TODAS}
+                onLimpiar={() => setFiltroSucursal("")}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={filtroSucursal} onValueChange={setFiltroSucursal}>
+                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                    <SelectValue placeholder="SUCURSAL" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_SUCURSAL_TODAS}>TODAS</SelectItem>
+                    {sucursales.map((s) => (
+                      <SelectItem key={s.codigo} value={s.codigo}>
+                        {s.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              {esFacturas ? (
+                <FiltroIndividualContainer
+                  activo={filtroPendiente !== ""}
+                  onLimpiar={() => setFiltroPendiente("")}
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                >
+                  <Select
+                    value={filtroPendiente}
+                    onValueChange={setFiltroPendiente}
+                  >
+                    <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                      <SelectValue placeholder="PENDIENTE PAGO" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="select-content-filtro"
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                    >
+                      <SelectItem value="si">SI</SelectItem>
+                      <SelectItem value="no">NO</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
+              ) : null}
+            </FilaFiltrosDesplegables>
+            <div className="flex items-center gap-3">
+              <FilterRowSearch className="flex-1">
+                <FiltroBusquedaInput
+                  id={
+                    esFacturas
+                      ? "filtro-facturas-busqueda"
+                      : "filtro-presupuestos-busqueda"
+                  }
+                  placeholder="BUSCAR POR CLIENTE, N°, CAE…"
+                  value={q}
+                  onChange={handleQChange}
+                  isDebouncing={isDebouncing}
+                  inputRef={searchRef}
+                />
+              </FilterRowSearch>
+              <LimpiarFiltrosButton onClick={limpiarFiltros} />
+              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
+                {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
+                {itemsFiltrados.length === 1 ? "" : "S"}
+              </span>
+            </div>
+            <FiltroRangoFechasCalendarioModal
+              open={openRangoFechas}
+              onOpenChange={setOpenRangoFechas}
+              fechaDesde={filtroFechaDesde}
+              fechaHasta={filtroFechaHasta}
+              onAplicarRango={(desde, hasta) => {
+                setFiltroFechaDesde(desde);
+                setFiltroFechaHasta(hasta);
+                setPeriodo("rango");
+              }}
+              onLimpiar={() => {
+                setFiltroFechaDesde("");
+                setFiltroFechaHasta("");
+                setPeriodo(PERIODO_TODOS);
+              }}
+            />
+          </FilterBar>
+        }
     >
       <div className="contenedor-tabla-gestion min-h-0 flex-1">
         <Table variant="compact" className="tabla-gestion-compacta w-full">
