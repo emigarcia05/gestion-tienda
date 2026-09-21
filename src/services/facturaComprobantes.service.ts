@@ -57,7 +57,10 @@ import {
   type ArcaLetra,
   type ReceptorFiscalSnapshot,
 } from "@/lib/facturaFiscal";
-import type { EmitirFacturaComprobanteInput } from "@/lib/validations/factura";
+import type {
+  EmitirFacturaComprobanteInput,
+  GuardarDiasVencimientoFacturaInput,
+} from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -956,6 +959,21 @@ export async function consultarFacturaComprobanteArca(
     errores: null,
   });
   return { success: true, data: emitirResultadoDesdeRow(updated) };
+}
+
+export async function guardarDiasVencimientoComprobante(
+  input: GuardarDiasVencimientoFacturaInput
+): Promise<ServiceResult<void>> {
+  try {
+    await prisma.comprobanteVta.update({
+      where: { id: input.id },
+      data: { diasVencimiento: input.diasVencimiento },
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[guardarDiasVencimientoComprobante]", e);
+    return { success: false, error: "No se pudieron guardar los días de vencimiento." };
+  }
 }
 
 export async function healthArca(): Promise<

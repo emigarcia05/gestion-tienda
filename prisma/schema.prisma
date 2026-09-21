@@ -309,6 +309,7 @@ model Sucursal {
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   cajasTesoreria            CajaTesoreria[]
   cobrosPorSucursal         CobrosPorSucursal[]
+  movimientosTesoreria      TesoreriaMovimiento[]
 
   @@map("sucursales")
 }
@@ -490,6 +491,12 @@ model TesoreriaMovimiento {
   /** La otra caja en una transferencia (informativo / UI). */
   cajaContraparteId    String?                  @map("caja_contraparte_id")
   cajaContraparte      CajaTesoreria?           @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
+  /**
+   * Sucursal del operador que creó el registro (sesión / `global_personal.sucursal_por_defecto`).
+   * Distinta de `tesoreria_cajas.sucursal_id` (sucursal de la caja).
+   */
+  sucursalId           String?                  @map("sucursal_id")
+  sucursal             Sucursal?                @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   createdAt            DateTime                 @default(now()) @map("created_at")
   updatedAt            DateTime                 @updatedAt @map("updated_at")
 
@@ -499,6 +506,7 @@ model TesoreriaMovimiento {
   @@index([transferenciaGrupoId], map: "tesoreria_movimientos_transferencia_grupo_idx")
   @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
   @@index([categoriaPago], map: "tesoreria_movimientos_categoria_pago_idx")
+  @@index([sucursalId], map: "tesoreria_movimientos_sucursal_idx")
   @@map("tesoreria_movimientos")
 }
 
@@ -1938,6 +1946,9 @@ model ComprobanteVta {
   cbteAsocPtoVta Int?    @map("cbte_asoc_pto_vta")
   cbteAsocNro    Int?    @map("cbte_asoc_nro")
   cbteAsocCae    String? @map("cbte_asoc_cae") @db.VarChar(14)
+
+  /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
+  diasVencimiento Int? @map("dias_vencimiento")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

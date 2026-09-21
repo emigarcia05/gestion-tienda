@@ -146,6 +146,7 @@ export default function FacturaCrearPageClient({
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
+  const [comprobanteId, setComprobanteId] = useState<string | null>(null);
   const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteListaItem[]>([]);
   const [clienteProyectos, setClienteProyectos] = useState<EnviosDireccionItem[]>(
     []
@@ -366,6 +367,7 @@ export default function FacturaCrearPageClient({
         caeVtoIso: res.data.caeVtoIso,
         letra: res.data.letra,
       });
+      setComprobanteId(res.data.id);
       setComprobanteModalOpen(true);
     } finally {
       setPending(false);
@@ -857,9 +859,13 @@ export default function FacturaCrearPageClient({
         open={comprobanteModalOpen}
         onOpenChange={(open) => {
           setComprobanteModalOpen(open);
-          if (!open) setComprobantePdf(null);
+          if (!open) {
+            setComprobantePdf(null);
+            setComprobanteId(null);
+          }
         }}
         comprobante={comprobantePdf}
+        comprobanteId={comprobanteId}
       />
     </ClassicFilteredTableLayout>
   );

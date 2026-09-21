@@ -140,3 +140,19 @@ export const facturaComprobanteIdSchema = z.object({
 });
 
 export type FacturaComprobanteIdInput = z.infer<typeof facturaComprobanteIdSchema>;
+
+export const guardarDiasVencimientoFacturaSchema = z.object({
+  id: prismaCuidSchema,
+  diasVencimiento: z.union([
+    z.null(),
+    z.coerce
+      .number()
+      .int()
+      .min(1, "Ingresá los días de vencimiento.")
+      .max(365, "Máximo 365 días."),
+  ]),
+});
+
+export type GuardarDiasVencimientoFacturaInput = z.infer<
+  typeof guardarDiasVencimientoFacturaSchema
+>;
