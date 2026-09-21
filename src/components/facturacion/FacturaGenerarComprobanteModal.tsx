@@ -124,6 +124,9 @@ export default function FacturaGenerarComprobanteModal({
     [pagos, pagoId]
   );
   const muestraCuotas = Boolean(!esCuentaCorriente && pagoSel?.aceptaCuotas);
+  const muestraEntidad = Boolean(
+    !esCuentaCorriente && pagoSel?.entidadObligatoria
+  );
   const yaHayCuentaCorriente = cobros.some((c) => c.esCuentaCorriente);
 
   const resetFormularioCobro = useCallback(
@@ -175,7 +178,8 @@ export default function FacturaGenerarComprobanteModal({
       return;
     }
     const next = pagos.find((p) => p.id === nextId);
-    const unicas = next?.entidadIds.length === 1 ? next.entidadIds[0] : "";
+    const unicas =
+      next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
   }
@@ -227,7 +231,7 @@ export default function FacturaGenerarComprobanteModal({
       toast.error("Seleccioná una forma de pago.");
       return;
     }
-    if (!entidadId) {
+    if (pagoSel.entidadObligatoria && !entidadId) {
       toast.error("Seleccioná una entidad.");
       return;
     }
@@ -379,7 +383,7 @@ export default function FacturaGenerarComprobanteModal({
               <p className="text-xs font-bold uppercase tracking-wide text-foreground">
                 COBRO
               </p>
-              <p className="text-sm tabular-nums text-foreground">
+              <p className="text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
                 SALDO PENDIENTE: {montoArCentsToDisplayWithCurrency(pendienteCents, "$")}
               </p>
 
@@ -432,33 +436,35 @@ export default function FacturaGenerarComprobanteModal({
                     </label>
                   ) : (
                     <>
-                      <label className="flex min-w-0 flex-1 flex-col gap-1">
-                        <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-                        <Select
-                          value={entidadId || VACIO}
-                          onValueChange={handleEntidadChange}
-                          disabled={ocupado || !pagoSel}
-                        >
-                          <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                            <SelectValue placeholder="ENTIDAD" />
-                          </SelectTrigger>
-                          <SelectContent
-                            position="popper"
-                            side="bottom"
-                            align="start"
-                            className="select-content-filtro"
+                      {muestraEntidad ? (
+                        <label className="flex min-w-0 flex-1 flex-col gap-1">
+                          <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                          <Select
+                            value={entidadId || VACIO}
+                            onValueChange={handleEntidadChange}
+                            disabled={ocupado || !pagoSel}
                           >
-                            <SelectItem value={VACIO}>ENTIDAD</SelectItem>
-                            {pagoSel
-                              ? pagoSel.entidadIds.map((id, idx) => (
-                                  <SelectItem key={id} value={id}>
-                                    {pagoSel.entidadNombres[idx] ?? ""}
-                                  </SelectItem>
-                                ))
-                              : null}
-                          </SelectContent>
-                        </Select>
-                      </label>
+                            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                              <SelectValue placeholder="ENTIDAD" />
+                            </SelectTrigger>
+                            <SelectContent
+                              position="popper"
+                              side="bottom"
+                              align="start"
+                              className="select-content-filtro"
+                            >
+                              <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                              {pagoSel
+                                ? pagoSel.entidadIds.map((id, idx) => (
+                                    <SelectItem key={id} value={id}>
+                                      {pagoSel.entidadNombres[idx] ?? ""}
+                                    </SelectItem>
+                                  ))
+                                : null}
+                            </SelectContent>
+                          </Select>
+                        </label>
+                      ) : null}
                       {muestraCuotas ? (
                         <label className="flex min-w-0 flex-1 flex-col gap-1">
                           <ModalMicroLabel>CUOTAS</ModalMicroLabel>

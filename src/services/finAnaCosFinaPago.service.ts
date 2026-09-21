@@ -13,6 +13,7 @@ const pagoSelect = {
   enCostosFinancieros: true,
   enMargenContribucion: true,
   aceptaCuotas: true,
+  entidadObligatoria: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
     select: {
@@ -28,6 +29,7 @@ type PagoRowConEntidades = {
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
   aceptaCuotas: boolean;
+  entidadObligatoria: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
@@ -38,6 +40,7 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
     aceptaCuotas: row.aceptaCuotas,
+    entidadObligatoria: row.entidadObligatoria,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };
@@ -93,11 +96,15 @@ const PAGOS_SEMILLA: {
 ];
 
 async function resolverEntidadIdsExistentes(
-  entidadIds: string[]
+  entidadIds: string[],
+  entidadObligatoria: boolean
 ): Promise<ServiceResult<string[]>> {
   const unique = [...new Set(entidadIds)];
   if (unique.length === 0) {
-    return { success: false, error: "Seleccioná al menos una entidad." };
+    if (entidadObligatoria) {
+      return { success: false, error: "Seleccioná al menos una entidad." };
+    }
+    return { success: true, data: [] };
   }
   const encontradas = await prisma.finAnaCosFinaTerminalMarca.findMany({
     where: { id: { in: unique } },
@@ -149,7 +156,10 @@ export async function crearFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
-  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
+  const entidadesOk = await resolverEntidadIdsExistentes(
+    input.entidadIds,
+    input.entidadObligatoria
+  );
   if (!entidadesOk.success) return entidadesOk;
   const entidadIds = entidadesOk.data;
 
@@ -161,9 +171,13 @@ export async function crearFinAnaCosFinaPago(
           enCostosFinancieros: true,
           enMargenContribucion: true,
           aceptaCuotas: input.aceptaCuotas,
-          entidades: {
-            create: entidadIds.map((entidadId) => ({ entidadId })),
-          },
+          entidadObligatoria: input.entidadObligatoria,
+          entidades:
+            entidadIds.length === 0
+              ? undefined
+              : {
+                  create: entidadIds.map((entidadId) => ({ entidadId })),
+                },
         },
         select: pagoSelect,
       });
@@ -197,7 +211,10 @@ export async function editarFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
-  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
+  const entidadesOk = await resolverEntidadIdsExistentes(
+    input.entidadIds,
+    input.entidadObligatoria
+  );
   if (!entidadesOk.success) return entidadesOk;
   const entidadIds = entidadesOk.data;
 
@@ -211,22 +228,27 @@ export async function editarFinAnaCosFinaPago(
         throw Object.assign(new Error("Forma de pago no encontrada."), { code: "P2025" });
       }
 
-      await tx.cobrosFormaPagoEntidad.deleteMany({
-        where: {
-          pagoId: input.id,
-          entidadId: { notIn: entidadIds },
-        },
-      });
-      await tx.cobrosFormaPagoEntidad.createMany({
-        data: entidadIds.map((entidadId) => ({ pagoId: input.id, entidadId })),
-        skipDuplicates: true,
-      });
+      if (entidadIds.length === 0) {
+        await tx.cobrosFormaPagoEntidad.deleteMany({ where: { pagoId: input.id } });
+      } else {
+        await tx.cobrosFormaPagoEntidad.deleteMany({
+          where: {
+            pagoId: input.id,
+            entidadId: { notIn: entidadIds },
+          },
+        });
+        await tx.cobrosFormaPagoEntidad.createMany({
+          data: entidadIds.map((entidadId) => ({ pagoId: input.id, entidadId })),
+          skipDuplicates: true,
+        });
+      }
 
       const row = await tx.finAnaCosFinaPagoCat.update({
         where: { id: input.id },
         data: {
           nombre,
           aceptaCuotas: input.aceptaCuotas,
+          entidadObligatoria: input.entidadObligatoria,
         },
         select: pagoSelect,
       });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import {
+  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   compararClientesParaListado,
   normalizarCelCliente,
   normalizarNombreCliente,
@@ -336,7 +337,8 @@ export async function crearCliente(
         pintorAsociadoId: pintor.data,
         cuit: normalizarCuitCliente(input.cuit ?? null),
         condicionIva: condicion.data,
-        ctaCorrientePlazo: input.ctaCorrientePlazo ?? null,
+        ctaCorrientePlazo:
+          input.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
         ctaCorrienteMontoMax: input.ctaCorrienteMontoMax ?? null,
       },
       select,

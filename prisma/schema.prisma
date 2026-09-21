@@ -1316,6 +1316,8 @@ model FinAnaCosFinaPagoCat {
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
   /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
   aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
+  /** Si es false, la forma de pago puede existir sin entidades N:M. */
+  entidadObligatoria   Boolean  @default(true) @map("entidad_obligatoria")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -1328,7 +1330,7 @@ model FinAnaCosFinaPagoCat {
 
 /**
  * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `tesoreria_cobros_entidades`).
- * Regla de negocio: cada forma de pago debe tener **al menos una** entidad (validado en servicio/Zod).
+ * Si `entidad_obligatoria` es true, debe haber ≥ 1 entidad (Zod + servicio).
  */
 model CobrosFormaPagoEntidad {
   pagoId    String @map("pago_id")
@@ -1742,8 +1744,8 @@ model Cliente {
   /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
   condicionIva      Int?        @map("condicion_iva")
   pintorAsociadoId  String?     @map("pintor_asociado")
-  /** Días de plazo para ventas a cuenta corriente. Null = sin configurar. */
-  ctaCorrientePlazo Int? @map("cta_corriente_plazo")
+  /** Días de plazo para ventas a cuenta corriente. Default 1. Null = sin configurar. */
+  ctaCorrientePlazo Int? @default(1) @map("cta_corriente_plazo")
   /** Tope de saldo CC. Null = sin tope. Si el saldo supera este valor no se emiten más facturas. */
   ctaCorrienteMontoMax Decimal? @map("cta_corriente_monto_max") @db.Decimal(14, 2)
   createdAt         DateTime    @default(now()) @map("created_at")

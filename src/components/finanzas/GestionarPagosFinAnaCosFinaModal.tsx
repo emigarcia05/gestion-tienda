@@ -55,6 +55,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
   const [formAceptaCuotas, setFormAceptaCuotas] = useState(false);
+  const [formEntidadObligatoria, setFormEntidadObligatoria] = useState(true);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -103,6 +104,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setFormNombre("");
     setFormEntidadIds([]);
     setFormAceptaCuotas(false);
+    setFormEntidadObligatoria(true);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -118,6 +120,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
           item.nombre,
           ...item.entidadNombres,
           item.aceptaCuotas ? "cuotas" : "",
+          item.entidadObligatoria ? "" : "sin entidad",
         ],
         q
       )
@@ -129,14 +132,11 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setFormNombre("");
     setFormEntidadIds([]);
     setFormAceptaCuotas(false);
+    setFormEntidadObligatoria(true);
   }
 
   function abrirCrear() {
     if (!esEditor || pending) return;
-    if (entidades.length === 0) {
-      toast.error("Creá al menos una entidad antes de agregar una forma de pago.");
-      return;
-    }
     resetForm();
     setFormOpen(true);
   }
@@ -147,10 +147,13 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setFormNombre(item.nombre);
     setFormEntidadIds([...item.entidadIds]);
     setFormAceptaCuotas(item.aceptaCuotas);
+    setFormEntidadObligatoria(item.entidadObligatoria);
     setFormOpen(true);
   }
 
-  const formValido = formNombre.trim().length > 0 && formEntidadIds.length > 0;
+  const formValido =
+    formNombre.trim().length > 0 &&
+    (!formEntidadObligatoria || formEntidadIds.length > 0);
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
@@ -160,8 +163,9 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await editarFinAnaCosFinaPagoAction({
           id: editingItem.id,
           nombre: formNombre,
-          entidadIds: formEntidadIds,
+          entidadIds: formEntidadObligatoria ? formEntidadIds : [],
           aceptaCuotas: formAceptaCuotas,
+          entidadObligatoria: formEntidadObligatoria,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -171,8 +175,9 @@ export default function GestionarPagosFinAnaCosFinaModal({
       } else {
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
-          entidadIds: formEntidadIds,
+          entidadIds: formEntidadObligatoria ? formEntidadIds : [],
           aceptaCuotas: formAceptaCuotas,
+          entidadObligatoria: formEntidadObligatoria,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la forma de pago.");
@@ -263,8 +268,9 @@ export default function GestionarPagosFinAnaCosFinaModal({
 
             {esEditor ? (
               <p className="text-sm text-muted-foreground">
-                Cada forma de pago requiere al menos una entidad. Si acepta cuotas, Cx. Fin. Cobros
-                genera una fila por cada cuota del catálogo.
+                Si ENTIDAD OBLIGATORIA está activo, hay que vincular al menos una entidad. Si no, la
+                forma puede usarse sin entidad. Si acepta cuotas, Cx. Fin. Cobros genera una fila por
+                cada cuota del catálogo.
               </p>
             ) : null}
 
@@ -294,6 +300,11 @@ export default function GestionarPagosFinAnaCosFinaModal({
                               · CUOTAS
                             </span>
                           ) : null}
+                          {pago.entidadObligatoria ? null : (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              · SIN ENTIDAD
+                            </span>
+                          )}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {pago.entidadNombres.length > 0
@@ -385,31 +396,42 @@ export default function GestionarPagosFinAnaCosFinaModal({
               />
             </div>
             <ModalSiNoChoice
+              label="ENTIDAD OBLIGATORIA"
+              value={formEntidadObligatoria}
+              onChange={(value) => {
+                setFormEntidadObligatoria(value);
+                if (!value) setFormEntidadIds([]);
+              }}
+              disabled={pending}
+            />
+            {formEntidadObligatoria ? (
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>SELECCIONAR ENTIDADES</ModalMicroLabel>
+                {entidades.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No hay entidades. Creá una desde Gestionar Entidades.
+                  </p>
+                ) : (
+                  <FiltroMultiSelect
+                    opciones={entidades.map((entidad) => ({
+                      value: entidad.id,
+                      label: entidad.nombre,
+                    }))}
+                    selected={formEntidadIds}
+                    onChange={setFormEntidadIds}
+                    placeholder="SELECCIONAR ENTIDADES"
+                    ariaLabel="Seleccionar entidades"
+                    disabled={pending}
+                  />
+                )}
+              </div>
+            ) : null}
+            <ModalSiNoChoice
               label="ACEPTA CUOTAS"
               value={formAceptaCuotas}
               onChange={setFormAceptaCuotas}
               disabled={pending}
             />
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>ENTIDADES</ModalMicroLabel>
-              {entidades.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No hay entidades. Creá una desde Gestionar Entidades.
-                </p>
-              ) : (
-                <FiltroMultiSelect
-                  opciones={entidades.map((entidad) => ({
-                    value: entidad.id,
-                    label: entidad.nombre,
-                  }))}
-                  selected={formEntidadIds}
-                  onChange={setFormEntidadIds}
-                  placeholder="SELECCIONAR ENTIDADES"
-                  ariaLabel="Entidades"
-                  disabled={pending}
-                />
-              )}
-            </div>
           </div>
         </AppModal>
       </Dialog>

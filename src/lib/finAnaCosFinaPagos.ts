@@ -6,7 +6,9 @@ export type FinAnaCosFinaPagoItem = {
   enMargenContribucion: boolean;
   /** Si true, Cx. Fin. Cobros genera filas por cada cuota del catálogo. */
   aceptaCuotas: boolean;
-  /** IDs de `tesoreria_cobros_entidades` vinculados (mín. 1). */
+  /** Si true, hay que vincular ≥ 1 entidad. */
+  entidadObligatoria: boolean;
+  /** IDs de `tesoreria_cobros_entidades` vinculados. */
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
   entidadNombres: string[];

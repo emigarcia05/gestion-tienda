@@ -19,6 +19,9 @@ export const ENVIOS_DEPARTAMENTO_VALUES = [
 ] as const;
 export type EnviosDepartamentoValue = (typeof ENVIOS_DEPARTAMENTO_VALUES)[number];
 
+/** Default de `clientes.cta_corriente_plazo` (días). */
+export const CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT = 1;
+
 export const ENVIOS_DEPARTAMENTO_LABELS: Record<EnviosDepartamento, string> = {
   CIUDAD: "CIUDAD",
   LAS_HERAS: "LAS HERAS",
@@ -259,7 +262,7 @@ export interface ClienteItem extends ClienteResumen {
   cuit: string | null;
   /** Código ARCA (`condicion_iva_cod_arca.codigo`) o null. */
   condicionIva: number | null;
-  /** Días de plazo de cuenta corriente; null = sin configurar. */
+  /** Días de plazo de cuenta corriente; default 1; null = sin configurar. */
   ctaCorrientePlazo: number | null;
   /** Tope de saldo CC; null = sin tope. */
   ctaCorrienteMontoMax: number | null;

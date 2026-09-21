@@ -112,13 +112,13 @@ export async function eliminarFinAnaCosFinaTerminalMarca(
   try {
     const pagosSoloEsta = await prisma.cobrosFormaPagoEntidad.findMany({
       where: { entidadId: id },
-      select: { pagoId: true },
+      select: { pagoId: true, pago: { select: { entidadObligatoria: true } } },
     });
     for (const link of pagosSoloEsta) {
       const n = await prisma.cobrosFormaPagoEntidad.count({
         where: { pagoId: link.pagoId },
       });
-      if (n <= 1) {
+      if (n <= 1 && link.pago.entidadObligatoria) {
         return {
           success: false,
           error:

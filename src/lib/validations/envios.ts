@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   ENVIOS_DEPARTAMENTO_VALUES,
   ENVIOS_FORMA_PAGADO_VALUES,
   ENVIOS_HORA_VALUES,
@@ -83,7 +84,7 @@ const clienteCondicionIvaSchema = z.preprocess((value) => {
 
 const clienteCtaCorrientePlazoSchema = z.preprocess((value) => {
   if (value === undefined) return undefined;
-  if (value === "" || value == null) return null;
+  if (value === "" || value == null) return CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
   if (typeof value === "string" && /^\d+$/.test(value.trim())) {
     return Number.parseInt(value.trim(), 10);
   }
@@ -93,7 +94,6 @@ const clienteCtaCorrientePlazoSchema = z.preprocess((value) => {
   .int("Ingresá los días de plazo.")
   .min(1, "Ingresá los días de plazo.")
   .max(365, "Máximo 365 días.")
-  .nullable()
   .optional());
 
 const clienteCtaCorrienteMontoMaxSchema = z.preprocess((value) => {

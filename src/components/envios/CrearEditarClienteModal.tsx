@@ -27,6 +27,7 @@ import {
 } from "@/actions/envios";
 import EnviosProyectoListadoLineas from "@/components/envios/EnviosProyectoListadoLineas";
 import {
+  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   etiquetaDireccionEnvio,
   formatearCuitMascara,
   nombreCompletoCliente,
@@ -82,7 +83,9 @@ export default function CrearEditarClienteModal({
   const [cel, setCel] = useState("");
   const [cuitMasked, setCuitMasked] = useState("");
   const [condicionIva, setCondicionIva] = useState(String(ARCA_CONDICION_IVA.CF));
-  const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState("");
+  const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState(
+    String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT)
+  );
   const [ctaCorrienteMontoMaxNorm, setCtaCorrienteMontoMaxNorm] = useState("");
   const [condicionesIvaLocal, setCondicionesIvaLocal] = useState<PtoVentasCodArcaItem[]>(
     condicionesIvaProp ?? []
@@ -146,7 +149,9 @@ export default function CrearEditarClienteModal({
       setCuitMasked(item.cuit ? formatearCuitMascara(item.cuit) : "");
       setCondicionIva(String(item.condicionIva ?? ARCA_CONDICION_IVA.CF));
       setCtaCorrientePlazo(
-        item.ctaCorrientePlazo != null ? String(item.ctaCorrientePlazo) : ""
+        item.ctaCorrientePlazo != null
+          ? String(item.ctaCorrientePlazo)
+          : String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT)
       );
       setCtaCorrienteMontoMaxNorm(
         item.ctaCorrienteMontoMax != null
@@ -167,7 +172,7 @@ export default function CrearEditarClienteModal({
     setCel("");
     setCuitMasked("");
     setCondicionIva(String(ARCA_CONDICION_IVA.CF));
-    setCtaCorrientePlazo("");
+    setCtaCorrientePlazo(String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT));
     setCtaCorrienteMontoMaxNorm("");
     setCargarComoConsFinal(false);
     setEsPintor(esPintorFijo ?? false);
@@ -231,7 +236,10 @@ export default function CrearEditarClienteModal({
       pintorAsociadoId: esPintorGuardar ? null : pintorAsociadoId,
       cuit: cuitDigits === "" ? null : cuitDigits,
       condicionIva: Number(condicionIva),
-      ctaCorrientePlazo: ctaCorrientePlazo.trim() === "" ? null : Number(ctaCorrientePlazo),
+      ctaCorrientePlazo:
+        ctaCorrientePlazo.trim() === ""
+          ? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT
+          : Number(ctaCorrientePlazo),
       ctaCorrienteMontoMax:
         ctaCorrienteMontoMaxNorm.trim() === ""
           ? null
