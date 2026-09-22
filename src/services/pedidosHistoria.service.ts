@@ -112,6 +112,8 @@ export interface PedidoHistoriaResumen {
 export interface PedidoHistoriaItemDetalle {
   id: string;
   codTienda: string;
+  /** Identidad de la línea del snapshot (`cod_ext` de lista / TINT-… / DUX). */
+  codExt: string;
   descripcionTienda: string;
   cantPedida: number;
   /** `null` hasta que en recepción se guarde una cantidad recibida. */
@@ -190,6 +192,7 @@ export function serializarPedidoHistoriaDetalleParaCliente(
     items: d.items.map((i) => ({
       id: String(i.id),
       codTienda: String(i.codTienda),
+      codExt: String(i.codExt ?? i.codTienda),
       descripcionTienda: String(i.descripcionTienda ?? ""),
       cantPedida: Number(i.cantPedida),
       cantRecibida:
@@ -201,6 +204,24 @@ export function serializarPedidoHistoriaDetalleParaCliente(
 function normalizeCodTienda(value: string | null | undefined): string {
   const trimmed = (value ?? "").trim();
   return trimmed.length > 0 ? trimmed : COD_TIENDA_FALLBACK;
+}
+
+function descripcionSnapshotDesdeRow(row: {
+  descripcionProveedor: string | null;
+  tintometricoDescripcion: string | null;
+  descripcionTienda: string | null;
+}): string {
+  return (
+    (row.descripcionProveedor ?? "").trim() ||
+    (row.tintometricoDescripcion ?? "").trim() ||
+    (row.descripcionTienda ?? "").trim()
+  );
+}
+
+function claveSnapshotItem(row: { codExt: string; codTienda: string | null }): string {
+  const ext = row.codExt.trim();
+  if (ext) return ext;
+  return normalizeCodTienda(row.codTienda);
 }
 
 export async function crearPedidoHistoriaSnapshot(params: {
@@ -243,11 +264,23 @@ export async function crearPedidoHistoriaSnapshot(params: {
         : undefined
     );
 
-    const cantPorCodTienda = new Map<string, number>();
+    const itemsPorCodExt = new Map<
+      string,
+      { codTienda: string; descripcion: string; cantPedida: number }
+    >();
     for (const row of snapshotRows) {
-      const codTienda = normalizeCodTienda(row.codTienda);
+      const clave = claveSnapshotItem(row);
       const cant = Math.max(0, Number(row.cantPedir) || 0);
-      cantPorCodTienda.set(codTienda, (cantPorCodTienda.get(codTienda) ?? 0) + cant);
+      const prev = itemsPorCodExt.get(clave);
+      if (prev) {
+        prev.cantPedida += cant;
+        continue;
+      }
+      itemsPorCodExt.set(clave, {
+        codTienda: normalizeCodTienda(row.codTienda),
+        descripcion: descripcionSnapshotDesdeRow(row),
+        cantPedida: cant,
+      });
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -260,16 +293,20 @@ export async function crearPedidoHistoriaSnapshot(params: {
         select: { id: true },
       });
 
-      const itemsToCreate = [...cantPorCodTienda.entries()].map(([codTienda, cantPedida]) => ({
-        codTienda,
-        cantPedida,
+      const itemsToCreate = [...itemsPorCodExt.entries()].map(([codExt, it]) => ({
+        codExt,
+        codTienda: it.codTienda,
+        descripcion: it.descripcion,
+        cantPedida: it.cantPedida,
       }));
 
       if (itemsToCreate.length > 0) {
         await tx.pedidoHistoriaItem.createMany({
           data: itemsToCreate.map((it) => ({
             pedidoHistoriaId: pedidoHistoria.id,
+            codExt: it.codExt,
             codTienda: it.codTienda,
+            descripcion: it.descripcion,
             cantPedida: it.cantPedida,
             cantRecibida: null,
           })),
@@ -306,8 +343,15 @@ export async function getPedidoHistoriaDetalle(params: {
         proveedor: { select: { nombre: true, iva: true } },
         sucursal: { select: { nombre: true } },
         items: {
-          select: { id: true, codTienda: true, cantPedida: true, cantRecibida: true },
-          orderBy: { codTienda: "asc" },
+          select: {
+            id: true,
+            codTienda: true,
+            codExt: true,
+            descripcion: true,
+            cantPedida: true,
+            cantRecibida: true,
+          },
+          orderBy: [{ descripcion: "asc" }, { codExt: "asc" }],
         },
       },
     });
@@ -367,7 +411,9 @@ export async function getPedidoHistoriaDetalle(params: {
         items: pedido.items.map((i) => ({
           id: i.id,
           codTienda: i.codTienda,
-          descripcionTienda: descripcionPorCodTienda.get(i.codTienda) ?? "",
+          codExt: i.codExt,
+          descripcionTienda:
+            i.descripcion.trim() || descripcionPorCodTienda.get(i.codTienda) || "",
           cantPedida: i.cantPedida,
           cantRecibida: i.cantRecibida,
         })),
@@ -385,7 +431,7 @@ export async function listarPedidosHistoria(params: {
   estado?: PedidoHistoriaEstado | "ALL";
   proveedorId?: string;
   sucursalCodigo?: SucursalPedidoEnvio;
-  /** Palabras (separadas por espacio) que deben aparecer en `descripcion_tienda` de `prod_precios_tienda`; el pedido califica si algún ítem tiene `cod_tienda` coincidente. */
+  /** Palabras que deben aparecer en `descripcion` del snapshot o en `descripcion_tienda` de `prod_tienda`. */
   q?: string;
 }): Promise<
   ServiceResult<{
@@ -433,18 +479,18 @@ export async function listarPedidosHistoria(params: {
         },
       });
       const codTiendas = grouped.map((g) => g.codTienda);
-      if (codTiendas.length === 0) {
-        return {
-          success: true,
-          data: {
-            items: [],
-            total: 0,
-            totalPaginas: 1,
-            paginaActual,
-          },
-        };
-      }
-      where.items = { some: { codTienda: { in: codTiendas } } };
+      where.items = {
+        some: {
+          OR: [
+            {
+              AND: tokens.map((t) => ({
+                descripcion: { contains: t, mode: "insensitive" },
+              })),
+            },
+            ...(codTiendas.length > 0 ? [{ codTienda: { in: codTiendas } }] : []),
+          ],
+        },
+      };
     }
 
     const [total, rows] = await Promise.all([
@@ -541,6 +587,8 @@ export async function guardarRecepcionPedidoHistoria(params: {
   items: Array<{
     id?: string;
     codTienda: string;
+    codExt?: string;
+    descripcion?: string;
     cantPedida: number;
     cantRecibida: number | null;
   }>;
@@ -549,17 +597,23 @@ export async function guardarRecepcionPedidoHistoria(params: {
   const id = params.pedidoHistoriaId.trim();
   if (!id) return { success: false, error: "ID inválido." };
 
-  const itemsNormalizados = params.items.map((item) => ({
-    id: item.id?.trim() || undefined,
-    codTienda: normalizeCodTienda(item.codTienda),
-    cantPedida: Math.max(0, Math.floor(Number(item.cantPedida) || 0)),
-    cantRecibida:
-      item.cantRecibida == null
-        ? null
-        : Math.trunc(Number(item.cantRecibida)),
-  }));
+  const itemsNormalizados = params.items.map((item) => {
+    const codTienda = normalizeCodTienda(item.codTienda);
+    const codExt = (item.codExt ?? "").trim() || codTienda;
+    return {
+      id: item.id?.trim() || undefined,
+      codTienda,
+      codExt,
+      descripcion: (item.descripcion ?? "").trim(),
+      cantPedida: Math.max(0, Math.floor(Number(item.cantPedida) || 0)),
+      cantRecibida:
+        item.cantRecibida == null
+          ? null
+          : Math.trunc(Number(item.cantRecibida)),
+    };
+  });
 
-  const keys = itemsNormalizados.map((item) => `${item.codTienda}::${item.id ?? "new"}`);
+  const keys = itemsNormalizados.map((item) => `${item.codExt}::${item.id ?? "new"}`);
   if (new Set(keys).size !== keys.length) {
     return { success: false, error: "Hay ítems duplicados en la recepción." };
   }
@@ -613,6 +667,8 @@ export async function guardarRecepcionPedidoHistoria(params: {
           data: {
             pedidoHistoriaId: id,
             codTienda: item.codTienda,
+            codExt: item.codExt,
+            descripcion: item.descripcion,
             cantPedida: item.cantPedida,
             cantRecibida: item.cantRecibida,
           },
@@ -675,7 +731,7 @@ export async function marcarPedidoHistoriaRegistrado(params: {
 
 /**
  * Arma los datos para regenerar la nota de pedido PDF desde el snapshot (`prod_ped_historial` + ítems)
- * y el catálogo vigente (`prod_precios_provee` + `prod_precios_tienda` por `cod_tienda`).
+ * y el catálogo vigente (`prod_precios_provee` por `cod_ext`).
  */
 export async function getPedidoHistoriaPdfPayload(params: {
   pedidoHistoriaId: string;
@@ -699,7 +755,7 @@ export async function getPedidoHistoriaPdfPayload(params: {
         proveedorId: true,
         proveedor: { select: { nombre: true, prefijo: true } },
         sucursal: { select: { codigo: true } },
-        items: { select: { codTienda: true, cantPedida: true } },
+        items: { select: { codTienda: true, codExt: true, descripcion: true, cantPedida: true } },
       },
     });
     if (!pedido) return { success: false, error: "Pedido no encontrado." };
@@ -707,42 +763,43 @@ export async function getPedidoHistoriaPdfPayload(params: {
       return { success: false, error: "El pedido no tiene ítems para el PDF." };
     }
 
-    const cods = Array.from(
-      new Set(pedido.items.map((it) => normalizeCodTienda(it.codTienda)))
+    const extSet = Array.from(
+      new Set(pedido.items.map((it) => it.codExt.trim()).filter(Boolean))
     );
 
-    const provRows = await prisma.listaPrecioProveedor.findMany({
-      where: {
-        idProveedor: pedido.proveedorId,
-        prodTienda: { codTienda: { in: cods } },
-      },
-      select: {
-        codExt: true,
-        codProdProveedor: true,
-        descripcionProveedor: true,
-        prodTienda: { select: { codTienda: true, descripcionTienda: true } },
-      },
-      orderBy: { codExt: "asc" },
-    });
+    const provRows =
+      extSet.length > 0
+        ? await prisma.listaPrecioProveedor.findMany({
+            where: {
+              idProveedor: pedido.proveedorId,
+              codExt: { in: extSet },
+            },
+            select: {
+              codExt: true,
+              codProdProveedor: true,
+              descripcionProveedor: true,
+              prodTienda: { select: { codTienda: true, descripcionTienda: true } },
+            },
+          })
+        : [];
 
-    const byCodTienda = new Map<string, (typeof provRows)[number]>();
+    const byCodExt = new Map<string, (typeof provRows)[number]>();
     for (const row of provRows) {
-      const ct = row.prodTienda?.codTienda;
-      if (ct == null) continue;
-      const key = normalizeCodTienda(ct);
-      if (!byCodTienda.has(key)) byCodTienda.set(key, row);
+      const k = row.codExt.trim();
+      if (k && !byCodExt.has(k)) byCodExt.set(k, row);
     }
 
     const items: ItemPedidoParaPdf[] = pedido.items
       .map((it) => {
-        const key = normalizeCodTienda(it.codTienda);
-        const match = byCodTienda.get(key);
+        const key = it.codExt.trim() || normalizeCodTienda(it.codTienda);
+        const match = byCodExt.get(it.codExt.trim());
         const descProv = (match?.descripcionProveedor ?? "").trim();
         const descTienda = (match?.prodTienda?.descripcionTienda ?? "").trim();
+        const descSnapshot = it.descripcion.trim();
         return {
-          codExt: (match?.codExt ?? "").trim(),
+          codExt: (match?.codExt ?? it.codExt).trim(),
           codProveedor: (match?.codProdProveedor ?? "").trim(),
-          descripcion: descProv || descTienda || `Producto ${key}`,
+          descripcion: descSnapshot || descProv || descTienda || `Producto ${key}`,
           cantPedir: Math.max(0, Number(it.cantPedida) || 0),
         };
       })

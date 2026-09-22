@@ -416,6 +416,7 @@ export default function PedidoHistoriaDetalleModal({
           {
             id: tempId,
             codTienda: codNormalizado,
+            codExt: codNormalizado,
             descripcionTienda: producto.descripcionTienda,
             cantPedida: Math.max(0, cant),
             cantRecibida: cant,
@@ -573,6 +574,8 @@ export default function PedidoHistoriaDetalleModal({
         items: detalle.items.map((item) => ({
           id: item.id.startsWith("tmp-") ? undefined : item.id,
           codTienda: item.codTienda,
+          codExt: item.codExt,
+          descripcion: item.descripcionTienda,
           cantPedida: item.cantPedida,
           cantRecibida: item.cantRecibida,
         })),

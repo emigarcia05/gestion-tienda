@@ -1266,7 +1266,19 @@ model PedidoHistoriaItem {
   id String @id @default(cuid())
 
   pedidoHistoriaId String @map("pedido_historia_id")
+  /**
+   * Código DUX (`prod_tienda.cod_tienda`) para POST de recepción.
+   * Sin vínculo / match: fallback `1503` (PRODUCTO VARIO). Varias líneas pueden
+   * compartir el mismo código; la identidad de la fila es `cod_ext`.
+   */
   codTienda        String @map("cod_tienda")
+  /**
+   * Identidad del ítem del pedido (lista `cod_ext`, `TINT-…` o `cod_tienda` si se
+   * agregó en recepción). UNIQUE por pedido: no colapsar SKUs distintos en 1503.
+   */
+  codExt           String @map("cod_ext")
+  /** Descripción del snapshot (lista / fórmula tintométrica / tienda). */
+  descripcion      String @default("") @map("descripcion")
   cantPedida       Int    @map("cant_pedida") @default(0)
   cantRecibida     Int?   @map("cant_recibida") // Unidades recibidas; admite negativo. `null` = sin confirmar.
 
@@ -1274,7 +1286,7 @@ model PedidoHistoriaItem {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  @@unique([pedidoHistoriaId, codTienda])
+  @@unique([pedidoHistoriaId, codExt])
   @@index([pedidoHistoriaId])
   @@map("prod_ped_historial_merc")
 }

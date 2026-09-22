@@ -1224,7 +1224,8 @@ export async function getItemsYProveedorParaEnviar(
       tintometricoDescripcion = null;
       descripcionProveedor = (provRow.descripcionProveedor ?? "").trim() || null;
       descripcionTienda = null;
-      codTienda = (provRow.prodTienda?.codTienda ?? "").trim() || null;
+      codTienda =
+        (provRow.prodTienda?.codTienda ?? provRow.codTiendaVinculo ?? "").trim() || null;
       cantPedir = Math.max(0, Math.floor(Number(r.urgenteCantPedir) || 0));
     } else if (r.tipoDePedido === TIPO_TINTOMETRICO) {
       const idProv = (r.tintometricoProveedor ?? "").trim();

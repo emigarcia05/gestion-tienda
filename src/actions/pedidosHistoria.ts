@@ -52,6 +52,8 @@ const guardarRecepcionSchema = z.object({
           prismaCuidSchema.optional()
         ),
         codTienda: z.string().min(1, "Cod. tienda inválido."),
+        codExt: z.string().max(200).optional(),
+        descripcion: z.string().max(500).optional(),
         cantPedida: z.coerce.number().int().min(0, "Cant. pedida inválida."),
         cantRecibida: z.coerce.number().int().min(-1_000_000).max(1_000_000).nullable(),
       })
