@@ -805,8 +805,8 @@ export default function FacturaCrearPageClient({
                 </ModalMicroLabel>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-9 w-full"
+                  variant="default"
+                  className="h-8 w-fit max-w-full self-start px-3 text-xs"
                   onClick={cargarConsumidorFinal}
                 >
                   {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}

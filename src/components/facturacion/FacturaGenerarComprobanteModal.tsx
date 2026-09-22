@@ -13,7 +13,6 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,12 +22,9 @@ import {
 } from "@/components/ui/select";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
+  diasVencimientoDesdePlazoCliente,
   esFacturaTipoVenta,
-  esFormaPagoCuentaCorriente,
-  FACTURA_FORMA_PAGO_CUENTA_CORRIENTE,
-  FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL,
   FACTURA_TIPO_LABELS,
-  parseDiasVencimiento,
   resumenTotalesFactura,
 } from "@/lib/factura";
 import {
@@ -63,8 +59,6 @@ type CobroRegistrado = {
   entidadNombre: string;
   cuotaEtiqueta: string | null;
   montoCents: number;
-  esCuentaCorriente: boolean;
-  plazoDias: number | null;
 };
 
 interface Props {
@@ -88,10 +82,6 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
   return Math.max(0, Math.round(total * 100));
 }
 
-function plazoClienteTexto(plazo: number | null | undefined): string {
-  return plazo != null ? String(plazo) : "";
-}
-
 /**
  * Modal post **Generar Comprobante**: cobro (solo ventas) + PDF.
  */
@@ -111,34 +101,25 @@ export default function FacturaGenerarComprobanteModal({
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
-  const [plazoDias, setPlazoDias] = useState("");
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
   const totalCents = totalCentsDeComprobante(comprobante);
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
-  const esCuentaCorriente = esFormaPagoCuentaCorriente(pagoId);
 
   const pagoSel = useMemo(
     () => pagos.find((p) => p.id === pagoId) ?? null,
     [pagos, pagoId]
   );
-  const muestraCuotas = Boolean(!esCuentaCorriente && pagoSel?.aceptaCuotas);
-  const muestraEntidad = Boolean(
-    !esCuentaCorriente && pagoSel?.entidadObligatoria
-  );
-  const yaHayCuentaCorriente = cobros.some((c) => c.esCuentaCorriente);
+  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
+  const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
 
-  const resetFormularioCobro = useCallback(
-    (pendiente: number) => {
-      setPagoId("");
-      setEntidadId("");
-      setCuotaId("");
-      setPlazoDias(plazoClienteTexto(plazoCuentaCorrienteCliente));
-      setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
-    },
-    [plazoCuentaCorrienteCliente]
-  );
+  const resetFormularioCobro = useCallback((pendiente: number) => {
+    setPagoId("");
+    setEntidadId("");
+    setCuotaId("");
+    setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -168,15 +149,6 @@ export default function FacturaGenerarComprobanteModal({
   function handlePagoChange(value: string) {
     const nextId = value === VACIO ? "" : value;
     setPagoId(nextId);
-    if (esFormaPagoCuentaCorriente(nextId)) {
-      setEntidadId("");
-      setCuotaId("");
-      setPlazoDias(plazoClienteTexto(plazoCuentaCorrienteCliente));
-      if (pendienteCents > 0) {
-        setMontoNorm(montoArNumberToNormalizedString(pendienteCents / 100));
-      }
-      return;
-    }
     const next = pagos.find((p) => p.id === nextId);
     const unicas =
       next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
@@ -195,36 +167,6 @@ export default function FacturaGenerarComprobanteModal({
   function agregarCobro() {
     if (!pagoId) {
       toast.error("Seleccioná una forma de pago.");
-      return;
-    }
-    if (esCuentaCorriente) {
-      if (yaHayCuentaCorriente) {
-        toast.error("El saldo diferido ya está registrado en cuenta corriente.");
-        return;
-      }
-      const dias = parseDiasVencimiento(plazoDias);
-      if (dias == null) {
-        toast.error("Ingresá el plazo de cuenta corriente (1 a 365 días).");
-        return;
-      }
-      const montoCents = pendienteCents;
-      if (montoCents <= 0) {
-        toast.error("No hay saldo pendiente para cuenta corriente.");
-        return;
-      }
-      setCobros((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          pagoNombre: FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL,
-          entidadNombre: "",
-          cuotaEtiqueta: null,
-          montoCents,
-          esCuentaCorriente: true,
-          plazoDias: dias,
-        },
-      ]);
-      resetFormularioCobro(0);
       return;
     }
     if (!pagoSel) {
@@ -260,8 +202,6 @@ export default function FacturaGenerarComprobanteModal({
         entidadNombre,
         cuotaEtiqueta: cuota?.cuotas ?? null,
         montoCents,
-        esCuentaCorriente: false,
-        plazoDias: null,
       },
     ]);
     resetFormularioCobro(siguientePendiente);
@@ -278,18 +218,10 @@ export default function FacturaGenerarComprobanteModal({
 
   async function persistirDiasVencimiento(): Promise<boolean> {
     if (!esVenta) return true;
-    if (pendienteCents > 0) {
-      toast.error(
-        "Registrá el saldo pendiente en CUENTA CORRIENTE (el plazo es obligatorio)."
-      );
-      return false;
-    }
-    const cuenta = cobros.find((c) => c.esCuentaCorriente);
-    const dias = cuenta?.plazoDias ?? null;
-    if (cuenta && dias == null) {
-      toast.error("Ingresá el plazo de cuenta corriente (1 a 365 días).");
-      return false;
-    }
+    const dias =
+      pendienteCents > 0
+        ? diasVencimientoDesdePlazoCliente(plazoCuentaCorrienteCliente)
+        : null;
     if (!comprobanteId) {
       if (dias != null) {
         toast.error("No se pudieron guardar los días de vencimiento.");
@@ -297,26 +229,25 @@ export default function FacturaGenerarComprobanteModal({
       }
       return true;
     }
-    const res = await guardarDiasVencimientoFacturaAction({
-      id: comprobanteId,
-      diasVencimiento: dias,
-    });
-    if (!res.ok) {
-      toast.error(res.error ?? "No se pudieron guardar los días de vencimiento.");
-      return false;
-    }
-    return true;
-  }
-
-  async function intentarCerrar() {
-    if (ocupado) return;
     setGuardandoVto(true);
     try {
-      const ok = await persistirDiasVencimiento();
-      if (ok) onOpenChange(false);
+      const res = await guardarDiasVencimientoFacturaAction({
+        id: comprobanteId,
+        diasVencimiento: dias,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudieron guardar los días de vencimiento.");
+        return false;
+      }
+      return true;
     } finally {
       setGuardandoVto(false);
     }
+  }
+
+  function cerrarSinGuardar() {
+    if (pending != null) return;
+    onOpenChange(false);
   }
 
   async function ejecutar(accion: FacturaGenerarComprobanteAccion) {
@@ -358,8 +289,11 @@ export default function FacturaGenerarComprobanteModal({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (next) onOpenChange(true);
-        else void intentarCerrar();
+        if (next) {
+          onOpenChange(true);
+          return;
+        }
+        cerrarSinGuardar();
       }}
     >
       <AppModal
@@ -370,8 +304,8 @@ export default function FacturaGenerarComprobanteModal({
           <Button
             type="button"
             variant="outline"
-            onClick={() => void intentarCerrar()}
-            disabled={ocupado}
+            onClick={cerrarSinGuardar}
+            disabled={pending != null}
           >
             Cancelar
           </Button>
@@ -411,96 +345,73 @@ export default function FacturaGenerarComprobanteModal({
                             {pago.nombre}
                           </SelectItem>
                         ))}
-                        <SelectItem value={FACTURA_FORMA_PAGO_CUENTA_CORRIENTE}>
-                          {FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL}
-                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </label>
 
-                  {esCuentaCorriente ? (
-                    <label className="flex w-[7.5rem] shrink-0 flex-col gap-1">
-                      <ModalMicroLabel>PLAZO</ModalMicroLabel>
-                      <Input
-                        inputMode="numeric"
-                        autoComplete="off"
-                        value={plazoDias}
-                        disabled={ocupado}
-                        placeholder="DÍAS"
-                        onChange={(e) => {
-                          const next = e.target.value.replace(/\D/g, "").slice(0, 3);
-                          setPlazoDias(next);
-                        }}
-                        aria-label="Plazo cuenta corriente"
-                      />
-                    </label>
-                  ) : (
-                    <>
-                      {muestraEntidad ? (
-                        <label className="flex min-w-0 flex-1 flex-col gap-1">
-                          <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-                          <Select
-                            value={entidadId || VACIO}
-                            onValueChange={handleEntidadChange}
-                            disabled={ocupado || !pagoSel}
-                          >
-                            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                              <SelectValue placeholder="ENTIDAD" />
-                            </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              side="bottom"
-                              align="start"
-                              className="select-content-filtro"
-                            >
-                              <SelectItem value={VACIO}>ENTIDAD</SelectItem>
-                              {pagoSel
-                                ? pagoSel.entidadIds.map((id, idx) => (
-                                    <SelectItem key={id} value={id}>
-                                      {pagoSel.entidadNombres[idx] ?? ""}
-                                    </SelectItem>
-                                  ))
-                                : null}
-                            </SelectContent>
-                          </Select>
-                        </label>
-                      ) : null}
-                      {muestraCuotas ? (
-                        <label className="flex min-w-0 flex-1 flex-col gap-1">
-                          <ModalMicroLabel>CUOTAS</ModalMicroLabel>
-                          <Select
-                            value={cuotaId || VACIO}
-                            onValueChange={handleCuotaChange}
-                            disabled={ocupado}
-                          >
-                            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                              <SelectValue placeholder="CUOTAS" />
-                            </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              side="bottom"
-                              align="start"
-                              className="select-content-filtro"
-                            >
-                              <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                              {cuotas.map((cuota) => (
-                                <SelectItem key={cuota.id} value={cuota.id}>
-                                  {cuota.cuotas}
+                  {muestraEntidad ? (
+                    <label className="flex min-w-0 flex-1 flex-col gap-1">
+                      <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                      <Select
+                        value={entidadId || VACIO}
+                        onValueChange={handleEntidadChange}
+                        disabled={ocupado || !pagoSel}
+                      >
+                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                          <SelectValue placeholder="ENTIDAD" />
+                        </SelectTrigger>
+                        <SelectContent
+                          position="popper"
+                          side="bottom"
+                          align="start"
+                          className="select-content-filtro"
+                        >
+                          <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          {pagoSel
+                            ? pagoSel.entidadIds.map((id, idx) => (
+                                <SelectItem key={id} value={id}>
+                                  {pagoSel.entidadNombres[idx] ?? ""}
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </label>
-                      ) : null}
-                    </>
-                  )}
+                              ))
+                            : null}
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ) : null}
+                  {muestraCuotas ? (
+                    <label className="flex min-w-0 flex-1 flex-col gap-1">
+                      <ModalMicroLabel>CUOTAS</ModalMicroLabel>
+                      <Select
+                        value={cuotaId || VACIO}
+                        onValueChange={handleCuotaChange}
+                        disabled={ocupado}
+                      >
+                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                          <SelectValue placeholder="CUOTAS" />
+                        </SelectTrigger>
+                        <SelectContent
+                          position="popper"
+                          side="bottom"
+                          align="start"
+                          className="select-content-filtro"
+                        >
+                          <SelectItem value={VACIO}>CUOTAS</SelectItem>
+                          {cuotas.map((cuota) => (
+                            <SelectItem key={cuota.id} value={cuota.id}>
+                              {cuota.cuotas}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ) : null}
 
                   <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
                     <ModalMicroLabel>MONTO</ModalMicroLabel>
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
-                      disabled={ocupado || esCuentaCorriente}
+                      disabled={ocupado}
                       aria-label="Monto a pagar"
                     />
                   </label>
@@ -527,9 +438,6 @@ export default function FacturaGenerarComprobanteModal({
                         {cobro.pagoNombre}
                         {cobro.entidadNombre ? ` · ${cobro.entidadNombre}` : ""}
                         {cobro.cuotaEtiqueta ? ` · ${cobro.cuotaEtiqueta}` : ""}
-                        {cobro.esCuentaCorriente && cobro.plazoDias != null
-                          ? ` · ${cobro.plazoDias} DÍAS`
-                          : ""}
                         {` · ${montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}`}
                       </span>
                       <Button

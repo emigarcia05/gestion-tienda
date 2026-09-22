@@ -23,7 +23,9 @@ import {
   prismaDateOnlyFromIsoYmd,
   yyyymmddToIsoYmd,
 } from "@/lib/fechaArgentina";
+import { CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT } from "@/lib/envios";
 import {
+  diasVencimientoDesdePlazoCliente,
   efectoStockPorTipo,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
@@ -362,10 +364,17 @@ export async function emitirFacturaComprobante(
   const clienteId: string | null = input.clienteId ?? null;
   let clienteFiscal: { cuit: string | null; condicionIva: number | null } | null =
     null;
+  let plazoCliente: number | null = null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: { id: true, cuit: true, condicionIva: true, ctaCorrienteMontoMax: true },
+      select: {
+        id: true,
+        cuit: true,
+        condicionIva: true,
+        ctaCorrienteMontoMax: true,
+        ctaCorrientePlazo: true,
+      },
     });
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
@@ -378,7 +387,11 @@ export async function emitirFacturaComprobante(
       }
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
+    plazoCliente = cliente.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
   }
+  const diasVencimiento = esFacturaTipoVenta(input.tipo)
+    ? diasVencimientoDesdePlazoCliente(plazoCliente)
+    : null;
   const proyectoResuelto = await resolverProyectoIdComprobante({
     clienteId,
     proyectoId: input.proyectoId,
@@ -551,6 +564,7 @@ export async function emitirFacturaComprobante(
             estado: "autorizado",
             efectoStock: efectoStockPorTipo(input.tipo),
             stockAplicado: false,
+            diasVencimiento,
             items: {
               create: lineas.map((l) => ({
                 orden: l.orden,
@@ -599,6 +613,7 @@ export async function emitirFacturaComprobante(
     alicIva,
     ambiente,
     original,
+    diasVencimiento,
   });
 }
 
@@ -642,6 +657,7 @@ async function emitirFiscal(args: {
     receptorDocNro: string | null;
     receptorCondicionIva: number | null;
   } | null;
+  diasVencimiento: number | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -777,6 +793,7 @@ async function emitirFiscal(args: {
           estado: "borrador",
           efectoStock: efectoStockPorTipo(args.input.tipo),
           stockAplicado: false,
+          diasVencimiento: args.diasVencimiento,
           cbteAsocId: args.original?.id ?? null,
           cbteAsocTipo: args.original?.cbteTipo ?? null,
           cbteAsocPtoVta: args.original

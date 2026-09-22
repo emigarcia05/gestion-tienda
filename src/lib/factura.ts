@@ -3,6 +3,8 @@
  * Persistencia en `comprobantes_vtas`; fiscal vía WSAA + WSFEv1.
  */
 
+import { CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT } from "@/lib/envios";
+
 export const FACTURA_TIPOS = [
   "presupuesto",
   "factura_no_fiscal",
@@ -69,14 +71,6 @@ export function facturaTipoDesdeClaseYFiscal(
   return fiscal === "fiscal" ? "nota_credito_fiscal" : "nota_credito_no_fiscal";
 }
 
-/** Sentinel UI: cobro diferido (no es fila de `cobros_forma_pago`). */
-export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE = "cuenta-corriente";
-export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL = "CUENTA CORRIENTE";
-
-export function esFormaPagoCuentaCorriente(pagoId: string): boolean {
-  return pagoId === FACTURA_FORMA_PAGO_CUENTA_CORRIENTE;
-}
-
 export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
   "El cliente superó el monto máximo de cuenta corriente. No se pueden emitir más facturas.";
 
@@ -96,6 +90,20 @@ export function parseDiasVencimiento(raw: string): number | null {
   const n = Number.parseInt(t, 10);
   if (!Number.isInteger(n) || n < 1 || n > 365) return null;
   return n;
+}
+
+/**
+ * Vencimiento de una venta a crédito: el plazo agendado del cliente.
+ * Sin cliente de catálogo (p. ej. CONSUMIDOR FINAL) → null.
+ */
+export function diasVencimientoDesdePlazoCliente(
+  plazo: number | null | undefined
+): number | null {
+  if (plazo == null) return null;
+  if (!Number.isInteger(plazo) || plazo < 1 || plazo > 365) {
+    return CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
+  }
+  return plazo;
 }
 
 /** Texto de visor: `PRESUPUESTO` o `VENTA - FISCAL`. */
