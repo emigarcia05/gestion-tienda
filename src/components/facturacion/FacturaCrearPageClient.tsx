@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, Loader2, MessageSquare, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -53,6 +54,7 @@ import {
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
+  ptoVtaIdParaSucursal,
   type FacturaClase,
   type FacturaCondicionFiscal,
   type FacturaPtoVtaOpcion,
@@ -89,6 +91,7 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
@@ -125,6 +128,7 @@ export default function FacturaCrearPageClient({
   condicionesIva,
   originalesNc,
 }: Props) {
+  const router = useRouter();
   const listboxClientesId = useId();
   const clienteWrapRef = useRef<HTMLDivElement>(null);
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
@@ -150,7 +154,9 @@ export default function FacturaCrearPageClient({
   const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [ptoVtaId] = useState(ptoVtas[0]?.id ?? "");
+  const [ptoVtaId] = useState(() =>
+    ptoVtaIdParaSucursal(ptoVtas, leerUsuarioSesion()?.sucursalPorDefecto)
+  );
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
@@ -929,6 +935,13 @@ export default function FacturaCrearPageClient({
         comprobante={comprobantePdf}
         comprobanteId={comprobanteId}
         plazoCuentaCorrienteCliente={plazoCuentaCorrienteCliente}
+        onFinalizado={(tipoEmitido) => {
+          router.push(
+            tipoEmitido === "presupuesto"
+              ? FACTURACION_ROUTES.factura.presupuestos
+              : FACTURACION_ROUTES.factura.facturas
+          );
+        }}
       />
     </ClassicFilteredTableLayout>
   );

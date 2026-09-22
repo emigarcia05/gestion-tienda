@@ -56,7 +56,6 @@ import {
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -98,23 +97,13 @@ export default function FacturaListadoPageClient({
     });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_TODOS);
-  const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [filtroSucursal, setFiltroSucursal] = useState(FILTRO_SUCURSAL_TODAS);
   const [filtroPendiente, setFiltroPendiente] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   const [openRangoFechas, setOpenRangoFechas] = useState(false);
-
-  const sucursalCodigos = useMemo(
-    () => new Set(sucursales.map((s) => s.codigo)),
-    [sucursales]
-  );
-  useAplicarSucursalPreferidaSiVacia(
-    filtroSucursal === FILTRO_SUCURSAL_TODAS ? FILTRO_SUCURSAL_TODAS : filtroSucursal,
-    setFiltroSucursal,
-    (codigo) => sucursalCodigos.has(codigo)
-  );
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const rangoFechasLabel = (() => {
@@ -200,7 +189,7 @@ export default function FacturaListadoPageClient({
     setQ("");
     setQDebounced("");
     setPeriodo(PERIODO_TODOS);
-    setFiltroSucursal("");
+    setFiltroSucursal(FILTRO_SUCURSAL_TODAS);
     setFiltroPendiente("");
     setFiltroTipo("");
     setFiltroUsuario("");
@@ -321,7 +310,7 @@ export default function FacturaListadoPageClient({
               ) : null}
               <FiltroIndividualContainer
                 activo={Boolean(filtroSucursal) && filtroSucursal !== FILTRO_SUCURSAL_TODAS}
-                onLimpiar={() => setFiltroSucursal("")}
+                onLimpiar={() => setFiltroSucursal(FILTRO_SUCURSAL_TODAS)}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={filtroSucursal} onValueChange={setFiltroSucursal}>

@@ -187,6 +187,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       cuit: true,
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
+      sucursales: {
+        select: { sucursal: { select: { codigo: true } } },
+      },
     },
   });
   return rows.map((r) => ({
@@ -196,6 +199,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     cuit: r.cuit,
     condicionIva: r.condicionIva,
     condicionIvaDescripcion: r.condicionIvaArca?.descripcion ?? null,
+    sucursalCodigos: [
+      ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
+    ],
   }));
 }
 

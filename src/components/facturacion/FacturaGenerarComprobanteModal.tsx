@@ -26,6 +26,7 @@ import {
   esFacturaTipoVenta,
   FACTURA_TIPO_LABELS,
   resumenTotalesFactura,
+  type FacturaTipo,
 } from "@/lib/factura";
 import {
   descargarPdfFacturaComprobante,
@@ -67,6 +68,8 @@ interface Props {
   comprobante: FacturaComprobantePdfInput | null;
   comprobanteId: string | null;
   plazoCuentaCorrienteCliente?: number | null;
+  /** Tras Imprimir / Descargar / Imprimir & Descargar (p. ej. ir al listado). */
+  onFinalizado?: (tipo: FacturaTipo) => void;
 }
 
 function tituloComprobante(comprobante: FacturaComprobantePdfInput | null): string {
@@ -91,6 +94,7 @@ export default function FacturaGenerarComprobanteModal({
   comprobante,
   comprobanteId,
   plazoCuentaCorrienteCliente = null,
+  onFinalizado,
 }: Props) {
   const [pending, setPending] = useState<FacturaGenerarComprobanteAccion | null>(null);
   const [guardandoVto, setGuardandoVto] = useState(false);
@@ -273,7 +277,7 @@ export default function FacturaGenerarComprobanteModal({
         await imprimirYDescargarPdfFacturaComprobante(comprobante);
         toast.success("PDF descargado y enviado a imprimir.");
       }
-      if (!esVenta) onOpenChange(false);
+      onFinalizado?.(comprobante.tipo);
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "No se pudo generar el comprobante.";

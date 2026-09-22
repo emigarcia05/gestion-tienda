@@ -276,7 +276,21 @@ export type FacturaPtoVtaOpcion = {
   cuit: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
+  /** Códigos de `sucursales` vía `global_pto_vta_sucursales`. */
+  sucursalCodigos: string[];
 };
+
+/** Pto. vta. de la sucursal del usuario; si no hay, el primero activo. */
+export function ptoVtaIdParaSucursal(
+  ptoVtas: readonly FacturaPtoVtaOpcion[],
+  sucursalCodigo: string | null | undefined
+): string {
+  if (sucursalCodigo) {
+    const propio = ptoVtas.find((p) => p.sucursalCodigos.includes(sucursalCodigo));
+    if (propio) return propio.id;
+  }
+  return ptoVtas[0]?.id ?? "";
+}
 
 export type FacturaEmitirResultado = {
   id: string;
