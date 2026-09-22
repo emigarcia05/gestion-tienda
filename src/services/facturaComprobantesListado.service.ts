@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   esFacturaTipo,
+  saldoPendienteTrasCobro,
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
   type FacturaPtoVtaOpcion,
@@ -10,6 +11,9 @@ import {
   type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
+import {
+  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
+} from "@/lib/envios";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -30,23 +34,21 @@ function saldoYDiasCtaCte(args: {
   tipo: FacturaTipo;
   estado: FacturaComprobanteEstado;
   impTotal: number;
+  impCobrado: number;
   fechaIso: string;
   diasVencimiento: number | null;
   tieneNc: boolean;
   hoyIso: string;
 }): { saldoPendiente: number | null; diasParaVencer: number | null } {
   const esVenta = args.tipo === "factura_fiscal" || args.tipo === "factura_no_fiscal";
-  if (
-    !esVenta ||
-    args.estado === "rechazado" ||
-    args.diasVencimiento == null ||
-    args.tieneNc
-  ) {
+  const restante = saldoPendienteTrasCobro(args.impTotal, args.impCobrado);
+  if (!esVenta || args.estado === "rechazado" || args.tieneNc || restante <= 0) {
     return { saldoPendiente: null, diasParaVencer: null };
   }
-  const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
+  const plazo = args.diasVencimiento ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
+  const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, plazo);
   return {
-    saldoPendiente: args.impTotal,
+    saldoPendiente: restante,
     diasParaVencer: diffCalendarDaysIsoYmdArgentina(args.hoyIso, venceIso),
   };
 }
@@ -62,6 +64,7 @@ function mapListItem(
     cbteNro: number | null;
     receptorNombre: string;
     impTotal: Prisma.Decimal;
+    impCobrado: Prisma.Decimal;
     diasVencimiento: number | null;
     cae: string | null;
     caeVto: Date | null;
@@ -87,6 +90,7 @@ function mapListItem(
     tipo,
     estado,
     impTotal,
+    impCobrado: decimalToNumber(row.impCobrado),
     fechaIso,
     diasVencimiento: row.diasVencimiento,
     tieneNc: row.notasCredito.length > 0,
@@ -131,6 +135,7 @@ const listSelect = {
   cbteNro: true,
   receptorNombre: true,
   impTotal: true,
+  impCobrado: true,
   diasVencimiento: true,
   cae: true,
   caeVto: true,

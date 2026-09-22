@@ -38,6 +38,7 @@ import {
   porcentajeDescuentoLinea,
   pxConDescuento,
   resumenTotalesFactura,
+  saldoPendienteTrasCobro,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
   type FacturaEmitirResultado,
@@ -1015,9 +1016,24 @@ export async function guardarDiasVencimientoComprobante(
   input: GuardarDiasVencimientoFacturaInput
 ): Promise<ServiceResult<void>> {
   try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id: input.id },
+      select: { id: true, impTotal: true },
+    });
+    if (!row) return { success: false, error: "El comprobante no existe." };
+    const total = decimalToNumber(row.impTotal);
+    if (saldoPendienteTrasCobro(total, input.impCobrado) < 0) {
+      return { success: false, error: "El cobro no puede ser mayor al total." };
+    }
+    if (input.impCobrado - total > 0.005) {
+      return { success: false, error: "El cobro no puede ser mayor al total." };
+    }
     await prisma.comprobanteVta.update({
       where: { id: input.id },
-      data: { diasVencimiento: input.diasVencimiento },
+      data: {
+        diasVencimiento: input.diasVencimiento,
+        impCobrado: input.impCobrado,
+      },
     });
     return { success: true, data: undefined };
   } catch (e) {

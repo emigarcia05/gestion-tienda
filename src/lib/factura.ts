@@ -103,12 +103,20 @@ export function parseDiasVencimiento(raw: string): number | null {
  */
 export function diasVencimientoDesdePlazoCliente(
   plazo: number | null | undefined
-): number | null {
-  if (plazo == null) return null;
-  if (!Number.isInteger(plazo) || plazo < 1 || plazo > 365) {
+): number {
+  if (plazo == null || !Number.isInteger(plazo) || plazo < 1 || plazo > 365) {
     return CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
   }
   return plazo;
+}
+
+/** `imp_total` − `imp_cobrado`, piso 0 (2 decimales). */
+export function saldoPendienteTrasCobro(
+  impTotal: number,
+  impCobrado: number
+): number {
+  const restante = Math.round((impTotal - impCobrado) * 100) / 100;
+  return restante > 0 ? restante : 0;
 }
 
 /** Texto de visor: `PRESUPUESTO` o `VENTA - FISCAL`. */

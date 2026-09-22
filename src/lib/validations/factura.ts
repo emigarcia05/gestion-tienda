@@ -162,6 +162,10 @@ export const guardarDiasVencimientoFacturaSchema = z.object({
       .min(1, "Ingresá los días de vencimiento.")
       .max(365, "Máximo 365 días."),
   ]),
+  impCobrado: z
+    .number()
+    .nonnegative("El cobro no puede ser negativo.")
+    .max(1_000_000_000, "El cobro es demasiado grande."),
 });
 
 export type GuardarDiasVencimientoFacturaInput = z.infer<

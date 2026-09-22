@@ -1964,6 +1964,8 @@ model ComprobanteVta {
 
   /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
   diasVencimiento Int? @map("dias_vencimiento")
+  /** Suma cobrada en el modal post-emisión. Saldo = `imp_total` − `imp_cobrado`. */
+  impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
   /** Personal que generó el comprobante. Null en filas anteriores a `20260922180000`. */
   personalId Int? @map("personal_id")
 
