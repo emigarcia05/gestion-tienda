@@ -19,7 +19,7 @@ export function normalizarNombreTitularCaja(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
 }
 
-/** Catálogo de `global_personal` (titular financiero) + valor actual si es legado. */
+/** Catálogo de `personal` (titular financiero) + valor actual si es legado. */
 export function opcionesTitularTesoreria(
   catalogo: readonly string[],
   valorActual?: string | null

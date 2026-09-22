@@ -65,6 +65,7 @@ import {
 } from "@/lib/facturaFiscal";
 import type {
   EmitirFacturaComprobanteInput,
+  EmitirNotaCreditoFacturaInput,
   GuardarDiasVencimientoFacturaInput,
 } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
@@ -112,6 +113,20 @@ async function resolverProyectoIdComprobante(args: {
     return { success: true, data: unico ? unico.id : null };
   }
   return { success: true, data: null };
+}
+
+/** FK a `personal` del usuario de pestaña que genera el comprobante. */
+async function resolverPersonalIdComprobante(
+  personalId: number
+): Promise<ServiceResult<number>> {
+  const row = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: personalId },
+    select: { idPersonal: true },
+  });
+  if (!row) {
+    return { success: false, error: "El usuario de sesión no existe." };
+  }
+  return { success: true, data: row.idPersonal };
 }
 
 export type FacturaComprobantePdfDatos = {
@@ -337,6 +352,10 @@ export async function emitirFacturaComprobante(
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
   if (!fecha) return { success: false, error: "Fecha de comprobante inválida." };
+
+  const personalRes = await resolverPersonalIdComprobante(input.personalId);
+  if (!personalRes.success) return personalRes;
+  const personalId = personalRes.data;
 
   const pto = await prisma.globalPtoVta.findUnique({
     where: { id: input.ptoVtaId },
@@ -565,6 +584,7 @@ export async function emitirFacturaComprobante(
             efectoStock: efectoStockPorTipo(input.tipo),
             stockAplicado: false,
             diasVencimiento,
+            personalId,
             items: {
               create: lineas.map((l) => ({
                 orden: l.orden,
@@ -794,6 +814,7 @@ async function emitirFiscal(args: {
           efectoStock: efectoStockPorTipo(args.input.tipo),
           stockAplicado: false,
           diasVencimiento: args.diasVencimiento,
+          personalId: args.input.personalId,
           cbteAsocId: args.original?.id ?? null,
           cbteAsocTipo: args.original?.cbteTipo ?? null,
           cbteAsocPtoVta: args.original
@@ -893,10 +914,10 @@ async function emitirFiscal(args: {
 }
 
 export async function emitirNotaCreditoDesdeComprobante(
-  comprobanteId: string
+  inputNc: EmitirNotaCreditoFacturaInput
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const orig = await prisma.comprobanteVta.findUnique({
-    where: { id: comprobanteId },
+    where: { id: inputNc.id },
     include: { items: { orderBy: { orden: "asc" } } },
   });
   if (!orig) return { success: false, error: "El comprobante no existe." };
@@ -938,6 +959,7 @@ export async function emitirNotaCreditoDesdeComprobante(
             totalFacObjetivo: null,
           }
         : null,
+    personalId: inputNc.personalId,
   };
   return emitirFacturaComprobante(input);
 }

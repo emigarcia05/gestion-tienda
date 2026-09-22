@@ -21,7 +21,7 @@ import {
   type GlobalPersonalItem,
 } from "@/services/globalPersonal.service";
 
-/** Titulares de caja/cheque: `global_personal` con `titular_financiero = true`. */
+/** Titulares de caja/cheque: `personal` con `titular_financiero = true`. */
 export async function listTitularesFinancierosAction(): Promise<ActionResult<string[]>> {
   const gate = await requireFinanzasLectura();
   if (gate) return gate;

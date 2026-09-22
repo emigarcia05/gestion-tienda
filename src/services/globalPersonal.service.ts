@@ -86,7 +86,7 @@ function mapRow(row: {
   };
 }
 
-/** Nombres de `global_personal` con `titular_financiero = true` (tesorería / tenedor). */
+/** Nombres de `personal` con `titular_financiero = true` (tesorería / tenedor). */
 export async function listNombresTitularesFinancieros(): Promise<string[]> {
   const rows = await prisma.globalPersonal.findMany({
     where: { titularFinanciero: true },
@@ -129,7 +129,7 @@ export async function resolverNombreTitularFinanciero(
   return { success: true, data: row.nombrePersonal };
 }
 
-/** Lista el catálogo `global_personal` ordenado por nombre. */
+/** Lista el catálogo `personal` ordenado por nombre. */
 export async function listGlobalPersonal(): Promise<GlobalPersonalItem[]> {
   const rows = await prisma.globalPersonal.findMany({
     orderBy: { nombrePersonal: "asc" },

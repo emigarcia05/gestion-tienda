@@ -7,6 +7,7 @@ import {
   type FacturaPtoVtaOpcion,
   type FacturaSucursalFiltroOption,
   type FacturaTipo,
+  type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import {
@@ -56,6 +57,7 @@ function mapListItem(
     tipoLocal: string;
     letra: string | null;
     fecha: Date;
+    createdAt: Date;
     ptoVenta: string;
     cbteNro: number | null;
     receptorNombre: string;
@@ -67,6 +69,8 @@ function mapListItem(
     estado: string;
     ambiente: string;
     notasCredito: { id: string }[];
+    personalId: number | null;
+    personal: { nombrePersonal: string } | null;
     ptoVta: {
       sucursales: { sucursal: { codigo: string } }[];
     };
@@ -93,6 +97,7 @@ function mapListItem(
     tipo,
     letra: row.letra,
     fechaIso,
+    createdAtIso: row.createdAt.toISOString(),
     nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
     cliente: row.receptorNombre,
     impTotal,
@@ -111,6 +116,8 @@ function mapListItem(
       estado === "autorizado" &&
       Boolean(row.cae) &&
       row.notasCredito.length === 0,
+    personalId: row.personalId,
+    usuarioNombre: row.personal?.nombrePersonal ?? "",
   };
 }
 
@@ -119,6 +126,7 @@ const listSelect = {
   tipoLocal: true,
   letra: true,
   fecha: true,
+  createdAt: true,
   ptoVenta: true,
   cbteNro: true,
   receptorNombre: true,
@@ -129,6 +137,8 @@ const listSelect = {
   resultado: true,
   estado: true,
   ambiente: true,
+  personalId: true,
+  personal: { select: { nombrePersonal: true } },
   notasCredito: { select: { id: true }, take: 1 },
   ptoVta: {
     select: {
@@ -149,7 +159,20 @@ export async function listarSucursalesFiltroFacturas(): Promise<
   });
   return rows.map((r) => ({
     codigo: r.codigo,
-    nombre: r.nombre.toLocaleUpperCase("es-AR"),
+    nombre: r.nombre,
+  }));
+}
+
+export async function listarUsuariosFiltroFacturas(): Promise<
+  FacturaUsuarioFiltroOption[]
+> {
+  const rows = await prisma.globalPersonal.findMany({
+    select: { idPersonal: true, nombrePersonal: true },
+    orderBy: { nombrePersonal: "asc" },
+  });
+  return rows.map((r) => ({
+    idPersonal: r.idPersonal,
+    nombrePersonal: r.nombrePersonal,
   }));
 }
 

@@ -40,6 +40,7 @@ import {
   FACTURA_TIPO_DEFAULT,
   MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
+  MENSAJE_PERSONAL_SESION_REQUERIDO,
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
@@ -87,6 +88,7 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
@@ -337,6 +339,11 @@ export default function FacturaCrearPageClient({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
+    const personalId = leerUsuarioSesion()?.idPersonal;
+    if (!personalId) {
+      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
     if (!ptoVtaId) {
       toast.error("Seleccioná un punto de venta.");
       return;
@@ -379,6 +386,7 @@ export default function FacturaCrearPageClient({
           comentario: l.comentario,
         })),
         descuento,
+        personalId,
       });
       if (!res.ok) {
         toast.error(res.error);

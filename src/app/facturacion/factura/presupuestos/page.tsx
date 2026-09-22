@@ -6,6 +6,7 @@ import { getRol } from "@/lib/sesion";
 import {
   listarPresupuestosComprobantes,
   listarSucursalesFiltroFacturas,
+  listarUsuariosFiltroFacturas,
 } from "@/services/facturaComprobantesListado.service";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,10 @@ export default async function FacturaPresupuestosPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [items, sucursales] = await Promise.all([
+  const [items, sucursales, usuarios] = await Promise.all([
     listarPresupuestosComprobantes(),
     listarSucursalesFiltroFacturas(),
+    listarUsuariosFiltroFacturas(),
   ]);
 
   return (
@@ -26,6 +28,7 @@ export default async function FacturaPresupuestosPage() {
       <FacturaListadoPageClient
         items={items}
         sucursales={sucursales}
+        usuarios={usuarios}
         variant="presupuestos"
       />
     </div>

@@ -314,7 +314,7 @@ export default function FacturaGenerarComprobanteModal({
         <div className="flex flex-col gap-5">
           {esVenta ? (
             <section className="flex flex-col gap-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                 COBRO
               </p>
               <p className="text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
@@ -459,7 +459,7 @@ export default function FacturaGenerarComprobanteModal({
           ) : null}
 
           <section className={cn("flex flex-col gap-2", esVenta && "border-t border-border pt-4")}>
-            <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+            <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
               COMPROBANTE
             </p>
             {comprobante?.cae ? (

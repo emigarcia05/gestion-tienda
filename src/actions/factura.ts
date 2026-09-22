@@ -11,6 +11,7 @@ import {
   buscarClientesFacturaSchema,
   buscarProductosFacturaSchema,
   emitirFacturaComprobanteSchema,
+  emitirNotaCreditoFacturaSchema,
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
 } from "@/lib/validations/factura";
@@ -94,7 +95,7 @@ export async function emitirNotaCreditoFacturaAction(
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
-  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  const parsed = emitirNotaCreditoFacturaSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
@@ -102,7 +103,7 @@ export async function emitirNotaCreditoFacturaAction(
       "@/services/facturaComprobantes.service"
     );
     const out = fromServiceResult(
-      await emitirNotaCreditoDesdeComprobante(parsed.data.id)
+      await emitirNotaCreditoDesdeComprobante(parsed.data)
     );
     if (!out.ok) return out;
     revalidateFacturacion();

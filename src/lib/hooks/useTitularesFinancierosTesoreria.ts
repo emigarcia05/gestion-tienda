@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { listTitularesFinancierosAction } from "@/actions/globalPersonal";
 import { opcionesTitularTesoreria } from "@/lib/cajasTesoreriaTitulares";
 
-/** Nombres de `global_personal` con `titular_financiero = true`. */
+/** Nombres de `personal` con `titular_financiero = true`. */
 export function useTitularesFinancierosTesoreria(
   open: boolean,
   valorActual?: string | null

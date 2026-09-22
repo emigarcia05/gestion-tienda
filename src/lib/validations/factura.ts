@@ -6,7 +6,7 @@ import {
   MENSAJE_CLIENTE_FACTURA_VACIO,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
-import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
+import { idPersonalSchema, sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
   .string()
@@ -104,6 +104,8 @@ export const emitirFacturaComprobanteSchema = z
     cbteAsocId: prismaCuidSchema.optional(),
     lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
     descuento: descuentoEmitirSchema.optional().default(null),
+    /** Usuario de pestaña (`personal.id_personal`). */
+    personalId: idPersonalSchema,
   })
   .superRefine((data, ctx) => {
     const clienteMsg = mensajeClienteFacturaNoSeleccionado(
@@ -140,6 +142,15 @@ export const facturaComprobanteIdSchema = z.object({
 });
 
 export type FacturaComprobanteIdInput = z.infer<typeof facturaComprobanteIdSchema>;
+
+export const emitirNotaCreditoFacturaSchema = z.object({
+  id: prismaCuidSchema,
+  personalId: idPersonalSchema,
+});
+
+export type EmitirNotaCreditoFacturaInput = z.infer<
+  typeof emitirNotaCreditoFacturaSchema
+>;
 
 export const guardarDiasVencimientoFacturaSchema = z.object({
   id: prismaCuidSchema,

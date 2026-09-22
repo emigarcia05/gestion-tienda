@@ -236,6 +236,23 @@ export function formatIsoYmdDdMmYyyyArgentina(isoYmd: string): string {
   return `${d}/${m}/${y}`;
 }
 
+/**
+ * Lista Comprobantes · FECHA: `dd/mm/aaaa - hh:mm`.
+ * Fecha calendario del comprobante + hora Argentina del instante (p. ej. `created_at`).
+ */
+export function formatIsoYmdGuionHhMmArgentina(
+  isoYmd: string,
+  instante: Date
+): string {
+  const fecha = formatIsoYmdDdMmYyyyArgentina(isoYmd);
+  const m = toPartMap(instante, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${fecha} - ${m.hour}:${m.minute}`;
+}
+
 /** `2026-03-15` → `15/03/26` (pegado DUX: Fecha `dd/mm/aa`). */
 export function formatIsoYmdDdMmYyArgentina(isoYmd: string): string {
   const [y, m, d] = isoYmd.split("-");

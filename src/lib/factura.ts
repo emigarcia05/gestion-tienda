@@ -23,6 +23,11 @@ export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
   nota_credito_fiscal: "NOTA CRÉDITO FISCAL",
 };
 
+/** Tipos de Lista Comprobantes (sin presupuesto). */
+export const FACTURA_TIPOS_LISTA_COMPROBANTES = FACTURA_TIPOS.filter(
+  (t): t is Exclude<FacturaTipo, "presupuesto"> => t !== "presupuesto"
+);
+
 /** Valor inicial del select en Crear. */
 export const FACTURA_TIPO_DEFAULT: FacturaTipo = "presupuesto";
 
@@ -191,6 +196,9 @@ export const MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO =
 export const MENSAJE_CLIENTE_FACTURA_VACIO =
   "Seleccioná un cliente o CONSUMIDOR FINAL.";
 
+export const MENSAJE_PERSONAL_SESION_REQUERIDO =
+  "Elegí un usuario en el slidenav.";
+
 /** Null si se puede emitir; mensaje si falta CF explícito o `clienteId`. */
 export function mensajeClienteFacturaNoSeleccionado(
   raw: string,
@@ -226,6 +234,8 @@ export type FacturaComprobanteListItem = {
   tipo: FacturaTipo;
   letra: string | null;
   fechaIso: string;
+  /** ISO-8601 de `created_at` (hora de emisión; `fecha` es solo calendario). */
+  createdAtIso: string;
   nroComprobante: string;
   cliente: string;
   impTotal: number;
@@ -241,12 +251,22 @@ export type FacturaComprobanteListItem = {
   estado: FacturaComprobanteEstado;
   ambiente: string;
   puedeNc: boolean;
+  /** `personal.id_personal` de quien generó; null en filas viejas. */
+  personalId: number | null;
+  /** Nombre del personal; vacío si no hay `personal_id`. */
+  usuarioNombre: string;
 };
 
 /** Opción del filtro SUCURSAL en Lista Comprobantes / Presupuestos. */
 export type FacturaSucursalFiltroOption = {
   codigo: string;
   nombre: string;
+};
+
+/** Opción del filtro USUARIO en Lista Comprobantes / Presupuestos. */
+export type FacturaUsuarioFiltroOption = {
+  idPersonal: number;
+  nombrePersonal: string;
 };
 
 export type FacturaPtoVtaOpcion = {
