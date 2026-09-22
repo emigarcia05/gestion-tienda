@@ -1315,6 +1315,7 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
+  cobrosVincCajas CobrosPorSucursal[]
 
   @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
   @@map("tesoreria_cobros_entidades")
@@ -1336,6 +1337,7 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
+  cobrosVincCajas CobrosPorSucursal[]
 
   @@map("cobros_forma_pago")
 }
@@ -1350,7 +1352,6 @@ model CobrosFormaPagoEntidad {
 
   pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
-  destinosPorSucursal CobrosPorSucursal[]
 
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
@@ -1397,16 +1398,17 @@ model FinAnaCosFina {
 }
 
 /**
- * Vínculo de acreditación (`cobros_vinc_cajas`): una fila = forma × entidad × **una** sucursal.
+ * Vínculo de acreditación (`cobros_vinc_cajas`): una fila = forma [× entidad] × **una** sucursal.
  * Alta manual (UI Cobros & Cajas); no se genera desde `cobros_cx_fin.habilitado`.
- * La misma forma × entidad puede repetirse en otra sucursal (otra fila).
- * UNIQUE `(pago_id, entidad_id, sucursal_id)`.
+ * Si `cobros_forma_pago.entidad_obligatoria` es false, `entidad_id` es null.
+ * Uniques parciales SQL: `(pago_id, entidad_id, sucursal_id)` con entidad; `(pago_id, sucursal_id)` sin entidad.
  */
 model CobrosPorSucursal {
   id            String   @id @default(cuid())
   pagoId        String   @map("pago_id")
-  entidadId     String   @map("entidad_id")
-  formaPagoEntidad CobrosFormaPagoEntidad @relation(fields: [pagoId, entidadId], references: [pagoId, entidadId], onDelete: Cascade)
+  pago          FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  entidadId     String?  @map("entidad_id")
+  entidad       FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
   sucursalId    String   @map("sucursal_id")
   sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   cajaDestinoId String?  @map("caja_destino_id")
@@ -1416,7 +1418,6 @@ model CobrosPorSucursal {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  @@unique([pagoId, entidadId, sucursalId], map: "cobros_vinc_cajas_pago_entidad_sucursal_ux")
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
   @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")

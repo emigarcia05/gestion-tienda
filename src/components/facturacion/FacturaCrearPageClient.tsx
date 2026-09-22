@@ -31,6 +31,7 @@ import {
 import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_CLASES,
   FACTURA_CLASE_LABELS,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
@@ -42,6 +43,7 @@ import {
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
+  esClienteConsumidorFinalCargado,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
@@ -141,10 +143,8 @@ export default function FacturaCrearPageClient({
   const [saldoCuentaCorrienteCliente, setSaldoCuentaCorrienteCliente] = useState<
     number | null
   >(null);
-  /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
-  const [clienteQActual, setClienteQActual] = useState(
-    FACTURA_CLIENTE_CONSUMIDOR_FINAL
-  );
+  /** Cliente elegido o CF explícito: `qActual` del typeahead. */
+  const [clienteQActual, setClienteQActual] = useState("");
   const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
@@ -215,6 +215,7 @@ export default function FacturaCrearPageClient({
     setPlazoCuentaCorrienteCliente(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
+    setClienteQActual("");
     setCliente("");
     setClienteProyectos([]);
     setProyectoId(null);
@@ -223,8 +224,7 @@ export default function FacturaCrearPageClient({
     setLoadingClientes(false);
   }
 
-  function restaurarConsumidorFinalSiVacio(raw: string) {
-    if (raw.trim() !== "") return;
+  function cargarConsumidorFinal() {
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
@@ -235,6 +235,7 @@ export default function FacturaCrearPageClient({
     setProyectoId(null);
     setClientesAbierto(false);
     setSugerenciasClientes([]);
+    setLoadingClientes(false);
   }
 
   function aplicarClienteSeleccionado(item: ClienteItem | ClienteListaItem) {
@@ -263,10 +264,14 @@ export default function FacturaCrearPageClient({
   const proyectoElegido =
     clienteProyectos.find((p) => p.id === proyectoId) ?? null;
   const etiquetaClienteVisor = (() => {
-    const nombre = nombreClienteFactura(cliente);
-    if (!proyectoElegido) return nombre;
-    return `${nombre} - ${etiquetaNombreProyecto(proyectoElegido)}`;
+    const nombre = cliente.trim();
+    if (!nombre) return "";
+    const display = nombreClienteFactura(nombre);
+    if (!proyectoElegido) return display;
+    return `${display} - ${etiquetaNombreProyecto(proyectoElegido)}`;
   })();
+  const mostrarBotonConsumidorFinal =
+    !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
   function aplicarClase(clase: FacturaClase) {
     if (clase === "presupuesto") {
@@ -399,6 +404,7 @@ export default function FacturaCrearPageClient({
       });
       setComprobanteId(res.data.id);
       setComprobanteModalOpen(true);
+      vaciarInputClienteParaBusqueda();
     } finally {
       setPending(false);
     }
@@ -656,9 +662,9 @@ export default function FacturaCrearPageClient({
                     ) {
                       return;
                     }
-                    restaurarConsumidorFinalSiVacio(e.currentTarget.value);
+                    setClientesAbierto(false);
                   }}
-                  placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
+                  placeholder="BUSCAR CLIENTE..."
                   autoComplete="off"
                   role="combobox"
                   aria-expanded={clientesAbierto}
@@ -792,6 +798,21 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
+            {mostrarBotonConsumidorFinal ? (
+              <div className={CABECERA_EDITOR_SLOT_CLASS}>
+                <ModalMicroLabel className="invisible" aria-hidden>
+                  PROYECTO CLIENTE
+                </ModalMicroLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 w-full"
+                  onClick={cargarConsumidorFinal}
+                >
+                  {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}
+                </Button>
+              </div>
+            ) : (
             <div
               className={cn(!mostrarProyecto && "invisible pointer-events-none")}
               aria-hidden={!mostrarProyecto}
@@ -839,6 +860,7 @@ export default function FacturaCrearPageClient({
                 </div>
               </label>
             </div>
+            )}
 
             <div className={CABECERA_EDITOR_SLOT_CLASS}>
               <ModalMicroLabel>SALDO CLIENTE</ModalMicroLabel>

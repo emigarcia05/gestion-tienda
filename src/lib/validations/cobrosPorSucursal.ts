@@ -3,7 +3,7 @@ import { prismaCuidOrUuidSchema } from "@/lib/validations/common";
 
 export const crearCobroPorSucursalSchema = z.object({
   pagoId: prismaCuidOrUuidSchema,
-  entidadId: prismaCuidOrUuidSchema,
+  entidadId: prismaCuidOrUuidSchema.nullable().optional(),
   cajaDestinoId: prismaCuidOrUuidSchema,
   observacion: z.string().max(2000).default(""),
 });

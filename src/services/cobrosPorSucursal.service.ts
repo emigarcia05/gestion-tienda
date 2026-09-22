@@ -30,20 +30,24 @@ export type CobrosPorSucursalCatalogoItem = {
   nombre: string;
 };
 
+export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
+  entidadObligatoria: boolean;
+};
+
 export type CobrosPorSucursalVinculoPagoEntidad = {
   pagoId: string;
   entidadId: string;
 };
 
 /**
- * Una fila = un registro `cobros_vinc_cajas` (forma × entidad × una sola sucursal).
- * La misma forma × entidad puede repetirse en otra sucursal como otra fila.
+ * Una fila = un registro `cobros_vinc_cajas` (forma [× entidad] × una sola sucursal).
+ * Si la forma no exige entidad, `entidadId` es null.
  */
 export type CobrosPorSucursalFila = {
   id: string;
   pagoId: string;
   pagoNombre: string;
-  entidadId: string;
+  entidadId: string | null;
   entidadNombre: string;
   sucursalId: string;
   sucursalNombre: string;
@@ -56,7 +60,7 @@ export type CobrosPorSucursalVista = {
   filas: CobrosPorSucursalFila[];
   sucursales: CobrosPorSucursalSucursalCol[];
   cajas: CobrosPorSucursalCajaOption[];
-  pagos: CobrosPorSucursalCatalogoItem[];
+  pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
 };
@@ -67,7 +71,7 @@ function mapDbError(error: unknown, fallback: string): string {
     if (code === "P2003") return "Hay referencias inválidas (forma, entidad, sucursal o caja).";
     if (code === "P2025") return "Registro no encontrado.";
     if (code === "P2002") {
-      return "Ya existe esa forma de pago × entidad para esa sucursal.";
+      return "Ya existe esa forma de pago para esa sucursal.";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -104,6 +108,37 @@ function sortFilas(a: CobrosPorSucursalFila, b: CobrosPorSucursalFila): number {
   });
 }
 
+function mensajeDuplicado(conEntidad: boolean): string {
+  return conEntidad
+    ? "Ya existe esa forma de pago × entidad para esa sucursal."
+    : "Ya existe esa forma de pago para esa sucursal.";
+}
+
+async function buscarDuplicado(input: {
+  pagoId: string;
+  entidadId: string | null;
+  sucursalId: string;
+  excludeId?: string;
+}): Promise<boolean> {
+  const row = await prisma.cobrosPorSucursal.findFirst({
+    where: input.entidadId
+      ? {
+          pagoId: input.pagoId,
+          entidadId: input.entidadId,
+          sucursalId: input.sucursalId,
+          ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+        }
+      : {
+          pagoId: input.pagoId,
+          entidadId: null,
+          sucursalId: input.sucursalId,
+          ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+        },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
 /** Sucursales operativas (con depósito). */
 export async function listarSucursalesCobrosPorSucursal(): Promise<
   CobrosPorSucursalSucursalCol[]
@@ -121,9 +156,16 @@ export async function listarSucursalesCobrosPorSucursal(): Promise<
 
 async function validarCajaDestino(
   cajaDestinoId: string,
-  entidadId: string,
+  entidadId: string | null,
   sucursalesValidas: Set<string>
-): Promise<ServiceResult<{ id: string; sucursalId: string; etiqueta: string; sucursalNombre: string }>> {
+): Promise<
+  ServiceResult<{
+    id: string;
+    sucursalId: string;
+    etiqueta: string;
+    sucursalNombre: string;
+  }>
+> {
   const caja = await prisma.cajaTesoreria.findFirst({
     where: {
       id: cajaDestinoId,
@@ -142,7 +184,7 @@ async function validarCajaDestino(
   if (!caja) {
     return { success: false, error: "Caja vinculada inválida." };
   }
-  if (caja.entidadId !== entidadId) {
+  if (entidadId && caja.entidadId !== entidadId) {
     return {
       success: false,
       error: "La caja debe ser de la misma entidad seleccionada.",
@@ -202,17 +244,13 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
               sucursal: { select: { nombre: true } },
             },
           },
-          formaPagoEntidad: {
-            select: {
-              pago: { select: { nombre: true } },
-              entidad: { select: { nombre: true } },
-            },
-          },
+          pago: { select: { nombre: true } },
+          entidad: { select: { nombre: true } },
         },
       }),
       prisma.finAnaCosFinaPagoCat.findMany({
         orderBy: [{ nombre: "asc" }],
-        select: { id: true, nombre: true },
+        select: { id: true, nombre: true, entidadObligatoria: true },
       }),
       prisma.finAnaCosFinaTerminalMarca.findMany({
         orderBy: [{ nombre: "asc" }],
@@ -230,13 +268,15 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     .map((d) => ({
       id: d.id,
       pagoId: d.pagoId,
-      pagoNombre: d.formaPagoEntidad.pago.nombre.toLocaleUpperCase("es-AR"),
+      pagoNombre: d.pago.nombre.toLocaleUpperCase("es-AR"),
       entidadId: d.entidadId,
-      entidadNombre: d.formaPagoEntidad.entidad.nombre.toLocaleUpperCase("es-AR"),
+      entidadNombre: d.entidad
+        ? d.entidad.nombre.toLocaleUpperCase("es-AR")
+        : "",
       sucursalId: d.sucursalId,
       sucursalNombre: d.sucursal.nombre.toLocaleUpperCase("es-AR"),
       cajaDestinoId: d.cajaDestinoId,
-      cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "—",
+      cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       observacion: d.observacion,
     }))
     .sort(sortFilas);
@@ -264,6 +304,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     pagos: pagosRows.map((p) => ({
       id: p.id,
       nombre: p.nombre.toLocaleUpperCase("es-AR"),
+      entidadObligatoria: p.entidadObligatoria,
     })),
     entidades: entidadesRows.map((e) => ({
       id: e.id,
@@ -279,54 +320,59 @@ export async function crearCobroPorSucursal(
   try {
     const observacion = normalizarObservacion(input.observacion);
 
-    const vinculo = await prisma.cobrosFormaPagoEntidad.findUnique({
-      where: {
-        pagoId_entidadId: {
-          pagoId: input.pagoId,
-          entidadId: input.entidadId,
-        },
-      },
-      select: {
-        pagoId: true,
-        entidadId: true,
-        pago: { select: { nombre: true } },
-        entidad: { select: { nombre: true } },
-      },
+    const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
+      where: { id: input.pagoId },
+      select: { id: true, nombre: true, entidadObligatoria: true },
     });
-    if (!vinculo) {
-      return { success: false, error: "Combinación forma de pago × entidad inválida." };
+    if (!pago) {
+      return { success: false, error: "Forma de pago inválida." };
+    }
+
+    const entidadId = pago.entidadObligatoria ? (input.entidadId ?? null) : null;
+    let entidadNombre = "";
+    if (pago.entidadObligatoria) {
+      if (!entidadId) {
+        return { success: false, error: "Seleccioná una entidad." };
+      }
+      const vinculo = await prisma.cobrosFormaPagoEntidad.findUnique({
+        where: {
+          pagoId_entidadId: {
+            pagoId: input.pagoId,
+            entidadId,
+          },
+        },
+        select: {
+          entidad: { select: { nombre: true } },
+        },
+      });
+      if (!vinculo) {
+        return { success: false, error: "Combinación forma de pago × entidad inválida." };
+      }
+      entidadNombre = vinculo.entidad.nombre.toLocaleUpperCase("es-AR");
     }
 
     const sucursales = await listarSucursalesCobrosPorSucursal();
     const sucursalesValidas = new Set(sucursales.map((s) => s.id));
     const cajaRes = await validarCajaDestino(
       input.cajaDestinoId,
-      input.entidadId,
+      entidadId,
       sucursalesValidas
     );
     if (!cajaRes.success) return cajaRes;
 
-    const duplicado = await prisma.cobrosPorSucursal.findUnique({
-      where: {
-        pagoId_entidadId_sucursalId: {
-          pagoId: input.pagoId,
-          entidadId: input.entidadId,
-          sucursalId: cajaRes.data.sucursalId,
-        },
-      },
-      select: { id: true },
+    const duplicado = await buscarDuplicado({
+      pagoId: input.pagoId,
+      entidadId,
+      sucursalId: cajaRes.data.sucursalId,
     });
     if (duplicado) {
-      return {
-        success: false,
-        error: "Ya existe esa forma de pago × entidad para esa sucursal.",
-      };
+      return { success: false, error: mensajeDuplicado(Boolean(entidadId)) };
     }
 
     const created = await prisma.cobrosPorSucursal.create({
       data: {
         pagoId: input.pagoId,
-        entidadId: input.entidadId,
+        entidadId,
         sucursalId: cajaRes.data.sucursalId,
         cajaDestinoId: cajaRes.data.id,
         observacion,
@@ -339,9 +385,9 @@ export async function crearCobroPorSucursal(
       data: {
         id: created.id,
         pagoId: input.pagoId,
-        pagoNombre: vinculo.pago.nombre.toLocaleUpperCase("es-AR"),
-        entidadId: input.entidadId,
-        entidadNombre: vinculo.entidad.nombre.toLocaleUpperCase("es-AR"),
+        pagoNombre: pago.nombre.toLocaleUpperCase("es-AR"),
+        entidadId,
+        entidadNombre,
         sucursalId: cajaRes.data.sucursalId,
         sucursalNombre: cajaRes.data.sucursalNombre,
         cajaDestinoId: cajaRes.data.id,
@@ -370,12 +416,8 @@ export async function actualizarCobroPorSucursal(
         pagoId: true,
         entidadId: true,
         sucursalId: true,
-        formaPagoEntidad: {
-          select: {
-            pago: { select: { nombre: true } },
-            entidad: { select: { nombre: true } },
-          },
-        },
+        pago: { select: { nombre: true } },
+        entidad: { select: { nombre: true } },
       },
     });
     if (!existente) {
@@ -392,20 +434,16 @@ export async function actualizarCobroPorSucursal(
     if (!cajaRes.success) return cajaRes;
 
     if (cajaRes.data.sucursalId !== existente.sucursalId) {
-      const conflicto = await prisma.cobrosPorSucursal.findUnique({
-        where: {
-          pagoId_entidadId_sucursalId: {
-            pagoId: existente.pagoId,
-            entidadId: existente.entidadId,
-            sucursalId: cajaRes.data.sucursalId,
-          },
-        },
-        select: { id: true },
+      const conflicto = await buscarDuplicado({
+        pagoId: existente.pagoId,
+        entidadId: existente.entidadId,
+        sucursalId: cajaRes.data.sucursalId,
+        excludeId: existente.id,
       });
-      if (conflicto && conflicto.id !== existente.id) {
+      if (conflicto) {
         return {
           success: false,
-          error: "Ya existe esa forma de pago × entidad para esa sucursal.",
+          error: mensajeDuplicado(Boolean(existente.entidadId)),
         };
       }
     }
@@ -424,9 +462,11 @@ export async function actualizarCobroPorSucursal(
       data: {
         id: existente.id,
         pagoId: existente.pagoId,
-        pagoNombre: existente.formaPagoEntidad.pago.nombre.toLocaleUpperCase("es-AR"),
+        pagoNombre: existente.pago.nombre.toLocaleUpperCase("es-AR"),
         entidadId: existente.entidadId,
-        entidadNombre: existente.formaPagoEntidad.entidad.nombre.toLocaleUpperCase("es-AR"),
+        entidadNombre: existente.entidad
+          ? existente.entidad.nombre.toLocaleUpperCase("es-AR")
+          : "",
         sucursalId: cajaRes.data.sucursalId,
         sucursalNombre: cajaRes.data.sucursalNombre,
         cajaDestinoId: cajaRes.data.id,

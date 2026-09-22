@@ -23,6 +23,7 @@ import type {
   CobrosPorSucursalCajaOption,
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
+  CobrosPorSucursalPagoCatalogo,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
 
@@ -33,7 +34,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   mode: CrearEditarCobroModalMode;
   fila?: CobrosPorSucursalFila | null;
-  pagos: CobrosPorSucursalCatalogoItem[];
+  pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   cajas: CobrosPorSucursalCajaOption[];
@@ -58,12 +59,17 @@ export default function CrearEditarCobroModal({
   const [saving, setSaving] = useState(false);
 
   const esEditar = mode === "editar";
+  const pagoSel = useMemo(
+    () => pagos.find((p) => p.id === pagoId) ?? null,
+    [pagos, pagoId]
+  );
+  const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
 
   useEffect(() => {
     if (!open) return;
     if (esEditar && fila) {
       setPagoId(fila.pagoId);
-      setEntidadId(fila.entidadId);
+      setEntidadId(fila.entidadId ?? "");
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setObservacion(fila.observacion);
       return;
@@ -85,17 +91,21 @@ export default function CrearEditarCobroModal({
   }, [pagoId, entidades, vinculosPagoEntidad]);
 
   const cajasDisponibles = useMemo(() => {
-    if (!entidadId) return [];
-    return cajas.filter((c) => c.entidadId === entidadId);
-  }, [cajas, entidadId]);
+    if (!pagoId) return [];
+    if (muestraEntidad) {
+      if (!entidadId) return [];
+      return cajas.filter((c) => c.entidadId === entidadId);
+    }
+    return cajas;
+  }, [cajas, entidadId, muestraEntidad, pagoId]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !muestraEntidad) return;
     if (entidadId && !entidadesDisponibles.some((e) => e.id === entidadId)) {
       setEntidadId("");
       setCajaDestinoId("");
     }
-  }, [open, entidadId, entidadesDisponibles]);
+  }, [open, muestraEntidad, entidadId, entidadesDisponibles]);
 
   useEffect(() => {
     if (!open) return;
@@ -104,10 +114,14 @@ export default function CrearEditarCobroModal({
     }
   }, [open, cajaDestinoId, cajasDisponibles]);
 
+  const cajaLista =
+    !saving &&
+    pagoId.trim().length > 0 &&
+    (!muestraEntidad || entidadId.trim().length > 0);
   const disabledSubmit =
     saving ||
     pagoId.trim().length === 0 ||
-    entidadId.trim().length === 0 ||
+    (muestraEntidad && entidadId.trim().length === 0) ||
     cajaDestinoId.trim().length === 0;
 
   async function handleSubmit() {
@@ -122,7 +136,7 @@ export default function CrearEditarCobroModal({
           })
         : await crearCobroPorSucursalAction({
             pagoId,
-            entidadId,
+            entidadId: muestraEntidad ? entidadId : null,
             cajaDestinoId,
             observacion,
           });
@@ -197,38 +211,40 @@ export default function CrearEditarCobroModal({
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-            <Select
-              value={entidadId || undefined}
-              onValueChange={(value) => {
-                setEntidadId(value);
-                setCajaDestinoId("");
-              }}
-              disabled={saving || esEditar || !pagoId}
-            >
-              <SelectTrigger
-                className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                aria-label="Entidad"
+          {muestraEntidad ? (
+            <div className="flex flex-col gap-1.5">
+              <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+              <Select
+                value={entidadId || undefined}
+                onValueChange={(value) => {
+                  setEntidadId(value);
+                  setCajaDestinoId("");
+                }}
+                disabled={saving || esEditar || !pagoId}
               >
-                <SelectValue placeholder="Seleccionar entidad" />
-              </SelectTrigger>
-              <SelectContent>
-                {entidadesDisponibles.map((entidad) => (
-                  <SelectItem key={entidad.id} value={entidad.id}>
-                    {entidad.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                  aria-label="Entidad"
+                >
+                  <SelectValue placeholder="Seleccionar entidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entidadesDisponibles.map((entidad) => (
+                    <SelectItem key={entidad.id} value={entidad.id}>
+                      {entidad.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>
             <Select
               value={cajaDestinoId || undefined}
               onValueChange={setCajaDestinoId}
-              disabled={saving || !entidadId}
+              disabled={!cajaLista}
             >
               <SelectTrigger
                 className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}

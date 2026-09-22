@@ -1,9 +1,9 @@
 import { z } from "zod";
 import {
-  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
   esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
+  MENSAJE_CLIENTE_FACTURA_VACIO,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
@@ -24,8 +24,8 @@ export const facturaCrearCabeceraSchema = z.object({
     cliente: z
       .string()
       .trim()
-      .max(200, "El cliente es demasiado largo.")
-      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
+      .min(1, MENSAJE_CLIENTE_FACTURA_VACIO)
+      .max(200, "El cliente es demasiado largo."),
   /** Solo lectura en UI; vacío hasta numeración automática. */
   nroComprobante: z.string().trim().max(50).optional(),
 });
@@ -89,8 +89,8 @@ export const emitirFacturaComprobanteSchema = z
     cliente: z
       .string()
       .trim()
-      .max(200, "El cliente es demasiado largo.")
-      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
+      .min(1, MENSAJE_CLIENTE_FACTURA_VACIO)
+      .max(200, "El cliente es demasiado largo."),
     /** FK opcional a `clientes`. Null = Consumidor Final. */
     clienteId: prismaIdOptionalNullableSchema,
     /** FK opcional a `clientes_proyectos`. Null si no hay proyecto. */

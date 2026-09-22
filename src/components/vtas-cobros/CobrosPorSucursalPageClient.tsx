@@ -40,11 +40,13 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import { fmtCelda } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type {
   CobrosPorSucursalCajaOption,
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
+  CobrosPorSucursalPagoCatalogo,
   CobrosPorSucursalSucursalCol,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
@@ -55,7 +57,7 @@ interface Props {
   filas: CobrosPorSucursalFila[];
   sucursales: CobrosPorSucursalSucursalCol[];
   cajas: CobrosPorSucursalCajaOption[];
-  pagos: CobrosPorSucursalCatalogoItem[];
+  pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   esEditor: boolean;
@@ -96,6 +98,7 @@ export default function CobrosPorSucursalPageClient({
   const opcionesEntidad = useMemo(() => {
     const map = new Map<string, string>();
     for (const f of filas) {
+      if (!f.entidadId) continue;
       if (!map.has(f.entidadId)) map.set(f.entidadId, f.entidadNombre);
     }
     return [...map.entries()]
@@ -315,7 +318,7 @@ export default function CobrosPorSucursalPageClient({
                         {fila.pagoNombre}
                       </TableCell>
                       <TableCell className="celda-datos text-center text-xs font-medium">
-                        {fila.entidadNombre}
+                        {fmtCelda(fila.entidadNombre)}
                       </TableCell>
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.sucursalNombre}

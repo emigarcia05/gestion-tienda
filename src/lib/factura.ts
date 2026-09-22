@@ -144,8 +144,11 @@ export function efectoStockPorTipo(tipo: FacturaTipo): FacturaEfectoStock {
   }
 }
 
-/** Nombre persistido / PDF cuando el input Cliente está vacío. */
+/** Nombre persistido / PDF cuando el cliente es Consumidor Final. */
 export const FACTURA_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
+
+export const FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL =
+  "El cliente es CONSUMIDOR FINAL";
 
 export function nombreClienteFactura(raw: string): string {
   const nombre = raw.trim().toLocaleUpperCase("es-AR");
@@ -156,22 +159,38 @@ export function esClienteFacturaVacio(raw: string): boolean {
   return raw.trim() === "";
 }
 
+export function esClienteConsumidorFinalCargado(raw: string): boolean {
+  return (
+    raw.trim().toLocaleUpperCase("es-AR") === FACTURA_CLIENTE_CONSUMIDOR_FINAL
+  );
+}
+
 /**
- * Vacío o «CONSUMIDOR FINAL» no exige ítem del catálogo.
+ * «CONSUMIDOR FINAL» explícito no exige ítem del catálogo.
+ * Vacío no cuenta: hay que cargar CF o elegir un cliente.
  * Cualquier otro texto (p. ej. «MAT») sí: hay que elegir de la lista.
  */
 export function clienteFacturaRequiereCatalogo(raw: string): boolean {
-  return nombreClienteFactura(raw) !== FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+  if (esClienteFacturaVacio(raw) || esClienteConsumidorFinalCargado(raw)) {
+    return false;
+  }
+  return true;
 }
 
 export const MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO =
   "Seleccioná un cliente de la lista.";
 
-/** Null si se puede emitir; mensaje si el texto no es CF y falta `clienteId`. */
+export const MENSAJE_CLIENTE_FACTURA_VACIO =
+  "Seleccioná un cliente o CONSUMIDOR FINAL.";
+
+/** Null si se puede emitir; mensaje si falta CF explícito o `clienteId`. */
 export function mensajeClienteFacturaNoSeleccionado(
   raw: string,
   clienteId: string | null | undefined
 ): string | null {
+  if (esClienteFacturaVacio(raw) && !clienteId) {
+    return MENSAJE_CLIENTE_FACTURA_VACIO;
+  }
   if (!clienteFacturaRequiereCatalogo(raw)) return null;
   if (clienteId) return null;
   return MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO;
