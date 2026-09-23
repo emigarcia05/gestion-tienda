@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronDown, CircleDollarSign, FileText, RefreshCw, Undo2 } from "lucide-react";
+import { CircleDollarSign, Eye, FileText, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
@@ -11,7 +11,6 @@ import {
 } from "@/actions/factura";
 import FilterBar, {
   FILTER_COUNT_CLASS,
-  FILTER_DATE_RANGE_TRIGGER_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FilaFiltrosDesplegables,
   FilterRowSearch,
@@ -20,9 +19,9 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
-import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -45,13 +44,16 @@ import {
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
+  resumenIndicadoresListaComprobantes,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
   type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
 import {
+  addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
+  formatHhMmArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
@@ -68,12 +70,13 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
+const PERIODO_HOY = "hoy";
 const PERIODO_TODOS = "todos";
 
-type PeriodoFiltro = "hoy" | "mes" | "todos" | "rango";
+type PeriodoFiltro = "hoy" | "ayer" | "mes" | "todos";
 
 function esPeriodoFiltro(value: string): value is PeriodoFiltro {
-  return value === "hoy" || value === "mes" || value === "todos" || value === "rango";
+  return value === "hoy" || value === "ayer" || value === "mes" || value === "todos";
 }
 
 type Props = {
@@ -98,15 +101,13 @@ export default function FacturaListadoPageClient({
       onDebouncedSearch: setQDebounced,
     });
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_TODOS);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
-  const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
-  const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
-  const [openRangoFechas, setOpenRangoFechas] = useState(false);
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
+  const [detalleId, setDetalleId] = useState<string | null>(null);
 
   const sucursalCodigos = useMemo(
     () => new Set(sucursales.map((s) => s.codigo)),
@@ -119,28 +120,14 @@ export default function FacturaListadoPageClient({
   );
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
-  const rangoFechasLabel = (() => {
-    if (filtroFechaDesde && filtroFechaHasta) {
-      return `${formatIsoYmdDdMmYyyyArgentina(filtroFechaDesde)} — ${formatIsoYmdDdMmYyyyArgentina(filtroFechaHasta)}`;
-    }
-    if (filtroFechaDesde) {
-      return `Desde ${formatIsoYmdDdMmYyyyArgentina(filtroFechaDesde)}`;
-    }
-    if (filtroFechaHasta) {
-      return `Hasta ${formatIsoYmdDdMmYyyyArgentina(filtroFechaHasta)}`;
-    }
-    return "RANGO PERSONALIZADO";
-  })();
+  const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
 
   const itemsFiltrados = useMemo(() => {
     return items.filter((item) => {
       if (periodo === "hoy" && item.fechaIso !== hoyIso) return false;
+      if (periodo === "ayer" && item.fechaIso !== ayerIso) return false;
       if (periodo === "mes" && item.fechaIso.slice(0, 7) !== hoyIso.slice(0, 7)) {
         return false;
-      }
-      if (periodo === "rango") {
-        if (filtroFechaDesde && item.fechaIso < filtroFechaDesde) return false;
-        if (filtroFechaHasta && item.fechaIso > filtroFechaHasta) return false;
       }
       if (
         filtroSucursal &&
@@ -179,8 +166,7 @@ export default function FacturaListadoPageClient({
     qDebounced,
     periodo,
     hoyIso,
-    filtroFechaDesde,
-    filtroFechaHasta,
+    ayerIso,
     filtroSucursal,
     filtroUsuario,
     filtroPendiente,
@@ -189,23 +175,15 @@ export default function FacturaListadoPageClient({
   function onPeriodoChange(value: string) {
     if (!esPeriodoFiltro(value)) return;
     setPeriodo(value);
-    if (value !== "rango") {
-      setFiltroFechaDesde("");
-      setFiltroFechaHasta("");
-      return;
-    }
-    setOpenRangoFechas(true);
   }
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
-    setPeriodo(PERIODO_TODOS);
+    setPeriodo(PERIODO_HOY);
     setFiltroSucursal("");
     setFiltroUsuario("");
     setFiltroPendiente("");
-    setFiltroFechaDesde("");
-    setFiltroFechaHasta("");
   }
 
   async function handlePdf(id: string) {
@@ -258,7 +236,11 @@ export default function FacturaListadoPageClient({
   }
 
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 12 : 7;
+  const colSpan = esFacturas ? 10 : 7;
+  const indicadores = useMemo(
+    () => resumenIndicadoresListaComprobantes(itemsFiltrados),
+    [itemsFiltrados]
+  );
 
   return (
     <ClassicFilteredTableLayout
@@ -269,12 +251,8 @@ export default function FacturaListadoPageClient({
         <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilaFiltrosDesplegables>
               <FiltroIndividualContainer
-                activo={periodo !== PERIODO_TODOS}
-                onLimpiar={() => {
-                  setPeriodo(PERIODO_TODOS);
-                  setFiltroFechaDesde("");
-                  setFiltroFechaHasta("");
-                }}
+                activo={periodo !== PERIODO_HOY}
+                onLimpiar={() => setPeriodo(PERIODO_HOY)}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={periodo} onValueChange={onPeriodoChange}>
@@ -288,35 +266,12 @@ export default function FacturaListadoPageClient({
                     align="start"
                   >
                     <SelectItem value="hoy">HOY</SelectItem>
+                    <SelectItem value="ayer">AYER</SelectItem>
                     <SelectItem value="mes">ESTE MES</SelectItem>
                     <SelectItem value="todos">TODO</SelectItem>
-                    <SelectItem value="rango">RANGO PERSONALIZADO</SelectItem>
                   </SelectContent>
                 </Select>
               </FiltroIndividualContainer>
-              {periodo === "rango" ? (
-                <FiltroIndividualContainer
-                  activo={Boolean(filtroFechaDesde || filtroFechaHasta)}
-                  onLimpiar={() => {
-                    setFiltroFechaDesde("");
-                    setFiltroFechaHasta("");
-                  }}
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(FILTER_DATE_RANGE_TRIGGER_CLASS, "h-10")}
-                    onClick={() => setOpenRangoFechas(true)}
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-2 truncate">
-                      <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
-                      <span className="truncate">{rangoFechasLabel}</span>
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-                  </Button>
-                </FiltroIndividualContainer>
-              ) : null}
               <FiltroIndividualContainer
                 activo={Boolean(filtroSucursal) && filtroSucursal !== FILTRO_SUCURSAL_TODAS}
                 onLimpiar={() => setFiltroSucursal("")}
@@ -412,38 +367,21 @@ export default function FacturaListadoPageClient({
                 {itemsFiltrados.length === 1 ? "" : "S"}
               </span>
             </div>
-            <FiltroRangoFechasCalendarioModal
-              open={openRangoFechas}
-              onOpenChange={setOpenRangoFechas}
-              fechaDesde={filtroFechaDesde}
-              fechaHasta={filtroFechaHasta}
-              onAplicarRango={(desde, hasta) => {
-                setFiltroFechaDesde(desde);
-                setFiltroFechaHasta(hasta);
-                setPeriodo("rango");
-              }}
-              onLimpiar={() => {
-                setFiltroFechaDesde("");
-                setFiltroFechaHasta("");
-                setPeriodo(PERIODO_TODOS);
-              }}
-            />
           </FilterBar>
         }
     >
-      <div className="contenedor-tabla-gestion min-h-0 flex-1">
+      <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
+        <div className="contenedor-tabla-gestion--pie-fijo-scroll">
         <Table variant="compact" className="tabla-gestion-compacta w-full">
           <TableHeader>
             <TableRow>
               <TableHead>FECHA</TableHead>
               {esFacturas ? <TableHead>TIPO</TableHead> : null}
-              {esFacturas ? <TableHead className="text-center">LETRA</TableHead> : null}
               <TableHead>N°</TableHead>
               <TableHead>CLIENTE</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>PERSONAL</TableHead>
               <TableHead className="text-right">TOTAL</TableHead>
-              {esFacturas ? <TableHead>CAE</TableHead> : null}
               {esFacturas ? (
                 <TableHead className="tabla-bloque-secundario-head-divider text-right">
                   SALDO PEND.
@@ -473,13 +411,15 @@ export default function FacturaListadoPageClient({
               itemsFiltrados.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="tabular-nums">
-                    {formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}
+                    <span className="flex flex-col items-start leading-tight">
+                      <span>{formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}</span>
+                      <span className="pl-4">
+                        {formatHhMmArgentina(new Date(item.createdAtIso))}
+                      </span>
+                    </span>
                   </TableCell>
                   {esFacturas ? (
                     <TableCell>{FACTURA_TIPO_LABELS[item.tipo]}</TableCell>
-                  ) : null}
-                  {esFacturas ? (
-                    <TableCell className="text-center">{item.letra ?? "—"}</TableCell>
                   ) : null}
                   <TableCell className="tabular-nums">
                     {item.nroComprobante || "—"}
@@ -494,9 +434,6 @@ export default function FacturaListadoPageClient({
                   <TableCell className="text-right tabular-nums">
                     ${fmtPrecio(item.impTotal)}
                   </TableCell>
-                  {esFacturas ? (
-                    <TableCell className="tabular-nums">{item.cae ?? "—"}</TableCell>
-                  ) : null}
                   {esFacturas ? (
                     <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
                       {item.saldoPendiente != null
@@ -520,6 +457,17 @@ export default function FacturaListadoPageClient({
                   ) : null}
                   <TableCell className="tabla-bloque-secundario-cell-divider">
                     <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        title="Ver"
+                        aria-label={`Ver ${item.nroComprobante}`}
+                        onClick={() => setDetalleId(item.id)}
+                      >
+                        <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
                       {esFacturas && esFacturaTipoVenta(item.tipo) ? (
                         <Button
                           type="button"
@@ -588,7 +536,52 @@ export default function FacturaListadoPageClient({
             )}
           </TableBody>
         </Table>
+        </div>
+        {esFacturas ? (
+          <div
+            className="w-full shrink-0 border-t border-border px-2 py-2"
+            role="region"
+            aria-label="Indicadores del listado visible"
+          >
+            <div className="flex w-full flex-wrap items-stretch justify-center gap-2">
+              <div className="finanzas-resumen-tarjeta">
+                <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
+                  CANT. COMPROBANTES
+                </span>
+                <span className="w-full text-sm font-medium tabular-nums leading-tight">
+                  {indicadores.cantComprobantes.toLocaleString("es-AR")}
+                </span>
+              </div>
+              <div
+                className="finanzas-resumen-tarjeta"
+                title="Ventas menos notas de crédito (sin rechazados)"
+              >
+                <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
+                  TOTAL VENDIDO
+                </span>
+                <span className="w-full text-sm font-medium tabular-nums leading-tight">
+                  ${fmtPrecio(indicadores.totalVendido)}
+                </span>
+              </div>
+              <div className="finanzas-resumen-tarjeta">
+                <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
+                  PENDIENTE DE COBRO
+                </span>
+                <span className="w-full text-sm font-medium tabular-nums leading-tight">
+                  ${fmtPrecio(indicadores.pendienteDeCobro)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
+      <FacturaComprobanteDetalleModal
+        open={detalleId != null}
+        onOpenChange={(open) => {
+          if (!open) setDetalleId(null);
+        }}
+        comprobanteId={detalleId}
+      />
       <FacturaComprobanteCobrosModal
         open={cobrosId != null}
         onOpenChange={(open) => {

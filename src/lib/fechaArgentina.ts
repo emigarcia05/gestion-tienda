@@ -237,6 +237,18 @@ export function formatIsoYmdDdMmYyyyArgentina(isoYmd: string): string {
 }
 
 /**
+ * Hora Argentina `hh:mm` (p. ej. `created_at`).
+ */
+export function formatHhMmArgentina(d: Date): string {
+  const m = toPartMap(d, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${m.hour}:${m.minute}`;
+}
+
+/**
  * Lista Comprobantes · FECHA: `dd/mm/aaaa - hh:mm`.
  * Fecha calendario del comprobante + hora Argentina del instante (p. ej. `created_at`).
  */
@@ -244,13 +256,20 @@ export function formatIsoYmdGuionHhMmArgentina(
   isoYmd: string,
   instante: Date
 ): string {
-  const fecha = formatIsoYmdDdMmYyyyArgentina(isoYmd);
-  const m = toPartMap(instante, {
+  return `${formatIsoYmdDdMmYyyyArgentina(isoYmd)} - ${formatHhMmArgentina(instante)}`;
+}
+
+/** Instante en zona AR: `dd/mm/aa hh:mm` (modal cobros de factura). */
+export function formatInstanteDdMmYyHhMmArgentina(d: Date): string {
+  const m = toPartMap(d, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
-  return `${fecha} - ${m.hour}:${m.minute}`;
+  return `${m.day}/${m.month}/${m.year} ${m.hour}:${m.minute}`;
 }
 
 /** `2026-03-15` → `15/03/26` (pegado DUX: Fecha `dd/mm/aa`). */

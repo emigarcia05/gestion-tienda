@@ -6,7 +6,21 @@ import { listarCobrosComprobanteFacturaAction } from "@/actions/factura";
 import AppModal from "@/components/shared/AppModal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import type { FacturaComprobanteCobroItem } from "@/lib/factura";
+import {
+  EmptyTableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  lineasFormaPagoCobro,
+  type FacturaComprobanteCobroItem,
+} from "@/lib/factura";
+import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
+import { fmtCelda } from "@/lib/format";
 import { montoArCentsToDisplayWithCurrency } from "@/lib/montoArMask";
 
 type Props = {
@@ -47,7 +61,7 @@ export default function FacturaComprobanteCobrosModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
-        size="md"
+        size="lg"
         padding="sm"
         title={`COBROS ${nroComprobante}`.trim()}
         actions={
@@ -58,25 +72,49 @@ export default function FacturaComprobanteCobrosModal({
       >
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
-        ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay cobros registrados.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {items.map((cobro) => (
-              <li
-                key={cobro.id}
-                className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-sm font-medium"
-              >
-                {cobro.pagoNombre}
-                {cobro.entidadNombre ? ` · ${cobro.entidadNombre}` : ""}
-                {cobro.cuotaEtiqueta ? ` · ${cobro.cuotaEtiqueta}` : ""}
-                {cobro.esCuentaCorriente && cobro.plazoDias != null
-                  ? ` · ${cobro.plazoDias} DÍAS`
-                  : ""}
-                {` · ${montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}`}
-              </li>
-            ))}
-          </ul>
+          <div className="contenedor-tabla-gestion min-h-0 max-h-[50vh] overflow-auto">
+            <Table className="w-full table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[7.5rem]">FECHA</TableHead>
+                  <TableHead>FORMA PAGO</TableHead>
+                  <TableHead className="w-[6.5rem] text-right">MONTO</TableHead>
+                  <TableHead className="w-[8rem]">PERSONAL</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <EmptyTableRow colSpan={4} message="No hay cobros registrados." />
+                ) : (
+                  items.map((cobro) => {
+                    const { linea1, linea2 } = lineasFormaPagoCobro(cobro);
+                    return (
+                      <TableRow key={cobro.id}>
+                        <TableCell className="celda-datos tabular-nums">
+                          {formatInstanteDdMmYyHhMmArgentina(new Date(cobro.createdAtIso))}
+                        </TableCell>
+                        <TableCell className="celda-datos text-left">
+                          <span className="flex flex-col gap-0.5">
+                            <span>{linea1}</span>
+                            {linea2 ? (
+                              <span className="font-normal">{linea2}</span>
+                            ) : null}
+                          </span>
+                        </TableCell>
+                        <TableCell className="celda-datos text-right tabular-nums">
+                          {montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}
+                        </TableCell>
+                        <TableCell className="celda-datos text-left">
+                          {fmtCelda(cobro.personalNombre)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </AppModal>
     </Dialog>

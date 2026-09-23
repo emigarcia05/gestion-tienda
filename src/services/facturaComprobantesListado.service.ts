@@ -290,13 +290,31 @@ export async function listarCobrosComprobanteVta(
     orderBy: { orden: "asc" },
     select: {
       id: true,
+      createdAt: true,
       pagoNombre: true,
       entidadNombre: true,
       cuotaEtiqueta: true,
       montoCents: true,
       esCuentaCorriente: true,
       plazoDias: true,
+      comprobante: {
+        select: {
+          personal: { select: { nombrePersonal: true } },
+        },
+      },
     },
   });
-  return rows;
+  return rows.map((r) => ({
+    id: r.id,
+    createdAtIso: r.createdAt.toISOString(),
+    pagoNombre: r.pagoNombre,
+    entidadNombre: r.entidadNombre,
+    cuotaEtiqueta: r.cuotaEtiqueta,
+    montoCents: r.montoCents,
+    esCuentaCorriente: r.esCuentaCorriente,
+    plazoDias: r.plazoDias,
+    personalNombre:
+      r.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
+      "",
+  }));
 }

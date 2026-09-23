@@ -295,15 +295,65 @@ export type FacturaComprobanteListItem = {
   personalId: number | null;
 };
 
+/** Pie de Lista Comprobantes: recuento y montos según las filas visibles. */
+export function resumenIndicadoresListaComprobantes(
+  items: readonly FacturaComprobanteListItem[]
+): {
+  cantComprobantes: number;
+  totalVendido: number;
+  pendienteDeCobro: number;
+} {
+  let ventas = 0;
+  let notasCredito = 0;
+  let pendienteDeCobro = 0;
+  for (const item of items) {
+    if (item.estado === "rechazado") continue;
+    if (esFacturaTipoVenta(item.tipo)) {
+      ventas += item.impTotal;
+    } else if (esFacturaTipoNotaCredito(item.tipo)) {
+      notasCredito += item.impTotal;
+    }
+    if (item.saldoPendiente != null) {
+      pendienteDeCobro += item.saldoPendiente;
+    }
+  }
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  return {
+    cantComprobantes: items.length,
+    totalVendido: round2(ventas - notasCredito),
+    pendienteDeCobro: round2(pendienteDeCobro),
+  };
+}
+
 export type FacturaComprobanteCobroItem = {
   id: string;
+  /** ISO del `created_at` del cobro (hora de registro). */
+  createdAtIso: string;
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string | null;
   montoCents: number;
   esCuentaCorriente: boolean;
   plazoDias: number | null;
+  /** Nombre MAYÚSCULAS del `personal` de la cabecera; vacío si no hay FK. */
+  personalNombre: string;
 };
+
+/** Líneas de FORMA PAGO en el modal de cobros (2.ª fila = cuota / plazo). */
+export function lineasFormaPagoCobro(item: FacturaComprobanteCobroItem): {
+  linea1: string;
+  linea2: string;
+} {
+  const entidad = item.entidadNombre.trim();
+  const linea1 = entidad ? `${item.pagoNombre} - ${entidad}` : item.pagoNombre;
+  const extras: string[] = [];
+  const cuota = item.cuotaEtiqueta?.trim() ?? "";
+  if (cuota) extras.push(cuota);
+  if (item.esCuentaCorriente && item.plazoDias != null) {
+    extras.push(`${item.plazoDias} DÍAS`);
+  }
+  return { linea1, linea2: extras.join(" · ") };
+}
 
 /** Opción del filtro SUCURSAL en Lista Comprobantes / Presupuestos. */
 export type FacturaSucursalFiltroOption = {
