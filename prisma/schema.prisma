@@ -1963,9 +1963,9 @@ model ComprobanteVta {
   cbteAsocNro    Int?    @map("cbte_asoc_nro")
   cbteAsocCae    String? @map("cbte_asoc_cae") @db.VarChar(14)
 
-  /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
+  /** Días para recordatorio si queda impago o con saldo (`clientes.cta_corriente_plazo`). Null si el cobro cubre el total. */
   diasVencimiento Int? @map("dias_vencimiento")
-  /** Suma cobrada (no CC) en el modal. Saldo = `imp_total` − `imp_cobrado`. */
+  /** Suma cobrada al emitir. Saldo = `imp_total` − `imp_cobrado`. */
   impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
   /** Usuario de pestaña que generó el comprobante (`personal.id_personal`). */
   personalId Int? @map("personal_id")
@@ -1995,7 +1995,7 @@ model ComprobanteVta {
   @@map("comprobantes_vtas")
 }
 
-/** Cobros registrados al cerrar el modal post-emisión. No son `tesoreria_movimientos`. */
+/** Cobros registrados al emitir (Imprimir / Descargar). No son `tesoreria_movimientos`. */
 model ComprobanteVtaCobro {
   id                 String   @id @default(cuid())
   comprobanteId      String   @map("comprobante_id")

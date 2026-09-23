@@ -82,14 +82,6 @@ export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
 export const MENSAJE_PERSONAL_SESION_REQUERIDO =
   "Elegí un usuario en el slidenav.";
 
-/** Sentinel UI: cobro diferido (no es fila de `cobros_forma_pago`). */
-export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE = "cuenta-corriente";
-export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL = "CUENTA CORRIENTE";
-
-export function esFormaPagoCuentaCorriente(pagoId: string): boolean {
-  return pagoId === FACTURA_FORMA_PAGO_CUENTA_CORRIENTE;
-}
-
 /** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
 export function clienteSuperaTopeCtaCorriente(
   saldo: number,
@@ -109,8 +101,8 @@ export function parseDiasVencimiento(raw: string): number | null {
 }
 
 /**
- * Vencimiento de una venta a crédito: el plazo agendado del cliente.
- * Sin cliente de catálogo (p. ej. CONSUMIDOR FINAL) → null.
+ * Vencimiento de una venta a crédito: `clientes.cta_corriente_plazo`.
+ * Sin plazo válido (CF u omisión) → default 1.
  */
 export function diasVencimientoDesdePlazoCliente(
   plazo: number | null | undefined
@@ -119,6 +111,29 @@ export function diasVencimientoDesdePlazoCliente(
     return CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
   }
   return plazo;
+}
+
+/** Suma de cobros del modal, en pesos (2 decimales). */
+export function impCobradoDesdeCobros(
+  cobros: readonly { montoCents: number }[]
+): number {
+  const cents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
+  return Math.round(cents) / 100;
+}
+
+/**
+ * Si la venta queda con saldo, `dias_vencimiento` = plazo del cliente.
+ * Pagado o no venta → null.
+ */
+export function diasVencimientoPorSaldoPendiente(args: {
+  esVenta: boolean;
+  impTotal: number;
+  impCobrado: number;
+  plazoCliente: number | null | undefined;
+}): number | null {
+  if (!args.esVenta) return null;
+  if (saldoPendienteTrasCobro(args.impTotal, args.impCobrado) <= 0) return null;
+  return diasVencimientoDesdePlazoCliente(args.plazoCliente);
 }
 
 /** `imp_total` − `imp_cobrado`, piso 0 (2 decimales). */

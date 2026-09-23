@@ -85,6 +85,15 @@ const descuentoEmitirSchema = z
   })
   .nullable();
 
+const cobroFacturaEmitirSchema = z.object({
+  pagoNombre: z.string().trim().min(1).max(200),
+  entidadNombre: z.string().trim().max(200).optional().default(""),
+  cuotaEtiqueta: z.string().trim().max(100).nullable(),
+  montoCents: z.number().int().positive(),
+});
+
+export type CobroFacturaEmitirInput = z.infer<typeof cobroFacturaEmitirSchema>;
+
 export const emitirFacturaComprobanteSchema = z
   .object({
     fechaIso: isoYmdSchema,
@@ -108,6 +117,7 @@ export const emitirFacturaComprobanteSchema = z
     cbteAsocId: prismaCuidSchema.optional(),
     lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
     descuento: descuentoEmitirSchema.optional().default(null),
+    cobros: z.array(cobroFacturaEmitirSchema).max(50).optional().default([]),
   })
   .superRefine((data, ctx) => {
     const clienteMsg = mensajeClienteFacturaNoSeleccionado(
@@ -154,17 +164,12 @@ export type EmitirNotaCreditoFacturaInput = z.infer<
   typeof emitirNotaCreditoFacturaSchema
 >;
 
-const cobroFacturaPersistirSchema = z.object({
-  pagoNombre: z.string().trim().min(1).max(200),
-  entidadNombre: z.string().trim().max(200).optional().default(""),
-  cuotaEtiqueta: z.string().trim().max(100).nullable(),
-  montoCents: z.number().int().positive(),
+const cobroFacturaPersistirSchema = cobroFacturaEmitirSchema.extend({
   esCuentaCorriente: z.boolean(),
-  plazoDias: z
-    .union([
-      z.null(),
-      z.coerce.number().int().min(1).max(365),
-    ]),
+  plazoDias: z.union([
+    z.null(),
+    z.coerce.number().int().min(1).max(365),
+  ]),
 });
 
 export const guardarDiasVencimientoFacturaSchema = z.object({

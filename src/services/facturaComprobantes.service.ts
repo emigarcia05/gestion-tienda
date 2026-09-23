@@ -25,9 +25,11 @@ import {
 } from "@/lib/fechaArgentina";
 import {
   efectoStockPorTipo,
+  diasVencimientoPorSaldoPendiente,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
+  impCobradoDesdeCobros,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   clienteSuperaTopeCtaCorriente,
   mensajeClienteFacturaNoSeleccionado,
@@ -74,6 +76,57 @@ function decimalToNumber(value: Prisma.Decimal | number): number {
 function asEstado(raw: string): FacturaComprobanteEstado {
   if (raw === "borrador" || raw === "autorizado" || raw === "rechazado") return raw;
   return "borrador";
+}
+
+function nestedCobrosCreate(cobros: EmitirFacturaComprobanteInput["cobros"]) {
+  if (cobros.length === 0) return undefined;
+  return {
+    create: cobros.map((c, orden) => ({
+      orden,
+      pagoNombre: c.pagoNombre,
+      entidadNombre: c.entidadNombre,
+      cuotaEtiqueta: c.cuotaEtiqueta,
+      montoCents: c.montoCents,
+      esCuentaCorriente: false,
+      plazoDias: null,
+    })),
+  };
+}
+
+function resolverCobrosYVencimiento(args: {
+  tipo: FacturaTipo;
+  impTotal: number;
+  cobros: EmitirFacturaComprobanteInput["cobros"];
+  plazoCliente: number | null;
+}): ServiceResult<{
+  cobros: EmitirFacturaComprobanteInput["cobros"];
+  impCobrado: number;
+  diasVencimiento: number | null;
+}> {
+  const esVenta = esFacturaTipoVenta(args.tipo);
+  const cobros = esVenta ? args.cobros : [];
+  const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
+  const totalCents = Math.round(args.impTotal * 100);
+  if (cobradoCents > totalCents) {
+    return {
+      success: false,
+      error: "El cobro no puede ser mayor al total del comprobante.",
+    };
+  }
+  const impCobrado = impCobradoDesdeCobros(cobros);
+  return {
+    success: true,
+    data: {
+      cobros,
+      impCobrado,
+      diasVencimiento: diasVencimientoPorSaldoPendiente({
+        esVenta,
+        impTotal: args.impTotal,
+        impCobrado,
+        plazoCliente: args.plazoCliente,
+      }),
+    },
+  };
 }
 
 /** FK a `clientes_proyectos` si el dato existe y pertenece al cliente. */
@@ -370,10 +423,17 @@ export async function emitirFacturaComprobante(
   const clienteId: string | null = input.clienteId ?? null;
   let clienteFiscal: { cuit: string | null; condicionIva: number | null } | null =
     null;
+  let plazoCliente: number | null = null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: { id: true, cuit: true, condicionIva: true, ctaCorrienteMontoMax: true },
+      select: {
+        id: true,
+        cuit: true,
+        condicionIva: true,
+        ctaCorrienteMontoMax: true,
+        ctaCorrientePlazo: true,
+      },
     });
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
@@ -386,6 +446,7 @@ export async function emitirFacturaComprobante(
       }
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
+    plazoCliente = cliente.ctaCorrientePlazo;
   }
   const proyectoResuelto = await resolverProyectoIdComprobante({
     clienteId,
@@ -521,6 +582,15 @@ export async function emitirFacturaComprobante(
     if (!recOk.success) return recOk;
   }
 
+  const cobrosRes = resolverCobrosYVencimiento({
+    tipo: input.tipo,
+    impTotal,
+    cobros: input.cobros ?? [],
+    plazoCliente,
+  });
+  if (!cobrosRes.success) return cobrosRes;
+  const { cobros, impCobrado, diasVencimiento } = cobrosRes.data;
+
   const ambiente = ambienteArcaActual();
   const concepto = pto.concepto || "1";
   const receptorNombre = nombreClienteFactura(input.cliente);
@@ -560,6 +630,8 @@ export async function emitirFacturaComprobante(
             estado: "autorizado",
             efectoStock: efectoStockPorTipo(input.tipo),
             stockAplicado: false,
+            diasVencimiento,
+            impCobrado,
             items: {
               create: lineas.map((l) => ({
                 orden: l.orden,
@@ -574,6 +646,7 @@ export async function emitirFacturaComprobante(
                 comentario: l.comentario,
               })),
             },
+            cobros: nestedCobrosCreate(cobros),
           },
         });
         return header;
@@ -608,6 +681,9 @@ export async function emitirFacturaComprobante(
     alicIva,
     ambiente,
     original,
+    cobros,
+    impCobrado,
+    diasVencimiento,
   });
 }
 
@@ -651,6 +727,9 @@ async function emitirFiscal(args: {
     receptorDocNro: string | null;
     receptorCondicionIva: number | null;
   } | null;
+  cobros: EmitirFacturaComprobanteInput["cobros"];
+  impCobrado: number;
+  diasVencimiento: number | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -787,6 +866,8 @@ async function emitirFiscal(args: {
           estado: "borrador",
           efectoStock: efectoStockPorTipo(args.input.tipo),
           stockAplicado: false,
+          diasVencimiento: args.diasVencimiento,
+          impCobrado: args.impCobrado,
           cbteAsocId: args.original?.id ?? null,
           cbteAsocTipo: args.original?.cbteTipo ?? null,
           cbteAsocPtoVta: args.original
@@ -808,6 +889,7 @@ async function emitirFiscal(args: {
               comentario: l.comentario,
             })),
           },
+          cobros: nestedCobrosCreate(args.cobros),
         },
       });
     });

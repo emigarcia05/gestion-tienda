@@ -32,6 +32,7 @@ import {
 import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_CLASES,
   FACTURA_CLASE_LABELS,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
@@ -44,6 +45,7 @@ import {
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
+  esClienteConsumidorFinalCargado,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
@@ -68,6 +70,7 @@ import {
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
+import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
@@ -137,31 +140,37 @@ export default function FacturaCrearPageClient({
   const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
   const [clienteId, setClienteId] = useState<string | null>(null);
-  const [plazoCuentaCorrienteCliente, setPlazoCuentaCorrienteCliente] = useState<
-    number | null
-  >(null);
   const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
     number | null
   >(null);
   const [saldoCuentaCorrienteCliente, setSaldoCuentaCorrienteCliente] = useState<
     number | null
   >(null);
-  /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
-  const [clienteQActual, setClienteQActual] = useState(
-    FACTURA_CLIENTE_CONSUMIDOR_FINAL
-  );
+  /** Cliente elegido o CF explícito: `qActual` del typeahead. */
+  const [clienteQActual, setClienteQActual] = useState("");
   const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const [ptoVtaId] = useState(ptoVtas[0]?.id ?? "");
   const [cbteAsocId, setCbteAsocId] = useState("");
-  const [pending, setPending] = useState(false);
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
   const [comprobantePdf, setComprobantePdf] =
     useState<FacturaComprobantePdfInput | null>(null);
-  const [comprobanteId, setComprobanteId] = useState<string | null>(null);
+  const emitirDraftRef = useRef<{
+    fechaIso: string;
+    tipo: FacturaTipo;
+    cliente: string;
+    clienteId: string | null;
+    proyectoId: string | null;
+    comentarios: string;
+    ptoVtaId: string;
+    personalId: number;
+    cbteAsocId?: string;
+    lineas: FacturaRemitoSnapshot["lineas"];
+    descuento: FacturaRemitoSnapshot["descuento"];
+  } | null>(null);
   const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteListaItem[]>([]);
   const [clienteProyectos, setClienteProyectos] = useState<EnviosDireccionItem[]>(
     []
@@ -217,9 +226,9 @@ export default function FacturaCrearPageClient({
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
-    setPlazoCuentaCorrienteCliente(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
+    setClienteQActual("");
     setCliente("");
     setClienteProyectos([]);
     setProyectoId(null);
@@ -228,18 +237,17 @@ export default function FacturaCrearPageClient({
     setLoadingClientes(false);
   }
 
-  function restaurarConsumidorFinalSiVacio(raw: string) {
-    if (raw.trim() !== "") return;
+  function cargarConsumidorFinal() {
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
-    setPlazoCuentaCorrienteCliente(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
     setClienteProyectos([]);
     setProyectoId(null);
     setClientesAbierto(false);
     setSugerenciasClientes([]);
+    setLoadingClientes(false);
   }
 
   function aplicarClienteSeleccionado(item: ClienteItem | ClienteListaItem) {
@@ -249,7 +257,6 @@ export default function FacturaCrearPageClient({
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
-    setPlazoCuentaCorrienteCliente(item.ctaCorrientePlazo);
     setCtaCorrienteMontoMaxCliente(item.ctaCorrienteMontoMax);
     setSaldoCuentaCorrienteCliente(
       "saldoCuentaCorriente" in item ? item.saldoCuentaCorriente : 0
@@ -268,10 +275,14 @@ export default function FacturaCrearPageClient({
   const proyectoElegido =
     clienteProyectos.find((p) => p.id === proyectoId) ?? null;
   const etiquetaClienteVisor = (() => {
-    const nombre = nombreClienteFactura(cliente);
-    if (!proyectoElegido) return nombre;
-    return `${nombre} - ${etiquetaNombreProyecto(proyectoElegido)}`;
+    const nombre = cliente.trim();
+    if (!nombre) return "";
+    const display = nombreClienteFactura(nombre);
+    if (!proyectoElegido) return display;
+    return `${display} - ${etiquetaNombreProyecto(proyectoElegido)}`;
   })();
+  const mostrarBotonConsumidorFinal =
+    !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
   function aplicarClase(clase: FacturaClase) {
     if (clase === "presupuesto") {
@@ -331,7 +342,7 @@ export default function FacturaCrearPageClient({
     </Button>
   );
 
-  async function abrirGenerarComprobante() {
+  function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
     if (lineas.length === 0) {
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
@@ -362,57 +373,89 @@ export default function FacturaCrearPageClient({
       return;
     }
     const clienteEmitir = nombreClienteFactura(cliente);
-    setPending(true);
-    try {
-      const pctGlobal = porcentajeDescuentoGlobal(lineas, descuento);
-      const res = await emitirFacturaComprobanteAction({
-        fechaIso,
-        tipo,
-        cliente: clienteEmitir,
-        clienteId,
-        proyectoId,
-        comentarios,
-        ptoVtaId,
-        personalId,
-        cbteAsocId:
-          esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
-        lineas: lineas.map((l) => ({
-          codTienda: l.codTienda,
-          descripcion: l.descripcion,
-          cantidad: l.cantidad,
-          pxLista: l.pxLista,
-          descuentoPct: porcentajeDescuentoLinea(l, pctGlobal),
-          comentario: l.comentario,
-        })),
-        descuento,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setNroComprobante(res.data.nroComprobante);
-      if (res.data.cae) {
-        toast.success(`CAE ${res.data.cae}`);
-      } else {
-        toast.success("Comprobante guardado.");
-      }
-      setComprobantePdf({
-        tipo,
-        fechaIso,
-        cliente: clienteEmitir,
-        nroComprobante: res.data.nroComprobante,
-        comentarios,
-        lineas,
-        descuento,
-        cae: res.data.cae,
-        caeVtoIso: res.data.caeVtoIso,
-        letra: res.data.letra,
-      });
-      setComprobanteId(res.data.id);
-      setComprobanteModalOpen(true);
-    } finally {
-      setPending(false);
+    emitirDraftRef.current = {
+      fechaIso,
+      tipo,
+      cliente: clienteEmitir,
+      clienteId,
+      proyectoId,
+      comentarios,
+      ptoVtaId,
+      personalId,
+      cbteAsocId:
+        esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
+      lineas,
+      descuento,
+    };
+    setComprobantePdf({
+      tipo,
+      fechaIso,
+      cliente: clienteEmitir,
+      nroComprobante: "",
+      comentarios,
+      lineas,
+      descuento,
+      cae: null,
+      caeVtoIso: null,
+      letra: null,
+    });
+    setComprobanteModalOpen(true);
+  }
+
+  async function emitirDesdeModal(
+    cobros: CobroFacturaEmitirInput[]
+  ): Promise<FacturaComprobantePdfInput | null> {
+    const draft = emitirDraftRef.current;
+    if (!draft) {
+      toast.error("No hay datos del comprobante.");
+      return null;
     }
+    const pctGlobal = porcentajeDescuentoGlobal(draft.lineas, draft.descuento);
+    const res = await emitirFacturaComprobanteAction({
+      fechaIso: draft.fechaIso,
+      tipo: draft.tipo,
+      cliente: draft.cliente,
+      clienteId: draft.clienteId,
+      proyectoId: draft.proyectoId,
+      comentarios: draft.comentarios,
+      ptoVtaId: draft.ptoVtaId,
+      personalId: draft.personalId,
+      cbteAsocId: draft.cbteAsocId,
+      lineas: draft.lineas.map((l) => ({
+        codTienda: l.codTienda,
+        descripcion: l.descripcion,
+        cantidad: l.cantidad,
+        pxLista: l.pxLista,
+        descuentoPct: porcentajeDescuentoLinea(l, pctGlobal),
+        comentario: l.comentario,
+      })),
+      descuento: draft.descuento,
+      cobros,
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      return null;
+    }
+    setNroComprobante(res.data.nroComprobante);
+    if (res.data.cae) {
+      toast.success(`CAE ${res.data.cae}`);
+    } else {
+      toast.success("Comprobante guardado.");
+    }
+    const pdf: FacturaComprobantePdfInput = {
+      tipo: draft.tipo,
+      fechaIso: draft.fechaIso,
+      cliente: draft.cliente,
+      nroComprobante: res.data.nroComprobante,
+      comentarios: draft.comentarios,
+      lineas: draft.lineas,
+      descuento: draft.descuento,
+      cae: res.data.cae,
+      caeVtoIso: res.data.caeVtoIso,
+      letra: res.data.letra,
+    };
+    setComprobantePdf(pdf);
+    return pdf;
   }
 
   return (
@@ -425,10 +468,8 @@ export default function FacturaCrearPageClient({
           type="button"
           variant="default"
           label="Generar Comprobante"
-          loadingLabel="Emitiendo…"
-          loading={pending}
           icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
-          onClick={() => void abrirGenerarComprobante()}
+          onClick={() => abrirGenerarComprobante()}
         />
       }
     >
@@ -606,7 +647,6 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
-                    setPlazoCuentaCorrienteCliente(null);
                     setClienteProyectos([]);
                     setProyectoId(null);
                     handleClienteQChange(next);
@@ -667,9 +707,9 @@ export default function FacturaCrearPageClient({
                     ) {
                       return;
                     }
-                    restaurarConsumidorFinalSiVacio(e.currentTarget.value);
+                    setClientesAbierto(false);
                   }}
-                  placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
+                  placeholder="BUSCAR CLIENTE..."
                   autoComplete="off"
                   role="combobox"
                   aria-expanded={clientesAbierto}
@@ -803,6 +843,21 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
+            {mostrarBotonConsumidorFinal ? (
+              <div className={CABECERA_EDITOR_SLOT_CLASS}>
+                <ModalMicroLabel className="invisible" aria-hidden>
+                  PROYECTO CLIENTE
+                </ModalMicroLabel>
+                <Button
+                  type="button"
+                  variant="default"
+                  className="h-8 w-fit max-w-full self-start px-3 text-xs"
+                  onClick={cargarConsumidorFinal}
+                >
+                  {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}
+                </Button>
+              </div>
+            ) : (
             <div
               className={cn(!mostrarProyecto && "invisible pointer-events-none")}
               aria-hidden={!mostrarProyecto}
@@ -850,6 +905,7 @@ export default function FacturaCrearPageClient({
                 </div>
               </label>
             </div>
+            )}
 
             <div className={CABECERA_EDITOR_SLOT_CLASS}>
               <ModalMicroLabel>SALDO CLIENTE</ModalMicroLabel>
@@ -904,12 +960,11 @@ export default function FacturaCrearPageClient({
           setComprobanteModalOpen(open);
           if (!open) {
             setComprobantePdf(null);
-            setComprobanteId(null);
+            emitirDraftRef.current = null;
           }
         }}
         comprobante={comprobantePdf}
-        comprobanteId={comprobanteId}
-        plazoCuentaCorrienteCliente={plazoCuentaCorrienteCliente}
+        onEmitir={emitirDesdeModal}
         onFinalizado={() => {
           router.push(
             tipo === "presupuesto"
