@@ -284,37 +284,68 @@ export async function listarFacturasAutorizadasParaNc(): Promise<
 
 export async function listarCobrosComprobanteVta(
   comprobanteId: string
-): Promise<FacturaComprobanteCobroItem[]> {
-  const rows = await prisma.comprobanteVtaCobro.findMany({
-    where: { comprobanteId },
-    orderBy: { orden: "asc" },
+): Promise<{
+  items: FacturaComprobanteCobroItem[];
+  saldoPendiente: number | null;
+}> {
+  const row = await prisma.comprobanteVta.findUnique({
+    where: { id: comprobanteId },
     select: {
-      id: true,
-      createdAt: true,
-      pagoNombre: true,
-      entidadNombre: true,
-      cuotaEtiqueta: true,
-      montoCents: true,
-      esCuentaCorriente: true,
-      plazoDias: true,
-      comprobante: {
+      tipoLocal: true,
+      estado: true,
+      impTotal: true,
+      impCobrado: true,
+      fecha: true,
+      diasVencimiento: true,
+      notasCredito: { select: { id: true }, take: 1 },
+      cobros: {
+        orderBy: { orden: "asc" },
         select: {
-          personal: { select: { nombrePersonal: true } },
+          id: true,
+          createdAt: true,
+          pagoNombre: true,
+          entidadNombre: true,
+          cuotaEtiqueta: true,
+          montoCents: true,
+          esCuentaCorriente: true,
+          plazoDias: true,
         },
       },
+      personal: { select: { nombrePersonal: true } },
     },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    createdAtIso: r.createdAt.toISOString(),
-    pagoNombre: r.pagoNombre,
-    entidadNombre: r.entidadNombre,
-    cuotaEtiqueta: r.cuotaEtiqueta,
-    montoCents: r.montoCents,
-    esCuentaCorriente: r.esCuentaCorriente,
-    plazoDias: r.plazoDias,
-    personalNombre:
-      r.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
-      "",
-  }));
+  if (!row) {
+    return { items: [], saldoPendiente: null };
+  }
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
+    ? row.tipoLocal
+    : "factura_no_fiscal";
+  const estado = asEstado(row.estado);
+  const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
+  const { saldoPendiente } = saldoYDiasCtaCte({
+    tipo,
+    estado,
+    impTotal: decimalToNumber(row.impTotal),
+    impCobrado: decimalToNumber(row.impCobrado),
+    fechaIso,
+    diasVencimiento: row.diasVencimiento,
+    tieneNc: row.notasCredito.length > 0,
+    hoyIso: dateToIsoYmdArgentina(new Date()),
+  });
+  const personalNombre =
+    row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
+  return {
+    saldoPendiente,
+    items: row.cobros.map((r) => ({
+      id: r.id,
+      createdAtIso: r.createdAt.toISOString(),
+      pagoNombre: r.pagoNombre,
+      entidadNombre: r.entidadNombre,
+      cuotaEtiqueta: r.cuotaEtiqueta,
+      montoCents: r.montoCents,
+      esCuentaCorriente: r.esCuentaCorriente,
+      plazoDias: r.plazoDias,
+      personalNombre,
+    })),
+  };
 }

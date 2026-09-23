@@ -14,6 +14,7 @@ import {
   emitirNotaCreditoFacturaSchema,
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
+  registrarCobroComprobanteFacturaSchema,
 } from "@/lib/validations/factura";
 import { buscarClientesParaFactura } from "@/services/clientes.service";
 import {
@@ -209,10 +210,31 @@ export async function listarCobrosComprobanteFacturaAction(
     const { listarCobrosComprobanteVta } = await import(
       "@/services/facturaComprobantesListado.service"
     );
-    const items = await listarCobrosComprobanteVta(parsed.data.id);
-    return { ok: true, data: { items } };
+    const data = await listarCobrosComprobanteVta(parsed.data.id);
+    return { ok: true, data };
   } catch (e) {
     console.error("[listarCobrosComprobanteFacturaAction]", e);
     return { ok: false, error: "No se pudieron listar los cobros." };
+  }
+}
+
+export async function registrarCobroComprobanteFacturaAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = registrarCobroComprobanteFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { registrarCobroComprobanteVta } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await registrarCobroComprobanteVta(parsed.data));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[registrarCobroComprobanteFacturaAction]", e);
+    return { ok: false, error: "No se pudo registrar el cobro." };
   }
 }

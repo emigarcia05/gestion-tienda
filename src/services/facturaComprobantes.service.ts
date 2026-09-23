@@ -30,6 +30,7 @@ import {
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   impCobradoDesdeCobros,
+  saldoPendienteTrasCobro,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   MENSAJE_PERSONAL_SIN_SUCURSAL,
   MENSAJE_PTO_VTA_SUCURSAL_USUARIO,
@@ -68,6 +69,7 @@ import {
 import type {
   EmitirFacturaComprobanteInput,
   GuardarDiasVencimientoFacturaInput,
+  RegistrarCobroComprobanteFacturaInput,
 } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
 
@@ -1134,6 +1136,76 @@ export async function guardarDiasVencimientoComprobante(
   } catch (e) {
     console.error("[guardarDiasVencimientoComprobante]", e);
     return { success: false, error: "No se pudieron guardar los días de vencimiento." };
+  }
+}
+
+export async function registrarCobroComprobanteVta(
+  input: RegistrarCobroComprobanteFacturaInput
+): Promise<ServiceResult<void>> {
+  try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id: input.id },
+      select: {
+        tipoLocal: true,
+        estado: true,
+        impTotal: true,
+        impCobrado: true,
+        diasVencimiento: true,
+        notasCredito: { select: { id: true }, take: 1 },
+        cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+      },
+    });
+    if (!row) {
+      return { success: false, error: "No se encontró el comprobante." };
+    }
+    const tipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "factura_no_fiscal";
+    if (!esFacturaTipoVenta(tipo)) {
+      return { success: false, error: "Solo se pueden agregar cobros a una venta." };
+    }
+    if (asEstado(row.estado) === "rechazado") {
+      return { success: false, error: "No se puede cobrar un comprobante rechazado." };
+    }
+    if (row.notasCredito.length > 0) {
+      return { success: false, error: "No se puede cobrar un comprobante con nota de crédito." };
+    }
+    const impTotal = decimalToNumber(row.impTotal);
+    const impCobrado = decimalToNumber(row.impCobrado);
+    const saldo = saldoPendienteTrasCobro(impTotal, impCobrado);
+    if (saldo <= 0) {
+      return { success: false, error: "No hay saldo pendiente." };
+    }
+    const montoPesos = roundArs2(input.montoCents / 100);
+    if (montoPesos > saldo) {
+      return { success: false, error: "El monto no puede ser mayor al saldo pendiente." };
+    }
+    const siguienteOrden = (row.cobros[0]?.orden ?? -1) + 1;
+    const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
+    const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+    await prisma.$transaction(async (tx) => {
+      await tx.comprobanteVtaCobro.create({
+        data: {
+          comprobanteId: input.id,
+          orden: siguienteOrden,
+          pagoNombre: input.pagoNombre,
+          entidadNombre: input.entidadNombre,
+          cuotaEtiqueta: input.cuotaEtiqueta,
+          montoCents: input.montoCents,
+          esCuentaCorriente: false,
+          plazoDias: null,
+        },
+      });
+      await tx.comprobanteVta.update({
+        where: { id: input.id },
+        data: {
+          impCobrado: siguienteImpCobrado,
+          diasVencimiento: siguienteSaldo <= 0 ? null : row.diasVencimiento,
+        },
+      });
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[registrarCobroComprobanteVta]", e);
+    return { success: false, error: "No se pudo registrar el cobro." };
   }
 }
 

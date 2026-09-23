@@ -249,14 +249,14 @@ export default function FacturaListadoPageClient({
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables>
+            <FilaFiltrosDesplegables columnas={4}>
               <FiltroIndividualContainer
                 activo={periodo !== PERIODO_HOY}
                 onLimpiar={() => setPeriodo(PERIODO_HOY)}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={periodo} onValueChange={onPeriodoChange}>
-                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                     <SelectValue placeholder="PERIODO DE TIEMPO" />
                   </SelectTrigger>
                   <SelectContent
@@ -278,7 +278,7 @@ export default function FacturaListadoPageClient({
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={filtroSucursal} onValueChange={setFiltroSucursal}>
-                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                     <SelectValue placeholder="SUCURSAL" />
                   </SelectTrigger>
                   <SelectContent
@@ -302,7 +302,7 @@ export default function FacturaListadoPageClient({
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={filtroUsuario} onValueChange={setFiltroUsuario}>
-                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                     <SelectValue placeholder="PERSONAL" />
                   </SelectTrigger>
                   <SelectContent
@@ -330,7 +330,7 @@ export default function FacturaListadoPageClient({
                     value={filtroPendiente}
                     onValueChange={setFiltroPendiente}
                   >
-                    <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                       <SelectValue placeholder="PENDIENTE PAGO" />
                     </SelectTrigger>
                     <SelectContent
@@ -381,9 +381,11 @@ export default function FacturaListadoPageClient({
               <TableHead>CLIENTE</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>PERSONAL</TableHead>
-              <TableHead className="text-right">TOTAL</TableHead>
+              <TableHead className="tabla-bloque-secundario-head-divider text-right">
+                TOTAL
+              </TableHead>
               {esFacturas ? (
-                <TableHead className="tabla-bloque-secundario-head-divider text-right">
+                <TableHead className="tabla-bloque-secundario-head text-right">
                   SALDO PEND.
                 </TableHead>
               ) : null}
@@ -431,11 +433,11 @@ export default function FacturaListadoPageClient({
                   <TableCell className="uppercase">
                     {fmtCelda(item.usuarioNombre)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
                     ${fmtPrecio(item.impTotal)}
                   </TableCell>
                   {esFacturas ? (
-                    <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
+                    <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell">
                       {item.saldoPendiente != null
                         ? `$${fmtPrecio(item.saldoPendiente)}`
                         : fmtCelda("")}
@@ -543,8 +545,8 @@ export default function FacturaListadoPageClient({
             role="region"
             aria-label="Indicadores del listado visible"
           >
-            <div className="flex w-full flex-wrap items-stretch justify-center gap-2">
-              <div className="finanzas-resumen-tarjeta">
+            <div className="grid w-full grid-cols-3 gap-2">
+              <div className={cn("finanzas-resumen-tarjeta", "min-w-0 w-full")}>
                 <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
                   CANT. COMPROBANTES
                 </span>
@@ -553,7 +555,7 @@ export default function FacturaListadoPageClient({
                 </span>
               </div>
               <div
-                className="finanzas-resumen-tarjeta"
+                className={cn("finanzas-resumen-tarjeta", "min-w-0 w-full")}
                 title="Ventas menos notas de crédito (sin rechazados)"
               >
                 <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
@@ -563,7 +565,7 @@ export default function FacturaListadoPageClient({
                   ${fmtPrecio(indicadores.totalVendido)}
                 </span>
               </div>
-              <div className="finanzas-resumen-tarjeta">
+              <div className={cn("finanzas-resumen-tarjeta", "min-w-0 w-full")}>
                 <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
                   PENDIENTE DE COBRO
                 </span>

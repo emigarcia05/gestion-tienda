@@ -188,3 +188,11 @@ export const guardarDiasVencimientoFacturaSchema = z.object({
 export type GuardarDiasVencimientoFacturaInput = z.infer<
   typeof guardarDiasVencimientoFacturaSchema
 >;
+
+export const registrarCobroComprobanteFacturaSchema = cobroFacturaEmitirSchema.extend({
+  id: prismaCuidSchema,
+});
+
+export type RegistrarCobroComprobanteFacturaInput = z.infer<
+  typeof registrarCobroComprobanteFacturaSchema
+>;
