@@ -1,3 +1,14 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Banknote,
+  CircleDollarSign,
+  CreditCard,
+  Landmark,
+  QrCode,
+  ScrollText,
+  Smartphone,
+} from "lucide-react";
+
 /** Ítem del catálogo `cobros_forma_pago` (con entidades N:M). */
 export type FinAnaCosFinaPagoItem = {
   id: string;
@@ -42,4 +53,45 @@ export function buscarPagoPorId(
   id: string
 ): FinAnaCosFinaPagoItem | undefined {
   return pagos.find((p) => p.id === id);
+}
+
+function nombrePagoNormalizado(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+/** Ícono Lucide según el nombre del catálogo (sin columna `icono` en BD). */
+export function iconoFormaPagoDesdeNombre(nombre: string): LucideIcon {
+  const n = nombrePagoNormalizado(nombre);
+  if (n.includes("EFECTIVO") || n.includes("CAJA")) return Banknote;
+  if (n.includes("CHEQUE")) return ScrollText;
+  if (n.includes("QR")) return QrCode;
+  if (
+    n.includes("DEBIT") ||
+    n.includes("CREDIT") ||
+    n.includes("TARJETA") ||
+    n.includes("VISA") ||
+    n.includes("MASTER")
+  ) {
+    return CreditCard;
+  }
+  if (
+    n.includes("TRANSF") ||
+    n.includes("BANCO") ||
+    n.includes("CBU") ||
+    n.includes("CVU")
+  ) {
+    return Landmark;
+  }
+  if (
+    n.includes("MERCADO") ||
+    n.includes("MODO") ||
+    n.includes("BILLETERA") ||
+    n.includes("WALLET")
+  ) {
+    return Smartphone;
+  }
+  return CircleDollarSign;
 }

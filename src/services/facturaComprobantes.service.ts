@@ -1015,6 +1015,7 @@ export async function emitirNotaCreditoDesdeComprobante(
             totalFacObjetivo: null,
           }
         : null,
+    cobros: [],
   };
   return emitirFacturaComprobante(input);
 }

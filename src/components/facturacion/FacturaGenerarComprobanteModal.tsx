@@ -29,7 +29,10 @@ import {
   imprimirYDescargarPdfFacturaComprobante,
 } from "@/lib/facturaComprobantePdfClient";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
-import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
+import {
+  iconoFormaPagoDesdeNombre,
+  type FinAnaCosFinaPagoItem,
+} from "@/lib/finAnaCosFinaPagos";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   montoArCentsToDisplayWithCurrency,
@@ -56,6 +59,8 @@ const SECCION_TITULO_CLASS =
   "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal px-1.5 py-1";
+const BOTON_FORMA_PAGO_CLASS =
+  "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal px-2 py-1.5";
 
 const ACCIONES_GENERAR: {
   id: FacturaGenerarComprobanteAccion;
@@ -161,8 +166,8 @@ export default function FacturaGenerarComprobanteModal({
     };
   }, [open, esVenta]);
 
-  function handlePagoChange(value: string) {
-    const nextId = value === VACIO ? "" : value;
+  function handlePagoChange(nextId: string) {
+    if (nextId === pagoId) return;
     setPagoId(nextId);
     const next = pagos.find((p) => p.id === nextId);
     const unicas =
@@ -310,33 +315,45 @@ export default function FacturaGenerarComprobanteModal({
               </p>
 
               {formCobroVisible ? (
-                <div className="flex items-end gap-2">
-                  <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
                     <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
-                    <Select
-                      value={pagoId || VACIO}
-                      onValueChange={handlePagoChange}
-                      disabled={ocupado}
-                    >
-                      <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                        <SelectValue placeholder="FORMA DE PAGO" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="bottom"
-                        align="start"
-                        className="select-content-filtro"
+                    {pagos.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No hay formas de pago cargadas.
+                      </p>
+                    ) : (
+                      <div
+                        role="radiogroup"
+                        aria-label="Forma de pago"
+                        className="flex flex-wrap gap-2"
                       >
-                        <SelectItem value={VACIO}>FORMA DE PAGO</SelectItem>
-                        {pagos.map((pago) => (
-                          <SelectItem key={pago.id} value={pago.id}>
-                            {pago.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </label>
+                        {pagos.map((pago) => {
+                          const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
+                          const seleccionado = pago.id === pagoId;
+                          return (
+                            <Button
+                              key={pago.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={seleccionado}
+                              variant={seleccionado ? "default" : "outline"}
+                              disabled={ocupado}
+                              className={BOTON_FORMA_PAGO_CLASS}
+                              onClick={() => handlePagoChange(pago.id)}
+                            >
+                              <Icono className="size-5 shrink-0" aria-hidden />
+                              <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                                {pago.nombre}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
+                  <div className="flex items-end gap-2">
                   {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
@@ -412,6 +429,7 @@ export default function FacturaGenerarComprobanteModal({
                     <Plus className="size-4 shrink-0" aria-hidden />
                     Agregar
                   </Button>
+                </div>
                 </div>
               ) : null}
 
