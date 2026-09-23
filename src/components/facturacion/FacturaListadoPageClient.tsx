@@ -47,6 +47,7 @@ import {
   esFacturaTipoVenta,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
+  type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
 import {
@@ -66,6 +67,7 @@ import { cn } from "@/lib/utils";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
+const FILTRO_USUARIO_TODOS = "todos";
 const PERIODO_TODOS = "todos";
 
 type PeriodoFiltro = "hoy" | "mes" | "todos" | "rango";
@@ -77,12 +79,14 @@ function esPeriodoFiltro(value: string): value is PeriodoFiltro {
 type Props = {
   items: FacturaComprobanteListItem[];
   sucursales: FacturaSucursalFiltroOption[];
+  usuarios: FacturaUsuarioFiltroOption[];
   variant: "facturas" | "presupuestos";
 };
 
 export default function FacturaListadoPageClient({
   items,
   sucursales,
+  usuarios,
   variant,
 }: Props) {
   const router = useRouter();
@@ -96,6 +100,7 @@ export default function FacturaListadoPageClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_TODOS);
   const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
   const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
@@ -144,6 +149,13 @@ export default function FacturaListadoPageClient({
       ) {
         return false;
       }
+      if (
+        filtroUsuario &&
+        filtroUsuario !== FILTRO_USUARIO_TODOS &&
+        item.personalId !== Number(filtroUsuario)
+      ) {
+        return false;
+      }
       if (filtroPendiente === "si" && item.saldoPendiente == null) return false;
       if (filtroPendiente === "no" && item.saldoPendiente != null) return false;
       if (!qDebounced.trim()) return true;
@@ -170,6 +182,7 @@ export default function FacturaListadoPageClient({
     filtroFechaDesde,
     filtroFechaHasta,
     filtroSucursal,
+    filtroUsuario,
     filtroPendiente,
   ]);
 
@@ -189,6 +202,7 @@ export default function FacturaListadoPageClient({
     setQDebounced("");
     setPeriodo(PERIODO_TODOS);
     setFiltroSucursal("");
+    setFiltroUsuario("");
     setFiltroPendiente("");
     setFiltroFechaDesde("");
     setFiltroFechaHasta("");
@@ -322,6 +336,30 @@ export default function FacturaListadoPageClient({
                     {sucursales.map((s) => (
                       <SelectItem key={s.codigo} value={s.codigo}>
                         {s.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <FiltroIndividualContainer
+                activo={Boolean(filtroUsuario) && filtroUsuario !== FILTRO_USUARIO_TODOS}
+                onLimpiar={() => setFiltroUsuario("")}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={filtroUsuario} onValueChange={setFiltroUsuario}>
+                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
+                    <SelectValue placeholder="PERSONAL" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_USUARIO_TODOS}>TODOS</SelectItem>
+                    {usuarios.map((u) => (
+                      <SelectItem key={u.idPersonal} value={String(u.idPersonal)}>
+                        {u.nombrePersonal}
                       </SelectItem>
                     ))}
                   </SelectContent>

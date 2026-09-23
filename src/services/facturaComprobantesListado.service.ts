@@ -8,6 +8,7 @@ import {
   type FacturaPtoVtaOpcion,
   type FacturaSucursalFiltroOption,
   type FacturaTipo,
+  type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import {
@@ -60,12 +61,14 @@ function mapListItem(
     tipoLocal: string;
     letra: string | null;
     fecha: Date;
+    createdAt: Date;
     ptoVenta: string;
     cbteNro: number | null;
     receptorNombre: string;
     impTotal: Prisma.Decimal;
     impCobrado: Prisma.Decimal;
     diasVencimiento: number | null;
+    personalId: number | null;
     cae: string | null;
     caeVto: Date | null;
     resultado: string | null;
@@ -104,6 +107,7 @@ function mapListItem(
     tipo,
     letra: row.letra,
     fechaIso,
+    createdAtIso: row.createdAt.toISOString(),
     nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
     cliente: row.receptorNombre,
     impTotal,
@@ -112,6 +116,7 @@ function mapListItem(
     sucursalCodigos: [...new Set(sucursalesPto.map((s) => s.codigo))],
     sucursalNombres: [...new Set(sucursalesPto.map((s) => s.nombre))],
     usuarioNombre: row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
+    personalId: row.personalId,
     cae: row.cae,
     caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
     resultado: row.resultado,
@@ -130,12 +135,14 @@ const listSelect = {
   tipoLocal: true,
   letra: true,
   fecha: true,
+  createdAt: true,
   ptoVenta: true,
   cbteNro: true,
   receptorNombre: true,
   impTotal: true,
   impCobrado: true,
   diasVencimiento: true,
+  personalId: true,
   cae: true,
   caeVto: true,
   resultado: true,
@@ -177,6 +184,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       cuit: true,
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
+      sucursales: {
+        select: { sucursal: { select: { codigo: true } } },
+      },
     },
   });
   return rows.map((r) => ({
@@ -186,7 +196,32 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     cuit: r.cuit,
     condicionIva: r.condicionIva,
     condicionIvaDescripcion: r.condicionIvaArca?.descripcion ?? null,
+    sucursalCodigos: [
+      ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
+    ],
   }));
+}
+
+export async function listarUsuariosFiltroFacturas(): Promise<
+  FacturaUsuarioFiltroOption[]
+> {
+  const rows = await prisma.globalPersonal.findMany({
+    select: {
+      idPersonal: true,
+      nombrePersonal: true,
+      sucursalPorDefecto: true,
+      modulosPermitidos: true,
+    },
+    orderBy: { nombrePersonal: "asc" },
+  });
+  return rows
+    .filter(
+      (r) => r.sucursalPorDefecto != null && r.modulosPermitidos.length > 0
+    )
+    .map((r) => ({
+      idPersonal: r.idPersonal,
+      nombrePersonal: r.nombrePersonal.trim().toLocaleUpperCase("es-AR"),
+    }));
 }
 
 export async function listarFacturasComprobantes(): Promise<FacturaComprobanteListItem[]> {

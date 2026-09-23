@@ -82,6 +82,14 @@ export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
 export const MENSAJE_PERSONAL_SESION_REQUERIDO =
   "Elegí un usuario en el slidenav.";
 
+/** Sentinel UI: cobro diferido (no es fila de `cobros_forma_pago`). */
+export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE = "cuenta-corriente";
+export const FACTURA_FORMA_PAGO_CUENTA_CORRIENTE_LABEL = "CUENTA CORRIENTE";
+
+export function esFormaPagoCuentaCorriente(pagoId: string): boolean {
+  return pagoId === FACTURA_FORMA_PAGO_CUENTA_CORRIENTE;
+}
+
 /** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
 export function clienteSuperaTopeCtaCorriente(
   saldo: number,
@@ -207,9 +215,6 @@ export const MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO =
 export const MENSAJE_CLIENTE_FACTURA_VACIO =
   "Seleccioná un cliente o CONSUMIDOR FINAL.";
 
-export const MENSAJE_PERSONAL_SESION_REQUERIDO =
-  "Elegí un usuario en el slidenav.";
-
 /** Null si se puede emitir; mensaje si falta CF explícito o `clienteId`. */
 export function mensajeClienteFacturaNoSeleccionado(
   raw: string,
@@ -268,8 +273,6 @@ export type FacturaComprobanteListItem = {
   puedeNc: boolean;
   /** `personal.id_personal` de quien generó; null en filas viejas. */
   personalId: number | null;
-  /** Nombre del personal; vacío si no hay `personal_id`. */
-  usuarioNombre: string;
 };
 
 export type FacturaComprobanteCobroItem = {
