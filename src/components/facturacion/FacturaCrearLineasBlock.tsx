@@ -57,10 +57,11 @@ const DESC_INPUT_CLASS =
   "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
 
 const PIE_METRICA_CLASS =
-  "flex min-w-0 flex-col gap-0.5 overflow-hidden leading-none";
+  "flex h-full w-[8.5rem] shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden leading-none text-center";
 const PIE_ETIQUETA_CLASS =
-  "truncate text-xs font-semibold tracking-wide text-muted-foreground";
-const PIE_VALOR_CLASS = "truncate text-sm font-semibold tabular-nums text-foreground";
+  "w-full truncate text-center text-xs font-semibold tracking-wide text-muted-foreground";
+const PIE_VALOR_CLASS =
+  "w-full truncate text-center text-sm font-semibold tabular-nums text-foreground";
 
 function pctToNorm(pct: number): string {
   if (pct <= 0) return "";
@@ -131,11 +132,13 @@ interface FacturaCrearLineasBlockProps {
   onRemitoChange?: (snapshot: FacturaRemitoSnapshot) => void;
   /** Al enfocar el buscador de productos (p. ej. colapsar cabecera). */
   onBusquedaProductoFocus?: () => void;
+  initialRemito?: FacturaRemitoSnapshot | null;
 }
 
 export default function FacturaCrearLineasBlock({
   onRemitoChange,
   onBusquedaProductoFocus,
+  initialRemito = null,
 }: FacturaCrearLineasBlockProps) {
   const listboxId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -143,8 +146,12 @@ export default function FacturaCrearLineasBlock({
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const [lineas, setLineas] = useState<FacturaLineaLocal[]>([]);
-  const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(null);
+  const [lineas, setLineas] = useState<FacturaLineaLocal[]>(
+    () => initialRemito?.lineas ?? []
+  );
+  const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(
+    () => initialRemito?.descuento ?? null
+  );
   const [descuentoModalOpen, setDescuentoModalOpen] = useState(false);
   const [comentarioLineaKey, setComentarioLineaKey] = useState<string | null>(
     null
@@ -632,7 +639,7 @@ export default function FacturaCrearLineasBlock({
 
         <div
           className={cn(
-            "grid min-w-0 flex-1 grid-cols-5 items-center gap-2 px-2 py-1.5 text-center",
+            "flex min-w-0 flex-1 items-center justify-center gap-1 px-2 py-1.5",
             "bg-muted/40"
           )}
           aria-label="Resumen de totales"

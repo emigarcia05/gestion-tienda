@@ -3,7 +3,10 @@
  * Persistencia en `comprobantes_vtas`; fiscal vía WSAA + WSFEv1.
  */
 
-import { CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT } from "@/lib/envios";
+import {
+  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
+  type ClienteListaItem,
+} from "@/lib/envios";
 
 export const FACTURA_TIPOS = [
   "presupuesto",
@@ -168,6 +171,11 @@ export function esFacturaTipoFiscal(
   tipo: FacturaTipo
 ): tipo is "factura_fiscal" | "nota_credito_fiscal" {
   return tipo === "factura_fiscal" || tipo === "nota_credito_fiscal";
+}
+
+/** Borrar en listado: presupuesto y no fiscales. Los fiscales (con o sin CAE) no se eliminan. */
+export function puedeEliminarComprobante(tipo: FacturaTipo): boolean {
+  return !esFacturaTipoFiscal(tipo);
 }
 
 export function esFacturaTipoNotaCredito(tipo: FacturaTipo): boolean {
@@ -429,6 +437,20 @@ export type FacturaDescuentoEstado = {
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
+};
+
+/** Borrador para Duplicar → Crear (sin nro/CAE; fecha se copia y se puede editar). */
+export type FacturaComprobanteDuplicarBorrador = {
+  tipo: FacturaTipo;
+  fechaIso: string;
+  comentarios: string;
+  cliente: string;
+  clienteId: string | null;
+  proyectoId: string | null;
+  clienteCatalogo: ClienteListaItem | null;
+  cbteAsocId: string | null;
+  lineas: FacturaLineaLocal[];
+  descuento: FacturaDescuentoEstado | null;
 };
 
 export function clampDescuentoPct(pct: number): number {

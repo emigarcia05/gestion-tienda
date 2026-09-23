@@ -227,6 +227,49 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
   }
 }
 
+export async function obtenerClienteListaPorId(
+  id: string
+): Promise<ClienteListaItem | null> {
+  try {
+    const row = await prisma.cliente.findUnique({
+      where: { id },
+      select: {
+        ...select,
+        direcciones: {
+          select: {
+            id: true,
+            personaId: true,
+            nombreProyecto: true,
+            calleNombre: true,
+            numeracion: true,
+            distrito: true,
+            departamento: true,
+            urlMaps: true,
+            referencia: true,
+          },
+          orderBy: [
+            { nombreProyecto: "asc" },
+            { calleNombre: "asc" },
+            { numeracion: "asc" },
+            { createdAt: "asc" },
+          ],
+        },
+      },
+    });
+    if (!row) return null;
+    const [item] = await conSaldoCuentaCorriente([
+      {
+        ...mapRow(row),
+        proyectos: row.direcciones.map(mapEnviosDireccionItem),
+      },
+    ]);
+    return item ?? null;
+  } catch (e) {
+    console.error("[clientes][obtenerListaPorId]", e);
+    return null;
+  }
+}
+
 /**
  * Typeahead Factura · Crear: tokens AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
  * Incluye clientes con nombre vacío si tienen CEL (trazables al agregar nombre después).

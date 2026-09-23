@@ -15,7 +15,10 @@ import {
   ambienteArcaActual,
   obtenerAuthWsfe,
 } from "@/services/arcaAuth.service";
-import { saldosCuentaCorrientePorCliente } from "@/services/clientes.service";
+import {
+  obtenerClienteListaPorId,
+  saldosCuentaCorrientePorCliente,
+} from "@/services/clientes.service";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -29,6 +32,7 @@ import {
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
+  puedeEliminarComprobante,
   impCobradoDesdeCobros,
   saldoPendienteTrasCobro,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
@@ -41,6 +45,7 @@ import {
   porcentajeDescuentoLinea,
   pxConDescuento,
   resumenTotalesFactura,
+  type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
   type FacturaEmitirResultado,
@@ -226,6 +231,93 @@ export async function obtenerFacturaComprobantePdfDatos(
   } catch (e) {
     console.error("[facturaComprobantes][obtenerPdf]", e);
     return { success: false, error: "No se pudo leer el comprobante." };
+  }
+}
+
+export async function obtenerBorradorDuplicarComprobante(
+  id: string
+): Promise<ServiceResult<FacturaComprobanteDuplicarBorrador>> {
+  try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id },
+      include: { items: { orderBy: { orden: "asc" } } },
+    });
+    if (!row) return { success: false, error: "El comprobante no existe." };
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
+      ? row.tipoLocal
+      : "factura_no_fiscal";
+    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
+      key: `dup-${idx}-${l.id}`,
+      codTienda: l.codTienda,
+      descripcion: l.descripcion,
+      cantidad: decimalToNumber(l.cantidad),
+      pxLista: decimalToNumber(l.px),
+      descuentoPctEspecial: decimalToNumber(l.descuentoPct),
+      comentario: l.comentario,
+    }));
+    const descPct = decimalToNumber(row.descPct);
+    const descuento: FacturaDescuentoEstado | null =
+      descPct > 0
+        ? { fuente: "porcentaje", porcentaje: descPct, totalFacObjetivo: null }
+        : null;
+    const clienteId = row.clienteId;
+    const clienteCatalogo = clienteId
+      ? await obtenerClienteListaPorId(clienteId)
+      : null;
+    return {
+      success: true,
+      data: {
+        tipo,
+        fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+        comentarios: row.comentarios,
+        cliente: row.receptorNombre,
+        clienteId,
+        proyectoId: row.proyectoId,
+        clienteCatalogo,
+        cbteAsocId: row.cbteAsocId,
+        lineas,
+        descuento,
+      },
+    };
+  } catch (e) {
+    console.error("[facturaComprobantes][duplicar]", e);
+    return { success: false, error: "No se pudo duplicar el comprobante." };
+  }
+}
+
+export async function eliminarComprobanteNoFiscal(
+  id: string
+): Promise<ServiceResult<void>> {
+  try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        tipoLocal: true,
+        notasCredito: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!row) return { success: false, error: "El comprobante no existe." };
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
+      ? row.tipoLocal
+      : "factura_no_fiscal";
+    if (!puedeEliminarComprobante(tipo)) {
+      return {
+        success: false,
+        error: "Solo se pueden eliminar comprobantes no fiscales.",
+      };
+    }
+    if (row.notasCredito.length > 0) {
+      return {
+        success: false,
+        error: "No se puede eliminar: hay una nota de crédito asociada.",
+      };
+    }
+    await prisma.comprobanteVta.delete({ where: { id } });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[facturaComprobantes][eliminar]", e);
+    return { success: false, error: "No se pudo eliminar el comprobante." };
   }
 }
 

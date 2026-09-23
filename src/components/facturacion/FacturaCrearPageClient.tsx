@@ -57,6 +57,7 @@ import {
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaClase,
+  type FacturaComprobanteDuplicarBorrador,
   type FacturaCondicionFiscal,
   type FacturaPtoVtaOpcion,
   type FacturaTipo,
@@ -119,6 +120,7 @@ type Props = {
   ptoVtas: FacturaPtoVtaOpcion[];
   condicionesIva: PtoVentasCodArcaItem[];
   originalesNc: { id: string; label: string }[];
+  duplicarBorrador?: FacturaComprobanteDuplicarBorrador | null;
 };
 
 /**
@@ -129,17 +131,22 @@ export default function FacturaCrearPageClient({
   ptoVtas,
   condicionesIva,
   originalesNc,
+  duplicarBorrador = null,
 }: Props) {
   const router = useRouter();
   const listboxClientesId = useId();
   const clienteWrapRef = useRef<HTMLDivElement>(null);
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
   const remitoRef = useRef<FacturaRemitoSnapshot>({
-    lineas: [],
-    descuento: null,
+    lineas: duplicarBorrador?.lineas ?? [],
+    descuento: duplicarBorrador?.descuento ?? null,
   });
-  const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
-  const [tipo, setTipo] = useState<FacturaTipo>(FACTURA_TIPO_DEFAULT);
+  const [fechaIso, setFechaIso] = useState(
+    () => duplicarBorrador?.fechaIso ?? dateToIsoYmdArgentina(new Date())
+  );
+  const [tipo, setTipo] = useState<FacturaTipo>(
+    () => duplicarBorrador?.tipo ?? FACTURA_TIPO_DEFAULT
+  );
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
@@ -856,7 +863,7 @@ export default function FacturaCrearPageClient({
                 <Button
                   type="button"
                   variant="default"
-                  className="h-9 w-fit max-w-full self-start px-3 text-xs"
+                  className="box-border !h-9 !min-h-9 !max-h-9 w-fit max-w-full self-start px-3 !py-0 text-xs leading-none"
                   onClick={cargarConsumidorFinal}
                 >
                   {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}

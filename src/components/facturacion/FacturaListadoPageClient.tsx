@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
   emitirNotaCreditoFacturaAction,
-  obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -20,6 +19,7 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,6 @@ import {
   type FacturaSucursalFiltroOption,
   type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
-import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -108,6 +107,8 @@ export default function FacturaListadoPageClient({
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [pdfId, setPdfId] = useState<string | null>(null);
+  const [pdfNro, setPdfNro] = useState("");
 
   const sucursalCodigos = useMemo(
     () => new Set(sucursales.map((s) => s.codigo)),
@@ -184,20 +185,6 @@ export default function FacturaListadoPageClient({
     setFiltroSucursal("");
     setFiltroUsuario("");
     setFiltroPendiente("");
-  }
-
-  async function handlePdf(id: string) {
-    setBusyId(id);
-    try {
-      const res = await obtenerFacturaComprobantePdfAction({ id });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      await imprimirPdfFacturaComprobante(res.data);
-    } finally {
-      setBusyId(null);
-    }
   }
 
   async function handleNc(id: string) {
@@ -497,7 +484,10 @@ export default function FacturaListadoPageClient({
                         title="PDF"
                         aria-label={`PDF ${item.nroComprobante}`}
                         disabled={busyId === item.id}
-                        onClick={() => void handlePdf(item.id)}
+                        onClick={() => {
+                          setPdfId(item.id);
+                          setPdfNro(item.nroComprobante);
+                        }}
                       >
                         <FileText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
@@ -594,6 +584,17 @@ export default function FacturaListadoPageClient({
         }}
         comprobanteId={cobrosId}
         nroComprobante={cobrosNro}
+      />
+      <FacturaComprobantePdfAccionModal
+        open={pdfId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPdfId(null);
+            setPdfNro("");
+          }
+        }}
+        comprobanteId={pdfId}
+        nroComprobante={pdfNro}
       />
     </ClassicFilteredTableLayout>
   );

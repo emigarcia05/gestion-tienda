@@ -8,24 +8,40 @@ import {
   listarFacturaPtoVtasActivos,
   listarFacturasAutorizadasParaNc,
 } from "@/services/facturaComprobantesListado.service";
+import { obtenerBorradorDuplicarComprobante } from "@/services/facturaComprobantes.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function FacturaCrearPage() {
+type Props = {
+  searchParams: Promise<{ duplicar?: string }>;
+};
+
+export default async function FacturaCrearPage({ searchParams }: Props) {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.facturacion.acceso)) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
+  const { duplicar } = await searchParams;
+
   let ptoVtas;
   let condicionesIva;
   let originalesNc;
+  let duplicarBorrador = null;
   try {
-    [ptoVtas, condicionesIva, originalesNc] = await Promise.all([
+    const extra = duplicar
+      ? obtenerBorradorDuplicarComprobante(duplicar)
+      : Promise.resolve(null);
+    const [ptos, condIva, origNc, dup] = await Promise.all([
       listarFacturaPtoVtasActivos(),
       listarPtoVentasCodArca(),
       listarFacturasAutorizadasParaNc(),
+      extra,
     ]);
+    ptoVtas = ptos;
+    condicionesIva = condIva;
+    originalesNc = origNc;
+    if (dup && dup.success) duplicarBorrador = dup.data;
   } catch (e) {
     console.error(
       "[facturacion][crear]",
@@ -40,6 +56,7 @@ export default async function FacturaCrearPage() {
         ptoVtas={ptoVtas}
         condicionesIva={condicionesIva}
         originalesNc={originalesNc}
+        duplicarBorrador={duplicarBorrador}
       />
     </div>
   );

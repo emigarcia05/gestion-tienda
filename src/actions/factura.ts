@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
-import type { FacturaComprobanteCobroItem, FacturaEmitirResultado } from "@/lib/factura";
+import type { FacturaComprobanteCobroItem, FacturaComprobanteDuplicarBorrador, FacturaEmitirResultado } from "@/lib/factura";
 import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
@@ -238,5 +238,44 @@ export async function registrarCobroComprobanteFacturaAction(
   } catch (e) {
     console.error("[registrarCobroComprobanteFacturaAction]", e);
     return { ok: false, error: "No se pudo registrar el cobro." };
+  }
+}
+
+export async function obtenerBorradorDuplicarComprobanteAction(
+  raw: unknown
+): Promise<ActionResult<FacturaComprobanteDuplicarBorrador>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { obtenerBorradorDuplicarComprobante } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    return fromServiceResult(await obtenerBorradorDuplicarComprobante(parsed.data.id));
+  } catch (e) {
+    console.error("[obtenerBorradorDuplicarComprobanteAction]", e);
+    return { ok: false, error: "No se pudo duplicar el comprobante." };
+  }
+}
+
+export async function eliminarComprobanteNoFiscalAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { eliminarComprobanteNoFiscal } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await eliminarComprobanteNoFiscal(parsed.data.id));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[eliminarComprobanteNoFiscalAction]", e);
+    return { ok: false, error: "No se pudo eliminar el comprobante." };
   }
 }
