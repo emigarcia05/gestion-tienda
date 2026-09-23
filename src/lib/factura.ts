@@ -82,6 +82,12 @@ export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
 export const MENSAJE_PERSONAL_SESION_REQUERIDO =
   "Elegí un usuario en el slidenav.";
 
+export const MENSAJE_PERSONAL_SIN_SUCURSAL =
+  "El usuario no tiene sucursal asignada.";
+
+export const MENSAJE_PTO_VTA_SUCURSAL_USUARIO =
+  "No hay punto de venta activo para la sucursal del usuario.";
+
 /** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
 export function clienteSuperaTopeCtaCorriente(
   saldo: number,
@@ -194,8 +200,7 @@ export function efectoStockPorTipo(tipo: FacturaTipo): FacturaEfectoStock {
 /** Nombre persistido / PDF cuando el cliente es Consumidor Final. */
 export const FACTURA_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
 
-export const FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL =
-  "El cliente es CONSUMIDOR FINAL";
+export const FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
 
 export function nombreClienteFactura(raw: string): string {
   const nombre = raw.trim().toLocaleUpperCase("es-AR");

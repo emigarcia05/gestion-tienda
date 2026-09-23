@@ -42,6 +42,7 @@ import {
   MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
+  MENSAJE_PTO_VTA_SUCURSAL_USUARIO,
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
@@ -52,6 +53,7 @@ import {
   facturaTipoDesdeClaseYFiscal,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
+  ptoVtaIdParaSucursal,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaClase,
@@ -151,7 +153,6 @@ export default function FacturaCrearPageClient({
   const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [ptoVtaId] = useState(ptoVtas[0]?.id ?? "");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
@@ -348,10 +349,6 @@ export default function FacturaCrearPageClient({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
-    if (!ptoVtaId) {
-      toast.error("Seleccioná un punto de venta.");
-      return;
-    }
     const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
     if (clienteNoSel) {
       toast.error(clienteNoSel);
@@ -367,9 +364,17 @@ export default function FacturaCrearPageClient({
       toast.error(MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE);
       return;
     }
-    const personalId = leerUsuarioSesion()?.idPersonal;
-    if (personalId == null) {
+    const personalSesion = leerUsuarioSesion();
+    if (!personalSesion) {
       toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
+    const ptoVtaId = ptoVtaIdParaSucursal(
+      ptoVtas,
+      personalSesion.sucursalPorDefecto
+    );
+    if (!ptoVtaId) {
+      toast.error(MENSAJE_PTO_VTA_SUCURSAL_USUARIO);
       return;
     }
     const clienteEmitir = nombreClienteFactura(cliente);
@@ -381,7 +386,7 @@ export default function FacturaCrearPageClient({
       proyectoId,
       comentarios,
       ptoVtaId,
-      personalId,
+      personalId: personalSesion.idPersonal,
       cbteAsocId:
         esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
       lineas,
@@ -851,7 +856,7 @@ export default function FacturaCrearPageClient({
                 <Button
                   type="button"
                   variant="default"
-                  className="h-8 w-fit max-w-full self-start px-3 text-xs"
+                  className="h-9 w-fit max-w-full self-start px-3 text-xs"
                   onClick={cargarConsumidorFinal}
                 >
                   {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}

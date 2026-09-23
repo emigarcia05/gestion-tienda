@@ -31,6 +31,8 @@ import {
   esFacturaTipoVenta,
   impCobradoDesdeCobros,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
+  MENSAJE_PERSONAL_SIN_SUCURSAL,
+  MENSAJE_PTO_VTA_SUCURSAL_USUARIO,
   clienteSuperaTopeCtaCorriente,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
@@ -383,34 +385,61 @@ function emitirResultadoDesdeRow(row: {
   };
 }
 
+const PTO_VTA_EMITIR_SELECT = {
+  id: true,
+  ptoVenta: true,
+  cuit: true,
+  condicionIva: true,
+  concepto: true,
+  estado: true,
+} as const;
+
+async function ptoVtaActivoDeSucursalPersonal(
+  sucursalCodigo: string | null
+): Promise<
+  ServiceResult<{
+    id: string;
+    ptoVenta: string;
+    cuit: string | null;
+    condicionIva: number | null;
+    concepto: string;
+    estado: string;
+  }>
+> {
+  if (!sucursalCodigo) {
+    return { success: false, error: MENSAJE_PERSONAL_SIN_SUCURSAL };
+  }
+  const pto = await prisma.globalPtoVta.findFirst({
+    where: {
+      estado: "activo",
+      sucursales: { some: { sucursal: { codigo: sucursalCodigo } } },
+    },
+    orderBy: { ptoVenta: "asc" },
+    select: PTO_VTA_EMITIR_SELECT,
+  });
+  if (!pto) {
+    return { success: false, error: MENSAJE_PTO_VTA_SUCURSAL_USUARIO };
+  }
+  return { success: true, data: pto };
+}
+
 export async function emitirFacturaComprobante(
   input: EmitirFacturaComprobanteInput
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
   if (!fecha) return { success: false, error: "Fecha de comprobante inválida." };
 
-  const pto = await prisma.globalPtoVta.findUnique({
-    where: { id: input.ptoVtaId },
-    select: {
-      id: true,
-      ptoVenta: true,
-      cuit: true,
-      condicionIva: true,
-      concepto: true,
-      estado: true,
-    },
-  });
-  if (!pto || pto.estado !== "activo") {
-    return { success: false, error: "El punto de venta no existe o está inactivo." };
-  }
-
   const personal = await prisma.globalPersonal.findUnique({
     where: { idPersonal: input.personalId },
-    select: { idPersonal: true },
+    select: { idPersonal: true, sucursalPorDefecto: true },
   });
   if (!personal) {
     return { success: false, error: "El usuario no existe." };
   }
+
+  const ptoRes = await ptoVtaActivoDeSucursalPersonal(personal.sucursalPorDefecto);
+  if (!ptoRes.success) return ptoRes;
+  const pto = ptoRes.data;
 
   const clienteNoSel = mensajeClienteFacturaNoSeleccionado(
     input.cliente,

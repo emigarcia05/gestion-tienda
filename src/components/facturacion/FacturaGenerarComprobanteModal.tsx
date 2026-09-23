@@ -60,7 +60,7 @@ const SECCION_TITULO_CLASS =
 const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal px-1.5 py-1";
 const BOTON_FORMA_PAGO_CLASS =
-  "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal px-2 py-1.5";
+  "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
 
 const ACCIONES_GENERAR: {
   id: FacturaGenerarComprobanteAccion;
@@ -316,18 +316,16 @@ export default function FacturaGenerarComprobanteModal({
 
               {formCobroVisible ? (
                 <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1">
-                    <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
-                    {pagos.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No hay formas de pago cargadas.
-                      </p>
-                    ) : (
-                      <div
-                        role="radiogroup"
-                        aria-label="Forma de pago"
-                        className="flex flex-wrap gap-2"
-                      >
+                  {pagos.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground">
+                      No hay formas de pago cargadas.
+                    </p>
+                  ) : (
+                    <div
+                      role="radiogroup"
+                      aria-label="Forma de pago"
+                      className="flex flex-wrap justify-center gap-2"
+                    >
                         {pagos.map((pago) => {
                           const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
                           const seleccionado = pago.id === pagoId;
@@ -351,10 +349,9 @@ export default function FacturaGenerarComprobanteModal({
                         })}
                       </div>
                     )}
-                  </div>
 
-                  <div className="flex items-end gap-2">
-                  {muestraEntidad ? (
+                  <div className="flex items-end justify-center gap-2">
+                    {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
                       <Select
@@ -411,15 +408,14 @@ export default function FacturaGenerarComprobanteModal({
                     </label>
                   ) : null}
 
-                  <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
-                    <ModalMicroLabel>MONTO</ModalMicroLabel>
+                  <div className="w-[8.5rem] shrink-0">
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
                       disabled={ocupado}
                       aria-label="Monto a pagar"
                     />
-                  </label>
+                  </div>
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"
