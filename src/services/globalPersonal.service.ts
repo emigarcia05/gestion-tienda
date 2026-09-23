@@ -52,8 +52,37 @@ function mapDbError(error: unknown, fallback: string): string {
     }
     if (code === "P2003") return "Sucursal inválida.";
     if (code === "P2025") return "Usuario no encontrado.";
+    if (code === "P2021") {
+      const table = prismaErrorTable(error);
+      return table
+        ? `No se encontró la tabla ${table} (¿Prisma desalineado con Neon?).`
+        : "No se encontró la tabla de usuarios (personal).";
+    }
   }
   return error instanceof Error ? error.message : fallback;
+}
+
+function prismaErrorTable(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("meta" in error)) return null;
+  const meta = (error as { meta?: { table?: unknown; modelName?: unknown } }).meta;
+  if (typeof meta?.table === "string" && meta.table.trim()) return meta.table;
+  if (typeof meta?.modelName === "string" && meta.modelName.trim()) return meta.modelName;
+  return null;
+}
+
+function describeErrorForUi(error: unknown, fallback: string): string {
+  const mapped = mapDbError(error, fallback);
+  if (mapped !== fallback) return mapped;
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: string }).code;
+    const table = prismaErrorTable(error);
+    if (typeof code === "string" && code) {
+      return table ? `${fallback} (${code}: ${table})` : `${fallback} (${code})`;
+    }
+  }
+  const msg = error instanceof Error ? error.message.trim() : "";
+  if (msg) return `${fallback} ${msg.slice(0, 180)}`;
+  return fallback;
 }
 
 async function validarSucursalOpcional(
@@ -139,11 +168,24 @@ export async function listGlobalPersonal(): Promise<GlobalPersonalItem[]> {
 }
 
 /** Usuarios con sucursal por defecto y al menos un módulo (modal de inicio). */
-export async function listUsuariosParaInicioSesion(): Promise<GlobalPersonalItem[]> {
-  const items = await listGlobalPersonal();
-  return items.filter(
-    (item) => item.sucursalPorDefecto != null && item.modulosPermitidos.length > 0
-  );
+export async function listUsuariosParaInicioSesion(): Promise<
+  ServiceResult<GlobalPersonalItem[]>
+> {
+  try {
+    const items = await listGlobalPersonal();
+    return {
+      success: true,
+      data: items.filter(
+        (item) => item.sucursalPorDefecto != null && item.modulosPermitidos.length > 0
+      ),
+    };
+  } catch (e: unknown) {
+    console.error("[globalPersonal][listUsuariosParaInicioSesion]", e);
+    return {
+      success: false,
+      error: describeErrorForUi(e, "Error al listar usuarios."),
+    };
+  }
 }
 
 export async function crearUsuarioPersonal(

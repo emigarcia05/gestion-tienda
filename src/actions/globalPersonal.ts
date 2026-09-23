@@ -43,12 +43,11 @@ export async function listUsuariosParaInicioSesionAction(): Promise<
     return { ok: false, error: "Sin permisos." };
   }
   try {
-    const items = await listUsuariosParaInicioSesion();
-    return { ok: true, data: items };
+    return fromServiceResult(await listUsuariosParaInicioSesion());
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error("[globalPersonal][action][listUsuariosParaInicioSesion]", message);
-    return { ok: false, error: "Error al listar usuarios." };
+    console.error("[globalPersonal][action][listUsuariosParaInicioSesion]", message, e);
+    return { ok: false, error: `Error al listar usuarios. ${message.slice(0, 180)}` };
   }
 }
 
