@@ -201,7 +201,9 @@ export async function guardarDiasVencimientoFacturaAction(
 
 export async function listarCobrosComprobanteFacturaAction(
   raw: unknown
-): Promise<ActionResult<{ items: FacturaComprobanteCobroItem[] }>> {
+): Promise<
+  ActionResult<{ items: FacturaComprobanteCobroItem[]; saldoPendiente: number | null }>
+> {
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
   const parsed = facturaComprobanteIdSchema.safeParse(raw);
