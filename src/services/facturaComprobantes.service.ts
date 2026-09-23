@@ -23,9 +23,7 @@ import {
   prismaDateOnlyFromIsoYmd,
   yyyymmddToIsoYmd,
 } from "@/lib/fechaArgentina";
-import { CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT } from "@/lib/envios";
 import {
-  diasVencimientoDesdePlazoCliente,
   efectoStockPorTipo,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
@@ -38,7 +36,6 @@ import {
   porcentajeDescuentoLinea,
   pxConDescuento,
   resumenTotalesFactura,
-  saldoPendienteTrasCobro,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
   type FacturaEmitirResultado,
@@ -66,7 +63,6 @@ import {
 } from "@/lib/facturaFiscal";
 import type {
   EmitirFacturaComprobanteInput,
-  EmitirNotaCreditoFacturaInput,
   GuardarDiasVencimientoFacturaInput,
 } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
@@ -114,20 +110,6 @@ async function resolverProyectoIdComprobante(args: {
     return { success: true, data: unico ? unico.id : null };
   }
   return { success: true, data: null };
-}
-
-/** FK a `personal` del usuario de pestaña que genera el comprobante. */
-async function resolverPersonalIdComprobante(
-  personalId: number
-): Promise<ServiceResult<number>> {
-  const row = await prisma.globalPersonal.findUnique({
-    where: { idPersonal: personalId },
-    select: { idPersonal: true },
-  });
-  if (!row) {
-    return { success: false, error: "El usuario de sesión no existe." };
-  }
-  return { success: true, data: row.idPersonal };
 }
 
 export type FacturaComprobantePdfDatos = {
@@ -354,10 +336,6 @@ export async function emitirFacturaComprobante(
   const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
   if (!fecha) return { success: false, error: "Fecha de comprobante inválida." };
 
-  const personalRes = await resolverPersonalIdComprobante(input.personalId);
-  if (!personalRes.success) return personalRes;
-  const personalId = personalRes.data;
-
   const pto = await prisma.globalPtoVta.findUnique({
     where: { id: input.ptoVtaId },
     select: {
@@ -373,6 +351,14 @@ export async function emitirFacturaComprobante(
     return { success: false, error: "El punto de venta no existe o está inactivo." };
   }
 
+  const personal = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: input.personalId },
+    select: { idPersonal: true },
+  });
+  if (!personal) {
+    return { success: false, error: "El usuario no existe." };
+  }
+
   const clienteNoSel = mensajeClienteFacturaNoSeleccionado(
     input.cliente,
     input.clienteId
@@ -384,17 +370,10 @@ export async function emitirFacturaComprobante(
   const clienteId: string | null = input.clienteId ?? null;
   let clienteFiscal: { cuit: string | null; condicionIva: number | null } | null =
     null;
-  let plazoCliente: number | null = null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      select: {
-        id: true,
-        cuit: true,
-        condicionIva: true,
-        ctaCorrienteMontoMax: true,
-        ctaCorrientePlazo: true,
-      },
+      select: { id: true, cuit: true, condicionIva: true, ctaCorrienteMontoMax: true },
     });
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
@@ -407,11 +386,7 @@ export async function emitirFacturaComprobante(
       }
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
-    plazoCliente = cliente.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
   }
-  const diasVencimiento = esFacturaTipoVenta(input.tipo)
-    ? diasVencimientoDesdePlazoCliente(plazoCliente)
-    : null;
   const proyectoResuelto = await resolverProyectoIdComprobante({
     clienteId,
     proyectoId: input.proyectoId,
@@ -566,6 +541,7 @@ export async function emitirFacturaComprobante(
             concepto,
             clienteId,
             proyectoId,
+            personalId: input.personalId,
             receptorNombre,
             receptorDocTipo: null,
             receptorDocNro: null,
@@ -584,8 +560,6 @@ export async function emitirFacturaComprobante(
             estado: "autorizado",
             efectoStock: efectoStockPorTipo(input.tipo),
             stockAplicado: false,
-            diasVencimiento,
-            personalId,
             items: {
               create: lineas.map((l) => ({
                 orden: l.orden,
@@ -634,7 +608,6 @@ export async function emitirFacturaComprobante(
     alicIva,
     ambiente,
     original,
-    diasVencimiento,
   });
 }
 
@@ -678,7 +651,6 @@ async function emitirFiscal(args: {
     receptorDocNro: string | null;
     receptorCondicionIva: number | null;
   } | null;
-  diasVencimiento: number | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -796,6 +768,7 @@ async function emitirFiscal(args: {
           concepto: args.concepto,
           clienteId: args.clienteId,
           proyectoId: args.proyectoId,
+          personalId: args.input.personalId,
           receptorNombre: args.receptorNombre,
           receptorDocTipo: args.receptor.docTipo,
           receptorDocNro: args.receptor.docNro,
@@ -814,8 +787,6 @@ async function emitirFiscal(args: {
           estado: "borrador",
           efectoStock: efectoStockPorTipo(args.input.tipo),
           stockAplicado: false,
-          diasVencimiento: args.diasVencimiento,
-          personalId: args.input.personalId,
           cbteAsocId: args.original?.id ?? null,
           cbteAsocTipo: args.original?.cbteTipo ?? null,
           cbteAsocPtoVta: args.original
@@ -915,10 +886,11 @@ async function emitirFiscal(args: {
 }
 
 export async function emitirNotaCreditoDesdeComprobante(
-  inputNc: EmitirNotaCreditoFacturaInput
+  comprobanteId: string,
+  personalId: number
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const orig = await prisma.comprobanteVta.findUnique({
-    where: { id: inputNc.id },
+    where: { id: comprobanteId },
     include: { items: { orderBy: { orden: "asc" } } },
   });
   if (!orig) return { success: false, error: "El comprobante no existe." };
@@ -939,6 +911,7 @@ export async function emitirNotaCreditoDesdeComprobante(
     proyectoId: orig.proyectoId,
     comentarios: orig.comentarios,
     ptoVtaId: orig.ptoVtaId,
+    personalId,
     receptorDocTipo: orig.receptorDocTipo ?? undefined,
     receptorDocNro: orig.receptorDocNro ?? undefined,
     receptorCondicionIva: orig.receptorCondicionIva ?? undefined,
@@ -960,7 +933,6 @@ export async function emitirNotaCreditoDesdeComprobante(
             totalFacObjetivo: null,
           }
         : null,
-    personalId: inputNc.personalId,
   };
   return emitirFacturaComprobante(input);
 }
@@ -1016,24 +988,35 @@ export async function guardarDiasVencimientoComprobante(
   input: GuardarDiasVencimientoFacturaInput
 ): Promise<ServiceResult<void>> {
   try {
-    const row = await prisma.comprobanteVta.findUnique({
-      where: { id: input.id },
-      select: { id: true, impTotal: true },
-    });
-    if (!row) return { success: false, error: "El comprobante no existe." };
-    const total = decimalToNumber(row.impTotal);
-    if (saldoPendienteTrasCobro(total, input.impCobrado) < 0) {
-      return { success: false, error: "El cobro no puede ser mayor al total." };
-    }
-    if (input.impCobrado - total > 0.005) {
-      return { success: false, error: "El cobro no puede ser mayor al total." };
-    }
-    await prisma.comprobanteVta.update({
-      where: { id: input.id },
-      data: {
-        diasVencimiento: input.diasVencimiento,
-        impCobrado: input.impCobrado,
-      },
+    const cobradoCents = input.cobros
+      .filter((c) => !c.esCuentaCorriente)
+      .reduce((acc, c) => acc + c.montoCents, 0);
+    const impCobrado = roundArs2(cobradoCents / 100);
+    await prisma.$transaction(async (tx) => {
+      await tx.comprobanteVtaCobro.deleteMany({
+        where: { comprobanteId: input.id },
+      });
+      if (input.cobros.length > 0) {
+        await tx.comprobanteVtaCobro.createMany({
+          data: input.cobros.map((c, orden) => ({
+            comprobanteId: input.id,
+            orden,
+            pagoNombre: c.pagoNombre,
+            entidadNombre: c.entidadNombre,
+            cuotaEtiqueta: c.cuotaEtiqueta,
+            montoCents: c.montoCents,
+            esCuentaCorriente: c.esCuentaCorriente,
+            plazoDias: c.plazoDias,
+          })),
+        });
+      }
+      await tx.comprobanteVta.update({
+        where: { id: input.id },
+        data: {
+          diasVencimiento: input.diasVencimiento,
+          impCobrado,
+        },
+      });
     });
     return { success: true, data: undefined };
   } catch (e) {

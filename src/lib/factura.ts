@@ -79,6 +79,9 @@ export function facturaTipoDesdeClaseYFiscal(
 export const MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE =
   "El cliente superó el monto máximo de cuenta corriente. No se pueden emitir más facturas.";
 
+export const MENSAJE_PERSONAL_SESION_REQUERIDO =
+  "Elegí un usuario en el slidenav.";
+
 /** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
 export function clienteSuperaTopeCtaCorriente(
   saldo: number,
@@ -247,12 +250,16 @@ export type FacturaComprobanteListItem = {
   nroComprobante: string;
   cliente: string;
   impTotal: number;
-  /** `imp_total` si es venta CC con saldo pendiente; si no, `null`. */
+  /** `imp_total` − `imp_cobrado` si es venta con saldo; si no, `null`. */
   saldoPendiente: number | null;
   /** Días hasta el vencimiento (`fecha` + `dias_vencimiento` − hoy AR); negativo si vencido. */
   diasParaVencer: number | null;
   /** Códigos de `sucursales` asociadas al pto. vta. del comprobante (`global_pto_vta_sucursales`). */
   sucursalCodigos: string[];
+  /** Nombres de sucursal del pto. vta. (MAYÚSCULAS). */
+  sucursalNombres: string[];
+  /** Nombre de `personal` que emitió; vacío si `personal_id` es null. */
+  usuarioNombre: string;
   cae: string | null;
   caeVtoIso: string | null;
   resultado: string | null;
@@ -263,6 +270,16 @@ export type FacturaComprobanteListItem = {
   personalId: number | null;
   /** Nombre del personal; vacío si no hay `personal_id`. */
   usuarioNombre: string;
+};
+
+export type FacturaComprobanteCobroItem = {
+  id: string;
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+  montoCents: number;
+  esCuentaCorriente: boolean;
+  plazoDias: number | null;
 };
 
 /** Opción del filtro SUCURSAL en Lista Comprobantes / Presupuestos. */

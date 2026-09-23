@@ -1,12 +1,15 @@
 import { z } from "zod";
 import {
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
   esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
-  MENSAJE_CLIENTE_FACTURA_VACIO,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
-import { idPersonalSchema, sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
+import {
+  idPersonalSchema,
+  sucursalPorDefectoSchema,
+} from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
   .string()
@@ -24,8 +27,8 @@ export const facturaCrearCabeceraSchema = z.object({
     cliente: z
       .string()
       .trim()
-      .min(1, MENSAJE_CLIENTE_FACTURA_VACIO)
-      .max(200, "El cliente es demasiado largo."),
+      .max(200, "El cliente es demasiado largo.")
+      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
   /** Solo lectura en UI; vacío hasta numeración automática. */
   nroComprobante: z.string().trim().max(50).optional(),
 });
@@ -89,14 +92,15 @@ export const emitirFacturaComprobanteSchema = z
     cliente: z
       .string()
       .trim()
-      .min(1, MENSAJE_CLIENTE_FACTURA_VACIO)
-      .max(200, "El cliente es demasiado largo."),
+      .max(200, "El cliente es demasiado largo.")
+      .transform((s) => s || FACTURA_CLIENTE_CONSUMIDOR_FINAL),
     /** FK opcional a `clientes`. Null = Consumidor Final. */
     clienteId: prismaIdOptionalNullableSchema,
     /** FK opcional a `clientes_proyectos`. Null si no hay proyecto. */
     proyectoId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
+    personalId: idPersonalSchema,
     /** Solo fallback interno (NC desde original sin cliente). La UI no los envía. */
     receptorDocTipo: z.number().int().positive().optional(),
     receptorDocNro: z.string().trim().max(20).optional(),
@@ -104,8 +108,6 @@ export const emitirFacturaComprobanteSchema = z
     cbteAsocId: prismaCuidSchema.optional(),
     lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
     descuento: descuentoEmitirSchema.optional().default(null),
-    /** Usuario de pestaña (`personal.id_personal`). */
-    personalId: idPersonalSchema,
   })
   .superRefine((data, ctx) => {
     const clienteMsg = mensajeClienteFacturaNoSeleccionado(
@@ -152,6 +154,19 @@ export type EmitirNotaCreditoFacturaInput = z.infer<
   typeof emitirNotaCreditoFacturaSchema
 >;
 
+const cobroFacturaPersistirSchema = z.object({
+  pagoNombre: z.string().trim().min(1).max(200),
+  entidadNombre: z.string().trim().max(200).optional().default(""),
+  cuotaEtiqueta: z.string().trim().max(100).nullable(),
+  montoCents: z.number().int().positive(),
+  esCuentaCorriente: z.boolean(),
+  plazoDias: z
+    .union([
+      z.null(),
+      z.coerce.number().int().min(1).max(365),
+    ]),
+});
+
 export const guardarDiasVencimientoFacturaSchema = z.object({
   id: prismaCuidSchema,
   diasVencimiento: z.union([
@@ -162,10 +177,7 @@ export const guardarDiasVencimientoFacturaSchema = z.object({
       .min(1, "Ingresá los días de vencimiento.")
       .max(365, "Máximo 365 días."),
   ]),
-  impCobrado: z
-    .number()
-    .nonnegative("El cobro no puede ser negativo.")
-    .max(1_000_000_000, "El cobro es demasiado grande."),
+  cobros: z.array(cobroFacturaPersistirSchema).max(50).optional().default([]),
 });
 
 export type GuardarDiasVencimientoFacturaInput = z.infer<

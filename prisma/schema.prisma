@@ -381,10 +381,10 @@ model PtoVentasCodArca {
 }
 
 /**
- * Catálogo de personal (tabla `personal`, ex `global_personal`).
- * Recepción DUX (`id_personal` en POST v2/compras) y usuarios (sucursal, módulos, titular).
- * PK `id_personal` (serial, no lo carga el usuario). Vínculo DUX: `id_dux` (opcional, unique).
- * Modelo Prisma `GlobalPersonal`.
+ * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
+ * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
+ * Tabla SQL `personal` (ex `global_personal`). PK `id_personal` (serial, no lo carga el usuario).
+ * Vínculo DUX: `id_dux` (opcional, unique).
  */
 model GlobalPersonal {
   idPersonal         Int      @id @default(autoincrement()) @map("id_personal")
@@ -393,11 +393,11 @@ model GlobalPersonal {
   idDux              String?  @unique(map: "personal_id_dux_key") @map("id_dux")
   /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
-  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | facturacion (0..n). */
+  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
 
-  sucursalDefault  Sucursal?         @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
+  sucursalDefault Sucursal? @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
   comprobantesVtas ComprobanteVta[]
 
   @@index([sucursalPorDefecto], map: "personal_sucursal_por_defecto_idx")
@@ -439,7 +439,7 @@ model CajaTesoreria {
   id               String            @id @default(cuid())
   entidadId        String            @map("entidad_id")
   entidad          FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
-  /** Titular: nombre de `personal` con `titular_financiero = true`. */
+  /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
   /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `sucursales`. */
   sucursalId       String?           @map("sucursal_id")
@@ -494,7 +494,7 @@ model TesoreriaMovimiento {
   cajaContraparteId    String?                  @map("caja_contraparte_id")
   cajaContraparte      CajaTesoreria?           @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
   /**
-   * Sucursal del operador que creó el registro (sesión / `personal.sucursal_por_defecto`).
+   * Sucursal del operador que creó el registro (sesión / `global_personal.sucursal_por_defecto`).
    * Distinta de `tesoreria_cajas.sucursal_id` (sucursal de la caja).
    */
   sucursalId           String?                  @map("sucursal_id")
@@ -520,7 +520,7 @@ model FinTesoreriaCheque {
   cajaId              String               @map("caja_id")
   tipo                TipoChequeTesoreria  @map("tipo")
   emisor              String
-  /** Nombre de `personal` con `titular_financiero = true` (misma fuente que `tesoreria_cajas.titular`). */
+  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `tesoreria_cajas.titular`). */
   tenedor             String                 @map("tenedor")
   /** Custodia: en tienda (alta), depositado (transferido a caja con tipo_valor DIGITAL), proveedor (pago a proveedor mercadería). */
   tenencia            TenenciaChequeTesoreria @default(TIENDA) @map("tenencia")
@@ -1317,7 +1317,6 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
-  cobrosVincCajas CobrosPorSucursal[]
 
   @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
   @@map("tesoreria_cobros_entidades")
@@ -1339,7 +1338,6 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
-  cobrosVincCajas CobrosPorSucursal[]
 
   @@map("cobros_forma_pago")
 }
@@ -1354,6 +1352,7 @@ model CobrosFormaPagoEntidad {
 
   pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  destinosPorSucursal CobrosPorSucursal[]
 
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
@@ -1400,17 +1399,16 @@ model FinAnaCosFina {
 }
 
 /**
- * Vínculo de acreditación (`cobros_vinc_cajas`): una fila = forma [× entidad] × **una** sucursal.
+ * Vínculo de acreditación (`cobros_vinc_cajas`): una fila = forma × entidad × **una** sucursal.
  * Alta manual (UI Cobros & Cajas); no se genera desde `cobros_cx_fin.habilitado`.
- * Si `cobros_forma_pago.entidad_obligatoria` es false, `entidad_id` es null.
- * Uniques parciales SQL: `(pago_id, entidad_id, sucursal_id)` con entidad; `(pago_id, sucursal_id)` sin entidad.
+ * La misma forma × entidad puede repetirse en otra sucursal (otra fila).
+ * UNIQUE `(pago_id, entidad_id, sucursal_id)`.
  */
 model CobrosPorSucursal {
   id            String   @id @default(cuid())
   pagoId        String   @map("pago_id")
-  pago          FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  entidadId     String?  @map("entidad_id")
-  entidad       FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  entidadId     String   @map("entidad_id")
+  formaPagoEntidad CobrosFormaPagoEntidad @relation(fields: [pagoId, entidadId], references: [pagoId, entidadId], onDelete: Cascade)
   sucursalId    String   @map("sucursal_id")
   sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   cajaDestinoId String?  @map("caja_destino_id")
@@ -1420,6 +1418,7 @@ model CobrosPorSucursal {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  @@unique([pagoId, entidadId, sucursalId], map: "cobros_vinc_cajas_pago_entidad_sucursal_ux")
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
   @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")
@@ -1964,9 +1963,9 @@ model ComprobanteVta {
 
   /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
   diasVencimiento Int? @map("dias_vencimiento")
-  /** Suma cobrada en el modal post-emisión. Saldo = `imp_total` − `imp_cobrado`. */
+  /** Suma cobrada (no CC) en el modal. Saldo = `imp_total` − `imp_cobrado`. */
   impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
-  /** Personal que generó el comprobante. Null en filas anteriores a `20260922180000`. */
+  /** Usuario de pestaña que generó el comprobante (`personal.id_personal`). */
   personalId Int? @map("personal_id")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1976,11 +1975,12 @@ model ComprobanteVta {
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  personal     GlobalPersonal? @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict)
+  personal GlobalPersonal? @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
   items        ComprobanteVtaItem[]
   historialArca ComprobanteVtaHistorialArca[]
+  cobros       ComprobanteVtaCobro[]
 
   @@index([tipoLocal, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
@@ -1991,6 +1991,25 @@ model ComprobanteVta {
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
   @@index([personalId], map: "comprobantes_vtas_personal_id_idx")
   @@map("comprobantes_vtas")
+}
+
+/** Cobros registrados al cerrar el modal post-emisión. No son `tesoreria_movimientos`. */
+model ComprobanteVtaCobro {
+  id                 String   @id @default(cuid())
+  comprobanteId      String   @map("comprobante_id")
+  orden              Int
+  pagoNombre         String   @map("pago_nombre")
+  entidadNombre      String   @default("") @map("entidad_nombre")
+  cuotaEtiqueta      String?  @map("cuota_etiqueta")
+  montoCents         Int      @map("monto_cents")
+  esCuentaCorriente  Boolean  @default(false) @map("es_cuenta_corriente")
+  plazoDias          Int?     @map("plazo_dias")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([comprobanteId], map: "comprobantes_vtas_cobros_comp_idx")
+  @@map("comprobantes_vtas_cobros")
 }
 
 model ComprobanteVtaItem {

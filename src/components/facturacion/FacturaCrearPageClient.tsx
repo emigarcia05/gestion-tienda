@@ -32,7 +32,6 @@ import {
 import {
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
-  FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_CLASES,
   FACTURA_CLASE_LABELS,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
@@ -45,7 +44,6 @@ import {
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
-  esClienteConsumidorFinalCargado,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
@@ -54,7 +52,6 @@ import {
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
-  ptoVtaIdParaSucursal,
   type FacturaClase,
   type FacturaCondicionFiscal,
   type FacturaPtoVtaOpcion,
@@ -90,8 +87,8 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
@@ -149,14 +146,14 @@ export default function FacturaCrearPageClient({
   const [saldoCuentaCorrienteCliente, setSaldoCuentaCorrienteCliente] = useState<
     number | null
   >(null);
-  /** Cliente elegido o CF explícito: `qActual` del typeahead. */
-  const [clienteQActual, setClienteQActual] = useState("");
+  /** CF o cliente elegido: `qActual` del typeahead, para que el click no revierta el nombre. */
+  const [clienteQActual, setClienteQActual] = useState(
+    FACTURA_CLIENTE_CONSUMIDOR_FINAL
+  );
   const [, setNroComprobante] = useState("");
   const [comentarios, setComentarios] = useState("");
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [ptoVtaId] = useState(() =>
-    ptoVtaIdParaSucursal(ptoVtas, leerUsuarioSesion()?.sucursalPorDefecto)
-  );
+  const [ptoVtaId] = useState(ptoVtas[0]?.id ?? "");
   const [cbteAsocId, setCbteAsocId] = useState("");
   const [pending, setPending] = useState(false);
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
@@ -223,7 +220,6 @@ export default function FacturaCrearPageClient({
     setPlazoCuentaCorrienteCliente(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
-    setClienteQActual("");
     setCliente("");
     setClienteProyectos([]);
     setProyectoId(null);
@@ -232,7 +228,8 @@ export default function FacturaCrearPageClient({
     setLoadingClientes(false);
   }
 
-  function cargarConsumidorFinal() {
+  function restaurarConsumidorFinalSiVacio(raw: string) {
+    if (raw.trim() !== "") return;
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
@@ -243,7 +240,6 @@ export default function FacturaCrearPageClient({
     setProyectoId(null);
     setClientesAbierto(false);
     setSugerenciasClientes([]);
-    setLoadingClientes(false);
   }
 
   function aplicarClienteSeleccionado(item: ClienteItem | ClienteListaItem) {
@@ -272,14 +268,10 @@ export default function FacturaCrearPageClient({
   const proyectoElegido =
     clienteProyectos.find((p) => p.id === proyectoId) ?? null;
   const etiquetaClienteVisor = (() => {
-    const nombre = cliente.trim();
-    if (!nombre) return "";
-    const display = nombreClienteFactura(nombre);
-    if (!proyectoElegido) return display;
-    return `${display} - ${etiquetaNombreProyecto(proyectoElegido)}`;
+    const nombre = nombreClienteFactura(cliente);
+    if (!proyectoElegido) return nombre;
+    return `${nombre} - ${etiquetaNombreProyecto(proyectoElegido)}`;
   })();
-  const mostrarBotonConsumidorFinal =
-    !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
   function aplicarClase(clase: FacturaClase) {
     if (clase === "presupuesto") {
@@ -345,11 +337,6 @@ export default function FacturaCrearPageClient({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
-    const personalId = leerUsuarioSesion()?.idPersonal;
-    if (!personalId) {
-      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
-      return;
-    }
     if (!ptoVtaId) {
       toast.error("Seleccioná un punto de venta.");
       return;
@@ -369,6 +356,11 @@ export default function FacturaCrearPageClient({
       toast.error(MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE);
       return;
     }
+    const personalId = leerUsuarioSesion()?.idPersonal;
+    if (personalId == null) {
+      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
     const clienteEmitir = nombreClienteFactura(cliente);
     setPending(true);
     try {
@@ -381,6 +373,7 @@ export default function FacturaCrearPageClient({
         proyectoId,
         comentarios,
         ptoVtaId,
+        personalId,
         cbteAsocId:
           esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
@@ -392,7 +385,6 @@ export default function FacturaCrearPageClient({
           comentario: l.comentario,
         })),
         descuento,
-        personalId,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -418,7 +410,6 @@ export default function FacturaCrearPageClient({
       });
       setComprobanteId(res.data.id);
       setComprobanteModalOpen(true);
-      vaciarInputClienteParaBusqueda();
     } finally {
       setPending(false);
     }
@@ -676,9 +667,9 @@ export default function FacturaCrearPageClient({
                     ) {
                       return;
                     }
-                    setClientesAbierto(false);
+                    restaurarConsumidorFinalSiVacio(e.currentTarget.value);
                   }}
-                  placeholder="BUSCAR CLIENTE..."
+                  placeholder={FACTURA_CLIENTE_CONSUMIDOR_FINAL}
                   autoComplete="off"
                   role="combobox"
                   aria-expanded={clientesAbierto}
@@ -812,21 +803,6 @@ export default function FacturaCrearPageClient({
               </div>
             </label>
 
-            {mostrarBotonConsumidorFinal ? (
-              <div className={CABECERA_EDITOR_SLOT_CLASS}>
-                <ModalMicroLabel className="invisible" aria-hidden>
-                  PROYECTO CLIENTE
-                </ModalMicroLabel>
-                <Button
-                  type="button"
-                  variant="default"
-                  className="h-8 w-fit max-w-full self-start px-3 text-xs"
-                  onClick={cargarConsumidorFinal}
-                >
-                  {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}
-                </Button>
-              </div>
-            ) : (
             <div
               className={cn(!mostrarProyecto && "invisible pointer-events-none")}
               aria-hidden={!mostrarProyecto}
@@ -874,7 +850,6 @@ export default function FacturaCrearPageClient({
                 </div>
               </label>
             </div>
-            )}
 
             <div className={CABECERA_EDITOR_SLOT_CLASS}>
               <ModalMicroLabel>SALDO CLIENTE</ModalMicroLabel>
@@ -935,9 +910,9 @@ export default function FacturaCrearPageClient({
         comprobante={comprobantePdf}
         comprobanteId={comprobanteId}
         plazoCuentaCorrienteCliente={plazoCuentaCorrienteCliente}
-        onFinalizado={(tipoEmitido) => {
+        onFinalizado={() => {
           router.push(
-            tipoEmitido === "presupuesto"
+            tipo === "presupuesto"
               ? FACTURACION_ROUTES.factura.presupuestos
               : FACTURACION_ROUTES.factura.facturas
           );

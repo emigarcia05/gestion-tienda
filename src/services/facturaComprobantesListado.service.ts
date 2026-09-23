@@ -2,18 +2,14 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   esFacturaTipo,
-  saldoPendienteTrasCobro,
+  type FacturaComprobanteCobroItem,
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
   type FacturaPtoVtaOpcion,
   type FacturaSucursalFiltroOption,
   type FacturaTipo,
-  type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
-import {
-  CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
-} from "@/lib/envios";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -41,14 +37,19 @@ function saldoYDiasCtaCte(args: {
   hoyIso: string;
 }): { saldoPendiente: number | null; diasParaVencer: number | null } {
   const esVenta = args.tipo === "factura_fiscal" || args.tipo === "factura_no_fiscal";
-  const restante = saldoPendienteTrasCobro(args.impTotal, args.impCobrado);
-  if (!esVenta || args.estado === "rechazado" || args.tieneNc || restante <= 0) {
+  if (!esVenta || args.estado === "rechazado" || args.tieneNc) {
     return { saldoPendiente: null, diasParaVencer: null };
   }
-  const plazo = args.diasVencimiento ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT;
-  const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, plazo);
+  const saldo = Math.max(0, Math.round((args.impTotal - args.impCobrado) * 100) / 100);
+  if (saldo <= 0) {
+    return { saldoPendiente: null, diasParaVencer: null };
+  }
+  if (args.diasVencimiento == null) {
+    return { saldoPendiente: saldo, diasParaVencer: null };
+  }
+  const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
   return {
-    saldoPendiente: restante,
+    saldoPendiente: saldo,
     diasParaVencer: diffCalendarDaysIsoYmdArgentina(args.hoyIso, venceIso),
   };
 }
@@ -59,7 +60,6 @@ function mapListItem(
     tipoLocal: string;
     letra: string | null;
     fecha: Date;
-    createdAt: Date;
     ptoVenta: string;
     cbteNro: number | null;
     receptorNombre: string;
@@ -72,10 +72,9 @@ function mapListItem(
     estado: string;
     ambiente: string;
     notasCredito: { id: string }[];
-    personalId: number | null;
     personal: { nombrePersonal: string } | null;
     ptoVta: {
-      sucursales: { sucursal: { codigo: string } }[];
+      sucursales: { sucursal: { codigo: string; nombre: string } }[];
     };
   },
   hoyIso: string
@@ -96,20 +95,23 @@ function mapListItem(
     tieneNc: row.notasCredito.length > 0,
     hoyIso,
   });
+  const sucursalesPto = row.ptoVta.sucursales.map((link) => ({
+    codigo: link.sucursal.codigo,
+    nombre: link.sucursal.nombre.toLocaleUpperCase("es-AR"),
+  }));
   return {
     id: row.id,
     tipo,
     letra: row.letra,
     fechaIso,
-    createdAtIso: row.createdAt.toISOString(),
     nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
     cliente: row.receptorNombre,
     impTotal,
     saldoPendiente,
     diasParaVencer,
-    sucursalCodigos: [
-      ...new Set(row.ptoVta.sucursales.map((link) => link.sucursal.codigo)),
-    ],
+    sucursalCodigos: [...new Set(sucursalesPto.map((s) => s.codigo))],
+    sucursalNombres: [...new Set(sucursalesPto.map((s) => s.nombre))],
+    usuarioNombre: row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
     cae: row.cae,
     caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
     resultado: row.resultado,
@@ -120,8 +122,6 @@ function mapListItem(
       estado === "autorizado" &&
       Boolean(row.cae) &&
       row.notasCredito.length === 0,
-    personalId: row.personalId,
-    usuarioNombre: row.personal?.nombrePersonal ?? "",
   };
 }
 
@@ -130,7 +130,6 @@ const listSelect = {
   tipoLocal: true,
   letra: true,
   fecha: true,
-  createdAt: true,
   ptoVenta: true,
   cbteNro: true,
   receptorNombre: true,
@@ -142,13 +141,12 @@ const listSelect = {
   resultado: true,
   estado: true,
   ambiente: true,
-  personalId: true,
-  personal: { select: { nombrePersonal: true } },
   notasCredito: { select: { id: true }, take: 1 },
+  personal: { select: { nombrePersonal: true } },
   ptoVta: {
     select: {
       sucursales: {
-        select: { sucursal: { select: { codigo: true } } },
+        select: { sucursal: { select: { codigo: true, nombre: true } } },
       },
     },
   },
@@ -164,20 +162,7 @@ export async function listarSucursalesFiltroFacturas(): Promise<
   });
   return rows.map((r) => ({
     codigo: r.codigo,
-    nombre: r.nombre,
-  }));
-}
-
-export async function listarUsuariosFiltroFacturas(): Promise<
-  FacturaUsuarioFiltroOption[]
-> {
-  const rows = await prisma.globalPersonal.findMany({
-    select: { idPersonal: true, nombrePersonal: true },
-    orderBy: { nombrePersonal: "asc" },
-  });
-  return rows.map((r) => ({
-    idPersonal: r.idPersonal,
-    nombrePersonal: r.nombrePersonal,
+    nombre: r.nombre.toLocaleUpperCase("es-AR"),
   }));
 }
 
@@ -192,9 +177,6 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       cuit: true,
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
-      sucursales: {
-        select: { sucursal: { select: { codigo: true } } },
-      },
     },
   });
   return rows.map((r) => ({
@@ -204,9 +186,6 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     cuit: r.cuit,
     condicionIva: r.condicionIva,
     condicionIvaDescripcion: r.condicionIvaArca?.descripcion ?? null,
-    sucursalCodigos: [
-      ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
-    ],
   }));
 }
 
@@ -266,4 +245,23 @@ export async function listarFacturasAutorizadasParaNc(): Promise<
     id: r.id,
     label: `${formatoNroComprobante(r.ptoVenta, r.cbteNro)} · ${r.letra ?? ""} · ${r.receptorNombre} · ${isoYmdFromPrismaDateOnly(r.fecha)}`.trim(),
   }));
+}
+
+export async function listarCobrosComprobanteVta(
+  comprobanteId: string
+): Promise<FacturaComprobanteCobroItem[]> {
+  const rows = await prisma.comprobanteVtaCobro.findMany({
+    where: { comprobanteId },
+    orderBy: { orden: "asc" },
+    select: {
+      id: true,
+      pagoNombre: true,
+      entidadNombre: true,
+      cuotaEtiqueta: true,
+      montoCents: true,
+      esCuentaCorriente: true,
+      plazoDias: true,
+    },
+  });
+  return rows;
 }

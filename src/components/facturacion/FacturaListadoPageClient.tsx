@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronDown, FileText, RefreshCw, Undo2 } from "lucide-react";
+import { CalendarDays, ChevronDown, CircleDollarSign, FileText, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
@@ -19,6 +19,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
@@ -41,21 +42,20 @@ import {
 } from "@/components/ui/table";
 import {
   FACTURA_TIPO_LABELS,
-  FACTURA_TIPOS_LISTA_COMPROBANTES,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
+  esFacturaTipoVenta,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
-  type FacturaUsuarioFiltroOption,
 } from "@/lib/factura";
 import { imprimirPdfFacturaComprobante } from "@/lib/facturaComprobantePdfClient";
 import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
-  formatIsoYmdGuionHhMmArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
+import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -77,14 +77,12 @@ function esPeriodoFiltro(value: string): value is PeriodoFiltro {
 type Props = {
   items: FacturaComprobanteListItem[];
   sucursales: FacturaSucursalFiltroOption[];
-  usuarios: FacturaUsuarioFiltroOption[];
   variant: "facturas" | "presupuestos";
 };
 
 export default function FacturaListadoPageClient({
   items,
   sucursales,
-  usuarios,
   variant,
 }: Props) {
   const router = useRouter();
@@ -97,13 +95,23 @@ export default function FacturaListadoPageClient({
     });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_TODOS);
-  const [filtroSucursal, setFiltroSucursal] = useState(FILTRO_SUCURSAL_TODAS);
+  const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("");
-  const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   const [openRangoFechas, setOpenRangoFechas] = useState(false);
+  const [cobrosId, setCobrosId] = useState<string | null>(null);
+  const [cobrosNro, setCobrosNro] = useState("");
+
+  const sucursalCodigos = useMemo(
+    () => new Set(sucursales.map((s) => s.codigo)),
+    [sucursales]
+  );
+  useAplicarSucursalPreferidaSiVacia(
+    filtroSucursal === FILTRO_SUCURSAL_TODAS ? FILTRO_SUCURSAL_TODAS : filtroSucursal,
+    setFiltroSucursal,
+    (codigo) => sucursalCodigos.has(codigo)
+  );
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const rangoFechasLabel = (() => {
@@ -138,10 +146,6 @@ export default function FacturaListadoPageClient({
       }
       if (filtroPendiente === "si" && item.saldoPendiente == null) return false;
       if (filtroPendiente === "no" && item.saldoPendiente != null) return false;
-      if (filtroTipo && item.tipo !== filtroTipo) return false;
-      if (filtroUsuario && String(item.personalId ?? "") !== filtroUsuario) {
-        return false;
-      }
       if (!qDebounced.trim()) return true;
       return matchByMultiTerm(
         [
@@ -150,11 +154,8 @@ export default function FacturaListadoPageClient({
           item.cae ?? "",
           FACTURA_TIPO_LABELS[item.tipo],
           item.letra ?? "",
+          item.sucursalNombres.join(" "),
           item.usuarioNombre,
-          formatIsoYmdGuionHhMmArgentina(
-            item.fechaIso,
-            new Date(item.createdAtIso)
-          ),
           item.saldoPendiente != null ? String(item.saldoPendiente) : "",
           item.diasParaVencer != null ? String(item.diasParaVencer) : "",
         ],
@@ -170,8 +171,6 @@ export default function FacturaListadoPageClient({
     filtroFechaHasta,
     filtroSucursal,
     filtroPendiente,
-    filtroTipo,
-    filtroUsuario,
   ]);
 
   function onPeriodoChange(value: string) {
@@ -189,10 +188,8 @@ export default function FacturaListadoPageClient({
     setQ("");
     setQDebounced("");
     setPeriodo(PERIODO_TODOS);
-    setFiltroSucursal(FILTRO_SUCURSAL_TODAS);
+    setFiltroSucursal("");
     setFiltroPendiente("");
-    setFiltroTipo("");
-    setFiltroUsuario("");
     setFiltroFechaDesde("");
     setFiltroFechaHasta("");
   }
@@ -213,7 +210,7 @@ export default function FacturaListadoPageClient({
 
   async function handleNc(id: string) {
     const personalId = leerUsuarioSesion()?.idPersonal;
-    if (!personalId) {
+    if (personalId == null) {
       toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
       return;
     }
@@ -247,7 +244,7 @@ export default function FacturaListadoPageClient({
   }
 
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 9 : 5;
+  const colSpan = esFacturas ? 12 : 7;
 
   return (
     <ClassicFilteredTableLayout
@@ -256,9 +253,7 @@ export default function FacturaListadoPageClient({
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables
-              columnas={esFacturas && periodo === "rango" ? 6 : 5}
-            >
+            <FilaFiltrosDesplegables>
               <FiltroIndividualContainer
                 activo={periodo !== PERIODO_TODOS}
                 onLimpiar={() => {
@@ -310,7 +305,7 @@ export default function FacturaListadoPageClient({
               ) : null}
               <FiltroIndividualContainer
                 activo={Boolean(filtroSucursal) && filtroSucursal !== FILTRO_SUCURSAL_TODAS}
-                onLimpiar={() => setFiltroSucursal(FILTRO_SUCURSAL_TODAS)}
+                onLimpiar={() => setFiltroSucursal("")}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={filtroSucursal} onValueChange={setFiltroSucursal}>
@@ -357,54 +352,6 @@ export default function FacturaListadoPageClient({
                   </Select>
                 </FiltroIndividualContainer>
               ) : null}
-              {esFacturas ? (
-                <FiltroIndividualContainer
-                  activo={filtroTipo !== ""}
-                  onLimpiar={() => setFiltroTipo("")}
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                >
-                  <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-                    <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
-                      <SelectValue placeholder="TIPO COMPROBANTE" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="select-content-filtro"
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                    >
-                      {FACTURA_TIPOS_LISTA_COMPROBANTES.map((tipo) => (
-                        <SelectItem key={tipo} value={tipo}>
-                          {FACTURA_TIPO_LABELS[tipo]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-              ) : null}
-              <FiltroIndividualContainer
-                activo={filtroUsuario !== ""}
-                onLimpiar={() => setFiltroUsuario("")}
-                className={FILTER_SELECT_WRAPPER_CLASS}
-              >
-                <Select value={filtroUsuario} onValueChange={setFiltroUsuario}>
-                  <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
-                    <SelectValue placeholder="USUARIO" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className="select-content-filtro"
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                  >
-                    {usuarios.map((u) => (
-                      <SelectItem key={u.idPersonal} value={String(u.idPersonal)}>
-                        {u.nombrePersonal}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
             </FilaFiltrosDesplegables>
             <div className="flex items-center gap-3">
               <FilterRowSearch className="flex-1">
@@ -455,7 +402,10 @@ export default function FacturaListadoPageClient({
               {esFacturas ? <TableHead className="text-center">LETRA</TableHead> : null}
               <TableHead>N°</TableHead>
               <TableHead>CLIENTE</TableHead>
+              <TableHead>SUCURSAL</TableHead>
+              <TableHead>PERSONAL</TableHead>
               <TableHead className="text-right">TOTAL</TableHead>
+              {esFacturas ? <TableHead>CAE</TableHead> : null}
               {esFacturas ? (
                 <TableHead className="tabla-bloque-secundario-head-divider text-right">
                   SALDO PEND.
@@ -485,10 +435,7 @@ export default function FacturaListadoPageClient({
               itemsFiltrados.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="tabular-nums">
-                    {formatIsoYmdGuionHhMmArgentina(
-                      item.fechaIso,
-                      new Date(item.createdAtIso)
-                    )}
+                    {formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}
                   </TableCell>
                   {esFacturas ? (
                     <TableCell>{FACTURA_TIPO_LABELS[item.tipo]}</TableCell>
@@ -500,9 +447,18 @@ export default function FacturaListadoPageClient({
                     {item.nroComprobante || "—"}
                   </TableCell>
                   <TableCell className="uppercase">{item.cliente}</TableCell>
+                  <TableCell className="uppercase">
+                    {fmtCelda(item.sucursalNombres.join(" · "))}
+                  </TableCell>
+                  <TableCell className="uppercase">
+                    {fmtCelda(item.usuarioNombre)}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     ${fmtPrecio(item.impTotal)}
                   </TableCell>
+                  {esFacturas ? (
+                    <TableCell className="tabular-nums">{item.cae ?? "—"}</TableCell>
+                  ) : null}
                   {esFacturas ? (
                     <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
                       {item.saldoPendiente != null
@@ -526,6 +482,25 @@ export default function FacturaListadoPageClient({
                   ) : null}
                   <TableCell className="tabla-bloque-secundario-cell-divider">
                     <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      {esFacturas && esFacturaTipoVenta(item.tipo) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Cobros"
+                          aria-label={`Cobros ${item.nroComprobante}`}
+                          onClick={() => {
+                            setCobrosId(item.id);
+                            setCobrosNro(item.nroComprobante);
+                          }}
+                        >
+                          <CircleDollarSign
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -576,6 +551,17 @@ export default function FacturaListadoPageClient({
           </TableBody>
         </Table>
       </div>
+      <FacturaComprobanteCobrosModal
+        open={cobrosId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCobrosId(null);
+            setCobrosNro("");
+          }
+        }}
+        comprobanteId={cobrosId}
+        nroComprobante={cobrosNro}
+      />
     </ClassicFilteredTableLayout>
   );
 }
