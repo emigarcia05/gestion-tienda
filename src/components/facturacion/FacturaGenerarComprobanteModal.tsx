@@ -73,6 +73,7 @@ interface Props {
   comprobante: FacturaComprobantePdfInput | null;
   comprobanteId: string | null;
   plazoCuentaCorrienteCliente?: number | null;
+  onFinalizado?: () => void;
 }
 
 function tituloComprobante(comprobante: FacturaComprobantePdfInput | null): string {
@@ -101,6 +102,7 @@ export default function FacturaGenerarComprobanteModal({
   comprobante,
   comprobanteId,
   plazoCuentaCorrienteCliente = null,
+  onFinalizado,
 }: Props) {
   const [pending, setPending] = useState<FacturaGenerarComprobanteAccion | null>(null);
   const [guardandoVto, setGuardandoVto] = useState(false);
@@ -300,6 +302,14 @@ export default function FacturaGenerarComprobanteModal({
     const res = await guardarDiasVencimientoFacturaAction({
       id: comprobanteId,
       diasVencimiento: dias,
+      cobros: cobros.map((c) => ({
+        pagoNombre: c.pagoNombre,
+        entidadNombre: c.entidadNombre,
+        cuotaEtiqueta: c.cuotaEtiqueta,
+        montoCents: c.montoCents,
+        esCuentaCorriente: c.esCuentaCorriente,
+        plazoDias: c.plazoDias,
+      })),
     });
     if (!res.ok) {
       toast.error(res.error ?? "No se pudieron guardar los días de vencimiento.");
@@ -313,7 +323,10 @@ export default function FacturaGenerarComprobanteModal({
     setGuardandoVto(true);
     try {
       const ok = await persistirDiasVencimiento();
-      if (ok) onOpenChange(false);
+      if (ok) {
+        onOpenChange(false);
+        onFinalizado?.();
+      }
     } finally {
       setGuardandoVto(false);
     }
@@ -342,7 +355,8 @@ export default function FacturaGenerarComprobanteModal({
         await imprimirYDescargarPdfFacturaComprobante(comprobante);
         toast.success("PDF descargado y enviado a imprimir.");
       }
-      if (!esVenta) onOpenChange(false);
+      onOpenChange(false);
+      onFinalizado?.();
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "No se pudo generar el comprobante.";

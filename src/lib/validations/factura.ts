@@ -6,7 +6,10 @@ import {
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
-import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
+import {
+  idPersonalSchema,
+  sucursalPorDefectoSchema,
+} from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
   .string()
@@ -97,6 +100,7 @@ export const emitirFacturaComprobanteSchema = z
     proyectoId: prismaIdOptionalNullableSchema,
     comentarios: z.string().trim().max(5000).optional().default(""),
     ptoVtaId: prismaCuidSchema,
+    personalId: idPersonalSchema,
     /** Solo fallback interno (NC desde original sin cliente). La UI no los envía. */
     receptorDocTipo: z.number().int().positive().optional(),
     receptorDocNro: z.string().trim().max(20).optional(),
@@ -141,6 +145,28 @@ export const facturaComprobanteIdSchema = z.object({
 
 export type FacturaComprobanteIdInput = z.infer<typeof facturaComprobanteIdSchema>;
 
+export const emitirNotaCreditoFacturaSchema = z.object({
+  id: prismaCuidSchema,
+  personalId: idPersonalSchema,
+});
+
+export type EmitirNotaCreditoFacturaInput = z.infer<
+  typeof emitirNotaCreditoFacturaSchema
+>;
+
+const cobroFacturaPersistirSchema = z.object({
+  pagoNombre: z.string().trim().min(1).max(200),
+  entidadNombre: z.string().trim().max(200).optional().default(""),
+  cuotaEtiqueta: z.string().trim().max(100).nullable(),
+  montoCents: z.number().int().positive(),
+  esCuentaCorriente: z.boolean(),
+  plazoDias: z
+    .union([
+      z.null(),
+      z.coerce.number().int().min(1).max(365),
+    ]),
+});
+
 export const guardarDiasVencimientoFacturaSchema = z.object({
   id: prismaCuidSchema,
   diasVencimiento: z.union([
@@ -151,6 +177,7 @@ export const guardarDiasVencimientoFacturaSchema = z.object({
       .min(1, "Ingresá los días de vencimiento.")
       .max(365, "Máximo 365 días."),
   ]),
+  cobros: z.array(cobroFacturaPersistirSchema).max(50).optional().default([]),
 });
 
 export type GuardarDiasVencimientoFacturaInput = z.infer<

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronDown, FileText, RefreshCw, Undo2 } from "lucide-react";
+import { CalendarDays, ChevronDown, CircleDollarSign, FileText, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
@@ -19,6 +19,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
@@ -41,7 +42,9 @@ import {
 } from "@/components/ui/table";
 import {
   FACTURA_TIPO_LABELS,
+  MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
+  esFacturaTipoVenta,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
 } from "@/lib/factura";
@@ -60,6 +63,7 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const PERIODO_TODOS = "todos";
@@ -96,6 +100,8 @@ export default function FacturaListadoPageClient({
   const [filtroFechaDesde, setFiltroFechaDesde] = useState("");
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   const [openRangoFechas, setOpenRangoFechas] = useState(false);
+  const [cobrosId, setCobrosId] = useState<string | null>(null);
+  const [cobrosNro, setCobrosNro] = useState("");
 
   const sucursalCodigos = useMemo(
     () => new Set(sucursales.map((s) => s.codigo)),
@@ -148,6 +154,8 @@ export default function FacturaListadoPageClient({
           item.cae ?? "",
           FACTURA_TIPO_LABELS[item.tipo],
           item.letra ?? "",
+          item.sucursalNombres.join(" "),
+          item.usuarioNombre,
           item.saldoPendiente != null ? String(item.saldoPendiente) : "",
           item.diasParaVencer != null ? String(item.diasParaVencer) : "",
         ],
@@ -201,9 +209,14 @@ export default function FacturaListadoPageClient({
   }
 
   async function handleNc(id: string) {
+    const personalId = leerUsuarioSesion()?.idPersonal;
+    if (personalId == null) {
+      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
     setBusyId(id);
     try {
-      const res = await emitirNotaCreditoFacturaAction({ id });
+      const res = await emitirNotaCreditoFacturaAction({ id, personalId });
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -231,7 +244,7 @@ export default function FacturaListadoPageClient({
   }
 
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 10 : 5;
+  const colSpan = esFacturas ? 12 : 7;
 
   return (
     <ClassicFilteredTableLayout
@@ -389,6 +402,8 @@ export default function FacturaListadoPageClient({
               {esFacturas ? <TableHead className="text-center">LETRA</TableHead> : null}
               <TableHead>N°</TableHead>
               <TableHead>CLIENTE</TableHead>
+              <TableHead>SUCURSAL</TableHead>
+              <TableHead>PERSONAL</TableHead>
               <TableHead className="text-right">TOTAL</TableHead>
               {esFacturas ? <TableHead>CAE</TableHead> : null}
               {esFacturas ? (
@@ -432,6 +447,12 @@ export default function FacturaListadoPageClient({
                     {item.nroComprobante || "—"}
                   </TableCell>
                   <TableCell className="uppercase">{item.cliente}</TableCell>
+                  <TableCell className="uppercase">
+                    {fmtCelda(item.sucursalNombres.join(" · "))}
+                  </TableCell>
+                  <TableCell className="uppercase">
+                    {fmtCelda(item.usuarioNombre)}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     ${fmtPrecio(item.impTotal)}
                   </TableCell>
@@ -461,6 +482,25 @@ export default function FacturaListadoPageClient({
                   ) : null}
                   <TableCell className="tabla-bloque-secundario-cell-divider">
                     <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      {esFacturas && esFacturaTipoVenta(item.tipo) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Cobros"
+                          aria-label={`Cobros ${item.nroComprobante}`}
+                          onClick={() => {
+                            setCobrosId(item.id);
+                            setCobrosNro(item.nroComprobante);
+                          }}
+                        >
+                          <CircleDollarSign
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -511,6 +551,17 @@ export default function FacturaListadoPageClient({
           </TableBody>
         </Table>
       </div>
+      <FacturaComprobanteCobrosModal
+        open={cobrosId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCobrosId(null);
+            setCobrosNro("");
+          }
+        }}
+        comprobanteId={cobrosId}
+        nroComprobante={cobrosNro}
+      />
     </ClassicFilteredTableLayout>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, Loader2, MessageSquare, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,7 @@ import {
   FACTURA_TIPO_DEFAULT,
   MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
+  MENSAJE_PERSONAL_SESION_REQUERIDO,
   claseDesdeFacturaTipo,
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
@@ -85,6 +87,8 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
@@ -121,6 +125,7 @@ export default function FacturaCrearPageClient({
   condicionesIva,
   originalesNc,
 }: Props) {
+  const router = useRouter();
   const listboxClientesId = useId();
   const clienteWrapRef = useRef<HTMLDivElement>(null);
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
@@ -351,6 +356,11 @@ export default function FacturaCrearPageClient({
       toast.error(MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE);
       return;
     }
+    const personalId = leerUsuarioSesion()?.idPersonal;
+    if (personalId == null) {
+      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
     const clienteEmitir = nombreClienteFactura(cliente);
     setPending(true);
     try {
@@ -363,6 +373,7 @@ export default function FacturaCrearPageClient({
         proyectoId,
         comentarios,
         ptoVtaId,
+        personalId,
         cbteAsocId:
           esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
         lineas: lineas.map((l) => ({
@@ -899,6 +910,13 @@ export default function FacturaCrearPageClient({
         comprobante={comprobantePdf}
         comprobanteId={comprobanteId}
         plazoCuentaCorrienteCliente={plazoCuentaCorrienteCliente}
+        onFinalizado={() => {
+          router.push(
+            tipo === "presupuesto"
+              ? FACTURACION_ROUTES.factura.presupuestos
+              : FACTURACION_ROUTES.factura.facturas
+          );
+        }}
       />
     </ClassicFilteredTableLayout>
   );

@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
-import type { FacturaEmitirResultado } from "@/lib/factura";
+import type { FacturaComprobanteCobroItem, FacturaEmitirResultado } from "@/lib/factura";
 import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
   buscarProductosFacturaSchema,
   emitirFacturaComprobanteSchema,
+  emitirNotaCreditoFacturaSchema,
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
 } from "@/lib/validations/factura";
@@ -94,7 +95,7 @@ export async function emitirNotaCreditoFacturaAction(
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
 
-  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  const parsed = emitirNotaCreditoFacturaSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
 
   try {
@@ -102,7 +103,10 @@ export async function emitirNotaCreditoFacturaAction(
       "@/services/facturaComprobantes.service"
     );
     const out = fromServiceResult(
-      await emitirNotaCreditoDesdeComprobante(parsed.data.id)
+      await emitirNotaCreditoDesdeComprobante(
+        parsed.data.id,
+        parsed.data.personalId
+      )
     );
     if (!out.ok) return out;
     revalidateFacturacion();
@@ -191,5 +195,24 @@ export async function guardarDiasVencimientoFacturaAction(
   } catch (e) {
     console.error("[guardarDiasVencimientoFacturaAction]", e);
     return { ok: false, error: "No se pudieron guardar los días de vencimiento." };
+  }
+}
+
+export async function listarCobrosComprobanteFacturaAction(
+  raw: unknown
+): Promise<ActionResult<{ items: FacturaComprobanteCobroItem[] }>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { listarCobrosComprobanteVta } = await import(
+      "@/services/facturaComprobantesListado.service"
+    );
+    const items = await listarCobrosComprobanteVta(parsed.data.id);
+    return { ok: true, data: { items } };
+  } catch (e) {
+    console.error("[listarCobrosComprobanteFacturaAction]", e);
+    return { ok: false, error: "No se pudieron listar los cobros." };
   }
 }

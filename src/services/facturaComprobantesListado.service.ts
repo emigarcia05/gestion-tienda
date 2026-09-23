@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   esFacturaTipo,
+  type FacturaComprobanteCobroItem,
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
   type FacturaPtoVtaOpcion,
@@ -29,23 +30,26 @@ function saldoYDiasCtaCte(args: {
   tipo: FacturaTipo;
   estado: FacturaComprobanteEstado;
   impTotal: number;
+  impCobrado: number;
   fechaIso: string;
   diasVencimiento: number | null;
   tieneNc: boolean;
   hoyIso: string;
 }): { saldoPendiente: number | null; diasParaVencer: number | null } {
   const esVenta = args.tipo === "factura_fiscal" || args.tipo === "factura_no_fiscal";
-  if (
-    !esVenta ||
-    args.estado === "rechazado" ||
-    args.diasVencimiento == null ||
-    args.tieneNc
-  ) {
+  if (!esVenta || args.estado === "rechazado" || args.tieneNc) {
     return { saldoPendiente: null, diasParaVencer: null };
+  }
+  const saldo = Math.max(0, Math.round((args.impTotal - args.impCobrado) * 100) / 100);
+  if (saldo <= 0) {
+    return { saldoPendiente: null, diasParaVencer: null };
+  }
+  if (args.diasVencimiento == null) {
+    return { saldoPendiente: saldo, diasParaVencer: null };
   }
   const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
   return {
-    saldoPendiente: args.impTotal,
+    saldoPendiente: saldo,
     diasParaVencer: diffCalendarDaysIsoYmdArgentina(args.hoyIso, venceIso),
   };
 }
@@ -60,6 +64,7 @@ function mapListItem(
     cbteNro: number | null;
     receptorNombre: string;
     impTotal: Prisma.Decimal;
+    impCobrado: Prisma.Decimal;
     diasVencimiento: number | null;
     cae: string | null;
     caeVto: Date | null;
@@ -67,8 +72,9 @@ function mapListItem(
     estado: string;
     ambiente: string;
     notasCredito: { id: string }[];
+    personal: { nombrePersonal: string } | null;
     ptoVta: {
-      sucursales: { sucursal: { codigo: string } }[];
+      sucursales: { sucursal: { codigo: string; nombre: string } }[];
     };
   },
   hoyIso: string
@@ -83,11 +89,16 @@ function mapListItem(
     tipo,
     estado,
     impTotal,
+    impCobrado: decimalToNumber(row.impCobrado),
     fechaIso,
     diasVencimiento: row.diasVencimiento,
     tieneNc: row.notasCredito.length > 0,
     hoyIso,
   });
+  const sucursalesPto = row.ptoVta.sucursales.map((link) => ({
+    codigo: link.sucursal.codigo,
+    nombre: link.sucursal.nombre.toLocaleUpperCase("es-AR"),
+  }));
   return {
     id: row.id,
     tipo,
@@ -98,9 +109,9 @@ function mapListItem(
     impTotal,
     saldoPendiente,
     diasParaVencer,
-    sucursalCodigos: [
-      ...new Set(row.ptoVta.sucursales.map((link) => link.sucursal.codigo)),
-    ],
+    sucursalCodigos: [...new Set(sucursalesPto.map((s) => s.codigo))],
+    sucursalNombres: [...new Set(sucursalesPto.map((s) => s.nombre))],
+    usuarioNombre: row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
     cae: row.cae,
     caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
     resultado: row.resultado,
@@ -123,6 +134,7 @@ const listSelect = {
   cbteNro: true,
   receptorNombre: true,
   impTotal: true,
+  impCobrado: true,
   diasVencimiento: true,
   cae: true,
   caeVto: true,
@@ -130,10 +142,11 @@ const listSelect = {
   estado: true,
   ambiente: true,
   notasCredito: { select: { id: true }, take: 1 },
+  personal: { select: { nombrePersonal: true } },
   ptoVta: {
     select: {
       sucursales: {
-        select: { sucursal: { select: { codigo: true } } },
+        select: { sucursal: { select: { codigo: true, nombre: true } } },
       },
     },
   },
@@ -232,4 +245,23 @@ export async function listarFacturasAutorizadasParaNc(): Promise<
     id: r.id,
     label: `${formatoNroComprobante(r.ptoVenta, r.cbteNro)} · ${r.letra ?? ""} · ${r.receptorNombre} · ${isoYmdFromPrismaDateOnly(r.fecha)}`.trim(),
   }));
+}
+
+export async function listarCobrosComprobanteVta(
+  comprobanteId: string
+): Promise<FacturaComprobanteCobroItem[]> {
+  const rows = await prisma.comprobanteVtaCobro.findMany({
+    where: { comprobanteId },
+    orderBy: { orden: "asc" },
+    select: {
+      id: true,
+      pagoNombre: true,
+      entidadNombre: true,
+      cuotaEtiqueta: true,
+      montoCents: true,
+      esCuentaCorriente: true,
+      plazoDias: true,
+    },
+  });
+  return rows;
 }

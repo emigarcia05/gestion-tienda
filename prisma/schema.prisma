@@ -383,13 +383,14 @@ model PtoVentasCodArca {
 /**
  * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
  * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
- * PK `id_personal` (serial, no lo carga el usuario). Vínculo DUX: `id_dux` (opcional, unique).
+ * Tabla SQL `personal` (ex `global_personal`). PK `id_personal` (serial, no lo carga el usuario).
+ * Vínculo DUX: `id_dux` (opcional, unique).
  */
 model GlobalPersonal {
   idPersonal         Int      @id @default(autoincrement()) @map("id_personal")
   nombrePersonal     String   @map("nombre_personal")
   /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
-  idDux              String?  @unique(map: "global_personal_id_dux_key") @map("id_dux")
+  idDux              String?  @unique(map: "personal_id_dux_key") @map("id_dux")
   /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
   /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */
@@ -397,9 +398,10 @@ model GlobalPersonal {
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
 
   sucursalDefault Sucursal? @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
+  comprobantesVtas ComprobanteVta[]
 
-  @@index([sucursalPorDefecto], map: "global_personal_sucursal_por_defecto_idx")
-  @@map("global_personal")
+  @@index([sucursalPorDefecto], map: "personal_sucursal_por_defecto_idx")
+  @@map("personal")
 }
 
 /**
@@ -1961,6 +1963,10 @@ model ComprobanteVta {
 
   /** Días para recordatorio si queda impago o con saldo. Null si el cobro cubre el total. */
   diasVencimiento Int? @map("dias_vencimiento")
+  /** Suma cobrada (no CC) en el modal. Saldo = `imp_total` − `imp_cobrado`. */
+  impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
+  /** Usuario de pestaña que generó el comprobante (`personal.id_personal`). */
+  personalId Int? @map("personal_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1969,10 +1975,12 @@ model ComprobanteVta {
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  personal GlobalPersonal? @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
   items        ComprobanteVtaItem[]
   historialArca ComprobanteVtaHistorialArca[]
+  cobros       ComprobanteVtaCobro[]
 
   @@index([tipoLocal, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
@@ -1981,7 +1989,27 @@ model ComprobanteVta {
   @@index([proyectoId], map: "comprobantes_vtas_proyecto_id_idx")
   @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
+  @@index([personalId], map: "comprobantes_vtas_personal_id_idx")
   @@map("comprobantes_vtas")
+}
+
+/** Cobros registrados al cerrar el modal post-emisión. No son `tesoreria_movimientos`. */
+model ComprobanteVtaCobro {
+  id                 String   @id @default(cuid())
+  comprobanteId      String   @map("comprobante_id")
+  orden              Int
+  pagoNombre         String   @map("pago_nombre")
+  entidadNombre      String   @default("") @map("entidad_nombre")
+  cuotaEtiqueta      String?  @map("cuota_etiqueta")
+  montoCents         Int      @map("monto_cents")
+  esCuentaCorriente  Boolean  @default(false) @map("es_cuenta_corriente")
+  plazoDias          Int?     @map("plazo_dias")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([comprobanteId], map: "comprobantes_vtas_cobros_comp_idx")
+  @@map("comprobantes_vtas_cobros")
 }
 
 model ComprobanteVtaItem {

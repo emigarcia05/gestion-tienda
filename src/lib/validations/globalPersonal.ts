@@ -14,7 +14,7 @@ export const moduloPermitidoUsuarioSchema = z.enum([
   "facturacion",
 ]);
 
-const idPersonalSchema = z.coerce
+export const idPersonalSchema = z.coerce
   .number({ error: "Ingresá el ID Personal." })
   .int("El ID Personal debe ser un número entero.")
   .positive("El ID Personal debe ser mayor a 0.")

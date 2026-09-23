@@ -351,6 +351,14 @@ export async function emitirFacturaComprobante(
     return { success: false, error: "El punto de venta no existe o está inactivo." };
   }
 
+  const personal = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: input.personalId },
+    select: { idPersonal: true },
+  });
+  if (!personal) {
+    return { success: false, error: "El usuario no existe." };
+  }
+
   const clienteNoSel = mensajeClienteFacturaNoSeleccionado(
     input.cliente,
     input.clienteId
@@ -533,6 +541,7 @@ export async function emitirFacturaComprobante(
             concepto,
             clienteId,
             proyectoId,
+            personalId: input.personalId,
             receptorNombre,
             receptorDocTipo: null,
             receptorDocNro: null,
@@ -759,6 +768,7 @@ async function emitirFiscal(args: {
           concepto: args.concepto,
           clienteId: args.clienteId,
           proyectoId: args.proyectoId,
+          personalId: args.input.personalId,
           receptorNombre: args.receptorNombre,
           receptorDocTipo: args.receptor.docTipo,
           receptorDocNro: args.receptor.docNro,
@@ -876,7 +886,8 @@ async function emitirFiscal(args: {
 }
 
 export async function emitirNotaCreditoDesdeComprobante(
-  comprobanteId: string
+  comprobanteId: string,
+  personalId: number
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const orig = await prisma.comprobanteVta.findUnique({
     where: { id: comprobanteId },
@@ -900,6 +911,7 @@ export async function emitirNotaCreditoDesdeComprobante(
     proyectoId: orig.proyectoId,
     comentarios: orig.comentarios,
     ptoVtaId: orig.ptoVtaId,
+    personalId,
     receptorDocTipo: orig.receptorDocTipo ?? undefined,
     receptorDocNro: orig.receptorDocNro ?? undefined,
     receptorCondicionIva: orig.receptorCondicionIva ?? undefined,
@@ -976,9 +988,35 @@ export async function guardarDiasVencimientoComprobante(
   input: GuardarDiasVencimientoFacturaInput
 ): Promise<ServiceResult<void>> {
   try {
-    await prisma.comprobanteVta.update({
-      where: { id: input.id },
-      data: { diasVencimiento: input.diasVencimiento },
+    const cobradoCents = input.cobros
+      .filter((c) => !c.esCuentaCorriente)
+      .reduce((acc, c) => acc + c.montoCents, 0);
+    const impCobrado = roundArs2(cobradoCents / 100);
+    await prisma.$transaction(async (tx) => {
+      await tx.comprobanteVtaCobro.deleteMany({
+        where: { comprobanteId: input.id },
+      });
+      if (input.cobros.length > 0) {
+        await tx.comprobanteVtaCobro.createMany({
+          data: input.cobros.map((c, orden) => ({
+            comprobanteId: input.id,
+            orden,
+            pagoNombre: c.pagoNombre,
+            entidadNombre: c.entidadNombre,
+            cuotaEtiqueta: c.cuotaEtiqueta,
+            montoCents: c.montoCents,
+            esCuentaCorriente: c.esCuentaCorriente,
+            plazoDias: c.plazoDias,
+          })),
+        });
+      }
+      await tx.comprobanteVta.update({
+        where: { id: input.id },
+        data: {
+          diasVencimiento: input.diasVencimiento,
+          impCobrado,
+        },
+      });
     });
     return { success: true, data: undefined };
   } catch (e) {
