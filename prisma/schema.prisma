@@ -1317,6 +1317,7 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
+  cobrosPorSucursal CobrosPorSucursal[]
 
   @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
   @@map("tesoreria_cobros_entidades")
@@ -1338,6 +1339,7 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
+  cobrosPorSucursal CobrosPorSucursal[]
 
   @@map("cobros_forma_pago")
 }
@@ -1352,7 +1354,6 @@ model CobrosFormaPagoEntidad {
 
   pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
-  destinosPorSucursal CobrosPorSucursal[]
 
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
@@ -1407,8 +1408,10 @@ model FinAnaCosFina {
 model CobrosPorSucursal {
   id            String   @id @default(cuid())
   pagoId        String   @map("pago_id")
-  entidadId     String   @map("entidad_id")
-  formaPagoEntidad CobrosFormaPagoEntidad @relation(fields: [pagoId, entidadId], references: [pagoId, entidadId], onDelete: Cascade)
+  pago          FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  /** Null si la forma de pago no exige entidad (`entidad_obligatoria = false`). */
+  entidadId     String?  @map("entidad_id")
+  entidad       FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sucursalId    String   @map("sucursal_id")
   sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   cajaDestinoId String?  @map("caja_destino_id")
@@ -1418,7 +1421,6 @@ model CobrosPorSucursal {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  @@unique([pagoId, entidadId, sucursalId], map: "cobros_vinc_cajas_pago_entidad_sucursal_ux")
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
   @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")

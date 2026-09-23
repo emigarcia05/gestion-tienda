@@ -5,7 +5,7 @@ import type {
   CrearCobroPorSucursalInput,
   EliminarCobroPorSucursalInput,
 } from "@/lib/validations/cobrosPorSucursal";
-import type { TipoCajaTesoreria } from "@prisma/client";
+import { Prisma, type TipoCajaTesoreria } from "@prisma/client";
 import type { ServiceResult } from "@/types";
 
 export type CobrosPorSucursalSucursalCol = {
@@ -120,20 +120,21 @@ async function buscarDuplicado(input: {
   sucursalId: string;
   excludeId?: string;
 }): Promise<boolean> {
+  const where: Prisma.CobrosPorSucursalWhereInput = input.entidadId
+    ? {
+        pagoId: input.pagoId,
+        entidadId: input.entidadId,
+        sucursalId: input.sucursalId,
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      }
+    : {
+        pagoId: input.pagoId,
+        entidadId: null,
+        sucursalId: input.sucursalId,
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      };
   const row = await prisma.cobrosPorSucursal.findFirst({
-    where: input.entidadId
-      ? {
-          pagoId: input.pagoId,
-          entidadId: input.entidadId,
-          sucursalId: input.sucursalId,
-          ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
-        }
-      : {
-          pagoId: input.pagoId,
-          entidadId: null,
-          sucursalId: input.sucursalId,
-          ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
-        },
+    where,
     select: { id: true },
   });
   return Boolean(row);
