@@ -268,6 +268,41 @@ export const FACTURA_BUSQUEDA_CLIENTES_TAKE = 10;
 /** Mínimo de caracteres (trim) para disparar la búsqueda de clientes. */
 export const FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS = 3;
 
+/** Movimientos del submódulo Cuenta Corriente Cliente. */
+export const CUENTA_CORRIENTE_MOVIMIENTO_TIPOS = [
+  "cobro",
+  "venta",
+  "nota_credito",
+] as const;
+
+export type CuentaCorrienteMovimientoTipo =
+  (typeof CUENTA_CORRIENTE_MOVIMIENTO_TIPOS)[number];
+
+export const CUENTA_CORRIENTE_MOVIMIENTO_LABELS: Record<
+  CuentaCorrienteMovimientoTipo,
+  string
+> = {
+  cobro: "COBRO",
+  venta: "VENTA",
+  nota_credito: "NOTA CRÉDITO",
+};
+
+export type CuentaCorrienteClienteMovimiento = {
+  id: string;
+  tipo: CuentaCorrienteMovimientoTipo;
+  fechaIso: string;
+  createdAtIso: string;
+  comprobanteId: string;
+  nroComprobante: string;
+  monto: number;
+  saldoCc: number;
+};
+
+export type CuentaCorrienteClienteDatos = {
+  cliente: ClienteListaItem;
+  movimientos: CuentaCorrienteClienteMovimiento[];
+};
+
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 

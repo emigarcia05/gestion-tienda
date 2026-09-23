@@ -70,7 +70,6 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
 const PERIODO_HOY = "hoy";
-const PERIODO_TODOS = "todos";
 
 type PeriodoFiltro = "hoy" | "ayer" | "mes" | "todos";
 
@@ -363,9 +362,9 @@ export default function FacturaListadoPageClient({
           <TableHeader>
             <TableRow>
               <TableHead>FECHA</TableHead>
+              <TableHead>CLIENTE</TableHead>
               {esFacturas ? <TableHead>TIPO</TableHead> : null}
               <TableHead>N°</TableHead>
-              <TableHead>CLIENTE</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>PERSONAL</TableHead>
               <TableHead className="tabla-bloque-secundario-head-divider text-right">
@@ -407,13 +406,13 @@ export default function FacturaListadoPageClient({
                       </span>
                     </span>
                   </TableCell>
+                  <TableCell className="uppercase">{item.cliente}</TableCell>
                   {esFacturas ? (
                     <TableCell>{FACTURA_TIPO_LABELS[item.tipo]}</TableCell>
                   ) : null}
                   <TableCell className="tabular-nums">
                     {item.nroComprobante || "—"}
                   </TableCell>
-                  <TableCell className="uppercase">{item.cliente}</TableCell>
                   <TableCell className="uppercase">
                     {fmtCelda(item.sucursalNombres.join(" · "))}
                   </TableCell>

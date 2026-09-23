@@ -34,6 +34,7 @@ import {
   Files,
   ScrollText,
   Users,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -312,6 +313,12 @@ const FACTURACION_MODULES: NavModule[] = [
         icon: <ClipboardList className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
+      {
+        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
+        label: "Cuenta Corriente Cliente",
+        icon: <Wallet className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
     ],
   },
 ];
@@ -346,6 +353,9 @@ function isSubmoduleActive(pathname: string, href: string): boolean {
   }
   if (href === FACTURACION_ROUTES.clientes.lista) {
     return pathname === FACTURACION_ROUTES.clientes.lista;
+  }
+  if (href === FACTURACION_ROUTES.clientes.cuentaCorriente) {
+    return pathname === FACTURACION_ROUTES.clientes.cuentaCorriente;
   }
   return pathname === href;
 }

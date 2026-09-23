@@ -67,6 +67,14 @@ export const buscarClientesFacturaSchema = z.object({
 
 export type BuscarClientesFacturaInput = z.infer<typeof buscarClientesFacturaSchema>;
 
+export const obtenerCuentaCorrienteClienteSchema = z.object({
+  clienteId: prismaCuidSchema,
+});
+
+export type ObtenerCuentaCorrienteClienteInput = z.infer<
+  typeof obtenerCuentaCorrienteClienteSchema
+>;
+
 const facturaLineaEmitirSchema = z.object({
   codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
   descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),

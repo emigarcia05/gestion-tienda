@@ -51,6 +51,7 @@ function revalidateEnvios(): void {
   }
   revalidatePath(FACTURACION_ROUTES.factura.crear);
   revalidatePath(FACTURACION_ROUTES.clientes.lista);
+  revalidatePath(FACTURACION_ROUTES.clientes.cuentaCorriente);
 }
 
 export async function crearClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {

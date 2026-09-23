@@ -290,7 +290,7 @@ export interface EnviosDireccionItem {
 /** Cliente del listado Facturación · Lista Clientes, con proyectos anidados. */
 export interface ClienteListaItem extends ClienteItem {
   proyectos: EnviosDireccionItem[];
-  /** Saldo de cuenta corriente (ventas con plazo − notas de crédito). */
+  /** Saldo de cuenta corriente (ventas − cobros − notas de crédito). */
   saldoCuentaCorriente: number;
 }
 

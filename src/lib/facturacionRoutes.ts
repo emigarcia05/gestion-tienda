@@ -12,5 +12,6 @@ export const FACTURACION_ROUTES = {
   },
   clientes: {
     lista: "/facturacion/clientes/lista",
+    cuentaCorriente: "/facturacion/clientes/cuenta-corriente",
   },
 } as const;

@@ -4,19 +4,28 @@ import { revalidatePath } from "next/cache";
 import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
-import type { FacturaComprobanteCobroItem, FacturaComprobanteDuplicarBorrador, FacturaEmitirResultado } from "@/lib/factura";
+import type {
+  CuentaCorrienteClienteDatos,
+  FacturaComprobanteCobroItem,
+  FacturaComprobanteDuplicarBorrador,
+  FacturaEmitirResultado,
+} from "@/lib/factura";
 import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
   buscarProductosFacturaSchema,
+  obtenerCuentaCorrienteClienteSchema,
   emitirFacturaComprobanteSchema,
   emitirNotaCreditoFacturaSchema,
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
 } from "@/lib/validations/factura";
-import { buscarClientesParaFactura } from "@/services/clientes.service";
+import {
+  buscarClientesParaFactura,
+  obtenerCuentaCorrienteCliente,
+} from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
@@ -31,6 +40,7 @@ function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
   revalidatePath(FACTURACION_ROUTES.factura.facturas);
   revalidatePath(FACTURACION_ROUTES.factura.presupuestos);
+  revalidatePath(FACTURACION_ROUTES.clientes.cuentaCorriente);
 }
 
 export async function buscarClientesFacturaAction(
@@ -47,6 +57,20 @@ export async function buscarClientesFacturaAction(
       q: parsed.data.q,
       take: parsed.data.take,
     })
+  );
+}
+
+export async function obtenerCuentaCorrienteClienteAction(
+  raw: unknown
+): Promise<ActionResult<CuentaCorrienteClienteDatos>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = obtenerCuentaCorrienteClienteSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  return fromServiceResult(
+    await obtenerCuentaCorrienteCliente(parsed.data.clienteId)
   );
 }
 
