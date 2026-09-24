@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   esFacturaTipo,
+  type FacturaCobroDetalle,
   type FacturaComprobanteCobroItem,
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
@@ -350,4 +351,66 @@ export async function listarCobrosComprobanteVta(
       personalNombre,
     })),
   };
+}
+
+export async function obtenerDetalleCobroComprobante(
+  cobroId: string
+): Promise<
+  { success: true; data: FacturaCobroDetalle } | { success: false; error: string }
+> {
+  try {
+    const row = await prisma.comprobanteVtaCobro.findUnique({
+      where: { id: cobroId },
+      select: {
+        id: true,
+        createdAt: true,
+        pagoNombre: true,
+        entidadNombre: true,
+        cuotaEtiqueta: true,
+        montoCents: true,
+        esCuentaCorriente: true,
+        plazoDias: true,
+        comprobante: {
+          select: {
+            id: true,
+            ptoVenta: true,
+            cbteNro: true,
+            personal: { select: { nombrePersonal: true } },
+          },
+        },
+      },
+    });
+    if (!row) return { success: false, error: "El cobro no existe." };
+    const personalNombre =
+      row.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
+      "";
+    return {
+      success: true,
+      data: {
+        cobro: {
+          id: row.id,
+          createdAtIso: row.createdAt.toISOString(),
+          pagoNombre: row.pagoNombre,
+          entidadNombre: row.entidadNombre,
+          cuotaEtiqueta: row.cuotaEtiqueta,
+          montoCents: row.montoCents,
+          esCuentaCorriente: row.esCuentaCorriente,
+          plazoDias: row.plazoDias,
+          personalNombre,
+        },
+        comprobantes: [
+          {
+            id: row.comprobante.id,
+            nroComprobante: formatoNroComprobante(
+              row.comprobante.ptoVenta,
+              row.comprobante.cbteNro
+            ),
+          },
+        ],
+      },
+    };
+  } catch (e) {
+    console.error("[facturaComprobantesListado][obtenerDetalleCobro]", e);
+    return { success: false, error: "No se pudo leer el cobro." };
+  }
 }

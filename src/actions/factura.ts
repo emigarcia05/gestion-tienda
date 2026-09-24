@@ -6,6 +6,7 @@ import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import type {
   CuentaCorrienteClienteDatos,
+  FacturaCobroDetalle,
   FacturaComprobanteCobroItem,
   FacturaComprobanteDuplicarBorrador,
   FacturaEmitirResultado,
@@ -242,6 +243,24 @@ export async function listarCobrosComprobanteFacturaAction(
   } catch (e) {
     console.error("[listarCobrosComprobanteFacturaAction]", e);
     return { ok: false, error: "No se pudieron listar los cobros." };
+  }
+}
+
+export async function obtenerDetalleCobroComprobanteAction(
+  raw: unknown
+): Promise<ActionResult<FacturaCobroDetalle>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { obtenerDetalleCobroComprobante } = await import(
+      "@/services/facturaComprobantesListado.service"
+    );
+    return fromServiceResult(await obtenerDetalleCobroComprobante(parsed.data.id));
+  } catch (e) {
+    console.error("[obtenerDetalleCobroComprobanteAction]", e);
+    return { ok: false, error: "No se pudo leer el cobro." };
   }
 }
 

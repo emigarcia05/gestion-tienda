@@ -8,7 +8,6 @@ import {
   consultarFacturaComprobanteArcaAction,
   convertirComprobanteNoFiscalEnFiscalAction,
   eliminarComprobanteNoFiscalAction,
-  emitirNotaCreditoFacturaAction,
 } from "@/actions/factura";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -77,26 +76,32 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
+const FILTRO_TIPO_TODOS = "todos";
+const FILTRO_TIPO_FACTURA = "factura";
 const FILTRO_COBRO_TODOS = "todos";
 const FILTRO_COBRO = "cobro";
 const FILTRO_PEND_PAGO = "pendiente";
 const FILTRO_PEND_VENC = "pendiente_vencido";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
+/** Texto de celda alineado al `th` (`.table-head-inner` centra en 100% del ancho). */
+const CELDA_TEXTO_CLASS = "text-center whitespace-normal";
+const PILA_CELDA_CLASS =
+  "flex w-full flex-col items-center justify-center text-center leading-tight";
 
 /** Anchos `%` Lista Comprobantes (`colgroup`; suman 100). */
 const LISTADO_FACTURAS_COLGROUP = (
   <>
     <col className="w-[12%]" />
+    <col className="w-[6%]" />
+    <col className="w-[20%]" />
+    <col className="w-[5%]" />
+    <col className="w-[10%]" />
+    <col className="w-[10%]" />
     <col className="w-[8%]" />
-    <col className="w-[18%]" />
+    <col className="w-[8%]" />
     <col className="w-[5%]" />
-    <col className="w-[10%]" />
-    <col className="w-[10%]" />
-    <col className="w-[7%]" />
-    <col className="w-[7%]" />
-    <col className="w-[5%]" />
-    <col className="w-[18%]" />
+    <col className="w-[16%]" />
   </>
 );
 
@@ -147,7 +152,8 @@ export default function FacturaListadoPageClient({
   const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
-  const [filtroPendiente, setFiltroPendiente] = useState(FILTRO_COBRO_TODOS);
+  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroPendiente, setFiltroPendiente] = useState("");
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
   const [detalleId, setDetalleId] = useState<string | null>(null);
@@ -196,6 +202,16 @@ export default function FacturaListadoPageClient({
       ) {
         return false;
       }
+      if (
+        filtroTipo &&
+        filtroTipo !== FILTRO_TIPO_TODOS
+      ) {
+        if (filtroTipo === FILTRO_TIPO_FACTURA) {
+          if (!esFacturaTipoVenta(item.tipo)) return false;
+        } else if (item.tipo !== filtroTipo) {
+          return false;
+        }
+      }
       if (filtroPendiente === FILTRO_COBRO && item.saldoPendiente != null) {
         return false;
       }
@@ -234,6 +250,7 @@ export default function FacturaListadoPageClient({
     ayerIso,
     filtroSucursal,
     filtroUsuario,
+    filtroTipo,
     filtroPendiente,
   ]);
 
@@ -260,27 +277,8 @@ export default function FacturaListadoPageClient({
     limpiarPeriodo();
     setFiltroSucursal("");
     setFiltroUsuario("");
-    setFiltroPendiente(FILTRO_COBRO_TODOS);
-  }
-
-  async function handleNc(id: string) {
-    const personalId = leerUsuarioSesion()?.idPersonal;
-    if (personalId == null) {
-      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
-      return;
-    }
-    setBusyId(id);
-    try {
-      const res = await emitirNotaCreditoFacturaAction({ id, personalId });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(res.data.cae ? `NC CAE ${res.data.cae}` : "Nota de crédito emitida.");
-      router.refresh();
-    } finally {
-      setBusyId(null);
-    }
+    setFiltroTipo("");
+    setFiltroPendiente("");
   }
 
   async function handleConsultar(id: string) {
@@ -300,6 +298,10 @@ export default function FacturaListadoPageClient({
 
   function irDuplicar(id: string) {
     router.push(`${FACTURACION_ROUTES.factura.crear}?duplicar=${id}`);
+  }
+
+  function irNotaCredito(id: string) {
+    router.push(`${FACTURACION_ROUTES.factura.crear}?nc=${id}`);
   }
 
   async function confirmarModalAccion() {
@@ -362,7 +364,7 @@ export default function FacturaListadoPageClient({
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables columnas={4}>
+            <FilaFiltrosDesplegables columnas={esFacturas ? 5 : 4}>
               <FiltroIndividualContainer
                 activo={periodo !== PERIODO_HOY}
                 onLimpiar={limpiarPeriodo}
@@ -449,8 +451,36 @@ export default function FacturaListadoPageClient({
               </FiltroIndividualContainer>
               {esFacturas ? (
                 <FiltroIndividualContainer
-                  activo={filtroPendiente !== FILTRO_COBRO_TODOS}
-                  onLimpiar={() => setFiltroPendiente(FILTRO_COBRO_TODOS)}
+                  activo={Boolean(filtroTipo) && filtroTipo !== FILTRO_TIPO_TODOS}
+                  onLimpiar={() => setFiltroTipo("")}
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                >
+                  <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="TIPO" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="select-content-filtro"
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                    >
+                      <SelectItem value={FILTRO_TIPO_TODOS}>TODO</SelectItem>
+                      <SelectItem value={FILTRO_TIPO_FACTURA}>FACTURA</SelectItem>
+                      <SelectItem value="nota_credito_fiscal">
+                        NOTA CRÉDITO FISCAL
+                      </SelectItem>
+                      <SelectItem value="nota_credito_no_fiscal">
+                        NOTA CRÉDITO NO FISCAL
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
+              ) : null}
+              {esFacturas ? (
+                <FiltroIndividualContainer
+                  activo={Boolean(filtroPendiente) && filtroPendiente !== FILTRO_COBRO_TODOS}
+                  onLimpiar={() => setFiltroPendiente("")}
                   className={FILTER_SELECT_WRAPPER_CLASS}
                 >
                   <Select
@@ -458,7 +488,7 @@ export default function FacturaListadoPageClient({
                     onValueChange={setFiltroPendiente}
                   >
                     <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="COBRO" />
+                      <SelectValue placeholder="ESTADO COBRO" />
                     </SelectTrigger>
                     <SelectContent
                       className="select-content-filtro"
@@ -503,23 +533,28 @@ export default function FacturaListadoPageClient({
     >
       <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
         <div className="contenedor-tabla-gestion--pie-fijo-scroll">
-        <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed">
+        <Table
+          variant="compact"
+          className="tabla-gestion-compacta w-full table-fixed text-center"
+        >
           <colgroup>
             {esFacturas ? LISTADO_FACTURAS_COLGROUP : LISTADO_PRESUPUESTOS_COLGROUP}
           </colgroup>
           <TableHeader>
             <TableRow>
-              <TableHead>FECHA</TableHead>
-              {esFacturas ? <TableHead>TIPO</TableHead> : null}
-              <TableHead>CLIENTE</TableHead>
-              <TableHead>N°</TableHead>
-              <TableHead>SUCURSAL</TableHead>
-              <TableHead>PERSONAL</TableHead>
-              <TableHead className="tabla-bloque-secundario-head-divider text-right">
+              <TableHead className="text-center">FECHA</TableHead>
+              {esFacturas ? (
+                <TableHead className="text-center">TIPO</TableHead>
+              ) : null}
+              <TableHead className="text-center">CLIENTE</TableHead>
+              <TableHead className="text-center">N°</TableHead>
+              <TableHead className="text-center">SUCURSAL</TableHead>
+              <TableHead className="text-center">PERSONAL</TableHead>
+              <TableHead className="tabla-bloque-secundario-head-divider text-center">
                 TOTAL
               </TableHead>
               {esFacturas ? (
-                <TableHead className="tabla-bloque-secundario-head text-right">
+                <TableHead className="tabla-bloque-secundario-head text-center">
                   SALDO
                 </TableHead>
               ) : null}
@@ -546,35 +581,49 @@ export default function FacturaListadoPageClient({
             ) : (
               itemsFiltrados.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="tabular-nums">
-                    <span className="flex flex-col items-start leading-tight">
+                  <TableCell className={cn(CELDA_TEXTO_CLASS, "tabular-nums")}>
+                    <span className={PILA_CELDA_CLASS}>
                       <span>{formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}</span>
-                      <span className="pl-4">
+                      <span>
                         {formatHhMmArgentina(new Date(item.createdAtIso))}
                       </span>
                     </span>
                   </TableCell>
                   {esFacturas ? (
-                    <TableCell>{etiquetaTipoListaComprobantes(item.tipo)}</TableCell>
+                    <TableCell className={cn(CELDA_TEXTO_CLASS, "uppercase")}>
+                      {etiquetaTipoListaComprobantes(item.tipo)}
+                    </TableCell>
                   ) : null}
-                  <TableCell className="uppercase">{item.cliente}</TableCell>
+                  <TableCell className={cn(CELDA_TEXTO_CLASS, "uppercase")}>
+                    {item.cliente}
+                  </TableCell>
                   <TableCell
-                    className="tabular-nums"
+                    className={cn(CELDA_TEXTO_CLASS, "tabular-nums")}
                     title={item.nroComprobante || undefined}
                   >
                     {fmtCelda(ultimosDigitosNroComprobante(item.nroComprobante, 5))}
                   </TableCell>
-                  <TableCell className="uppercase">
+                  <TableCell className={cn(CELDA_TEXTO_CLASS, "uppercase")}>
                     {fmtCelda(item.sucursalNombres.join(" · "))}
                   </TableCell>
-                  <TableCell className="uppercase">
+                  <TableCell className={cn(CELDA_TEXTO_CLASS, "uppercase")}>
                     {fmtCelda(item.usuarioNombre)}
                   </TableCell>
-                  <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell-divider">
+                  <TableCell
+                    className={cn(
+                      "celda-datos tabular-nums tabla-bloque-secundario-cell-divider",
+                      CELDA_TEXTO_CLASS
+                    )}
+                  >
                     ${fmtPrecio(item.impTotal)}
                   </TableCell>
                   {esFacturas ? (
-                    <TableCell className="celda-datos text-right tabular-nums tabla-bloque-secundario-cell">
+                    <TableCell
+                      className={cn(
+                        "celda-datos tabular-nums tabla-bloque-secundario-cell",
+                        CELDA_TEXTO_CLASS
+                      )}
+                    >
                       {item.saldoPendiente != null
                         ? `$${fmtPrecio(item.saldoPendiente)}`
                         : fmtCelda("")}
@@ -583,7 +632,8 @@ export default function FacturaListadoPageClient({
                   {esFacturas ? (
                     <TableCell
                       className={cn(
-                        "celda-datos text-center tabular-nums tabla-bloque-secundario-cell",
+                        "celda-datos tabular-nums tabla-bloque-secundario-cell",
+                        CELDA_TEXTO_CLASS,
                         item.diasVencido != null && "text-destructive"
                       )}
                     >
@@ -592,11 +642,16 @@ export default function FacturaListadoPageClient({
                         : fmtCelda("")}
                     </TableCell>
                   ) : null}
-                  <TableCell className="tabla-bloque-secundario-cell-divider whitespace-nowrap">
+                  <TableCell
+                    className={cn(
+                      "tabla-bloque-secundario-cell-divider",
+                      CELDA_TEXTO_CLASS
+                    )}
+                  >
                     <div
                       className={cn(
                         TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                        "flex-nowrap"
+                        "flex-nowrap justify-center"
                       )}
                     >
                       <Button
@@ -660,6 +715,28 @@ export default function FacturaListadoPageClient({
                           />
                         </Button>
                       ) : null}
+                      {esFacturas ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            !esFacturaTipoVenta(item.tipo) && "invisible"
+                          )}
+                          title="Nota de crédito"
+                          aria-label={`Nota de crédito ${item.nroComprobante}`}
+                          disabled={
+                            busyId === item.id || !esFacturaTipoVenta(item.tipo)
+                          }
+                          onClick={() => irNotaCredito(item.id)}
+                        >
+                          <Undo2
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -686,6 +763,27 @@ export default function FacturaListadoPageClient({
                           size="icon"
                           className={cn(
                             TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            !(esFacturaTipoFiscal(item.tipo) && !item.cae) &&
+                              "invisible"
+                          )}
+                          title="Consultar ARCA"
+                          aria-label={`Consultar ARCA ${item.nroComprobante}`}
+                          disabled={
+                            busyId === item.id ||
+                            !(esFacturaTipoFiscal(item.tipo) && !item.cae)
+                          }
+                          onClick={() => void handleConsultar(item.id)}
+                        >
+                          <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      ) : null}
+                      {esFacturas ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
                             item.tipo !== "factura_no_fiscal" && "invisible"
                           )}
                           title="Convertir en fiscal"
@@ -705,36 +803,6 @@ export default function FacturaListadoPageClient({
                             className={TABLE_ROW_ACTION_ICON_CLASS}
                             aria-hidden
                           />
-                        </Button>
-                      ) : null}
-                      {esFacturas && item.puedeNc ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="Nota de crédito"
-                          aria-label={`Nota de crédito ${item.nroComprobante}`}
-                          disabled={busyId === item.id}
-                          onClick={() => void handleNc(item.id)}
-                        >
-                          <Undo2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                        </Button>
-                      ) : null}
-                      {esFacturas &&
-                      esFacturaTipoFiscal(item.tipo) &&
-                      !item.cae ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="Consultar ARCA"
-                          aria-label={`Consultar ARCA ${item.nroComprobante}`}
-                          disabled={busyId === item.id}
-                          onClick={() => void handleConsultar(item.id)}
-                        >
-                          <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                         </Button>
                       ) : null}
                     </div>

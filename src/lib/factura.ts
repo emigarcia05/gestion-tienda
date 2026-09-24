@@ -29,7 +29,7 @@ export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
 /** Etiqueta de columna TIPO en Lista Comprobantes. */
 export function etiquetaTipoListaComprobantes(tipo: FacturaTipo): string {
   if (tipo === "factura_fiscal" || tipo === "factura_no_fiscal") {
-    return "Factura";
+    return "FACTURA";
   }
   return FACTURA_TIPO_LABELS[tipo];
 }
@@ -208,6 +208,15 @@ export function esFacturaTipoVenta(
   tipo: FacturaTipo
 ): tipo is "factura_fiscal" | "factura_no_fiscal" {
   return tipo === "factura_fiscal" || tipo === "factura_no_fiscal";
+}
+
+/** NC con la misma condición fiscal que la venta origen. */
+export function tipoNotaCreditoDesdeVenta(
+  tipo: FacturaTipo
+): "nota_credito_fiscal" | "nota_credito_no_fiscal" | null {
+  if (tipo === "factura_fiscal") return "nota_credito_fiscal";
+  if (tipo === "factura_no_fiscal") return "nota_credito_no_fiscal";
+  return null;
 }
 
 export type FacturaEfectoStock = "salida" | "ingreso" | "ninguno";
@@ -503,6 +512,12 @@ export type FacturaComprobanteCobroItem = {
   personalNombre: string;
 };
 
+/** Detalle de un cobro (Cuenta Corrientes · Ver). */
+export type FacturaCobroDetalle = {
+  cobro: FacturaComprobanteCobroItem;
+  comprobantes: { id: string; nroComprobante: string }[];
+};
+
 /** Líneas de FORMA PAGO en el modal de cobros (2.ª fila = cuota / plazo). */
 export function lineasFormaPagoCobro(item: FacturaComprobanteCobroItem): {
   linea1: string;
@@ -605,6 +620,8 @@ export type FacturaComprobanteDuplicarBorrador = {
   proyectoId: string | null;
   clienteCatalogo: ClienteListaItem | null;
   cbteAsocId: string | null;
+  /** Etiqueta del original si se abre como NC (`?nc=`). */
+  cbteAsocLabel: string | null;
   lineas: FacturaLineaLocal[];
   descuento: FacturaDescuentoEstado | null;
 };

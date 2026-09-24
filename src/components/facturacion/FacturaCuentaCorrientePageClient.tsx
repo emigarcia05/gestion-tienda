@@ -17,6 +17,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import FacturaCobroDetalleModal from "@/components/facturacion/FacturaCobroDetalleModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -101,6 +102,7 @@ export default function FacturaCuentaCorrientePageClient() {
   >([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [cobroId, setCobroId] = useState<string | null>(null);
   const [pdfId, setPdfId] = useState<string | null>(null);
   const [pdfNro, setPdfNro] = useState("");
   const [periodo, setPeriodo] =
@@ -261,108 +263,8 @@ export default function FacturaCuentaCorrientePageClient() {
         subtitle="Cuenta Corrientes"
         contentWidth="full"
         filters={
+          <div className="filtros-doble-bloque-compacto">
           <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables columnas={4}>
-              <FiltroIndividualContainer
-                activo={periodo !== FILTRO_CC_TODOS}
-                onLimpiar={limpiarPeriodo}
-                className={FILTER_SELECT_WRAPPER_CLASS}
-              >
-                <Select value={periodo} onValueChange={onPeriodoChange}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
-                      <span data-slot="select-value" className="truncate">
-                        {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
-                      </span>
-                    ) : (
-                      <SelectValue placeholder="FECHA" />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent
-                    className="select-content-filtro"
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                  >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
-                    <SelectItem
-                      value={PERIODO_RANGO}
-                      onPointerDown={() => {
-                        queueMicrotask(() => setRangoModalOpen(true));
-                      }}
-                    >
-                      RANGO PERSONALIZADO
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <FiltroIndividualContainer
-                activo={filtroTipo !== FILTRO_CC_TODOS}
-                onLimpiar={() => setFiltroTipo(FILTRO_CC_TODOS)}
-                className={FILTER_SELECT_WRAPPER_CLASS}
-              >
-                <Select
-                  value={filtroTipo}
-                  onValueChange={(value) => {
-                    if (
-                      value === FILTRO_CC_TODOS ||
-                      value === "venta" ||
-                      value === "nota_credito" ||
-                      value === "cobro"
-                    ) {
-                      setFiltroTipo(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="TIPO COMPROBANTE" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className="select-content-filtro"
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                  >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
-                    <SelectItem value="venta">VENTAS</SelectItem>
-                    <SelectItem value="nota_credito">NOTA CRÉDITO</SelectItem>
-                    <SelectItem value="cobro">COBROS</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <FiltroIndividualContainer
-                activo={filtroCondicionPago !== FILTRO_CC_TODOS}
-                onLimpiar={() => setFiltroCondicionPago(FILTRO_CC_TODOS)}
-                className={FILTER_SELECT_WRAPPER_CLASS}
-              >
-                <Select
-                  value={filtroCondicionPago}
-                  onValueChange={(value) => {
-                    if (
-                      value === FILTRO_CC_TODOS ||
-                      value === "pendiente" ||
-                      value === "pagado"
-                    ) {
-                      setFiltroCondicionPago(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="CONDICIÓN PAGO" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className="select-content-filtro"
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                  >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
-                    <SelectItem value="pendiente">PENDIENTE PAGO</SelectItem>
-                    <SelectItem value="pagado">PAGADO</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-            </FilaFiltrosDesplegables>
             <div className="flex items-center gap-3">
               <FilterRowSearch className="flex-1">
                 <div
@@ -519,6 +421,110 @@ export default function FacturaCuentaCorrientePageClient() {
               </span>
             </div>
           </FilterBar>
+          <FilterBar className="filtros-contenedor-tienda bg-card">
+            <FilaFiltrosDesplegables columnas={4}>
+              <FiltroIndividualContainer
+                activo={periodo !== FILTRO_CC_TODOS}
+                onLimpiar={limpiarPeriodo}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={periodo} onValueChange={onPeriodoChange}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
+                      <span data-slot="select-value" className="truncate">
+                        {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="FECHA" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
+                    <SelectItem
+                      value={PERIODO_RANGO}
+                      onPointerDown={() => {
+                        queueMicrotask(() => setRangoModalOpen(true));
+                      }}
+                    >
+                      RANGO PERSONALIZADO
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <FiltroIndividualContainer
+                activo={filtroTipo !== FILTRO_CC_TODOS}
+                onLimpiar={() => setFiltroTipo(FILTRO_CC_TODOS)}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select
+                  value={filtroTipo}
+                  onValueChange={(value) => {
+                    if (
+                      value === FILTRO_CC_TODOS ||
+                      value === "venta" ||
+                      value === "nota_credito" ||
+                      value === "cobro"
+                    ) {
+                      setFiltroTipo(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="TIPO COMPROBANTE" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
+                    <SelectItem value="venta">VENTAS</SelectItem>
+                    <SelectItem value="nota_credito">NOTA CRÉDITO</SelectItem>
+                    <SelectItem value="cobro">COBROS</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <FiltroIndividualContainer
+                activo={filtroCondicionPago !== FILTRO_CC_TODOS}
+                onLimpiar={() => setFiltroCondicionPago(FILTRO_CC_TODOS)}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select
+                  value={filtroCondicionPago}
+                  onValueChange={(value) => {
+                    if (
+                      value === FILTRO_CC_TODOS ||
+                      value === "pendiente" ||
+                      value === "pagado"
+                    ) {
+                      setFiltroCondicionPago(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="CONDICIÓN PAGO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
+                    <SelectItem value="pendiente">PENDIENTE PAGO</SelectItem>
+                    <SelectItem value="pagado">PAGADO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+            </FilaFiltrosDesplegables>
+          </FilterBar>
+          </div>
         }
       >
         <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
@@ -533,10 +539,10 @@ export default function FacturaCuentaCorrientePageClient() {
             </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead>FECHA</TableHead>
-                <TableHead>COMPROBANTE</TableHead>
-                <TableHead>MONTO</TableHead>
-                <TableHead>SALDO CC</TableHead>
+                <TableHead className="text-center">FECHA</TableHead>
+                <TableHead className="text-center">COMPROBANTE</TableHead>
+                <TableHead className="text-center">MONTO</TableHead>
+                <TableHead className="text-center">SALDO</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -548,8 +554,8 @@ export default function FacturaCuentaCorrientePageClient() {
               ) : (
                 movimientosFiltrados.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="tabular-nums">
-                      <span className="flex flex-col items-center leading-tight">
+                    <TableCell className="text-center whitespace-normal tabular-nums">
+                      <span className="flex w-full flex-col items-center justify-center text-center leading-tight">
                         <span>
                           {formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}
                         </span>
@@ -558,8 +564,8 @@ export default function FacturaCuentaCorrientePageClient() {
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <span className="flex flex-col items-center leading-tight">
+                    <TableCell className="text-center whitespace-normal">
+                      <span className="flex w-full flex-col items-center justify-center text-center leading-tight">
                         <span>
                           {CUENTA_CORRIENTE_MOVIMIENTO_LABELS[item.tipo]}
                         </span>
@@ -568,24 +574,39 @@ export default function FacturaCuentaCorrientePageClient() {
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell className="celda-datos tabular-nums">
+                    <TableCell className="celda-datos text-center whitespace-normal tabular-nums">
                       {item.tipo === "venta"
                         ? `$${fmtPrecio(item.monto)}`
                         : `-$${fmtPrecio(item.monto)}`}
                     </TableCell>
-                    <TableCell className="celda-datos tabular-nums">
+                    <TableCell className="celda-datos text-center whitespace-normal tabular-nums">
                       ${fmtPrecio(item.saldoCc)}
                     </TableCell>
-                    <TableCell className="tabla-bloque-secundario-cell-divider">
-                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                    <TableCell className="tabla-bloque-secundario-cell-divider text-center">
+                      <div
+                        className={cn(
+                          TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                          "justify-center"
+                        )}
+                      >
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Ver"
-                          aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
-                          onClick={() => setDetalleId(item.comprobanteId)}
+                          aria-label={
+                            item.tipo === "cobro"
+                              ? `Ver cobro ${item.nroComprobante}`
+                              : `Ver ${item.nroComprobante || "comprobante"}`
+                          }
+                          onClick={() => {
+                            if (item.tipo === "cobro") {
+                              setCobroId(item.id);
+                              return;
+                            }
+                            setDetalleId(item.comprobanteId);
+                          }}
                         >
                           <Eye
                             className={TABLE_ROW_ACTION_ICON_CLASS}
@@ -654,6 +675,13 @@ export default function FacturaCuentaCorrientePageClient() {
           </div>
         </div>
       </ClassicFilteredTableLayout>
+      <FacturaCobroDetalleModal
+        open={cobroId != null}
+        onOpenChange={(open) => {
+          if (!open) setCobroId(null);
+        }}
+        cobroId={cobroId}
+      />
       <FacturaComprobanteDetalleModal
         open={detalleId != null}
         onOpenChange={(open) => {

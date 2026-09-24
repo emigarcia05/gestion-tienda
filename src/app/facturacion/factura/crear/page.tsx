@@ -8,15 +8,34 @@ import {
   listarFacturaPtoVtasActivos,
   listarFacturasAutorizadasParaNc,
 } from "@/services/facturaComprobantesListado.service";
-import { obtenerBorradorDuplicarComprobante } from "@/services/facturaComprobantes.service";
+import {
+  obtenerBorradorDuplicarComprobante,
+  obtenerBorradorNotaCreditoComprobante,
+} from "@/services/facturaComprobantes.service";
+import type { FacturaComprobanteDuplicarBorrador } from "@/lib/factura";
 
 export const dynamic = "force-dynamic";
 /** ARCA (emitir CAE) supera el default de Vercel (~10–15 s). */
 export const maxDuration = 60;
 
 type Props = {
-  searchParams: Promise<{ duplicar?: string }>;
+  searchParams: Promise<{ duplicar?: string; nc?: string }>;
 };
+
+function conOriginalNc(
+  originales: { id: string; label: string }[],
+  borrador: FacturaComprobanteDuplicarBorrador | null
+): { id: string; label: string }[] {
+  if (!borrador?.cbteAsocId) return originales;
+  if (originales.some((o) => o.id === borrador.cbteAsocId)) return originales;
+  return [
+    {
+      id: borrador.cbteAsocId,
+      label: (borrador.cbteAsocLabel ?? borrador.cbteAsocId).trim(),
+    },
+    ...originales,
+  ];
+}
 
 export default async function FacturaCrearPage({ searchParams }: Props) {
   const rol = await getRol();
@@ -24,16 +43,18 @@ export default async function FacturaCrearPage({ searchParams }: Props) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const { duplicar } = await searchParams;
+  const { duplicar, nc } = await searchParams;
 
   let ptoVtas;
   let condicionesIva;
   let originalesNc;
   let duplicarBorrador = null;
   try {
-    const extra = duplicar
-      ? obtenerBorradorDuplicarComprobante(duplicar)
-      : Promise.resolve(null);
+    const extra = nc
+      ? obtenerBorradorNotaCreditoComprobante(nc)
+      : duplicar
+        ? obtenerBorradorDuplicarComprobante(duplicar)
+        : Promise.resolve(null);
     const [ptos, condIva, origNc, dup] = await Promise.all([
       listarFacturaPtoVtasActivos(),
       listarPtoVentasCodArca(),
@@ -42,8 +63,8 @@ export default async function FacturaCrearPage({ searchParams }: Props) {
     ]);
     ptoVtas = ptos;
     condicionesIva = condIva;
-    originalesNc = origNc;
     if (dup && dup.success) duplicarBorrador = dup.data;
+    originalesNc = conOriginalNc(origNc, duplicarBorrador);
   } catch (e) {
     console.error(
       "[facturacion][crear]",

@@ -35,6 +35,7 @@ import {
   puedeConvertirComprobanteEnFiscal,
   puedeEliminarComprobante,
   tipoFiscalDesdeNoFiscal,
+  tipoNotaCreditoDesdeVenta,
   impCobradoDesdeCobros,
   saldoPendienteTrasCobro,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
@@ -277,6 +278,7 @@ export async function obtenerBorradorDuplicarComprobante(
         proyectoId: row.proyectoId,
         clienteCatalogo,
         cbteAsocId: row.cbteAsocId,
+        cbteAsocLabel: null,
         lineas,
         descuento,
       },
@@ -284,6 +286,65 @@ export async function obtenerBorradorDuplicarComprobante(
   } catch (e) {
     console.error("[facturaComprobantes][duplicar]", e);
     return { success: false, error: "No se pudo duplicar el comprobante." };
+  }
+}
+
+export async function obtenerBorradorNotaCreditoComprobante(
+  id: string
+): Promise<ServiceResult<FacturaComprobanteDuplicarBorrador>> {
+  try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id },
+      include: { items: { orderBy: { orden: "asc" } } },
+    });
+    if (!row) return { success: false, error: "El comprobante no existe." };
+    const tipoOrigen: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
+      : "factura_no_fiscal";
+    const tipoNc = tipoNotaCreditoDesdeVenta(tipoOrigen);
+    if (!tipoNc) {
+      return {
+        success: false,
+        error: "Solo se puede cargar nota de crédito desde una venta.",
+      };
+    }
+    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
+      key: `nc-${idx}-${l.id}`,
+      codTienda: l.codTienda,
+      descripcion: l.descripcion,
+      cantidad: decimalToNumber(l.cantidad),
+      pxLista: decimalToNumber(l.px),
+      descuentoPctEspecial: decimalToNumber(l.descuentoPct),
+      comentario: l.comentario,
+    }));
+    const descPct = decimalToNumber(row.descPct);
+    const descuento: FacturaDescuentoEstado | null =
+      descPct > 0
+        ? { fuente: "porcentaje", porcentaje: descPct, totalFacObjetivo: null }
+        : null;
+    const clienteId = row.clienteId;
+    const clienteCatalogo = clienteId
+      ? await obtenerClienteListaPorId(clienteId)
+      : null;
+    return {
+      success: true,
+      data: {
+        tipo: tipoNc,
+        fechaIso: dateToIsoYmdArgentina(new Date()),
+        comentarios: row.comentarios,
+        cliente: row.receptorNombre,
+        clienteId,
+        proyectoId: row.proyectoId,
+        clienteCatalogo,
+        cbteAsocId: row.id,
+        cbteAsocLabel: formatoNroComprobante(row.ptoVenta, row.cbteNro),
+        lineas,
+        descuento,
+      },
+    };
+  } catch (e) {
+    console.error("[facturaComprobantes][nc]", e);
+    return { success: false, error: "No se pudo cargar la nota de crédito." };
   }
 }
 
