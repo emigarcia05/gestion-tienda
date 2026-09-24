@@ -18,6 +18,7 @@ import {
   type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteMovimientoTipo,
+  type CuentaCorrienteProductoLinea,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import {
@@ -549,6 +550,90 @@ function signoMovimientoCc(tipo: CuentaCorrienteMovimientoTipo): number {
   return tipo === "venta" ? 1 : -1;
 }
 
+async function armarLineasProductosCuentaCorriente(
+  rows: {
+    id: string;
+    tipoComprobante: string;
+    fecha: Date;
+    createdAt: Date;
+  }[]
+): Promise<CuentaCorrienteProductoLinea[]> {
+  const cabeceras = new Map<
+    string,
+    { tipo: CuentaCorrienteProductoLinea["tipo"]; fechaIso: string; createdAtIso: string }
+  >();
+  for (const row of rows) {
+    const tipo = tipoMovimientoDesdeTipoComprobante(row.tipoComprobante);
+    if (tipo !== "venta" && tipo !== "nota_credito") continue;
+    cabeceras.set(row.id, {
+      tipo,
+      fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+      createdAtIso: row.createdAt.toISOString(),
+    });
+  }
+  const ids = [...cabeceras.keys()];
+  if (ids.length === 0) return [];
+
+  const items = await prisma.comprobanteVtaItem.findMany({
+    where: { comprobanteId: { in: ids } },
+    orderBy: [{ comprobanteId: "asc" }, { orden: "asc" }],
+    select: {
+      id: true,
+      comprobanteId: true,
+      descripcion: true,
+      cantidad: true,
+      codTienda: true,
+    },
+  });
+  const codigos = [...new Set(items.map((i) => i.codTienda).filter(Boolean))];
+  const tiendaRows =
+    codigos.length === 0
+      ? []
+      : await prisma.prodTienda.findMany({
+          where: { codTienda: { in: codigos } },
+          select: {
+            codTienda: true,
+            marca: true,
+            rubro: true,
+            marcaRelation: { select: { nombre: true } },
+          },
+        });
+  const metaPorCod = new Map(
+    tiendaRows.map((t) => {
+      const marca =
+        t.marcaRelation?.nombre.trim() || (t.marca ?? "").trim();
+      const rubro = (t.rubro ?? "").trim();
+      return [t.codTienda, { marca, rubro }] as const;
+    })
+  );
+
+  const out: CuentaCorrienteProductoLinea[] = [];
+  for (const item of items) {
+    const cab = cabeceras.get(item.comprobanteId);
+    if (!cab) continue;
+    const meta = metaPorCod.get(item.codTienda);
+    out.push({
+      id: item.id,
+      fechaIso: cab.fechaIso,
+      createdAtIso: cab.createdAtIso,
+      tipo: cab.tipo,
+      descripcion: item.descripcion,
+      cantidad: Number(item.cantidad),
+      marca: meta?.marca ?? "",
+      rubro: meta?.rubro ?? "",
+    });
+  }
+  out.sort((a, b) => {
+    if (a.fechaIso !== b.fechaIso) return a.fechaIso < b.fechaIso ? -1 : 1;
+    if (a.createdAtIso !== b.createdAtIso) {
+      return a.createdAtIso < b.createdAtIso ? -1 : 1;
+    }
+    if (a.tipo !== b.tipo) return a.tipo === "venta" ? -1 : 1;
+    return a.descripcion.localeCompare(b.descripcion, "es-AR");
+  });
+  return out;
+}
+
 /** Ventas/NC del cliente: FK, CUIT del receptor o mismo nombre (incl. CONSUMIDOR FINAL). */
 function whereComprobantesCuentaCorriente(
   cliente: ClienteListaItem
@@ -717,6 +802,8 @@ export async function obtenerCuentaCorrienteCliente(
       return a.id < b.id ? -1 : 1;
     });
 
+    const productos = await armarLineasProductosCuentaCorriente(rows);
+
     let saldo = 0;
     const movimientos: CuentaCorrienteClienteMovimiento[] = eventos.map((ev) => {
       if (ev.afectaSaldo) {
@@ -736,7 +823,7 @@ export async function obtenerCuentaCorrienteCliente(
       };
     });
 
-    return { success: true, data: { cliente, movimientos } };
+    return { success: true, data: { cliente, movimientos, productos } };
   } catch (error) {
     console.error("[clientes][cuentaCorriente]", error);
     return {

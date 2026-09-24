@@ -335,9 +335,31 @@ export type CuentaCorrienteClienteMovimiento = {
   afectaSaldo: boolean;
 };
 
+export type CuentaCorrienteProductoTipo = "venta" | "nota_credito";
+
+export const CUENTA_CORRIENTE_PRODUCTO_TIPO_LABELS: Record<
+  CuentaCorrienteProductoTipo,
+  string
+> = {
+  venta: "VENTA",
+  nota_credito: "NOTA DE CRÉDITO",
+};
+
+export type CuentaCorrienteProductoLinea = {
+  id: string;
+  fechaIso: string;
+  createdAtIso: string;
+  tipo: CuentaCorrienteProductoTipo;
+  descripcion: string;
+  cantidad: number;
+  marca: string;
+  rubro: string;
+};
+
 export type CuentaCorrienteClienteDatos = {
   cliente: ClienteListaItem;
   movimientos: CuentaCorrienteClienteMovimiento[];
+  productos: CuentaCorrienteProductoLinea[];
 };
 
 /** Tope de % de descuento en máscara (100,00 %). */
