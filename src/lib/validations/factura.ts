@@ -54,7 +54,8 @@ export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaS
 
 /**
  * Búsqueda typeahead de clientes para Factura · Crear.
- * Tokens separados por espacio: AND sobre nombre / CEL / CUIT / `SIN NOMBRE`.
+ * Tokens separados por espacio: AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
+ * El servicio prioriza coincidencia en el nombre del cliente (columna CLIENTE).
  */
 export const buscarClientesFacturaSchema = z.object({
   q: z

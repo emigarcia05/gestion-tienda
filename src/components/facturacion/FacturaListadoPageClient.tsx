@@ -541,8 +541,13 @@ export default function FacturaListadoPageClient({
                         : fmtCelda("")}
                     </TableCell>
                   ) : null}
-                  <TableCell className="tabla-bloque-secundario-cell-divider">
-                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                  <TableCell className="tabla-bloque-secundario-cell-divider whitespace-nowrap">
+                    <div
+                      className={cn(
+                        TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                        "flex-nowrap"
+                      )}
+                    >
                       <Button
                         type="button"
                         variant="ghost"

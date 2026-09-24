@@ -214,6 +214,34 @@ export function compararClientesParaListado(
   return 0;
 }
 
+/** Match de tokens AND sobre la etiqueta/nombre de la columna CLIENTE (no el pintor asociado). */
+export function clienteNombreColumnaCoincideTokens(
+  cliente: Pick<ClienteResumen, "nombreCompleto" | "cel" | "esPintor">,
+  tokens: readonly string[]
+): boolean {
+  if (tokens.length === 0) return false;
+  const etiqueta = etiquetaClienteListado(cliente).toLocaleUpperCase("es-AR");
+  return tokens.every((t) => etiqueta.includes(t.toLocaleUpperCase("es-AR")));
+}
+
+/**
+ * Typeahead Factura: primero coincidencias en columna CLIENTE (A-Z);
+ * después el resto (p. ej. asociados de un pintor buscado por nombre), A-Z.
+ */
+export function compararClientesTypeaheadFactura(
+  tokens: readonly string[]
+): (
+  a: Pick<ClienteResumen, "nombreCompleto" | "cel" | "esPintor">,
+  b: Pick<ClienteResumen, "nombreCompleto" | "cel" | "esPintor">
+) => number {
+  return (a, b) => {
+    const pa = clienteNombreColumnaCoincideTokens(a, tokens) ? 0 : 1;
+    const pb = clienteNombreColumnaCoincideTokens(b, tokens) ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return compararClientesParaListado(a, b);
+  };
+}
+
 /** Textos de `clientes_direcciones`: primera letra mayúscula, resto minúsculas (oración). */
 export function capitalizarTextoEnvio(value: string): string {
   const t = value.trim().replace(/\s+/g, " ");

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   compararClientesParaListado,
+  compararClientesTypeaheadFactura,
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
@@ -289,7 +290,8 @@ export async function obtenerClienteListaPorId(
 }
 
 /**
- * Typeahead Factura · Crear: tokens AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
+ * Typeahead Factura · Crear / Cuenta Corrientes: tokens AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
+ * Orden: coincidencia en columna CLIENTE primero; luego asociados (u otros matches) A-Z.
  * Incluye clientes con nombre vacío si tienen CEL (trazables al agregar nombre después).
  */
 export async function buscarClientesParaFactura(params: {
@@ -305,6 +307,7 @@ export async function buscarClientesParaFactura(params: {
     return { success: true, data: { items: [] } };
   }
   const take = Math.min(10, Math.max(1, Math.floor(Number(params.take) || 10)));
+  const takePool = Math.min(80, Math.max(take * 8, 40));
 
   try {
     const where: Prisma.ClienteWhereInput = {
@@ -339,7 +342,7 @@ export async function buscarClientesParaFactura(params: {
     const rows = await prisma.cliente.findMany({
       where,
       orderBy: [{ nombreCompleto: "asc" }, { createdAt: "asc" }],
-      take,
+      take: takePool,
       select: {
         ...select,
         direcciones: {
@@ -373,7 +376,7 @@ export async function buscarClientesParaFactura(params: {
               proyectos: row.direcciones.map(mapEnviosDireccionItem),
             }))
           )
-        ).sort(compararClientesParaListado),
+        ).sort(compararClientesTypeaheadFactura(tokens)).slice(0, take),
       },
     };
   } catch (e) {
@@ -508,6 +511,7 @@ type LedgerEvento = {
   createdAtIso: string;
   comprobanteId: string;
   nroComprobante: string;
+  detalle: string;
   monto: number;
   sortMs: number;
   tipoOrden: number;
@@ -530,7 +534,7 @@ function signoMovimientoCc(tipo: CuentaCorrienteMovimientoTipo): number {
 }
 
 /**
- * Historial de cuenta corriente de un cliente: ventas, cobros reales y notas de crédito.
+ * Historial de cuenta corriente: VENTA, NOTA CRÉDITO y COBRO (filas `comprobantes_vtas_cobros`).
  * El SALDO CC de cada fila es acumulado (más antiguo primero).
  */
 export async function obtenerCuentaCorrienteCliente(
@@ -556,9 +560,19 @@ export async function obtenerCuentaCorrienteCliente(
         ptoVenta: true,
         cbteNro: true,
         impTotal: true,
+        impCobrado: true,
         cobros: {
-          where: { esCuentaCorriente: false },
-          select: { id: true, montoCents: true, createdAt: true, orden: true },
+          orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
+          select: {
+            id: true,
+            montoCents: true,
+            createdAt: true,
+            orden: true,
+            pagoNombre: true,
+            entidadNombre: true,
+            cuotaEtiqueta: true,
+            esCuentaCorriente: true,
+          },
         },
       },
     });
@@ -576,12 +590,21 @@ export async function obtenerCuentaCorrienteCliente(
         createdAtIso: row.createdAt.toISOString(),
         comprobanteId: row.id,
         nroComprobante,
+        detalle: nroComprobante,
         monto: round2(Number(row.impTotal)),
         sortMs: row.createdAt.getTime(),
         tipoOrden: tipo === "venta" ? 0 : 2,
       });
       if (tipo !== "venta") continue;
-      for (const cobro of row.cobros) {
+
+      const cobrosReales = row.cobros.filter(
+        (c) => c.montoCents > 0 && !c.esCuentaCorriente
+      );
+      for (const cobro of cobrosReales) {
+        const entidad = cobro.entidadNombre.trim();
+        const detalle = entidad
+          ? `${cobro.pagoNombre} - ${entidad}`
+          : cobro.pagoNombre;
         eventos.push({
           id: cobro.id,
           tipo: "cobro",
@@ -589,8 +612,30 @@ export async function obtenerCuentaCorrienteCliente(
           createdAtIso: cobro.createdAt.toISOString(),
           comprobanteId: row.id,
           nroComprobante,
+          detalle: [detalle, cobro.cuotaEtiqueta?.trim()]
+            .filter(Boolean)
+            .join(" · "),
           monto: round2(cobro.montoCents / 100),
           sortMs: cobro.createdAt.getTime(),
+          tipoOrden: 1,
+        });
+      }
+      const cobradoFilas = round2(
+        cobrosReales.reduce((acc, c) => acc + c.montoCents / 100, 0)
+      );
+      const impCobrado = round2(Number(row.impCobrado));
+      const restoCobrado = round2(impCobrado - cobradoFilas);
+      if (restoCobrado > 0.009) {
+        eventos.push({
+          id: `imp-cobrado-${row.id}`,
+          tipo: "cobro",
+          fechaIso,
+          createdAtIso: row.createdAt.toISOString(),
+          comprobanteId: row.id,
+          nroComprobante,
+          detalle: nroComprobante,
+          monto: restoCobrado,
+          sortMs: row.createdAt.getTime() + 1,
           tipoOrden: 1,
         });
       }
@@ -613,6 +658,7 @@ export async function obtenerCuentaCorrienteCliente(
         createdAtIso: ev.createdAtIso,
         comprobanteId: ev.comprobanteId,
         nroComprobante: ev.nroComprobante,
+        detalle: ev.detalle,
         monto: ev.monto,
         saldoCc: saldo,
       };

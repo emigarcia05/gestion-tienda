@@ -87,6 +87,7 @@ import {
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
   TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
   TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
+  TYPEAHEAD_LISTBOX_OPTION_ROW_CLIENTES_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_HEIGHT_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
@@ -97,7 +98,7 @@ import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
-  "grid w-full grid-cols-[minmax(0,1fr)_6.5rem_minmax(0,1fr)] items-center justify-items-stretch gap-1.5 px-2";
+  "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
 const CABECERA_EDITOR_FILA1_CLASS =
   "grid w-full min-w-0 grid-cols-[10.5rem_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-end gap-3";
@@ -803,10 +804,10 @@ export default function FacturaCrearPageClient({
                             CLIENTE
                           </span>
                           <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
-                            SALDO
+                            PINTOR
                           </span>
                           <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
-                            PINTOR
+                            SALDO
                           </span>
                         </div>
                         <ul
@@ -831,7 +832,7 @@ export default function FacturaCrearPageClient({
                                   className={cn(
                                     FILA_BUSQUEDA_CLIENTES_GRID,
                                     TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS,
-                                    "min-h-5",
+                                    TYPEAHEAD_LISTBOX_OPTION_ROW_CLIENTES_CLASS,
                                     activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                                   )}
                                   onMouseEnter={() => setClienteHighlight(idx)}
@@ -849,18 +850,18 @@ export default function FacturaCrearPageClient({
                                   <span
                                     className={cn(
                                       TYPEAHEAD_LISTBOX_CELL_CLASS,
-                                      "tabular-nums text-foreground"
-                                    )}
-                                  >
-                                    {`$${fmtPrecio(item.saldoCuentaCorriente)}`}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
                                       "text-foreground"
                                     )}
                                   >
                                     {pintor}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      TYPEAHEAD_LISTBOX_CELL_CLASS,
+                                      "tabular-nums text-foreground"
+                                    )}
+                                  >
+                                    {`$${fmtPrecio(item.saldoCuentaCorriente)}`}
                                   </span>
                                 </div>
                               </li>

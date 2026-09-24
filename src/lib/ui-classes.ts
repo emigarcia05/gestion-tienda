@@ -243,6 +243,9 @@ export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
   "hover:bg-accent",
 ].join(" ");
 
+/** Fila de typeahead de clientes: más aire entre ítems que el listado de productos. */
+export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLIENTES_CLASS = "min-h-7 py-1.5";
+
 export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent";
 
 /**
