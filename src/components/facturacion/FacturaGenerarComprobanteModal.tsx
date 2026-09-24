@@ -76,7 +76,13 @@ const ACCIONES_GENERAR: {
   },
 ];
 
-type CobroRegistrado = CobroFacturaEmitirInput & { id: string };
+type CobroRegistrado = {
+  id: string;
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+  montoCents: number;
+};
 
 interface Props {
   open: boolean;
@@ -226,13 +232,14 @@ export default function FacturaGenerarComprobanteModal({
       return;
     }
     const siguientePendiente = pendienteCents - res.cobro.montoCents;
-    setCobros((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        ...res.cobro,
-      },
-    ]);
+    const fila: CobroRegistrado = {
+      id: crypto.randomUUID(),
+      pagoNombre: res.cobro.pagoNombre,
+      entidadNombre: res.cobro.entidadNombre,
+      cuotaEtiqueta: res.cobro.cuotaEtiqueta,
+      montoCents: res.cobro.montoCents,
+    };
+    setCobros((prev) => [...prev, fila]);
     resetFormularioCobro(siguientePendiente);
   }
 
@@ -267,7 +274,7 @@ export default function FacturaGenerarComprobanteModal({
     const cobrosEmitir: CobroFacturaEmitirInput[] = cobros.map(
       ({ pagoNombre, entidadNombre, cuotaEtiqueta, montoCents }) => ({
         pagoNombre,
-        entidadNombre,
+        entidadNombre: entidadNombre ?? "",
         cuotaEtiqueta,
         montoCents,
       })
@@ -275,7 +282,7 @@ export default function FacturaGenerarComprobanteModal({
     if (extra.cobro != null) {
       cobrosEmitir.push({
         pagoNombre: extra.cobro.pagoNombre,
-        entidadNombre: extra.cobro.entidadNombre,
+        entidadNombre: extra.cobro.entidadNombre ?? "",
         cuotaEtiqueta: extra.cobro.cuotaEtiqueta,
         montoCents: extra.cobro.montoCents,
       });
