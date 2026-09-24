@@ -76,6 +76,26 @@ export type ObtenerCuentaCorrienteClienteInput = z.infer<
   typeof obtenerCuentaCorrienteClienteSchema
 >;
 
+export const tokenCuentaCorrientePublicaSchema = z
+  .string()
+  .min(20, "Link inválido.")
+  .max(64, "Link inválido.")
+  .regex(/^[A-Za-z0-9_-]+$/, "Link inválido.");
+
+export const compartirLinkCuentaCorrienteSchema = z.object({
+  clienteId: prismaCuidSchema,
+});
+
+export const obtenerCuentaCorrientePublicaSchema = z.object({
+  token: tokenCuentaCorrientePublicaSchema,
+  clienteId: prismaCuidSchema,
+});
+
+export const cuentaCorrientePublicaComprobanteSchema = z.object({
+  token: tokenCuentaCorrientePublicaSchema,
+  id: prismaCuidSchema,
+});
+
 const facturaLineaEmitirSchema = z.object({
   codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
   descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),

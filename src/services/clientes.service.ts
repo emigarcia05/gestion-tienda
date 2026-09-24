@@ -1,5 +1,10 @@
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import {
+  CUENTA_CORRIENTE_TOKEN_MAX,
+  type CuentaCorrientePublicaSesion,
+} from "@/lib/cuentaCorrientePublica";
 import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   compararClientesParaListado,
@@ -595,13 +600,11 @@ async function armarLineasProductosCuentaCorriente(
             codTienda: true,
             marca: true,
             rubro: true,
-            marcaRelation: { select: { nombre: true } },
           },
         });
   const metaPorCod = new Map(
     tiendaRows.map((t) => {
-      const marca =
-        t.marcaRelation?.nombre.trim() || (t.marca ?? "").trim();
+      const marca = (t.marca ?? "").trim();
       const rubro = (t.rubro ?? "").trim();
       return [t.codTienda, { marca, rubro }] as const;
     })
@@ -829,6 +832,181 @@ export async function obtenerCuentaCorrienteCliente(
     return {
       success: false,
       error: prismaErrorMessage(error, "No se pudo cargar la cuenta corriente."),
+    };
+  }
+}
+
+function nuevoTokenCuentaCorriente(): string {
+  return randomBytes(32).toString("base64url").slice(0, CUENTA_CORRIENTE_TOKEN_MAX);
+}
+
+async function listarClientesAlcancePorTitular(
+  titular: ClienteListaItem
+): Promise<ClienteListaItem[]> {
+  if (!titular.esPintor) return [titular];
+  const asociados = await prisma.cliente.findMany({
+    where: { pintorAsociadoId: titular.id },
+    select: { id: true },
+  });
+  const filas: ClienteListaItem[] = [titular];
+  for (const row of asociados) {
+    const item = await obtenerClienteListaPorId(row.id);
+    if (item) filas.push(item);
+  }
+  return filas;
+}
+
+async function resolverTitularPorToken(
+  token: string
+): Promise<ServiceResult<ClienteListaItem>> {
+  const row = await prisma.cliente.findUnique({
+    where: { tokenCuentaCorriente: token },
+    select: { id: true },
+  });
+  if (!row) {
+    return { success: false, error: "El link no es válido." };
+  }
+  const titular = await obtenerClienteListaPorId(row.id);
+  if (!titular) {
+    return { success: false, error: "El link no es válido." };
+  }
+  return { success: true, data: titular };
+}
+
+function sesionDesdeAlcance(
+  titular: ClienteListaItem,
+  alcance: readonly ClienteListaItem[]
+): CuentaCorrientePublicaSesion {
+  return {
+    titularId: titular.id,
+    cuentas: alcance.map((c) => ({
+      id: c.id,
+      etiqueta: etiquetaClienteListado(c),
+    })),
+  };
+}
+
+export async function obtenerOCrearTokenCuentaCorriente(
+  clienteId: string
+): Promise<ServiceResult<{ token: string }>> {
+  try {
+    const existente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { id: true, tokenCuentaCorriente: true },
+    });
+    if (!existente) {
+      return { success: false, error: "El cliente no existe." };
+    }
+    if (existente.tokenCuentaCorriente) {
+      return { success: true, data: { token: existente.tokenCuentaCorriente } };
+    }
+    for (let i = 0; i < 5; i += 1) {
+      const token = nuevoTokenCuentaCorriente();
+      try {
+        await prisma.cliente.update({
+          where: { id: clienteId },
+          data: { tokenCuentaCorriente: token },
+        });
+        return { success: true, data: { token } };
+      } catch (error) {
+        console.error("[clientes][tokenCuentaCorriente][retry]", error);
+      }
+    }
+    return { success: false, error: "No se pudo generar el link." };
+  } catch (error) {
+    console.error("[clientes][tokenCuentaCorriente]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "No se pudo generar el link."),
+    };
+  }
+}
+
+export async function resolverSesionCuentaCorrientePublica(
+  token: string
+): Promise<ServiceResult<CuentaCorrientePublicaSesion>> {
+  try {
+    const titularRes = await resolverTitularPorToken(token);
+    if (!titularRes.success) return titularRes;
+    const alcance = await listarClientesAlcancePorTitular(titularRes.data);
+    return { success: true, data: sesionDesdeAlcance(titularRes.data, alcance) };
+  } catch (error) {
+    console.error("[clientes][cuentaCorrientePublica]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "El link no es válido."),
+    };
+  }
+}
+
+export async function obtenerCuentaCorrientePublica(
+  token: string,
+  clienteId: string
+): Promise<ServiceResult<CuentaCorrienteClienteDatos>> {
+  try {
+    const titularRes = await resolverTitularPorToken(token);
+    if (!titularRes.success) return titularRes;
+    const alcance = await listarClientesAlcancePorTitular(titularRes.data);
+    if (!alcance.some((c) => c.id === clienteId)) {
+      return { success: false, error: "No se pudo cargar la cuenta corriente." };
+    }
+    return obtenerCuentaCorrienteCliente(clienteId);
+  } catch (error) {
+    console.error("[clientes][cuentaCorrientePublica][ledger]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "No se pudo cargar la cuenta corriente."),
+    };
+  }
+}
+
+export async function assertComprobanteCuentaCorrientePublica(
+  token: string,
+  comprobanteId: string
+): Promise<ServiceResult<void>> {
+  try {
+    const titularRes = await resolverTitularPorToken(token);
+    if (!titularRes.success) return titularRes;
+    const alcance = await listarClientesAlcancePorTitular(titularRes.data);
+    const or = alcance.flatMap((c) => {
+      const w = whereComprobantesCuentaCorriente(c);
+      return Array.isArray(w.OR) ? w.OR : [];
+    });
+    const row = await prisma.comprobanteVta.findFirst({
+      where: { id: comprobanteId, OR: or },
+      select: { id: true },
+    });
+    if (!row) {
+      return { success: false, error: "No se pudo leer el comprobante." };
+    }
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("[clientes][cuentaCorrientePublica][comprobante]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "No se pudo leer el comprobante."),
+    };
+  }
+}
+
+export async function assertCobroCuentaCorrientePublica(
+  token: string,
+  cobroId: string
+): Promise<ServiceResult<void>> {
+  try {
+    const cobro = await prisma.comprobanteVtaCobro.findUnique({
+      where: { id: cobroId },
+      select: { comprobanteId: true },
+    });
+    if (!cobro) {
+      return { success: false, error: "No se pudo leer el cobro." };
+    }
+    return assertComprobanteCuentaCorrientePublica(token, cobro.comprobanteId);
+  } catch (error) {
+    console.error("[clientes][cuentaCorrientePublica][cobro]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "No se pudo leer el cobro."),
     };
   }
 }

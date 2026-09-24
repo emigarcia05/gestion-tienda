@@ -1,18 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Eye, FileText, Package } from "lucide-react";
+import { Eye, FileText, Package, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
+  compartirLinkCuentaCorrienteAction,
   obtenerCuentaCorrienteClienteAction,
 } from "@/actions/factura";
+import {
+  obtenerCuentaCorrientePublicaAction,
+  obtenerDetalleCobroComprobantePublicoAction,
+  obtenerFacturaComprobantePdfPublicoAction,
+} from "@/actions/cuentaCorrientePublica";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FilaFiltrosDesplegables,
   FilterRowSearch,
-  FilterRowSelection,
   FiltroIndividualContainer,
   INPUT_FILTER_CLASS,
   LimpiarFiltrosButton,
@@ -21,6 +26,7 @@ import FilterBar, {
 import FacturaCobroDetalleModal from "@/components/facturacion/FacturaCobroDetalleModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
+import FacturaCuentaCorrienteTotalesItemModal from "@/components/facturacion/FacturaCuentaCorrienteTotalesItemModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
@@ -55,6 +61,7 @@ import {
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
   filtrarMovimientosCuentaCorriente,
   resumenIndicadoresCuentaCorriente,
+  totalesPorItemCuentaCorriente,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteProductoLinea,
   type FiltroCondicionPagoCuentaCorriente,
@@ -86,6 +93,7 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import type { CuentaCorrientePublicaSesion } from "@/lib/cuentaCorrientePublica";
 
 const COL_SPAN = 5;
 const COL_SPAN_PRODUCTOS = 4;
@@ -96,7 +104,18 @@ type VistaCuentaCorriente = "comprobantes" | "productos";
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
-export default function FacturaCuentaCorrientePageClient() {
+export default function FacturaCuentaCorrientePageClient({
+  marcasCatalogo,
+  rubrosCatalogo,
+  visorPublico = null,
+}: {
+  marcasCatalogo: string[];
+  rubrosCatalogo: string[];
+  visorPublico?: {
+    token: string;
+    sesion: CuentaCorrientePublicaSesion;
+  } | null;
+}) {
   const listboxId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
   const clienteIdRef = useRef<string | null>(null);
@@ -129,6 +148,9 @@ export default function FacturaCuentaCorrientePageClient() {
     useState<FiltroTipoCuentaCorriente>(FILTRO_CC_TODOS);
   const [filtroCondicionPago, setFiltroCondicionPago] =
     useState<FiltroCondicionPagoCuentaCorriente>(FILTRO_CC_TODOS);
+  const [compartiendo, setCompartiendo] = useState(false);
+  const [totalesItemOpen, setTotalesItemOpen] = useState(false);
+  const esPublico = visorPublico != null;
 
   const fetchSugerencias = useCallback(async (value: string) => {
     if (clienteIdRef.current != null) return;
@@ -196,32 +218,34 @@ export default function FacturaCuentaCorrientePageClient() {
     [movimientosFiltrados]
   );
 
-  const marcasOpciones = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of productos) {
-      const m = p.marca.trim();
-      if (m) set.add(m);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "es-AR"));
-  }, [productos]);
-
-  const rubrosOpciones = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of productos) {
-      const r = p.rubro.trim();
-      if (r) set.add(r);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "es-AR"));
-  }, [productos]);
+  const marcasOpciones = marcasCatalogo;
+  const rubrosOpciones = rubrosCatalogo;
 
   const productosFiltrados = useMemo(() => {
     return productos.filter((p) => {
+      if (periodo === PERIODO_RANGO) {
+        if (!rangoDesde || !rangoHasta) return false;
+        if (p.fechaIso < rangoDesde || p.fechaIso > rangoHasta) return false;
+      }
       if (filtroMarca && p.marca.trim() !== filtroMarca) return false;
       if (filtroRubro && p.rubro.trim() !== filtroRubro) return false;
       if (!qDescDebounced.trim()) return true;
       return matchByMultiTerm([p.descripcion], qDescDebounced);
     });
-  }, [productos, filtroMarca, filtroRubro, qDescDebounced]);
+  }, [
+    productos,
+    periodo,
+    rangoDesde,
+    rangoHasta,
+    filtroMarca,
+    filtroRubro,
+    qDescDebounced,
+  ]);
+
+  const totalesPorItem = useMemo(
+    () => totalesPorItemCuentaCorriente(productosFiltrados),
+    [productosFiltrados]
+  );
 
   const esVistaProductos = vista === "productos";
   const filasVisibles = esVistaProductos
@@ -242,7 +266,12 @@ export default function FacturaCuentaCorrientePageClient() {
 
   async function cargarLedger(id: string) {
     setLoadingLedger(true);
-    const res = await obtenerCuentaCorrienteClienteAction({ clienteId: id });
+    const res = visorPublico
+      ? await obtenerCuentaCorrientePublicaAction({
+          token: visorPublico.token,
+          clienteId: id,
+        })
+      : await obtenerCuentaCorrienteClienteAction({ clienteId: id });
     setLoadingLedger(false);
     if (!res.ok) {
       toast.error(res.error ?? "No se pudo cargar la cuenta corriente.");
@@ -263,6 +292,42 @@ export default function FacturaCuentaCorrientePageClient() {
     void cargarLedger(item.id);
   }
 
+  function seleccionarCuentaPublica(id: string) {
+    const cuenta = visorPublico?.sesion.cuentas.find((c) => c.id === id);
+    clienteIdRef.current = id;
+    setClienteId(id);
+    setQ(cuenta?.etiqueta ?? "");
+    void cargarLedger(id);
+  }
+
+  useEffect(() => {
+    if (!visorPublico) return;
+    seleccionarCuentaPublica(visorPublico.sesion.titularId);
+    // Solo al montar el visor público.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visorPublico?.token]);
+
+  async function compartirLink() {
+    if (clienteId == null) {
+      toast.error("BUSCÁ UN CLIENTE.");
+      return;
+    }
+    setCompartiendo(true);
+    const res = await compartirLinkCuentaCorrienteAction({ clienteId });
+    setCompartiendo(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo generar el link.");
+      return;
+    }
+    const url = `${window.location.origin}${res.data.path}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado.");
+    } catch {
+      toast.error("No se pudo copiar el link.");
+    }
+  }
+
   function limpiarPeriodo() {
     setPeriodo(FILTRO_CC_TODOS);
     setRangoDesde("");
@@ -281,13 +346,15 @@ export default function FacturaCuentaCorrientePageClient() {
   }
 
   function limpiarFiltros() {
-    clienteIdRef.current = null;
-    setQ("");
-    setClienteId(null);
-    setMovimientos([]);
-    setProductos([]);
-    setSugerencias([]);
-    setAbierto(false);
+    if (!esPublico) {
+      clienteIdRef.current = null;
+      setQ("");
+      setClienteId(null);
+      setMovimientos([]);
+      setProductos([]);
+      setSugerencias([]);
+      setAbierto(false);
+    }
     limpiarPeriodo();
     setFiltroTipo(FILTRO_CC_TODOS);
     setFiltroCondicionPago(FILTRO_CC_TODOS);
@@ -317,12 +384,72 @@ export default function FacturaCuentaCorrientePageClient() {
 
   const vacioMensaje =
     clienteId == null
-      ? "BUSCÁ UN CLIENTE."
+      ? esPublico
+        ? "CARGANDO…"
+        : "BUSCÁ UN CLIENTE."
       : loadingLedger
         ? "CARGANDO…"
         : esVistaProductos
           ? "NO HAY PRODUCTOS."
           : "NO HAY MOVIMIENTOS.";
+
+  const obtenerPdfVisor = useCallback(
+    (input: { id: string }) =>
+      visorPublico
+        ? obtenerFacturaComprobantePdfPublicoAction({
+            token: visorPublico.token,
+            id: input.id,
+          })
+        : Promise.resolve({ ok: false as const, error: "Sin sesión." }),
+    [visorPublico]
+  );
+
+  const obtenerCobroVisor = useCallback(
+    (input: { id: string }) =>
+      visorPublico
+        ? obtenerDetalleCobroComprobantePublicoAction({
+            token: visorPublico.token,
+            id: input.id,
+          })
+        : Promise.resolve({ ok: false as const, error: "Sin sesión." }),
+    [visorPublico]
+  );
+
+  const filtroFecha = (
+    <FiltroIndividualContainer
+      activo={periodo !== FILTRO_CC_TODOS}
+      onLimpiar={limpiarPeriodo}
+      className={FILTER_SELECT_WRAPPER_CLASS}
+    >
+      <Select value={periodo} onValueChange={onPeriodoChange}>
+        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+          {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
+            <span data-slot="select-value" className="truncate">
+              {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
+            </span>
+          ) : (
+            <SelectValue placeholder="FECHA" />
+          )}
+        </SelectTrigger>
+        <SelectContent
+          className="select-content-filtro"
+          position="popper"
+          side="bottom"
+          align="start"
+        >
+          <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
+          <SelectItem
+            value={PERIODO_RANGO}
+            onPointerDown={() => {
+              queueMicrotask(() => setRangoModalOpen(true));
+            }}
+          >
+            RANGO PERSONALIZADO
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </FiltroIndividualContainer>
+  );
 
   return (
     <>
@@ -346,6 +473,16 @@ export default function FacturaCuentaCorrientePageClient() {
               className="w-full justify-start"
               onClick={() => setVista("productos")}
             />
+            {esPublico ? null : (
+              <ToolbarActionButton
+                label="COMPARTIR CUENTA CORRIENTE"
+                icon={<Share2 />}
+                className="w-full justify-start"
+                disabled={clienteId == null}
+                loading={compartiendo}
+                onClick={() => void compartirLink()}
+              />
+            )}
           </>
         }
         filters={
@@ -353,6 +490,37 @@ export default function FacturaCuentaCorrientePageClient() {
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <div className="flex items-center gap-3">
               <FilterRowSearch className="flex-1">
+                {esPublico && visorPublico ? (
+                  visorPublico.sesion.cuentas.length > 1 ? (
+                    <Select
+                      value={clienteId ?? undefined}
+                      onValueChange={seleccionarCuentaPublica}
+                    >
+                      <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                        <SelectValue placeholder="CLIENTE" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="select-content-filtro"
+                        position="popper"
+                        side="bottom"
+                        align="start"
+                      >
+                        {visorPublico.sesion.cuentas.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.etiqueta}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      readOnly
+                      value={q}
+                      className={cn("w-full", INPUT_FILTER_CLASS)}
+                      aria-label="Cliente"
+                    />
+                  )
+                ) : (
                 <div
                   ref={wrapRef}
                   className={cn(
@@ -499,6 +667,7 @@ export default function FacturaCuentaCorrientePageClient() {
                     </div>
                   ) : null}
                 </div>
+                )}
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
               <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
@@ -513,7 +682,9 @@ export default function FacturaCuentaCorrientePageClient() {
           </FilterBar>
           <FilterBar className="filtros-contenedor-tienda bg-card">
             {esVistaProductos ? (
-              <FilterRowSelection className="flex-nowrap">
+              <div className="flex w-full min-w-0 flex-nowrap items-center gap-3">
+                <div className="min-w-0 shrink-0 basis-[15%]">{filtroFecha}</div>
+                <div className="min-w-0 shrink-0 basis-[15%]">
                 <FiltroIndividualContainer
                   activo={Boolean(filtroMarca)}
                   onLimpiar={() => setFiltroMarca("")}
@@ -540,6 +711,8 @@ export default function FacturaCuentaCorrientePageClient() {
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
+                </div>
+                <div className="min-w-0 shrink-0 basis-[15%]">
                 <FiltroIndividualContainer
                   activo={Boolean(filtroRubro)}
                   onLimpiar={() => setFiltroRubro("")}
@@ -566,7 +739,8 @@ export default function FacturaCuentaCorrientePageClient() {
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-                <FilterRowSearch className="flex-1">
+                </div>
+                <div className="min-w-0 shrink-0 basis-[45%]">
                   <FiltroBusquedaInput
                     id="filtro-cuenta-corriente-descripcion"
                     placeholder="BUSCAR POR DESCRIPCIÓN…"
@@ -575,43 +749,21 @@ export default function FacturaCuentaCorrientePageClient() {
                     isDebouncing={isDebouncingDesc}
                     inputRef={searchDescRef}
                   />
-                </FilterRowSearch>
-              </FilterRowSelection>
+                </div>
+                <div className="min-w-0 shrink-0 basis-[10%]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full truncate px-2")}
+                    onClick={() => setTotalesItemOpen(true)}
+                  >
+                    TOTALES POR ITEM
+                  </Button>
+                </div>
+              </div>
             ) : (
             <FilaFiltrosDesplegables columnas={4}>
-              <FiltroIndividualContainer
-                activo={periodo !== FILTRO_CC_TODOS}
-                onLimpiar={limpiarPeriodo}
-                className={FILTER_SELECT_WRAPPER_CLASS}
-              >
-                <Select value={periodo} onValueChange={onPeriodoChange}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
-                      <span data-slot="select-value" className="truncate">
-                        {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
-                      </span>
-                    ) : (
-                      <SelectValue placeholder="FECHA" />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent
-                    className="select-content-filtro"
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                  >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
-                    <SelectItem
-                      value={PERIODO_RANGO}
-                      onPointerDown={() => {
-                        queueMicrotask(() => setRangoModalOpen(true));
-                      }}
-                    >
-                      RANGO PERSONALIZADO
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
+              {filtroFecha}
               <FiltroIndividualContainer
                 activo={filtroTipo !== FILTRO_CC_TODOS}
                 onLimpiar={() => setFiltroTipo(FILTRO_CC_TODOS)}
@@ -891,6 +1043,8 @@ export default function FacturaCuentaCorrientePageClient() {
           if (!open) setCobroId(null);
         }}
         cobroId={cobroId}
+        obtenerCobro={esPublico ? obtenerCobroVisor : undefined}
+        obtenerPdf={esPublico ? obtenerPdfVisor : undefined}
       />
       <FacturaComprobanteDetalleModal
         open={detalleId != null}
@@ -898,6 +1052,7 @@ export default function FacturaCuentaCorrientePageClient() {
           if (!open) setDetalleId(null);
         }}
         comprobanteId={detalleId}
+        obtenerPdf={esPublico ? obtenerPdfVisor : undefined}
       />
       <FacturaComprobantePdfAccionModal
         open={pdfId != null}
@@ -909,6 +1064,12 @@ export default function FacturaCuentaCorrientePageClient() {
         }}
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
+        obtenerPdf={esPublico ? obtenerPdfVisor : undefined}
+      />
+      <FacturaCuentaCorrienteTotalesItemModal
+        open={totalesItemOpen}
+        onOpenChange={setTotalesItemOpen}
+        items={totalesPorItem}
       />
       <FiltroRangoFechasCalendarioModal
         open={rangoModalOpen}

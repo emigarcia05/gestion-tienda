@@ -22,16 +22,27 @@ import {
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import type { ActionResult } from "@/lib/types";
+import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cobroId: string | null;
+  obtenerCobro?: (input: {
+    id: string;
+  }) => Promise<ActionResult<FacturaCobroDetalle>>;
+  obtenerPdf?: (input: {
+    id: string;
+  }) => Promise<ActionResult<FacturaComprobantePdfDatos>>;
 };
 
 export default function FacturaCobroDetalleModal({
   open,
   onOpenChange,
   cobroId,
+  obtenerCobro = obtenerDetalleCobroComprobanteAction,
+  obtenerPdf,
 }: Props) {
   const [datos, setDatos] = useState<FacturaCobroDetalle | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,7 +52,7 @@ export default function FacturaCobroDetalleModal({
     if (!open || !cobroId) return;
     let cancelled = false;
     queueMicrotask(() => setLoading(true));
-    void obtenerDetalleCobroComprobanteAction({ id: cobroId }).then((res) => {
+    void obtenerCobro({ id: cobroId }).then((res) => {
       if (cancelled) return;
       setLoading(false);
       if (!res.ok) {
@@ -54,7 +65,7 @@ export default function FacturaCobroDetalleModal({
     return () => {
       cancelled = true;
     };
-  }, [open, cobroId]);
+  }, [open, cobroId, obtenerCobro]);
 
   const forma = datos ? lineasFormaPagoCobro(datos.cobro) : null;
 
@@ -146,6 +157,7 @@ export default function FacturaCobroDetalleModal({
           if (!next) setComprobanteId(null);
         }}
         comprobanteId={comprobanteId}
+        obtenerPdf={obtenerPdf}
       />
     </>
   );

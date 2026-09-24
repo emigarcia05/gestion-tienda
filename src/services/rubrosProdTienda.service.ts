@@ -1,5 +1,25 @@
 import { prisma } from "@/lib/prisma";
 
+/** Nombres de marca distintos en `prod_tienda.marca` (trim, sin vacíos, orden alfabético). */
+export async function listarNombresMarcaDistinctProdTienda(): Promise<string[]> {
+  const rows = await prisma.prodTienda.findMany({
+    where: { marca: { not: null } },
+    distinct: ["marca"],
+    orderBy: { marca: "asc" },
+    select: { marca: true },
+  });
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of rows) {
+    const nombre = (row.marca ?? "").trim();
+    if (!nombre || seen.has(nombre)) continue;
+    seen.add(nombre);
+    out.push(nombre);
+  }
+  return out;
+}
+
 /** Nombres de rubro distintos en `prod_tienda.rubro` (trim, sin vacíos, orden alfabético). */
 export async function listarNombresRubroDistinctProdTienda(): Promise<string[]> {
   const rows = await prisma.prodTienda.findMany({

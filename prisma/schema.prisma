@@ -1764,6 +1764,8 @@ model Cliente {
   ctaCorrientePlazo Int? @default(1) @map("cta_corriente_plazo")
   /** Tope de saldo CC. Null = sin tope. Si el saldo supera este valor no se emiten más facturas. */
   ctaCorrienteMontoMax Decimal? @map("cta_corriente_monto_max") @db.Decimal(14, 2)
+  /** Token opaco del visor público `/cc/{token}`. Null = aún no se compartió. */
+  tokenCuentaCorriente String? @unique @map("token_cuenta_corriente") @db.VarChar(64)
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 

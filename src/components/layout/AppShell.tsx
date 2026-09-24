@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { esRutaEnviosConductor } from "@/lib/gestionProductosRoutes";
+import { esRutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import type { Rol } from "@/lib/permisos";
 
 interface Props {
@@ -12,7 +13,8 @@ interface Props {
 
 export default function AppShell({ children, rol }: Props) {
   const pathname = usePathname();
-  const sinSidebar = esRutaEnviosConductor(pathname);
+  const sinSidebar =
+    esRutaEnviosConductor(pathname) || esRutaCuentaCorrientePublica(pathname);
 
   return (
     <div className="flex h-screen overflow-hidden">

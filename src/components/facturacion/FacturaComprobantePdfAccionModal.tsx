@@ -34,11 +34,17 @@ const ACCIONES: {
   },
 ];
 
+import type { ActionResult } from "@/lib/types";
+import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   comprobanteId: string | null;
   nroComprobante: string;
+  obtenerPdf?: (input: {
+    id: string;
+  }) => Promise<ActionResult<FacturaComprobantePdfDatos>>;
 };
 
 export default function FacturaComprobantePdfAccionModal({
@@ -46,6 +52,7 @@ export default function FacturaComprobantePdfAccionModal({
   onOpenChange,
   comprobanteId,
   nroComprobante,
+  obtenerPdf = obtenerFacturaComprobantePdfAction,
 }: Props) {
   const [pending, setPending] = useState<AccionPdf | null>(null);
   const ocupado = pending != null;
@@ -62,7 +69,7 @@ export default function FacturaComprobantePdfAccionModal({
     }
     setPending(accion);
     try {
-      const res = await obtenerFacturaComprobantePdfAction({ id: comprobanteId });
+      const res = await obtenerPdf({ id: comprobanteId });
       if (!res.ok) {
         toast.error(res.error);
         return;

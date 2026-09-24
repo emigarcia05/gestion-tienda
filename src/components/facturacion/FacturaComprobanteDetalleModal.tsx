@@ -27,10 +27,16 @@ import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 
+import type { ActionResult } from "@/lib/types";
+import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   comprobanteId: string | null;
+  obtenerPdf?: (input: {
+    id: string;
+  }) => Promise<ActionResult<FacturaComprobantePdfDatos>>;
 };
 
 function tituloDetalle(datos: FacturaComprobantePdfInput | null): string {
@@ -44,6 +50,7 @@ export default function FacturaComprobanteDetalleModal({
   open,
   onOpenChange,
   comprobanteId,
+  obtenerPdf = obtenerFacturaComprobantePdfAction,
 }: Props) {
   const [datos, setDatos] = useState<FacturaComprobantePdfInput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,7 +59,7 @@ export default function FacturaComprobanteDetalleModal({
     if (!open || !comprobanteId) return;
     let cancelled = false;
     queueMicrotask(() => setLoading(true));
-    void obtenerFacturaComprobantePdfAction({ id: comprobanteId }).then((res) => {
+    void obtenerPdf({ id: comprobanteId }).then((res) => {
       if (cancelled) return;
       setLoading(false);
       if (!res.ok) {
@@ -65,7 +72,7 @@ export default function FacturaComprobanteDetalleModal({
     return () => {
       cancelled = true;
     };
-  }, [open, comprobanteId]);
+  }, [open, comprobanteId, obtenerPdf]);
 
   const pctGlobal = useMemo(
     () => (datos ? porcentajeDescuentoGlobal(datos.lineas, datos.descuento) : 0),

@@ -16,6 +16,7 @@ import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
   buscarProductosFacturaSchema,
+  compartirLinkCuentaCorrienteSchema,
   obtenerCuentaCorrienteClienteSchema,
   emitirFacturaComprobanteSchema,
   emitirNotaCreditoFacturaSchema,
@@ -24,9 +25,11 @@ import {
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
 } from "@/lib/validations/factura";
+import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import {
   buscarClientesParaFactura,
   obtenerCuentaCorrienteCliente,
+  obtenerOCrearTokenCuentaCorriente,
 } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
@@ -74,6 +77,20 @@ export async function obtenerCuentaCorrienteClienteAction(
   return fromServiceResult(
     await obtenerCuentaCorrienteCliente(parsed.data.clienteId)
   );
+}
+
+export async function compartirLinkCuentaCorrienteAction(
+  raw: unknown
+): Promise<ActionResult<{ path: string }>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = compartirLinkCuentaCorrienteSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const out = await obtenerOCrearTokenCuentaCorriente(parsed.data.clienteId);
+  if (!out.success) return { ok: false, error: out.error };
+  return { ok: true, data: { path: rutaCuentaCorrientePublica(out.data.token) } };
 }
 
 export async function buscarProductosFacturaAction(

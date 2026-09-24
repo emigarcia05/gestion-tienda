@@ -362,6 +362,32 @@ export type CuentaCorrienteClienteDatos = {
   productos: CuentaCorrienteProductoLinea[];
 };
 
+export type CuentaCorrienteTotalPorItem = {
+  descripcion: string;
+  cantidad: number;
+};
+
+/** Cantidad neta por descripción (venta +, NC −) sobre el lote ya filtrado. */
+export function totalesPorItemCuentaCorriente(
+  productos: readonly CuentaCorrienteProductoLinea[]
+): CuentaCorrienteTotalPorItem[] {
+  const map = new Map<string, CuentaCorrienteTotalPorItem>();
+  for (const p of productos) {
+    const descripcion = p.descripcion.trim();
+    const key = descripcion.toLocaleUpperCase("es-AR");
+    if (!key) continue;
+    const signo = p.tipo === "nota_credito" ? -1 : 1;
+    const prev = map.get(key);
+    map.set(key, {
+      descripcion: prev?.descripcion ?? descripcion,
+      cantidad: (prev?.cantidad ?? 0) + signo * p.cantidad,
+    });
+  }
+  return [...map.values()].sort((a, b) =>
+    a.descripcion.localeCompare(b.descripcion, "es-AR")
+  );
+}
+
 /** Tope de % de descuento en máscara (100,00 %). */
 export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 
