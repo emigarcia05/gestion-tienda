@@ -45,11 +45,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  FACTURA_TIPO_LABELS,
+  etiquetaTipoListaComprobantes,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
-  puedeConvertirComprobanteEnFiscal,
   puedeEliminarComprobante,
   resumenIndicadoresListaComprobantes,
   type FacturaComprobanteListItem,
@@ -78,22 +77,26 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
+const FILTRO_COBRO_TODOS = "todos";
+const FILTRO_COBRO = "cobro";
+const FILTRO_PEND_PAGO = "pendiente";
+const FILTRO_PEND_VENC = "pendiente_vencido";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
 
 /** Anchos `%` Lista Comprobantes (`colgroup`; suman 100). */
 const LISTADO_FACTURAS_COLGROUP = (
   <>
-    <col className="w-[10%]" />
-    <col className="w-[18%]" />
+    <col className="w-[12%]" />
     <col className="w-[8%]" />
+    <col className="w-[18%]" />
     <col className="w-[5%]" />
     <col className="w-[10%]" />
     <col className="w-[10%]" />
     <col className="w-[7%]" />
     <col className="w-[7%]" />
     <col className="w-[5%]" />
-    <col className="w-[20%]" />
+    <col className="w-[18%]" />
   </>
 );
 
@@ -144,7 +147,7 @@ export default function FacturaListadoPageClient({
   const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
-  const [filtroPendiente, setFiltroPendiente] = useState("");
+  const [filtroPendiente, setFiltroPendiente] = useState(FILTRO_COBRO_TODOS);
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
   const [detalleId, setDetalleId] = useState<string | null>(null);
@@ -193,20 +196,30 @@ export default function FacturaListadoPageClient({
       ) {
         return false;
       }
-      if (filtroPendiente === "si" && item.saldoPendiente == null) return false;
-      if (filtroPendiente === "no" && item.saldoPendiente != null) return false;
+      if (filtroPendiente === FILTRO_COBRO && item.saldoPendiente != null) {
+        return false;
+      }
+      if (filtroPendiente === FILTRO_PEND_PAGO && item.saldoPendiente == null) {
+        return false;
+      }
+      if (
+        filtroPendiente === FILTRO_PEND_VENC &&
+        (item.saldoPendiente == null || item.diasVencido == null)
+      ) {
+        return false;
+      }
       if (!qDebounced.trim()) return true;
       return matchByMultiTerm(
         [
           item.cliente,
           item.nroComprobante,
           item.cae ?? "",
-          FACTURA_TIPO_LABELS[item.tipo],
+          etiquetaTipoListaComprobantes(item.tipo),
           item.letra ?? "",
           item.sucursalNombres.join(" "),
           item.usuarioNombre,
           item.saldoPendiente != null ? String(item.saldoPendiente) : "",
-          item.diasParaVencer != null ? String(item.diasParaVencer) : "",
+          item.diasVencido != null ? String(item.diasVencido) : "",
         ],
         qDebounced
       );
@@ -247,7 +260,7 @@ export default function FacturaListadoPageClient({
     limpiarPeriodo();
     setFiltroSucursal("");
     setFiltroUsuario("");
-    setFiltroPendiente("");
+    setFiltroPendiente(FILTRO_COBRO_TODOS);
   }
 
   async function handleNc(id: string) {
@@ -436,8 +449,8 @@ export default function FacturaListadoPageClient({
               </FiltroIndividualContainer>
               {esFacturas ? (
                 <FiltroIndividualContainer
-                  activo={filtroPendiente !== ""}
-                  onLimpiar={() => setFiltroPendiente("")}
+                  activo={filtroPendiente !== FILTRO_COBRO_TODOS}
+                  onLimpiar={() => setFiltroPendiente(FILTRO_COBRO_TODOS)}
                   className={FILTER_SELECT_WRAPPER_CLASS}
                 >
                   <Select
@@ -445,7 +458,7 @@ export default function FacturaListadoPageClient({
                     onValueChange={setFiltroPendiente}
                   >
                     <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="PENDIENTE PAGO" />
+                      <SelectValue placeholder="COBRO" />
                     </SelectTrigger>
                     <SelectContent
                       className="select-content-filtro"
@@ -453,8 +466,12 @@ export default function FacturaListadoPageClient({
                       side="bottom"
                       align="start"
                     >
-                      <SelectItem value="si">SI</SelectItem>
-                      <SelectItem value="no">NO</SelectItem>
+                      <SelectItem value={FILTRO_COBRO_TODOS}>TODO</SelectItem>
+                      <SelectItem value={FILTRO_COBRO}>COBRO</SelectItem>
+                      <SelectItem value={FILTRO_PEND_PAGO}>PEND. PAGO</SelectItem>
+                      <SelectItem value={FILTRO_PEND_VENC}>
+                        PEND. PAGO & VENC.
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
@@ -493,8 +510,8 @@ export default function FacturaListadoPageClient({
           <TableHeader>
             <TableRow>
               <TableHead>FECHA</TableHead>
-              <TableHead>CLIENTE</TableHead>
               {esFacturas ? <TableHead>TIPO</TableHead> : null}
+              <TableHead>CLIENTE</TableHead>
               <TableHead>N°</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>PERSONAL</TableHead>
@@ -537,10 +554,10 @@ export default function FacturaListadoPageClient({
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell className="uppercase">{item.cliente}</TableCell>
                   {esFacturas ? (
-                    <TableCell>{FACTURA_TIPO_LABELS[item.tipo]}</TableCell>
+                    <TableCell>{etiquetaTipoListaComprobantes(item.tipo)}</TableCell>
                   ) : null}
+                  <TableCell className="uppercase">{item.cliente}</TableCell>
                   <TableCell
                     className="tabular-nums"
                     title={item.nroComprobante || undefined}
@@ -567,13 +584,11 @@ export default function FacturaListadoPageClient({
                     <TableCell
                       className={cn(
                         "celda-datos text-center tabular-nums tabla-bloque-secundario-cell",
-                        item.diasParaVencer != null &&
-                          item.diasParaVencer < 0 &&
-                          "text-destructive"
+                        item.diasVencido != null && "text-destructive"
                       )}
                     >
-                      {item.diasParaVencer != null
-                        ? String(item.diasParaVencer)
+                      {item.diasVencido != null
+                        ? String(item.diasVencido)
                         : fmtCelda("")}
                     </TableCell>
                   ) : null}
@@ -595,14 +610,45 @@ export default function FacturaListadoPageClient({
                       >
                         <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
-                      {esFacturas && esFacturaTipoVenta(item.tipo) ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        title="REIMPRESION"
+                        aria-label={`Reimpresión ${item.nroComprobante}`}
+                        disabled={busyId === item.id}
+                        onClick={() => {
+                          setPdfId(item.id);
+                          setPdfNro(item.nroComprobante);
+                        }}
+                      >
+                        <FileText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        title="Duplicar"
+                        aria-label={`Duplicar ${item.nroComprobante}`}
+                        disabled={busyId === item.id}
+                        onClick={() => irDuplicar(item.id)}
+                      >
+                        <Copy className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                      {esFacturas ? (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="Cobros"
-                          aria-label={`Cobros ${item.nroComprobante}`}
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            !esFacturaTipoVenta(item.tipo) && "invisible"
+                          )}
+                          title="Cobro"
+                          aria-label={`Cobro ${item.nroComprobante}`}
+                          disabled={!esFacturaTipoVenta(item.tipo)}
                           onClick={() => {
                             setCobrosId(item.id);
                             setCobrosNro(item.nroComprobante);
@@ -618,17 +664,49 @@ export default function FacturaListadoPageClient({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                        title="PDF"
-                        aria-label={`PDF ${item.nroComprobante}`}
-                        disabled={busyId === item.id}
-                        onClick={() => {
-                          setPdfId(item.id);
-                          setPdfNro(item.nroComprobante);
-                        }}
+                        className={cn(
+                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                          !puedeEliminarComprobante(item.tipo) && "invisible"
+                        )}
+                        title="Borrar"
+                        aria-label={`Borrar ${item.nroComprobante}`}
+                        disabled={
+                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
+                        }
+                        onClick={() =>
+                          setModalAccion({ open: true, kind: "borrar", item })
+                        }
                       >
-                        <FileText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
+                      {esFacturas ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            item.tipo !== "factura_no_fiscal" && "invisible"
+                          )}
+                          title="Convertir en fiscal"
+                          aria-label={`Convertir en fiscal ${item.nroComprobante}`}
+                          disabled={
+                            busyId === item.id || item.tipo !== "factura_no_fiscal"
+                          }
+                          onClick={() =>
+                            setModalAccion({
+                              open: true,
+                              kind: "convertir",
+                              item,
+                            })
+                          }
+                        >
+                          <Stamp
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      ) : null}
                       {esFacturas && item.puedeNc ? (
                         <Button
                           type="button"
@@ -657,67 +735,6 @@ export default function FacturaListadoPageClient({
                           onClick={() => void handleConsultar(item.id)}
                         >
                           <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                          !puedeEliminarComprobante(item.tipo) && "invisible"
-                        )}
-                        title="Borrar"
-                        aria-label={`Borrar ${item.nroComprobante}`}
-                        disabled={
-                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
-                        }
-                        onClick={() =>
-                          setModalAccion({ open: true, kind: "borrar", item })
-                        }
-                      >
-                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                        title="Duplicar"
-                        aria-label={`Duplicar ${item.nroComprobante}`}
-                        disabled={busyId === item.id}
-                        onClick={() => irDuplicar(item.id)}
-                      >
-                        <Copy className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                      {esFacturas ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                            !puedeConvertirComprobanteEnFiscal(item.tipo) &&
-                              "invisible"
-                          )}
-                          title="Convertir en fiscal"
-                          aria-label={`Convertir en fiscal ${item.nroComprobante}`}
-                          disabled={
-                            busyId === item.id ||
-                            !puedeConvertirComprobanteEnFiscal(item.tipo)
-                          }
-                          onClick={() =>
-                            setModalAccion({
-                              open: true,
-                              kind: "convertir",
-                              item,
-                            })
-                          }
-                        >
-                          <Stamp
-                            className={TABLE_ROW_ACTION_ICON_CLASS}
-                            aria-hidden
-                          />
                         </Button>
                       ) : null}
                     </div>

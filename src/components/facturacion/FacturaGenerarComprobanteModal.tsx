@@ -184,40 +184,53 @@ export default function FacturaGenerarComprobanteModal({
     setCuotaId(value === VACIO ? "" : value);
   }
 
-  function agregarCobro() {
-    if (!pagoSel) {
-      toast.error("Seleccioná una forma de pago.");
-      return;
-    }
+  function cobroDesdeFormulario():
+    | { ok: true; cobro: Omit<CobroRegistrado, "id"> | null }
+    | { ok: false; error: string } {
+    if (!pagoSel) return { ok: true, cobro: null };
     if (pagoSel.entidadObligatoria && !entidadId) {
-      toast.error("Seleccioná una entidad.");
-      return;
+      return { ok: false, error: "Seleccioná una entidad." };
     }
     if (muestraCuotas && !cuotaId) {
-      toast.error("Seleccioná las cuotas.");
-      return;
+      return { ok: false, error: "Seleccioná las cuotas." };
     }
     const montoCents = montoArNormalizedStringToCents(montoNorm);
     if (montoCents <= 0) {
-      toast.error("Ingresá un monto a pagar.");
-      return;
+      return { ok: false, error: "Ingresá un monto a pagar." };
     }
     if (montoCents > pendienteCents) {
-      toast.error("El monto no puede ser mayor al saldo pendiente.");
-      return;
+      return { ok: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
-    const siguientePendiente = pendienteCents - montoCents;
-    setCobros((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
+    return {
+      ok: true,
+      cobro: {
         pagoNombre: pagoSel.nombre,
         entidadNombre,
         cuotaEtiqueta: cuota?.cuotas ?? null,
         montoCents,
+      },
+    };
+  }
+
+  function agregarCobro() {
+    const res = cobroDesdeFormulario();
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    if (res.cobro == null) {
+      toast.error("Seleccioná una forma de pago.");
+      return;
+    }
+    const siguientePendiente = pendienteCents - res.cobro.montoCents;
+    setCobros((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        ...res.cobro,
       },
     ]);
     resetFormularioCobro(siguientePendiente);
@@ -246,16 +259,30 @@ export default function FacturaGenerarComprobanteModal({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
+    const extra = cobroDesdeFormulario();
+    if (!extra.ok) {
+      toast.error(extra.error);
+      return;
+    }
+    const cobrosEmitir: CobroFacturaEmitirInput[] = cobros.map(
+      ({ pagoNombre, entidadNombre, cuotaEtiqueta, montoCents }) => ({
+        pagoNombre,
+        entidadNombre,
+        cuotaEtiqueta,
+        montoCents,
+      })
+    );
+    if (extra.cobro != null) {
+      cobrosEmitir.push({
+        pagoNombre: extra.cobro.pagoNombre,
+        entidadNombre: extra.cobro.entidadNombre,
+        cuotaEtiqueta: extra.cobro.cuotaEtiqueta,
+        montoCents: extra.cobro.montoCents,
+      });
+    }
     setPending(accion);
     try {
-      const emitido = await onEmitir(
-        cobros.map(({ pagoNombre, entidadNombre, cuotaEtiqueta, montoCents }) => ({
-          pagoNombre,
-          entidadNombre,
-          cuotaEtiqueta,
-          montoCents,
-        }))
-      );
+      const emitido = await onEmitir(cobrosEmitir);
       if (emitido == null) return;
       try {
         if (accion === "imprimir") {

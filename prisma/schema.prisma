@@ -1906,12 +1906,12 @@ model SyncDuxStatus {
  * Cabecera de comprobantes de venta (`comprobantes_vtas`).
  * Receptor fiscal: **snapshot** en la fila (`receptor_*`) + FK opcional `cliente_id` → `clientes`.
  * Proyecto: FK opcional `proyecto_id` → `clientes_proyectos` (solo si hay dato; exige `cliente_id`).
- * CAE solo si `tipo_local` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
+ * CAE solo si `tipo_comprobante` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
  * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
  */
 model ComprobanteVta {
   id        String @id @default(cuid())
-  tipoLocal String @map("tipo_local") @db.VarChar(32)
+  tipoComprobante String @map("tipo_comprobante") @db.VarChar(32)
   /** Código WSFEv1 `CbteTipo` (1 A, 6 B, 11 C, 3/8/13 NC). Null si no fiscal. */
   cbteTipo  Int?   @map("cbte_tipo")
   letra     String? @db.Char(1)
@@ -1984,7 +1984,7 @@ model ComprobanteVta {
   historialArca ComprobanteVtaHistorialArca[]
   cobros       ComprobanteVtaCobro[]
 
-  @@index([tipoLocal, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
+  @@index([tipoComprobante, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
   @@index([cae], map: "comprobantes_vtas_cae_idx")
   @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")

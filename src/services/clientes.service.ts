@@ -4,6 +4,7 @@ import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   compararClientesParaListado,
   compararClientesTypeaheadFactura,
+  etiquetaClienteListado,
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
@@ -12,10 +13,11 @@ import {
   type ClienteListaItem,
   type ClienteResumen,
 } from "@/lib/envios";
-import type {
-  CuentaCorrienteClienteDatos,
-  CuentaCorrienteClienteMovimiento,
-  CuentaCorrienteMovimientoTipo,
+import {
+  FACTURA_CLIENTE_CONSUMIDOR_FINAL,
+  type CuentaCorrienteClienteDatos,
+  type CuentaCorrienteClienteMovimiento,
+  type CuentaCorrienteMovimientoTipo,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import {
@@ -97,18 +99,18 @@ export async function saldosCuentaCorrientePorCliente(
   const out = new Map<string, number>();
   if (clienteIds.length === 0) return out;
   const rows = await prisma.comprobanteVta.groupBy({
-    by: ["clienteId", "tipoLocal"],
+    by: ["clienteId", "tipoComprobante"],
     where: {
       clienteId: { in: clienteIds },
       estado: { not: "rechazado" },
-      tipoLocal: { in: [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE] },
+      tipoComprobante: { in: [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE] },
     },
     _sum: { impTotal: true, impCobrado: true },
   });
   for (const row of rows) {
     if (row.clienteId == null) continue;
     const total = Number(row._sum.impTotal ?? 0);
-    if ((TIPOS_NC_CTA_CTE as readonly string[]).includes(row.tipoLocal)) {
+    if ((TIPOS_NC_CTA_CTE as readonly string[]).includes(row.tipoComprobante)) {
       out.set(row.clienteId, round2((out.get(row.clienteId) ?? 0) - total));
       continue;
     }
@@ -531,13 +533,13 @@ function detalleCobroLedger(cobro: {
   return [detalle, cobro.cuotaEtiqueta?.trim()].filter(Boolean).join(" · ");
 }
 
-function tipoMovimientoDesdeTipoLocal(
-  tipoLocal: string
+function tipoMovimientoDesdeTipoComprobante(
+  tipoComprobante: string
 ): CuentaCorrienteMovimientoTipo | null {
-  if ((TIPOS_VENTA_CTA_CTE as readonly string[]).includes(tipoLocal)) {
+  if ((TIPOS_VENTA_CTA_CTE as readonly string[]).includes(tipoComprobante)) {
     return "venta";
   }
-  if ((TIPOS_NC_CTA_CTE as readonly string[]).includes(tipoLocal)) {
+  if ((TIPOS_NC_CTA_CTE as readonly string[]).includes(tipoComprobante)) {
     return "nota_credito";
   }
   return null;
@@ -547,12 +549,43 @@ function signoMovimientoCc(tipo: CuentaCorrienteMovimientoTipo): number {
   return tipo === "venta" ? 1 : -1;
 }
 
+/** Ventas/NC del cliente: FK, CUIT del receptor o mismo nombre (incl. CONSUMIDOR FINAL). */
+function whereComprobantesCuentaCorriente(
+  cliente: ClienteListaItem
+): Prisma.ComprobanteVtaWhereInput {
+  const or: Prisma.ComprobanteVtaWhereInput[] = [{ clienteId: cliente.id }];
+  const cuit = soloDigitos(cliente.cuit ?? "");
+  if (cuit.length > 0) {
+    or.push({ receptorDocNro: cuit });
+    const cuitRaw = cliente.cuit?.trim();
+    if (cuitRaw && cuitRaw !== cuit) {
+      or.push({ receptorDocNro: cuitRaw });
+    }
+  }
+  const nombres = new Set<string>();
+  const nombreCatalogo = normalizarNombreCliente(cliente.nombreCompleto);
+  if (nombreCatalogo) nombres.add(nombreCatalogo);
+  const etiqueta = etiquetaClienteListado(cliente).trim();
+  if (etiqueta) nombres.add(etiqueta);
+  if (
+    nombreCatalogo === FACTURA_CLIENTE_CONSUMIDOR_FINAL ||
+    etiqueta.toLocaleUpperCase("es-AR") === FACTURA_CLIENTE_CONSUMIDOR_FINAL
+  ) {
+    nombres.add(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
+  }
+  for (const nombre of nombres) {
+    or.push({
+      receptorNombre: { equals: nombre, mode: "insensitive" },
+    });
+  }
+  return { OR: or };
+}
+
 /**
  * Historial de cuenta corriente: VENTA, NOTA CRÉDITO y COBRO.
- * Los cobros se leen de `comprobantes_vtas_cobros` (consulta propia, no nested include)
- * para el cliente (`cliente_id` o CUIT del receptor). Toda fila con `monto_cents` > 0
- * aparece como COBRO; las marcadas `es_cuenta_corriente` no mueven el SALDO CC.
- * El SALDO CC de cada fila es acumulado (más antiguo primero).
+ * Comprobantes por `cliente_id`, CUIT o `receptor_nombre`. Cobros: todas las
+ * filas de `comprobantes_vtas_cobros` de esas ventas (`monto_cents` > 0).
+ * `es_cuenta_corriente` se lista como COBRO pero no mueve el SALDO CC.
  */
 export async function obtenerCuentaCorrienteCliente(
   clienteId: string
@@ -563,53 +596,49 @@ export async function obtenerCuentaCorrienteCliente(
       return { success: false, error: "El cliente no existe." };
     }
 
-    const cuit = cliente.cuit?.trim() || null;
-    const comprobanteDelCliente: Prisma.ComprobanteVtaWhereInput = cuit
-      ? { OR: [{ clienteId }, { receptorDocNro: cuit }] }
-      : { clienteId };
-
     const tiposLedger = [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE];
-
-    const [rows, cobros] = await Promise.all([
-      prisma.comprobanteVta.findMany({
-        where: {
-          ...comprobanteDelCliente,
-          estado: { not: "rechazado" },
-          tipoLocal: { in: tiposLedger },
-        },
-        select: {
-          id: true,
-          tipoLocal: true,
-          fecha: true,
-          createdAt: true,
-          ptoVenta: true,
-          cbteNro: true,
-          impTotal: true,
-          impCobrado: true,
-        },
-      }),
-      prisma.comprobanteVtaCobro.findMany({
-        where: {
-          montoCents: { gt: 0 },
-          comprobante: {
-            ...comprobanteDelCliente,
+    const rows = await prisma.comprobanteVta.findMany({
+      where: {
+        AND: [
+          whereComprobantesCuentaCorriente(cliente),
+          {
             estado: { not: "rechazado" },
-            tipoLocal: { in: [...TIPOS_VENTA_CTA_CTE] },
+            tipoComprobante: { in: tiposLedger },
           },
-        },
-        orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
-        select: {
-          id: true,
-          comprobanteId: true,
-          montoCents: true,
-          createdAt: true,
-          pagoNombre: true,
-          entidadNombre: true,
-          cuotaEtiqueta: true,
-          esCuentaCorriente: true,
-        },
-      }),
-    ]);
+        ],
+      },
+      select: {
+        id: true,
+        tipoComprobante: true,
+        fecha: true,
+        createdAt: true,
+        ptoVenta: true,
+        cbteNro: true,
+        impTotal: true,
+        impCobrado: true,
+      },
+    });
+
+    const idsVenta = rows
+      .filter((row) => tipoMovimientoDesdeTipoComprobante(row.tipoComprobante) === "venta")
+      .map((row) => row.id);
+    const cobros =
+      idsVenta.length === 0
+        ? []
+        : await prisma.comprobanteVtaCobro.findMany({
+            where: { comprobanteId: { in: idsVenta } },
+            orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
+            select: {
+              id: true,
+              comprobanteId: true,
+              montoCents: true,
+              createdAt: true,
+              pagoNombre: true,
+              entidadNombre: true,
+              cuotaEtiqueta: true,
+              esCuentaCorriente: true,
+            },
+          });
 
     const cobrosPorComprobante = new Map<string, typeof cobros>();
     for (const cobro of cobros) {
@@ -620,7 +649,7 @@ export async function obtenerCuentaCorrienteCliente(
 
     const eventos: LedgerEvento[] = [];
     for (const row of rows) {
-      const tipo = tipoMovimientoDesdeTipoLocal(row.tipoLocal);
+      const tipo = tipoMovimientoDesdeTipoComprobante(row.tipoComprobante);
       if (!tipo) continue;
       const nroComprobante = formatoNroComprobante(row.ptoVenta, row.cbteNro);
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
@@ -639,7 +668,9 @@ export async function obtenerCuentaCorrienteCliente(
       });
       if (tipo !== "venta") continue;
 
-      const cobrosDeVenta = cobrosPorComprobante.get(row.id) ?? [];
+      const cobrosDeVenta = (cobrosPorComprobante.get(row.id) ?? []).filter(
+        (c) => c.montoCents > 0
+      );
       for (const cobro of cobrosDeVenta) {
         eventos.push({
           id: cobro.id,

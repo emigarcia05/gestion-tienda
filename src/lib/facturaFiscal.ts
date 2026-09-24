@@ -159,7 +159,7 @@ export function esCuitValido(cuit: string): boolean {
   return dv != null && dv === Number(d[10]);
 }
 
-export function esTipoLocalFiscal(
+export function esTipoComprobanteFiscal(
   tipo: string
 ): tipo is "factura_fiscal" | "nota_credito_fiscal" {
   return tipo === "factura_fiscal" || tipo === "nota_credito_fiscal";

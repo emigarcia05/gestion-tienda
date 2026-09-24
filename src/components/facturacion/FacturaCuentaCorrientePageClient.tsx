@@ -535,8 +535,8 @@ export default function FacturaCuentaCorrientePageClient() {
               <TableRow>
                 <TableHead>FECHA</TableHead>
                 <TableHead>COMPROBANTE</TableHead>
-                <TableHead className="text-right">MONTO</TableHead>
-                <TableHead className="text-right">SALDO CC</TableHead>
+                <TableHead>MONTO</TableHead>
+                <TableHead>SALDO CC</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -549,17 +549,17 @@ export default function FacturaCuentaCorrientePageClient() {
                 movimientosFiltrados.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="tabular-nums">
-                      <span className="flex flex-col items-start leading-tight">
+                      <span className="flex flex-col items-center leading-tight">
                         <span>
                           {formatIsoYmdDdMmYyyyArgentina(item.fechaIso)}
                         </span>
-                        <span className="pl-4">
+                        <span>
                           {formatHhMmArgentina(new Date(item.createdAtIso))}
                         </span>
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="flex flex-col items-start leading-tight">
+                      <span className="flex flex-col items-center leading-tight">
                         <span>
                           {CUENTA_CORRIENTE_MOVIMIENTO_LABELS[item.tipo]}
                         </span>
@@ -568,12 +568,12 @@ export default function FacturaCuentaCorrientePageClient() {
                         </span>
                       </span>
                     </TableCell>
-                    <TableCell className="celda-datos text-right tabular-nums">
+                    <TableCell className="celda-datos tabular-nums">
                       {item.tipo === "venta"
                         ? `$${fmtPrecio(item.monto)}`
                         : `-$${fmtPrecio(item.monto)}`}
                     </TableCell>
-                    <TableCell className="celda-datos text-right tabular-nums">
+                    <TableCell className="celda-datos tabular-nums">
                       ${fmtPrecio(item.saldoCc)}
                     </TableCell>
                     <TableCell className="tabla-bloque-secundario-cell-divider">

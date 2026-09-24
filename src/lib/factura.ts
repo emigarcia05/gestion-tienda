@@ -26,6 +26,14 @@ export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
   nota_credito_fiscal: "NOTA CRÉDITO FISCAL",
 };
 
+/** Etiqueta de columna TIPO en Lista Comprobantes. */
+export function etiquetaTipoListaComprobantes(tipo: FacturaTipo): string {
+  if (tipo === "factura_fiscal" || tipo === "factura_no_fiscal") {
+    return "Factura";
+  }
+  return FACTURA_TIPO_LABELS[tipo];
+}
+
 /** Tipos de Lista Comprobantes (sin presupuesto). */
 export const FACTURA_TIPOS_LISTA_COMPROBANTES = FACTURA_TIPOS.filter(
   (t): t is Exclude<FacturaTipo, "presupuesto"> => t !== "presupuesto"
@@ -340,8 +348,8 @@ export type FacturaComprobanteListItem = {
   impTotal: number;
   /** `imp_total` − `imp_cobrado` si es venta con saldo; si no, `null`. */
   saldoPendiente: number | null;
-  /** Días hasta el vencimiento (`fecha` + `dias_vencimiento` − hoy AR); negativo si vencido. */
-  diasParaVencer: number | null;
+  /** Días vencido (`hoy AR` − (`fecha` + `dias_vencimiento`)); `null` si no está vencido. */
+  diasVencido: number | null;
   /** Códigos de `sucursales` asociadas al pto. vta. del comprobante (`global_pto_vta_sucursales`). */
   sucursalCodigos: string[];
   /** Nombres de sucursal del pto. vta. (MAYÚSCULAS). */

@@ -62,7 +62,7 @@ import {
   coherenciaImpTotal,
   docNroAEnteroArca,
   esCuitValido,
-  esTipoLocalFiscal,
+  esTipoComprobanteFiscal,
   formatoNroComprobante,
   ivaIdDesdeAlicuota,
   ptoVentaAEnteroArca,
@@ -198,8 +198,8 @@ export async function obtenerFacturaComprobantePdfDatos(
       include: { items: { orderBy: { orden: "asc" } } },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
-    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-      ? row.tipoLocal
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
       : "factura_no_fiscal";
     const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
       key: l.id || String(idx),
@@ -245,8 +245,8 @@ export async function obtenerBorradorDuplicarComprobante(
       include: { items: { orderBy: { orden: "asc" } } },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
-    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-      ? row.tipoLocal
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
       : "factura_no_fiscal";
     const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
       key: `dup-${idx}-${l.id}`,
@@ -295,13 +295,13 @@ export async function eliminarComprobanteNoFiscal(
       where: { id },
       select: {
         id: true,
-        tipoLocal: true,
+        tipoComprobante: true,
         notasCredito: { select: { id: true }, take: 1 },
       },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
-    const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-      ? row.tipoLocal
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
       : "factura_no_fiscal";
     if (!puedeEliminarComprobante(tipo)) {
       return {
@@ -341,8 +341,8 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
       },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
-    const tipoOrigen: FacturaTipo = esFacturaTipo(row.tipoLocal)
-      ? row.tipoLocal
+    const tipoOrigen: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
       : "factura_no_fiscal";
     const tipoDestino = tipoFiscalDesdeNoFiscal(tipoOrigen);
     if (!tipoDestino || !puedeConvertirComprobanteEnFiscal(tipoOrigen)) {
@@ -493,11 +493,11 @@ function calcularLineas(
 /** Serie local (presupuesto / comprobante) por pto + tipo. Factura ARCA usa FECompUltimoAutorizado. */
 async function siguienteNroInterno(
   ptoVtaId: string,
-  tipoLocal: FacturaTipo,
+  tipoComprobante: FacturaTipo,
   tx: Prisma.TransactionClient
 ): Promise<number> {
   const max = await tx.comprobanteVta.aggregate({
-    where: { ptoVtaId, tipoLocal, cbteNro: { not: null } },
+    where: { ptoVtaId, tipoComprobante, cbteNro: { not: null } },
     _max: { cbteNro: true },
   });
   return (max._max.cbteNro ?? 0) + 1;
@@ -567,7 +567,7 @@ async function persistirIntento(opts: {
 
 function emitirResultadoDesdeRow(row: {
   id: string;
-  tipoLocal: string;
+  tipoComprobante: string;
   letra: string | null;
   ptoVenta: string;
   cbteNro: number | null;
@@ -576,8 +576,8 @@ function emitirResultadoDesdeRow(row: {
   resultado: string | null;
   estado: string;
 }): FacturaEmitirResultado {
-  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-    ? row.tipoLocal
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+    ? row.tipoComprobante
     : "factura_no_fiscal";
   return {
     id: row.id,
@@ -703,7 +703,7 @@ export async function emitirFacturaComprobante(
     },
   });
 
-  const fiscal = esTipoLocalFiscal(input.tipo);
+  const fiscal = esTipoComprobanteFiscal(input.tipo);
   let letra: ArcaLetra | null = null;
   let cbteTipo: number | null = null;
   let original: {
@@ -841,7 +841,7 @@ export async function emitirFacturaComprobante(
         const cbteNro = await siguienteNroInterno(pto.id, input.tipo, tx);
         const header = await tx.comprobanteVta.create({
           data: {
-            tipoLocal: input.tipo,
+            tipoComprobante: input.tipo,
             cbteTipo: null,
             letra: input.tipo === "factura_no_fiscal" ? "X" : null,
             ptoVtaId: pto.id,
@@ -1077,7 +1077,7 @@ async function emitirFiscal(args: {
     const created = await prisma.$transaction(async (tx) => {
       return tx.comprobanteVta.create({
         data: {
-          tipoLocal: args.input.tipo,
+          tipoComprobante: args.input.tipo,
           cbteTipo: args.cbteTipo,
           letra: args.letra,
           ptoVtaId: args.pto.id,
@@ -1216,11 +1216,11 @@ export async function emitirNotaCreditoDesdeComprobante(
     include: { items: { orderBy: { orden: "asc" } } },
   });
   if (!orig) return { success: false, error: "El comprobante no existe." };
-  if (orig.tipoLocal !== "factura_fiscal" || !orig.cae) {
+  if (orig.tipoComprobante !== "factura_fiscal" || !orig.cae) {
     return { success: false, error: "Solo se puede acreditar una factura autorizada por ARCA." };
   }
   const ya = await prisma.comprobanteVta.findFirst({
-    where: { cbteAsocId: orig.id, tipoLocal: "nota_credito_fiscal", estado: "autorizado" },
+    where: { cbteAsocId: orig.id, tipoComprobante: "nota_credito_fiscal", estado: "autorizado" },
     select: { id: true },
   });
   if (ya) return { success: false, error: "Ese comprobante ya tiene nota de crédito." };
@@ -1268,7 +1268,7 @@ export async function consultarFacturaComprobanteArca(
     include: { ptoVta: { select: { cuit: true } } },
   });
   if (!row) return { success: false, error: "El comprobante no existe." };
-  if (!esTipoLocalFiscal(row.tipoLocal) || row.cbteTipo == null || row.cbteNro == null) {
+  if (!esTipoComprobanteFiscal(row.tipoComprobante) || row.cbteTipo == null || row.cbteNro == null) {
     return { success: false, error: "Ese comprobante no es fiscal ARCA." };
   }
   if (row.cae) {
@@ -1355,7 +1355,7 @@ export async function registrarCobroComprobanteVta(
     const row = await prisma.comprobanteVta.findUnique({
       where: { id: input.id },
       select: {
-        tipoLocal: true,
+        tipoComprobante: true,
         estado: true,
         impTotal: true,
         impCobrado: true,
@@ -1367,7 +1367,7 @@ export async function registrarCobroComprobanteVta(
     if (!row) {
       return { success: false, error: "No se encontró el comprobante." };
     }
-    const tipo = esFacturaTipo(row.tipoLocal) ? row.tipoLocal : "factura_no_fiscal";
+    const tipo = esFacturaTipo(row.tipoComprobante) ? row.tipoComprobante : "factura_no_fiscal";
     if (!esFacturaTipoVenta(tipo)) {
       return { success: false, error: "Solo se pueden agregar cobros a una venta." };
     }

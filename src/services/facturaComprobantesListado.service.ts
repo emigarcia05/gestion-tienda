@@ -36,29 +36,31 @@ function saldoYDiasCtaCte(args: {
   diasVencimiento: number | null;
   tieneNc: boolean;
   hoyIso: string;
-}): { saldoPendiente: number | null; diasParaVencer: number | null } {
+}): { saldoPendiente: number | null; diasVencido: number | null } {
   const esVenta = args.tipo === "factura_fiscal" || args.tipo === "factura_no_fiscal";
   if (!esVenta || args.estado === "rechazado" || args.tieneNc) {
-    return { saldoPendiente: null, diasParaVencer: null };
+    return { saldoPendiente: null, diasVencido: null };
   }
   const saldo = Math.max(0, Math.round((args.impTotal - args.impCobrado) * 100) / 100);
   if (saldo <= 0) {
-    return { saldoPendiente: null, diasParaVencer: null };
+    return { saldoPendiente: null, diasVencido: null };
   }
   if (args.diasVencimiento == null) {
-    return { saldoPendiente: saldo, diasParaVencer: null };
+    return { saldoPendiente: saldo, diasVencido: null };
   }
   const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
+  const diasDesdeVence = diffCalendarDaysIsoYmdArgentina(venceIso, args.hoyIso);
   return {
     saldoPendiente: saldo,
-    diasParaVencer: diffCalendarDaysIsoYmdArgentina(args.hoyIso, venceIso),
+    diasVencido:
+      diasDesdeVence != null && diasDesdeVence > 0 ? diasDesdeVence : null,
   };
 }
 
 function mapListItem(
   row: {
     id: string;
-    tipoLocal: string;
+    tipoComprobante: string;
     letra: string | null;
     fecha: Date;
     createdAt: Date;
@@ -82,13 +84,13 @@ function mapListItem(
   },
   hoyIso: string
 ): FacturaComprobanteListItem {
-  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-    ? row.tipoLocal
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+    ? row.tipoComprobante
     : "factura_no_fiscal";
   const estado = asEstado(row.estado);
   const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
   const impTotal = decimalToNumber(row.impTotal);
-  const { saldoPendiente, diasParaVencer } = saldoYDiasCtaCte({
+  const { saldoPendiente, diasVencido } = saldoYDiasCtaCte({
     tipo,
     estado,
     impTotal,
@@ -112,7 +114,7 @@ function mapListItem(
     cliente: row.receptorNombre,
     impTotal,
     saldoPendiente,
-    diasParaVencer,
+    diasVencido,
     sucursalCodigos: [...new Set(sucursalesPto.map((s) => s.codigo))],
     sucursalNombres: [...new Set(sucursalesPto.map((s) => s.nombre))],
     usuarioNombre: row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
@@ -132,7 +134,7 @@ function mapListItem(
 
 const listSelect = {
   id: true,
-  tipoLocal: true,
+  tipoComprobante: true,
   letra: true,
   fecha: true,
   createdAt: true,
@@ -228,7 +230,7 @@ export async function listarFacturasComprobantes(): Promise<FacturaComprobanteLi
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const rows = await prisma.comprobanteVta.findMany({
     where: {
-      tipoLocal: {
+      tipoComprobante: {
         in: [
           "factura_no_fiscal",
           "factura_fiscal",
@@ -247,7 +249,7 @@ export async function listarFacturasComprobantes(): Promise<FacturaComprobanteLi
 export async function listarPresupuestosComprobantes(): Promise<FacturaComprobanteListItem[]> {
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const rows = await prisma.comprobanteVta.findMany({
-    where: { tipoLocal: "presupuesto" },
+    where: { tipoComprobante: "presupuesto" },
     orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
     take: 500,
     select: listSelect,
@@ -260,7 +262,7 @@ export async function listarFacturasAutorizadasParaNc(): Promise<
 > {
   const rows = await prisma.comprobanteVta.findMany({
     where: {
-      tipoLocal: "factura_fiscal",
+      tipoComprobante: "factura_fiscal",
       estado: "autorizado",
       cae: { not: null },
       notasCredito: { none: {} },
@@ -291,7 +293,7 @@ export async function listarCobrosComprobanteVta(
   const row = await prisma.comprobanteVta.findUnique({
     where: { id: comprobanteId },
     select: {
-      tipoLocal: true,
+      tipoComprobante: true,
       estado: true,
       impTotal: true,
       impCobrado: true,
@@ -317,8 +319,8 @@ export async function listarCobrosComprobanteVta(
   if (!row) {
     return { items: [], saldoPendiente: null };
   }
-  const tipo: FacturaTipo = esFacturaTipo(row.tipoLocal)
-    ? row.tipoLocal
+  const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+    ? row.tipoComprobante
     : "factura_no_fiscal";
   const estado = asEstado(row.estado);
   const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
