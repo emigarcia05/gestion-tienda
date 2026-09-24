@@ -32,7 +32,9 @@ import {
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
+  puedeConvertirComprobanteEnFiscal,
   puedeEliminarComprobante,
+  tipoFiscalDesdeNoFiscal,
   impCobradoDesdeCobros,
   saldoPendienteTrasCobro,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
@@ -268,7 +270,7 @@ export async function obtenerBorradorDuplicarComprobante(
       success: true,
       data: {
         tipo,
-        fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+        fechaIso: dateToIsoYmdArgentina(new Date()),
         comentarios: row.comentarios,
         cliente: row.receptorNombre,
         clienteId,
@@ -318,6 +320,116 @@ export async function eliminarComprobanteNoFiscal(
   } catch (e) {
     console.error("[facturaComprobantes][eliminar]", e);
     return { success: false, error: "No se pudo eliminar el comprobante." };
+  }
+}
+
+/**
+ * Emite un fiscal con los mismos datos (fecha = hoy AR) y borra el no fiscal
+ * solo si el fiscal quedó autorizado.
+ */
+export async function convertirComprobanteNoFiscalEnFiscal(input: {
+  id: string;
+  personalId: number;
+}): Promise<ServiceResult<FacturaEmitirResultado>> {
+  try {
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id: input.id },
+      include: {
+        items: { orderBy: { orden: "asc" } },
+        cobros: { orderBy: { orden: "asc" } },
+        notasCredito: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!row) return { success: false, error: "El comprobante no existe." };
+    const tipoOrigen: FacturaTipo = esFacturaTipo(row.tipoLocal)
+      ? row.tipoLocal
+      : "factura_no_fiscal";
+    const tipoDestino = tipoFiscalDesdeNoFiscal(tipoOrigen);
+    if (!tipoDestino || !puedeConvertirComprobanteEnFiscal(tipoOrigen)) {
+      return {
+        success: false,
+        error: "Solo se pueden convertir comprobantes no fiscales (venta o nota de crédito).",
+      };
+    }
+    if (row.estado === "rechazado") {
+      return { success: false, error: "No se puede convertir un comprobante rechazado." };
+    }
+    if (row.notasCredito.length > 0) {
+      return {
+        success: false,
+        error: "No se puede convertir: hay una nota de crédito asociada.",
+      };
+    }
+    if (row.items.length === 0) {
+      return { success: false, error: "El comprobante no tiene ítems." };
+    }
+
+    const cobros = row.cobros
+      .filter((c) => !c.esCuentaCorriente && c.montoCents > 0)
+      .map((c) => ({
+        pagoNombre: c.pagoNombre,
+        entidadNombre: c.entidadNombre,
+        cuotaEtiqueta: c.cuotaEtiqueta,
+        montoCents: c.montoCents,
+      }));
+
+    const descPct = decimalToNumber(row.descPct);
+    const emitRes = await emitirFacturaComprobante(
+      {
+        fechaIso: dateToIsoYmdArgentina(new Date()),
+        tipo: tipoDestino,
+        cliente: row.receptorNombre,
+        clienteId: row.clienteId,
+        proyectoId: row.proyectoId,
+        comentarios: row.comentarios,
+        ptoVtaId: row.ptoVtaId,
+        personalId: input.personalId,
+        receptorDocTipo: row.receptorDocTipo ?? undefined,
+        receptorDocNro: row.receptorDocNro ?? undefined,
+        receptorCondicionIva: row.receptorCondicionIva ?? undefined,
+        cbteAsocId: row.cbteAsocId ?? undefined,
+        lineas: row.items.map((l) => ({
+          codTienda: l.codTienda,
+          descripcion: l.descripcion,
+          cantidad: decimalToNumber(l.cantidad),
+          pxLista: decimalToNumber(l.px),
+          descuentoPct: decimalToNumber(l.descuentoPct),
+          comentario: l.comentario,
+          alicuotaIva: decimalToNumber(l.alicuotaIva),
+        })),
+        descuento:
+          descPct > 0
+            ? { fuente: "porcentaje", porcentaje: descPct, totalFacObjetivo: null }
+            : null,
+        cobros,
+      },
+      { omitirTopeCtaCorriente: true }
+    );
+    if (!emitRes.success) return emitRes;
+    if (emitRes.data.estado !== "autorizado" || !emitRes.data.cae) {
+      return {
+        success: false,
+        error:
+          emitRes.data.resultado === "R"
+            ? "ARCA rechazó el comprobante fiscal. Se conservó el no fiscal."
+            : "No se obtuvo CAE. Se conservó el comprobante no fiscal.",
+      };
+    }
+
+    const del = await eliminarComprobanteNoFiscal(row.id);
+    if (!del.success) {
+      return {
+        success: false,
+        error: `Se emitió el fiscal ${emitRes.data.nroComprobante} pero no se pudo borrar el no fiscal.`,
+      };
+    }
+    return emitRes;
+  } catch (e) {
+    console.error("[facturaComprobantes][convertirFiscal]", e);
+    return {
+      success: false,
+      error: "No se pudo convertir el comprobante en fiscal.",
+    };
   }
 }
 
@@ -518,7 +630,8 @@ async function ptoVtaActivoDeSucursalPersonal(
 }
 
 export async function emitirFacturaComprobante(
-  input: EmitirFacturaComprobanteInput
+  input: EmitirFacturaComprobanteInput,
+  opciones?: { omitirTopeCtaCorriente?: boolean }
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
   const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
   if (!fecha) return { success: false, error: "Fecha de comprobante inválida." };
@@ -561,7 +674,11 @@ export async function emitirFacturaComprobante(
     if (!cliente) {
       return { success: false, error: "El cliente seleccionado no existe." };
     }
-    if (esFacturaTipoVenta(input.tipo) && cliente.ctaCorrienteMontoMax != null) {
+    if (
+      !opciones?.omitirTopeCtaCorriente &&
+      esFacturaTipoVenta(input.tipo) &&
+      cliente.ctaCorrienteMontoMax != null
+    ) {
       const saldos = await saldosCuentaCorrientePorCliente([clienteId]);
       const saldo = saldos.get(clienteId) ?? 0;
       if (clienteSuperaTopeCtaCorriente(saldo, Number(cliente.ctaCorrienteMontoMax))) {

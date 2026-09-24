@@ -192,7 +192,7 @@ export default function FacturaCuentaCorrientePageClient() {
     <>
       <ClassicFilteredTableLayout
         title="Clientes"
-        subtitle="Cuenta Corriente Cliente"
+        subtitle="Cuenta Corrientes"
         contentWidth="full"
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">

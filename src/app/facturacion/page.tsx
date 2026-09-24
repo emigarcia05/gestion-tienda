@@ -1,7 +1,7 @@
 /**
  * Hub del área Facturación: panel central vacío hasta elegir una ruta hoja
- * en el sidenav (Crear, Lista Comprobantes, Presupuestos, Lista Clientes,
- * Cuenta Corriente Cliente).
+ * en el sidenav (Crear, Comprobante, Presupuesto, Cuenta Corrientes,
+ * Lista Clientes).
  */
 export default function FacturacionPage() {
   return null;

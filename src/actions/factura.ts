@@ -18,6 +18,7 @@ import {
   obtenerCuentaCorrienteClienteSchema,
   emitirFacturaComprobanteSchema,
   emitirNotaCreditoFacturaSchema,
+  convertirComprobanteNoFiscalEnFiscalSchema,
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
@@ -301,5 +302,28 @@ export async function eliminarComprobanteNoFiscalAction(
   } catch (e) {
     console.error("[eliminarComprobanteNoFiscalAction]", e);
     return { ok: false, error: "No se pudo eliminar el comprobante." };
+  }
+}
+
+export async function convertirComprobanteNoFiscalEnFiscalAction(
+  raw: unknown
+): Promise<ActionResult<FacturaEmitirResultado>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = convertirComprobanteNoFiscalEnFiscalSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { convertirComprobanteNoFiscalEnFiscal } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(
+      await convertirComprobanteNoFiscalEnFiscal(parsed.data)
+    );
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[convertirComprobanteNoFiscalEnFiscalAction]", e);
+    return { ok: false, error: "No se pudo convertir el comprobante en fiscal." };
   }
 }

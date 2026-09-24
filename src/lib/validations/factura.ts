@@ -172,6 +172,12 @@ export type EmitirNotaCreditoFacturaInput = z.infer<
   typeof emitirNotaCreditoFacturaSchema
 >;
 
+export const convertirComprobanteNoFiscalEnFiscalSchema =
+  emitirNotaCreditoFacturaSchema;
+
+export type ConvertirComprobanteNoFiscalEnFiscalInput =
+  EmitirNotaCreditoFacturaInput;
+
 const cobroFacturaPersistirSchema = cobroFacturaEmitirSchema.extend({
   esCuentaCorriente: z.boolean(),
   plazoDias: z.union([

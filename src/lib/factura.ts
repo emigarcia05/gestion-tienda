@@ -178,6 +178,19 @@ export function puedeEliminarComprobante(tipo: FacturaTipo): boolean {
   return !esFacturaTipoFiscal(tipo);
 }
 
+/** Destino fiscal al convertir un comprobante no fiscal (venta o NC). */
+export function tipoFiscalDesdeNoFiscal(
+  tipo: FacturaTipo
+): "factura_fiscal" | "nota_credito_fiscal" | null {
+  if (tipo === "factura_no_fiscal") return "factura_fiscal";
+  if (tipo === "nota_credito_no_fiscal") return "nota_credito_fiscal";
+  return null;
+}
+
+export function puedeConvertirComprobanteEnFiscal(tipo: FacturaTipo): boolean {
+  return tipoFiscalDesdeNoFiscal(tipo) != null;
+}
+
 export function esFacturaTipoNotaCredito(tipo: FacturaTipo): boolean {
   return tipo === "nota_credito_no_fiscal" || tipo === "nota_credito_fiscal";
 }
@@ -268,7 +281,7 @@ export const FACTURA_BUSQUEDA_CLIENTES_TAKE = 10;
 /** Mínimo de caracteres (trim) para disparar la búsqueda de clientes. */
 export const FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS = 3;
 
-/** Movimientos del submódulo Cuenta Corriente Cliente. */
+/** Movimientos del submódulo Cuenta Corrientes. */
 export const CUENTA_CORRIENTE_MOVIMIENTO_TIPOS = [
   "cobro",
   "venta",
@@ -474,7 +487,7 @@ export type FacturaDescuentoEstado = {
   totalFacObjetivo: number | null;
 };
 
-/** Borrador para Duplicar → Crear (sin nro/CAE; fecha se copia y se puede editar). */
+/** Borrador para Duplicar → Crear (sin nro/CAE; la fecha de Crear es hoy AR). */
 export type FacturaComprobanteDuplicarBorrador = {
   tipo: FacturaTipo;
   fechaIso: string;

@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleDollarSign, Eye, FileText, RefreshCw, Undo2 } from "lucide-react";
+import { Copy, CircleDollarSign, Eye, FileText, RefreshCw, Stamp, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
+  convertirComprobanteNoFiscalEnFiscalAction,
+  eliminarComprobanteNoFiscalAction,
   emitirNotaCreditoFacturaAction,
 } from "@/actions/factura";
 import FilterBar, {
@@ -20,9 +22,11 @@ import FilterBar, {
 import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
+import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -44,6 +48,8 @@ import {
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
+  puedeConvertirComprobanteEnFiscal,
+  puedeEliminarComprobante,
   resumenIndicadoresListaComprobantes,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
@@ -65,6 +71,7 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
@@ -108,6 +115,10 @@ export default function FacturaListadoPageClient({
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [pdfId, setPdfId] = useState<string | null>(null);
   const [pdfNro, setPdfNro] = useState("");
+  const [modalAccion, setModalAccion] = useState<
+    | { open: false }
+    | { open: true; kind: "borrar" | "convertir"; item: FacturaComprobanteListItem }
+  >({ open: false });
 
   const sucursalCodigos = useMemo(
     () => new Set(sucursales.map((s) => s.codigo)),
@@ -221,8 +232,58 @@ export default function FacturaListadoPageClient({
     }
   }
 
+  function irDuplicar(id: string) {
+    router.push(`${FACTURACION_ROUTES.factura.crear}?duplicar=${id}`);
+  }
+
+  async function confirmarModalAccion() {
+    if (!modalAccion.open) return;
+    const item = modalAccion.item;
+    if (modalAccion.kind === "borrar") {
+      setBusyId(item.id);
+      try {
+        const res = await eliminarComprobanteNoFiscalAction({ id: item.id });
+        if (!res.ok) {
+          toast.error(res.error ?? "No se pudo eliminar.");
+          return;
+        }
+        toast.success("Comprobante eliminado.");
+        setModalAccion({ open: false });
+        router.refresh();
+      } finally {
+        setBusyId(null);
+      }
+      return;
+    }
+    const personalId = leerUsuarioSesion()?.idPersonal;
+    if (personalId == null) {
+      toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      const res = await convertirComprobanteNoFiscalEnFiscalAction({
+        id: item.id,
+        personalId,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudo convertir.");
+        return;
+      }
+      toast.success(
+        res.data.cae
+          ? `Fiscal CAE ${res.data.cae}`
+          : "Comprobante convertido en fiscal."
+      );
+      setModalAccion({ open: false });
+      router.refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 10 : 7;
+  const colSpan = esFacturas ? 13 : 9;
   const indicadores = useMemo(
     () => resumenIndicadoresListaComprobantes(itemsFiltrados),
     [itemsFiltrados]
@@ -231,7 +292,7 @@ export default function FacturaListadoPageClient({
   return (
     <ClassicFilteredTableLayout
       title="COMPROBANTES"
-      subtitle={esFacturas ? "Lista Comprobantes" : "Presupuestos"}
+      subtitle={esFacturas ? "Comprobante" : "Presupuesto"}
       contentWidth="full"
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
@@ -383,6 +444,11 @@ export default function FacturaListadoPageClient({
               <TableHead className="tabla-bloque-secundario-head-divider text-center">
                 ACCIONES
               </TableHead>
+              <TableHead className="text-center">BORRAR</TableHead>
+              <TableHead className="text-center">DUPLICAR</TableHead>
+              {esFacturas ? (
+                <TableHead className="text-center">CONV. FISCAL</TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -522,6 +588,79 @@ export default function FacturaListadoPageClient({
                       ) : null}
                     </div>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                          !puedeEliminarComprobante(item.tipo) && "invisible"
+                        )}
+                        title="Borrar"
+                        aria-label={`Borrar ${item.nroComprobante}`}
+                        disabled={
+                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
+                        }
+                        onClick={() =>
+                          setModalAccion({ open: true, kind: "borrar", item })
+                        }
+                      >
+                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        title="Duplicar"
+                        aria-label={`Duplicar ${item.nroComprobante}`}
+                        disabled={busyId === item.id}
+                        onClick={() => irDuplicar(item.id)}
+                      >
+                        <Copy className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  {esFacturas ? (
+                    <TableCell className="text-center">
+                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            !puedeConvertirComprobanteEnFiscal(item.tipo) &&
+                              "invisible"
+                          )}
+                          title="Convertir en fiscal"
+                          aria-label={`Convertir en fiscal ${item.nroComprobante}`}
+                          disabled={
+                            busyId === item.id ||
+                            !puedeConvertirComprobanteEnFiscal(item.tipo)
+                          }
+                          onClick={() =>
+                            setModalAccion({
+                              open: true,
+                              kind: "convertir",
+                              item,
+                            })
+                          }
+                        >
+                          <Stamp
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))
             )}
@@ -595,6 +734,48 @@ export default function FacturaListadoPageClient({
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
       />
+      <Dialog
+        open={modalAccion.open}
+        onOpenChange={(next) => {
+          if (!next && busyId == null) setModalAccion({ open: false });
+        }}
+      >
+        <AppModal
+          title={
+            modalAccion.open && modalAccion.kind === "convertir"
+              ? "CONVERTIR EN FISCAL"
+              : "BORRAR COMPROBANTE"
+          }
+          size="sm"
+          actions={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busyId != null}
+                onClick={() => setModalAccion({ open: false })}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={busyId != null}
+                onClick={() => void confirmarModalAccion()}
+              >
+                {modalAccion.open && modalAccion.kind === "convertir"
+                  ? "Convertir"
+                  : "Borrar"}
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-foreground">
+            {modalAccion.open && modalAccion.kind === "convertir"
+              ? `Se emitirá un comprobante fiscal con fecha de hoy y se eliminará el no fiscal ${modalAccion.item.nroComprobante || ""}.`
+              : `Se eliminará el comprobante ${modalAccion.open ? modalAccion.item.nroComprobante : ""}.`}
+          </p>
+        </AppModal>
+      </Dialog>
     </ClassicFilteredTableLayout>
   );
 }

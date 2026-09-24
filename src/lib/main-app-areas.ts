@@ -6,7 +6,8 @@
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
  * **Marketing** (id `marketing`).
- * **Facturación** (id `facturacion`): módulo Comprobantes (Crear / Lista Comprobantes / Presupuestos).
+ * **Facturación** (id `facturacion`): módulo COMPROBANTES (Crear / Comprobante / Presupuesto)
+ * y CLIENTES (Cuenta Corrientes / Lista Clientes).
  */
 
 import {

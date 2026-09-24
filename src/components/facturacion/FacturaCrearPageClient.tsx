@@ -141,26 +141,40 @@ export default function FacturaCrearPageClient({
     lineas: duplicarBorrador?.lineas ?? [],
     descuento: duplicarBorrador?.descuento ?? null,
   });
-  const [fechaIso, setFechaIso] = useState(
-    () => duplicarBorrador?.fechaIso ?? dateToIsoYmdArgentina(new Date())
-  );
+  const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(
     () => duplicarBorrador?.tipo ?? FACTURA_TIPO_DEFAULT
   );
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
-  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [clienteId, setClienteId] = useState<string | null>(
+    () => duplicarBorrador?.clienteId ?? null
+  );
   const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
     number | null
-  >(null);
+  >(() => duplicarBorrador?.clienteCatalogo?.ctaCorrienteMontoMax ?? null);
   const [saldoCuentaCorrienteCliente, setSaldoCuentaCorrienteCliente] = useState<
     number | null
-  >(null);
+  >(() =>
+    duplicarBorrador?.clienteCatalogo != null
+      ? duplicarBorrador.clienteCatalogo.saldoCuentaCorriente
+      : null
+  );
   /** Cliente elegido o CF explícito: `qActual` del typeahead. */
-  const [clienteQActual, setClienteQActual] = useState("");
+  const [clienteQActual, setClienteQActual] = useState(() => {
+    if (!duplicarBorrador) return "";
+    if (duplicarBorrador.clienteCatalogo) {
+      return etiquetaClienteListado(duplicarBorrador.clienteCatalogo);
+    }
+    return duplicarBorrador.cliente;
+  });
   const [, setNroComprobante] = useState("");
-  const [comentarios, setComentarios] = useState("");
+  const [comentarios, setComentarios] = useState(
+    () => duplicarBorrador?.comentarios ?? ""
+  );
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [cbteAsocId, setCbteAsocId] = useState("");
+  const [cbteAsocId, setCbteAsocId] = useState(
+    () => duplicarBorrador?.cbteAsocId ?? ""
+  );
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
@@ -181,9 +195,14 @@ export default function FacturaCrearPageClient({
   } | null>(null);
   const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteListaItem[]>([]);
   const [clienteProyectos, setClienteProyectos] = useState<EnviosDireccionItem[]>(
-    []
+    () => duplicarBorrador?.clienteCatalogo?.proyectos ?? []
   );
-  const [proyectoId, setProyectoId] = useState<string | null>(null);
+  const [proyectoId, setProyectoId] = useState<string | null>(() => {
+    if (!duplicarBorrador) return null;
+    if (duplicarBorrador.proyectoId) return duplicarBorrador.proyectoId;
+    const proyectos = duplicarBorrador.clienteCatalogo?.proyectos ?? [];
+    return proyectos.length === 1 ? (proyectos[0]?.id ?? null) : null;
+  });
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [clientesAbierto, setClientesAbierto] = useState(false);
   const [clienteHighlight, setClienteHighlight] = useState(0);
@@ -957,6 +976,14 @@ export default function FacturaCrearPageClient({
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
           <FacturaCrearLineasBlock
+            initialRemito={
+              duplicarBorrador
+                ? {
+                    lineas: duplicarBorrador.lineas,
+                    descuento: duplicarBorrador.descuento,
+                  }
+                : null
+            }
             onRemitoChange={handleRemitoChange}
             onBusquedaProductoFocus={() => {
               setClientesAbierto(false);

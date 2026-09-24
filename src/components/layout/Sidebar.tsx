@@ -290,13 +290,13 @@ const FACTURACION_MODULES: NavModule[] = [
       },
       {
         href: FACTURACION_ROUTES.factura.facturas,
-        label: "Lista Comprobantes",
+        label: "Comprobante",
         icon: <Files className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
       {
         href: FACTURACION_ROUTES.factura.presupuestos,
-        label: "Presupuestos",
+        label: "Presupuesto",
         icon: <ScrollText className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
@@ -308,15 +308,15 @@ const FACTURACION_MODULES: NavModule[] = [
     icon: <Users className={iconClass} />,
     submodules: [
       {
-        href: FACTURACION_ROUTES.clientes.lista,
-        label: "Lista Clientes",
-        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
+        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
+        label: "Cuenta Corrientes",
+        icon: <Wallet className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
       {
-        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
-        label: "Cuenta Corriente Cliente",
-        icon: <Wallet className="h-4 w-4 shrink-0" />,
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Lista Clientes",
+        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },
     ],
