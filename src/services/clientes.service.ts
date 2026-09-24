@@ -515,7 +515,21 @@ type LedgerEvento = {
   monto: number;
   sortMs: number;
   tipoOrden: number;
+  /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
+  afectaSaldo: boolean;
 };
+
+function detalleCobroLedger(cobro: {
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+}): string {
+  const entidad = cobro.entidadNombre.trim();
+  const detalle = entidad
+    ? `${cobro.pagoNombre} - ${entidad}`
+    : cobro.pagoNombre;
+  return [detalle, cobro.cuotaEtiqueta?.trim()].filter(Boolean).join(" · ");
+}
 
 function tipoMovimientoDesdeTipoLocal(
   tipoLocal: string
@@ -534,7 +548,10 @@ function signoMovimientoCc(tipo: CuentaCorrienteMovimientoTipo): number {
 }
 
 /**
- * Historial de cuenta corriente: VENTA, NOTA CRÉDITO y COBRO (filas `comprobantes_vtas_cobros`).
+ * Historial de cuenta corriente: VENTA, NOTA CRÉDITO y COBRO.
+ * Los cobros se leen de `comprobantes_vtas_cobros` (consulta propia, no nested include)
+ * para el cliente (`cliente_id` o CUIT del receptor). Toda fila con `monto_cents` > 0
+ * aparece como COBRO; las marcadas `es_cuenta_corriente` no mueven el SALDO CC.
  * El SALDO CC de cada fila es acumulado (más antiguo primero).
  */
 export async function obtenerCuentaCorrienteCliente(
@@ -546,36 +563,60 @@ export async function obtenerCuentaCorrienteCliente(
       return { success: false, error: "El cliente no existe." };
     }
 
-    const rows = await prisma.comprobanteVta.findMany({
-      where: {
-        clienteId,
-        estado: { not: "rechazado" },
-        tipoLocal: { in: [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE] },
-      },
-      select: {
-        id: true,
-        tipoLocal: true,
-        fecha: true,
-        createdAt: true,
-        ptoVenta: true,
-        cbteNro: true,
-        impTotal: true,
-        impCobrado: true,
-        cobros: {
-          orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
-          select: {
-            id: true,
-            montoCents: true,
-            createdAt: true,
-            orden: true,
-            pagoNombre: true,
-            entidadNombre: true,
-            cuotaEtiqueta: true,
-            esCuentaCorriente: true,
+    const cuit = cliente.cuit?.trim() || null;
+    const comprobanteDelCliente: Prisma.ComprobanteVtaWhereInput = cuit
+      ? { OR: [{ clienteId }, { receptorDocNro: cuit }] }
+      : { clienteId };
+
+    const tiposLedger = [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE];
+
+    const [rows, cobros] = await Promise.all([
+      prisma.comprobanteVta.findMany({
+        where: {
+          ...comprobanteDelCliente,
+          estado: { not: "rechazado" },
+          tipoLocal: { in: tiposLedger },
+        },
+        select: {
+          id: true,
+          tipoLocal: true,
+          fecha: true,
+          createdAt: true,
+          ptoVenta: true,
+          cbteNro: true,
+          impTotal: true,
+          impCobrado: true,
+        },
+      }),
+      prisma.comprobanteVtaCobro.findMany({
+        where: {
+          montoCents: { gt: 0 },
+          comprobante: {
+            ...comprobanteDelCliente,
+            estado: { not: "rechazado" },
+            tipoLocal: { in: [...TIPOS_VENTA_CTA_CTE] },
           },
         },
-      },
-    });
+        orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
+        select: {
+          id: true,
+          comprobanteId: true,
+          montoCents: true,
+          createdAt: true,
+          pagoNombre: true,
+          entidadNombre: true,
+          cuotaEtiqueta: true,
+          esCuentaCorriente: true,
+        },
+      }),
+    ]);
+
+    const cobrosPorComprobante = new Map<string, typeof cobros>();
+    for (const cobro of cobros) {
+      const lista = cobrosPorComprobante.get(cobro.comprobanteId);
+      if (lista) lista.push(cobro);
+      else cobrosPorComprobante.set(cobro.comprobanteId, [cobro]);
+    }
 
     const eventos: LedgerEvento[] = [];
     for (const row of rows) {
@@ -594,17 +635,12 @@ export async function obtenerCuentaCorrienteCliente(
         monto: round2(Number(row.impTotal)),
         sortMs: row.createdAt.getTime(),
         tipoOrden: tipo === "venta" ? 0 : 2,
+        afectaSaldo: true,
       });
       if (tipo !== "venta") continue;
 
-      const cobrosReales = row.cobros.filter(
-        (c) => c.montoCents > 0 && !c.esCuentaCorriente
-      );
-      for (const cobro of cobrosReales) {
-        const entidad = cobro.entidadNombre.trim();
-        const detalle = entidad
-          ? `${cobro.pagoNombre} - ${entidad}`
-          : cobro.pagoNombre;
+      const cobrosDeVenta = cobrosPorComprobante.get(row.id) ?? [];
+      for (const cobro of cobrosDeVenta) {
         eventos.push({
           id: cobro.id,
           tipo: "cobro",
@@ -612,16 +648,17 @@ export async function obtenerCuentaCorrienteCliente(
           createdAtIso: cobro.createdAt.toISOString(),
           comprobanteId: row.id,
           nroComprobante,
-          detalle: [detalle, cobro.cuotaEtiqueta?.trim()]
-            .filter(Boolean)
-            .join(" · "),
+          detalle: detalleCobroLedger(cobro),
           monto: round2(cobro.montoCents / 100),
           sortMs: cobro.createdAt.getTime(),
           tipoOrden: 1,
+          afectaSaldo: !cobro.esCuentaCorriente,
         });
       }
       const cobradoFilas = round2(
-        cobrosReales.reduce((acc, c) => acc + c.montoCents / 100, 0)
+        cobrosDeVenta
+          .filter((c) => !c.esCuentaCorriente)
+          .reduce((acc, c) => acc + c.montoCents / 100, 0)
       );
       const impCobrado = round2(Number(row.impCobrado));
       const restoCobrado = round2(impCobrado - cobradoFilas);
@@ -637,6 +674,7 @@ export async function obtenerCuentaCorrienteCliente(
           monto: restoCobrado,
           sortMs: row.createdAt.getTime() + 1,
           tipoOrden: 1,
+          afectaSaldo: true,
         });
       }
     }
@@ -650,7 +688,9 @@ export async function obtenerCuentaCorrienteCliente(
 
     let saldo = 0;
     const movimientos: CuentaCorrienteClienteMovimiento[] = eventos.map((ev) => {
-      saldo = round2(saldo + signoMovimientoCc(ev.tipo) * ev.monto);
+      if (ev.afectaSaldo) {
+        saldo = round2(saldo + signoMovimientoCc(ev.tipo) * ev.monto);
+      }
       return {
         id: ev.id,
         tipo: ev.tipo,
@@ -661,6 +701,7 @@ export async function obtenerCuentaCorrienteCliente(
         detalle: ev.detalle,
         monto: ev.monto,
         saldoCc: saldo,
+        afectaSaldo: ev.afectaSaldo,
       };
     });
 

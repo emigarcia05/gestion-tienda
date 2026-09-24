@@ -361,6 +361,16 @@ export function formatoNroComprobante(
   return `${ptoVenta}-${String(cbteNro).padStart(8, "0")}`;
 }
 
+/** Dígitos del N° (p. ej. últimos 5 en Lista Comprobantes). Vacío si no hay números. */
+export function ultimosDigitosNroComprobante(
+  nroComprobante: string,
+  cantidad: number
+): string {
+  const digits = nroComprobante.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.slice(-cantidad);
+}
+
 export function ptoVentaAEnteroArca(ptoVenta: string): number {
   return Number.parseInt(ptoVenta, 10);
 }

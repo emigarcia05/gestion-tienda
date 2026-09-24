@@ -311,6 +311,11 @@ export type CuentaCorrienteClienteMovimiento = {
   detalle: string;
   monto: number;
   saldoCc: number;
+  /**
+   * false = cobro `es_cuenta_corriente` (forma de pago, no dinero recibido).
+   * No mueve SALDO CC ni cuenta para PENDIENTE/PAGADO.
+   */
+  afectaSaldo: boolean;
 };
 
 export type CuentaCorrienteClienteDatos = {
@@ -426,7 +431,7 @@ export function mapaEstadoPagoVentasCc(
   for (const mov of movimientos) {
     if (mov.tipo === "venta") {
       ventas.set(mov.comprobanteId, round2((ventas.get(mov.comprobanteId) ?? 0) + mov.monto));
-    } else if (mov.tipo === "cobro") {
+    } else if (mov.tipo === "cobro" && mov.afectaSaldo) {
       cobrado.set(
         mov.comprobanteId,
         round2((cobrado.get(mov.comprobanteId) ?? 0) + mov.monto)

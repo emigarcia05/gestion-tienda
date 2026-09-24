@@ -62,6 +62,7 @@ import {
   formatHhMmArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
+import { ultimosDigitosNroComprobante } from "@/lib/facturaFiscal";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
@@ -79,6 +80,35 @@ const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
+
+/** Anchos `%` Lista Comprobantes (`colgroup`; suman 100). */
+const LISTADO_FACTURAS_COLGROUP = (
+  <>
+    <col className="w-[10%]" />
+    <col className="w-[18%]" />
+    <col className="w-[8%]" />
+    <col className="w-[5%]" />
+    <col className="w-[10%]" />
+    <col className="w-[10%]" />
+    <col className="w-[7%]" />
+    <col className="w-[7%]" />
+    <col className="w-[5%]" />
+    <col className="w-[20%]" />
+  </>
+);
+
+/** Anchos `%` Lista Presupuestos (`colgroup`; suman 100). */
+const LISTADO_PRESUPUESTOS_COLGROUP = (
+  <>
+    <col className="w-[12%]" />
+    <col className="w-[24%]" />
+    <col className="w-[10%]" />
+    <col className="w-[12%]" />
+    <col className="w-[14%]" />
+    <col className="w-[10%]" />
+    <col className="w-[18%]" />
+  </>
+);
 
 type PeriodoFiltro = "hoy" | "ayer" | "mes" | "rango" | "todos";
 
@@ -456,7 +486,10 @@ export default function FacturaListadoPageClient({
     >
       <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
         <div className="contenedor-tabla-gestion--pie-fijo-scroll">
-        <Table variant="compact" className="tabla-gestion-compacta w-full">
+        <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed">
+          <colgroup>
+            {esFacturas ? LISTADO_FACTURAS_COLGROUP : LISTADO_PRESUPUESTOS_COLGROUP}
+          </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>FECHA</TableHead>
@@ -470,12 +503,12 @@ export default function FacturaListadoPageClient({
               </TableHead>
               {esFacturas ? (
                 <TableHead className="tabla-bloque-secundario-head text-right">
-                  SALDO PEND.
+                  SALDO
                 </TableHead>
               ) : null}
               {esFacturas ? (
                 <TableHead className="tabla-bloque-secundario-head text-center">
-                  DÍAS P/ VENC.
+                  DÍAS VENC.
                 </TableHead>
               ) : null}
               <TableHead className="tabla-bloque-secundario-head-divider text-center">
@@ -508,8 +541,11 @@ export default function FacturaListadoPageClient({
                   {esFacturas ? (
                     <TableCell>{FACTURA_TIPO_LABELS[item.tipo]}</TableCell>
                   ) : null}
-                  <TableCell className="tabular-nums">
-                    {item.nroComprobante || "—"}
+                  <TableCell
+                    className="tabular-nums"
+                    title={item.nroComprobante || undefined}
+                  >
+                    {fmtCelda(ultimosDigitosNroComprobante(item.nroComprobante, 5))}
                   </TableCell>
                   <TableCell className="uppercase">
                     {fmtCelda(item.sucursalNombres.join(" · "))}
