@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, CircleDollarSign, Eye, FileText, RefreshCw, Stamp, Trash2, Undo2 } from "lucide-react";
+import { Copy, CircleDollarSign, Eye, FileText, Loader2, RefreshCw, Stamp, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   consultarFacturaComprobanteArcaAction,
@@ -25,6 +25,7 @@ import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaCo
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
+import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -77,10 +78,11 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
 const PERIODO_HOY = "hoy";
+const PERIODO_RANGO = "rango";
 
-type PeriodoFiltro = "hoy" | "ayer" | "mes" | "todos";
+type PeriodoFiltro = "hoy" | "ayer" | "mes" | "rango" | "todos";
 
-function esPeriodoFiltro(value: string): value is PeriodoFiltro {
+function esPeriodoFiltroPreset(value: string): value is Exclude<PeriodoFiltro, "rango"> {
   return value === "hoy" || value === "ayer" || value === "mes" || value === "todos";
 }
 
@@ -107,6 +109,9 @@ export default function FacturaListadoPageClient({
     });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
+  const [rangoDesde, setRangoDesde] = useState("");
+  const [rangoHasta, setRangoHasta] = useState("");
+  const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
@@ -139,6 +144,10 @@ export default function FacturaListadoPageClient({
       if (periodo === "ayer" && item.fechaIso !== ayerIso) return false;
       if (periodo === "mes" && item.fechaIso.slice(0, 7) !== hoyIso.slice(0, 7)) {
         return false;
+      }
+      if (periodo === "rango") {
+        if (!rangoDesde || !rangoHasta) return false;
+        if (item.fechaIso < rangoDesde || item.fechaIso > rangoHasta) return false;
       }
       if (
         filtroSucursal &&
@@ -176,6 +185,8 @@ export default function FacturaListadoPageClient({
     items,
     qDebounced,
     periodo,
+    rangoDesde,
+    rangoHasta,
     hoyIso,
     ayerIso,
     filtroSucursal,
@@ -184,14 +195,26 @@ export default function FacturaListadoPageClient({
   ]);
 
   function onPeriodoChange(value: string) {
-    if (!esPeriodoFiltro(value)) return;
+    if (value === PERIODO_RANGO) {
+      setRangoModalOpen(true);
+      return;
+    }
+    if (!esPeriodoFiltroPreset(value)) return;
+    setRangoDesde("");
+    setRangoHasta("");
     setPeriodo(value);
+  }
+
+  function limpiarPeriodo() {
+    setPeriodo(PERIODO_HOY);
+    setRangoDesde("");
+    setRangoHasta("");
   }
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
-    setPeriodo(PERIODO_HOY);
+    limpiarPeriodo();
     setFiltroSucursal("");
     setFiltroUsuario("");
     setFiltroPendiente("");
@@ -283,7 +306,7 @@ export default function FacturaListadoPageClient({
   }
 
   const esFacturas = variant === "facturas";
-  const colSpan = esFacturas ? 13 : 9;
+  const colSpan = esFacturas ? 10 : 7;
   const indicadores = useMemo(
     () => resumenIndicadoresListaComprobantes(itemsFiltrados),
     [itemsFiltrados]
@@ -299,12 +322,18 @@ export default function FacturaListadoPageClient({
             <FilaFiltrosDesplegables columnas={4}>
               <FiltroIndividualContainer
                 activo={periodo !== PERIODO_HOY}
-                onLimpiar={() => setPeriodo(PERIODO_HOY)}
+                onLimpiar={limpiarPeriodo}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select value={periodo} onValueChange={onPeriodoChange}>
                   <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="PERIODO DE TIEMPO" />
+                    {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
+                      <span data-slot="select-value" className="truncate">
+                        {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="PERIODO DE TIEMPO" />
+                    )}
                   </SelectTrigger>
                   <SelectContent
                     className="select-content-filtro"
@@ -315,6 +344,14 @@ export default function FacturaListadoPageClient({
                     <SelectItem value="hoy">HOY</SelectItem>
                     <SelectItem value="ayer">AYER</SelectItem>
                     <SelectItem value="mes">ESTE MES</SelectItem>
+                    <SelectItem
+                      value={PERIODO_RANGO}
+                      onPointerDown={() => {
+                        queueMicrotask(() => setRangoModalOpen(true));
+                      }}
+                    >
+                      RANGO PERSONALIZADO
+                    </SelectItem>
                     <SelectItem value="todos">TODO</SelectItem>
                   </SelectContent>
                 </Select>
@@ -444,11 +481,6 @@ export default function FacturaListadoPageClient({
               <TableHead className="tabla-bloque-secundario-head-divider text-center">
                 ACCIONES
               </TableHead>
-              <TableHead className="text-center">BORRAR</TableHead>
-              <TableHead className="text-center">DUPLICAR</TableHead>
-              {esFacturas ? (
-                <TableHead className="text-center">CONV. FISCAL</TableHead>
-              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -586,10 +618,6 @@ export default function FacturaListadoPageClient({
                           <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                         </Button>
                       ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
                       <Button
                         type="button"
                         variant="ghost"
@@ -609,10 +637,6 @@ export default function FacturaListadoPageClient({
                       >
                         <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
                       <Button
                         type="button"
                         variant="ghost"
@@ -625,11 +649,7 @@ export default function FacturaListadoPageClient({
                       >
                         <Copy className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
-                    </div>
-                  </TableCell>
-                  {esFacturas ? (
-                    <TableCell className="text-center">
-                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      {esFacturas ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -658,9 +678,9 @@ export default function FacturaListadoPageClient({
                             aria-hidden
                           />
                         </Button>
-                      </div>
-                    </TableCell>
-                  ) : null}
+                      ) : null}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -734,6 +754,18 @@ export default function FacturaListadoPageClient({
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
       />
+      <FiltroRangoFechasCalendarioModal
+        open={rangoModalOpen}
+        onOpenChange={setRangoModalOpen}
+        fechaDesde={rangoDesde}
+        fechaHasta={rangoHasta}
+        onAplicarRango={(desde, hasta) => {
+          setRangoDesde(desde);
+          setRangoHasta(hasta);
+          setPeriodo(PERIODO_RANGO);
+        }}
+        onLimpiar={limpiarPeriodo}
+      />
       <Dialog
         open={modalAccion.open}
         onOpenChange={(next) => {
@@ -762,16 +794,25 @@ export default function FacturaListadoPageClient({
                 disabled={busyId != null}
                 onClick={() => void confirmarModalAccion()}
               >
-                {modalAccion.open && modalAccion.kind === "convertir"
-                  ? "Convertir"
-                  : "Borrar"}
+                {busyId != null ? (
+                  <Loader2 className="animate-spin" aria-hidden />
+                ) : null}
+                {busyId != null
+                  ? modalAccion.open && modalAccion.kind === "convertir"
+                    ? "Emitiendo…"
+                    : "Borrando…"
+                  : modalAccion.open && modalAccion.kind === "convertir"
+                    ? "Convertir"
+                    : "Borrar"}
               </Button>
             </div>
           }
         >
           <p className="text-sm text-foreground">
             {modalAccion.open && modalAccion.kind === "convertir"
-              ? `Se emitirá un comprobante fiscal con fecha de hoy y se eliminará el no fiscal ${modalAccion.item.nroComprobante || ""}.`
+              ? busyId != null
+                ? "Consultando ARCA para obtener el CAE. Puede tardar hasta un minuto."
+                : `Se emitirá un comprobante fiscal con fecha de hoy y se eliminará el no fiscal ${modalAccion.item.nroComprobante || ""}.`
               : `Se eliminará el comprobante ${modalAccion.open ? modalAccion.item.nroComprobante : ""}.`}
           </p>
         </AppModal>

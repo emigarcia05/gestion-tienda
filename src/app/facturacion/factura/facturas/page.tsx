@@ -10,6 +10,8 @@ import {
 } from "@/services/facturaComprobantesListado.service";
 
 export const dynamic = "force-dynamic";
+/** ARCA (CAE / convertir fiscal / NC) supera el default de Vercel (~10–15 s). */
+export const maxDuration = 60;
 
 export default async function FacturaFacturasPage() {
   const rol = await getRol();

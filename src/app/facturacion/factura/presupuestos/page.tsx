@@ -10,6 +10,7 @@ import {
 } from "@/services/facturaComprobantesListado.service";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function FacturaPresupuestosPage() {
   const rol = await getRol();

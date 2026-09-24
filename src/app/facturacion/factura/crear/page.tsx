@@ -11,6 +11,8 @@ import {
 import { obtenerBorradorDuplicarComprobante } from "@/services/facturaComprobantes.service";
 
 export const dynamic = "force-dynamic";
+/** ARCA (emitir CAE) supera el default de Vercel (~10–15 s). */
+export const maxDuration = 60;
 
 type Props = {
   searchParams: Promise<{ duplicar?: string }>;
