@@ -50,6 +50,7 @@ import {
   esFacturaTipoVenta,
   puedeEliminarComprobante,
   resumenIndicadoresListaComprobantes,
+  type FacturaClienteFiltroOption,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
   type FacturaUsuarioFiltroOption,
@@ -128,6 +129,8 @@ type Props = {
   items: FacturaComprobanteListItem[];
   sucursales: FacturaSucursalFiltroOption[];
   usuarios: FacturaUsuarioFiltroOption[];
+  /** Catálogo para el filtro de Lista Comprobantes. Presupuestos no lo usa. */
+  clientesFiltro?: FacturaClienteFiltroOption[];
   variant: "facturas" | "presupuestos";
 };
 
@@ -135,6 +138,7 @@ export default function FacturaListadoPageClient({
   items,
   sucursales,
   usuarios,
+  clientesFiltro = [],
   variant,
 }: Props) {
   const router = useRouter();
@@ -154,6 +158,8 @@ export default function FacturaListadoPageClient({
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
+  const [filtroClienteId, setFiltroClienteId] = useState("");
+  const [filtroProyectoId, setFiltroProyectoId] = useState("");
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
   const [detalleId, setDetalleId] = useState<string | null>(null);
@@ -173,6 +179,14 @@ export default function FacturaListadoPageClient({
     setFiltroSucursal,
     (codigo) => sucursalCodigos.has(codigo)
   );
+
+  const proyectosCliente = useMemo(() => {
+    if (!filtroClienteId) return [];
+    return (
+      clientesFiltro.find((cliente) => cliente.id === filtroClienteId)?.proyectos ??
+      []
+    );
+  }, [clientesFiltro, filtroClienteId]);
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
@@ -224,6 +238,17 @@ export default function FacturaListadoPageClient({
       ) {
         return false;
       }
+      if (variant === "facturas") {
+        if (filtroClienteId && item.clienteId !== filtroClienteId) return false;
+        if (
+          filtroProyectoId &&
+          proyectosCliente.length > 1 &&
+          item.proyectoId !== filtroProyectoId
+        ) {
+          return false;
+        }
+        return true;
+      }
       if (!qDebounced.trim()) return true;
       return matchByMultiTerm(
         [
@@ -252,6 +277,10 @@ export default function FacturaListadoPageClient({
     filtroUsuario,
     filtroTipo,
     filtroPendiente,
+    filtroClienteId,
+    filtroProyectoId,
+    proyectosCliente,
+    variant,
   ]);
 
   function onPeriodoChange(value: string) {
@@ -279,6 +308,13 @@ export default function FacturaListadoPageClient({
     setFiltroUsuario("");
     setFiltroTipo("");
     setFiltroPendiente("");
+    setFiltroClienteId("");
+    setFiltroProyectoId("");
+  }
+
+  function onFiltroClienteChange(value: string) {
+    setFiltroClienteId(value);
+    setFiltroProyectoId("");
   }
 
   async function handleConsultar(id: string) {
@@ -508,20 +544,78 @@ export default function FacturaListadoPageClient({
               ) : null}
             </FilaFiltrosDesplegables>
             <div className="flex items-center gap-3">
-              <FilterRowSearch className="flex-1">
-                <FiltroBusquedaInput
-                  id={
-                    esFacturas
-                      ? "filtro-facturas-busqueda"
-                      : "filtro-presupuestos-busqueda"
-                  }
-                  placeholder="BUSCAR POR CLIENTE, N°, CAE…"
-                  value={q}
-                  onChange={handleQChange}
-                  isDebouncing={isDebouncing}
-                  inputRef={searchRef}
-                />
-              </FilterRowSearch>
+              {esFacturas ? (
+                <>
+                  <FiltroIndividualContainer
+                    activo={Boolean(filtroClienteId)}
+                    onLimpiar={() => onFiltroClienteChange("")}
+                    className="min-w-0 flex-1"
+                  >
+                    <Select value={filtroClienteId} onValueChange={onFiltroClienteChange}>
+                      <SelectTrigger
+                        id="filtro-facturas-busqueda"
+                        className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                      >
+                        <SelectValue placeholder="BUSCAR POR CLIENTE" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="select-content-filtro"
+                        position="popper"
+                        side="bottom"
+                        align="start"
+                      >
+                        {clientesFiltro.map((cliente) => (
+                          <SelectItem key={cliente.id} value={cliente.id}>
+                            {cliente.etiqueta}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FiltroIndividualContainer>
+                  {proyectosCliente.length > 1 ? (
+                    <FiltroIndividualContainer
+                      activo={Boolean(filtroProyectoId)}
+                      onLimpiar={() => setFiltroProyectoId("")}
+                      className="min-w-0 flex-1"
+                    >
+                      <Select
+                        value={filtroProyectoId}
+                        onValueChange={setFiltroProyectoId}
+                      >
+                        <SelectTrigger
+                          id="filtro-facturas-proyecto"
+                          className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                        >
+                          <SelectValue placeholder="PROYECTO" />
+                        </SelectTrigger>
+                        <SelectContent
+                          className="select-content-filtro"
+                          position="popper"
+                          side="bottom"
+                          align="start"
+                        >
+                          {proyectosCliente.map((proyecto) => (
+                            <SelectItem key={proyecto.id} value={proyecto.id}>
+                              {proyecto.etiqueta}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FiltroIndividualContainer>
+                  ) : null}
+                </>
+              ) : (
+                <FilterRowSearch className="flex-1">
+                  <FiltroBusquedaInput
+                    id="filtro-presupuestos-busqueda"
+                    placeholder="BUSCAR POR CLIENTE, N°, CAE…"
+                    value={q}
+                    onChange={handleQChange}
+                    isDebouncing={isDebouncing}
+                    inputRef={searchRef}
+                  />
+                </FilterRowSearch>
+              )}
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
               <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
                 {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
@@ -737,25 +831,6 @@ export default function FacturaListadoPageClient({
                           />
                         </Button>
                       ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                          !puedeEliminarComprobante(item.tipo) && "invisible"
-                        )}
-                        title="Borrar"
-                        aria-label={`Borrar ${item.nroComprobante}`}
-                        disabled={
-                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
-                        }
-                        onClick={() =>
-                          setModalAccion({ open: true, kind: "borrar", item })
-                        }
-                      >
-                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
                       {esFacturas ? (
                         <Button
                           type="button"
@@ -777,6 +852,25 @@ export default function FacturaListadoPageClient({
                           <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                         </Button>
                       ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                          !puedeEliminarComprobante(item.tipo) && "invisible"
+                        )}
+                        title="Borrar"
+                        aria-label={`Borrar ${item.nroComprobante}`}
+                        disabled={
+                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
+                        }
+                        onClick={() =>
+                          setModalAccion({ open: true, kind: "borrar", item })
+                        }
+                      >
+                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
                       {esFacturas ? (
                         <Button
                           type="button"

@@ -68,6 +68,8 @@ function mapListItem(
     ptoVenta: string;
     cbteNro: number | null;
     receptorNombre: string;
+    clienteId: string | null;
+    proyectoId: string | null;
     impTotal: Prisma.Decimal;
     impCobrado: Prisma.Decimal;
     diasVencimiento: number | null;
@@ -113,6 +115,8 @@ function mapListItem(
     createdAtIso: row.createdAt.toISOString(),
     nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
     cliente: row.receptorNombre,
+    clienteId: row.clienteId,
+    proyectoId: row.proyectoId,
     impTotal,
     saldoPendiente,
     diasVencido,
@@ -142,6 +146,8 @@ const listSelect = {
   ptoVenta: true,
   cbteNro: true,
   receptorNombre: true,
+  clienteId: true,
+  proyectoId: true,
   impTotal: true,
   impCobrado: true,
   diasVencimiento: true,

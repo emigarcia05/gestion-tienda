@@ -393,6 +393,13 @@ export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 
 export type FacturaComprobanteEstado = "borrador" | "autorizado" | "rechazado";
 
+/** Opción del filtro CLIENTE en Lista Comprobantes (catálogo, no texto libre). */
+export type FacturaClienteFiltroOption = {
+  id: string;
+  etiqueta: string;
+  proyectos: { id: string; etiqueta: string }[];
+};
+
 export type FacturaComprobanteListItem = {
   id: string;
   tipo: FacturaTipo;
@@ -402,6 +409,10 @@ export type FacturaComprobanteListItem = {
   createdAtIso: string;
   nroComprobante: string;
   cliente: string;
+  /** FK `clientes`. Null en consumidor final o filas sin catálogo. */
+  clienteId: string | null;
+  /** FK `clientes_proyectos`. Null si el comprobante no tiene proyecto. */
+  proyectoId: string | null;
   impTotal: number;
   /** `imp_total` − `imp_cobrado` si es venta con saldo; si no, `null`. */
   saldoPendiente: number | null;
