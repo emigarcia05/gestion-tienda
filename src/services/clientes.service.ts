@@ -663,7 +663,7 @@ async function armarLineasProductosCuentaCorriente(
 }
 
 /** Ventas/NC del cliente: FK, CUIT del receptor o mismo nombre (incl. CONSUMIDOR FINAL). */
-function whereComprobantesCuentaCorriente(
+export function whereComprobantesCuentaCorriente(
   cliente: ClienteListaItem
 ): Prisma.ComprobanteVtaWhereInput {
   const or: Prisma.ComprobanteVtaWhereInput[] = [{ clienteId: cliente.id }];

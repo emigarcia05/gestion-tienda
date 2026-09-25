@@ -240,6 +240,14 @@ export type AsignarNotaCreditoComoCobroInput = z.infer<
   typeof asignarNotaCreditoComoCobroSchema
 >;
 
+export const registrarPagoCuentaCorrienteSchema = cobroFacturaEmitirSchema.extend({
+  clienteId: prismaCuidSchema,
+});
+
+export type RegistrarPagoCuentaCorrienteInput = z.infer<
+  typeof registrarPagoCuentaCorrienteSchema
+>;
+
 export type RegistrarCobroComprobanteFacturaInput = z.infer<
   typeof registrarCobroComprobanteFacturaSchema
 >;

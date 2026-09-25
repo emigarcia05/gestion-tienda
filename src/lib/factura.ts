@@ -217,6 +217,44 @@ export function saldoPendienteTrasCobro(
   return restante > 0 ? restante : 0;
 }
 
+/** Venta con saldo para Pago Cuenta Corriente (FIFO). */
+export type FacturaVentaPendientePago = {
+  id: string;
+  nroComprobante: string;
+  fechaIso: string;
+  saldoPendiente: number;
+};
+
+export type FacturaImputacionFifo = FacturaVentaPendientePago & {
+  asignado: number;
+};
+
+function round2Pesos(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** Imputa `montoPesos` de más antiguo a más nuevo, sin pasarse del saldo de cada venta. */
+export function imputarPagoFifoVentas(
+  ventas: readonly FacturaVentaPendientePago[],
+  montoPesos: number
+): FacturaImputacionFifo[] {
+  let resto = round2Pesos(Math.max(0, montoPesos));
+  return ventas.map((venta) => {
+    const saldo = round2Pesos(Math.max(0, venta.saldoPendiente));
+    const asignado = round2Pesos(Math.min(saldo, resto));
+    resto = round2Pesos(resto - asignado);
+    return { ...venta, asignado };
+  });
+}
+
+export function totalSaldoVentasPendientes(
+  ventas: readonly FacturaVentaPendientePago[]
+): number {
+  return round2Pesos(
+    ventas.reduce((acc, v) => acc + Math.max(0, v.saldoPendiente), 0)
+  );
+}
+
 /** Texto de visor: `PRESUPUESTO` o `VENTA - FISCAL`. */
 export function etiquetaFacturaTipoVisor(tipo: FacturaTipo): string {
   const clase = claseDesdeFacturaTipo(tipo);

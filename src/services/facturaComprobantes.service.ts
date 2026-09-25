@@ -20,6 +20,7 @@ import {
   saldosCuentaCorrientePorCliente,
 } from "@/services/clientes.service";
 import {
+  listarVentasPendientesPagoCuentaCorriente,
   listarVistaCobroNotaCredito,
   usadoNotaCreditoPesos,
 } from "@/services/facturaComprobantesListado.service";
@@ -44,7 +45,9 @@ import {
   tipoFiscalDesdeNoFiscal,
   tipoNotaCreditoDesdeVenta,
   impCobradoDesdeCobros,
+  imputarPagoFifoVentas,
   saldoPendienteTrasCobro,
+  totalSaldoVentasPendientes,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   MENSAJE_PERSONAL_SIN_SUCURSAL,
   MENSAJE_PTO_VTA_SUCURSAL_USUARIO,
@@ -85,6 +88,7 @@ import type {
   EmitirFacturaComprobanteInput,
   GuardarDiasVencimientoFacturaInput,
   RegistrarCobroComprobanteFacturaInput,
+  RegistrarPagoCuentaCorrienteInput,
 } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
 
@@ -95,6 +99,100 @@ function decimalToNumber(value: Prisma.Decimal | number): number {
 function asEstado(raw: string): FacturaComprobanteEstado {
   if (raw === "borrador" || raw === "autorizado" || raw === "rechazado") return raw;
   return "borrador";
+}
+
+async function revertirImputacionesNotaCredito(
+  tx: Prisma.TransactionClient,
+  nroNc: string
+): Promise<void> {
+  const nro = nroNc.trim();
+  if (!nro) return;
+  const cobros = await tx.comprobanteVtaCobro.findMany({
+    where: { entidadNombre: nro },
+    select: {
+      id: true,
+      comprobanteId: true,
+      pagoNombre: true,
+      montoCents: true,
+    },
+  });
+  const imputados = cobros.filter((c) => esCobroNotaCreditoNombre(c.pagoNombre));
+  if (imputados.length === 0) return;
+
+  const porVenta = new Map<string, { ids: string[]; montoCents: number }>();
+  for (const cobro of imputados) {
+    const cur = porVenta.get(cobro.comprobanteId) ?? { ids: [], montoCents: 0 };
+    cur.ids.push(cobro.id);
+    cur.montoCents += cobro.montoCents;
+    porVenta.set(cobro.comprobanteId, cur);
+  }
+
+  await tx.comprobanteVtaCobro.deleteMany({
+    where: { id: { in: imputados.map((c) => c.id) } },
+  });
+
+  for (const [ventaId, agg] of porVenta) {
+    const venta = await tx.comprobanteVta.findUnique({
+      where: { id: ventaId },
+      select: {
+        impTotal: true,
+        impCobrado: true,
+        diasVencimiento: true,
+        clienteId: true,
+      },
+    });
+    if (!venta) continue;
+    const restar = roundArs2(agg.montoCents / 100);
+    const siguienteImpCobrado = roundArs2(
+      Math.max(0, decimalToNumber(venta.impCobrado) - restar)
+    );
+    const impTotal = decimalToNumber(venta.impTotal);
+    const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+    let diasVencimiento = venta.diasVencimiento;
+    if (siguienteSaldo <= 0) {
+      diasVencimiento = null;
+    } else if (diasVencimiento == null) {
+      let plazo: number | null = null;
+      if (venta.clienteId) {
+        const cli = await tx.cliente.findUnique({
+          where: { id: venta.clienteId },
+          select: { ctaCorrientePlazo: true },
+        });
+        plazo = cli?.ctaCorrientePlazo ?? null;
+      }
+      diasVencimiento = diasVencimientoPorSaldoPendiente({
+        esVenta: true,
+        impTotal,
+        impCobrado: siguienteImpCobrado,
+        plazoCliente: plazo,
+      });
+    }
+    await tx.comprobanteVta.update({
+      where: { id: ventaId },
+      data: { impCobrado: siguienteImpCobrado, diasVencimiento },
+    });
+  }
+}
+
+async function retargetImputacionesNotaCredito(
+  nroViejo: string,
+  nroNuevo: string
+): Promise<void> {
+  const desde = nroViejo.trim();
+  const hacia = nroNuevo.trim();
+  if (!desde || !hacia || desde === hacia) return;
+  const cobros = await prisma.comprobanteVtaCobro.findMany({
+    where: { entidadNombre: desde },
+    select: { id: true, pagoNombre: true },
+  });
+  const ids = cobros
+    .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
+    .map((c) => c.id);
+  if (ids.length === 0) return;
+  await prisma.comprobanteVtaCobro.updateMany({
+    where: { id: { in: ids } },
+    data: { entidadNombre: hacia },
+  });
 }
 
 async function imputarNcEmitidaAlOriginal(
@@ -381,7 +479,8 @@ export async function eliminarComprobanteNoFiscal(
       select: {
         id: true,
         tipoComprobante: true,
-        notasCredito: { select: { id: true }, take: 1 },
+        ptoVenta: true,
+        cbteNro: true,
       },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
@@ -394,13 +493,19 @@ export async function eliminarComprobanteNoFiscal(
         error: "Solo se pueden eliminar comprobantes no fiscales.",
       };
     }
-    if (row.notasCredito.length > 0) {
-      return {
-        success: false,
-        error: "No se puede eliminar: hay una nota de crédito asociada.",
-      };
-    }
-    await prisma.comprobanteVta.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      if (esFacturaTipoNotaCredito(tipo)) {
+        await revertirImputacionesNotaCredito(
+          tx,
+          formatoNroComprobante(row.ptoVenta, row.cbteNro)
+        );
+      }
+      await tx.comprobanteVta.updateMany({
+        where: { cbteAsocId: id },
+        data: { cbteAsocId: null },
+      });
+      await tx.comprobanteVta.delete({ where: { id } });
+    });
     return { success: true, data: undefined };
   } catch (e) {
     console.error("[facturaComprobantes][eliminar]", e);
@@ -452,12 +557,6 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
     }
     if (row.estado === "rechazado") {
       return { success: false, error: "No se puede convertir un comprobante rechazado." };
-    }
-    if (row.notasCredito.length > 0) {
-      return {
-        success: false,
-        error: "No se puede convertir: hay una nota de crédito asociada.",
-      };
     }
     if (row.items.length === 0) {
       return { success: false, error: "El comprobante no tiene ítems." };
@@ -513,6 +612,19 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
             ? "ARCA rechazó el comprobante fiscal. Se conservó el no fiscal."
             : "No se obtuvo CAE. Se conservó el comprobante no fiscal.",
       };
+    }
+
+    if (esFacturaTipoNotaCredito(tipoOrigen)) {
+      await retargetImputacionesNotaCredito(
+        formatoNroComprobante(row.ptoVenta, row.cbteNro),
+        emitRes.data.nroComprobante
+      );
+    }
+    if (esFacturaTipoVenta(tipoOrigen)) {
+      await prisma.comprobanteVta.updateMany({
+        where: { cbteAsocId: row.id },
+        data: { cbteAsocId: emitRes.data.id },
+      });
     }
 
     const del = await eliminarComprobanteNoFiscal(row.id);
@@ -1553,6 +1665,99 @@ export async function registrarCobroComprobanteVta(
   } catch (e) {
     console.error("[registrarCobroComprobanteVta]", e);
     return { success: false, error: "No se pudo registrar el cobro." };
+  }
+}
+
+export async function registrarPagoCuentaCorriente(
+  input: RegistrarPagoCuentaCorrienteInput
+): Promise<ServiceResult<void>> {
+  try {
+    if (esCobroNotaCreditoNombre(input.pagoNombre)) {
+      return {
+        success: false,
+        error: "El pago de cuenta corriente no se registra como nota de crédito.",
+      };
+    }
+    const ventas = await listarVentasPendientesPagoCuentaCorriente(input.clienteId);
+    if (ventas.length === 0) {
+      return { success: false, error: "No hay comprobantes con saldo." };
+    }
+    const montoPesos = roundArs2(input.montoCents / 100);
+    const totalPendiente = totalSaldoVentasPendientes(ventas);
+    if (montoPesos > totalPendiente) {
+      return {
+        success: false,
+        error: "El monto no puede ser mayor al saldo pendiente total.",
+      };
+    }
+    const imputaciones = imputarPagoFifoVentas(ventas, montoPesos).filter(
+      (fila) => fila.asignado > 0
+    );
+    if (imputaciones.length === 0) {
+      return { success: false, error: "Ingresá un monto a pagar." };
+    }
+    await prisma.$transaction(async (tx) => {
+      for (const fila of imputaciones) {
+        const row = await tx.comprobanteVta.findUnique({
+          where: { id: fila.id },
+          select: {
+            tipoComprobante: true,
+            estado: true,
+            impTotal: true,
+            impCobrado: true,
+            diasVencimiento: true,
+            cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+          },
+        });
+        if (!row) {
+          throw new Error("venta-ausente");
+        }
+        const tipo = esFacturaTipo(row.tipoComprobante)
+          ? row.tipoComprobante
+          : "factura_no_fiscal";
+        if (!esFacturaTipoVenta(tipo) || asEstado(row.estado) === "rechazado") {
+          throw new Error("venta-invalida");
+        }
+        const impTotal = decimalToNumber(row.impTotal);
+        const impCobrado = decimalToNumber(row.impCobrado);
+        const saldo = saldoPendienteTrasCobro(impTotal, impCobrado);
+        const montoFila = roundArs2(fila.asignado);
+        if (montoFila > saldo) {
+          throw new Error("saldo-cambio");
+        }
+        const siguienteImpCobrado = roundArs2(impCobrado + montoFila);
+        const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+        await tx.comprobanteVtaCobro.create({
+          data: {
+            comprobanteId: fila.id,
+            orden: (row.cobros[0]?.orden ?? -1) + 1,
+            pagoNombre: input.pagoNombre,
+            entidadNombre: input.entidadNombre,
+            cuotaEtiqueta: input.cuotaEtiqueta,
+            montoCents: Math.round(montoFila * 100),
+            esCuentaCorriente: false,
+            plazoDias: null,
+          },
+        });
+        await tx.comprobanteVta.update({
+          where: { id: fila.id },
+          data: {
+            impCobrado: siguienteImpCobrado,
+            diasVencimiento: siguienteSaldo <= 0 ? null : row.diasVencimiento,
+          },
+        });
+      }
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    if (e instanceof Error && e.message === "saldo-cambio") {
+      return {
+        success: false,
+        error: "El saldo de un comprobante cambió. Recargá e intentá de nuevo.",
+      };
+    }
+    console.error("[registrarPagoCuentaCorriente]", e);
+    return { success: false, error: "No se pudo registrar el pago." };
   }
 }
 

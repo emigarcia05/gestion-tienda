@@ -11,6 +11,7 @@ import type {
   FacturaNcCobroVista,
   FacturaComprobanteDuplicarBorrador,
   FacturaEmitirResultado,
+  FacturaVentaPendientePago,
 } from "@/lib/factura";
 import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
@@ -26,6 +27,7 @@ import {
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
   asignarNotaCreditoComoCobroSchema,
+  registrarPagoCuentaCorrienteSchema,
 } from "@/lib/validations/factura";
 import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import {
@@ -342,6 +344,48 @@ export async function registrarCobroComprobanteFacturaAction(
   } catch (e) {
     console.error("[registrarCobroComprobanteFacturaAction]", e);
     return { ok: false, error: "No se pudo registrar el cobro." };
+  }
+}
+
+export async function listarVentasPendientesPagoCuentaCorrienteAction(
+  raw: unknown
+): Promise<ActionResult<{ ventas: FacturaVentaPendientePago[] }>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = obtenerCuentaCorrienteClienteSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { listarVentasPendientesPagoCuentaCorriente } = await import(
+      "@/services/facturaComprobantesListado.service"
+    );
+    const ventas = await listarVentasPendientesPagoCuentaCorriente(
+      parsed.data.clienteId
+    );
+    return { ok: true, data: { ventas } };
+  } catch (e) {
+    console.error("[listarVentasPendientesPagoCuentaCorrienteAction]", e);
+    return { ok: false, error: "No se pudieron listar los comprobantes con saldo." };
+  }
+}
+
+export async function registrarPagoCuentaCorrienteAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = registrarPagoCuentaCorrienteSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { registrarPagoCuentaCorriente } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await registrarPagoCuentaCorriente(parsed.data));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[registrarPagoCuentaCorrienteAction]", e);
+    return { ok: false, error: "No se pudo registrar el pago." };
   }
 }
 

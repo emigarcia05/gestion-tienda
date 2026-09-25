@@ -14,6 +14,7 @@ import {
   type FacturaSucursalFiltroOption,
   type FacturaTipo,
   type FacturaUsuarioFiltroOption,
+  type FacturaVentaPendientePago,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import {
@@ -22,6 +23,10 @@ import {
   diffCalendarDaysIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
 } from "@/lib/fechaArgentina";
+import {
+  obtenerClienteListaPorId,
+  whereComprobantesCuentaCorriente,
+} from "@/services/clientes.service";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
   return Number(value);
@@ -702,4 +707,50 @@ export async function obtenerDetalleCobroComprobante(
     console.error("[facturaComprobantesListado][obtenerDetalleCobro]", e);
     return { success: false, error: "No se pudo leer el cobro." };
   }
+}
+
+export async function listarVentasPendientesPagoCuentaCorriente(
+  clienteId: string
+): Promise<FacturaVentaPendientePago[]> {
+  const cliente = await obtenerClienteListaPorId(clienteId);
+  if (!cliente) return [];
+  const rows = await prisma.comprobanteVta.findMany({
+    where: {
+      AND: [
+        whereComprobantesCuentaCorriente(cliente),
+        {
+          estado: { not: "rechazado" },
+          tipoComprobante: { in: ["factura_fiscal", "factura_no_fiscal"] },
+        },
+      ],
+    },
+    orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      tipoComprobante: true,
+      fecha: true,
+      ptoVenta: true,
+      cbteNro: true,
+      impTotal: true,
+      impCobrado: true,
+    },
+  });
+  const out: FacturaVentaPendientePago[] = [];
+  for (const row of rows) {
+    const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
+      : "factura_no_fiscal";
+    if (!esFacturaTipoVenta(tipo)) continue;
+    const saldoPendiente = round2(
+      Math.max(0, decimalToNumber(row.impTotal) - decimalToNumber(row.impCobrado))
+    );
+    if (saldoPendiente <= 0) continue;
+    out.push({
+      id: row.id,
+      nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
+      fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+      saldoPendiente,
+    });
+  }
+  return out;
 }

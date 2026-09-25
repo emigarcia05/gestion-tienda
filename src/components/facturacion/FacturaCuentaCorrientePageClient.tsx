@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Eye, FileText, Package, Share2 } from "lucide-react";
+import { Eye, FileText, Package, Share2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -27,6 +27,7 @@ import FacturaCobroDetalleModal from "@/components/facturacion/FacturaCobroDetal
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
 import FacturaCuentaCorrienteTotalesItemModal from "@/components/facturacion/FacturaCuentaCorrienteTotalesItemModal";
+import FacturaPagoCuentaCorrienteModal from "@/components/facturacion/FacturaPagoCuentaCorrienteModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
@@ -149,6 +150,7 @@ export default function FacturaCuentaCorrientePageClient({
   const [filtroCondicionPago, setFiltroCondicionPago] =
     useState<FiltroCondicionPagoCuentaCorriente>(FILTRO_CC_TODOS);
   const [compartiendo, setCompartiendo] = useState(false);
+  const [pagoCcOpen, setPagoCcOpen] = useState(false);
   const [totalesItemOpen, setTotalesItemOpen] = useState(false);
   const esPublico = visorPublico != null;
 
@@ -474,14 +476,23 @@ export default function FacturaCuentaCorrientePageClient({
               onClick={() => setVista("productos")}
             />
             {esPublico ? null : (
-              <ToolbarActionButton
-                label="COMPARTIR CUENTA CORRIENTE"
-                icon={<Share2 />}
-                className="w-full justify-start"
-                disabled={clienteId == null}
-                loading={compartiendo}
-                onClick={() => void compartirLink()}
-              />
+              <>
+                <ToolbarActionButton
+                  label="PAGO CUENTA CORRIENTE"
+                  icon={<Wallet />}
+                  className="w-full justify-start"
+                  disabled={clienteId == null}
+                  onClick={() => setPagoCcOpen(true)}
+                />
+                <ToolbarActionButton
+                  label="COMPARTIR CUENTA CORRIENTE"
+                  icon={<Share2 />}
+                  className="w-full justify-start"
+                  disabled={clienteId == null}
+                  loading={compartiendo}
+                  onClick={() => void compartirLink()}
+                />
+              </>
             )}
           </>
         }
@@ -1037,6 +1048,14 @@ export default function FacturaCuentaCorrientePageClient({
           )}
         </div>
       </ClassicFilteredTableLayout>
+      <FacturaPagoCuentaCorrienteModal
+        open={pagoCcOpen}
+        onOpenChange={setPagoCcOpen}
+        clienteId={clienteId}
+        onRegistrado={() => {
+          if (clienteId) void cargarLedger(clienteId);
+        }}
+      />
       <FacturaCobroDetalleModal
         open={cobroId != null}
         onOpenChange={(open) => {
