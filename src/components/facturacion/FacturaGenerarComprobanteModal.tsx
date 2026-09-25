@@ -10,6 +10,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,6 +21,8 @@ import {
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esFacturaTipoVenta,
+  FACTURA_COBRO_NOTA_CREDITO_LABEL,
+  FACTURA_COBRO_NOTA_CREDITO_UI_ID,
   FACTURA_TIPO_LABELS,
   resumenTotalesFactura,
 } from "@/lib/factura";
@@ -127,16 +130,34 @@ export default function FacturaGenerarComprobanteModal({
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
+  const [notaCreditoRef, setNotaCreditoRef] = useState("");
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
   const totalCents = totalCentsDeComprobante(comprobante);
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
+  const pagosDisponibles = useMemo<FinAnaCosFinaPagoItem[]>(
+    () => [
+      {
+        id: FACTURA_COBRO_NOTA_CREDITO_UI_ID,
+        nombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
+        enCostosFinancieros: false,
+        enMargenContribucion: false,
+        aceptaCuotas: false,
+        entidadObligatoria: false,
+        entidadIds: [],
+        entidadNombres: [],
+      },
+      ...pagos,
+    ],
+    [pagos]
+  );
 
   const pagoSel = useMemo(
-    () => pagos.find((p) => p.id === pagoId) ?? null,
-    [pagos, pagoId]
+    () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
+    [pagosDisponibles, pagoId]
   );
+  const pagoEsNotaCredito = pagoSel?.id === FACTURA_COBRO_NOTA_CREDITO_UI_ID;
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
 
@@ -144,6 +165,7 @@ export default function FacturaGenerarComprobanteModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
+    setNotaCreditoRef("");
     setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
   }, []);
 
@@ -175,7 +197,8 @@ export default function FacturaGenerarComprobanteModal({
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
     setPagoId(nextId);
-    const next = pagos.find((p) => p.id === nextId);
+    setNotaCreditoRef("");
+    const next = pagosDisponibles.find((p) => p.id === nextId);
     const unicas =
       next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
@@ -207,6 +230,13 @@ export default function FacturaGenerarComprobanteModal({
     if (montoCents > pendienteCents) {
       return { ok: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
+    const referenciaNc = notaCreditoRef.trim().toLocaleUpperCase("es-AR");
+    if (pagoEsNotaCredito && !referenciaNc) {
+      return {
+        ok: false,
+        error: "Ingresá la referencia de la nota de crédito.",
+      };
+    }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
@@ -214,7 +244,7 @@ export default function FacturaGenerarComprobanteModal({
       ok: true,
       cobro: {
         pagoNombre: pagoSel.nombre,
-        entidadNombre,
+        entidadNombre: pagoEsNotaCredito ? referenciaNc : entidadNombre,
         cuotaEtiqueta: cuota?.cuotas ?? null,
         montoCents,
       },
@@ -350,7 +380,7 @@ export default function FacturaGenerarComprobanteModal({
 
               {formCobroVisible ? (
                 <div className="flex flex-col gap-3">
-                  {pagos.length === 0 ? (
+                  {pagosDisponibles.length === 0 ? (
                     <p className="text-center text-sm text-muted-foreground">
                       No hay formas de pago cargadas.
                     </p>
@@ -360,7 +390,7 @@ export default function FacturaGenerarComprobanteModal({
                       aria-label="Forma de pago"
                       className="flex flex-wrap justify-center gap-2"
                     >
-                        {pagos.map((pago) => {
+                        {pagosDisponibles.map((pago) => {
                           const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
                           const seleccionado = pago.id === pagoId;
                           return (
@@ -383,6 +413,21 @@ export default function FacturaGenerarComprobanteModal({
                         })}
                       </div>
                     )}
+
+                  {pagoEsNotaCredito ? (
+                    <label className="flex min-w-0 flex-1 flex-col gap-1">
+                      <ModalMicroLabel>COMPROBANTE NC</ModalMicroLabel>
+                      <Input
+                        value={notaCreditoRef}
+                        onChange={(e) =>
+                          setNotaCreditoRef(e.target.value.toLocaleUpperCase("es-AR"))
+                        }
+                        placeholder="EJ: 00001-00001234"
+                        disabled={ocupado}
+                        className="w-full"
+                      />
+                    </label>
+                  ) : null}
 
                   <div className="flex items-end justify-center gap-2">
                     {muestraEntidad ? (

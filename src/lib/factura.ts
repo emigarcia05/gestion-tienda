@@ -26,10 +26,13 @@ export const FACTURA_TIPO_LABELS: Record<FacturaTipo, string> = {
   nota_credito_fiscal: "NOTA CRÉDITO FISCAL",
 };
 
-/** Etiqueta de columna TIPO en Lista Comprobantes. */
+/** Etiqueta de columna TIPO en Lista Comprobantes. Fiscal y no fiscal se muestran igual. */
 export function etiquetaTipoListaComprobantes(tipo: FacturaTipo): string {
   if (tipo === "factura_fiscal" || tipo === "factura_no_fiscal") {
     return "FACTURA";
+  }
+  if (tipo === "nota_credito_fiscal" || tipo === "nota_credito_no_fiscal") {
+    return "NOTA CRÉDITO";
   }
   return FACTURA_TIPO_LABELS[tipo];
 }
@@ -98,6 +101,27 @@ export const MENSAJE_PERSONAL_SIN_SUCURSAL =
 
 export const MENSAJE_PTO_VTA_SUCURSAL_USUARIO =
   "No hay punto de venta activo para la sucursal del usuario.";
+
+/** Forma de pago sintética para imputar una NC como cobro de una venta. */
+export const FACTURA_COBRO_NOTA_CREDITO_LABEL = "NOTA DE CRÉDITO";
+
+/** ID local (solo UI) para la opción sintética de cobro por NC. */
+export const FACTURA_COBRO_NOTA_CREDITO_UI_ID = "__factura_nc__";
+
+function normalizarNombreCobro(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleUpperCase("es-AR");
+}
+
+export function esCobroNotaCreditoNombre(value: string): boolean {
+  return (
+    normalizarNombreCobro(value) ===
+    normalizarNombreCobro(FACTURA_COBRO_NOTA_CREDITO_LABEL)
+  );
+}
 
 /** True si hay tope configurado y el saldo CC ya lo supera (no se emite venta). */
 export function clienteSuperaTopeCtaCorriente(

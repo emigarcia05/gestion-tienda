@@ -1421,7 +1421,6 @@ export async function registrarCobroComprobanteVta(
         impTotal: true,
         impCobrado: true,
         diasVencimiento: true,
-        notasCredito: { select: { id: true }, take: 1 },
         cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
       },
     });
@@ -1434,9 +1433,6 @@ export async function registrarCobroComprobanteVta(
     }
     if (asEstado(row.estado) === "rechazado") {
       return { success: false, error: "No se puede cobrar un comprobante rechazado." };
-    }
-    if (row.notasCredito.length > 0) {
-      return { success: false, error: "No se puede cobrar un comprobante con nota de crédito." };
     }
     const impTotal = decimalToNumber(row.impTotal);
     const impCobrado = decimalToNumber(row.impCobrado);

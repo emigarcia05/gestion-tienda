@@ -85,6 +85,8 @@ const FILTRO_PEND_PAGO = "pendiente";
 const FILTRO_PEND_VENC = "pendiente_vencido";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
+/** Ancho fijo de BUSCAR POR CLIENTE y PROYECTO. El hueco de proyecto se reserva aunque no se muestre. */
+const FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS = "w-[20rem] shrink-0 flex-none";
 /** Texto de celda alineado al `th` (`.table-head-inner` centra en 100% del ancho). */
 const CELDA_TEXTO_CLASS = "text-center whitespace-normal";
 const PILA_CELDA_CLASS =
@@ -187,6 +189,7 @@ export default function FacturaListadoPageClient({
       []
     );
   }, [clientesFiltro, filtroClienteId]);
+  const muestraProyecto = proyectosCliente.length > 1;
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
@@ -242,7 +245,7 @@ export default function FacturaListadoPageClient({
         if (filtroClienteId && item.clienteId !== filtroClienteId) return false;
         if (
           filtroProyectoId &&
-          proyectosCliente.length > 1 &&
+          muestraProyecto &&
           item.proyectoId !== filtroProyectoId
         ) {
           return false;
@@ -279,7 +282,7 @@ export default function FacturaListadoPageClient({
     filtroPendiente,
     filtroClienteId,
     filtroProyectoId,
-    proyectosCliente,
+    muestraProyecto,
     variant,
   ]);
 
@@ -549,7 +552,7 @@ export default function FacturaListadoPageClient({
                   <FiltroIndividualContainer
                     activo={Boolean(filtroClienteId)}
                     onLimpiar={() => onFiltroClienteChange("")}
-                    className="min-w-0 flex-1"
+                    className={FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS}
                   >
                     <Select value={filtroClienteId} onValueChange={onFiltroClienteChange}>
                       <SelectTrigger
@@ -572,37 +575,40 @@ export default function FacturaListadoPageClient({
                       </SelectContent>
                     </Select>
                   </FiltroIndividualContainer>
-                  {proyectosCliente.length > 1 ? (
-                    <FiltroIndividualContainer
-                      activo={Boolean(filtroProyectoId)}
-                      onLimpiar={() => setFiltroProyectoId("")}
-                      className="min-w-0 flex-1"
+                  <FiltroIndividualContainer
+                    activo={muestraProyecto && Boolean(filtroProyectoId)}
+                    onLimpiar={() => setFiltroProyectoId("")}
+                    className={cn(
+                      FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS,
+                      !muestraProyecto && "invisible pointer-events-none"
+                    )}
+                  >
+                    <Select
+                      value={filtroProyectoId}
+                      onValueChange={setFiltroProyectoId}
+                      disabled={!muestraProyecto}
                     >
-                      <Select
-                        value={filtroProyectoId}
-                        onValueChange={setFiltroProyectoId}
+                      <SelectTrigger
+                        id="filtro-facturas-proyecto"
+                        className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                        aria-hidden={!muestraProyecto}
                       >
-                        <SelectTrigger
-                          id="filtro-facturas-proyecto"
-                          className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                        >
-                          <SelectValue placeholder="PROYECTO" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className="select-content-filtro"
-                          position="popper"
-                          side="bottom"
-                          align="start"
-                        >
-                          {proyectosCliente.map((proyecto) => (
-                            <SelectItem key={proyecto.id} value={proyecto.id}>
-                              {proyecto.etiqueta}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FiltroIndividualContainer>
-                  ) : null}
+                        <SelectValue placeholder="PROYECTO" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="select-content-filtro"
+                        position="popper"
+                        side="bottom"
+                        align="start"
+                      >
+                        {proyectosCliente.map((proyecto) => (
+                          <SelectItem key={proyecto.id} value={proyecto.id}>
+                            {proyecto.etiqueta}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FiltroIndividualContainer>
                 </>
               ) : (
                 <FilterRowSearch className="flex-1">
@@ -791,10 +797,7 @@ export default function FacturaListadoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={cn(
-                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                            !esFacturaTipoVenta(item.tipo) && "invisible"
-                          )}
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Cobro"
                           aria-label={`Cobro ${item.nroComprobante}`}
                           disabled={!esFacturaTipoVenta(item.tipo)}
@@ -814,10 +817,7 @@ export default function FacturaListadoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={cn(
-                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                            !esFacturaTipoVenta(item.tipo) && "invisible"
-                          )}
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Nota de crédito"
                           aria-label={`Nota de crédito ${item.nroComprobante}`}
                           disabled={
@@ -836,11 +836,7 @@ export default function FacturaListadoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={cn(
-                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                            !(esFacturaTipoFiscal(item.tipo) && !item.cae) &&
-                              "invisible"
-                          )}
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Consultar ARCA"
                           aria-label={`Consultar ARCA ${item.nroComprobante}`}
                           disabled={
@@ -856,10 +852,7 @@ export default function FacturaListadoPageClient({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className={cn(
-                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                          !puedeEliminarComprobante(item.tipo) && "invisible"
-                        )}
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                         title="Borrar"
                         aria-label={`Borrar ${item.nroComprobante}`}
                         disabled={
@@ -876,10 +869,7 @@ export default function FacturaListadoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={cn(
-                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                            item.tipo !== "factura_no_fiscal" && "invisible"
-                          )}
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Convertir en fiscal"
                           aria-label={`Convertir en fiscal ${item.nroComprobante}`}
                           disabled={

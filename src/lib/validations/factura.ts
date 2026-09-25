@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
+  esCobroNotaCreditoNombre,
   esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
@@ -114,12 +115,22 @@ const descuentoEmitirSchema = z
   })
   .nullable();
 
-const cobroFacturaEmitirSchema = z.object({
-  pagoNombre: z.string().trim().min(1).max(200),
-  entidadNombre: z.string().trim().max(200).optional().default(""),
-  cuotaEtiqueta: z.string().trim().max(100).nullable(),
-  montoCents: z.number().int().positive(),
-});
+const cobroFacturaEmitirSchema = z
+  .object({
+    pagoNombre: z.string().trim().min(1).max(200),
+    entidadNombre: z.string().trim().max(200).optional().default(""),
+    cuotaEtiqueta: z.string().trim().max(100).nullable(),
+    montoCents: z.number().int().positive(),
+  })
+  .superRefine((data, ctx) => {
+    if (esCobroNotaCreditoNombre(data.pagoNombre) && !data.entidadNombre.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["entidadNombre"],
+        message: "Ingresá la referencia de la nota de crédito.",
+      });
+    }
+  });
 
 export type CobroFacturaEmitirInput = z.infer<typeof cobroFacturaEmitirSchema>;
 

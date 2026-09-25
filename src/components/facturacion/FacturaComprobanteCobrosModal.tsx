@@ -15,6 +15,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,8 @@ import {
 } from "@/components/ui/table";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
+  FACTURA_COBRO_NOTA_CREDITO_LABEL,
+  FACTURA_COBRO_NOTA_CREDITO_UI_ID,
   lineasFormaPagoCobro,
   type FacturaComprobanteCobroItem,
 } from "@/lib/factura";
@@ -78,12 +81,30 @@ export default function FacturaComprobanteCobrosModal({
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
+  const [notaCreditoRef, setNotaCreditoRef] = useState("");
 
   const haySaldo = saldoPendiente != null && saldoPendiente > 0;
-  const pagoSel = useMemo(
-    () => pagos.find((p) => p.id === pagoId) ?? null,
-    [pagos, pagoId]
+  const pagosDisponibles = useMemo<FinAnaCosFinaPagoItem[]>(
+    () => [
+      {
+        id: FACTURA_COBRO_NOTA_CREDITO_UI_ID,
+        nombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
+        enCostosFinancieros: false,
+        enMargenContribucion: false,
+        aceptaCuotas: false,
+        entidadObligatoria: false,
+        entidadIds: [],
+        entidadNombres: [],
+      },
+      ...pagos,
+    ],
+    [pagos]
   );
+  const pagoSel = useMemo(
+    () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
+    [pagosDisponibles, pagoId]
+  );
+  const pagoEsNotaCredito = pagoSel?.id === FACTURA_COBRO_NOTA_CREDITO_UI_ID;
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
 
@@ -91,6 +112,7 @@ export default function FacturaComprobanteCobrosModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
+    setNotaCreditoRef("");
     setMontoNorm(
       pendiente != null && pendiente > 0
         ? montoArNumberToNormalizedString(pendiente)
@@ -162,7 +184,8 @@ export default function FacturaComprobanteCobrosModal({
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
     setPagoId(nextId);
-    const next = pagos.find((p) => p.id === nextId);
+    setNotaCreditoRef("");
+    const next = pagosDisponibles.find((p) => p.id === nextId);
     const unicas =
       next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
@@ -194,6 +217,11 @@ export default function FacturaComprobanteCobrosModal({
       toast.error("El monto no puede ser mayor al saldo pendiente.");
       return;
     }
+    const referenciaNc = notaCreditoRef.trim().toLocaleUpperCase("es-AR");
+    if (pagoEsNotaCredito && !referenciaNc) {
+      toast.error("Ingresá la referencia de la nota de crédito.");
+      return;
+    }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
@@ -201,7 +229,7 @@ export default function FacturaComprobanteCobrosModal({
     const res = await registrarCobroComprobanteFacturaAction({
       id: comprobanteId,
       pagoNombre: pagoSel.nombre,
-      entidadNombre,
+      entidadNombre: pagoEsNotaCredito ? referenciaNc : entidadNombre,
       cuotaEtiqueta: cuota?.cuotas ?? null,
       montoCents,
     });
@@ -301,7 +329,7 @@ export default function FacturaComprobanteCobrosModal({
             ) : null}
             {haySaldo && formAbierto ? (
               <div className="flex shrink-0 flex-col gap-3">
-                {pagos.length === 0 ? (
+                {pagosDisponibles.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">
                     No hay formas de pago cargadas.
                   </p>
@@ -311,7 +339,7 @@ export default function FacturaComprobanteCobrosModal({
                     aria-label="Forma de pago"
                     className="flex flex-wrap justify-center gap-2"
                   >
-                    {pagos.map((pago) => {
+                    {pagosDisponibles.map((pago) => {
                       const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
                       const seleccionado = pago.id === pagoId;
                       return (
@@ -334,6 +362,20 @@ export default function FacturaComprobanteCobrosModal({
                     })}
                   </div>
                 )}
+                {pagoEsNotaCredito ? (
+                  <label className="flex min-w-0 flex-1 flex-col gap-1">
+                    <ModalMicroLabel>COMPROBANTE NC</ModalMicroLabel>
+                    <Input
+                      value={notaCreditoRef}
+                      onChange={(e) =>
+                        setNotaCreditoRef(e.target.value.toLocaleUpperCase("es-AR"))
+                      }
+                      placeholder="EJ: 00001-00001234"
+                      disabled={guardando}
+                      className="w-full"
+                    />
+                  </label>
+                ) : null}
                 <div className="flex items-end justify-center gap-2">
                   {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
