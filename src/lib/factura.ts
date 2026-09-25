@@ -112,9 +112,6 @@ export const MENSAJE_PTO_VTA_SUCURSAL_USUARIO =
 /** Forma de pago sintética para imputar una NC como cobro de una venta. */
 export const FACTURA_COBRO_NOTA_CREDITO_LABEL = "NOTA DE CRÉDITO";
 
-/** ID local (solo UI) para la opción sintética de cobro por NC. */
-export const FACTURA_COBRO_NOTA_CREDITO_UI_ID = "__factura_nc__";
-
 function normalizarNombreCobro(value: string): string {
   return value
     .normalize("NFD")

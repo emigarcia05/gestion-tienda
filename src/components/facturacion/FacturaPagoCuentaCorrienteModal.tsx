@@ -82,6 +82,8 @@ export default function FacturaPagoCuentaCorrienteModal({
   );
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const etiquetaMonto =
+    !muestraCuotas && pagoSel != null ? pagoSel.nombre : "MONTO";
   const montoCents = montoArNormalizedStringToCents(montoNorm);
   const montoPesos = montoCents / 100;
   const totalPendiente = totalSaldoVentasPendientes(ventas);
@@ -297,7 +299,7 @@ export default function FacturaPagoCuentaCorrienteModal({
                 </label>
               ) : null}
               <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
-                <ModalMicroLabel>MONTO</ModalMicroLabel>
+                <ModalMicroLabel>{etiquetaMonto}</ModalMicroLabel>
                 <MontoArInput
                   valueNormalized={montoNorm}
                   onValueNormalizedChange={setMontoNorm}

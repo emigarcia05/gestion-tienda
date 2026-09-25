@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Undo2 } from "lucide-react";
+import { Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Truck, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   convertirComprobanteNoFiscalEnFiscalAction,
   eliminarComprobanteNoFiscalAction,
+  obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
+import { listarCatalogoWizardEnvioAction } from "@/actions/envios";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -20,6 +22,7 @@ import FilterBar, {
 import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
+import CrearEnvioWizardModal from "@/components/envios/CrearEnvioWizardModal";
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
@@ -74,6 +77,15 @@ import {
 import { cn } from "@/lib/utils";
 import { hrefFacturaCrear } from "@/lib/facturacionRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
+import {
+  bytesPdfAAdjuntoEnvio,
+  generarBytesPdfFacturaComprobante,
+  nombreArchivoComprobanteFactura,
+} from "@/lib/facturaComprobantePdfClient";
+import type {
+  EnviosWizardBorradorFactura,
+  EnviosWizardCatalogo,
+} from "@/lib/envios";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
@@ -166,6 +178,15 @@ export default function FacturaListadoPageClient({
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [pdfId, setPdfId] = useState<string | null>(null);
   const [pdfNro, setPdfNro] = useState("");
+  const [envioWizardOpen, setEnvioWizardOpen] = useState(false);
+  const [envioCatalogo, setEnvioCatalogo] = useState<EnviosWizardCatalogo>({
+    clientes: [],
+    direcciones: [],
+    sucursales: [],
+  });
+  const [envioBorrador, setEnvioBorrador] = useState<EnviosWizardBorradorFactura | null>(
+    null
+  );
   const [modalAccion, setModalAccion] = useState<
     | { open: false }
     | { open: true; kind: "borrar" | "convertir"; item: FacturaComprobanteListItem }
@@ -331,6 +352,63 @@ export default function FacturaListadoPageClient({
 
   function irNotaCredito(id: string) {
     router.push(hrefFacturaCrear({ nc: id, clase: "nota_credito" }));
+  }
+
+  async function recargarCatalogoEnvio() {
+    const res = await listarCatalogoWizardEnvioAction();
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo cargar el catálogo de envíos.");
+      return;
+    }
+    setEnvioCatalogo(res.data);
+  }
+
+  async function irEnvioDesdeFactura(item: FacturaComprobanteListItem) {
+    if (!esFacturaTipoVenta(item.tipo) || item.estado === "rechazado") return;
+    setBusyId(item.id);
+    try {
+      const [catRes, pdfRes] = await Promise.all([
+        listarCatalogoWizardEnvioAction(),
+        obtenerFacturaComprobantePdfAction({ id: item.id }),
+      ]);
+      if (!catRes.ok) {
+        toast.error(catRes.error ?? "No se pudo cargar el catálogo de envíos.");
+        return;
+      }
+      setEnvioCatalogo(catRes.data);
+      let pdfAdjunto: EnviosWizardBorradorFactura["pdfAdjunto"] = null;
+      if (pdfRes.ok) {
+        const bytes = await generarBytesPdfFacturaComprobante(pdfRes.data);
+        const nombre = nombreArchivoComprobanteFactura({
+          cliente: pdfRes.data.cliente,
+          fechaIso: pdfRes.data.fechaIso,
+          nroComprobante: pdfRes.data.nroComprobante,
+          comentarios: pdfRes.data.comentarios,
+        });
+        pdfAdjunto = bytesPdfAAdjuntoEnvio(nombre, bytes);
+        if (!pdfAdjunto) {
+          toast.error("El PDF supera el tamaño máximo (5 MB).");
+        }
+      } else {
+        toast.error(pdfRes.error ?? "No se pudo generar el PDF del comprobante.");
+      }
+      let direccionId = item.proyectoId;
+      if (!direccionId && item.clienteId) {
+        const dirs = catRes.data.direcciones.filter((d) => d.personaId === item.clienteId);
+        if (dirs.length === 1) direccionId = dirs[0]?.id ?? null;
+      }
+      const pagadoCompleto = item.saldoPendiente == null || item.saldoPendiente <= 0;
+      setEnvioBorrador({
+        clienteId: item.clienteId,
+        direccionId,
+        pdfAdjunto,
+        formaPagado: pagadoCompleto ? "PAGADO" : "",
+        formaPagadoFijada: pagadoCompleto,
+      });
+      setEnvioWizardOpen(true);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function confirmarModalAccion() {
@@ -824,6 +902,27 @@ export default function FacturaListadoPageClient({
                           variant="ghost"
                           size="icon"
                           className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="ENVIO"
+                          aria-label={`Envío ${item.nroComprobante}`}
+                          disabled={
+                            busyId === item.id ||
+                            !esFacturaTipoVenta(item.tipo) ||
+                            item.estado === "rechazado"
+                          }
+                          onClick={() => void irEnvioDesdeFactura(item)}
+                        >
+                          <Truck
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                      ) : null}
+                      {esFacturas ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Nota de crédito"
                           aria-label={`Nota de crédito ${item.nroComprobante}`}
                           disabled={
@@ -955,6 +1054,29 @@ export default function FacturaListadoPageClient({
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
       />
+      {esFacturas ? (
+        <CrearEnvioWizardModal
+          open={envioWizardOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEnvioWizardOpen(false);
+              setEnvioBorrador(null);
+            }
+          }}
+          borrador={envioBorrador}
+          clientesCatalogo={envioCatalogo.clientes}
+          direcciones={envioCatalogo.direcciones}
+          sucursales={envioCatalogo.sucursales}
+          onCatalogoChanged={() => {
+            void recargarCatalogoEnvio();
+          }}
+          onSuccess={() => {
+            setEnvioWizardOpen(false);
+            setEnvioBorrador(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
       <FiltroRangoFechasCalendarioModal
         open={rangoModalOpen}
         onOpenChange={setRangoModalOpen}

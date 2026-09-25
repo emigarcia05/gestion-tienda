@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireClientesMutacion, requireEnvios } from "@/lib/actionGates";
+import { requireClientesMutacion, requireEnvios, requireEnviosOFacturacion } from "@/lib/actionGates";
 import type {
   ClienteItem,
   EnviosDireccionItem,
   EnviosFinalListItem,
+  EnviosWizardCatalogo,
 } from "@/lib/envios";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { REVALIDATE_ENVIOS } from "@/lib/gestionProductosRoutes";
@@ -22,16 +23,18 @@ import {
   eliminarEnviosDireccionSchema,
   eliminarEnviosFinalSchema,
 } from "@/lib/validations/envios";
-import { crearCliente, editarCliente, eliminarCliente } from "@/services/clientes.service";
+import { crearCliente, editarCliente, eliminarCliente, listarClientes } from "@/services/clientes.service";
 import {
   crearEnviosDireccion,
   editarEnviosDireccion,
   eliminarEnviosDireccion,
+  listarEnviosDirecciones,
 } from "@/services/enviosDirecciones.service";
 import {
   crearEnviosFinal,
   editarEnviosFinal,
   eliminarEnviosFinal,
+  listarSucursalesParaEnvios,
   marcarEnviosFinalEntregado,
 } from "@/services/enviosFinal.service";
 
@@ -156,10 +159,28 @@ export async function eliminarEnviosDireccionAction(
   }
 }
 
+export async function listarCatalogoWizardEnvioAction(): Promise<
+  ActionResult<EnviosWizardCatalogo>
+> {
+  const gate = await requireEnviosOFacturacion();
+  if (gate) return gate;
+  try {
+    const [clientes, direcciones, sucursales] = await Promise.all([
+      listarClientes(),
+      listarEnviosDirecciones(),
+      listarSucursalesParaEnvios(),
+    ]);
+    return { ok: true, data: { clientes, direcciones, sucursales } };
+  } catch (e) {
+    console.error("[listarCatalogoWizardEnvioAction]", e);
+    return { ok: false, error: "No se pudo cargar el catálogo de envíos." };
+  }
+}
+
 export async function crearEnviosFinalAction(
   raw: unknown
 ): Promise<ActionResult<EnviosFinalListItem>> {
-  const gate = await requireEnvios();
+  const gate = await requireEnviosOFacturacion();
   if (gate) return gate;
   const parsed = crearEnviosFinalSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };

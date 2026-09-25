@@ -79,6 +79,20 @@ export function esFormaPagadoEnvioValida(value: string): value is EnviosFormaPag
   return (ENVIOS_FORMA_PAGADO_VALUES as readonly string[]).includes(value);
 }
 
+export type EnviosWizardBorradorFactura = {
+  clienteId: string | null;
+  direccionId: string | null;
+  pdfAdjunto: { nombre: string; base64: string } | null;
+  formaPagado: EnviosFormaPagadoValue | "";
+  formaPagadoFijada: boolean;
+};
+
+export type EnviosWizardCatalogo = {
+  clientes: ClienteItem[];
+  direcciones: EnviosDireccionItem[];
+  sucursales: EnviosSucursalOption[];
+};
+
 /** `PAGADO` como forma siempre marca el envío como pagado. */
 export function pagadoDesdeFormaPagado(
   forma: EnviosFormaPagadoValue,

@@ -51,6 +51,7 @@ import {
   type EnviosFormaPagadoValue,
   type EnviosHoraValue,
   type EnviosSucursalOption,
+  type EnviosWizardBorradorFactura,
 } from "@/lib/envios";
 import { dateToIsoYmdArgentina, formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
@@ -64,6 +65,8 @@ interface Props {
   sucursales: EnviosSucursalOption[];
   /** Si hay ítem, el wizard abre en modo edición con los datos cargados. */
   item?: EnviosFinalListItem | null;
+  /** Alta desde Lista Comprobantes: precarga cliente, proyecto, PDF y PAGADO. */
+  borrador?: EnviosWizardBorradorFactura | null;
   onCatalogoChanged: () => void;
   onSuccess: () => void;
 }
@@ -98,6 +101,7 @@ export default function CrearEnvioWizardModal({
   direcciones,
   sucursales,
   item = null,
+  borrador = null,
   onCatalogoChanged,
   onSuccess,
 }: Props) {
@@ -136,6 +140,7 @@ export default function CrearEnvioWizardModal({
   const [filtroPintorId, setFiltroPintorId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [quitarPdf, setQuitarPdf] = useState(false);
+  const [formaPagadoFijada, setFormaPagadoFijada] = useState(false);
   const esEdicion = item != null;
 
   useEffect(() => {
@@ -149,6 +154,7 @@ export default function CrearEnvioWizardModal({
     setFiltroPintorId(null);
     setPdfAdjunto(null);
     setQuitarPdf(false);
+    setFormaPagadoFijada(false);
     if (item) {
       setSucursalId(item.sucursal.id);
       setClienteId(item.clienteFinal?.id ?? item.pintor?.id ?? null);
@@ -160,6 +166,19 @@ export default function CrearEnvioWizardModal({
       setObservacionEnvio(item.observacionEnvio);
       return;
     }
+    if (borrador) {
+      setSucursalId(null);
+      setClienteId(borrador.clienteId);
+      setDireccionId(borrador.direccionId);
+      setFechaIso(dateToIsoYmdArgentina(new Date()));
+      setHoraDesde("");
+      setHoraHasta("");
+      setFormaPagado(borrador.formaPagado);
+      setFormaPagadoFijada(borrador.formaPagadoFijada);
+      setObservacionEnvio("");
+      setPdfAdjunto(borrador.pdfAdjunto);
+      return;
+    }
     setSucursalId(null);
     setClienteId(null);
     setDireccionId(null);
@@ -168,7 +187,7 @@ export default function CrearEnvioWizardModal({
     setHoraHasta("");
     setFormaPagado("");
     setObservacionEnvio("");
-  }, [open, item]);
+  }, [open, item, borrador]);
 
   const pintores = useMemo(
     () => clientesCatalogo.filter((c) => c.esPintor),
@@ -682,7 +701,7 @@ export default function CrearEnvioWizardModal({
                         <ModalMicroLabel align="center">FORMA DE PAGO</ModalMicroLabel>
                         <Select
                           value={formaPagado || undefined}
-                          disabled={saving}
+                          disabled={saving || formaPagadoFijada}
                           onValueChange={(v) => setFormaPagado(v as EnviosFormaPagadoValue)}
                         >
                           <SelectTrigger className="relative w-full justify-center [&_svg]:absolute [&_svg]:right-3">

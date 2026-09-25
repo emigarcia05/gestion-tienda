@@ -240,6 +240,12 @@ function resolverCobrosYVencimiento(args: {
 }> {
   const esVenta = esFacturaTipoVenta(args.tipo);
   const cobros = esVenta ? args.cobros : [];
+  if (cobros.some((c) => esCobroNotaCreditoNombre(c.pagoNombre))) {
+    return {
+      success: false,
+      error: "La nota de crédito se imputa desde el comprobante NC.",
+    };
+  }
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const totalCents = Math.round(args.impTotal * 100);
   if (cobradoCents > totalCents) {
@@ -1624,6 +1630,12 @@ export async function registrarCobroComprobanteVta(
     }
     if (!esFacturaTipoVenta(tipo)) {
       return { success: false, error: "Solo se pueden agregar cobros a una venta." };
+    }
+    if (esCobroNotaCreditoNombre(input.pagoNombre)) {
+      return {
+        success: false,
+        error: "La nota de crédito se imputa desde el comprobante NC.",
+      };
     }
     if (asEstado(row.estado) === "rechazado") {
       return { success: false, error: "No se puede cobrar un comprobante rechazado." };

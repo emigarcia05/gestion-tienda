@@ -1,4 +1,5 @@
 import { descargarPdfBytes } from "@/lib/descargarPdfBase64";
+import { ENVIOS_PDF_MAX_BYTES } from "@/lib/envios";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 
 /** `2026-03-15` → `15-03-26` (nombre de archivo). */
@@ -40,6 +41,19 @@ export function nombreArchivoComprobanteFactura(opts: {
   const base = `${cliente} - ${fecha} - ${nro}`;
   if (!comentarios) return `${base}.pdf`;
   return `${base} - (${comentarios}).pdf`;
+}
+
+export function bytesPdfAAdjuntoEnvio(
+  nombre: string,
+  bytes: Uint8Array
+): { nombre: string; base64: string } | null {
+  if (bytes.byteLength > ENVIOS_PDF_MAX_BYTES) return null;
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return { nombre, base64: btoa(binary) };
 }
 
 export async function generarBytesPdfFacturaComprobante(

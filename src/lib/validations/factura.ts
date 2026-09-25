@@ -122,11 +122,11 @@ const cobroFacturaEmitirSchema = z
     montoCents: z.number().int().positive(),
   })
   .superRefine((data, ctx) => {
-    if (esCobroNotaCreditoNombre(data.pagoNombre) && !data.entidadNombre.trim()) {
+    if (esCobroNotaCreditoNombre(data.pagoNombre)) {
       ctx.addIssue({
         code: "custom",
-        path: ["entidadNombre"],
-        message: "Ingresá la referencia de la nota de crédito.",
+        path: ["pagoNombre"],
+        message: "La nota de crédito se imputa desde el comprobante NC.",
       });
     }
   });
