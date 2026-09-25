@@ -551,6 +551,18 @@ export async function eliminarCliente(id: string): Promise<ServiceResult<{ id: s
   }
 }
 
+type LedgerCobroVenta = {
+  id: string;
+  comprobanteId: string;
+  montoCents: number;
+  createdAt: Date;
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+  esCuentaCorriente: boolean;
+  clienteCobroId: string | null;
+};
+
 type LedgerEvento = {
   id: string;
   tipo: CuentaCorrienteMovimientoTipo;
@@ -758,9 +770,21 @@ export async function obtenerCuentaCorrienteCliente(
           "nota_credito"
       )
       .map((row) => formatoNroComprobante(row.ptoVenta, row.cbteNro));
-    const [cobros, cobrosCliente, imputNc] = await Promise.all([
+    const [cobros, cobrosCliente, imputNc]: [
+      LedgerCobroVenta[],
+      {
+        id: string;
+        pagoNombre: string;
+        entidadNombre: string;
+        cuotaEtiqueta: string | null;
+        montoCents: number;
+        createdAt: Date;
+        imputaciones: { montoCents: number }[];
+      }[],
+      { entidadNombre: string; montoCents: number }[],
+    ] = await Promise.all([
       idsVenta.length === 0
-        ? Promise.resolve([])
+        ? Promise.resolve([] as LedgerCobroVenta[])
         : prisma.comprobanteVtaCobro.findMany({
             where: { comprobanteId: { in: idsVenta } },
             orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
@@ -790,7 +814,7 @@ export async function obtenerCuentaCorrienteCliente(
         },
       }),
       nrosNc.length === 0
-        ? Promise.resolve([])
+        ? Promise.resolve([] as { entidadNombre: string; montoCents: number }[])
         : prisma.comprobanteVtaCobro.findMany({
             where: {
               pagoNombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
@@ -809,7 +833,7 @@ export async function obtenerCuentaCorrienteCliente(
       );
     }
 
-    const cobrosPorComprobante = new Map<string, typeof cobros>();
+    const cobrosPorComprobante = new Map<string, LedgerCobroVenta[]>();
     for (const cobro of cobros) {
       const lista = cobrosPorComprobante.get(cobro.comprobanteId);
       if (lista) lista.push(cobro);
