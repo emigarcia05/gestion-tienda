@@ -42,8 +42,8 @@ export const FACTURA_TIPOS_LISTA_COMPROBANTES = FACTURA_TIPOS.filter(
   (t): t is Exclude<FacturaTipo, "presupuesto"> => t !== "presupuesto"
 );
 
-/** Valor inicial del select en Crear. */
-export const FACTURA_TIPO_DEFAULT: FacturaTipo = "presupuesto";
+/** Valor inicial del select en Crear si no hay `?clase=` ni borrador. */
+export const FACTURA_TIPO_DEFAULT: FacturaTipo = "factura_no_fiscal";
 
 /** Clase de comprobante en la UI de Crear (el persistido sigue siendo `FacturaTipo`). */
 export const FACTURA_CLASES = ["presupuesto", "venta", "nota_credito"] as const;
@@ -77,6 +77,13 @@ export function condicionFiscalDesdeFacturaTipo(
   if (tipo === "presupuesto") return null;
   if (tipo === "factura_fiscal" || tipo === "nota_credito_fiscal") return "fiscal";
   return "no_fiscal";
+}
+
+export function parseFacturaClaseQuery(raw: string | undefined): FacturaClase | null {
+  if (raw === "presupuesto" || raw === "venta" || raw === "nota_credito") {
+    return raw;
+  }
+  return null;
 }
 
 export function facturaTipoDesdeClaseYFiscal(
@@ -245,6 +252,14 @@ export function imputarPagoFifoVentas(
     resto = round2Pesos(resto - asignado);
     return { ...venta, asignado };
   });
+}
+
+export function leftoverClienteCobroPesos(
+  montoCents: number,
+  imputaciones: readonly { montoCents: number }[]
+): number {
+  const usado = imputaciones.reduce((acc, fila) => acc + fila.montoCents, 0);
+  return Math.round(Math.max(0, montoCents - usado)) / 100;
 }
 
 export function totalSaldoVentasPendientes(
@@ -420,6 +435,8 @@ export type CuentaCorrienteClienteMovimiento = {
   /** Segunda línea: nro (venta/NC) o forma de pago (cobro). */
   detalle: string;
   monto: number;
+  /** Saldo del documento (venta/NC) o saldo sin aplicar del cobro. */
+  saldoComprobante: number;
   saldoCc: number;
   /**
    * false = cobro `es_cuenta_corriente` (forma de pago, no dinero recibido)
@@ -596,34 +613,22 @@ export function resumenIndicadoresCuentaCorriente(
 
 export type FiltroPeriodoCuentaCorriente = "todos" | "rango";
 export type FiltroTipoCuentaCorriente = "todos" | CuentaCorrienteMovimientoTipo;
-export type FiltroCondicionPagoCuentaCorriente = "todos" | "pendiente" | "pagado";
+/** Máscara SALDO: CON SALDO = venta con resto; SIN SALDO = venta pagada. */
+export type FiltroSaldoCuentaCorriente = "todos" | "con_saldo" | "sin_saldo";
 
-/** Estado de cobro de cada venta del ledger (cobros del mismo `comprobanteId`). */
+/** Estado de cobro de cada venta del ledger (`saldoComprobante` de la venta). */
 export function mapaEstadoPagoVentasCc(
   movimientos: readonly CuentaCorrienteClienteMovimiento[]
 ): Map<string, "pendiente" | "pagado"> {
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  const ventas = new Map<string, number>();
-  const cobrado = new Map<string, number>();
-  for (const mov of movimientos) {
-    if (mov.tipo === "venta") {
-      ventas.set(mov.comprobanteId, round2((ventas.get(mov.comprobanteId) ?? 0) + mov.monto));
-    } else if (mov.tipo === "cobro" && mov.cuentaComoPago) {
-      cobrado.set(
-        mov.comprobanteId,
-        round2((cobrado.get(mov.comprobanteId) ?? 0) + mov.monto)
-      );
-    }
-  }
   const out = new Map<string, "pendiente" | "pagado">();
-  for (const [id, monto] of ventas) {
-    const resto = round2(monto - (cobrado.get(id) ?? 0));
-    out.set(id, resto > 0.009 ? "pendiente" : "pagado");
+  for (const mov of movimientos) {
+    if (mov.tipo !== "venta") continue;
+    out.set(mov.comprobanteId, mov.saldoComprobante > 0.009 ? "pendiente" : "pagado");
   }
   return out;
 }
 
-/** Filtros de Cuenta Corrientes sobre el ledger ya cargado (fecha / tipo / condición de pago). */
+/** Filtros de Cuenta Corrientes sobre el ledger ya cargado (fecha / tipo / saldo). */
 export function filtrarMovimientosCuentaCorriente(
   movimientos: readonly CuentaCorrienteClienteMovimiento[],
   filtros: {
@@ -631,7 +636,7 @@ export function filtrarMovimientosCuentaCorriente(
     rangoDesde: string;
     rangoHasta: string;
     tipo: FiltroTipoCuentaCorriente;
-    condicionPago: FiltroCondicionPagoCuentaCorriente;
+    saldo: FiltroSaldoCuentaCorriente;
   }
 ): CuentaCorrienteClienteMovimiento[] {
   const estadoPorVenta = mapaEstadoPagoVentasCc(movimientos);
@@ -643,14 +648,20 @@ export function filtrarMovimientosCuentaCorriente(
       }
     }
     if (filtros.tipo !== "todos" && mov.tipo !== filtros.tipo) return false;
-    if (filtros.condicionPago !== "todos") {
+    if (filtros.saldo !== "todos") {
       if (mov.tipo === "nota_credito") return false;
+      if (mov.tipo === "cobro" && !mov.comprobanteId) {
+        const conSaldo = mov.saldoComprobante > 0.009;
+        if (filtros.saldo === "con_saldo" && !conSaldo) return false;
+        if (filtros.saldo === "sin_saldo" && conSaldo) return false;
+        return true;
+      }
       const estado = estadoPorVenta.get(mov.comprobanteId);
       if (estado == null) return false;
-      if (filtros.condicionPago === "pendiente" && estado !== "pendiente") {
+      if (filtros.saldo === "con_saldo" && estado !== "pendiente") {
         return false;
       }
-      if (filtros.condicionPago === "pagado" && estado !== "pagado") {
+      if (filtros.saldo === "sin_saldo" && estado !== "pagado") {
         return false;
       }
     }
@@ -674,10 +685,14 @@ export type FacturaComprobanteCobroItem = {
   notaCreditoId: string | null;
 };
 
-/** Detalle de un cobro (Cuenta Corrientes · Ver). */
+/** Detalle de un cobro (Cuenta Corrientes · Cobro). */
 export type FacturaCobroDetalle = {
   cobro: FacturaComprobanteCobroItem;
   comprobantes: { id: string; nroComprobante: string }[];
+  saldoDisponible: number;
+  ventasPendientes: FacturaVentaPendientePago[];
+  /** true = cobro de cliente (`clientes_cobros`); se puede imputar el resto. */
+  esClienteCobro: boolean;
 };
 
 /** Líneas de FORMA PAGO en el modal de cobros (2.ª fila = cuota / plazo). */

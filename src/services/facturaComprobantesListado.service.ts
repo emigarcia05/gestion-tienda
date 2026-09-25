@@ -5,6 +5,7 @@ import {
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
+  leftoverClienteCobroPesos,
   type FacturaCobroDetalle,
   type FacturaNcCobroVista,
   type FacturaComprobanteCobroItem,
@@ -647,6 +648,64 @@ export async function obtenerDetalleCobroComprobante(
   { success: true; data: FacturaCobroDetalle } | { success: false; error: string }
 > {
   try {
+    const clienteCobro = await prisma.clienteCobro.findUnique({
+      where: { id: cobroId },
+      select: {
+        id: true,
+        clienteId: true,
+        createdAt: true,
+        pagoNombre: true,
+        entidadNombre: true,
+        cuotaEtiqueta: true,
+        montoCents: true,
+        imputaciones: {
+          orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
+          select: {
+            montoCents: true,
+            comprobante: {
+              select: { id: true, ptoVenta: true, cbteNro: true },
+            },
+          },
+        },
+      },
+    });
+    if (clienteCobro) {
+      const saldoDisponible = leftoverClienteCobroPesos(
+        clienteCobro.montoCents,
+        clienteCobro.imputaciones
+      );
+      const ventasPendientes =
+        saldoDisponible > 0
+          ? await listarVentasPendientesPagoCuentaCorriente(clienteCobro.clienteId)
+          : [];
+      return {
+        success: true,
+        data: {
+          cobro: {
+            id: clienteCobro.id,
+            createdAtIso: clienteCobro.createdAt.toISOString(),
+            pagoNombre: clienteCobro.pagoNombre,
+            entidadNombre: clienteCobro.entidadNombre,
+            cuotaEtiqueta: clienteCobro.cuotaEtiqueta,
+            montoCents: clienteCobro.montoCents,
+            esCuentaCorriente: false,
+            plazoDias: null,
+            personalNombre: "",
+            notaCreditoId: null,
+          },
+          comprobantes: clienteCobro.imputaciones.map((fila) => ({
+            id: fila.comprobante.id,
+            nroComprobante: formatoNroComprobante(
+              fila.comprobante.ptoVenta,
+              fila.comprobante.cbteNro
+            ),
+          })),
+          saldoDisponible,
+          ventasPendientes,
+          esClienteCobro: true,
+        },
+      };
+    }
     const row = await prisma.comprobanteVtaCobro.findUnique({
       where: { id: cobroId },
       select: {
@@ -658,6 +717,7 @@ export async function obtenerDetalleCobroComprobante(
         montoCents: true,
         esCuentaCorriente: true,
         plazoDias: true,
+        clienteCobroId: true,
         comprobante: {
           select: {
             id: true,
@@ -669,6 +729,9 @@ export async function obtenerDetalleCobroComprobante(
       },
     });
     if (!row) return { success: false, error: "El cobro no existe." };
+    if (row.clienteCobroId) {
+      return obtenerDetalleCobroComprobante(row.clienteCobroId);
+    }
     const personalNombre =
       row.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
       "";
@@ -701,6 +764,9 @@ export async function obtenerDetalleCobroComprobante(
             ),
           },
         ],
+        saldoDisponible: 0,
+        ventasPendientes: [],
+        esClienteCobro: false,
       },
     };
   } catch (e) {

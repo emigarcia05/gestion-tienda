@@ -46,8 +46,8 @@ import {
   tipoNotaCreditoDesdeVenta,
   impCobradoDesdeCobros,
   imputarPagoFifoVentas,
+  leftoverClienteCobroPesos,
   saldoPendienteTrasCobro,
-  totalSaldoVentasPendientes,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   MENSAJE_PERSONAL_SIN_SUCURSAL,
   MENSAJE_PTO_VTA_SUCURSAL_USUARIO,
@@ -89,6 +89,7 @@ import type {
   GuardarDiasVencimientoFacturaInput,
   RegistrarCobroComprobanteFacturaInput,
   RegistrarPagoCuentaCorrienteInput,
+  AsignarClienteCobroComoCobroInput,
 } from "@/lib/validations/factura";
 import type { ServiceResult } from "@/types/service.types";
 
@@ -1679,24 +1680,23 @@ export async function registrarPagoCuentaCorriente(
       };
     }
     const ventas = await listarVentasPendientesPagoCuentaCorriente(input.clienteId);
-    if (ventas.length === 0) {
-      return { success: false, error: "No hay comprobantes con saldo." };
-    }
     const montoPesos = roundArs2(input.montoCents / 100);
-    const totalPendiente = totalSaldoVentasPendientes(ventas);
-    if (montoPesos > totalPendiente) {
-      return {
-        success: false,
-        error: "El monto no puede ser mayor al saldo pendiente total.",
-      };
+    if (montoPesos <= 0) {
+      return { success: false, error: "Ingresá un monto a pagar." };
     }
     const imputaciones = imputarPagoFifoVentas(ventas, montoPesos).filter(
       (fila) => fila.asignado > 0
     );
-    if (imputaciones.length === 0) {
-      return { success: false, error: "Ingresá un monto a pagar." };
-    }
     await prisma.$transaction(async (tx) => {
+      const padre = await tx.clienteCobro.create({
+        data: {
+          clienteId: input.clienteId,
+          pagoNombre: input.pagoNombre,
+          entidadNombre: input.entidadNombre,
+          cuotaEtiqueta: input.cuotaEtiqueta,
+          montoCents: input.montoCents,
+        },
+      });
       for (const fila of imputaciones) {
         const row = await tx.comprobanteVta.findUnique({
           where: { id: fila.id },
@@ -1737,6 +1737,7 @@ export async function registrarPagoCuentaCorriente(
             montoCents: Math.round(montoFila * 100),
             esCuentaCorriente: false,
             plazoDias: null,
+            clienteCobroId: padre.id,
           },
         });
         await tx.comprobanteVta.update({
@@ -1758,6 +1759,97 @@ export async function registrarPagoCuentaCorriente(
     }
     console.error("[registrarPagoCuentaCorriente]", e);
     return { success: false, error: "No se pudo registrar el pago." };
+  }
+}
+
+export async function asignarClienteCobroComoCobro(
+  input: AsignarClienteCobroComoCobroInput
+): Promise<ServiceResult<void>> {
+  try {
+    const cobro = await prisma.clienteCobro.findUnique({
+      where: { id: input.cobroId },
+      select: {
+        clienteId: true,
+        pagoNombre: true,
+        entidadNombre: true,
+        cuotaEtiqueta: true,
+        montoCents: true,
+        imputaciones: { select: { montoCents: true } },
+      },
+    });
+    if (!cobro) {
+      return { success: false, error: "El cobro no existe." };
+    }
+    const disponible = leftoverClienteCobroPesos(
+      cobro.montoCents,
+      cobro.imputaciones
+    );
+    if (disponible <= 0) {
+      return { success: false, error: "El cobro ya está imputado." };
+    }
+    const ventas = await listarVentasPendientesPagoCuentaCorriente(cobro.clienteId);
+    const ventaPendiente = ventas.find((v) => v.id === input.ventaId);
+    if (!ventaPendiente) {
+      return { success: false, error: "La venta no tiene saldo pendiente." };
+    }
+    const montoPesos = roundArs2(Math.min(disponible, ventaPendiente.saldoPendiente));
+    const venta = await prisma.comprobanteVta.findUnique({
+      where: { id: input.ventaId },
+      select: {
+        tipoComprobante: true,
+        estado: true,
+        impTotal: true,
+        impCobrado: true,
+        diasVencimiento: true,
+        cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+      },
+    });
+    if (!venta) {
+      return { success: false, error: "No se encontró el comprobante." };
+    }
+    const tipo = esFacturaTipo(venta.tipoComprobante)
+      ? venta.tipoComprobante
+      : "factura_no_fiscal";
+    if (!esFacturaTipoVenta(tipo) || asEstado(venta.estado) === "rechazado") {
+      return { success: false, error: "Solo se puede imputar a una venta." };
+    }
+    const impTotal = decimalToNumber(venta.impTotal);
+    const impCobrado = decimalToNumber(venta.impCobrado);
+    const saldo = saldoPendienteTrasCobro(impTotal, impCobrado);
+    if (montoPesos > saldo) {
+      return {
+        success: false,
+        error: "El saldo de un comprobante cambió. Recargá e intentá de nuevo.",
+      };
+    }
+    const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
+    const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+    await prisma.$transaction(async (tx) => {
+      await tx.comprobanteVtaCobro.create({
+        data: {
+          comprobanteId: input.ventaId,
+          orden: (venta.cobros[0]?.orden ?? -1) + 1,
+          pagoNombre: cobro.pagoNombre,
+          entidadNombre: cobro.entidadNombre,
+          cuotaEtiqueta: cobro.cuotaEtiqueta,
+          montoCents: Math.round(montoPesos * 100),
+          esCuentaCorriente: false,
+          plazoDias: null,
+          clienteCobroId: input.cobroId,
+        },
+      });
+      await tx.comprobanteVta.update({
+        where: { id: input.ventaId },
+        data: {
+          impCobrado: siguienteImpCobrado,
+          diasVencimiento: siguienteSaldo <= 0 ? null : venta.diasVencimiento,
+        },
+      });
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[asignarClienteCobroComoCobro]", e);
+    return { success: false, error: "No se pudo asignar el cobro." };
   }
 }
 

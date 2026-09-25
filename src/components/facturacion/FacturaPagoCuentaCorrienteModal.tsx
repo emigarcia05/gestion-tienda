@@ -89,7 +89,7 @@ export default function FacturaPagoCuentaCorrienteModal({
     () => imputarPagoFifoVentas(ventas, montoPesos),
     [ventas, montoPesos]
   );
-  const hayAsignacion = filas.some((f) => f.asignado > 0);
+  const aFavor = Math.round(Math.max(0, montoPesos - totalPendiente) * 100) / 100;
 
   useEffect(() => {
     if (!open || !clienteId) return;
@@ -155,10 +155,6 @@ export default function FacturaPagoCuentaCorrienteModal({
       toast.error("Ingresá un monto a pagar.");
       return;
     }
-    if (montoPesos > totalPendiente) {
-      toast.error("El monto no puede ser mayor al saldo pendiente total.");
-      return;
-    }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
@@ -194,7 +190,7 @@ export default function FacturaPagoCuentaCorrienteModal({
             </Button>
             <Button
               type="button"
-              disabled={guardando || loading || !hayAsignacion}
+              disabled={guardando || loading || montoCents <= 0}
               onClick={() => void confirmar()}
             >
               Confirmar
@@ -310,6 +306,11 @@ export default function FacturaPagoCuentaCorrienteModal({
                 />
               </div>
             </div>
+            {aFavor > 0 ? (
+              <p className="text-center text-sm font-semibold tabular-nums">
+                SALDO A FAVOR: ${fmtPrecio(aFavor)}
+              </p>
+            ) : null}
             <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
               <Table className="w-full table-fixed text-center">
                 <colgroup>

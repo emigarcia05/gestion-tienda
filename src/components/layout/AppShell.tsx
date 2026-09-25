@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { esRutaEnviosConductor } from "@/lib/gestionProductosRoutes";
@@ -11,6 +12,15 @@ interface Props {
   rol: Rol;
 }
 
+function SidebarFallback() {
+  return (
+    <aside
+      className="sidebar-container w-60 shrink-0 border-r border-sidebar-border bg-sidebar"
+      aria-hidden
+    />
+  );
+}
+
 export default function AppShell({ children, rol }: Props) {
   const pathname = usePathname();
   const sinSidebar =
@@ -18,7 +28,11 @@ export default function AppShell({ children, rol }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {sinSidebar ? null : <Sidebar rol={rol} />}
+      {sinSidebar ? null : (
+        <Suspense fallback={<SidebarFallback />}>
+          <Sidebar rol={rol} />
+        </Suspense>
+      )}
       <main className="flex-1 overflow-hidden bg-gris">{children}</main>
     </div>
   );

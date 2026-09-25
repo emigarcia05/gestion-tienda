@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, CircleDollarSign, Eye, FileText, Loader2, Stamp, Trash2, Undo2 } from "lucide-react";
+import { Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   convertirComprobanteNoFiscalEnFiscalAction,
@@ -24,6 +24,7 @@ import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -71,7 +72,7 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { hrefFacturaCrear } from "@/lib/facturacionRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
@@ -320,11 +321,16 @@ export default function FacturaListadoPageClient({
   }
 
   function irDuplicar(id: string) {
-    router.push(`${FACTURACION_ROUTES.factura.crear}?duplicar=${id}`);
+    router.push(
+      hrefFacturaCrear({
+        duplicar: id,
+        clase: variant === "facturas" ? "venta" : "presupuesto",
+      })
+    );
   }
 
   function irNotaCredito(id: string) {
-    router.push(`${FACTURACION_ROUTES.factura.crear}?nc=${id}`);
+    router.push(hrefFacturaCrear({ nc: id, clase: "nota_credito" }));
   }
 
   async function confirmarModalAccion() {
@@ -385,6 +391,19 @@ export default function FacturaListadoPageClient({
       title="COMPROBANTES"
       subtitle={esFacturas ? "Comprobante" : "Presupuesto"}
       contentWidth="full"
+      actions={
+        <ToolbarActionButton
+          label={esFacturas ? "Nuevo Comprobante" : "NUEVO PRESUPUESTO"}
+          icon={<FilePlus2 />}
+          onClick={() =>
+            router.push(
+              hrefFacturaCrear({
+                clase: esFacturas ? "venta" : "presupuesto",
+              })
+            )
+          }
+        />
+      }
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilaFiltrosDesplegables columnas={esFacturas ? 5 : 4}>

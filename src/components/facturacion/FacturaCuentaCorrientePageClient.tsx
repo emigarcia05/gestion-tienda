@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Eye, FileText, Package, Share2, Wallet } from "lucide-react";
+import { CircleDollarSign, Eye, FileText, Package, Share2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -26,11 +26,11 @@ import FilterBar, {
 import FacturaCobroDetalleModal from "@/components/facturacion/FacturaCobroDetalleModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
-import FacturaCuentaCorrienteTotalesItemModal from "@/components/facturacion/FacturaCuentaCorrienteTotalesItemModal";
 import FacturaPagoCuentaCorrienteModal from "@/components/facturacion/FacturaPagoCuentaCorrienteModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/table";
 import {
   etiquetaClienteListado,
+  etiquetaNombreProyecto,
   nombrePintorAsociadoCliente,
   type ClienteListaItem,
 } from "@/lib/envios";
@@ -65,8 +66,8 @@ import {
   totalesPorItemCuentaCorriente,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteProductoLinea,
-  type FiltroCondicionPagoCuentaCorriente,
   type FiltroPeriodoCuentaCorriente,
+  type FiltroSaldoCuentaCorriente,
   type FiltroTipoCuentaCorriente,
 } from "@/lib/factura";
 import {
@@ -96,8 +97,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { CuentaCorrientePublicaSesion } from "@/lib/cuentaCorrientePublica";
 
-const COL_SPAN = 5;
+const COL_SPAN = 6;
 const COL_SPAN_PRODUCTOS = 4;
+const COL_SPAN_TOTALES_ITEM = 2;
 const FILTRO_CC_TODOS = "todos";
 const PERIODO_RANGO = "rango";
 type VistaCuentaCorriente = "comprobantes" | "productos";
@@ -125,6 +127,9 @@ export default function FacturaCuentaCorrientePageClient({
   const [abierto, setAbierto] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [clienteId, setClienteId] = useState<string | null>(null);
+  const [clienteSeleccionado, setClienteSeleccionado] =
+    useState<ClienteListaItem | null>(null);
+  const [proyectoFiltroId, setProyectoFiltroId] = useState<string | null>(null);
   const [movimientos, setMovimientos] = useState<
     CuentaCorrienteClienteMovimiento[]
   >([]);
@@ -147,11 +152,11 @@ export default function FacturaCuentaCorrientePageClient({
   const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] =
     useState<FiltroTipoCuentaCorriente>(FILTRO_CC_TODOS);
-  const [filtroCondicionPago, setFiltroCondicionPago] =
-    useState<FiltroCondicionPagoCuentaCorriente>(FILTRO_CC_TODOS);
+  const [filtroSaldo, setFiltroSaldo] =
+    useState<FiltroSaldoCuentaCorriente>(FILTRO_CC_TODOS);
   const [compartiendo, setCompartiendo] = useState(false);
   const [pagoCcOpen, setPagoCcOpen] = useState(false);
-  const [totalesItemOpen, setTotalesItemOpen] = useState(false);
+  const [totalesItemVista, setTotalesItemVista] = useState(false);
   const esPublico = visorPublico != null;
 
   const fetchSugerencias = useCallback(async (value: string) => {
@@ -210,9 +215,9 @@ export default function FacturaCuentaCorrientePageClient({
         rangoDesde,
         rangoHasta,
         tipo: filtroTipo,
-        condicionPago: filtroCondicionPago,
+        saldo: filtroSaldo,
       }),
-    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroCondicionPago]
+    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo]
   );
 
   const indicadores = useMemo(
@@ -250,8 +255,16 @@ export default function FacturaCuentaCorrientePageClient({
   );
 
   const esVistaProductos = vista === "productos";
+  const proyectosCliente = clienteSeleccionado?.proyectos ?? [];
+  const mostrarProyecto = proyectosCliente.length > 1;
+  const saldoClienteVisible =
+    clienteId != null && clienteSeleccionado != null
+      ? clienteSeleccionado.saldoCuentaCorriente
+      : null;
   const filasVisibles = esVistaProductos
-    ? productosFiltrados.length
+    ? totalesItemVista
+      ? totalesPorItem.length
+      : productosFiltrados.length
     : movimientosFiltrados.length;
 
   useEffect(() => {
@@ -281,6 +294,7 @@ export default function FacturaCuentaCorrientePageClient({
       setProductos([]);
       return;
     }
+    setClienteSeleccionado(res.data.cliente);
     setMovimientos(res.data.movimientos);
     setProductos(res.data.productos);
   }
@@ -288,6 +302,8 @@ export default function FacturaCuentaCorrientePageClient({
   function aplicarCliente(item: ClienteListaItem) {
     clienteIdRef.current = item.id;
     setClienteId(item.id);
+    setClienteSeleccionado(item);
+    setProyectoFiltroId(null);
     setQ(etiquetaClienteListado(item));
     setAbierto(false);
     setSugerencias([]);
@@ -298,6 +314,8 @@ export default function FacturaCuentaCorrientePageClient({
     const cuenta = visorPublico?.sesion.cuentas.find((c) => c.id === id);
     clienteIdRef.current = id;
     setClienteId(id);
+    setClienteSeleccionado(null);
+    setProyectoFiltroId(null);
     setQ(cuenta?.etiqueta ?? "");
     void cargarLedger(id);
   }
@@ -352,6 +370,8 @@ export default function FacturaCuentaCorrientePageClient({
       clienteIdRef.current = null;
       setQ("");
       setClienteId(null);
+      setClienteSeleccionado(null);
+      setProyectoFiltroId(null);
       setMovimientos([]);
       setProductos([]);
       setSugerencias([]);
@@ -359,7 +379,7 @@ export default function FacturaCuentaCorrientePageClient({
     }
     limpiarPeriodo();
     setFiltroTipo(FILTRO_CC_TODOS);
-    setFiltroCondicionPago(FILTRO_CC_TODOS);
+    setFiltroSaldo(FILTRO_CC_TODOS);
     setFiltroMarca("");
     setFiltroRubro("");
     setQDesc("");
@@ -371,6 +391,8 @@ export default function FacturaCuentaCorrientePageClient({
     if (clienteId != null) {
       clienteIdRef.current = null;
       setClienteId(null);
+      setClienteSeleccionado(null);
+      setProyectoFiltroId(null);
       setMovimientos([]);
       setProductos([]);
     }
@@ -423,14 +445,17 @@ export default function FacturaCuentaCorrientePageClient({
       onLimpiar={limpiarPeriodo}
       className={FILTER_SELECT_WRAPPER_CLASS}
     >
-      <Select value={periodo} onValueChange={onPeriodoChange}>
+      <Select
+        value={periodo === PERIODO_RANGO ? PERIODO_RANGO : ""}
+        onValueChange={onPeriodoChange}
+      >
         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
           {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
             <span data-slot="select-value" className="truncate">
               {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
             </span>
           ) : (
-            <SelectValue placeholder="FECHA" />
+            <span data-slot="select-value">FECHA</span>
           )}
         </SelectTrigger>
         <SelectContent
@@ -439,7 +464,6 @@ export default function FacturaCuentaCorrientePageClient({
           side="bottom"
           align="start"
         >
-          <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
           <SelectItem
             value={PERIODO_RANGO}
             onPointerDown={() => {
@@ -466,14 +490,20 @@ export default function FacturaCuentaCorrientePageClient({
               icon={<FileText />}
               aria-pressed={!esVistaProductos}
               className="w-full justify-start"
-              onClick={() => setVista("comprobantes")}
+              onClick={() => {
+                setTotalesItemVista(false);
+                setVista("comprobantes");
+              }}
             />
             <ToolbarActionButton
               label="DETALLE PRODUCTOS"
               icon={<Package />}
               aria-pressed={esVistaProductos}
               className="w-full justify-start"
-              onClick={() => setVista("productos")}
+              onClick={() => {
+                setTotalesItemVista(false);
+                setVista("productos");
+              }}
             />
             {esPublico ? null : (
               <>
@@ -499,8 +529,11 @@ export default function FacturaCuentaCorrientePageClient({
         filters={
           <div className="filtros-doble-bloque-compacto">
           <FilterBar className="filtros-contenedor-tienda bg-card">
-            <div className="flex items-center gap-3">
-              <FilterRowSearch className="flex-1">
+            <div className="flex w-full min-w-0 items-end gap-3">
+              <div className="flex min-w-0 flex-1 items-end gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <ModalMicroLabel>CLIENTE</ModalMicroLabel>
+              <FilterRowSearch className="w-full max-w-none">
                 {esPublico && visorPublico ? (
                   visorPublico.sesion.cuentas.length > 1 ? (
                     <Select
@@ -680,6 +713,47 @@ export default function FacturaCuentaCorrientePageClient({
                 </div>
                 )}
               </FilterRowSearch>
+              </div>
+              {mostrarProyecto ? (
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <ModalMicroLabel>PROYECTO</ModalMicroLabel>
+                  <Select
+                    value={proyectoFiltroId ?? "none"}
+                    onValueChange={(value) => {
+                      setProyectoFiltroId(value === "none" ? null : value);
+                    }}
+                  >
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="PROYECTO" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="select-content-filtro"
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                    >
+                      <SelectItem value="none">PROYECTO</SelectItem>
+                      {proyectosCliente.map((proyecto) => (
+                        <SelectItem key={proyecto.id} value={proyecto.id}>
+                          {etiquetaNombreProyecto(proyecto)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1 rounded-md border border-input px-2">
+                <ModalMicroLabel align="center">SALDO</ModalMicroLabel>
+                <p
+                  className="flex h-9 w-full items-center justify-center truncate text-center text-sm tabular-nums text-foreground"
+                  aria-label="Saldo"
+                >
+                  {saldoClienteVisible != null
+                    ? `$${fmtPrecio(saldoClienteVisible)}`
+                    : ""}
+                </p>
+              </div>
+              </div>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
               <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
                 {filasVisibles.toLocaleString("es-AR")}{" "}
@@ -693,9 +767,9 @@ export default function FacturaCuentaCorrientePageClient({
           </FilterBar>
           <FilterBar className="filtros-contenedor-tienda bg-card">
             {esVistaProductos ? (
-              <div className="flex w-full min-w-0 flex-nowrap items-center gap-3">
-                <div className="min-w-0 shrink-0 basis-[15%]">{filtroFecha}</div>
-                <div className="min-w-0 shrink-0 basis-[15%]">
+              <div className="grid w-full min-w-0 overflow-hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,4fr)_minmax(0,1.1fr)] items-center gap-3">
+                <div className="min-w-0">{filtroFecha}</div>
+                <div className="min-w-0">
                 <FiltroIndividualContainer
                   activo={Boolean(filtroMarca)}
                   onLimpiar={() => setFiltroMarca("")}
@@ -723,7 +797,7 @@ export default function FacturaCuentaCorrientePageClient({
                   </Select>
                 </FiltroIndividualContainer>
                 </div>
-                <div className="min-w-0 shrink-0 basis-[15%]">
+                <div className="min-w-0">
                 <FiltroIndividualContainer
                   activo={Boolean(filtroRubro)}
                   onLimpiar={() => setFiltroRubro("")}
@@ -751,7 +825,7 @@ export default function FacturaCuentaCorrientePageClient({
                   </Select>
                 </FiltroIndividualContainer>
                 </div>
-                <div className="min-w-0 shrink-0 basis-[45%]">
+                <div className="min-w-0">
                   <FiltroBusquedaInput
                     id="filtro-cuenta-corriente-descripcion"
                     placeholder="BUSCAR POR DESCRIPCIÓN…"
@@ -761,14 +835,18 @@ export default function FacturaCuentaCorrientePageClient({
                     inputRef={searchDescRef}
                   />
                 </div>
-                <div className="min-w-0 shrink-0 basis-[10%]">
+                <div className="min-w-0">
                   <Button
                     type="button"
-                    variant="outline"
-                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full truncate px-2")}
-                    onClick={() => setTotalesItemOpen(true)}
+                    variant={totalesItemVista ? "default" : "outline"}
+                    aria-pressed={totalesItemVista}
+                    className={cn(
+                      SELECT_TRIGGER_FILTER_CLASS,
+                      "!h-9 !min-h-9 !max-h-9 w-full max-w-full truncate px-2"
+                    )}
+                    onClick={() => setTotalesItemVista((v) => !v)}
                   >
-                    TOTALES POR ITEM
+                    AGRUPAR
                   </Button>
                 </div>
               </div>
@@ -781,10 +859,9 @@ export default function FacturaCuentaCorrientePageClient({
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select
-                  value={filtroTipo}
+                  value={filtroTipo === FILTRO_CC_TODOS ? undefined : filtroTipo}
                   onValueChange={(value) => {
                     if (
-                      value === FILTRO_CC_TODOS ||
                       value === "venta" ||
                       value === "nota_credito" ||
                       value === "cobro"
@@ -802,32 +879,27 @@ export default function FacturaCuentaCorrientePageClient({
                     side="bottom"
                     align="start"
                   >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
                     <SelectItem value="venta">VENTAS</SelectItem>
-                    <SelectItem value="nota_credito">NOTA CRÉDITO</SelectItem>
-                    <SelectItem value="cobro">COBROS</SelectItem>
+                    <SelectItem value="nota_credito">NOTAS DE CRÉDITO</SelectItem>
+                    <SelectItem value="cobro">COBRO</SelectItem>
                   </SelectContent>
                 </Select>
               </FiltroIndividualContainer>
               <FiltroIndividualContainer
-                activo={filtroCondicionPago !== FILTRO_CC_TODOS}
-                onLimpiar={() => setFiltroCondicionPago(FILTRO_CC_TODOS)}
+                activo={filtroSaldo !== FILTRO_CC_TODOS}
+                onLimpiar={() => setFiltroSaldo(FILTRO_CC_TODOS)}
                 className={FILTER_SELECT_WRAPPER_CLASS}
               >
                 <Select
-                  value={filtroCondicionPago}
+                  value={filtroSaldo === FILTRO_CC_TODOS ? undefined : filtroSaldo}
                   onValueChange={(value) => {
-                    if (
-                      value === FILTRO_CC_TODOS ||
-                      value === "pendiente" ||
-                      value === "pagado"
-                    ) {
-                      setFiltroCondicionPago(value);
+                    if (value === "con_saldo" || value === "sin_saldo") {
+                      setFiltroSaldo(value);
                     }
                   }}
                 >
                   <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="CONDICIÓN PAGO" />
+                    <SelectValue placeholder="SALDO" />
                   </SelectTrigger>
                   <SelectContent
                     className="select-content-filtro"
@@ -835,9 +907,8 @@ export default function FacturaCuentaCorrientePageClient({
                     side="bottom"
                     align="start"
                   >
-                    <SelectItem value={FILTRO_CC_TODOS}>TODO</SelectItem>
-                    <SelectItem value="pendiente">PENDIENTE PAGO</SelectItem>
-                    <SelectItem value="pagado">PAGADO</SelectItem>
+                    <SelectItem value="con_saldo">CON SALDO</SelectItem>
+                    <SelectItem value="sin_saldo">SIN SALDO</SelectItem>
                   </SelectContent>
                 </Select>
               </FiltroIndividualContainer>
@@ -850,6 +921,39 @@ export default function FacturaCuentaCorrientePageClient({
         <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
           <div className="contenedor-tabla-gestion--pie-fijo-scroll">
           {esVistaProductos ? (
+          totalesItemVista ? (
+          <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed text-center">
+            <colgroup>
+              <col className="w-[70%]" />
+              <col className="w-[30%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-center">DESCRIPCIÓN PRODUCTO</TableHead>
+                <TableHead className="text-center">CANTIDAD</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {totalesPorItem.length === 0 ? (
+                <EmptyTableRow
+                  colSpan={COL_SPAN_TOTALES_ITEM}
+                  message={vacioMensaje}
+                />
+              ) : (
+                totalesPorItem.map((item) => (
+                  <TableRow key={item.descripcion}>
+                    <TableCell className="celda-datos text-center whitespace-normal uppercase">
+                      {fmtCelda(item.descripcion)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      {fmtNumero(item.cantidad)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          ) : (
           <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed text-center">
             <colgroup>
               <col className="w-[16%]" />
@@ -898,21 +1002,24 @@ export default function FacturaCuentaCorrientePageClient({
               )}
             </TableBody>
           </Table>
+          )
           ) : (
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[16%]" />
-              <col className="w-[28%]" />
-              <col className="w-[18%]" />
-              <col className="w-[18%]" />
-              <col className="w-[20%]" />
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-center">FECHA</TableHead>
                 <TableHead className="text-center">COMPROBANTE</TableHead>
                 <TableHead className="text-center">MONTO</TableHead>
-                <TableHead className="text-center">SALDO</TableHead>
+                <TableHead className="text-center">SALDO COMPR.</TableHead>
+                <TableHead className="text-center">SALDO CC</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -950,6 +1057,9 @@ export default function FacturaCuentaCorrientePageClient({
                         : `-$${fmtPrecio(item.monto)}`}
                     </TableCell>
                     <TableCell className="celda-datos text-center whitespace-normal tabular-nums">
+                      ${fmtPrecio(item.saldoComprobante)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center whitespace-normal tabular-nums">
                       ${fmtPrecio(item.saldoCc)}
                     </TableCell>
                     <TableCell className="tabla-bloque-secundario-cell-divider text-center">
@@ -959,47 +1069,58 @@ export default function FacturaCuentaCorrientePageClient({
                           "justify-center"
                         )}
                       >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="Ver"
-                          aria-label={
-                            item.tipo === "cobro"
-                              ? `Ver cobro ${item.nroComprobante}`
-                              : `Ver ${item.nroComprobante || "comprobante"}`
-                          }
-                          onClick={() => {
-                            if (item.tipo === "cobro") {
-                              setCobroId(item.id);
-                              return;
-                            }
-                            setDetalleId(item.comprobanteId);
-                          }}
-                        >
-                          <Eye
-                            className={TABLE_ROW_ACTION_ICON_CLASS}
-                            aria-hidden
-                          />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="PDF"
-                          aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
-                          onClick={() => {
-                            setPdfId(item.comprobanteId);
-                            setPdfNro(item.nroComprobante);
-                          }}
-                        >
-                          <FileText
-                            className={TABLE_ROW_ACTION_ICON_CLASS}
-                            aria-hidden
-                          />
-                        </Button>
+                        {item.tipo === "cobro" ? (
+                          item.id.startsWith("imp-cobrado-") ? null : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              title="Cobro"
+                              aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
+                              onClick={() => setCobroId(item.id)}
+                            >
+                              <CircleDollarSign
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                          )
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            title="Ver"
+                            aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
+                            onClick={() => setDetalleId(item.comprobanteId)}
+                          >
+                            <Eye
+                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                              aria-hidden
+                            />
+                          </Button>
+                        )}
+                        {item.comprobanteId ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            title="PDF"
+                            aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
+                            onClick={() => {
+                              setPdfId(item.comprobanteId);
+                              setPdfNro(item.nroComprobante);
+                            }}
+                          >
+                            <FileText
+                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                              aria-hidden
+                            />
+                          </Button>
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1062,6 +1183,10 @@ export default function FacturaCuentaCorrientePageClient({
           if (!open) setCobroId(null);
         }}
         cobroId={cobroId}
+        puedeAsignar={!esPublico}
+        onAsignado={() => {
+          if (clienteId) void cargarLedger(clienteId);
+        }}
         obtenerCobro={esPublico ? obtenerCobroVisor : undefined}
         obtenerPdf={esPublico ? obtenerPdfVisor : undefined}
       />
@@ -1084,11 +1209,6 @@ export default function FacturaCuentaCorrientePageClient({
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
         obtenerPdf={esPublico ? obtenerPdfVisor : undefined}
-      />
-      <FacturaCuentaCorrienteTotalesItemModal
-        open={totalesItemOpen}
-        onOpenChange={setTotalesItemOpen}
-        items={totalesPorItem}
       />
       <FiltroRangoFechasCalendarioModal
         open={rangoModalOpen}

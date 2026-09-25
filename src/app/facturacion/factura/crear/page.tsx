@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 import FacturaCrearPageClient from "@/components/facturacion/FacturaCrearPageClient";
+import {
+  facturaTipoDesdeClaseYFiscal,
+  parseFacturaClaseQuery,
+} from "@/lib/factura";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
@@ -15,7 +19,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 type Props = {
-  searchParams: Promise<{ duplicar?: string; nc?: string }>;
+  searchParams: Promise<{ duplicar?: string; nc?: string; clase?: string }>;
 };
 
 export default async function FacturaCrearPage({ searchParams }: Props) {
@@ -24,7 +28,11 @@ export default async function FacturaCrearPage({ searchParams }: Props) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const { duplicar, nc } = await searchParams;
+  const { duplicar, nc, clase: claseRaw } = await searchParams;
+  const clase = parseFacturaClaseQuery(claseRaw);
+  const tipoInicial = clase
+    ? facturaTipoDesdeClaseYFiscal(clase, "no_fiscal")
+    : undefined;
 
   let ptoVtas;
   let condicionesIva;
@@ -57,6 +65,7 @@ export default async function FacturaCrearPage({ searchParams }: Props) {
         ptoVtas={ptoVtas}
         condicionesIva={condicionesIva}
         duplicarBorrador={duplicarBorrador}
+        tipoInicial={tipoInicial}
       />
     </div>
   );

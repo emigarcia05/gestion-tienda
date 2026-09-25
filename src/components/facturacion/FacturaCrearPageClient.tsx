@@ -121,6 +121,7 @@ type Props = {
   ptoVtas: FacturaPtoVtaOpcion[];
   condicionesIva: PtoVentasCodArcaItem[];
   duplicarBorrador?: FacturaComprobanteDuplicarBorrador | null;
+  tipoInicial?: FacturaTipo;
 };
 
 /**
@@ -131,6 +132,7 @@ export default function FacturaCrearPageClient({
   ptoVtas,
   condicionesIva,
   duplicarBorrador = null,
+  tipoInicial,
 }: Props) {
   const router = useRouter();
   const listboxClientesId = useId();
@@ -142,7 +144,7 @@ export default function FacturaCrearPageClient({
   });
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
   const [tipo, setTipo] = useState<FacturaTipo>(
-    () => duplicarBorrador?.tipo ?? FACTURA_TIPO_DEFAULT
+    () => duplicarBorrador?.tipo ?? tipoInicial ?? FACTURA_TIPO_DEFAULT
   );
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
   const [clienteId, setClienteId] = useState<string | null>(

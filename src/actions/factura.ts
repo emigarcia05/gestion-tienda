@@ -27,6 +27,7 @@ import {
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
   asignarNotaCreditoComoCobroSchema,
+  asignarClienteCobroComoCobroSchema,
   registrarPagoCuentaCorrienteSchema,
 } from "@/lib/validations/factura";
 import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
@@ -305,6 +306,27 @@ export async function asignarNotaCreditoComoCobroAction(
   } catch (e) {
     console.error("[asignarNotaCreditoComoCobroAction]", e);
     return { ok: false, error: "No se pudo asignar la nota de crédito." };
+  }
+}
+
+export async function asignarClienteCobroComoCobroAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = asignarClienteCobroComoCobroSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { asignarClienteCobroComoCobro } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await asignarClienteCobroComoCobro(parsed.data));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[asignarClienteCobroComoCobroAction]", e);
+    return { ok: false, error: "No se pudo asignar el cobro." };
   }
 }
 

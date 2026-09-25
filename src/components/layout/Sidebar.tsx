@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ClipboardList,
@@ -30,7 +30,6 @@ import {
   ScanSearch,
   Paintbrush,
   ArrowLeftRight,
-  FilePlus2,
   Files,
   ScrollText,
   Users,
@@ -51,7 +50,7 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
 import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
-import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
 import SidebarNavDivider from "@/components/layout/SidebarNavDivider";
 
@@ -283,12 +282,6 @@ const FACTURACION_MODULES: NavModule[] = [
     icon: <Receipt className={iconClass} />,
     submodules: [
       {
-        href: FACTURACION_ROUTES.factura.crear,
-        label: "Crear",
-        icon: <FilePlus2 className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
         href: FACTURACION_ROUTES.factura.facturas,
         label: "Comprobante",
         icon: <Files className="h-4 w-4 shrink-0" />,
@@ -323,7 +316,11 @@ const FACTURACION_MODULES: NavModule[] = [
   },
 ];
 
-function isSubmoduleActive(pathname: string, href: string): boolean {
+function isSubmoduleActive(
+  pathname: string,
+  href: string,
+  crearClase: string | null
+): boolean {
   if (href.startsWith("/gestion-productos") || href.startsWith("/asistente-ia")) {
     return isGpRouteActive(pathname, href);
   }
@@ -342,14 +339,19 @@ function isSubmoduleActive(pathname: string, href: string): boolean {
   if (href === MARKETING_ROUTES.baseMultimedia.coloresMarca) {
     return pathname === MARKETING_ROUTES.baseMultimedia.coloresMarca;
   }
-  if (href === FACTURACION_ROUTES.factura.crear) {
-    return pathname === FACTURACION_ROUTES.factura.crear;
-  }
   if (href === FACTURACION_ROUTES.factura.facturas) {
-    return pathname === FACTURACION_ROUTES.factura.facturas;
+    return (
+      pathname === FACTURACION_ROUTES.factura.facturas ||
+      (pathname === FACTURACION_ROUTES.factura.crear &&
+        crearClase !== "presupuesto")
+    );
   }
   if (href === FACTURACION_ROUTES.factura.presupuestos) {
-    return pathname === FACTURACION_ROUTES.factura.presupuestos;
+    return (
+      pathname === FACTURACION_ROUTES.factura.presupuestos ||
+      (pathname === FACTURACION_ROUTES.factura.crear &&
+        crearClase === "presupuesto")
+    );
   }
   if (href === FACTURACION_ROUTES.clientes.lista) {
     return pathname === FACTURACION_ROUTES.clientes.lista;
@@ -369,19 +371,28 @@ function submoduleVisible(sub: SubmoduleItem, rol: Rol): boolean {
   return sub.children?.some((c) => submoduleVisible(c, rol)) ?? false;
 }
 
-function isSubmoduleGroupActive(sub: SubmoduleItem, pathname: string): boolean {
+function isSubmoduleGroupActive(
+  sub: SubmoduleItem,
+  pathname: string,
+  crearClase: string | null
+): boolean {
   return (
-    sub.children?.some((c) => (c.href ? isSubmoduleActive(pathname, c.href) : false)) ??
-    false
+    sub.children?.some((c) =>
+      c.href ? isSubmoduleActive(pathname, c.href, crearClase) : false
+    ) ?? false
   );
 }
 
 /** True si el módulo o algún descendiente coincide con la ruta (ancestro / enlace directo). */
-function isNavModuleActive(module: NavModule, pathname: string): boolean {
-  if (module.href && isSubmoduleActive(pathname, module.href)) return true;
+function isNavModuleActive(
+  module: NavModule,
+  pathname: string,
+  crearClase: string | null
+): boolean {
+  if (module.href && isSubmoduleActive(pathname, module.href, crearClase)) return true;
   function walk(items: SubmoduleItem[]): boolean {
     for (const item of items) {
-      if (item.href && isSubmoduleActive(pathname, item.href)) return true;
+      if (item.href && isSubmoduleActive(pathname, item.href, crearClase)) return true;
       if (item.children?.length && walk(item.children)) return true;
     }
     return false;
@@ -413,6 +424,8 @@ function getSoleNavigableHref(module: NavModule, rol: Rol): string | null {
 
 export default function Sidebar({ rol }: { rol: Rol }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const crearClase = searchParams.get(FACTURA_CREAR_QUERY_CLASE);
   const mainAreaId = getMainAppAreaIdFromPathname(pathname);
   /** Acordeón: arranca cerrado; solo se abre por acción del usuario (no por ruta). */
   const [openId, setOpenId] = useState<SidebarModuleId | null>(null);
@@ -470,7 +483,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     setOpenId(module.id);
     // Si hay un agrupador activo por ruta, abrirlo junto con el módulo.
     for (const sub of module.submodules) {
-      if (!sub.href && sub.children?.length && isSubmoduleGroupActive(sub, pathname)) {
+      if (!sub.href && sub.children?.length && isSubmoduleGroupActive(sub, pathname, crearClase)) {
         setOpenSubGroups((prev) => {
           const next = new Set(prev);
           for (const k of [...next]) {
@@ -496,7 +509,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         const soleChildHref =
           kids.length === 1 && kids[0]?.href ? kids[0].href : null;
         if (soleChildHref) {
-          const active = isSubmoduleActive(pathname, soleChildHref);
+          const active = isSubmoduleActive(pathname, soleChildHref, crearClase);
           return (
             <div key={groupKey}>
               <Link
@@ -515,7 +528,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           );
         }
         const isSubOpen = openSubGroups.has(groupKey);
-        const groupActive = isSubmoduleGroupActive(sub, pathname);
+        const groupActive = isSubmoduleGroupActive(sub, pathname, crearClase);
         return (
           <div key={groupKey}>
             <Collapsible
@@ -550,7 +563,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
 
       if (!sub.href) return null;
 
-      const active = isSubmoduleActive(pathname, sub.href);
+      const active = isSubmoduleActive(pathname, sub.href, crearClase);
       return (
         <div key={sub.href}>
           <div className="space-y-0">
@@ -588,7 +601,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             const moduleDivider = moduleIndex > 0 ? <SidebarNavDivider /> : null;
 
             if (module.href) {
-              const active = isSubmoduleActive(pathname, module.href);
+              const active = isSubmoduleActive(pathname, module.href, crearClase);
               return (
                 <div key={module.id}>
                   {moduleDivider}
@@ -609,7 +622,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
 
             const soleHref = getSoleNavigableHref(module, rol);
             if (soleHref) {
-              const active = isSubmoduleActive(pathname, soleHref);
+              const active = isSubmoduleActive(pathname, soleHref, crearClase);
               return (
                 <div key={module.id}>
                   {moduleDivider}
@@ -629,7 +642,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             }
 
             const isOpen = openId === module.id;
-            const moduleAncestor = isNavModuleActive(module, pathname);
+            const moduleAncestor = isNavModuleActive(module, pathname, crearClase);
             return (
               <div key={module.id}>
                 {moduleDivider}

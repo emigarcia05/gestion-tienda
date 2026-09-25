@@ -21,6 +21,8 @@ import {
 import {
   esCobroNotaCreditoNombre,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
+  FACTURA_COBRO_NOTA_CREDITO_LABEL,
+  leftoverClienteCobroPesos,
   type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteMovimientoTipo,
@@ -150,6 +152,19 @@ export async function saldosCuentaCorrientePorCliente(
       round2((out.get(clienteId) ?? 0) + cobro.montoCents / 100)
     );
   }
+  const anticipos = await prisma.clienteCobro.findMany({
+    where: { clienteId: { in: clienteIds } },
+    select: {
+      clienteId: true,
+      montoCents: true,
+      imputaciones: { select: { montoCents: true } },
+    },
+  });
+  for (const cobro of anticipos) {
+    const leftover = leftoverClienteCobroPesos(cobro.montoCents, cobro.imputaciones);
+    if (leftover <= 0) continue;
+    out.set(cobro.clienteId, round2((out.get(cobro.clienteId) ?? 0) - leftover));
+  }
   return out;
 }
 
@@ -168,7 +183,7 @@ function prismaErrorMessage(error: unknown, fallback: string): string {
     const code = (error as { code?: string }).code;
     if (code === "P2025") return "El cliente no existe.";
     if (code === "P2003") {
-      return "No se puede eliminar: el cliente está asociado a un envío, a un proyecto, a un comprobante o como pintor de otro cliente.";
+      return "No se puede eliminar: el cliente está asociado a un envío, a un proyecto, a un comprobante, a un cobro o como pintor de otro cliente.";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -545,6 +560,7 @@ type LedgerEvento = {
   nroComprobante: string;
   detalle: string;
   monto: number;
+  saldoComprobante: number;
   sortMs: number;
   tipoOrden: number;
   /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
@@ -735,10 +751,17 @@ export async function obtenerCuentaCorrienteCliente(
     const idsVenta = rows
       .filter((row) => tipoMovimientoDesdeTipoComprobante(row.tipoComprobante) === "venta")
       .map((row) => row.id);
-    const cobros =
+    const nrosNc = rows
+      .filter(
+        (row) =>
+          tipoMovimientoDesdeTipoComprobante(row.tipoComprobante) ===
+          "nota_credito"
+      )
+      .map((row) => formatoNroComprobante(row.ptoVenta, row.cbteNro));
+    const [cobros, cobrosCliente, imputNc] = await Promise.all([
       idsVenta.length === 0
-        ? []
-        : await prisma.comprobanteVtaCobro.findMany({
+        ? Promise.resolve([])
+        : prisma.comprobanteVtaCobro.findMany({
             where: { comprobanteId: { in: idsVenta } },
             orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
             select: {
@@ -750,8 +773,41 @@ export async function obtenerCuentaCorrienteCliente(
               entidadNombre: true,
               cuotaEtiqueta: true,
               esCuentaCorriente: true,
+              clienteCobroId: true,
             },
-          });
+          }),
+      prisma.clienteCobro.findMany({
+        where: { clienteId: cliente.id },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          pagoNombre: true,
+          entidadNombre: true,
+          cuotaEtiqueta: true,
+          montoCents: true,
+          createdAt: true,
+          imputaciones: { select: { montoCents: true } },
+        },
+      }),
+      nrosNc.length === 0
+        ? Promise.resolve([])
+        : prisma.comprobanteVtaCobro.findMany({
+            where: {
+              pagoNombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
+              entidadNombre: { in: nrosNc },
+            },
+            select: { entidadNombre: true, montoCents: true },
+          }),
+    ]);
+
+    const usadoNcPorNro = new Map<string, number>();
+    for (const cobro of imputNc) {
+      const nro = cobro.entidadNombre.trim();
+      usadoNcPorNro.set(
+        nro,
+        round2((usadoNcPorNro.get(nro) ?? 0) + cobro.montoCents / 100)
+      );
+    }
 
     const cobrosPorComprobante = new Map<string, typeof cobros>();
     for (const cobro of cobros) {
@@ -766,6 +822,17 @@ export async function obtenerCuentaCorrienteCliente(
       if (!tipo) continue;
       const nroComprobante = formatoNroComprobante(row.ptoVenta, row.cbteNro);
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
+      const impTotal = round2(Number(row.impTotal));
+      const impCobrado = round2(Number(row.impCobrado));
+      const saldoComprobante =
+        tipo === "venta"
+          ? round2(Math.max(0, impTotal - impCobrado))
+          : round2(
+              Math.max(
+                0,
+                impTotal - impCobrado - (usadoNcPorNro.get(nroComprobante) ?? 0)
+              )
+            );
       eventos.push({
         id: row.id,
         tipo,
@@ -774,7 +841,8 @@ export async function obtenerCuentaCorrienteCliente(
         comprobanteId: row.id,
         nroComprobante,
         detalle: nroComprobante,
-        monto: round2(Number(row.impTotal)),
+        monto: impTotal,
+        saldoComprobante,
         sortMs: row.createdAt.getTime(),
         tipoOrden: tipo === "venta" ? 0 : 2,
         afectaSaldo: true,
@@ -783,7 +851,7 @@ export async function obtenerCuentaCorrienteCliente(
       if (tipo !== "venta") continue;
 
       const cobrosDeVenta = (cobrosPorComprobante.get(row.id) ?? []).filter(
-        (c) => c.montoCents > 0
+        (c) => c.montoCents > 0 && c.clienteCobroId == null
       );
       for (const cobro of cobrosDeVenta) {
         const esNcCobro = esCobroNotaCreditoNombre(cobro.pagoNombre);
@@ -796,6 +864,7 @@ export async function obtenerCuentaCorrienteCliente(
           nroComprobante,
           detalle: detalleCobroLedger(cobro),
           monto: round2(cobro.montoCents / 100),
+          saldoComprobante: 0,
           sortMs: cobro.createdAt.getTime(),
           tipoOrden: 1,
           afectaSaldo: !cobro.esCuentaCorriente && !esNcCobro,
@@ -803,11 +872,10 @@ export async function obtenerCuentaCorrienteCliente(
         });
       }
       const cobradoFilas = round2(
-        cobrosDeVenta
-          .filter((c) => !c.esCuentaCorriente)
+        (cobrosPorComprobante.get(row.id) ?? [])
+          .filter((c) => c.montoCents > 0 && !c.esCuentaCorriente)
           .reduce((acc, c) => acc + c.montoCents / 100, 0)
       );
-      const impCobrado = round2(Number(row.impCobrado));
       const restoCobrado = round2(impCobrado - cobradoFilas);
       if (restoCobrado > 0.009) {
         eventos.push({
@@ -819,12 +887,35 @@ export async function obtenerCuentaCorrienteCliente(
           nroComprobante,
           detalle: nroComprobante,
           monto: restoCobrado,
+          saldoComprobante: 0,
           sortMs: row.createdAt.getTime() + 1,
           tipoOrden: 1,
           afectaSaldo: true,
           cuentaComoPago: true,
         });
       }
+    }
+
+    for (const cobro of cobrosCliente) {
+      if (cobro.montoCents <= 0) continue;
+      eventos.push({
+        id: cobro.id,
+        tipo: "cobro",
+        fechaIso: dateToIsoYmdArgentina(cobro.createdAt),
+        createdAtIso: cobro.createdAt.toISOString(),
+        comprobanteId: "",
+        nroComprobante: "",
+        detalle: detalleCobroLedger(cobro),
+        monto: round2(cobro.montoCents / 100),
+        saldoComprobante: leftoverClienteCobroPesos(
+          cobro.montoCents,
+          cobro.imputaciones
+        ),
+        sortMs: cobro.createdAt.getTime(),
+        tipoOrden: 1,
+        afectaSaldo: true,
+        cuentaComoPago: true,
+      });
     }
 
     eventos.sort((a, b) => {
@@ -850,6 +941,7 @@ export async function obtenerCuentaCorrienteCliente(
         nroComprobante: ev.nroComprobante,
         detalle: ev.detalle,
         monto: ev.monto,
+        saldoComprobante: ev.saldoComprobante,
         saldoCc: saldo,
         afectaSaldo: ev.afectaSaldo,
         cuentaComoPago: ev.cuentaComoPago,
@@ -1024,14 +1116,27 @@ export async function assertCobroCuentaCorrientePublica(
   cobroId: string
 ): Promise<ServiceResult<void>> {
   try {
-    const cobro = await prisma.comprobanteVtaCobro.findUnique({
+    const cobroVta = await prisma.comprobanteVtaCobro.findUnique({
       where: { id: cobroId },
-      select: { comprobanteId: true },
+      select: { comprobanteId: true, clienteCobroId: true },
     });
-    if (!cobro) {
+    if (cobroVta) {
+      return assertComprobanteCuentaCorrientePublica(token, cobroVta.comprobanteId);
+    }
+    const cobroCliente = await prisma.clienteCobro.findUnique({
+      where: { id: cobroId },
+      select: { clienteId: true },
+    });
+    if (!cobroCliente) {
       return { success: false, error: "No se pudo leer el cobro." };
     }
-    return assertComprobanteCuentaCorrientePublica(token, cobro.comprobanteId);
+    const titularRes = await resolverTitularPorToken(token);
+    if (!titularRes.success) return titularRes;
+    const alcance = await listarClientesAlcancePorTitular(titularRes.data);
+    if (!alcance.some((c) => c.id === cobroCliente.clienteId)) {
+      return { success: false, error: "No se pudo leer el cobro." };
+    }
+    return { success: true, data: undefined };
   } catch (error) {
     console.error("[clientes][cuentaCorrientePublica][cobro]", error);
     return {

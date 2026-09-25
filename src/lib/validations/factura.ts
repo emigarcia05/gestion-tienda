@@ -240,6 +240,15 @@ export type AsignarNotaCreditoComoCobroInput = z.infer<
   typeof asignarNotaCreditoComoCobroSchema
 >;
 
+export const asignarClienteCobroComoCobroSchema = z.object({
+  cobroId: prismaCuidSchema,
+  ventaId: prismaCuidSchema,
+});
+
+export type AsignarClienteCobroComoCobroInput = z.infer<
+  typeof asignarClienteCobroComoCobroSchema
+>;
+
 export const registrarPagoCuentaCorrienteSchema = cobroFacturaEmitirSchema.extend({
   clienteId: prismaCuidSchema,
 });

@@ -1776,6 +1776,7 @@ model Cliente {
   enviosComoPintor       EnviosFinal[] @relation("EnviosFinalPintor")
   direcciones            EnviosDireccion[]
   comprobantesVtas       ComprobanteVta[]
+  cobros                 ClienteCobro[]
 
   @@index([esPintor], map: "clientes_es_pintor_idx")
   @@index([nombreCompleto], map: "clientes_nombre_completo_idx")
@@ -1997,6 +1998,23 @@ model ComprobanteVta {
   @@map("comprobantes_vtas")
 }
 
+/** Cobro de cuenta corriente del cliente (pago completo; imputaciones en `comprobantes_vtas_cobros`). */
+model ClienteCobro {
+  id            String   @id @default(cuid())
+  clienteId     String   @map("cliente_id")
+  pagoNombre    String   @map("pago_nombre")
+  entidadNombre String   @default("") @map("entidad_nombre")
+  cuotaEtiqueta String?  @map("cuota_etiqueta")
+  montoCents    Int      @map("monto_cents")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cliente      Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  imputaciones ComprobanteVtaCobro[]
+
+  @@index([clienteId], map: "clientes_cobros_cliente_id_idx")
+  @@map("clientes_cobros")
+}
+
 /** Cobros registrados al emitir (Imprimir / Descargar). No son `tesoreria_movimientos`. */
 model ComprobanteVtaCobro {
   id                 String   @id @default(cuid())
@@ -2008,11 +2026,14 @@ model ComprobanteVtaCobro {
   montoCents         Int      @map("monto_cents")
   esCuentaCorriente  Boolean  @default(false) @map("es_cuenta_corriente")
   plazoDias          Int?     @map("plazo_dias")
+  clienteCobroId     String?  @map("cliente_cobro_id")
   createdAt          DateTime @default(now()) @map("created_at")
 
-  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comprobante  ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  clienteCobro ClienteCobro?  @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([comprobanteId], map: "comprobantes_vtas_cobros_comp_idx")
+  @@index([clienteCobroId], map: "comprobantes_vtas_cobros_cliente_cobro_idx")
   @@map("comprobantes_vtas_cobros")
 }
 
