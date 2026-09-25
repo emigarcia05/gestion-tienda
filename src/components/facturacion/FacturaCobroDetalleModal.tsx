@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   asignarClienteCobroComoCobroAction,
@@ -57,25 +57,40 @@ export default function FacturaCobroDetalleModal({
   const [loading, setLoading] = useState(false);
   const [asignandoId, setAsignandoId] = useState<string | null>(null);
   const [comprobanteId, setComprobanteId] = useState<string | null>(null);
+  const obtenerCobroRef = useRef(obtenerCobro);
+  const datosCobroIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    obtenerCobroRef.current = obtenerCobro;
+  }, [obtenerCobro]);
 
   useEffect(() => {
     if (!open || !cobroId) return;
     let cancelled = false;
-    queueMicrotask(() => setLoading(true));
-    void obtenerCobro({ id: cobroId }).then((res) => {
+    const yaTieneEsteCobro = datosCobroIdRef.current === cobroId;
+    if (!yaTieneEsteCobro) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setDatos(null);
+        setLoading(true);
+      });
+    }
+    void obtenerCobroRef.current({ id: cobroId }).then((res) => {
       if (cancelled) return;
       setLoading(false);
       if (!res.ok) {
         toast.error(res.error);
         setDatos(null);
+        datosCobroIdRef.current = null;
         return;
       }
+      datosCobroIdRef.current = cobroId;
       setDatos(res.data);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, cobroId, obtenerCobro]);
+  }, [open, cobroId]);
 
   const forma = datos ? lineasFormaPagoCobro(datos.cobro) : null;
   const muestraAsignar =
@@ -87,11 +102,12 @@ export default function FacturaCobroDetalleModal({
 
   async function recargar() {
     if (!cobroId) return;
-    const res = await obtenerCobro({ id: cobroId });
+    const res = await obtenerCobroRef.current({ id: cobroId });
     if (!res.ok) {
       toast.error(res.error);
       return;
     }
+    datosCobroIdRef.current = cobroId;
     setDatos(res.data);
   }
 

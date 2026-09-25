@@ -5,6 +5,7 @@ import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import type {
+  ClienteConSaldoCuentaCorriente,
   CuentaCorrienteClienteDatos,
   FacturaCobroDetalle,
   FacturaComprobanteCobroItem,
@@ -33,6 +34,7 @@ import {
 import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import {
   buscarClientesParaFactura,
+  listarClientesConSaldoCuentaCorriente,
   obtenerCuentaCorrienteCliente,
   obtenerOCrearTokenCuentaCorriente,
 } from "@/services/clientes.service";
@@ -68,6 +70,14 @@ export async function buscarClientesFacturaAction(
       take: parsed.data.take,
     })
   );
+}
+
+export async function listarClientesConSaldoCuentaCorrienteAction(): Promise<
+  ActionResult<ClienteConSaldoCuentaCorriente[]>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  return fromServiceResult(await listarClientesConSaldoCuentaCorriente());
 }
 
 export async function obtenerCuentaCorrienteClienteAction(

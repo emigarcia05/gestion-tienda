@@ -23,6 +23,8 @@ import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_COBRO_NOTA_CREDITO_LABEL,
   leftoverClienteCobroPesos,
+  montoSaldoVencidoVenta,
+  type ClienteConSaldoCuentaCorriente,
   type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteMovimientoTipo,
@@ -176,6 +178,73 @@ async function conSaldoCuentaCorriente(
     ...item,
     saldoCuentaCorriente: saldos.get(item.id) ?? 0,
   }));
+}
+
+async function saldosVencidosCuentaCorrientePorCliente(
+  clienteIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (clienteIds.length === 0) return out;
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+  const ventas = await prisma.comprobanteVta.findMany({
+    where: {
+      clienteId: { in: clienteIds },
+      estado: { not: "rechazado" },
+      tipoComprobante: { in: [...TIPOS_VENTA_CTA_CTE] },
+    },
+    select: {
+      clienteId: true,
+      fecha: true,
+      diasVencimiento: true,
+      impTotal: true,
+      impCobrado: true,
+    },
+  });
+  for (const row of ventas) {
+    if (!row.clienteId) continue;
+    const vencido = montoSaldoVencidoVenta({
+      saldoPendiente: round2(
+        Math.max(0, Number(row.impTotal) - Number(row.impCobrado))
+      ),
+      fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+      diasVencimiento: row.diasVencimiento,
+      hoyIso,
+    });
+    if (vencido <= 0) continue;
+    out.set(row.clienteId, round2((out.get(row.clienteId) ?? 0) + vencido));
+  }
+  return out;
+}
+
+/** Clientes con SALDO CC > 0, ordenados de mayor a menor saldo. */
+export async function listarClientesConSaldoCuentaCorriente(): Promise<
+  ServiceResult<ClienteConSaldoCuentaCorriente[]>
+> {
+  try {
+    const items = await listarClientesConProyectos();
+    const conSaldo = items.filter((item) => item.saldoCuentaCorriente > 0.009);
+    const vencidos = await saldosVencidosCuentaCorrientePorCliente(
+      conSaldo.map((item) => item.id)
+    );
+    const data = conSaldo
+      .map((item) => ({
+        id: item.id,
+        etiqueta: etiquetaClienteListado(item),
+        saldo: item.saldoCuentaCorriente,
+        saldoVencido: vencidos.get(item.id) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (b.saldo !== a.saldo) return b.saldo - a.saldo;
+        return a.etiqueta.localeCompare(b.etiqueta, "es");
+      });
+    return { success: true, data };
+  } catch (error) {
+    console.error("[clientes][conSaldo]", error);
+    return {
+      success: false,
+      error: prismaErrorMessage(error, "No se pudo listar clientes con saldo."),
+    };
+  }
 }
 
 function prismaErrorMessage(error: unknown, fallback: string): string {
@@ -578,6 +647,7 @@ type LedgerEvento = {
   /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
   afectaSaldo: boolean;
   cuentaComoPago: boolean;
+  ventaVencida?: boolean;
 };
 
 function detalleCobroLedger(cobro: {
@@ -759,6 +829,7 @@ export async function obtenerCuentaCorrienteCliente(
         cbteNro: true,
         impTotal: true,
         impCobrado: true,
+        diasVencimiento: true,
       },
     });
 
@@ -843,6 +914,7 @@ export async function obtenerCuentaCorrienteCliente(
     }
 
     const eventos: LedgerEvento[] = [];
+    const hoyIso = dateToIsoYmdArgentina(new Date());
     for (const row of rows) {
       const tipo = tipoMovimientoDesdeTipoComprobante(row.tipoComprobante);
       if (!tipo) continue;
@@ -873,6 +945,15 @@ export async function obtenerCuentaCorrienteCliente(
         tipoOrden: tipo === "venta" ? 0 : 2,
         afectaSaldo: true,
         cuentaComoPago: false,
+        ventaVencida:
+          tipo === "venta"
+            ? montoSaldoVencidoVenta({
+                saldoPendiente: saldoComprobante,
+                fechaIso,
+                diasVencimiento: row.diasVencimiento,
+                hoyIso,
+              }) > 0
+            : undefined,
       });
       if (tipo !== "venta") continue;
 
@@ -971,6 +1052,7 @@ export async function obtenerCuentaCorrienteCliente(
         saldoCc: saldo,
         afectaSaldo: ev.afectaSaldo,
         cuentaComoPago: ev.cuentaComoPago,
+        ventaVencida: ev.ventaVencida,
       };
     });
     movimientos.reverse();

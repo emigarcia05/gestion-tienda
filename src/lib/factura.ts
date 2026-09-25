@@ -7,6 +7,10 @@ import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   type ClienteListaItem,
 } from "@/lib/envios";
+import {
+  addDaysToIsoYmdArgentina,
+  diffCalendarDaysIsoYmdArgentina,
+} from "@/lib/fechaArgentina";
 
 export const FACTURA_TIPOS = [
   "presupuesto",
@@ -223,6 +227,27 @@ export function saldoPendienteTrasCobro(
   const restante = Math.round((impTotal - impCobrado) * 100) / 100;
   return restante > 0 ? restante : 0;
 }
+
+/** Saldo de una venta si ya venció el plazo (`hoy AR` > fecha + `dias_vencimiento`). */
+export function montoSaldoVencidoVenta(args: {
+  saldoPendiente: number;
+  fechaIso: string;
+  diasVencimiento: number | null;
+  hoyIso: string;
+}): number {
+  if (args.saldoPendiente <= 0.009 || args.diasVencimiento == null) return 0;
+  const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
+  const dias = diffCalendarDaysIsoYmdArgentina(venceIso, args.hoyIso);
+  return dias != null && dias > 0 ? args.saldoPendiente : 0;
+}
+
+/** Fila de Cuenta Corrientes · CLIENTES CON SALDO (orden saldo mayor → menor). */
+export type ClienteConSaldoCuentaCorriente = {
+  id: string;
+  etiqueta: string;
+  saldo: number;
+  saldoVencido: number;
+};
 
 /** Venta con saldo para Pago Cuenta Corriente (FIFO). */
 export type FacturaVentaPendientePago = {
@@ -449,6 +474,8 @@ export type CuentaCorrienteClienteMovimiento = {
    * Los cobros `es_cuenta_corriente` no cuentan; la imputación de NC sí.
    */
   cuentaComoPago: boolean;
+  /** Venta con saldo y plazo vencido (filtro SALDO VENCIDO). */
+  ventaVencida?: boolean;
 };
 
 export type CuentaCorrienteProductoTipo = "venta" | "nota_credito";
@@ -619,6 +646,8 @@ export type FiltroPeriodoCuentaCorriente = "todos" | "rango";
 export type FiltroTipoCuentaCorriente = "todos" | CuentaCorrienteMovimientoTipo;
 /** Máscara SALDO: CON SALDO = venta con resto; SIN SALDO = venta pagada. */
 export type FiltroSaldoCuentaCorriente = "todos" | "con_saldo" | "sin_saldo";
+/** Máscara SALDO VENCIDO: SI = solo ventas / clientes con saldo vencido. */
+export type FiltroSaldoVencidoCuentaCorriente = "todos" | "si";
 
 /** Estado de cobro de cada venta del ledger (`saldoComprobante` de la venta). */
 export function mapaEstadoPagoVentasCc(
@@ -641,6 +670,7 @@ export function filtrarMovimientosCuentaCorriente(
     rangoHasta: string;
     tipo: FiltroTipoCuentaCorriente;
     saldo: FiltroSaldoCuentaCorriente;
+    saldoVencido: FiltroSaldoVencidoCuentaCorriente;
   }
 ): CuentaCorrienteClienteMovimiento[] {
   const estadoPorVenta = mapaEstadoPagoVentasCc(movimientos);
@@ -652,6 +682,9 @@ export function filtrarMovimientosCuentaCorriente(
       }
     }
     if (filtros.tipo !== "todos" && mov.tipo !== filtros.tipo) return false;
+    if (filtros.saldoVencido === "si") {
+      if (mov.tipo !== "venta" || !mov.ventaVencida) return false;
+    }
     if (filtros.saldo !== "todos") {
       if (mov.tipo === "nota_credito") return false;
       if (mov.tipo === "cobro" && !mov.comprobanteId) {

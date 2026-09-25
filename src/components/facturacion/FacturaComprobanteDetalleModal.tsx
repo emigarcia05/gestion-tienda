@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { obtenerFacturaComprobantePdfAction } from "@/actions/factura";
 import AppModal from "@/components/shared/AppModal";
@@ -54,25 +54,40 @@ export default function FacturaComprobanteDetalleModal({
 }: Props) {
   const [datos, setDatos] = useState<FacturaComprobantePdfInput | null>(null);
   const [loading, setLoading] = useState(false);
+  const obtenerPdfRef = useRef(obtenerPdf);
+  const datosComprobanteIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    obtenerPdfRef.current = obtenerPdf;
+  }, [obtenerPdf]);
 
   useEffect(() => {
     if (!open || !comprobanteId) return;
     let cancelled = false;
-    queueMicrotask(() => setLoading(true));
-    void obtenerPdf({ id: comprobanteId }).then((res) => {
+    const yaTieneEste = datosComprobanteIdRef.current === comprobanteId;
+    if (!yaTieneEste) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setDatos(null);
+        setLoading(true);
+      });
+    }
+    void obtenerPdfRef.current({ id: comprobanteId }).then((res) => {
       if (cancelled) return;
       setLoading(false);
       if (!res.ok) {
         toast.error(res.error);
         setDatos(null);
+        datosComprobanteIdRef.current = null;
         return;
       }
+      datosComprobanteIdRef.current = comprobanteId;
       setDatos(res.data);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, comprobanteId, obtenerPdf]);
+  }, [open, comprobanteId]);
 
   const pctGlobal = useMemo(
     () => (datos ? porcentajeDescuentoGlobal(datos.lineas, datos.descuento) : 0),

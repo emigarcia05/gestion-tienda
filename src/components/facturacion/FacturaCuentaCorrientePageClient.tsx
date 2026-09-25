@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { CircleDollarSign, Eye, FileText, Package, Share2, Wallet } from "lucide-react";
+import { CircleDollarSign, Eye, FileText, Package, Share2, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
   compartirLinkCuentaCorrienteAction,
+  listarClientesConSaldoCuentaCorrienteAction,
   obtenerCuentaCorrienteClienteAction,
 } from "@/actions/factura";
 import {
@@ -64,10 +65,12 @@ import {
   filtrarMovimientosCuentaCorriente,
   resumenIndicadoresCuentaCorriente,
   totalesPorItemCuentaCorriente,
+  type ClienteConSaldoCuentaCorriente,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteProductoLinea,
   type FiltroPeriodoCuentaCorriente,
   type FiltroSaldoCuentaCorriente,
+  type FiltroSaldoVencidoCuentaCorriente,
   type FiltroTipoCuentaCorriente,
 } from "@/lib/factura";
 import {
@@ -100,9 +103,10 @@ import type { CuentaCorrientePublicaSesion } from "@/lib/cuentaCorrientePublica"
 const COL_SPAN = 6;
 const COL_SPAN_PRODUCTOS = 4;
 const COL_SPAN_TOTALES_ITEM = 2;
+const COL_SPAN_CLIENTES_SALDO = 3;
 const FILTRO_CC_TODOS = "todos";
 const PERIODO_RANGO = "rango";
-type VistaCuentaCorriente = "comprobantes" | "productos";
+type VistaCuentaCorriente = "comprobantes" | "productos" | "clientes_saldo";
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
@@ -154,6 +158,12 @@ export default function FacturaCuentaCorrientePageClient({
     useState<FiltroTipoCuentaCorriente>(FILTRO_CC_TODOS);
   const [filtroSaldo, setFiltroSaldo] =
     useState<FiltroSaldoCuentaCorriente>(FILTRO_CC_TODOS);
+  const [filtroSaldoVencido, setFiltroSaldoVencido] =
+    useState<FiltroSaldoVencidoCuentaCorriente>(FILTRO_CC_TODOS);
+  const [clientesConSaldo, setClientesConSaldo] = useState<
+    ClienteConSaldoCuentaCorriente[]
+  >([]);
+  const [loadingClientesSaldo, setLoadingClientesSaldo] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const [pagoCcOpen, setPagoCcOpen] = useState(false);
   const [totalesItemVista, setTotalesItemVista] = useState(false);
@@ -216,8 +226,9 @@ export default function FacturaCuentaCorrientePageClient({
         rangoHasta,
         tipo: filtroTipo,
         saldo: filtroSaldo,
+        saldoVencido: filtroSaldoVencido,
       }),
-    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo]
+    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, filtroSaldoVencido]
   );
 
   const indicadores = useMemo(
@@ -255,17 +266,25 @@ export default function FacturaCuentaCorrientePageClient({
   );
 
   const esVistaProductos = vista === "productos";
+  const esVistaClientesSaldo = vista === "clientes_saldo";
+  const esVistaComprobantes = vista === "comprobantes";
+  const clientesConSaldoFiltrados = useMemo(() => {
+    if (filtroSaldoVencido !== "si") return clientesConSaldo;
+    return clientesConSaldo.filter((item) => item.saldoVencido > 0.009);
+  }, [clientesConSaldo, filtroSaldoVencido]);
   const proyectosCliente = clienteSeleccionado?.proyectos ?? [];
   const mostrarProyecto = proyectosCliente.length > 1;
   const saldoClienteVisible =
     clienteId != null && clienteSeleccionado != null
       ? clienteSeleccionado.saldoCuentaCorriente
       : null;
-  const filasVisibles = esVistaProductos
-    ? totalesItemVista
-      ? totalesPorItem.length
-      : productosFiltrados.length
-    : movimientosFiltrados.length;
+  const filasVisibles = esVistaClientesSaldo
+    ? clientesConSaldoFiltrados.length
+    : esVistaProductos
+      ? totalesItemVista
+        ? totalesPorItem.length
+        : productosFiltrados.length
+      : movimientosFiltrados.length;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -320,12 +339,46 @@ export default function FacturaCuentaCorrientePageClient({
     void cargarLedger(id);
   }
 
+  function abrirCuentaDeCliente(fila: ClienteConSaldoCuentaCorriente) {
+    clienteIdRef.current = fila.id;
+    setClienteId(fila.id);
+    setClienteSeleccionado(null);
+    setProyectoFiltroId(null);
+    setQ(fila.etiqueta);
+    setAbierto(false);
+    setSugerencias([]);
+    setTotalesItemVista(false);
+    setVista("comprobantes");
+    void cargarLedger(fila.id);
+  }
+
   useEffect(() => {
     if (!visorPublico) return;
     seleccionarCuentaPublica(visorPublico.sesion.titularId);
     // Solo al montar el visor público.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visorPublico?.token]);
+
+  useEffect(() => {
+    if (vista !== "clientes_saldo" || esPublico) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setLoadingClientesSaldo(true);
+    });
+    void listarClientesConSaldoCuentaCorrienteAction().then((res) => {
+      if (cancelled) return;
+      setLoadingClientesSaldo(false);
+      if (!res.ok) {
+        toast.error(res.error);
+        setClientesConSaldo([]);
+        return;
+      }
+      setClientesConSaldo(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [vista, esPublico]);
 
   async function compartirLink() {
     if (clienteId == null) {
@@ -380,6 +433,7 @@ export default function FacturaCuentaCorrientePageClient({
     limpiarPeriodo();
     setFiltroTipo(FILTRO_CC_TODOS);
     setFiltroSaldo(FILTRO_CC_TODOS);
+    setFiltroSaldoVencido(FILTRO_CC_TODOS);
     setFiltroMarca("");
     setFiltroRubro("");
     setQDesc("");
@@ -407,7 +461,11 @@ export default function FacturaCuentaCorrientePageClient({
   }
 
   const vacioMensaje =
-    clienteId == null
+    esVistaClientesSaldo
+      ? loadingClientesSaldo
+        ? "CARGANDO…"
+        : "NO HAY CLIENTES CON SALDO."
+      : clienteId == null
       ? esPublico
         ? "CARGANDO…"
         : "BUSCÁ UN CLIENTE."
@@ -417,26 +475,27 @@ export default function FacturaCuentaCorrientePageClient({
           ? "NO HAY PRODUCTOS."
           : "NO HAY MOVIMIENTOS.";
 
+  const tokenPublico = visorPublico?.token;
   const obtenerPdfVisor = useCallback(
     (input: { id: string }) =>
-      visorPublico
+      tokenPublico
         ? obtenerFacturaComprobantePdfPublicoAction({
-            token: visorPublico.token,
+            token: tokenPublico,
             id: input.id,
           })
         : Promise.resolve({ ok: false as const, error: "Sin sesión." }),
-    [visorPublico]
+    [tokenPublico]
   );
 
   const obtenerCobroVisor = useCallback(
     (input: { id: string }) =>
-      visorPublico
+      tokenPublico
         ? obtenerDetalleCobroComprobantePublicoAction({
-            token: visorPublico.token,
+            token: tokenPublico,
             id: input.id,
           })
         : Promise.resolve({ ok: false as const, error: "Sin sesión." }),
-    [visorPublico]
+    [tokenPublico]
   );
 
   const filtroFecha = (
@@ -477,6 +536,33 @@ export default function FacturaCuentaCorrientePageClient({
     </FiltroIndividualContainer>
   );
 
+  const filtroSaldoVencidoSelect = (
+    <FiltroIndividualContainer
+      activo={filtroSaldoVencido !== FILTRO_CC_TODOS}
+      onLimpiar={() => setFiltroSaldoVencido(FILTRO_CC_TODOS)}
+      className={FILTER_SELECT_WRAPPER_CLASS}
+    >
+      <Select
+        value={filtroSaldoVencido === FILTRO_CC_TODOS ? undefined : filtroSaldoVencido}
+        onValueChange={(value) => {
+          if (value === "si") setFiltroSaldoVencido(value);
+        }}
+      >
+        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+          <SelectValue placeholder="SALDO VENCIDO" />
+        </SelectTrigger>
+        <SelectContent
+          className="select-content-filtro"
+          position="popper"
+          side="bottom"
+          align="start"
+        >
+          <SelectItem value="si">SI</SelectItem>
+        </SelectContent>
+      </Select>
+    </FiltroIndividualContainer>
+  );
+
   return (
     <>
       <ClassicFilteredTableLayout
@@ -497,7 +583,7 @@ export default function FacturaCuentaCorrientePageClient({
             <ToolbarActionButton
               label="DETALLE COMPROBANTES"
               icon={<FileText />}
-              aria-pressed={!esVistaProductos}
+              aria-pressed={esVistaComprobantes}
               className="w-full justify-start"
               onClick={() => {
                 setTotalesItemVista(false);
@@ -514,6 +600,18 @@ export default function FacturaCuentaCorrientePageClient({
                 setVista("productos");
               }}
             />
+            {esPublico ? null : (
+              <ToolbarActionButton
+                label="CLIENTES CON SALDO"
+                icon={<Users />}
+                aria-pressed={esVistaClientesSaldo}
+                className="w-full justify-start"
+                onClick={() => {
+                  setTotalesItemVista(false);
+                  setVista("clientes_saldo");
+                }}
+              />
+            )}
             {esPublico ? null : (
               <ToolbarActionButton
                 label="COMPARTIR CUENTA CORRIENTE"
@@ -762,7 +860,11 @@ export default function FacturaCuentaCorrientePageClient({
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
               <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
                 {filasVisibles.toLocaleString("es-AR")}{" "}
-                {esVistaProductos
+                {esVistaClientesSaldo
+                  ? filasVisibles === 1
+                    ? "CLIENTE"
+                    : "CLIENTES"
+                  : esVistaProductos
                   ? filasVisibles === 1
                     ? "PRODUCTO"
                     : "PRODUCTOS"
@@ -917,6 +1019,7 @@ export default function FacturaCuentaCorrientePageClient({
                   </SelectContent>
                 </Select>
               </FiltroIndividualContainer>
+              {filtroSaldoVencidoSelect}
             </FilaFiltrosDesplegables>
             )}
           </FilterBar>
@@ -925,7 +1028,54 @@ export default function FacturaCuentaCorrientePageClient({
       >
         <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
           <div className="contenedor-tabla-gestion--pie-fijo-scroll">
-          {esVistaProductos ? (
+          {esVistaClientesSaldo ? (
+          <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed text-center">
+            <colgroup>
+              <col className="w-[50%]" />
+              <col className="w-[25%]" />
+              <col className="w-[25%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-center">CLIENTE</TableHead>
+                <TableHead className="text-center">SALDO</TableHead>
+                <TableHead className="text-center">SALDO VENCIDO</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clientesConSaldoFiltrados.length === 0 ? (
+                <EmptyTableRow
+                  colSpan={COL_SPAN_CLIENTES_SALDO}
+                  message={vacioMensaje}
+                />
+              ) : (
+                clientesConSaldoFiltrados.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="text-center whitespace-normal">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className={cn(
+                          "h-auto min-h-0 px-0 py-0 font-semibold uppercase underline",
+                          "!h-auto !min-h-0 !p-0"
+                        )}
+                        onClick={() => abrirCuentaDeCliente(item)}
+                      >
+                        {fmtCelda(item.etiqueta)}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      ${fmtPrecio(item.saldo)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center tabular-nums">
+                      ${fmtPrecio(item.saldoVencido)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          ) : esVistaProductos ? (
           totalesItemVista ? (
           <Table variant="compact" className="tabla-gestion-compacta w-full table-fixed text-center">
             <colgroup>
@@ -1135,7 +1285,7 @@ export default function FacturaCuentaCorrientePageClient({
           </Table>
           )}
           </div>
-          {esVistaProductos ? null : (
+          {esVistaProductos || esVistaClientesSaldo ? null : (
           <div
             className="w-full shrink-0 border-t border-border px-2 py-2"
             role="region"
