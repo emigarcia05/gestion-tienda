@@ -1,8 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  esCobroNotaCreditoNombre,
   esFacturaTipo,
+  esFacturaTipoNotaCredito,
   type FacturaCobroDetalle,
+  type FacturaNcCobroVista,
   type FacturaComprobanteCobroItem,
   type FacturaComprobanteEstado,
   type FacturaComprobanteListItem,
@@ -357,6 +360,110 @@ export async function listarCobrosComprobanteVta(
       personalNombre,
     })),
   };
+}
+
+export async function listarVistaCobroNotaCredito(
+  notaCreditoId: string
+): Promise<FacturaNcCobroVista | null> {
+  const nc = await prisma.comprobanteVta.findUnique({
+    where: { id: notaCreditoId },
+    select: {
+      tipoComprobante: true,
+      ptoVenta: true,
+      cbteNro: true,
+      impTotal: true,
+      clienteId: true,
+    },
+  });
+  if (!nc) return null;
+  const tipo: FacturaTipo = esFacturaTipo(nc.tipoComprobante)
+    ? nc.tipoComprobante
+    : "factura_no_fiscal";
+  if (!esFacturaTipoNotaCredito(tipo)) return null;
+
+  const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
+  const cobros = await prisma.comprobanteVtaCobro.findMany({
+    where: { entidadNombre: nro },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      createdAt: true,
+      pagoNombre: true,
+      montoCents: true,
+      comprobante: {
+        select: {
+          ptoVenta: true,
+          cbteNro: true,
+          personal: { select: { nombrePersonal: true } },
+        },
+      },
+    },
+  });
+  const asignaciones = cobros
+    .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
+    .map((c) => ({
+      id: c.id,
+      comprobanteNro: formatoNroComprobante(c.comprobante.ptoVenta, c.comprobante.cbteNro),
+      createdAtIso: c.createdAt.toISOString(),
+      montoCents: c.montoCents,
+      personalNombre:
+        c.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
+    }));
+  const usado = asignaciones.reduce((acc, a) => acc + a.montoCents, 0) / 100;
+  const saldoDisponible = Math.max(
+    0,
+    Math.round((decimalToNumber(nc.impTotal) - usado) * 100) / 100
+  );
+
+  const ventasRows = nc.clienteId
+    ? await prisma.comprobanteVta.findMany({
+        where: {
+          clienteId: nc.clienteId,
+          tipoComprobante: { in: ["factura_fiscal", "factura_no_fiscal"] },
+          estado: { not: "rechazado" },
+        },
+        orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
+        take: 200,
+        select: {
+          id: true,
+          ptoVenta: true,
+          cbteNro: true,
+          tipoComprobante: true,
+          estado: true,
+          impTotal: true,
+          impCobrado: true,
+          fecha: true,
+          diasVencimiento: true,
+          notasCredito: { select: { id: true }, take: 1 },
+        },
+      })
+    : [];
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+  const ventas = ventasRows.flatMap((row) => {
+    const tipoVenta: FacturaTipo = esFacturaTipo(row.tipoComprobante)
+      ? row.tipoComprobante
+      : "factura_no_fiscal";
+    const { saldoPendiente } = saldoYDiasCtaCte({
+      tipo: tipoVenta,
+      estado: asEstado(row.estado),
+      impTotal: decimalToNumber(row.impTotal),
+      impCobrado: decimalToNumber(row.impCobrado),
+      fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+      diasVencimiento: row.diasVencimiento,
+      tieneNc: row.notasCredito.length > 0,
+      hoyIso,
+    });
+    if (saldoPendiente == null || saldoPendiente <= 0) return [];
+    return [
+      {
+        id: row.id,
+        nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
+        saldoPendiente,
+      },
+    ];
+  });
+
+  return { asignaciones, saldoDisponible, ventas };
 }
 
 export async function obtenerDetalleCobroComprobante(

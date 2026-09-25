@@ -8,6 +8,7 @@ import type {
   CuentaCorrienteClienteDatos,
   FacturaCobroDetalle,
   FacturaComprobanteCobroItem,
+  FacturaNcCobroVista,
   FacturaComprobanteDuplicarBorrador,
   FacturaEmitirResultado,
 } from "@/lib/factura";
@@ -24,6 +25,7 @@ import {
   facturaComprobanteIdSchema,
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
+  asignarNotaCreditoComoCobroSchema,
 } from "@/lib/validations/factura";
 import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import {
@@ -260,6 +262,47 @@ export async function listarCobrosComprobanteFacturaAction(
   } catch (e) {
     console.error("[listarCobrosComprobanteFacturaAction]", e);
     return { ok: false, error: "No se pudieron listar los cobros." };
+  }
+}
+
+export async function listarVistaCobroNotaCreditoAction(
+  raw: unknown
+): Promise<ActionResult<FacturaNcCobroVista>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = facturaComprobanteIdSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { listarVistaCobroNotaCredito } = await import(
+      "@/services/facturaComprobantesListado.service"
+    );
+    const data = await listarVistaCobroNotaCredito(parsed.data.id);
+    if (!data) return { ok: false, error: "No se encontró la nota de crédito." };
+    return { ok: true, data };
+  } catch (e) {
+    console.error("[listarVistaCobroNotaCreditoAction]", e);
+    return { ok: false, error: "No se pudieron cargar las imputaciones." };
+  }
+}
+
+export async function asignarNotaCreditoComoCobroAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  const parsed = asignarNotaCreditoComoCobroSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const { asignarNotaCreditoComoCobro } = await import(
+      "@/services/facturaComprobantes.service"
+    );
+    const out = fromServiceResult(await asignarNotaCreditoComoCobro(parsed.data));
+    if (!out.ok) return out;
+    revalidateFacturacion();
+    return out;
+  } catch (e) {
+    console.error("[asignarNotaCreditoComoCobroAction]", e);
+    return { ok: false, error: "No se pudo asignar la nota de crédito." };
   }
 }
 

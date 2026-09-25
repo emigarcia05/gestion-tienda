@@ -29,8 +29,10 @@ import {
 import {
   efectoStockPorTipo,
   diasVencimientoPorSaldoPendiente,
+  esCobroNotaCreditoNombre,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
+  FACTURA_COBRO_NOTA_CREDITO_LABEL,
   esFacturaTipoVenta,
   puedeConvertirComprobanteEnFiscal,
   puedeEliminarComprobante,
@@ -393,6 +395,8 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
   personalId: number;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   try {
+    const MSG_CLIENTE_SIN_CUIT_CONVERSION_FISCAL =
+      '"Para emitir Factura Fiscal" primero debe cargar un CUIT a este cliente';
     const row = await prisma.comprobanteVta.findUnique({
       where: { id: input.id },
       include: {
@@ -411,6 +415,18 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
         success: false,
         error: "Solo se pueden convertir comprobantes no fiscales (venta o nota de crédito).",
       };
+    }
+    if (tipoDestino === "factura_fiscal" || tipoDestino === "nota_credito_fiscal") {
+      if (!row.clienteId) {
+        return { success: false, error: MSG_CLIENTE_SIN_CUIT_CONVERSION_FISCAL };
+      }
+      const cliente = await prisma.cliente.findUnique({
+        where: { id: row.clienteId },
+        select: { cuit: true },
+      });
+      if (!cliente?.cuit || !esCuitValido(cliente.cuit)) {
+        return { success: false, error: MSG_CLIENTE_SIN_CUIT_CONVERSION_FISCAL };
+      }
     }
     if (row.estado === "rechazado") {
       return { success: false, error: "No se puede convertir un comprobante rechazado." };
@@ -1472,6 +1488,109 @@ export async function registrarCobroComprobanteVta(
   } catch (e) {
     console.error("[registrarCobroComprobanteVta]", e);
     return { success: false, error: "No se pudo registrar el cobro." };
+  }
+}
+
+/** Imputa el saldo disponible de una NC como cobro de una venta del mismo cliente. */
+export async function asignarNotaCreditoComoCobro(input: {
+  notaCreditoId: string;
+  ventaId: string;
+}): Promise<ServiceResult<void>> {
+  try {
+    const [nc, venta] = await Promise.all([
+      prisma.comprobanteVta.findUnique({
+        where: { id: input.notaCreditoId },
+        select: {
+          tipoComprobante: true,
+          ptoVenta: true,
+          cbteNro: true,
+          impTotal: true,
+          clienteId: true,
+          estado: true,
+        },
+      }),
+      prisma.comprobanteVta.findUnique({
+        where: { id: input.ventaId },
+        select: {
+          tipoComprobante: true,
+          estado: true,
+          impTotal: true,
+          impCobrado: true,
+          clienteId: true,
+          diasVencimiento: true,
+          cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+        },
+      }),
+    ]);
+    if (!nc || !venta) {
+      return { success: false, error: "No se encontró el comprobante." };
+    }
+    const tipoNc = esFacturaTipo(nc.tipoComprobante) ? nc.tipoComprobante : "factura_no_fiscal";
+    if (!esFacturaTipoNotaCredito(tipoNc) || asEstado(nc.estado) === "rechazado") {
+      return { success: false, error: "La nota de crédito no se puede imputar." };
+    }
+    const tipoVenta = esFacturaTipo(venta.tipoComprobante)
+      ? venta.tipoComprobante
+      : "factura_no_fiscal";
+    if (!esFacturaTipoVenta(tipoVenta) || asEstado(venta.estado) === "rechazado") {
+      return { success: false, error: "Solo se puede imputar a una venta." };
+    }
+    if (nc.clienteId == null || nc.clienteId !== venta.clienteId) {
+      return { success: false, error: "La venta no es del mismo cliente." };
+    }
+    const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
+    const previas = await prisma.comprobanteVtaCobro.findMany({
+      where: { entidadNombre: nro },
+      select: { pagoNombre: true, montoCents: true },
+    });
+    const usadoCents = previas
+      .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
+      .reduce((acc, c) => acc + c.montoCents, 0);
+    const disponibleCents = Math.max(
+      0,
+      Math.round(decimalToNumber(nc.impTotal) * 100) - usadoCents
+    );
+    if (disponibleCents <= 0) {
+      return { success: false, error: "La nota de crédito ya está imputada." };
+    }
+    const saldoVenta = saldoPendienteTrasCobro(
+      decimalToNumber(venta.impTotal),
+      decimalToNumber(venta.impCobrado)
+    );
+    if (saldoVenta <= 0) {
+      return { success: false, error: "La venta no tiene saldo pendiente." };
+    }
+    const montoCents = Math.min(disponibleCents, Math.round(saldoVenta * 100));
+    const siguienteImpCobrado = roundArs2(decimalToNumber(venta.impCobrado) + montoCents / 100);
+    const siguienteSaldo = saldoPendienteTrasCobro(
+      decimalToNumber(venta.impTotal),
+      siguienteImpCobrado
+    );
+    await prisma.$transaction(async (tx) => {
+      await tx.comprobanteVtaCobro.create({
+        data: {
+          comprobanteId: input.ventaId,
+          orden: (venta.cobros[0]?.orden ?? -1) + 1,
+          pagoNombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
+          entidadNombre: nro,
+          cuotaEtiqueta: null,
+          montoCents,
+          esCuentaCorriente: false,
+          plazoDias: null,
+        },
+      });
+      await tx.comprobanteVta.update({
+        where: { id: input.ventaId },
+        data: {
+          impCobrado: siguienteImpCobrado,
+          diasVencimiento: siguienteSaldo <= 0 ? null : venta.diasVencimiento,
+        },
+      });
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[asignarNotaCreditoComoCobro]", e);
+    return { success: false, error: "No se pudo asignar la nota de crédito." };
   }
 }
 

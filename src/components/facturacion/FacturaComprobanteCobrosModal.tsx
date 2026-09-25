@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
+  asignarNotaCreditoComoCobroAction,
   listarCatalogoCobroFacturaAction,
   listarCobrosComprobanteFacturaAction,
+  listarVistaCobroNotaCreditoAction,
   registrarCobroComprobanteFacturaAction,
 } from "@/actions/factura";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
@@ -38,6 +40,7 @@ import {
   FACTURA_COBRO_NOTA_CREDITO_UI_ID,
   lineasFormaPagoCobro,
   type FacturaComprobanteCobroItem,
+  type FacturaNcCobroVista,
 } from "@/lib/factura";
 import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import { fmtCelda } from "@/lib/format";
@@ -61,6 +64,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   comprobanteId: string | null;
   nroComprobante: string;
+  /** NC: ver imputaciones y asignarla como pago de una venta. */
+  esNotaCredito?: boolean;
 };
 
 export default function FacturaComprobanteCobrosModal({
@@ -68,6 +73,7 @@ export default function FacturaComprobanteCobrosModal({
   onOpenChange,
   comprobanteId,
   nroComprobante,
+  esNotaCredito = false,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<FacturaComprobanteCobroItem[]>([]);
@@ -82,6 +88,8 @@ export default function FacturaComprobanteCobrosModal({
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [notaCreditoRef, setNotaCreditoRef] = useState("");
+  const [vistaNc, setVistaNc] = useState<FacturaNcCobroVista | null>(null);
+  const [ventaId, setVentaId] = useState("");
 
   const haySaldo = saldoPendiente != null && saldoPendiente > 0;
   const pagosDisponibles = useMemo<FinAnaCosFinaPagoItem[]>(
@@ -137,7 +145,7 @@ export default function FacturaComprobanteCobrosModal({
   );
 
   useEffect(() => {
-    if (!open || !comprobanteId) return;
+    if (!open || !comprobanteId || esNotaCredito) return;
     const id = comprobanteId;
     let cancelled = false;
     queueMicrotask(() => {
@@ -160,7 +168,59 @@ export default function FacturaComprobanteCobrosModal({
     return () => {
       cancelled = true;
     };
-  }, [open, comprobanteId, resetFormulario]);
+  }, [open, comprobanteId, esNotaCredito, resetFormulario]);
+
+  const cargarVistaNc = useCallback(async (id: string) => {
+    const res = await listarVistaCobroNotaCreditoAction({ id });
+    if (!res.ok) {
+      toast.error(res.error);
+      setVistaNc(null);
+      return;
+    }
+    setVistaNc(res.data);
+    setVentaId("");
+  }, []);
+
+  useEffect(() => {
+    if (!open || !comprobanteId || !esNotaCredito) return;
+    const id = comprobanteId;
+    let cancelled = false;
+    queueMicrotask(() => setLoading(true));
+    void listarVistaCobroNotaCreditoAction({ id }).then((res) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (!res.ok) {
+        toast.error(res.error);
+        setVistaNc(null);
+        return;
+      }
+      setVistaNc(res.data);
+      setVentaId("");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, comprobanteId, esNotaCredito]);
+
+  async function asignarNc() {
+    if (!comprobanteId || !ventaId) {
+      toast.error("Elegí el comprobante.");
+      return;
+    }
+    setGuardando(true);
+    const res = await asignarNotaCreditoComoCobroAction({
+      notaCreditoId: comprobanteId,
+      ventaId,
+    });
+    setGuardando(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success("Nota de crédito asignada como pago.");
+    await cargarVistaNc(comprobanteId);
+    router.refresh();
+  }
 
   useEffect(() => {
     if (!open || !formAbierto) return;
@@ -258,6 +318,76 @@ export default function FacturaComprobanteCobrosModal({
       >
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
+        ) : esNotaCredito ? (
+          <div className="flex min-h-0 flex-col gap-3">
+            <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
+              SALDO DISPONIBLE:{" "}
+              {montoArCentsToDisplayWithCurrency(
+                Math.round((vistaNc?.saldoDisponible ?? 0) * 100),
+                "$"
+              )}
+            </p>
+            <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
+              <Table className="w-full table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[7.5rem]">FECHA</TableHead>
+                    <TableHead>COMPROBANTE</TableHead>
+                    <TableHead className="w-[6.5rem] text-right">MONTO</TableHead>
+                    <TableHead className="w-[8rem]">PERSONAL</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(vistaNc?.asignaciones.length ?? 0) === 0 ? (
+                    <EmptyTableRow
+                      colSpan={4}
+                      message="Esta nota de crédito no está asignada como pago."
+                    />
+                  ) : (
+                    vistaNc?.asignaciones.map((fila) => (
+                      <TableRow key={fila.id}>
+                        <TableCell className="celda-datos tabular-nums">
+                          {formatInstanteDdMmYyHhMmArgentina(new Date(fila.createdAtIso))}
+                        </TableCell>
+                        <TableCell className="celda-datos tabular-nums">
+                          {fila.comprobanteNro}
+                        </TableCell>
+                        <TableCell className="celda-datos text-right tabular-nums">
+                          {montoArCentsToDisplayWithCurrency(fila.montoCents, "$")}
+                        </TableCell>
+                        <TableCell className="celda-datos text-left">
+                          {fmtCelda(fila.personalNombre)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            {(vistaNc?.saldoDisponible ?? 0) > 0 && (vistaNc?.ventas.length ?? 0) > 0 ? (
+              <div className="flex items-end gap-2">
+                <label className="flex min-w-0 flex-1 flex-col gap-1">
+                  <ModalMicroLabel>COMPROBANTE</ModalMicroLabel>
+                  <Select value={ventaId || VACIO} onValueChange={(v) => setVentaId(v === VACIO ? "" : v)}>
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="COMPROBANTE" />
+                    </SelectTrigger>
+                    <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
+                      <SelectItem value={VACIO}>COMPROBANTE</SelectItem>
+                      {vistaNc?.ventas.map((venta) => (
+                        <SelectItem key={venta.id} value={venta.id}>
+                          {venta.nroComprobante}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                <Button type="button" disabled={guardando || !ventaId} onClick={() => void asignarNc()}>
+                  Asignar
+                </Button>
+              </div>
+            ) : null}
+          </div>
         ) : (
           <div className="flex min-h-0 flex-col gap-3">
             {haySaldo ? (

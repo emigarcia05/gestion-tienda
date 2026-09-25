@@ -116,6 +116,27 @@ function normalizarNombreCobro(value: string): string {
     .toLocaleUpperCase("es-AR");
 }
 
+export type FacturaNcCobroAsignacion = {
+  id: string;
+  comprobanteNro: string;
+  createdAtIso: string;
+  montoCents: number;
+  personalNombre: string;
+};
+
+export type FacturaNcCobroVentaOption = {
+  id: string;
+  nroComprobante: string;
+  saldoPendiente: number;
+};
+
+/** Cobros de una NC: imputaciones ya hechas y ventas con saldo del mismo cliente. */
+export type FacturaNcCobroVista = {
+  asignaciones: FacturaNcCobroAsignacion[];
+  saldoDisponible: number;
+  ventas: FacturaNcCobroVentaOption[];
+};
+
 export function esCobroNotaCreditoNombre(value: string): boolean {
   return (
     normalizarNombreCobro(value) ===

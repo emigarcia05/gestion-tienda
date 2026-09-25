@@ -47,6 +47,7 @@ import {
   etiquetaTipoListaComprobantes,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoFiscal,
+  esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   puedeEliminarComprobante,
   resumenIndicadoresListaComprobantes,
@@ -164,6 +165,7 @@ export default function FacturaListadoPageClient({
   const [filtroProyectoId, setFiltroProyectoId] = useState("");
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
+  const [cobrosEsNc, setCobrosEsNc] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [pdfId, setPdfId] = useState<string | null>(null);
   const [pdfNro, setPdfNro] = useState("");
@@ -800,10 +802,15 @@ export default function FacturaListadoPageClient({
                           className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           title="Cobro"
                           aria-label={`Cobro ${item.nroComprobante}`}
-                          disabled={!esFacturaTipoVenta(item.tipo)}
+                          disabled={
+                            busyId === item.id ||
+                            (!esFacturaTipoVenta(item.tipo) &&
+                              !esFacturaTipoNotaCredito(item.tipo))
+                          }
                           onClick={() => {
                             setCobrosId(item.id);
                             setCobrosNro(item.nroComprobante);
+                            setCobrosEsNc(esFacturaTipoNotaCredito(item.tipo));
                           }}
                         >
                           <CircleDollarSign
@@ -948,10 +955,12 @@ export default function FacturaListadoPageClient({
           if (!open) {
             setCobrosId(null);
             setCobrosNro("");
+            setCobrosEsNc(false);
           }
         }}
         comprobanteId={cobrosId}
         nroComprobante={cobrosNro}
+        esNotaCredito={cobrosEsNc}
       />
       <FacturaComprobantePdfAccionModal
         open={pdfId != null}

@@ -239,6 +239,15 @@ export const registrarCobroComprobanteFacturaSchema = cobroFacturaEmitirSchema.e
   id: prismaCuidSchema,
 });
 
+export const asignarNotaCreditoComoCobroSchema = z.object({
+  notaCreditoId: prismaCuidSchema,
+  ventaId: prismaCuidSchema,
+});
+
+export type AsignarNotaCreditoComoCobroInput = z.infer<
+  typeof asignarNotaCreditoComoCobroSchema
+>;
+
 export type RegistrarCobroComprobanteFacturaInput = z.infer<
   typeof registrarCobroComprobanteFacturaSchema
 >;
