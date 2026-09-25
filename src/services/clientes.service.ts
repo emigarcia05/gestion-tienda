@@ -578,6 +578,7 @@ type LedgerEvento = {
   /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
   afectaSaldo: boolean;
   cuentaComoPago: boolean;
+  proyectoId: string | null;
 };
 
 function detalleCobroLedger(cobro: {
@@ -614,11 +615,17 @@ async function armarLineasProductosCuentaCorriente(
     tipoComprobante: string;
     fecha: Date;
     createdAt: Date;
+    proyectoId: string | null;
   }[]
 ): Promise<CuentaCorrienteProductoLinea[]> {
   const cabeceras = new Map<
     string,
-    { tipo: CuentaCorrienteProductoLinea["tipo"]; fechaIso: string; createdAtIso: string }
+    {
+      tipo: CuentaCorrienteProductoLinea["tipo"];
+      fechaIso: string;
+      createdAtIso: string;
+      proyectoId: string | null;
+    }
   >();
   for (const row of rows) {
     const tipo = tipoMovimientoDesdeTipoComprobante(row.tipoComprobante);
@@ -627,6 +634,7 @@ async function armarLineasProductosCuentaCorriente(
       tipo,
       fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
       createdAtIso: row.createdAt.toISOString(),
+      proyectoId: row.proyectoId,
     });
   }
   const ids = [...cabeceras.keys()];
@@ -677,6 +685,7 @@ async function armarLineasProductosCuentaCorriente(
       cantidad: Number(item.cantidad),
       marca: meta?.marca ?? "",
       rubro: meta?.rubro ?? "",
+      proyectoId: cab.proyectoId,
     });
   }
   out.sort((a, b) => {
@@ -759,6 +768,7 @@ export async function obtenerCuentaCorrienteCliente(
         cbteNro: true,
         impTotal: true,
         impCobrado: true,
+        proyectoId: true,
       },
     });
 
@@ -848,6 +858,7 @@ export async function obtenerCuentaCorrienteCliente(
       if (!tipo) continue;
       const nroComprobante = formatoNroComprobante(row.ptoVenta, row.cbteNro);
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
+      const proyectoId = row.proyectoId;
       const impTotal = round2(Number(row.impTotal));
       const impCobrado = round2(Number(row.impCobrado));
       const saldoComprobante =
@@ -873,6 +884,7 @@ export async function obtenerCuentaCorrienteCliente(
         tipoOrden: tipo === "venta" ? 0 : 2,
         afectaSaldo: true,
         cuentaComoPago: false,
+        proyectoId,
       });
       if (tipo !== "venta") continue;
 
@@ -895,6 +907,7 @@ export async function obtenerCuentaCorrienteCliente(
           tipoOrden: 1,
           afectaSaldo: !cobro.esCuentaCorriente && !esNcCobro,
           cuentaComoPago: !cobro.esCuentaCorriente,
+          proyectoId,
         });
       }
       const cobradoFilas = round2(
@@ -918,6 +931,7 @@ export async function obtenerCuentaCorrienteCliente(
           tipoOrden: 1,
           afectaSaldo: true,
           cuentaComoPago: true,
+          proyectoId,
         });
       }
     }
@@ -941,6 +955,7 @@ export async function obtenerCuentaCorrienteCliente(
         tipoOrden: 1,
         afectaSaldo: true,
         cuentaComoPago: true,
+        proyectoId: null,
       });
     }
 
@@ -971,6 +986,7 @@ export async function obtenerCuentaCorrienteCliente(
         saldoCc: saldo,
         afectaSaldo: ev.afectaSaldo,
         cuentaComoPago: ev.cuentaComoPago,
+        proyectoId: ev.proyectoId,
       };
     });
     movimientos.reverse();

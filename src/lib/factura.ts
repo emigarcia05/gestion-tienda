@@ -449,6 +449,8 @@ export type CuentaCorrienteClienteMovimiento = {
    * Los cobros `es_cuenta_corriente` no cuentan; la imputación de NC sí.
    */
   cuentaComoPago: boolean;
+  /** FK `clientes_proyectos`; null en cobros de cliente sin comprobante. */
+  proyectoId: string | null;
 };
 
 export type CuentaCorrienteProductoTipo = "venta" | "nota_credito";
@@ -470,6 +472,7 @@ export type CuentaCorrienteProductoLinea = {
   cantidad: number;
   marca: string;
   rubro: string;
+  proyectoId: string | null;
 };
 
 export type CuentaCorrienteClienteDatos = {
@@ -641,10 +644,14 @@ export function filtrarMovimientosCuentaCorriente(
     rangoHasta: string;
     tipo: FiltroTipoCuentaCorriente;
     saldo: FiltroSaldoCuentaCorriente;
+    proyectoId: string | null;
   }
 ): CuentaCorrienteClienteMovimiento[] {
   const estadoPorVenta = mapaEstadoPagoVentasCc(movimientos);
   return movimientos.filter((mov) => {
+    if (filtros.proyectoId && mov.proyectoId !== filtros.proyectoId) {
+      return false;
+    }
     if (filtros.periodo === "rango") {
       if (!filtros.rangoDesde || !filtros.rangoHasta) return false;
       if (mov.fechaIso < filtros.rangoDesde || mov.fechaIso > filtros.rangoHasta) {

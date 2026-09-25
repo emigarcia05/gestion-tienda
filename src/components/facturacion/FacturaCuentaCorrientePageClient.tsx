@@ -216,8 +216,9 @@ export default function FacturaCuentaCorrientePageClient({
         rangoHasta,
         tipo: filtroTipo,
         saldo: filtroSaldo,
+        proyectoId: proyectoFiltroId,
       }),
-    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo]
+    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, proyectoFiltroId]
   );
 
   const indicadores = useMemo(
@@ -234,6 +235,7 @@ export default function FacturaCuentaCorrientePageClient({
         if (!rangoDesde || !rangoHasta) return false;
         if (p.fechaIso < rangoDesde || p.fechaIso > rangoHasta) return false;
       }
+      if (proyectoFiltroId && p.proyectoId !== proyectoFiltroId) return false;
       if (filtroMarca && p.marca.trim() !== filtroMarca) return false;
       if (filtroRubro && p.rubro.trim() !== filtroRubro) return false;
       if (!qDescDebounced.trim()) return true;
@@ -244,6 +246,7 @@ export default function FacturaCuentaCorrientePageClient({
     periodo,
     rangoDesde,
     rangoHasta,
+    proyectoFiltroId,
     filtroMarca,
     filtroRubro,
     qDescDebounced,
@@ -750,7 +753,10 @@ export default function FacturaCuentaCorrientePageClient({
               <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1">
                 <ModalMicroLabel align="center">SALDO</ModalMicroLabel>
                 <p
-                  className="flex h-9 w-full items-center justify-center truncate rounded-md border border-input px-2 text-center text-sm tabular-nums text-foreground"
+                  className={cn(
+                    INPUT_FILTER_CLASS,
+                    "justify-center text-center tabular-nums"
+                  )}
                   aria-label="Saldo"
                 >
                   {saldoClienteVisible != null

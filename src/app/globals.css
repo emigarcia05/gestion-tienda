@@ -319,6 +319,11 @@
     border-color: var(--primary) !important;
     background-color: var(--card) !important;
   }
+  p.input-filtro-unificado {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .input-filtro-unificado::placeholder,
   .input-filtro-unificado[data-placeholder] {
     @apply text-muted-foreground font-bold;
