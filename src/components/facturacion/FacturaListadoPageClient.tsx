@@ -78,10 +78,8 @@ const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
 const FILTRO_TIPO_TODOS = "todos";
 const FILTRO_TIPO_FACTURA = "factura";
-const FILTRO_COBRO_TODOS = "todos";
-const FILTRO_COBRO = "cobro";
-const FILTRO_PEND_PAGO = "pendiente";
-const FILTRO_PEND_VENC = "pendiente_vencido";
+const FILTRO_SALDO_CON = "con_saldo";
+const FILTRO_SALDO_VENCIDO = "con_saldo_vencido";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
 /** Ancho fijo de BUSCAR POR CLIENTE y PROYECTO. El hueco de proyecto se reserva aunque no se muestre. */
@@ -229,17 +227,18 @@ export default function FacturaListadoPageClient({
           return false;
         }
       }
-      if (filtroPendiente === FILTRO_COBRO && item.saldoPendiente != null) {
-        return false;
+      if (filtroPendiente === FILTRO_SALDO_CON) {
+        if (item.saldoPendiente == null || item.saldoPendiente <= 0) return false;
       }
-      if (filtroPendiente === FILTRO_PEND_PAGO && item.saldoPendiente == null) {
-        return false;
-      }
-      if (
-        filtroPendiente === FILTRO_PEND_VENC &&
-        (item.saldoPendiente == null || item.diasVencido == null)
-      ) {
-        return false;
+      if (filtroPendiente === FILTRO_SALDO_VENCIDO) {
+        if (
+          item.saldoPendiente == null ||
+          item.saldoPendiente <= 0 ||
+          item.diasVencido == null ||
+          item.diasVencido <= 0
+        ) {
+          return false;
+        }
       }
       if (variant === "facturas") {
         if (filtroClienteId && item.clienteId !== filtroClienteId) return false;
@@ -503,7 +502,7 @@ export default function FacturaListadoPageClient({
               ) : null}
               {esFacturas ? (
                 <FiltroIndividualContainer
-                  activo={Boolean(filtroPendiente) && filtroPendiente !== FILTRO_COBRO_TODOS}
+                  activo={Boolean(filtroPendiente)}
                   onLimpiar={() => setFiltroPendiente("")}
                   className={FILTER_SELECT_WRAPPER_CLASS}
                 >
@@ -512,7 +511,7 @@ export default function FacturaListadoPageClient({
                     onValueChange={setFiltroPendiente}
                   >
                     <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="ESTADO COBRO" />
+                      <SelectValue placeholder="SALDO" />
                     </SelectTrigger>
                     <SelectContent
                       className="select-content-filtro"
@@ -520,11 +519,9 @@ export default function FacturaListadoPageClient({
                       side="bottom"
                       align="start"
                     >
-                      <SelectItem value={FILTRO_COBRO_TODOS}>TODO</SelectItem>
-                      <SelectItem value={FILTRO_COBRO}>COBRO</SelectItem>
-                      <SelectItem value={FILTRO_PEND_PAGO}>PEND. PAGO</SelectItem>
-                      <SelectItem value={FILTRO_PEND_VENC}>
-                        PEND. PAGO & VENC.
+                      <SelectItem value={FILTRO_SALDO_CON}>CON SALDO</SelectItem>
+                      <SelectItem value={FILTRO_SALDO_VENCIDO}>
+                        CON SALDO VENCIDO
                       </SelectItem>
                     </SelectContent>
                   </Select>

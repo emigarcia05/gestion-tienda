@@ -142,6 +142,11 @@ export type FacturaNcCobroVista = {
   ventas: FacturaNcCobroVentaOption[];
 };
 
+/** Devolución en el modal de NC: no quedan ventas para imputar y hay crédito libre. */
+export function ncPermiteDevolucion(vista: FacturaNcCobroVista): boolean {
+  return vista.ventas.length === 0 && vista.saldoDisponible > 0;
+}
+
 export function esCobroNotaCreditoNombre(value: string): boolean {
   return (
     normalizarNombreCobro(value) ===

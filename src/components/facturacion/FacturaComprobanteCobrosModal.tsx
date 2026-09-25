@@ -41,6 +41,7 @@ import {
   FACTURA_COBRO_NOTA_CREDITO_UI_ID,
   esCobroNotaCreditoNombre,
   lineasFormaPagoCobro,
+  ncPermiteDevolucion,
   type FacturaComprobanteCobroItem,
   type FacturaNcCobroVista,
 } from "@/lib/factura";
@@ -214,7 +215,9 @@ export default function FacturaComprobanteCobrosModal({
       return;
     }
     setVistaNc(res.data);
-    resetFormulario(res.data.saldoADevolver > 0 ? res.data.saldoADevolver : null);
+    resetFormulario(
+      ncPermiteDevolucion(res.data) ? res.data.saldoDisponible : null
+    );
   }, [resetFormulario]);
 
   useEffect(() => {
@@ -231,7 +234,9 @@ export default function FacturaComprobanteCobrosModal({
         return;
       }
       setVistaNc(res.data);
-      resetFormulario(res.data.saldoADevolver > 0 ? res.data.saldoADevolver : null);
+      resetFormulario(
+        ncPermiteDevolucion(res.data) ? res.data.saldoDisponible : null
+      );
     });
     return () => {
       cancelled = true;
@@ -261,7 +266,8 @@ export default function FacturaComprobanteCobrosModal({
   useEffect(() => {
     if (!open) return;
     const cargarCatalogo =
-      formAbierto || (esNotaCredito && (vistaNc?.saldoADevolver ?? 0) > 0);
+      formAbierto ||
+      (esNotaCredito && vistaNc != null && ncPermiteDevolucion(vistaNc));
     if (!cargarCatalogo) return;
     let cancelled = false;
     void listarCatalogoCobroFacturaAction().then((res) => {
@@ -278,7 +284,7 @@ export default function FacturaComprobanteCobrosModal({
     return () => {
       cancelled = true;
     };
-  }, [open, formAbierto, esNotaCredito, vistaNc?.saldoADevolver]);
+  }, [open, formAbierto, esNotaCredito, vistaNc]);
 
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
@@ -294,6 +300,12 @@ export default function FacturaComprobanteCobrosModal({
 
   async function persistirCobro() {
     if (!comprobanteId) return;
+    if (esNotaCredito && (vistaNc == null || !ncPermiteDevolucion(vistaNc))) {
+      toast.error(
+        "La devolución solo aplica si no quedan ventas para imputar y hay saldo disponible."
+      );
+      return;
+    }
     if (!pagoSel) {
       toast.error("Seleccioná una forma de pago.");
       return;
@@ -312,13 +324,15 @@ export default function FacturaComprobanteCobrosModal({
       return;
     }
     const saldoLimite = esNotaCredito
-      ? (vistaNc?.saldoADevolver ?? 0)
+      ? vistaNc != null && ncPermiteDevolucion(vistaNc)
+        ? vistaNc.saldoDisponible
+        : 0
       : (saldoPendiente ?? 0);
     const saldoCents = Math.round(saldoLimite * 100);
     if (montoCents > saldoCents) {
       toast.error(
         esNotaCredito
-          ? "El monto no puede ser mayor al saldo a devolver."
+          ? "El monto no puede ser mayor al saldo disponible."
           : "El monto no puede ser mayor al saldo pendiente."
       );
       return;
@@ -501,12 +515,12 @@ export default function FacturaComprobanteCobrosModal({
                 </Table>
               </div>
             ) : null}
-            {(vistaNc?.saldoADevolver ?? 0) > 0 ? (
+            {vistaNc != null && ncPermiteDevolucion(vistaNc) ? (
               <div className="flex shrink-0 flex-col gap-3">
                 <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
                   DEVOLUCIÓN:{" "}
                   {montoArCentsToDisplayWithCurrency(
-                    Math.round((vistaNc?.saldoADevolver ?? 0) * 100),
+                    Math.round((vistaNc?.saldoDisponible ?? 0) * 100),
                     "$"
                   )}
                 </p>

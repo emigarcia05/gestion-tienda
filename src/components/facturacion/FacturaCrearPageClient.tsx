@@ -107,7 +107,6 @@ const CABECERA_EDITOR_FILA2_CLASS =
   "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
-const CBTE_ASOC_VACIO = "none";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -121,7 +120,6 @@ function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
 type Props = {
   ptoVtas: FacturaPtoVtaOpcion[];
   condicionesIva: PtoVentasCodArcaItem[];
-  originalesNc: { id: string; label: string }[];
   duplicarBorrador?: FacturaComprobanteDuplicarBorrador | null;
 };
 
@@ -132,7 +130,6 @@ type Props = {
 export default function FacturaCrearPageClient({
   ptoVtas,
   condicionesIva,
-  originalesNc,
   duplicarBorrador = null,
 }: Props) {
   const router = useRouter();
@@ -174,9 +171,7 @@ export default function FacturaCrearPageClient({
     () => duplicarBorrador?.comentarios ?? ""
   );
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
-  const [cbteAsocId, setCbteAsocId] = useState(
-    () => duplicarBorrador?.cbteAsocId ?? ""
-  );
+  const cbteAsocId = duplicarBorrador?.cbteAsocId ?? "";
   const [crearClienteOpen, setCrearClienteOpen] = useState(false);
   const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
   const [comprobanteModalOpen, setComprobanteModalOpen] = useState(false);
@@ -940,10 +935,15 @@ export default function FacturaCrearPageClient({
             </div>
             )}
 
-            <div className={CABECERA_EDITOR_SLOT_CLASS}>
-              <ModalMicroLabel>SALDO CLIENTE</ModalMicroLabel>
+            <div
+              className={cn(
+                CABECERA_EDITOR_SLOT_CLASS,
+                "items-center rounded-md border border-input px-2"
+              )}
+            >
+              <ModalMicroLabel align="center">SALDO CLIENTE</ModalMicroLabel>
               <p
-                className="flex h-9 items-center truncate text-sm tabular-nums text-foreground"
+                className="flex h-9 w-full items-center justify-center truncate text-center text-sm tabular-nums text-foreground"
                 aria-label="Saldo cliente"
               >
                 {clienteId != null && saldoCuentaCorrienteCliente != null
@@ -953,31 +953,6 @@ export default function FacturaCrearPageClient({
             </div>
           </div>
 
-          {esFacturaTipoNotaCredito(tipo) ? (
-            <div className="w-[min(100%,20rem)]">
-              <label className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
-                <Select
-                  value={cbteAsocId || CBTE_ASOC_VACIO}
-                  onValueChange={(value) =>
-                    setCbteAsocId(value === CBTE_ASOC_VACIO ? "" : value)
-                  }
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="SIN ASOCIAR" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                    <SelectItem value={CBTE_ASOC_VACIO}>SIN ASOCIAR</SelectItem>
-                    {originalesNc.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
-          ) : null}
           </div>
           )}
         </div>

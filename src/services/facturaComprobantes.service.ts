@@ -38,6 +38,7 @@ import {
   esFacturaTipoNotaCredito,
   FACTURA_COBRO_NOTA_CREDITO_LABEL,
   esFacturaTipoVenta,
+  ncPermiteDevolucion,
   puedeConvertirComprobanteEnFiscal,
   puedeEliminarComprobante,
   tipoFiscalDesdeNoFiscal,
@@ -1482,12 +1483,16 @@ export async function registrarCobroComprobanteVta(
         return { success: false, error: "La devolución no se registra como nota de crédito." };
       }
       const vista = await listarVistaCobroNotaCredito(input.id);
-      if (!vista || vista.saldoADevolver <= 0) {
-        return { success: false, error: "No hay saldo para devolver." };
+      if (!vista || !ncPermiteDevolucion(vista)) {
+        return {
+          success: false,
+          error:
+            "La devolución solo aplica si no quedan ventas para imputar y hay saldo disponible.",
+        };
       }
       const montoPesos = roundArs2(input.montoCents / 100);
-      if (montoPesos > vista.saldoADevolver) {
-        return { success: false, error: "El monto no puede ser mayor al saldo a devolver." };
+      if (montoPesos > vista.saldoDisponible) {
+        return { success: false, error: "El monto no puede ser mayor al saldo disponible." };
       }
       const siguienteOrden = (row.cobros[0]?.orden ?? -1) + 1;
       await prisma.comprobanteVtaCobro.create({
