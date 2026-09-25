@@ -817,10 +817,7 @@ export async function emitirFacturaComprobante(
     receptorCondicionIva: number | null;
   } | null = null;
 
-  if (esFacturaTipoNotaCredito(input.tipo)) {
-    if (!input.cbteAsocId) {
-      return { success: false, error: "La nota de crédito requiere el comprobante original." };
-    }
+  if (esFacturaTipoNotaCredito(input.tipo) && input.cbteAsocId) {
     original = await prisma.comprobanteVta.findUnique({
       where: { id: input.cbteAsocId },
       select: {

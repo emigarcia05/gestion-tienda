@@ -107,6 +107,7 @@ const CABECERA_EDITOR_FILA2_CLASS =
   "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
+const CBTE_ASOC_VACIO = "none";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -956,11 +957,17 @@ export default function FacturaCrearPageClient({
             <div className="w-[min(100%,20rem)]">
               <label className="flex min-w-0 flex-col gap-1">
                 <ModalMicroLabel>CBTE. ASOC.</ModalMicroLabel>
-                <Select value={cbteAsocId} onValueChange={setCbteAsocId}>
+                <Select
+                  value={cbteAsocId || CBTE_ASOC_VACIO}
+                  onValueChange={(value) =>
+                    setCbteAsocId(value === CBTE_ASOC_VACIO ? "" : value)
+                  }
+                >
                   <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="Original con CAE" />
+                    <SelectValue placeholder="SIN ASOCIAR" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
+                    <SelectItem value={CBTE_ASOC_VACIO}>SIN ASOCIAR</SelectItem>
                     {originalesNc.map((o) => (
                       <SelectItem key={o.id} value={o.id}>
                         {o.label}

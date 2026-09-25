@@ -3,7 +3,6 @@ import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPOS,
   esCobroNotaCreditoNombre,
-  esFacturaTipoNotaCredito,
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
@@ -176,13 +175,6 @@ export const emitirFacturaComprobanteSchema = z
         code: "custom",
         path: ["proyectoId"],
         message: "El proyecto requiere un cliente de catálogo.",
-      });
-    }
-    if (esFacturaTipoNotaCredito(data.tipo) && !data.cbteAsocId) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["cbteAsocId"],
-        message: "La nota de crédito requiere el comprobante original autorizado.",
       });
     }
   });

@@ -31,6 +31,40 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+const TIPOS_NC_CTA = ["nota_credito_fiscal", "nota_credito_no_fiscal"] as const;
+
+async function idsNotaCreditoPorNro(
+  nros: readonly string[]
+): Promise<Map<string, string>> {
+  const unicos = [...new Set(nros.map((n) => n.trim()).filter(Boolean))];
+  const out = new Map<string, string>();
+  if (unicos.length === 0) return out;
+  const cbtes = [
+    ...new Set(
+      unicos.flatMap((n) => {
+        const i = n.lastIndexOf("-");
+        if (i <= 0) return [];
+        const cbteNro = Number.parseInt(n.slice(i + 1), 10);
+        return Number.isInteger(cbteNro) && cbteNro > 0 ? [cbteNro] : [];
+      })
+    ),
+  ];
+  if (cbtes.length === 0) return out;
+  const rows = await prisma.comprobanteVta.findMany({
+    where: {
+      tipoComprobante: { in: [...TIPOS_NC_CTA] },
+      cbteNro: { in: cbtes },
+    },
+    select: { id: true, ptoVenta: true, cbteNro: true },
+  });
+  const wanted = new Set(unicos);
+  for (const r of rows) {
+    const nro = formatoNroComprobante(r.ptoVenta, r.cbteNro);
+    if (wanted.has(nro) && !out.has(nro)) out.set(nro, r.id);
+  }
+  return out;
+}
+
 function asEstado(raw: string): FacturaComprobanteEstado {
   if (raw === "borrador" || raw === "autorizado" || raw === "rechazado") return raw;
   return "borrador";
@@ -433,6 +467,11 @@ export async function listarCobrosComprobanteVta(
   });
   const personalNombre =
     row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
+  const idNcPorNro = await idsNotaCreditoPorNro(
+    row.cobros
+      .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
+      .map((c) => c.entidadNombre)
+  );
   return {
     saldoPendiente,
     items: row.cobros.map((r) => ({
@@ -445,6 +484,9 @@ export async function listarCobrosComprobanteVta(
       esCuentaCorriente: r.esCuentaCorriente,
       plazoDias: r.plazoDias,
       personalNombre,
+      notaCreditoId: esCobroNotaCreditoNombre(r.pagoNombre)
+        ? idNcPorNro.get(r.entidadNombre.trim()) ?? null
+        : null,
     })),
   };
 }
@@ -527,6 +569,7 @@ export async function listarVistaCobroNotaCredito(
     esCuentaCorriente: r.esCuentaCorriente,
     plazoDias: r.plazoDias,
     personalNombre: personalNombreNc,
+    notaCreditoId: null,
   }));
   const usado = round2(
     asignaciones.reduce((acc, a) => acc + a.montoCents, 0) / 100 +
@@ -624,6 +667,11 @@ export async function obtenerDetalleCobroComprobante(
     const personalNombre =
       row.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
       "";
+    const notaCreditoId = esCobroNotaCreditoNombre(row.pagoNombre)
+      ? (await idsNotaCreditoPorNro([row.entidadNombre])).get(
+          row.entidadNombre.trim()
+        ) ?? null
+      : null;
     return {
       success: true,
       data: {
@@ -637,6 +685,7 @@ export async function obtenerDetalleCobroComprobante(
           esCuentaCorriente: row.esCuentaCorriente,
           plazoDias: row.plazoDias,
           personalNombre,
+          notaCreditoId,
         },
         comprobantes: [
           {

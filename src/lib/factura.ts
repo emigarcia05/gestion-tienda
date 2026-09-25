@@ -627,6 +627,8 @@ export type FacturaComprobanteCobroItem = {
   plazoDias: number | null;
   /** Nombre MAYÚSCULAS del `personal` de la cabecera; vacío si no hay FK. */
   personalNombre: string;
+  /** Si el cobro es NOTA DE CRÉDITO, id de esa NC (`entidad_nombre` = nro). */
+  notaCreditoId: string | null;
 };
 
 /** Detalle de un cobro (Cuenta Corrientes · Ver). */

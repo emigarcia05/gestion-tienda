@@ -39,6 +39,7 @@ import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   FACTURA_COBRO_NOTA_CREDITO_LABEL,
   FACTURA_COBRO_NOTA_CREDITO_UI_ID,
+  esCobroNotaCreditoNombre,
   lineasFormaPagoCobro,
   type FacturaComprobanteCobroItem,
   type FacturaNcCobroVista,
@@ -62,6 +63,10 @@ import { cn } from "@/lib/utils";
 const VACIO = "none";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
+const COMPROBANTE_LINK_CLASS = cn(
+  "h-auto min-h-0 px-0 py-0 font-semibold tabular-nums underline",
+  "!h-auto !min-h-0 !p-0"
+);
 
 type Props = {
   open: boolean;
@@ -361,6 +366,7 @@ export default function FacturaComprobanteCobrosModal({
       <AppModal
         size="lg"
         padding="sm"
+        className="max-w-[43.2rem]"
         title={`COBROS ${nroComprobante}`.trim()}
         actions={
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -410,10 +416,7 @@ export default function FacturaComprobanteCobrosModal({
                                 type="button"
                                 variant="link"
                                 aria-label={`Ver ${fila.comprobanteNro}`}
-                                className={cn(
-                                  "h-auto min-h-0 px-0 py-0 font-semibold tabular-nums underline",
-                                  "!h-auto !min-h-0 !p-0"
-                                )}
+                                className={COMPROBANTE_LINK_CLASS}
                                 onClick={() => setPreviewComprobanteId(fila.comprobanteId)}
                               >
                                 {fila.comprobanteNro}
@@ -649,6 +652,10 @@ export default function FacturaComprobanteCobrosModal({
                   ) : (
                     items.map((cobro) => {
                       const { linea1, linea2 } = lineasFormaPagoCobro(cobro);
+                      const previewNcId =
+                        esCobroNotaCreditoNombre(cobro.pagoNombre)
+                          ? cobro.notaCreditoId
+                          : null;
                       return (
                         <TableRow key={cobro.id}>
                           <TableCell className="celda-datos tabular-nums">
@@ -656,7 +663,22 @@ export default function FacturaComprobanteCobrosModal({
                           </TableCell>
                           <TableCell className="celda-datos text-left">
                             <span className="flex flex-col gap-0.5">
-                              <span>{linea1}</span>
+                              {previewNcId ? (
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  aria-label={`Ver ${cobro.entidadNombre.trim()}`}
+                                  className={cn(
+                                    COMPROBANTE_LINK_CLASS,
+                                    "justify-start text-left"
+                                  )}
+                                  onClick={() => setPreviewComprobanteId(previewNcId)}
+                                >
+                                  {linea1}
+                                </Button>
+                              ) : (
+                                <span>{linea1}</span>
+                              )}
                               {linea2 ? (
                                 <span className="font-normal">{linea2}</span>
                               ) : null}
