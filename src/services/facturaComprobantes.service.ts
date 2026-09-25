@@ -1599,13 +1599,13 @@ export async function asignarNotaCreditoComoCobro(input: {
     if (!esFacturaTipoVenta(tipoVenta) || asEstado(venta.estado) === "rechazado") {
       return { success: false, error: "Solo se puede imputar a una venta." };
     }
-    if (nc.cbteAsocId !== venta.id) {
+    if (nc.cbteAsocId !== input.ventaId) {
       if (nc.clienteId == null || nc.clienteId !== venta.clienteId) {
         return { success: false, error: "La venta no es del mismo cliente." };
       }
     }
     const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
-    const usadoPesos = await usadoNotaCreditoPesos(nro, nc.id);
+    const usadoPesos = await usadoNotaCreditoPesos(nro, input.notaCreditoId);
     const disponibleCents = Math.max(
       0,
       Math.round(decimalToNumber(nc.impTotal) * 100) - Math.round(usadoPesos * 100)

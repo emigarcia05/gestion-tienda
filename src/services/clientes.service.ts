@@ -19,6 +19,7 @@ import {
   type ClienteResumen,
 } from "@/lib/envios";
 import {
+  esCobroNotaCreditoNombre,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
