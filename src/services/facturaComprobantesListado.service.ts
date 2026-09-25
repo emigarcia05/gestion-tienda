@@ -4,6 +4,7 @@ import {
   esCobroNotaCreditoNombre,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
+  esFacturaTipoVenta,
   type FacturaCobroDetalle,
   type FacturaNcCobroVista,
   type FacturaComprobanteCobroItem,
@@ -26,6 +27,10 @@ function decimalToNumber(value: Prisma.Decimal | number): number {
   return Number(value);
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 function asEstado(raw: string): FacturaComprobanteEstado {
   if (raw === "borrador" || raw === "autorizado" || raw === "rechazado") return raw;
   return "borrador";
@@ -38,18 +43,18 @@ function saldoYDiasCtaCte(args: {
   impCobrado: number;
   fechaIso: string;
   diasVencimiento: number | null;
-  tieneNc: boolean;
   hoyIso: string;
 }): { saldoPendiente: number | null; diasVencido: number | null } {
-  const esVenta = args.tipo === "factura_fiscal" || args.tipo === "factura_no_fiscal";
-  if (!esVenta || args.estado === "rechazado" || args.tieneNc) {
+  const esVenta = esFacturaTipoVenta(args.tipo);
+  const esNc = esFacturaTipoNotaCredito(args.tipo);
+  if ((!esVenta && !esNc) || args.estado === "rechazado") {
     return { saldoPendiente: null, diasVencido: null };
   }
   const saldo = Math.max(0, Math.round((args.impTotal - args.impCobrado) * 100) / 100);
   if (saldo <= 0) {
     return { saldoPendiente: null, diasVencido: null };
   }
-  if (args.diasVencimiento == null) {
+  if (esNc || args.diasVencimiento == null) {
     return { saldoPendiente: saldo, diasVencido: null };
   }
   const venceIso = addDaysToIsoYmdArgentina(args.fechaIso, args.diasVencimiento);
@@ -59,6 +64,55 @@ function saldoYDiasCtaCte(args: {
     diasVencido:
       diasDesdeVence != null && diasDesdeVence > 0 ? diasDesdeVence : null,
   };
+}
+
+async function usadoImputadoNcPorNro(
+  nros: readonly string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const claves = [...new Set(nros.map((n) => n.trim()).filter(Boolean))];
+  if (claves.length === 0) return out;
+  const cobros = await prisma.comprobanteVtaCobro.findMany({
+    where: { entidadNombre: { in: claves } },
+    select: { entidadNombre: true, pagoNombre: true, montoCents: true },
+  });
+  for (const cobro of cobros) {
+    if (!esCobroNotaCreditoNombre(cobro.pagoNombre)) continue;
+    const nro = cobro.entidadNombre.trim();
+    out.set(nro, round2((out.get(nro) ?? 0) + cobro.montoCents / 100));
+  }
+  return out;
+}
+
+async function usadoDevolucionNcPorId(
+  ids: readonly string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const claves = [...new Set(ids.filter(Boolean))];
+  if (claves.length === 0) return out;
+  const cobros = await prisma.comprobanteVtaCobro.findMany({
+    where: { comprobanteId: { in: claves } },
+    select: { comprobanteId: true, montoCents: true },
+  });
+  for (const cobro of cobros) {
+    out.set(
+      cobro.comprobanteId,
+      round2((out.get(cobro.comprobanteId) ?? 0) + cobro.montoCents / 100)
+    );
+  }
+  return out;
+}
+
+/** Imputaciones a ventas + devoluciones (cobros en la propia NC). */
+export async function usadoNotaCreditoPesos(
+  nro: string,
+  ncId: string
+): Promise<number> {
+  const [imputado, devolucion] = await Promise.all([
+    usadoImputadoNcPorNro([nro]),
+    usadoDevolucionNcPorId([ncId]),
+  ]);
+  return round2((imputado.get(nro.trim()) ?? 0) + (devolucion.get(ncId) ?? 0));
 }
 
 function mapListItem(
@@ -88,7 +142,8 @@ function mapListItem(
       sucursales: { sucursal: { codigo: string; nombre: string } }[];
     };
   },
-  hoyIso: string
+  hoyIso: string,
+  usadoNc: number | null
 ): FacturaComprobanteListItem {
   const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
     ? row.tipoComprobante
@@ -96,14 +151,16 @@ function mapListItem(
   const estado = asEstado(row.estado);
   const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
   const impTotal = decimalToNumber(row.impTotal);
+  const impCobrado = esFacturaTipoNotaCredito(tipo)
+    ? (usadoNc ?? 0)
+    : decimalToNumber(row.impCobrado);
   const { saldoPendiente, diasVencido } = saldoYDiasCtaCte({
     tipo,
     estado,
     impTotal,
-    impCobrado: decimalToNumber(row.impCobrado),
+    impCobrado,
     fechaIso,
     diasVencimiento: row.diasVencimiento,
-    tieneNc: row.notasCredito.length > 0,
     hoyIso,
   });
   const sucursalesPto = row.ptoVta.sucursales.map((link) => ({
@@ -253,7 +310,31 @@ export async function listarFacturasComprobantes(): Promise<FacturaComprobanteLi
     take: 500,
     select: listSelect,
   });
-  return rows.map((row) => mapListItem(row, hoyIso));
+  const ncs = rows
+    .filter((row) =>
+      esFacturaTipoNotaCredito(
+        esFacturaTipo(row.tipoComprobante) ? row.tipoComprobante : "factura_no_fiscal"
+      )
+    )
+    .map((row) => ({
+      id: row.id,
+      nro: formatoNroComprobante(row.ptoVenta, row.cbteNro),
+    }));
+  const [imputadosNc, devolucionesNc] = await Promise.all([
+    usadoImputadoNcPorNro(ncs.map((n) => n.nro)),
+    usadoDevolucionNcPorId(ncs.map((n) => n.id)),
+  ]);
+  const usadosNc = new Map<string, number>();
+  for (const nc of ncs) {
+    usadosNc.set(
+      nc.nro,
+      round2((imputadosNc.get(nc.nro) ?? 0) + (devolucionesNc.get(nc.id) ?? 0))
+    );
+  }
+  return rows.map((row) => {
+    const nro = formatoNroComprobante(row.ptoVenta, row.cbteNro);
+    return mapListItem(row, hoyIso, usadosNc.get(nro) ?? 0);
+  });
 }
 
 export async function listarPresupuestosComprobantes(): Promise<FacturaComprobanteListItem[]> {
@@ -264,7 +345,7 @@ export async function listarPresupuestosComprobantes(): Promise<FacturaComproban
     take: 500,
     select: listSelect,
   });
-  return rows.map((row) => mapListItem(row, hoyIso));
+  return rows.map((row) => mapListItem(row, hoyIso, null));
 }
 
 export async function listarFacturasAutorizadasParaNc(): Promise<
@@ -309,6 +390,8 @@ export async function listarCobrosComprobanteVta(
       impCobrado: true,
       fecha: true,
       diasVencimiento: true,
+      ptoVenta: true,
+      cbteNro: true,
       notasCredito: { select: { id: true }, take: 1 },
       cobros: {
         orderBy: { orden: "asc" },
@@ -334,14 +417,18 @@ export async function listarCobrosComprobanteVta(
     : "factura_no_fiscal";
   const estado = asEstado(row.estado);
   const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
+  let impCobrado = decimalToNumber(row.impCobrado);
+  if (esFacturaTipoNotaCredito(tipo) && asEstado(row.estado) !== "rechazado") {
+    const nro = formatoNroComprobante(row.ptoVenta, row.cbteNro);
+    impCobrado = await usadoNotaCreditoPesos(nro, comprobanteId);
+  }
   const { saldoPendiente } = saldoYDiasCtaCte({
     tipo,
     estado,
     impTotal: decimalToNumber(row.impTotal),
-    impCobrado: decimalToNumber(row.impCobrado),
+    impCobrado,
     fechaIso,
     diasVencimiento: row.diasVencimiento,
-    tieneNc: row.notasCredito.length > 0,
     hoyIso: dateToIsoYmdArgentina(new Date()),
   });
   const personalNombre =
@@ -373,6 +460,20 @@ export async function listarVistaCobroNotaCredito(
       cbteNro: true,
       impTotal: true,
       clienteId: true,
+      personal: { select: { nombrePersonal: true } },
+      cobros: {
+        orderBy: { orden: "asc" },
+        select: {
+          id: true,
+          createdAt: true,
+          pagoNombre: true,
+          entidadNombre: true,
+          cuotaEtiqueta: true,
+          montoCents: true,
+          esCuentaCorriente: true,
+          plazoDias: true,
+        },
+      },
     },
   });
   if (!nc) return null;
@@ -382,6 +483,8 @@ export async function listarVistaCobroNotaCredito(
   if (!esFacturaTipoNotaCredito(tipo)) return null;
 
   const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
+  const personalNombreNc =
+    nc.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
   const cobros = await prisma.comprobanteVtaCobro.findMany({
     where: { entidadNombre: nro },
     orderBy: { createdAt: "desc" },
@@ -392,6 +495,7 @@ export async function listarVistaCobroNotaCredito(
       montoCents: true,
       comprobante: {
         select: {
+          id: true,
           ptoVenta: true,
           cbteNro: true,
           personal: { select: { nombrePersonal: true } },
@@ -400,19 +504,37 @@ export async function listarVistaCobroNotaCredito(
     },
   });
   const asignaciones = cobros
-    .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
+    .filter(
+      (c) =>
+        esCobroNotaCreditoNombre(c.pagoNombre) && c.comprobante.id !== notaCreditoId
+    )
     .map((c) => ({
       id: c.id,
+      comprobanteId: c.comprobante.id,
       comprobanteNro: formatoNroComprobante(c.comprobante.ptoVenta, c.comprobante.cbteNro),
       createdAtIso: c.createdAt.toISOString(),
       montoCents: c.montoCents,
       personalNombre:
         c.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
     }));
-  const usado = asignaciones.reduce((acc, a) => acc + a.montoCents, 0) / 100;
+  const devoluciones = nc.cobros.map((r) => ({
+    id: r.id,
+    createdAtIso: r.createdAt.toISOString(),
+    pagoNombre: r.pagoNombre,
+    entidadNombre: r.entidadNombre,
+    cuotaEtiqueta: r.cuotaEtiqueta,
+    montoCents: r.montoCents,
+    esCuentaCorriente: r.esCuentaCorriente,
+    plazoDias: r.plazoDias,
+    personalNombre: personalNombreNc,
+  }));
+  const usado = round2(
+    asignaciones.reduce((acc, a) => acc + a.montoCents, 0) / 100 +
+      devoluciones.reduce((acc, d) => acc + d.montoCents, 0) / 100
+  );
   const saldoDisponible = Math.max(
     0,
-    Math.round((decimalToNumber(nc.impTotal) - usado) * 100) / 100
+    round2(decimalToNumber(nc.impTotal) - usado)
   );
 
   const ventasRows = nc.clienteId
@@ -450,7 +572,6 @@ export async function listarVistaCobroNotaCredito(
       impCobrado: decimalToNumber(row.impCobrado),
       fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
       diasVencimiento: row.diasVencimiento,
-      tieneNc: row.notasCredito.length > 0,
       hoyIso,
     });
     if (saldoPendiente == null || saldoPendiente <= 0) return [];
@@ -458,12 +579,18 @@ export async function listarVistaCobroNotaCredito(
       {
         id: row.id,
         nroComprobante: formatoNroComprobante(row.ptoVenta, row.cbteNro),
+        fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
         saldoPendiente,
       },
     ];
   });
 
-  return { asignaciones, saldoDisponible, ventas };
+  const pendienteCliente = round2(
+    ventas.reduce((acc, v) => acc + v.saldoPendiente, 0)
+  );
+  const saldoADevolver = round2(Math.max(0, saldoDisponible - pendienteCliente));
+
+  return { asignaciones, devoluciones, saldoDisponible, saldoADevolver, ventas };
 }
 
 export async function obtenerDetalleCobroComprobante(

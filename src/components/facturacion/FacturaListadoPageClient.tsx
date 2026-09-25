@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, CircleDollarSign, Eye, FileText, Loader2, RefreshCw, Stamp, Trash2, Undo2 } from "lucide-react";
+import { Copy, CircleDollarSign, Eye, FileText, Loader2, Stamp, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  consultarFacturaComprobanteArcaAction,
   convertirComprobanteNoFiscalEnFiscalAction,
   eliminarComprobanteNoFiscalAction,
 } from "@/actions/factura";
@@ -46,7 +45,6 @@ import {
 import {
   etiquetaTipoListaComprobantes,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
-  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   puedeEliminarComprobante,
@@ -320,21 +318,6 @@ export default function FacturaListadoPageClient({
   function onFiltroClienteChange(value: string) {
     setFiltroClienteId(value);
     setFiltroProyectoId("");
-  }
-
-  async function handleConsultar(id: string) {
-    setBusyId(id);
-    try {
-      const res = await consultarFacturaComprobanteArcaAction({ id });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(res.data.cae ? `CAE ${res.data.cae}` : "Consulta ARCA ok.");
-      router.refresh();
-    } finally {
-      setBusyId(null);
-    }
   }
 
   function irDuplicar(id: string) {
@@ -836,23 +819,6 @@ export default function FacturaListadoPageClient({
                             className={TABLE_ROW_ACTION_ICON_CLASS}
                             aria-hidden
                           />
-                        </Button>
-                      ) : null}
-                      {esFacturas ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          title="Consultar ARCA"
-                          aria-label={`Consultar ARCA ${item.nroComprobante}`}
-                          disabled={
-                            busyId === item.id ||
-                            !(esFacturaTipoFiscal(item.tipo) && !item.cae)
-                          }
-                          onClick={() => void handleConsultar(item.id)}
-                        >
-                          <RefreshCw className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                         </Button>
                       ) : null}
                       <Button

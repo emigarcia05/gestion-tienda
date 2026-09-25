@@ -98,7 +98,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Saldo CC: ventas − cobros (`imp_cobrado`) − notas de crédito (no rechazadas). */
+/** Saldo CC: ventas − cobros reales − NC. Las imputaciones de NC en `imp_cobrado` se reponen para no duplicar. */
 export async function saldosCuentaCorrientePorCliente(
   clienteIds: string[]
 ): Promise<Map<string, number>> {
@@ -124,6 +124,29 @@ export async function saldosCuentaCorrientePorCliente(
     out.set(
       row.clienteId,
       round2((out.get(row.clienteId) ?? 0) + total - cobrado)
+    );
+  }
+  const ncCobros = await prisma.comprobanteVtaCobro.findMany({
+    where: {
+      comprobante: {
+        clienteId: { in: clienteIds },
+        tipoComprobante: { in: [...TIPOS_VENTA_CTA_CTE] },
+        estado: { not: "rechazado" },
+      },
+    },
+    select: {
+      montoCents: true,
+      pagoNombre: true,
+      comprobante: { select: { clienteId: true } },
+    },
+  });
+  for (const cobro of ncCobros) {
+    if (!esCobroNotaCreditoNombre(cobro.pagoNombre)) continue;
+    const clienteId = cobro.comprobante.clienteId;
+    if (!clienteId) continue;
+    out.set(
+      clienteId,
+      round2((out.get(clienteId) ?? 0) + cobro.montoCents / 100)
     );
   }
   return out;
@@ -525,6 +548,7 @@ type LedgerEvento = {
   tipoOrden: number;
   /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
   afectaSaldo: boolean;
+  cuentaComoPago: boolean;
 };
 
 function detalleCobroLedger(cobro: {
@@ -753,6 +777,7 @@ export async function obtenerCuentaCorrienteCliente(
         sortMs: row.createdAt.getTime(),
         tipoOrden: tipo === "venta" ? 0 : 2,
         afectaSaldo: true,
+        cuentaComoPago: false,
       });
       if (tipo !== "venta") continue;
 
@@ -760,6 +785,7 @@ export async function obtenerCuentaCorrienteCliente(
         (c) => c.montoCents > 0
       );
       for (const cobro of cobrosDeVenta) {
+        const esNcCobro = esCobroNotaCreditoNombre(cobro.pagoNombre);
         eventos.push({
           id: cobro.id,
           tipo: "cobro",
@@ -771,7 +797,8 @@ export async function obtenerCuentaCorrienteCliente(
           monto: round2(cobro.montoCents / 100),
           sortMs: cobro.createdAt.getTime(),
           tipoOrden: 1,
-          afectaSaldo: !cobro.esCuentaCorriente,
+          afectaSaldo: !cobro.esCuentaCorriente && !esNcCobro,
+          cuentaComoPago: !cobro.esCuentaCorriente,
         });
       }
       const cobradoFilas = round2(
@@ -794,6 +821,7 @@ export async function obtenerCuentaCorrienteCliente(
           sortMs: row.createdAt.getTime() + 1,
           tipoOrden: 1,
           afectaSaldo: true,
+          cuentaComoPago: true,
         });
       }
     }
@@ -823,6 +851,7 @@ export async function obtenerCuentaCorrienteCliente(
         monto: ev.monto,
         saldoCc: saldo,
         afectaSaldo: ev.afectaSaldo,
+        cuentaComoPago: ev.cuentaComoPago,
       };
     });
 

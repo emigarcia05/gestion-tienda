@@ -118,6 +118,7 @@ function normalizarNombreCobro(value: string): string {
 
 export type FacturaNcCobroAsignacion = {
   id: string;
+  comprobanteId: string;
   comprobanteNro: string;
   createdAtIso: string;
   montoCents: number;
@@ -127,13 +128,17 @@ export type FacturaNcCobroAsignacion = {
 export type FacturaNcCobroVentaOption = {
   id: string;
   nroComprobante: string;
+  fechaIso: string;
   saldoPendiente: number;
 };
 
-/** Cobros de una NC: imputaciones ya hechas y ventas con saldo del mismo cliente. */
+/** Cobros de una NC: imputaciones, ventas con saldo y excedente a devolver. */
 export type FacturaNcCobroVista = {
   asignaciones: FacturaNcCobroAsignacion[];
+  devoluciones: FacturaComprobanteCobroItem[];
   saldoDisponible: number;
+  /** Crédito que no cubre ventas pendientes: se registra como cobro = devolución. */
+  saldoADevolver: number;
   ventas: FacturaNcCobroVentaOption[];
 };
 
@@ -374,10 +379,15 @@ export type CuentaCorrienteClienteMovimiento = {
   monto: number;
   saldoCc: number;
   /**
-   * false = cobro `es_cuenta_corriente` (forma de pago, no dinero recibido).
-   * No mueve SALDO CC ni cuenta para PENDIENTE/PAGADO.
+   * false = cobro `es_cuenta_corriente` (forma de pago, no dinero recibido)
+   * o cobro `NOTA DE CRÉDITO` (la NC ya mueve el SALDO CC).
    */
   afectaSaldo: boolean;
+  /**
+   * true = baja el PENDIENTE de esa venta (`imp_cobrado`).
+   * Los cobros `es_cuenta_corriente` no cuentan; la imputación de NC sí.
+   */
+  cuentaComoPago: boolean;
 };
 
 export type CuentaCorrienteProductoTipo = "venta" | "nota_credito";
@@ -459,7 +469,10 @@ export type FacturaComprobanteListItem = {
   /** FK `clientes_proyectos`. Null si el comprobante no tiene proyecto. */
   proyectoId: string | null;
   impTotal: number;
-  /** `imp_total` − `imp_cobrado` si es venta con saldo; si no, `null`. */
+  /**
+   * Venta: `imp_total` − `imp_cobrado`. NC: `imp_total` − imputado a ventas − devoluciones
+   * (cobros en la propia NC). `null` si no hay resto o el tipo no aplica.
+   */
   saldoPendiente: number | null;
   /** Días vencido (`hoy AR` − (`fecha` + `dias_vencimiento`)); `null` si no está vencido. */
   diasVencido: number | null;
@@ -497,7 +510,7 @@ export function resumenIndicadoresListaComprobantes(
     } else if (esFacturaTipoNotaCredito(item.tipo)) {
       notasCredito += item.impTotal;
     }
-    if (item.saldoPendiente != null) {
+    if (item.saldoPendiente != null && esFacturaTipoVenta(item.tipo)) {
       pendienteDeCobro += item.saldoPendiente;
     }
   }
@@ -552,7 +565,7 @@ export function mapaEstadoPagoVentasCc(
   for (const mov of movimientos) {
     if (mov.tipo === "venta") {
       ventas.set(mov.comprobanteId, round2((ventas.get(mov.comprobanteId) ?? 0) + mov.monto));
-    } else if (mov.tipo === "cobro" && mov.afectaSaldo) {
+    } else if (mov.tipo === "cobro" && mov.cuentaComoPago) {
       cobrado.set(
         mov.comprobanteId,
         round2((cobrado.get(mov.comprobanteId) ?? 0) + mov.monto)

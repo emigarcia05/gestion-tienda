@@ -12,6 +12,7 @@ import {
   registrarCobroComprobanteFacturaAction,
 } from "@/actions/factura";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
@@ -42,8 +43,11 @@ import {
   type FacturaComprobanteCobroItem,
   type FacturaNcCobroVista,
 } from "@/lib/factura";
-import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
-import { fmtCelda } from "@/lib/format";
+import {
+  formatInstanteDdMmYyHhMmArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
+import { fmtCelda, fmtPrecio } from "@/lib/format";
 import {
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
@@ -89,7 +93,10 @@ export default function FacturaComprobanteCobrosModal({
   const [montoNorm, setMontoNorm] = useState("");
   const [notaCreditoRef, setNotaCreditoRef] = useState("");
   const [vistaNc, setVistaNc] = useState<FacturaNcCobroVista | null>(null);
-  const [ventaId, setVentaId] = useState("");
+  const [asignandoVentaId, setAsignandoVentaId] = useState<string | null>(null);
+  const [previewComprobanteId, setPreviewComprobanteId] = useState<string | null>(
+    null
+  );
 
   const haySaldo = saldoPendiente != null && saldoPendiente > 0;
   const pagosDisponibles = useMemo<FinAnaCosFinaPagoItem[]>(
@@ -109,12 +116,36 @@ export default function FacturaComprobanteCobrosModal({
     [pagos]
   );
   const pagoSel = useMemo(
-    () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
-    [pagosDisponibles, pagoId]
+    () =>
+      (esNotaCredito ? pagos : pagosDisponibles).find((p) => p.id === pagoId) ??
+      null,
+    [esNotaCredito, pagos, pagosDisponibles, pagoId]
   );
   const pagoEsNotaCredito = pagoSel?.id === FACTURA_COBRO_NOTA_CREDITO_UI_ID;
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const historialNc = useMemo(() => {
+    const asign = (vistaNc?.asignaciones ?? []).map((fila) => ({
+      kind: "asig" as const,
+      id: fila.id,
+      createdAtIso: fila.createdAtIso,
+      montoCents: fila.montoCents,
+      personalNombre: fila.personalNombre,
+      comprobanteId: fila.comprobanteId,
+      comprobanteNro: fila.comprobanteNro,
+    }));
+    const devs = (vistaNc?.devoluciones ?? []).map((fila) => ({
+      kind: "dev" as const,
+      id: fila.id,
+      createdAtIso: fila.createdAtIso,
+      montoCents: fila.montoCents,
+      personalNombre: fila.personalNombre,
+      cobro: fila,
+    }));
+    return [...asign, ...devs].sort((a, b) =>
+      a.createdAtIso < b.createdAtIso ? 1 : a.createdAtIso > b.createdAtIso ? -1 : 0
+    );
+  }, [vistaNc]);
 
   const resetFormulario = useCallback((pendiente: number | null) => {
     setPagoId("");
@@ -178,8 +209,8 @@ export default function FacturaComprobanteCobrosModal({
       return;
     }
     setVistaNc(res.data);
-    setVentaId("");
-  }, []);
+    resetFormulario(res.data.saldoADevolver > 0 ? res.data.saldoADevolver : null);
+  }, [resetFormulario]);
 
   useEffect(() => {
     if (!open || !comprobanteId || !esNotaCredito) return;
@@ -195,24 +226,24 @@ export default function FacturaComprobanteCobrosModal({
         return;
       }
       setVistaNc(res.data);
-      setVentaId("");
+      resetFormulario(res.data.saldoADevolver > 0 ? res.data.saldoADevolver : null);
     });
     return () => {
       cancelled = true;
     };
-  }, [open, comprobanteId, esNotaCredito]);
+  }, [open, comprobanteId, esNotaCredito, resetFormulario]);
 
-  async function asignarNc() {
+  async function asignarNc(ventaId: string) {
     if (!comprobanteId || !ventaId) {
       toast.error("Elegí el comprobante.");
       return;
     }
-    setGuardando(true);
+    setAsignandoVentaId(ventaId);
     const res = await asignarNotaCreditoComoCobroAction({
       notaCreditoId: comprobanteId,
       ventaId,
     });
-    setGuardando(false);
+    setAsignandoVentaId(null);
     if (!res.ok) {
       toast.error(res.error);
       return;
@@ -223,7 +254,10 @@ export default function FacturaComprobanteCobrosModal({
   }
 
   useEffect(() => {
-    if (!open || !formAbierto) return;
+    if (!open) return;
+    const cargarCatalogo =
+      formAbierto || (esNotaCredito && (vistaNc?.saldoADevolver ?? 0) > 0);
+    if (!cargarCatalogo) return;
     let cancelled = false;
     void listarCatalogoCobroFacturaAction().then((res) => {
       if (cancelled) return;
@@ -239,13 +273,14 @@ export default function FacturaComprobanteCobrosModal({
     return () => {
       cancelled = true;
     };
-  }, [open, formAbierto]);
+  }, [open, formAbierto, esNotaCredito, vistaNc?.saldoADevolver]);
 
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
     setPagoId(nextId);
     setNotaCreditoRef("");
-    const next = pagosDisponibles.find((p) => p.id === nextId);
+    const lista = esNotaCredito ? pagos : pagosDisponibles;
+    const next = lista.find((p) => p.id === nextId);
     const unicas =
       next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
@@ -271,14 +306,20 @@ export default function FacturaComprobanteCobrosModal({
       toast.error("Ingresá un monto a pagar.");
       return;
     }
-    const saldoCents =
-      saldoPendiente != null ? Math.round(saldoPendiente * 100) : 0;
+    const saldoLimite = esNotaCredito
+      ? (vistaNc?.saldoADevolver ?? 0)
+      : (saldoPendiente ?? 0);
+    const saldoCents = Math.round(saldoLimite * 100);
     if (montoCents > saldoCents) {
-      toast.error("El monto no puede ser mayor al saldo pendiente.");
+      toast.error(
+        esNotaCredito
+          ? "El monto no puede ser mayor al saldo a devolver."
+          : "El monto no puede ser mayor al saldo pendiente."
+      );
       return;
     }
     const referenciaNc = notaCreditoRef.trim().toLocaleUpperCase("es-AR");
-    if (pagoEsNotaCredito && !referenciaNc) {
+    if (!esNotaCredito && pagoEsNotaCredito && !referenciaNc) {
       toast.error("Ingresá la referencia de la nota de crédito.");
       return;
     }
@@ -298,14 +339,25 @@ export default function FacturaComprobanteCobrosModal({
       toast.error(res.error);
       return;
     }
-    toast.success("Cobro registrado.");
+    toast.success(esNotaCredito ? "Devolución registrada." : "Cobro registrado.");
     setFormAbierto(false);
-    await cargarCobros(comprobanteId);
+    if (esNotaCredito) {
+      await cargarVistaNc(comprobanteId);
+    } else {
+      await cargarCobros(comprobanteId);
+    }
     router.refresh();
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setPreviewComprobanteId(null);
+        onOpenChange(next);
+      }}
+    >
       <AppModal
         size="lg"
         padding="sm"
@@ -338,53 +390,235 @@ export default function FacturaComprobanteCobrosModal({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(vistaNc?.asignaciones.length ?? 0) === 0 ? (
+                  {historialNc.length === 0 ? (
                     <EmptyTableRow
                       colSpan={4}
                       message="Esta nota de crédito no está asignada como pago."
                     />
                   ) : (
-                    vistaNc?.asignaciones.map((fila) => (
-                      <TableRow key={fila.id}>
-                        <TableCell className="celda-datos tabular-nums">
-                          {formatInstanteDdMmYyHhMmArgentina(new Date(fila.createdAtIso))}
-                        </TableCell>
-                        <TableCell className="celda-datos tabular-nums">
-                          {fila.comprobanteNro}
-                        </TableCell>
-                        <TableCell className="celda-datos text-right tabular-nums">
-                          {montoArCentsToDisplayWithCurrency(fila.montoCents, "$")}
-                        </TableCell>
-                        <TableCell className="celda-datos text-left">
-                          {fmtCelda(fila.personalNombre)}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    historialNc.map((fila) => {
+                      const detalleDev =
+                        fila.kind === "dev" ? lineasFormaPagoCobro(fila.cobro) : null;
+                      return (
+                        <TableRow key={fila.id}>
+                          <TableCell className="celda-datos tabular-nums">
+                            {formatInstanteDdMmYyHhMmArgentina(new Date(fila.createdAtIso))}
+                          </TableCell>
+                          <TableCell className="celda-datos tabular-nums">
+                            {fila.kind === "asig" ? (
+                              <Button
+                                type="button"
+                                variant="link"
+                                aria-label={`Ver ${fila.comprobanteNro}`}
+                                className={cn(
+                                  "h-auto min-h-0 px-0 py-0 font-semibold tabular-nums underline",
+                                  "!h-auto !min-h-0 !p-0"
+                                )}
+                                onClick={() => setPreviewComprobanteId(fila.comprobanteId)}
+                              >
+                                {fila.comprobanteNro}
+                              </Button>
+                            ) : (
+                              <span className="flex flex-col gap-0.5 text-left">
+                                <span>DEVOLUCIÓN · {detalleDev?.linea1}</span>
+                                {detalleDev?.linea2 ? (
+                                  <span className="font-normal">{detalleDev.linea2}</span>
+                                ) : null}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="celda-datos text-right tabular-nums">
+                            {montoArCentsToDisplayWithCurrency(fila.montoCents, "$")}
+                          </TableCell>
+                          <TableCell className="celda-datos text-left">
+                            {fmtCelda(fila.personalNombre)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </div>
-            {(vistaNc?.saldoDisponible ?? 0) > 0 && (vistaNc?.ventas.length ?? 0) > 0 ? (
-              <div className="flex items-end gap-2">
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
-                  <ModalMicroLabel>COMPROBANTE</ModalMicroLabel>
-                  <Select value={ventaId || VACIO} onValueChange={(v) => setVentaId(v === VACIO ? "" : v)}>
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="COMPROBANTE" />
-                    </SelectTrigger>
-                    <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                      <SelectItem value={VACIO}>COMPROBANTE</SelectItem>
-                      {vistaNc?.ventas.map((venta) => (
-                        <SelectItem key={venta.id} value={venta.id}>
-                          {venta.nroComprobante}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
-                <Button type="button" disabled={guardando || !ventaId} onClick={() => void asignarNc()}>
-                  Asignar
-                </Button>
+            {(vistaNc?.saldoDisponible ?? 0) > 0 &&
+            (vistaNc?.ventas.length ?? 0) > 0 ? (
+              <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
+                <Table className="w-full table-fixed text-center">
+                  <colgroup>
+                    <col className="w-[22%]" />
+                    <col className="w-[34%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[22%]" />
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center">FECHA</TableHead>
+                      <TableHead className="text-center">COMPROBANTE</TableHead>
+                      <TableHead className="text-center">SALDO</TableHead>
+                      <TableHead className="text-center">ASIGNAR</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vistaNc?.ventas.map((venta) => (
+                      <TableRow key={venta.id}>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          {formatIsoYmdDdMmYyyyArgentina(venta.fechaIso)}
+                        </TableCell>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          <Button
+                            type="button"
+                            variant="link"
+                            aria-label={`Ver ${venta.nroComprobante}`}
+                            className={cn(
+                              "h-auto min-h-0 px-0 py-0 font-semibold tabular-nums underline",
+                              "!h-auto !min-h-0 !p-0"
+                            )}
+                            onClick={() => setPreviewComprobanteId(venta.id)}
+                          >
+                            {venta.nroComprobante}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          ${fmtPrecio(venta.saldoPendiente)}
+                        </TableCell>
+                        <TableCell className="celda-datos text-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            aria-label={`Asignar a ${venta.nroComprobante}`}
+                            disabled={asignandoVentaId != null}
+                            onClick={() => void asignarNc(venta.id)}
+                          >
+                            Asignar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
+            {(vistaNc?.saldoADevolver ?? 0) > 0 ? (
+              <div className="flex shrink-0 flex-col gap-3">
+                <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
+                  DEVOLUCIÓN:{" "}
+                  {montoArCentsToDisplayWithCurrency(
+                    Math.round((vistaNc?.saldoADevolver ?? 0) * 100),
+                    "$"
+                  )}
+                </p>
+                {pagos.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground">
+                    No hay formas de pago cargadas.
+                  </p>
+                ) : (
+                  <div
+                    role="radiogroup"
+                    aria-label="Forma de devolución"
+                    className="flex flex-wrap justify-center gap-2"
+                  >
+                    {pagos.map((pago) => {
+                      const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
+                      const seleccionado = pago.id === pagoId;
+                      return (
+                        <Button
+                          key={pago.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={seleccionado}
+                          variant={seleccionado ? "default" : "outline"}
+                          disabled={guardando}
+                          className={BOTON_FORMA_PAGO_CLASS}
+                          onClick={() => handlePagoChange(pago.id)}
+                        >
+                          <Icono className="size-5 shrink-0" aria-hidden />
+                          <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                            {pago.nombre}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex items-end justify-center gap-2">
+                  {muestraEntidad ? (
+                    <label className="flex min-w-0 flex-1 flex-col gap-1">
+                      <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                      <Select
+                        value={entidadId || VACIO}
+                        onValueChange={(value) =>
+                          setEntidadId(value === VACIO ? "" : value)
+                        }
+                        disabled={guardando || !pagoSel}
+                      >
+                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                          <SelectValue placeholder="ENTIDAD" />
+                        </SelectTrigger>
+                        <SelectContent
+                          position="popper"
+                          side="bottom"
+                          align="start"
+                          className="select-content-filtro"
+                        >
+                          <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          {pagoSel
+                            ? pagoSel.entidadIds.map((id, idx) => (
+                                <SelectItem key={id} value={id}>
+                                  {pagoSel.entidadNombres[idx] ?? ""}
+                                </SelectItem>
+                              ))
+                            : null}
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ) : null}
+                  {muestraCuotas ? (
+                    <label className="flex min-w-0 flex-1 flex-col gap-1">
+                      <ModalMicroLabel>CUOTAS</ModalMicroLabel>
+                      <Select
+                        value={cuotaId || VACIO}
+                        onValueChange={(value) =>
+                          setCuotaId(value === VACIO ? "" : value)
+                        }
+                        disabled={guardando}
+                      >
+                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                          <SelectValue placeholder="CUOTAS" />
+                        </SelectTrigger>
+                        <SelectContent
+                          position="popper"
+                          side="bottom"
+                          align="start"
+                          className="select-content-filtro"
+                        >
+                          <SelectItem value={VACIO}>CUOTAS</SelectItem>
+                          {cuotas.map((cuota) => (
+                            <SelectItem key={cuota.id} value={cuota.id}>
+                              {cuota.cuotas}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ) : null}
+                  <div className="w-[8.5rem] shrink-0">
+                    <MontoArInput
+                      valueNormalized={montoNorm}
+                      onValueNormalizedChange={setMontoNorm}
+                      disabled={guardando}
+                      aria-label="Monto a devolver"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    className="h-9 shrink-0 gap-2"
+                    disabled={guardando}
+                    onClick={() => void persistirCobro()}
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    Agregar
+                  </Button>
+                </div>
               </div>
             ) : null}
           </div>
@@ -591,5 +825,13 @@ export default function FacturaComprobanteCobrosModal({
         )}
       </AppModal>
     </Dialog>
+    <FacturaComprobanteDetalleModal
+      open={previewComprobanteId != null}
+      onOpenChange={(next) => {
+        if (!next) setPreviewComprobanteId(null);
+      }}
+      comprobanteId={previewComprobanteId}
+    />
+    </>
   );
 }

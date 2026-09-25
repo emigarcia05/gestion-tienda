@@ -20,6 +20,10 @@ import {
   saldosCuentaCorrientePorCliente,
 } from "@/services/clientes.service";
 import {
+  listarVistaCobroNotaCredito,
+  usadoNotaCreditoPesos,
+} from "@/services/facturaComprobantesListado.service";
+import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
   isoYmdToYyyymmdd,
@@ -90,6 +94,23 @@ function decimalToNumber(value: Prisma.Decimal | number): number {
 function asEstado(raw: string): FacturaComprobanteEstado {
   if (raw === "borrador" || raw === "autorizado" || raw === "rechazado") return raw;
   return "borrador";
+}
+
+async function imputarNcEmitidaAlOriginal(
+  emitido: ServiceResult<FacturaEmitirResultado>,
+  originalId: string | null
+): Promise<ServiceResult<FacturaEmitirResultado>> {
+  if (!emitido.success || !originalId) return emitido;
+  const tipo = emitido.data.tipo;
+  if (!esFacturaTipoNotaCredito(tipo)) return emitido;
+  const asoc = await asignarNotaCreditoComoCobro({
+    notaCreditoId: emitido.data.id,
+    ventaId: originalId,
+  });
+  if (!asoc.success) {
+    console.error("[facturaComprobantes][imputarNc]", asoc.error);
+  }
+  return emitido;
 }
 
 function nestedCobrosCreate(cobros: EmitirFacturaComprobanteInput["cobros"]) {
@@ -949,6 +970,13 @@ export async function emitirFacturaComprobante(
             stockAplicado: false,
             diasVencimiento,
             impCobrado,
+            cbteAsocId: original?.id ?? null,
+            cbteAsocTipo: original?.cbteTipo ?? null,
+            cbteAsocPtoVta: original
+              ? ptoVentaAEnteroArca(original.ptoVenta)
+              : null,
+            cbteAsocNro: original?.cbteNro ?? null,
+            cbteAsocCae: original?.cae ?? null,
             items: {
               create: lineas.map((l) => ({
                 orden: l.orden,
@@ -968,7 +996,8 @@ export async function emitirFacturaComprobante(
         });
         return header;
       });
-      return { success: true, data: emitirResultadoDesdeRow(created) };
+      const emitido = { success: true as const, data: emitirResultadoDesdeRow(created) };
+      return imputarNcEmitidaAlOriginal(emitido, original?.id ?? null);
     } catch (e) {
       console.error("[facturaComprobantes][emitirInterno]", e);
       return { success: false, error: "No se pudo guardar el comprobante." };
@@ -1084,7 +1113,8 @@ async function emitirFiscal(args: {
     },
   });
   if (existente?.cae) {
-    return { success: true, data: emitirResultadoDesdeRow(existente) };
+    const emitido = { success: true as const, data: emitirResultadoDesdeRow(existente) };
+    return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
   }
   if (existente && !existente.cae) {
     const consultado = await wsfeCompConsultar(auth, ptoNro, args.cbteTipo, cbteNro);
@@ -1101,7 +1131,8 @@ async function emitirFiscal(args: {
           estado: "autorizado",
         },
       });
-      return { success: true, data: emitirResultadoDesdeRow(updated) };
+      const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
+      return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
     }
   }
 
@@ -1238,7 +1269,8 @@ async function emitirFiscal(args: {
         resultado: "A",
         errores: `reconciliado tras error: ${caeRes.error}`,
       });
-      return { success: true, data: emitirResultadoDesdeRow(updated) };
+      const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
+      return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
     }
     await prisma.comprobanteVta.update({
       where: { id: createdId },
@@ -1281,7 +1313,8 @@ async function emitirFiscal(args: {
       error: obs || "ARCA no autorizó el comprobante.",
     };
   }
-  return { success: true, data: emitirResultadoDesdeRow(updated) };
+  const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
+  return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
 }
 
 export async function emitirNotaCreditoDesdeComprobante(
@@ -1444,6 +1477,36 @@ export async function registrarCobroComprobanteVta(
       return { success: false, error: "No se encontró el comprobante." };
     }
     const tipo = esFacturaTipo(row.tipoComprobante) ? row.tipoComprobante : "factura_no_fiscal";
+    if (esFacturaTipoNotaCredito(tipo)) {
+      if (asEstado(row.estado) === "rechazado") {
+        return { success: false, error: "No se puede devolver un comprobante rechazado." };
+      }
+      if (esCobroNotaCreditoNombre(input.pagoNombre)) {
+        return { success: false, error: "La devolución no se registra como nota de crédito." };
+      }
+      const vista = await listarVistaCobroNotaCredito(input.id);
+      if (!vista || vista.saldoADevolver <= 0) {
+        return { success: false, error: "No hay saldo para devolver." };
+      }
+      const montoPesos = roundArs2(input.montoCents / 100);
+      if (montoPesos > vista.saldoADevolver) {
+        return { success: false, error: "El monto no puede ser mayor al saldo a devolver." };
+      }
+      const siguienteOrden = (row.cobros[0]?.orden ?? -1) + 1;
+      await prisma.comprobanteVtaCobro.create({
+        data: {
+          comprobanteId: input.id,
+          orden: siguienteOrden,
+          pagoNombre: input.pagoNombre,
+          entidadNombre: input.entidadNombre,
+          cuotaEtiqueta: input.cuotaEtiqueta,
+          montoCents: input.montoCents,
+          esCuentaCorriente: false,
+          plazoDias: null,
+        },
+      });
+      return { success: true, data: undefined };
+    }
     if (!esFacturaTipoVenta(tipo)) {
       return { success: false, error: "Solo se pueden agregar cobros a una venta." };
     }
@@ -1507,6 +1570,7 @@ export async function asignarNotaCreditoComoCobro(input: {
           impTotal: true,
           clienteId: true,
           estado: true,
+          cbteAsocId: true,
         },
       }),
       prisma.comprobanteVta.findUnique({
@@ -1535,20 +1599,16 @@ export async function asignarNotaCreditoComoCobro(input: {
     if (!esFacturaTipoVenta(tipoVenta) || asEstado(venta.estado) === "rechazado") {
       return { success: false, error: "Solo se puede imputar a una venta." };
     }
-    if (nc.clienteId == null || nc.clienteId !== venta.clienteId) {
-      return { success: false, error: "La venta no es del mismo cliente." };
+    if (nc.cbteAsocId !== venta.id) {
+      if (nc.clienteId == null || nc.clienteId !== venta.clienteId) {
+        return { success: false, error: "La venta no es del mismo cliente." };
+      }
     }
     const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
-    const previas = await prisma.comprobanteVtaCobro.findMany({
-      where: { entidadNombre: nro },
-      select: { pagoNombre: true, montoCents: true },
-    });
-    const usadoCents = previas
-      .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
-      .reduce((acc, c) => acc + c.montoCents, 0);
+    const usadoPesos = await usadoNotaCreditoPesos(nro, nc.id);
     const disponibleCents = Math.max(
       0,
-      Math.round(decimalToNumber(nc.impTotal) * 100) - usadoCents
+      Math.round(decimalToNumber(nc.impTotal) * 100) - Math.round(usadoPesos * 100)
     );
     if (disponibleCents <= 0) {
       return { success: false, error: "La nota de crédito ya está imputada." };
