@@ -727,6 +727,8 @@ export function whereComprobantesCuentaCorriente(
  * Comprobantes por `cliente_id`, CUIT o `receptor_nombre`. Cobros: todas las
  * filas de `comprobantes_vtas_cobros` de esas ventas (`monto_cents` > 0).
  * `es_cuenta_corriente` se lista como COBRO pero no mueve el SALDO CC.
+ * `saldoCc` se acumula de más antiguo a más reciente y el array se invierte
+ * (más reciente primero) para la tabla.
  */
 export async function obtenerCuentaCorrienteCliente(
   clienteId: string
@@ -971,6 +973,7 @@ export async function obtenerCuentaCorrienteCliente(
         cuentaComoPago: ev.cuentaComoPago,
       };
     });
+    movimientos.reverse();
 
     return { success: true, data: { cliente, movimientos, productos } };
   } catch (error) {

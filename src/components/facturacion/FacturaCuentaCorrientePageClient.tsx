@@ -485,8 +485,17 @@ export default function FacturaCuentaCorrientePageClient({
         contentWidth="full"
         actions={
           <>
+            {esPublico ? null : (
+              <ToolbarActionButton
+                label="PAGO CUENTA CORRIENTE"
+                icon={<Wallet />}
+                className="w-full justify-start"
+                disabled={clienteId == null}
+                onClick={() => setPagoCcOpen(true)}
+              />
+            )}
             <ToolbarActionButton
-              label="DETALLE COMPROBANTE"
+              label="DETALLE COMPROBANTES"
               icon={<FileText />}
               aria-pressed={!esVistaProductos}
               className="w-full justify-start"
@@ -506,23 +515,14 @@ export default function FacturaCuentaCorrientePageClient({
               }}
             />
             {esPublico ? null : (
-              <>
-                <ToolbarActionButton
-                  label="PAGO CUENTA CORRIENTE"
-                  icon={<Wallet />}
-                  className="w-full justify-start"
-                  disabled={clienteId == null}
-                  onClick={() => setPagoCcOpen(true)}
-                />
-                <ToolbarActionButton
-                  label="COMPARTIR CUENTA CORRIENTE"
-                  icon={<Share2 />}
-                  className="w-full justify-start"
-                  disabled={clienteId == null}
-                  loading={compartiendo}
-                  onClick={() => void compartirLink()}
-                />
-              </>
+              <ToolbarActionButton
+                label="COMPARTIR CUENTA CORRIENTE"
+                icon={<Share2 />}
+                className="w-full justify-start"
+                disabled={clienteId == null}
+                loading={compartiendo}
+                onClick={() => void compartirLink()}
+              />
             )}
           </>
         }
@@ -714,8 +714,14 @@ export default function FacturaCuentaCorrientePageClient({
                 )}
               </FilterRowSearch>
               </div>
-              {mostrarProyecto ? (
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div
+                className={cn(
+                  "flex min-w-0 flex-1 flex-col gap-1",
+                  !mostrarProyecto && "invisible pointer-events-none"
+                )}
+                aria-hidden={!mostrarProyecto}
+                inert={mostrarProyecto ? undefined : true}
+              >
                   <ModalMicroLabel>PROYECTO</ModalMicroLabel>
                   <Select
                     value={proyectoFiltroId ?? "none"}
@@ -740,12 +746,11 @@ export default function FacturaCuentaCorrientePageClient({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              ) : null}
-              <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1 rounded-md border border-input px-2">
+              </div>
+              <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1">
                 <ModalMicroLabel align="center">SALDO</ModalMicroLabel>
                 <p
-                  className="flex h-9 w-full items-center justify-center truncate text-center text-sm tabular-nums text-foreground"
+                  className="flex h-9 w-full items-center justify-center truncate rounded-md border border-input px-2 text-center text-sm tabular-nums text-foreground"
                   aria-label="Saldo"
                 >
                   {saldoClienteVisible != null

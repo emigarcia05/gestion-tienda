@@ -437,6 +437,7 @@ export type CuentaCorrienteClienteMovimiento = {
   monto: number;
   /** Saldo del documento (venta/NC) o saldo sin aplicar del cobro. */
   saldoComprobante: number;
+  /** SALDO CC tras el evento (cálculo cronológico; el array llega más reciente primero). */
   saldoCc: number;
   /**
    * false = cobro `es_cuenta_corriente` (forma de pago, no dinero recibido)
@@ -582,7 +583,10 @@ export function resumenIndicadoresListaComprobantes(
   };
 }
 
-/** Pie de Cuenta Corrientes: recuento y montos según los movimientos visibles. */
+/**
+ * Pie de Cuenta Corrientes: recuento y montos según los movimientos visibles.
+ * El ledger llega más reciente primero; PENDIENTE DE COBRO = `saldoCc` de esa fila.
+ */
 export function resumenIndicadoresCuentaCorriente(
   movimientos: readonly CuentaCorrienteClienteMovimiento[]
 ): {
@@ -603,11 +607,11 @@ export function resumenIndicadoresCuentaCorriente(
       notasCredito += mov.monto;
     }
   }
-  const ultimo = movimientos[movimientos.length - 1];
+  const masReciente = movimientos[0];
   return {
     cantComprobantes: idsComprobantes.size,
     totalVendido: round2(ventas - notasCredito),
-    pendienteDeCobro: round2(ultimo?.saldoCc ?? 0),
+    pendienteDeCobro: round2(masReciente?.saldoCc ?? 0),
   };
 }
 
