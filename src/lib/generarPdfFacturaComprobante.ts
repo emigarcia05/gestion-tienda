@@ -2,7 +2,7 @@
  * Generación de PDF de comprobante (Factura · Crear) con jsPDF.
  * Cliente o servidor; sin persistencia.
  *
- * Bloques: ENCABEZADO (logo | letra | datos `ptos_vtas`) → CLIENTE → DETALLE → TOTAL.
+ * Bloques: ENCABEZADO fijo (logo izq. | letra centrada | datos `ptos_vtas` a la derecha solo si fiscal) → CLIENTE → DETALLE → TOTAL.
  */
 
 import { jsPDF } from "jspdf";
@@ -245,62 +245,33 @@ function dibujarEncabezado(
   const pageW = 210;
   const pageCenterX = pageW / 2;
   const rightX = pageW - MARGIN;
-  const logoMaxW = 52;
-  const logoMaxH = 28;
+  const headerH = 36;
+  const logoSlot = { x: MARGIN, w: 52, h: 28 };
   const box = 18;
+  const letraBlockH = box + 14;
   const lineH = 3.4;
   const gapEtiquetaDato = 1.2;
   const muestraEmisor = esFacturaTipoFiscal(input.tipo);
   const emisor = muestraEmisor ? (input.emisor ?? null) : null;
 
-  const empresaRows = muestraEmisor
-    ? [
-        { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
-        { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
-        { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
-        { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
-        {
-          etiqueta: "INICIO ACTIVIDADES",
-          valor: emisor?.inicioActividadesIso
-            ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
-            : "",
-        },
-      ]
-    : [];
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  const empresaMaxW = 72;
-  const wrapped: { etiqueta: string; lines: string[] }[] = [];
-  let empresaBodyH = 0;
-  for (const row of empresaRows) {
-    const etiquetaW = doc.getTextWidth(`${row.etiqueta}:`);
-    const valorMaxW = Math.max(18, empresaMaxW - etiquetaW - gapEtiquetaDato);
-    const split = row.valor
-      ? doc.splitTextToSize(row.valor, valorMaxW)
-      : [""];
-    const lines = Array.isArray(split) ? split : [split];
-    wrapped.push({ etiqueta: row.etiqueta, lines });
-    empresaBodyH += Math.max(lineH, lines.length * lineH);
+  const logo = input.logo;
+  if (logo && logo.naturalW > 0 && logo.naturalH > 0) {
+    const scale = Math.min(
+      logoSlot.w / logo.naturalW,
+      logoSlot.h / logo.naturalH
+    );
+    const drawW = logo.naturalW * scale;
+    const drawH = logo.naturalH * scale;
+    const lx = logoSlot.x + (logoSlot.w - drawW) / 2;
+    const ly = y0 + (headerH - logoSlot.h) / 2 + (logoSlot.h - drawH) / 2;
+    const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
+    doc.addImage(logo.dataUrl, format, lx, ly, drawW, drawH);
   }
 
   const letra = letraComprobantePdf(input);
   const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
   const nro = input.nroComprobante.trim();
   const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
-  const letraBlockH = box + 14;
-  const headerH = Math.max(logoMaxH, letraBlockH, empresaBodyH, 28);
-
-  const logo = input.logo;
-  if (logo && logo.naturalW > 0 && logo.naturalH > 0) {
-    const scale = Math.min(logoMaxW / logo.naturalW, logoMaxH / logo.naturalH);
-    const drawW = logo.naturalW * scale;
-    const drawH = logo.naturalH * scale;
-    const ly = y0 + (headerH - drawH) / 2;
-    const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
-    doc.addImage(logo.dataUrl, format, MARGIN, ly, drawW, drawH);
-  }
-
   const boxX = pageCenterX - box / 2;
   const boxY = y0 + (headerH - letraBlockH) / 2;
   doc.setDrawColor(INK.r, INK.g, INK.b);
@@ -322,24 +293,40 @@ function dibujarEncabezado(
   });
 
   if (muestraEmisor) {
-    let ey = y0 + (headerH - empresaBodyH) / 2 + 2.4;
-    for (const row of wrapped) {
-      doc.setFont("helvetica", "bold");
+    const empresaRows = [
+      { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
+      { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
+      { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
+      { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
+      {
+        etiqueta: "INICIO ACTIVIDADES",
+        valor: emisor?.inicioActividadesIso
+          ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
+          : "",
+      },
+    ];
+    const empresaMaxW = 72;
+    let ey = y0 + 3.2;
+    for (const row of empresaRows) {
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(6.5);
       const etiqueta = `${row.etiqueta}:`;
       const etiquetaW = doc.getTextWidth(etiqueta);
-      doc.setFont("helvetica", "normal");
-      const primera = row.lines[0] ?? "";
+      const valorMaxW = Math.max(18, empresaMaxW - etiquetaW - gapEtiquetaDato);
+      const split = row.valor
+        ? doc.splitTextToSize(row.valor, valorMaxW)
+        : [""];
+      const lines = Array.isArray(split) ? split : [split];
+      const primera = lines[0] ?? "";
       const primeraW = doc.getTextWidth(primera);
-      const lineaW = etiquetaW + gapEtiquetaDato + primeraW;
-      const lineaX = rightX - lineaW;
+      const lineaX = rightX - (etiquetaW + gapEtiquetaDato + primeraW);
       doc.setFont("helvetica", "bold");
       doc.text(etiqueta, lineaX, ey);
       doc.setFont("helvetica", "normal");
       doc.text(primera, lineaX + etiquetaW + gapEtiquetaDato, ey);
-      for (let i = 1; i < row.lines.length; i += 1) {
+      for (let i = 1; i < lines.length; i += 1) {
         ey += lineH;
-        doc.text(row.lines[i] ?? "", rightX, ey, { align: "right" });
+        doc.text(lines[i] ?? "", rightX, ey, { align: "right" });
       }
       ey += lineH;
     }
