@@ -326,11 +326,13 @@ function dibujarEncabezado(
   const headerH = 36;
   const logoSlot = { x: MARGIN, w: 52, h: 28 };
   const box = 18;
-  const letraBlockH = box + 14;
   const lineH = 3.4;
   const gapEtiquetaDato = 1.2;
   const muestraEmisor = esFacturaTipoFiscal(input.tipo);
   const emisor = muestraEmisor ? (input.emisor ?? null) : null;
+  const nro = input.nroComprobante.trim();
+  const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
+  const letraBlockH = box + (nro ? 10 : 6);
 
   const logo = input.logo;
   if (logo && logo.naturalW > 0 && logo.naturalH > 0) {
@@ -341,15 +343,13 @@ function dibujarEncabezado(
     const drawW = logo.naturalW * scale;
     const drawH = logo.naturalH * scale;
     const lx = logoSlot.x + (logoSlot.w - drawW) / 2;
-    const ly = y0 + (headerH - logoSlot.h) / 2 + (logoSlot.h - drawH) / 2;
+    const ly = y0 + (headerH - drawH) / 2;
     const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
     doc.addImage(logo.dataUrl, format, lx, ly, drawW, drawH);
   }
 
   const letra = letraComprobantePdf(input);
   const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
-  const nro = input.nroComprobante.trim();
-  const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
   const boxX = pageCenterX - box / 2;
   const boxY = y0 + (headerH - letraBlockH) / 2;
   doc.setDrawColor(INK.r, INK.g, INK.b);
@@ -367,34 +367,43 @@ function dibujarEncabezado(
     doc.text(`N° ${nro}`, pageCenterX, boxY + box + 8, { align: "center" });
   }
 
-  let ey = y0 + 3.2;
-  ey = dibujarDatoDerecha(doc, "FECHA", fecha, rightX, ey, lineH, gapEtiquetaDato, 72);
-
-  if (muestraEmisor) {
-    const empresaRows = [
-      { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
-      { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
-      { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
-      { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
-      {
-        etiqueta: "INICIO ACTIVIDADES",
-        valor: emisor?.inicioActividadesIso
-          ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
-          : "",
-      },
-    ];
-    for (const row of empresaRows) {
-      ey = dibujarDatoDerecha(
-        doc,
-        row.etiqueta,
-        row.valor,
-        rightX,
-        ey,
-        lineH,
-        gapEtiquetaDato,
-        72
-      );
-    }
+  const filasEmpresa = muestraEmisor
+    ? [
+        { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
+        { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
+        { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
+        { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
+        {
+          etiqueta: "INICIO ACTIVIDADES",
+          valor: emisor?.inicioActividadesIso
+            ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
+            : "",
+        },
+      ]
+    : [];
+  /** FECHA siempre arriba a la derecha; empresa debajo (solo fiscal). */
+  let ey = y0 + 4.2;
+  ey = dibujarDatoDerecha(
+    doc,
+    "FECHA",
+    fecha,
+    rightX,
+    ey,
+    lineH,
+    gapEtiquetaDato,
+    72
+  );
+  for (const row of filasEmpresa) {
+    ey = dibujarDatoDerecha(
+      doc,
+      row.etiqueta,
+      row.valor,
+      rightX,
+      ey,
+      lineH,
+      gapEtiquetaDato,
+      72
+    );
   }
 
   return y0 + headerH + 6;
