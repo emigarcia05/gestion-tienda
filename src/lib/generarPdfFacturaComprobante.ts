@@ -2,7 +2,7 @@
  * Generación de PDF de comprobante (Factura · Crear) con jsPDF.
  * Cliente o servidor; sin persistencia.
  *
- * Bloques: ENCABEZADO fijo (logo izq. | letra centrada | datos `ptos_vtas` a la derecha solo si fiscal) → CLIENTE → DETALLE → TOTAL.
+ * Bloques: ENCABEZADO fijo (logo 40 % | letra 20 % | datos empresa 40 %, los tres al borde superior) → CLIENTE → DETALLE → TOTAL.
  */
 
 import { jsPDF } from "jspdf";
@@ -100,28 +100,29 @@ export function generarPdfFacturaComprobante(
     doc.rect(MARGIN, y, contentWidth, headerDetalleH, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    const columnas: { lineas: string[]; w: number; centrado: boolean }[] = [
-      { lineas: ["COD."], w: col.cod, centrado: false },
-      { lineas: ["DESCRIPCIÓN"], w: col.desc, centrado: false },
-      { lineas: ["PRECIO", "LISTA"], w: col.px, centrado: true },
-      { lineas: ["DESCUENTO"], w: col.descPct, centrado: true },
-      { lineas: ["PRECIO", "CON DESC."], w: col.pxDesc, centrado: true },
-      { lineas: ["CANT."], w: col.cant, centrado: true },
-      { lineas: ["TOTAL"], w: col.total, centrado: true },
+    /** 6.5 pt × 1,2. */
+    const headerFont = 7.8;
+    doc.setFontSize(headerFont);
+    const columnas: { lineas: string[]; w: number }[] = [
+      { lineas: ["COD."], w: col.cod },
+      { lineas: ["DESCRIPCIÓN"], w: col.desc },
+      { lineas: ["PRECIO", "LISTA"], w: col.px },
+      { lineas: ["DESCUENTO"], w: col.descPct },
+      { lineas: ["PRECIO", "CON DESC."], w: col.pxDesc },
+      { lineas: ["CANT."], w: col.cant },
+      { lineas: ["TOTAL"], w: col.total },
     ];
     let x = MARGIN;
-    const paso = 3.3;
+    const paso = 4;
+    const capH = headerFont * 0.352778 * 0.72;
+    const centroY = y + headerDetalleH / 2;
     for (const columna of columnas) {
-      const bloque = columna.lineas.length * paso;
-      const base = y + (headerDetalleH - bloque) / 2 + 2.5;
+      const base =
+        centroY - ((columna.lineas.length - 1) * paso) / 2 + capH / 2;
       columna.lineas.forEach((linea, i) => {
-        const ty = base + i * paso;
-        if (columna.centrado) {
-          doc.text(linea, x + columna.w / 2, ty, { align: "center" });
-        } else {
-          doc.text(linea, x + 1, ty);
-        }
+        doc.text(linea, x + columna.w / 2, base + i * paso, {
+          align: "center",
+        });
       });
       x += columna.w;
     }
@@ -320,11 +321,16 @@ function dibujarEncabezado(
   input: FacturaComprobantePdfInput,
   y0: number
 ): number {
-  const pageW = 210;
-  const pageCenterX = pageW / 2;
-  const rightX = pageW - MARGIN;
+  const contentW = 210 - 2 * MARGIN;
+  const colLogoW = contentW * 0.4;
+  const colLetraW = contentW * 0.2;
+  const colDatosW = contentW * 0.4;
+  const colLogoX = MARGIN;
+  const colLetraX = colLogoX + colLogoW;
+  const colDatosX = colLetraX + colLetraW;
+  const letraCenterX = colLetraX + colLetraW / 2;
   const headerH = 36;
-  const logoSlot = { x: MARGIN, w: 52, h: 28 };
+  const logoSlot = { w: Math.min(52, colLogoW), h: 28 };
   const box = 18;
   /** 6.5 pt × 1,2: FECHA y datos de empresa. */
   const lineH = 4.08;
@@ -341,14 +347,14 @@ function dibujarEncabezado(
     );
     const drawW = logo.naturalW * scale;
     const drawH = logo.naturalH * scale;
-    const lx = logoSlot.x + (logoSlot.w - drawW) / 2;
+    const lx = colLogoX + (colLogoW - drawW) / 2;
     const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
     doc.addImage(logo.dataUrl, format, lx, y0, drawW, drawH);
   }
 
   const letra = letraComprobantePdf(input);
   const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
-  const boxX = pageCenterX - box / 2;
+  const boxX = letraCenterX - box / 2;
   const boxY = y0;
   doc.setDrawColor(INK.r, INK.g, INK.b);
   doc.setLineWidth(0.6);
@@ -356,13 +362,13 @@ function dibujarEncabezado(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text(letra, pageCenterX, boxY + 12.2, { align: "center" });
+  doc.text(letra, letraCenterX, boxY + 12.2, { align: "center" });
   doc.setFontSize(7);
-  doc.text(tipoLabel, pageCenterX, boxY + box + 4.2, { align: "center" });
+  doc.text(tipoLabel, letraCenterX, boxY + box + 4.2, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   if (nro) {
-    doc.text(`N° ${nro}`, pageCenterX, boxY + box + 8, { align: "center" });
+    doc.text(`N° ${nro}`, letraCenterX, boxY + box + 8, { align: "center" });
   }
 
   const filasEmpresa = muestraEmisor
@@ -379,63 +385,62 @@ function dibujarEncabezado(
         },
       ]
     : [];
-  /** FECHA siempre arriba a la derecha; empresa debajo (solo fiscal). */
-  let ey = y0 + 2.4;
-  ey = dibujarDatoDerecha(
+  /** FECHA y empresa al borde superior de su columna, pegados al borde izquierdo. */
+  let ey = y0 + 2.6;
+  ey = dibujarDatoColumna(
     doc,
     "FECHA",
     fecha,
-    rightX,
+    colDatosX,
     ey,
     lineH,
     gapEtiquetaDato,
-    72
+    colDatosW
   );
   for (const row of filasEmpresa) {
-    ey = dibujarDatoDerecha(
+    ey = dibujarDatoColumna(
       doc,
       row.etiqueta,
       row.valor,
-      rightX,
+      colDatosX,
       ey,
       lineH,
       gapEtiquetaDato,
-      72
+      colDatosW
     );
   }
 
   return y0 + headerH + 6;
 }
 
-function dibujarDatoDerecha(
+function dibujarDatoColumna(
   doc: jsPDF,
   etiqueta: string,
   valor: string,
-  rightX: number,
+  x: number,
   ey: number,
   lineH: number,
   gapEtiquetaDato: number,
-  empresaMaxW: number
+  maxW: number
 ): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.8);
   const label = `${etiqueta}:`;
   const etiquetaW = doc.getTextWidth(label);
-  const valorMaxW = Math.max(18, empresaMaxW - etiquetaW - gapEtiquetaDato);
+  const valorMaxW = Math.max(12, maxW - etiquetaW - gapEtiquetaDato);
+  const valorX = x + etiquetaW + gapEtiquetaDato;
   doc.setFont("helvetica", "normal");
   const split = valor ? doc.splitTextToSize(valor, valorMaxW) : [""];
   const lines = Array.isArray(split) ? split : [split];
   const primera = lines[0] ?? "";
-  const primeraW = doc.getTextWidth(primera);
-  const lineaX = rightX - (etiquetaW + gapEtiquetaDato + primeraW);
   doc.setFont("helvetica", "bold");
-  doc.text(label, lineaX, ey);
+  doc.text(label, x, ey);
   doc.setFont("helvetica", "normal");
-  doc.text(primera, lineaX + etiquetaW + gapEtiquetaDato, ey);
+  doc.text(primera, valorX, ey);
   let y = ey;
   for (let i = 1; i < lines.length; i += 1) {
     y += lineH;
-    doc.text(lines[i] ?? "", rightX, y, { align: "right" });
+    doc.text(lines[i] ?? "", valorX, y);
   }
   return y + lineH;
 }
