@@ -48,6 +48,7 @@ import {
   clienteSuperaTopeCtaCorriente,
   esClienteConsumidorFinalCargado,
   esFacturaTipoNotaCredito,
+  esFacturaTipoFiscal,
   esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
   facturaTipoDesdeClaseYFiscal,
@@ -71,7 +72,7 @@ import {
   type EnviosDireccionItem,
 } from "@/lib/envios";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import { etiquetaCondicionIvaArca, type PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import {
   emisorPdfDesdePtoVta,
   type FacturaComprobantePdfEmisor,
@@ -163,6 +164,12 @@ export default function FacturaCrearPageClient({
   const [clienteId, setClienteId] = useState<string | null>(
     () => duplicarBorrador?.clienteId ?? null
   );
+  const [clienteCuit, setClienteCuit] = useState<string | null>(
+    () => duplicarBorrador?.clienteCatalogo?.cuit ?? null
+  );
+  const [clienteCondicionIvaCodigo, setClienteCondicionIvaCodigo] = useState<
+    number | null
+  >(() => duplicarBorrador?.clienteCatalogo?.condicionIva ?? null);
   const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
     number | null
   >(() => duplicarBorrador?.clienteCatalogo?.ctaCorrienteMontoMax ?? null);
@@ -265,6 +272,8 @@ export default function FacturaCrearPageClient({
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
+    setClienteCuit(null);
+    setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
     setClienteQActual("");
@@ -280,6 +289,8 @@ export default function FacturaCrearPageClient({
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
+    setClienteCuit(null);
+    setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
     setClienteProyectos([]);
@@ -296,6 +307,8 @@ export default function FacturaCrearPageClient({
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
+    setClienteCuit(item.cuit);
+    setClienteCondicionIvaCodigo(item.condicionIva);
     setCtaCorrienteMontoMaxCliente(item.ctaCorrienteMontoMax);
     setSaldoCuentaCorrienteCliente(
       "saldoCuentaCorriente" in item ? item.saldoCuentaCorriente : 0
@@ -313,6 +326,24 @@ export default function FacturaCrearPageClient({
   const mostrarProyecto = clienteProyectos.length > 1;
   const proyectoElegido =
     clienteProyectos.find((p) => p.id === proyectoId) ?? null;
+
+  function datosClienteComprobantePdf(): Pick<
+    FacturaComprobantePdfInput,
+    "clienteCuit" | "clienteCondicionIva" | "proyectoNombre"
+  > {
+    const fiscal = esFacturaTipoFiscal(tipo);
+    const cond = condicionesIva.find((c) => c.codigo === clienteCondicionIvaCodigo);
+    return {
+      clienteCuit: fiscal ? clienteCuit : null,
+      clienteCondicionIva:
+        fiscal && cond ? etiquetaCondicionIvaArca(cond.descripcion) : null,
+      proyectoNombre:
+        mostrarProyecto && proyectoElegido
+          ? etiquetaNombreProyecto(proyectoElegido)
+          : null,
+    };
+  }
+
   const etiquetaClienteVisor = (() => {
     const nombre = cliente.trim();
     if (!nombre) return "";
@@ -442,6 +473,7 @@ export default function FacturaCrearPageClient({
       caeVtoIso: null,
       letra: null,
       emisor: emisorPdfDePtoVta(ptoVtas, ptoVtaId),
+      ...datosClienteComprobantePdf(),
     });
     setComprobanteModalOpen(true);
   }
@@ -498,6 +530,7 @@ export default function FacturaCrearPageClient({
       caeVtoIso: res.data.caeVtoIso,
       letra: res.data.letra,
       emisor: emisorPdfDePtoVta(ptoVtas, draft.ptoVtaId),
+      ...datosClienteComprobantePdf(),
     };
     setComprobantePdf(pdf);
     return pdf;
@@ -692,6 +725,8 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
+                    setClienteCuit(null);
+                    setClienteCondicionIvaCodigo(null);
                     setClienteProyectos([]);
                     setProyectoId(null);
                     handleClienteQChange(next);

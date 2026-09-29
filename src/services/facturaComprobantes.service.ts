@@ -36,6 +36,7 @@ import {
   diasVencimientoPorSaldoPendiente,
   esCobroNotaCreditoNombre,
   esFacturaTipo,
+  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
   FACTURA_COBRO_NOTA_CREDITO_LABEL,
   esFacturaTipoVenta,
@@ -95,6 +96,7 @@ import {
   emisorPdfDesdePtoVta,
   type FacturaComprobantePdfEmisor,
 } from "@/lib/facturaComprobantePdfEmisor";
+import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -322,6 +324,10 @@ export type FacturaComprobantePdfDatos = {
   caeVtoIso: string | null;
   letra: string | null;
   emisor: FacturaComprobantePdfEmisor | null;
+  clienteCuit: string | null;
+  clienteCondicionIva: string | null;
+  /** Nombre del proyecto solo si el cliente tiene más de uno. */
+  proyectoNombre: string | null;
 };
 
 export async function obtenerFacturaComprobantePdfDatos(
@@ -341,6 +347,9 @@ export async function obtenerFacturaComprobantePdfDatos(
             inicioActividades: true,
           },
         },
+        receptorCondicionIvaArca: { select: { descripcion: true } },
+        proyecto: { select: { nombreProyecto: true } },
+        cliente: { select: { _count: { select: { direcciones: true } } } },
       },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
@@ -374,6 +383,15 @@ export async function obtenerFacturaComprobantePdfDatos(
         cae: row.cae,
         caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
         letra: row.letra,
+        clienteCuit: esFacturaTipoFiscal(tipo) ? row.receptorDocNro : null,
+        clienteCondicionIva:
+          esFacturaTipoFiscal(tipo) && row.receptorCondicionIvaArca
+            ? etiquetaCondicionIvaArca(row.receptorCondicionIvaArca.descripcion)
+            : null,
+        proyectoNombre:
+          (row.cliente?._count.direcciones ?? 0) > 1
+            ? (row.proyecto?.nombreProyecto.trim() ?? null)
+            : null,
         emisor: emisorPdfDesdePtoVta({
           titular: row.ptoVta.titular,
           cuit: row.ptoVta.cuit,
