@@ -5,6 +5,8 @@ import type {
   FacturaComprobantePdfLogo,
 } from "@/lib/generarPdfFacturaComprobante";
 
+const LOGO_COMPROBANTE_PDF_SRC = "/logo_tiendacolor_letras_negras.png";
+
 /** `2026-03-15` → `15-03-26` (nombre de archivo). */
 export function formatIsoYmdDdMmYyGuionesArchivo(isoYmd: string): string {
   const [y, m, d] = isoYmd.split("-");
@@ -61,7 +63,7 @@ export function bytesPdfAAdjuntoEnvio(
 
 async function cargarLogoTiendaColorPdf(): Promise<FacturaComprobantePdfLogo | null> {
   try {
-    const res = await fetch("/logo_tiendacolor_con_fondo.jpg");
+    const res = await fetch(LOGO_COMPROBANTE_PDF_SRC);
     if (!res.ok) return null;
     const blob = await res.blob();
     const dataUrl = await new Promise<string>((resolve, reject) => {

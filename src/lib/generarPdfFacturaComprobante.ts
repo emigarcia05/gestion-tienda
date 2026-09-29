@@ -7,6 +7,7 @@
 
 import { jsPDF } from "jspdf";
 import {
+  esFacturaTipoFiscal,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   FACTURA_TIPO_LABELS,
   porcentajeDescuentoGlobal,
@@ -73,7 +74,7 @@ export function generarPdfFacturaComprobante(
   const contentWidth = 210 - 2 * MARGIN;
   let y = MARGIN;
 
-  y = dibujarEncabezado(doc, input, y, contentWidth);
+  y = dibujarEncabezado(doc, input, y);
 
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("helvetica", "normal");
@@ -239,38 +240,42 @@ export function generarPdfFacturaComprobante(
 function dibujarEncabezado(
   doc: jsPDF,
   input: FacturaComprobantePdfInput,
-  y0: number,
-  contentWidth: number
+  y0: number
 ): number {
-  const colLogoW = 58;
-  const colLetraW = 32;
-  const colEmpresaW = contentWidth - colLogoW - colLetraW;
-  const xLogo = MARGIN;
-  const xLetra = MARGIN + colLogoW;
-  const xEmpresa = MARGIN + colLogoW + colLetraW;
-  const pad = 2.2;
-  const lineH = 3.6;
-  const emisor = input.emisor ?? null;
+  const pageW = 210;
+  const pageCenterX = pageW / 2;
+  const rightX = pageW - MARGIN;
+  const logoMaxW = 52;
+  const logoMaxH = 28;
+  const box = 18;
+  const lineH = 3.4;
+  const gapEtiquetaDato = 1.2;
+  const muestraEmisor = esFacturaTipoFiscal(input.tipo);
+  const emisor = muestraEmisor ? (input.emisor ?? null) : null;
 
-  const empresaLineas: { etiqueta: string; valor: string }[] = [
-    { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
-    { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
-    { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
-    { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
-    {
-      etiqueta: "INICIO ACTIVIDADES",
-      valor: emisor?.inicioActividadesIso
-        ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
-        : "",
-    },
-  ];
+  const empresaRows = muestraEmisor
+    ? [
+        { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
+        { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
+        { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
+        { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
+        {
+          etiqueta: "INICIO ACTIVIDADES",
+          valor: emisor?.inicioActividadesIso
+            ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
+            : "",
+        },
+      ]
+    : [];
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  const valorMaxW = colEmpresaW - pad * 2 - 38;
-  let empresaBodyH = 0;
+  doc.setFontSize(6.5);
+  const empresaMaxW = 72;
   const wrapped: { etiqueta: string; lines: string[] }[] = [];
-  for (const row of empresaLineas) {
+  let empresaBodyH = 0;
+  for (const row of empresaRows) {
+    const etiquetaW = doc.getTextWidth(`${row.etiqueta}:`);
+    const valorMaxW = Math.max(18, empresaMaxW - etiquetaW - gapEtiquetaDato);
     const split = row.valor
       ? doc.splitTextToSize(row.valor, valorMaxW)
       : [""];
@@ -283,62 +288,61 @@ function dibujarEncabezado(
   const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
   const nro = input.nroComprobante.trim();
   const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
-  const letraBlockH = 28;
-  const headerH = Math.max(36, empresaBodyH + pad * 2 + 2, letraBlockH + 10);
-
-  doc.setDrawColor(INK.r, INK.g, INK.b);
-  doc.setLineWidth(0.35);
-  doc.rect(MARGIN, y0, contentWidth, headerH, "S");
-  doc.line(xLetra, y0, xLetra, y0 + headerH);
-  doc.line(xEmpresa, y0, xEmpresa, y0 + headerH);
+  const letraBlockH = box + 14;
+  const headerH = Math.max(logoMaxH, letraBlockH, empresaBodyH, 28);
 
   const logo = input.logo;
   if (logo && logo.naturalW > 0 && logo.naturalH > 0) {
-    const maxW = colLogoW - pad * 2;
-    const maxH = headerH - pad * 2;
-    const scale = Math.min(maxW / logo.naturalW, maxH / logo.naturalH);
+    const scale = Math.min(logoMaxW / logo.naturalW, logoMaxH / logo.naturalH);
     const drawW = logo.naturalW * scale;
     const drawH = logo.naturalH * scale;
-    const lx = xLogo + (colLogoW - drawW) / 2;
     const ly = y0 + (headerH - drawH) / 2;
     const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
-    doc.addImage(logo.dataUrl, format, lx, ly, drawW, drawH);
+    doc.addImage(logo.dataUrl, format, MARGIN, ly, drawW, drawH);
   }
 
-  const box = 18;
-  const boxX = xLetra + (colLetraW - box) / 2;
-  const boxY = y0 + 3.5;
+  const boxX = pageCenterX - box / 2;
+  const boxY = y0 + (headerH - letraBlockH) / 2;
+  doc.setDrawColor(INK.r, INK.g, INK.b);
   doc.setLineWidth(0.6);
   doc.rect(boxX, boxY, box, box, "S");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text(letra, boxX + box / 2, boxY + 12.2, { align: "center" });
+  doc.text(letra, pageCenterX, boxY + 12.2, { align: "center" });
   doc.setFontSize(7);
-  doc.text(tipoLabel, xLetra + colLetraW / 2, boxY + box + 4.2, {
-    align: "center",
-  });
+  doc.text(tipoLabel, pageCenterX, boxY + box + 4.2, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   if (nro) {
-    doc.text(`N° ${nro}`, xLetra + colLetraW / 2, boxY + box + 8, {
-      align: "center",
-    });
+    doc.text(`N° ${nro}`, pageCenterX, boxY + box + 8, { align: "center" });
   }
-  doc.text(`FECHA ${fecha}`, xLetra + colLetraW / 2, boxY + box + 11.4, {
+  doc.text(`FECHA ${fecha}`, pageCenterX, boxY + box + 11.4, {
     align: "center",
   });
 
-  let ey = y0 + pad + 3;
-  const labelX = xEmpresa + pad;
-  const valueX = xEmpresa + pad + 36;
-  for (const row of wrapped) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.text(`${row.etiqueta}:`, labelX, ey);
-    doc.setFont("helvetica", "normal");
-    doc.text(row.lines, valueX, ey);
-    ey += Math.max(lineH, row.lines.length * lineH);
+  if (muestraEmisor) {
+    let ey = y0 + (headerH - empresaBodyH) / 2 + 2.4;
+    for (const row of wrapped) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      const etiqueta = `${row.etiqueta}:`;
+      const etiquetaW = doc.getTextWidth(etiqueta);
+      doc.setFont("helvetica", "normal");
+      const primera = row.lines[0] ?? "";
+      const primeraW = doc.getTextWidth(primera);
+      const lineaW = etiquetaW + gapEtiquetaDato + primeraW;
+      const lineaX = rightX - lineaW;
+      doc.setFont("helvetica", "bold");
+      doc.text(etiqueta, lineaX, ey);
+      doc.setFont("helvetica", "normal");
+      doc.text(primera, lineaX + etiquetaW + gapEtiquetaDato, ey);
+      for (let i = 1; i < row.lines.length; i += 1) {
+        ey += lineH;
+        doc.text(row.lines[i] ?? "", rightX, ey, { align: "right" });
+      }
+      ey += lineH;
+    }
   }
 
   return y0 + headerH + 6;
