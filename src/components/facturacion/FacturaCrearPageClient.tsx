@@ -614,7 +614,7 @@ export default function FacturaCrearPageClient({
                   type="text"
                   readOnly
                   value={formatIsoYmdDdMmYyyyArgentina(fechaIso)}
-                  className={cn("tabular-nums", "pr-10", "cursor-pointer")}
+                  className={cn("h-10 min-h-10", "tabular-nums", "pr-10", "cursor-pointer")}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   title="Clic para abrir el calendario"
                   aria-label="Fecha del comprobante. Clic para abrir el calendario."
@@ -624,7 +624,7 @@ export default function FacturaCrearPageClient({
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "absolute right-0 top-0 h-9 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    "absolute right-0 top-0 h-10 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   aria-label="Abrir calendario"
@@ -987,15 +987,10 @@ export default function FacturaCrearPageClient({
             </div>
             )}
 
-            <div
-              className={cn(
-                CABECERA_EDITOR_SLOT_CLASS,
-                "items-center rounded-md border border-input px-2"
-              )}
-            >
+            <div className={cn(CABECERA_EDITOR_SLOT_CLASS, "items-center")}>
               <ModalMicroLabel align="center">SALDO CLIENTE</ModalMicroLabel>
               <p
-                className="flex h-9 w-full items-center justify-center truncate text-center text-sm tabular-nums text-foreground"
+                className="flex h-9 min-h-9 w-full items-center justify-center truncate rounded-md border border-primary px-2 text-center text-sm tabular-nums text-foreground"
                 aria-label="Saldo cliente"
               >
                 {clienteId != null && saldoCuentaCorrienteCliente != null

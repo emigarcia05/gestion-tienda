@@ -27,6 +27,8 @@ import {
 
 const MARGIN = 14;
 const PRIMARY = { r: 0, g: 114, b: 187 };
+/** Azul suave ya usado en guías (Balance mensual: `#A9D6F1`). */
+const PRIMARY_SOFT = { r: 169, g: 214, b: 241 };
 const INK = { r: 17, g: 17, b: 17 };
 
 export type { FacturaComprobantePdfEmisor } from "@/lib/facturaComprobantePdfEmisor";
@@ -215,21 +217,19 @@ export function generarPdfFacturaComprobante(
     doc.addPage();
     y = MARGIN;
   }
-  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setDrawColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
   doc.setLineWidth(0.3);
   doc.line(MARGIN, y, MARGIN + contentWidth, y);
-  const totalLabelCenterX =
-    MARGIN + (contentWidth - col.total) / 2;
-  const totalValorCenterX = MARGIN + contentWidth - col.total / 2;
   const footerY = y + 5.2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("TOTAL", totalLabelCenterX, footerY, { align: "center" });
-  doc.text(`$${fmtPrecio(resumen.totalConDesc)}`, totalValorCenterX, footerY, {
-    align: "center",
+  doc.setTextColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
+  doc.text(`TOTAL: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN + contentWidth, footerY, {
+    align: "right",
   });
   y += footerH;
   doc.setDrawColor(INK.r, INK.g, INK.b);
+  doc.setTextColor(INK.r, INK.g, INK.b);
 
   const cae = input.cae?.trim();
   if (cae) {

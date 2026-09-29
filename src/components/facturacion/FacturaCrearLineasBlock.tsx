@@ -42,6 +42,7 @@ import {
   TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
   TYPEAHEAD_LISTBOX_CELL_CLASS,
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
+  TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
@@ -388,6 +389,11 @@ export default function FacturaCrearLineasBlock({
               }}
               onFocus={() => {
                 onBusquedaProductoFocus?.();
+                const qActual = q.trim();
+                if (qActual.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
+                  void fetchSugerencias(qActual);
+                  setAbierto(true);
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown" && sugerencias.length > 0) {
@@ -723,8 +729,7 @@ export default function FacturaCrearLineasBlock({
                           className={cn(
                             FILA_BUSQUEDA_GRID,
                             "min-h-5 cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
-                            "hover:bg-accent/60",
-                            activo && "bg-accent/60"
+                            activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                           )}
                           onMouseEnter={() => setHighlight(idx)}
                           onClick={() => agregarItem(item)}
@@ -781,7 +786,6 @@ export default function FacturaCrearLineasBlock({
                               }}
                             >
                               <Store
-                                fill="none"
                                 className={TYPEAHEAD_STORE_ICON_CLASS}
                                 aria-hidden
                               />
@@ -802,7 +806,17 @@ export default function FacturaCrearLineasBlock({
       <FacturaProductoStockModal
         open={stockModalOpen}
         onOpenChange={(open) => {
-          if (!open) setStockModalItem(null);
+          if (!open) {
+            setStockModalItem(null);
+            const qActual = q.trim();
+            if (qActual.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
+              void fetchSugerencias(qActual);
+              setAbierto(true);
+            }
+            queueMicrotask(() => {
+              ref.current?.focus();
+            });
+          }
         }}
         producto={stockModalItem}
       />

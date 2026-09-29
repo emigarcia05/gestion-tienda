@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import {
   etiquetaTipoListaComprobantes,
+  esFacturaTipoFiscal,
   MENSAJE_PERSONAL_SESION_REQUERIDO,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
@@ -91,6 +92,8 @@ const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
 const FILTRO_TIPO_FACTURA = "factura";
 const FILTRO_TIPO_NOTA_CREDITO = "nota_credito";
+const FILTRO_FISCAL_SI = "si";
+const FILTRO_FISCAL_NO = "no";
 const FILTRO_SALDO_CON = "con_saldo";
 const FILTRO_SALDO_VENCIDO = "con_saldo_vencido";
 const PERIODO_HOY = "hoy";
@@ -169,6 +172,7 @@ export default function FacturaListadoPageClient({
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroFiscal, setFiltroFiscal] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
   const [filtroClienteId, setFiltroClienteId] = useState("");
   const [filtroProyectoId, setFiltroProyectoId] = useState("");
@@ -246,6 +250,12 @@ export default function FacturaListadoPageClient({
           if (!esFacturaTipoNotaCredito(item.tipo)) return false;
         }
       }
+      if (filtroFiscal === FILTRO_FISCAL_SI && !esFacturaTipoFiscal(item.tipo)) {
+        return false;
+      }
+      if (filtroFiscal === FILTRO_FISCAL_NO && esFacturaTipoFiscal(item.tipo)) {
+        return false;
+      }
       if (filtroPendiente === FILTRO_SALDO_CON) {
         if (item.saldoPendiente == null || item.saldoPendiente <= 0) return false;
       }
@@ -297,6 +307,7 @@ export default function FacturaListadoPageClient({
     filtroSucursal,
     filtroUsuario,
     filtroTipo,
+    filtroFiscal,
     filtroPendiente,
     filtroClienteId,
     filtroProyectoId,
@@ -328,6 +339,7 @@ export default function FacturaListadoPageClient({
     setFiltroSucursal("");
     setFiltroUsuario("");
     setFiltroTipo("");
+    setFiltroFiscal("");
     setFiltroPendiente("");
     setFiltroClienteId("");
     setFiltroProyectoId("");
@@ -481,7 +493,7 @@ export default function FacturaListadoPageClient({
       }
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables columnas={esFacturas ? 5 : 4}>
+            <FilaFiltrosDesplegables columnas={esFacturas ? 6 : 4}>
               <FiltroIndividualContainer
                 activo={periodo !== PERIODO_HOY}
                 onLimpiar={limpiarPeriodo}
@@ -596,6 +608,28 @@ export default function FacturaListadoPageClient({
                       <SelectItem value={FILTRO_TIPO_NOTA_CREDITO}>
                         NOTA CRÉDITO
                       </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
+              ) : null}
+              {esFacturas ? (
+                <FiltroIndividualContainer
+                  activo={Boolean(filtroFiscal)}
+                  onLimpiar={() => setFiltroFiscal("")}
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                >
+                  <Select value={filtroFiscal} onValueChange={setFiltroFiscal}>
+                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                      <SelectValue placeholder="FISCAL" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="select-content-filtro"
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                    >
+                      <SelectItem value={FILTRO_FISCAL_SI}>SI</SelectItem>
+                      <SelectItem value={FILTRO_FISCAL_NO}>NO</SelectItem>
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
