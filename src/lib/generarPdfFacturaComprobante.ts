@@ -85,12 +85,12 @@ export function generarPdfFacturaComprobante(
 
   const pctGlobal = porcentajeDescuentoGlobal(input.lineas, input.descuento);
   const col = {
-    cod: 16,
-    desc: 46,
-    px: 28,
-    descPct: 26,
-    pxDesc: 32,
-    cant: 14,
+    cod: 18,
+    desc: 54,
+    px: 30,
+    descPct: 15,
+    pxDesc: 30,
+    cant: 15,
     total: 20,
   };
   const headerDetalleH = 11;
@@ -107,7 +107,7 @@ export function generarPdfFacturaComprobante(
       { lineas: ["COD."], w: col.cod },
       { lineas: ["DESCRIPCIÓN"], w: col.desc },
       { lineas: ["PRECIO", "LISTA"], w: col.px },
-      { lineas: ["DESCUENTO"], w: col.descPct },
+      { lineas: ["DESC."], w: col.descPct },
       { lineas: ["PRECIO", "CON DESC."], w: col.pxDesc },
       { lineas: ["CANT."], w: col.cant },
       { lineas: ["TOTAL"], w: col.total },
@@ -271,34 +271,57 @@ function dibujarBloqueCliente(
 ): number {
   const fiscal = esFacturaTipoFiscal(input.tipo);
   const cliente = input.cliente.trim() || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
-  const campos: { etiqueta: string; valor: string }[] = [
-    { etiqueta: "CLIENTE", valor: cliente },
-  ];
-  if (fiscal) {
-    const cuit = formatoCuitPdf(input.clienteCuit ?? null);
-    if ((input.clienteCuit ?? "").replace(/\D/g, "").length === 11) {
-      campos.push({ etiqueta: "CUIT", valor: cuit });
-    }
-    const condIva = datoOVacio(input.clienteCondicionIva);
-    if (condIva) campos.push({ etiqueta: "COND. IVA", valor: condIva });
-  }
   const proyecto = datoOVacio(input.proyectoNombre);
-  if (proyecto) campos.push({ etiqueta: "PROYECTO", valor: proyecto });
+  const colW = contentWidth / 2;
+  const col1X = MARGIN;
+  const col2X = MARGIN + colW;
+  const filaGap = 1.2;
 
-  const colW = contentWidth / campos.length;
-  let rowH = 0;
-  for (let i = 0; i < campos.length; i += 1) {
-    const h = dibujarDatoEtiquetaValor(
+  let yCol1 = y0;
+  const hCliente = dibujarDatoEtiquetaValor(
+    doc,
+    "CLIENTE",
+    cliente,
+    col1X,
+    yCol1,
+    colW - 2
+  );
+  yCol1 += hCliente + filaGap;
+  if (proyecto) {
+    const hProyecto = dibujarDatoEtiquetaValor(
       doc,
-      campos[i].etiqueta,
-      campos[i].valor,
-      MARGIN + i * colW,
-      y0,
+      "PROYECTO",
+      proyecto,
+      col1X,
+      yCol1,
       colW - 2
     );
-    rowH = Math.max(rowH, h);
+    yCol1 += hProyecto + filaGap;
   }
-  let y = y0 + rowH + 2;
+
+  let yCol2 = y0;
+  if (fiscal) {
+    const hCuit = dibujarDatoEtiquetaValor(
+      doc,
+      "CUIT",
+      formatoCuitPdf(input.clienteCuit ?? null),
+      col2X,
+      yCol2,
+      colW - 2
+    );
+    yCol2 += hCuit + filaGap;
+    const hCondIva = dibujarDatoEtiquetaValor(
+      doc,
+      "COND. IVA",
+      datoOVacio(input.clienteCondicionIva),
+      col2X,
+      yCol2,
+      colW - 2
+    );
+    yCol2 += hCondIva + filaGap;
+  }
+
+  let y = Math.max(yCol1, yCol2) + 1;
 
   const comentarios = input.comentarios.trim();
   if (comentarios) {
@@ -385,7 +408,7 @@ function dibujarEncabezado(
         },
       ]
     : [];
-  /** FECHA y empresa al borde superior de su columna, pegados al borde izquierdo. */
+  /** FECHA y empresa al borde superior de su columna, alineados al margen derecho. */
   let ey = y0 + 2.6;
   ey = dibujarDatoColumna(
     doc,
@@ -395,7 +418,8 @@ function dibujarEncabezado(
     ey,
     lineH,
     gapEtiquetaDato,
-    colDatosW
+    colDatosW,
+    "right"
   );
   for (const row of filasEmpresa) {
     ey = dibujarDatoColumna(
@@ -406,7 +430,8 @@ function dibujarEncabezado(
       ey,
       lineH,
       gapEtiquetaDato,
-      colDatosW
+      colDatosW,
+      "right"
     );
   }
 
@@ -421,26 +446,37 @@ function dibujarDatoColumna(
   ey: number,
   lineH: number,
   gapEtiquetaDato: number,
-  maxW: number
+  maxW: number,
+  align: "left" | "right" = "left"
 ): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.8);
   const label = `${etiqueta}:`;
   const etiquetaW = doc.getTextWidth(label);
   const valorMaxW = Math.max(12, maxW - etiquetaW - gapEtiquetaDato);
-  const valorX = x + etiquetaW + gapEtiquetaDato;
+  const rightEdge = x + maxW;
   doc.setFont("helvetica", "normal");
   const split = valor ? doc.splitTextToSize(valor, valorMaxW) : [""];
   const lines = Array.isArray(split) ? split : [split];
   const primera = lines[0] ?? "";
+  const primeraW = doc.getTextWidth(primera);
+  const totalWPrimera = etiquetaW + gapEtiquetaDato + primeraW;
+  const inicioX =
+    align === "right" ? Math.max(x, rightEdge - totalWPrimera) : x;
+  const valorX = inicioX + etiquetaW + gapEtiquetaDato;
   doc.setFont("helvetica", "bold");
-  doc.text(label, x, ey);
+  doc.text(label, inicioX, ey);
   doc.setFont("helvetica", "normal");
   doc.text(primera, valorX, ey);
   let y = ey;
   for (let i = 1; i < lines.length; i += 1) {
     y += lineH;
-    doc.text(lines[i] ?? "", valorX, y);
+    const extra = lines[i] ?? "";
+    if (align === "right") {
+      doc.text(extra, rightEdge, y, { align: "right" });
+    } else {
+      doc.text(extra, valorX, y);
+    }
   }
   return y + lineH;
 }
