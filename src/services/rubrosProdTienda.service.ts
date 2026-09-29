@@ -40,6 +40,34 @@ export async function listarNombresRubroDistinctProdTienda(): Promise<string[]> 
   return out;
 }
 
+/** Pares rubro + subrubro distintos en `prod_tienda` (trim, sin vacíos). */
+export async function listarSubRubrosPorRubroProdTienda(): Promise<
+  { rubro: string; subRubro: string }[]
+> {
+  const rows = await prisma.prodTienda.findMany({
+    where: {
+      rubro: { not: null },
+      subRubro: { not: null },
+    },
+    distinct: ["rubro", "subRubro"],
+    orderBy: [{ rubro: "asc" }, { subRubro: "asc" }],
+    select: { rubro: true, subRubro: true },
+  });
+
+  const seen = new Set<string>();
+  const out: { rubro: string; subRubro: string }[] = [];
+  for (const row of rows) {
+    const rubro = (row.rubro ?? "").trim();
+    const subRubro = (row.subRubro ?? "").trim();
+    if (!rubro || !subRubro) continue;
+    const key = `${rubro}\0${subRubro}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ rubro, subRubro });
+  }
+  return out;
+}
+
 /**
  * Opciones de rubro para UI de lista precios (edición masiva / filtros).
  * `id` y `nombre` = texto del rubro en tienda (se persiste en `prod_precios_provee.rubro`).

@@ -52,6 +52,36 @@ export const buscarProductosFacturaSchema = z.object({
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
 
+const filtroCatalogoFacturaSchema = z.string().trim().max(200);
+
+/**
+ * Búsqueda avanzada de productos (modal lupa en Factura · Crear).
+ * Hace falta rubro, subrubro, marca o una descripción de al menos 3 letras.
+ */
+export const buscarProductosFacturaAvanzadaSchema = z
+  .object({
+    q: filtroCatalogoFacturaSchema.optional().default(""),
+    rubro: filtroCatalogoFacturaSchema.optional().default(""),
+    subRubro: filtroCatalogoFacturaSchema.optional().default(""),
+    marca: filtroCatalogoFacturaSchema.optional().default(""),
+    take: z.coerce.number().int().min(1).max(100).optional().default(100),
+    sucursalCodigo: sucursalPorDefectoSchema.optional(),
+  })
+  .superRefine((val, ctx) => {
+    const descripcion = val.q.trim();
+    const hayCatalogo = Boolean(val.rubro || val.subRubro || val.marca);
+    if (descripcion.length >= 3 || hayCatalogo) return;
+    ctx.addIssue({
+      code: "custom",
+      message: "Elegí rubro, subrubro, marca o una descripción de al menos 3 letras.",
+      path: ["q"],
+    });
+  });
+
+export type BuscarProductosFacturaAvanzadaInput = z.infer<
+  typeof buscarProductosFacturaAvanzadaSchema
+>;
+
 /**
  * Búsqueda typeahead de clientes para Factura · Crear.
  * Tokens separados por espacio: AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.

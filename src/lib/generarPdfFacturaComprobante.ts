@@ -217,18 +217,16 @@ export function generarPdfFacturaComprobante(
     doc.addPage();
     y = MARGIN;
   }
-  doc.setDrawColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, y, MARGIN + contentWidth, y);
+  doc.setFillColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
+  doc.rect(MARGIN, y, contentWidth, footerH, "F");
   const footerY = y + 5.2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
+  doc.setTextColor(255, 255, 255);
   doc.text(`TOTAL: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN + contentWidth, footerY, {
     align: "right",
   });
   y += footerH;
-  doc.setDrawColor(INK.r, INK.g, INK.b);
   doc.setTextColor(INK.r, INK.g, INK.b);
 
   const cae = input.cae?.trim();

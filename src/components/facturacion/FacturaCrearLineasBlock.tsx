@@ -92,10 +92,10 @@ const FILA_BUSQUEDA_GRID =
   "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
 
 const FILA_BUSQUEDA_STOCK =
-  "flex w-full min-w-0 items-center justify-center gap-1";
+  "grid w-full min-w-0 grid-cols-2 items-center justify-items-center";
 
 const FILA_BUSQUEDA_STOCK_VALOR =
-  "inline-flex w-[2.75rem] shrink-0 items-center justify-end tabular-nums text-foreground";
+  "flex w-full items-center justify-center tabular-nums text-foreground";
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
@@ -659,13 +659,13 @@ export default function FacturaCrearLineasBlock({
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalLista)}`}</span>
           </div>
           <div className={PIE_METRICA_CLASS}>
-            <span className={PIE_ETIQUETA_CLASS}>DESC. % PROMEDIO</span>
+            <span className={PIE_ETIQUETA_CLASS}>DESC. PROMEDIO</span>
             <span className={PIE_VALOR_CLASS}>
               {fmtPorcentajeTabla(resumen.descPctPromedio)}
             </span>
           </div>
           <div className={PIE_METRICA_CLASS}>
-            <span className={PIE_ETIQUETA_CLASS}>DESC. $</span>
+            <span className={PIE_ETIQUETA_CLASS}>DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.descPesos)}`}</span>
           </div>
           <div className={PIE_METRICA_CLASS}>
