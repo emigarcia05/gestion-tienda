@@ -86,11 +86,11 @@ export function generarPdfFacturaComprobante(
   const pctGlobal = porcentajeDescuentoGlobal(input.lineas, input.descuento);
   const col = {
     cod: 18,
-    desc: 59,
-    px: 25,
+    desc: 74,
+    px: 20,
     descPct: 15,
-    pxDesc: 25,
-    cant: 15,
+    pxDesc: 20,
+    cant: 10,
     total: 25,
   };
   const headerDetalleH = 11;
@@ -138,7 +138,8 @@ export function generarPdfFacturaComprobante(
     doc.text("Sin ítems.", MARGIN, y + 6);
   } else {
     doc.setFontSize(7.5);
-    for (const linea of input.lineas) {
+    for (let idx = 0; idx < input.lineas.length; idx += 1) {
+      const linea = input.lineas[idx]!;
       if (y > 270) {
         doc.addPage();
         y = MARGIN;
@@ -190,6 +191,12 @@ export function generarPdfFacturaComprobante(
         align: "center",
       });
       y += rowH;
+      if (idx < input.lineas.length - 1) {
+        doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+        doc.setLineWidth(0.2);
+        doc.line(MARGIN, y, MARGIN + contentWidth, y);
+        doc.setDrawColor(INK.r, INK.g, INK.b);
+      }
     }
   }
 
