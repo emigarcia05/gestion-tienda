@@ -86,12 +86,12 @@ export function generarPdfFacturaComprobante(
   const pctGlobal = porcentajeDescuentoGlobal(input.lineas, input.descuento);
   const col = {
     cod: 18,
-    desc: 54,
-    px: 30,
+    desc: 59,
+    px: 25,
     descPct: 15,
-    pxDesc: 30,
+    pxDesc: 25,
     cant: 15,
-    total: 20,
+    total: 25,
   };
   const headerDetalleH = 11;
 
@@ -159,15 +159,15 @@ export function generarPdfFacturaComprobante(
         descLines.length * 3.2 + comentarioLines.length * 3 + 2
       );
 
-      let x = MARGIN + 1;
+      let x = MARGIN;
       const ty = y + 3.5;
-      doc.text(String(linea.codTienda), x, ty);
+      doc.text(String(linea.codTienda), x + col.cod / 2, ty, { align: "center" });
       x += col.cod;
-      doc.text(descLines, x, ty);
+      doc.text(descLines, x + 1, ty);
       if (comentarioLines.length > 0) {
         doc.setFontSize(6.5);
         doc.setTextColor(80, 80, 80);
-        doc.text(comentarioLines, x, ty + descLines.length * 3.2);
+        doc.text(comentarioLines, x + 1, ty + descLines.length * 3.2);
         doc.setTextColor(INK.r, INK.g, INK.b);
         doc.setFontSize(7.5);
       }
