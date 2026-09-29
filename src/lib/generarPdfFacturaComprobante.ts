@@ -9,7 +9,6 @@ import { jsPDF } from "jspdf";
 import {
   esFacturaTipoFiscal,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
-  FACTURA_TIPO_LABELS,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   pxConDescuento,
@@ -67,6 +66,15 @@ function letraComprobantePdf(input: FacturaComprobantePdfInput): string {
   const letra = input.letra?.trim();
   if (letra) return letra.toLocaleUpperCase("es-AR");
   return "X";
+}
+
+function tipoComprobantePdfLabel(tipo: FacturaTipo): string {
+  if (tipo === "factura_fiscal") return "FACTURA";
+  if (tipo === "factura_no_fiscal") return "COMPROBANTE";
+  if (tipo === "nota_credito_fiscal" || tipo === "nota_credito_no_fiscal") {
+    return "NOTA CREDITO";
+  }
+  return "PRESUPUESTO";
 }
 
 function datoOVacio(raw: string | null | undefined): string {
@@ -201,26 +209,27 @@ export function generarPdfFacturaComprobante(
   }
 
   const resumen = resumenTotalesFactura(input.lineas, input.descuento);
-  y += 6;
-  if (y > 270) {
+  const footerH = 8;
+  y += 2;
+  if (y + footerH > 270) {
     doc.addPage();
     y = MARGIN;
   }
+  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN, y, MARGIN + contentWidth, y);
+  const totalLabelCenterX =
+    MARGIN + (contentWidth - col.total) / 2;
+  const totalValorCenterX = MARGIN + contentWidth - col.total / 2;
+  const footerY = y + 5.2;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(`TOTAL ITEM: ${resumen.totalItem}`, MARGIN, y);
-  y += 5;
-  doc.text(`TOTAL $: $${fmtPrecio(resumen.totalLista)}`, MARGIN, y);
-  y += 5;
-  doc.text(
-    `DESC. % PROMEDIO: ${fmtPorcentajeTabla(resumen.descPctPromedio)}`,
-    MARGIN,
-    y
-  );
-  y += 5;
-  doc.text(`DESC. $: $${fmtPrecio(resumen.descPesos)}`, MARGIN, y);
-  y += 5;
-  doc.text(`TOTAL C/ DESC.: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN, y);
+  doc.setFontSize(11);
+  doc.text("TOTAL", totalLabelCenterX, footerY, { align: "center" });
+  doc.text(`$${fmtPrecio(resumen.totalConDesc)}`, totalValorCenterX, footerY, {
+    align: "center",
+  });
+  y += footerH;
+  doc.setDrawColor(INK.r, INK.g, INK.b);
 
   const cae = input.cae?.trim();
   if (cae) {
@@ -383,7 +392,7 @@ function dibujarEncabezado(
   }
 
   const letra = letraComprobantePdf(input);
-  const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
+  const tipoLabel = tipoComprobantePdfLabel(input.tipo);
   const boxX = letraCenterX - box / 2;
   const boxY = y0;
   doc.setDrawColor(INK.r, INK.g, INK.b);
@@ -398,7 +407,9 @@ function dibujarEncabezado(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   if (nro) {
+    doc.setFontSize(9.75);
     doc.text(`N° ${nro}`, letraCenterX, boxY + box + 8, { align: "center" });
+    doc.setFontSize(6.5);
   }
 
   const filasEmpresa = muestraEmisor
