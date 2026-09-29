@@ -291,6 +291,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       ptoVenta: true,
       titular: true,
       cuit: true,
+      iiBb: true,
+      domicilioComercial: true,
+      inicioActividades: true,
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
       sucursales: {
@@ -303,6 +306,11 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     ptoVenta: r.ptoVenta,
     titular: r.titular.toLocaleUpperCase("es-AR"),
     cuit: r.cuit,
+    iiBb: r.iiBb,
+    domicilioComercial: r.domicilioComercial,
+    inicioActividades: r.inicioActividades
+      ? isoYmdFromPrismaDateOnly(r.inicioActividades)
+      : null,
     condicionIva: r.condicionIva,
     condicionIvaDescripcion: r.condicionIvaArca?.descripcion ?? null,
     sucursalCodigos: [

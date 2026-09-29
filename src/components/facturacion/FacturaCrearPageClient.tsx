@@ -72,6 +72,10 @@ import {
 } from "@/lib/envios";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import {
+  emisorPdfDesdePtoVta,
+  type FacturaComprobantePdfEmisor,
+} from "@/lib/facturaComprobantePdfEmisor";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 import {
@@ -107,6 +111,15 @@ const CABECERA_EDITOR_FILA2_CLASS =
   "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
+
+function emisorPdfDePtoVta(
+  ptoVtas: readonly FacturaPtoVtaOpcion[],
+  ptoVtaId: string
+): FacturaComprobantePdfEmisor | null {
+  const pto = ptoVtas.find((p) => p.id === ptoVtaId);
+  if (!pto) return null;
+  return emisorPdfDesdePtoVta(pto);
+}
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -428,6 +441,7 @@ export default function FacturaCrearPageClient({
       cae: null,
       caeVtoIso: null,
       letra: null,
+      emisor: emisorPdfDePtoVta(ptoVtas, ptoVtaId),
     });
     setComprobanteModalOpen(true);
   }
@@ -483,6 +497,7 @@ export default function FacturaCrearPageClient({
       cae: res.data.cae,
       caeVtoIso: res.data.caeVtoIso,
       letra: res.data.letra,
+      emisor: emisorPdfDePtoVta(ptoVtas, draft.ptoVtaId),
     };
     setComprobantePdf(pdf);
     return pdf;

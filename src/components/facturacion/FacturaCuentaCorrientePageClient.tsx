@@ -1077,61 +1077,62 @@ export default function FacturaCuentaCorrientePageClient({
                       <div
                         className={cn(
                           TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                          "justify-center"
+                          "flex-nowrap justify-center"
                         )}
                       >
-                        {item.tipo === "cobro" ? (
-                          item.id.startsWith("imp-cobrado-") ? null : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Cobro"
-                              aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
-                              onClick={() => setCobroId(item.id)}
-                            >
-                              <CircleDollarSign
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                          )
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            title="Ver"
-                            aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
-                            onClick={() => setDetalleId(item.comprobanteId)}
-                          >
-                            <Eye
-                              className={TABLE_ROW_ACTION_ICON_CLASS}
-                              aria-hidden
-                            />
-                          </Button>
-                        )}
-                        {item.comprobanteId ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            title="PDF"
-                            aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
-                            onClick={() => {
-                              setPdfId(item.comprobanteId);
-                              setPdfNro(item.nroComprobante);
-                            }}
-                          >
-                            <FileText
-                              className={TABLE_ROW_ACTION_ICON_CLASS}
-                              aria-hidden
-                            />
-                          </Button>
-                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Ver"
+                          aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
+                          disabled={
+                            item.tipo !== "venta" && item.tipo !== "nota_credito"
+                          }
+                          onClick={() => setDetalleId(item.comprobanteId)}
+                        >
+                          <Eye
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Cobro"
+                          aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
+                          disabled={
+                            item.tipo !== "cobro" ||
+                            item.id.startsWith("imp-cobrado-")
+                          }
+                          onClick={() => setCobroId(item.id)}
+                        >
+                          <CircleDollarSign
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="PDF"
+                          aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
+                          disabled={!item.comprobanteId}
+                          onClick={() => {
+                            setPdfId(item.comprobanteId);
+                            setPdfNro(item.nroComprobante);
+                          }}
+                        >
+                          <FileText
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

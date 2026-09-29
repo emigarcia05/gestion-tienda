@@ -1,6 +1,8 @@
 /**
  * Generación de PDF de comprobante (Factura · Crear) con jsPDF.
  * Cliente o servidor; sin persistencia.
+ *
+ * Bloques: ENCABEZADO (logo | letra | datos `ptos_vtas`) → CLIENTE → DETALLE → TOTAL.
  */
 
 import { jsPDF } from "jspdf";
@@ -18,9 +20,26 @@ import {
 } from "@/lib/factura";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import {
+  formatoCuitPdf,
+  type FacturaComprobantePdfEmisor,
+} from "@/lib/facturaComprobantePdfEmisor";
 
 const MARGIN = 14;
 const PRIMARY = { r: 0, g: 114, b: 187 };
+const INK = { r: 17, g: 17, b: 17 };
+
+export type { FacturaComprobantePdfEmisor } from "@/lib/facturaComprobantePdfEmisor";
+export {
+  emisorPdfDesdePtoVta,
+  formatoCuitPdf,
+} from "@/lib/facturaComprobantePdfEmisor";
+
+export type FacturaComprobantePdfLogo = {
+  dataUrl: string;
+  naturalW: number;
+  naturalH: number;
+};
 
 export type FacturaComprobantePdfInput = {
   tipo: FacturaTipo;
@@ -33,36 +52,34 @@ export type FacturaComprobantePdfInput = {
   cae?: string | null;
   caeVtoIso?: string | null;
   letra?: string | null;
+  emisor?: FacturaComprobantePdfEmisor | null;
+  logo?: FacturaComprobantePdfLogo | null;
 };
+
+function letraComprobantePdf(input: FacturaComprobantePdfInput): string {
+  const letra = input.letra?.trim();
+  if (letra) return letra.toLocaleUpperCase("es-AR");
+  return "X";
+}
+
+function datoOVacio(raw: string | null | undefined): string {
+  return (raw ?? "").trim();
+}
 
 export function generarPdfFacturaComprobante(
   input: FacturaComprobantePdfInput
 ): Uint8Array {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = 210;
-  const contentWidth = pageWidth - 2 * MARGIN;
+  const contentWidth = 210 - 2 * MARGIN;
   let y = MARGIN;
 
-  const letra = input.letra?.trim();
-  const titulo = letra
-    ? `${FACTURA_TIPO_LABELS[input.tipo]} ${letra}`
-    : FACTURA_TIPO_LABELS[input.tipo];
-  doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(titulo, pageWidth / 2, y, { align: "center" });
-  y += 8;
+  y = dibujarEncabezado(doc, input, y, contentWidth);
 
-  doc.setTextColor(17, 17, 17);
+  doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const cliente = input.cliente.trim() || FACTURA_CLIENTE_CONSUMIDOR_FINAL;
-  const nro = input.nroComprobante.trim() || "—";
-  const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
   doc.text(`Cliente: ${cliente}`, MARGIN, y);
-  doc.text(`Fecha: ${fecha}`, MARGIN + contentWidth / 2, y);
-  y += 5;
-  doc.text(`N° Comprobante: ${nro}`, MARGIN, y);
   y += 5;
   const comentarios = input.comentarios.trim();
   if (comentarios) {
@@ -108,7 +125,7 @@ export function generarPdfFacturaComprobante(
     x += col.pxDesc;
     doc.text("TOTAL", x + col.total / 2, hy, { align: "center" });
     y += 7;
-    doc.setTextColor(17, 17, 17);
+    doc.setTextColor(INK.r, INK.g, INK.b);
     doc.setFont("helvetica", "normal");
   }
 
@@ -149,7 +166,7 @@ export function generarPdfFacturaComprobante(
         doc.setFontSize(6.5);
         doc.setTextColor(80, 80, 80);
         doc.text(comentarioLines, x, ty + descLines.length * 3.2);
-        doc.setTextColor(17, 17, 17);
+        doc.setTextColor(INK.r, INK.g, INK.b);
         doc.setFontSize(7.5);
       }
       x += col.desc;
@@ -209,7 +226,7 @@ export function generarPdfFacturaComprobante(
     y += 5;
     const vto = input.caeVtoIso
       ? formatIsoYmdDdMmYyyyArgentina(input.caeVtoIso)
-      : "—";
+      : "";
     doc.text(`Vto. CAE: ${vto}`, MARGIN, y);
   }
 
@@ -217,4 +234,112 @@ export function generarPdfFacturaComprobante(
   return new Uint8Array(
     buf instanceof ArrayBuffer ? buf : (buf as unknown as ArrayBuffer)
   );
+}
+
+function dibujarEncabezado(
+  doc: jsPDF,
+  input: FacturaComprobantePdfInput,
+  y0: number,
+  contentWidth: number
+): number {
+  const colLogoW = 58;
+  const colLetraW = 32;
+  const colEmpresaW = contentWidth - colLogoW - colLetraW;
+  const xLogo = MARGIN;
+  const xLetra = MARGIN + colLogoW;
+  const xEmpresa = MARGIN + colLogoW + colLetraW;
+  const pad = 2.2;
+  const lineH = 3.6;
+  const emisor = input.emisor ?? null;
+
+  const empresaLineas: { etiqueta: string; valor: string }[] = [
+    { etiqueta: "CUIT", valor: formatoCuitPdf(emisor?.cuit ?? null) },
+    { etiqueta: "RAZÓN SOCIAL", valor: datoOVacio(emisor?.razonSocial) },
+    { etiqueta: "IIBB", valor: datoOVacio(emisor?.iiBb) },
+    { etiqueta: "DOMICILIO", valor: datoOVacio(emisor?.domicilio) },
+    {
+      etiqueta: "INICIO ACTIVIDADES",
+      valor: emisor?.inicioActividadesIso
+        ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
+        : "",
+    },
+  ];
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const valorMaxW = colEmpresaW - pad * 2 - 38;
+  let empresaBodyH = 0;
+  const wrapped: { etiqueta: string; lines: string[] }[] = [];
+  for (const row of empresaLineas) {
+    const split = row.valor
+      ? doc.splitTextToSize(row.valor, valorMaxW)
+      : [""];
+    const lines = Array.isArray(split) ? split : [split];
+    wrapped.push({ etiqueta: row.etiqueta, lines });
+    empresaBodyH += Math.max(lineH, lines.length * lineH);
+  }
+
+  const letra = letraComprobantePdf(input);
+  const tipoLabel = FACTURA_TIPO_LABELS[input.tipo];
+  const nro = input.nroComprobante.trim();
+  const fecha = formatIsoYmdDdMmYyyyArgentina(input.fechaIso);
+  const letraBlockH = 28;
+  const headerH = Math.max(36, empresaBodyH + pad * 2 + 2, letraBlockH + 10);
+
+  doc.setDrawColor(INK.r, INK.g, INK.b);
+  doc.setLineWidth(0.35);
+  doc.rect(MARGIN, y0, contentWidth, headerH, "S");
+  doc.line(xLetra, y0, xLetra, y0 + headerH);
+  doc.line(xEmpresa, y0, xEmpresa, y0 + headerH);
+
+  const logo = input.logo;
+  if (logo && logo.naturalW > 0 && logo.naturalH > 0) {
+    const maxW = colLogoW - pad * 2;
+    const maxH = headerH - pad * 2;
+    const scale = Math.min(maxW / logo.naturalW, maxH / logo.naturalH);
+    const drawW = logo.naturalW * scale;
+    const drawH = logo.naturalH * scale;
+    const lx = xLogo + (colLogoW - drawW) / 2;
+    const ly = y0 + (headerH - drawH) / 2;
+    const format = logo.dataUrl.includes("image/png") ? "PNG" : "JPEG";
+    doc.addImage(logo.dataUrl, format, lx, ly, drawW, drawH);
+  }
+
+  const box = 18;
+  const boxX = xLetra + (colLetraW - box) / 2;
+  const boxY = y0 + 3.5;
+  doc.setLineWidth(0.6);
+  doc.rect(boxX, boxY, box, box, "S");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  doc.text(letra, boxX + box / 2, boxY + 12.2, { align: "center" });
+  doc.setFontSize(7);
+  doc.text(tipoLabel, xLetra + colLetraW / 2, boxY + box + 4.2, {
+    align: "center",
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  if (nro) {
+    doc.text(`N° ${nro}`, xLetra + colLetraW / 2, boxY + box + 8, {
+      align: "center",
+    });
+  }
+  doc.text(`FECHA ${fecha}`, xLetra + colLetraW / 2, boxY + box + 11.4, {
+    align: "center",
+  });
+
+  let ey = y0 + pad + 3;
+  const labelX = xEmpresa + pad;
+  const valueX = xEmpresa + pad + 36;
+  for (const row of wrapped) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.text(`${row.etiqueta}:`, labelX, ey);
+    doc.setFont("helvetica", "normal");
+    doc.text(row.lines, valueX, ey);
+    ey += Math.max(lineH, row.lines.length * lineH);
+  }
+
+  return y0 + headerH + 6;
 }

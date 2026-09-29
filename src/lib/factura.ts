@@ -736,6 +736,10 @@ export type FacturaPtoVtaOpcion = {
   ptoVenta: string;
   titular: string;
   cuit: string | null;
+  iiBb: string | null;
+  domicilioComercial: string | null;
+  /** `YYYY-MM-DD` o null. */
+  inicioActividades: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
   /** Códigos de `sucursales` vía `global_pto_vta_sucursales`. */

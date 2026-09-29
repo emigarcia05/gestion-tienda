@@ -1,4 +1,9 @@
 import type { EnviosDepartamento, EnviosFormaPagado } from "@prisma/client";
+import {
+  addDaysToIsoYmdArgentina,
+  dateToIsoYmdArgentina,
+  partsRelojArgentina,
+} from "@/lib/fechaArgentina";
 
 export const ENVIOS_FORMA_PAGADO_VALUES = [
   "PAGADO",
@@ -69,6 +74,9 @@ export const ENVIOS_HORA_VALUES = [
 ] as const;
 export type EnviosHoraValue = (typeof ENVIOS_HORA_VALUES)[number];
 
+export const ENVIOS_HORA_DESDE_DEFAULT: EnviosHoraValue = "09:00";
+export const ENVIOS_HORA_HASTA_DEFAULT: EnviosHoraValue = "19:00";
+
 export const ENVIOS_PDF_MAX_BYTES = 5 * 1024 * 1024;
 
 export function esHoraEnvioValida(value: string): value is EnviosHoraValue {
@@ -110,6 +118,111 @@ export function horasHastaDisponibles(horaDesde: string): EnviosHoraValue[] {
   return ENVIOS_HORA_VALUES.filter((h) => h > horaDesde);
 }
 
+/**
+ * Primer `DESDE` válido: no anterior al reloj AR.
+ * Hoy 11:20 → 11:30. En el minuto exacto de un slot (11:30:00) ese slot vale.
+ */
+export function primerHoraDesdePermitida(
+  fechaIso: string,
+  now: Date = new Date()
+): EnviosHoraValue | null {
+  const hoyIso = dateToIsoYmdArgentina(now);
+  if (fechaIso > hoyIso) {
+    return ENVIOS_HORA_DESDE_DEFAULT;
+  }
+  if (fechaIso < hoyIso) {
+    return null;
+  }
+  const reloj = partsRelojArgentina(now);
+  const ahoraMin = reloj.hour * 60 + reloj.minute;
+  const enSlotExacto =
+    reloj.second === 0 && ahoraMin % 30 === 0 && esHoraEnvioValida(
+      `${String(reloj.hour).padStart(2, "0")}:${String(reloj.minute).padStart(2, "0")}`
+    );
+  const minimoMin = enSlotExacto ? ahoraMin : Math.ceil((ahoraMin + (reloj.second > 0 ? 1 : 0)) / 30) * 30;
+  const minimoHhMm = `${String(Math.floor(minimoMin / 60)).padStart(2, "0")}:${String(minimoMin % 60).padStart(2, "0")}`;
+  const slots = horasDesdeDisponibles();
+  const hallado = slots.find((h) => h >= minimoHhMm);
+  return hallado ?? null;
+}
+
+export function horasDesdeDisponiblesParaFecha(
+  fechaIso: string,
+  now: Date = new Date()
+): EnviosHoraValue[] {
+  const minimo = primerHoraDesdePermitida(fechaIso, now);
+  if (minimo == null) return [];
+  return horasDesdeDisponibles().filter((h) => h >= minimo);
+}
+
+export function ajustarRangoHorarioEnvio(
+  fechaIso: string,
+  horaDesde: string,
+  horaHasta: string,
+  now: Date = new Date()
+): { horaDesde: EnviosHoraValue; horaHasta: EnviosHoraValue } | null {
+  const opcionesDesde = horasDesdeDisponiblesParaFecha(fechaIso, now);
+  if (opcionesDesde.length === 0) return null;
+  const desdePref =
+    esHoraEnvioValida(horaDesde) && opcionesDesde.includes(horaDesde)
+      ? horaDesde
+      : opcionesDesde[0];
+  const opcionesHasta = horasHastaDisponibles(desdePref);
+  if (opcionesHasta.length === 0) return null;
+  const hastaPref =
+    esHoraEnvioValida(horaHasta) && opcionesHasta.includes(horaHasta)
+      ? horaHasta
+      : opcionesHasta.includes(ENVIOS_HORA_HASTA_DEFAULT)
+        ? ENVIOS_HORA_HASTA_DEFAULT
+        : opcionesHasta[opcionesHasta.length - 1];
+  return { horaDesde: desdePref, horaHasta: hastaPref };
+}
+
+/** Alta: 09:00–19:00, o el primer rango válido si ya pasó la hora. Si hoy no hay cupo, mañana 09:00–19:00. */
+export function rangoHorarioEnvioAlta(now: Date = new Date()): {
+  fechaIso: string;
+  horaDesde: EnviosHoraValue;
+  horaHasta: EnviosHoraValue;
+} {
+  const hoyIso = dateToIsoYmdArgentina(now);
+  const hoy = ajustarRangoHorarioEnvio(
+    hoyIso,
+    ENVIOS_HORA_DESDE_DEFAULT,
+    ENVIOS_HORA_HASTA_DEFAULT,
+    now
+  );
+  if (hoy) {
+    return { fechaIso: hoyIso, horaDesde: hoy.horaDesde, horaHasta: hoy.horaHasta };
+  }
+  const mananaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
+  return {
+    fechaIso: mananaIso,
+    horaDesde: ENVIOS_HORA_DESDE_DEFAULT,
+    horaHasta: ENVIOS_HORA_HASTA_DEFAULT,
+  };
+}
+
+export function mensajeHorarioEnvioInvalido(args: {
+  fechaIso: string;
+  horaDesde: string;
+  horaHasta: string;
+  now?: Date;
+}): string | null {
+  const now = args.now ?? new Date();
+  const hoyIso = dateToIsoYmdArgentina(now);
+  if (args.fechaIso < hoyIso) {
+    return "La fecha de envío no puede ser anterior a hoy.";
+  }
+  if (args.horaDesde >= args.horaHasta) {
+    return "La hora hasta no puede ser menor ni igual a la hora desde.";
+  }
+  const minimo = primerHoraDesdePermitida(args.fechaIso, now);
+  if (minimo == null || args.horaDesde < minimo) {
+    return "La hora desde no puede ser anterior a la hora actual.";
+  }
+  return null;
+}
+
 export function etiquetaHorarioEnvio(horaDesde: string, horaHasta: string): string {
   return `${horaDesde} – ${horaHasta}`;
 }
@@ -125,6 +238,14 @@ export function etiquetaFormaPagadoEnvio(forma: EnviosFormaPagado): string {
 /** `clientes.nombre_completo` se persiste y muestra en mayúsculas. */
 export function normalizarNombreCliente(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
+
+/** `clientes_proyectos.nombre_proyecto` si el usuario no carga nombre. */
+export const NOMBRE_PROYECTO_DEFAULT = "PRINCIPAL";
+
+export function nombreProyectoPersistido(value: string | null | undefined): string {
+  const n = normalizarNombreCliente(value ?? "");
+  return n !== "" ? n : NOMBRE_PROYECTO_DEFAULT;
 }
 
 /** Solo dígitos (CEL / CUIT sin máscara). */
@@ -393,8 +514,7 @@ export function telefonoEnvio(item: EnviosFinalListItem): string {
 }
 
 export function etiquetaNombreProyecto(dir: EnviosDireccionItem): string {
-  const n = dir.nombreProyecto.trim();
-  return n !== "" ? n : etiquetaDireccionEnvio(dir);
+  return nombreProyectoPersistido(dir.nombreProyecto);
 }
 
 /** Subtabla Lista Clientes: `NOMBRE - Dirección`. */

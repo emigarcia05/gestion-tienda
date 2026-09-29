@@ -7,8 +7,10 @@ import {
 import {
   ENVIOS_PDF_MAX_BYTES,
   capitalizarTextoEnvio,
+  nombreProyectoPersistido,
   normalizarNombreCliente,
   pagadoDesdeFormaPagado,
+  mensajeHorarioEnvioInvalido,
   properTextoEnvio,
   type ClienteItem,
   type EnviosDireccionItem,
@@ -130,7 +132,7 @@ function mapDireccion(row: {
   return {
     id: row.id,
     personaId: row.personaId,
-    nombreProyecto: normalizarNombreCliente(row.nombreProyecto),
+    nombreProyecto: nombreProyectoPersistido(row.nombreProyecto),
     calleNombre: properTextoEnvio(row.calleNombre),
     numeracion: capitalizarTextoEnvio(row.numeracion),
     distrito: properTextoEnvio(row.distrito),
@@ -394,6 +396,13 @@ export async function crearEnviosFinal(
     });
     if (!valid.success) return valid;
 
+    const horarioErr = mensajeHorarioEnvioInvalido({
+      fechaIso: input.fechaEnvioIso,
+      horaDesde: input.horaDesde,
+      horaHasta: input.horaHasta,
+    });
+    if (horarioErr) return { success: false, error: horarioErr };
+
     let pdfNombre: string | null = null;
     let pdfBytes: Uint8Array<ArrayBuffer> | null = null;
     if (input.pdfComprobante) {
@@ -436,6 +445,13 @@ export async function editarEnviosFinal(
 
     const valid = await validarPersonasYDireccion(input);
     if (!valid.success) return valid;
+
+    const horarioErr = mensajeHorarioEnvioInvalido({
+      fechaIso: input.fechaEnvioIso,
+      horaDesde: input.horaDesde,
+      horaHasta: input.horaHasta,
+    });
+    if (horarioErr) return { success: false, error: horarioErr };
 
     const data: {
       sucursalId: string;

@@ -91,6 +91,10 @@ import type {
   RegistrarPagoCuentaCorrienteInput,
   AsignarClienteCobroComoCobroInput,
 } from "@/lib/validations/factura";
+import {
+  emisorPdfDesdePtoVta,
+  type FacturaComprobantePdfEmisor,
+} from "@/lib/facturaComprobantePdfEmisor";
 import type { ServiceResult } from "@/types/service.types";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -317,6 +321,7 @@ export type FacturaComprobantePdfDatos = {
   cae: string | null;
   caeVtoIso: string | null;
   letra: string | null;
+  emisor: FacturaComprobantePdfEmisor | null;
 };
 
 export async function obtenerFacturaComprobantePdfDatos(
@@ -325,7 +330,18 @@ export async function obtenerFacturaComprobantePdfDatos(
   try {
     const row = await prisma.comprobanteVta.findUnique({
       where: { id },
-      include: { items: { orderBy: { orden: "asc" } } },
+      include: {
+        items: { orderBy: { orden: "asc" } },
+        ptoVta: {
+          select: {
+            titular: true,
+            cuit: true,
+            iiBb: true,
+            domicilioComercial: true,
+            inicioActividades: true,
+          },
+        },
+      },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
     const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
@@ -358,6 +374,15 @@ export async function obtenerFacturaComprobantePdfDatos(
         cae: row.cae,
         caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
         letra: row.letra,
+        emisor: emisorPdfDesdePtoVta({
+          titular: row.ptoVta.titular,
+          cuit: row.ptoVta.cuit,
+          iiBb: row.ptoVta.iiBb,
+          domicilioComercial: row.ptoVta.domicilioComercial,
+          inicioActividades: row.ptoVta.inicioActividades
+            ? isoYmdFromPrismaDateOnly(row.ptoVta.inicioActividades)
+            : null,
+        }),
       },
     };
   } catch (e) {

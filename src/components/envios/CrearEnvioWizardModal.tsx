@@ -34,10 +34,14 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   ENVIOS_FORMA_PAGADO_LABELS,
   ENVIOS_FORMA_PAGADO_VALUES,
+  ENVIOS_HORA_DESDE_DEFAULT,
+  ENVIOS_HORA_HASTA_DEFAULT,
   etiquetaClienteListado,
   esFormaPagadoEnvioValida,
   esHoraEnvioValida,
   pagadoDesdeFormaPagado,
+  rangoHorarioEnvioAlta,
+  ajustarRangoHorarioEnvio,
   etiquetaDepartamentoEnvio,
   etiquetaDireccionEnvio,
   etiquetaNombreProyecto,
@@ -110,8 +114,8 @@ export default function CrearEnvioWizardModal({
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [direccionId, setDireccionId] = useState<string | null>(null);
   const [fechaIso, setFechaIso] = useState(() => dateToIsoYmdArgentina(new Date()));
-  const [horaDesde, setHoraDesde] = useState<EnviosHoraValue | "">("");
-  const [horaHasta, setHoraHasta] = useState<EnviosHoraValue | "">("");
+  const [horaDesde, setHoraDesde] = useState<EnviosHoraValue | "">(ENVIOS_HORA_DESDE_DEFAULT);
+  const [horaHasta, setHoraHasta] = useState<EnviosHoraValue | "">(ENVIOS_HORA_HASTA_DEFAULT);
   const [formaPagado, setFormaPagado] = useState<EnviosFormaPagadoValue | "">("");
   const [observacionEnvio, setObservacionEnvio] = useState("");
   const [pdfAdjunto, setPdfAdjunto] = useState<{ nombre: string; base64: string } | null>(null);
@@ -159,20 +163,26 @@ export default function CrearEnvioWizardModal({
       setSucursalId(item.sucursal.id);
       setClienteId(item.clienteFinal?.id ?? item.pintor?.id ?? null);
       setDireccionId(item.direccion.id);
+      const rangoEdit = ajustarRangoHorarioEnvio(
+        item.fechaEnvioIso,
+        item.horaDesde,
+        item.horaHasta
+      );
       setFechaIso(item.fechaEnvioIso);
-      setHoraDesde(esHoraEnvioValida(item.horaDesde) ? item.horaDesde : "");
-      setHoraHasta(esHoraEnvioValida(item.horaHasta) ? item.horaHasta : "");
+      setHoraDesde(rangoEdit?.horaDesde ?? (esHoraEnvioValida(item.horaDesde) ? item.horaDesde : ""));
+      setHoraHasta(rangoEdit?.horaHasta ?? (esHoraEnvioValida(item.horaHasta) ? item.horaHasta : ""));
       setFormaPagado(item.formaPagado);
       setObservacionEnvio(item.observacionEnvio);
       return;
     }
+    const alta = rangoHorarioEnvioAlta();
     if (borrador) {
       setSucursalId(null);
       setClienteId(borrador.clienteId);
       setDireccionId(borrador.direccionId);
-      setFechaIso(dateToIsoYmdArgentina(new Date()));
-      setHoraDesde("");
-      setHoraHasta("");
+      setFechaIso(alta.fechaIso);
+      setHoraDesde(alta.horaDesde);
+      setHoraHasta(alta.horaHasta);
       setFormaPagado(borrador.formaPagado);
       setFormaPagadoFijada(borrador.formaPagadoFijada);
       setObservacionEnvio("");
@@ -182,9 +192,9 @@ export default function CrearEnvioWizardModal({
     setSucursalId(null);
     setClienteId(null);
     setDireccionId(null);
-    setFechaIso(dateToIsoYmdArgentina(new Date()));
-    setHoraDesde("");
-    setHoraHasta("");
+    setFechaIso(alta.fechaIso);
+    setHoraDesde(alta.horaDesde);
+    setHoraHasta(alta.horaHasta);
     setFormaPagado("");
     setObservacionEnvio("");
   }, [open, item, borrador]);
@@ -253,18 +263,23 @@ export default function CrearEnvioWizardModal({
   const pasoSucursalOk = Boolean(sucursalId);
   const pasoClienteOk = Boolean(clienteId);
   const pasoDireccionOk = Boolean(direccionId);
+  const clientePrecargado = Boolean(borrador && clienteId);
+  const direccionPrecargada = Boolean(borrador && direccionId);
   const puedeGuardar =
     pasoSucursalOk && pasoClienteOk && pasoDireccionOk && horarioValido && formaPagado !== "";
 
-  const pasoMaximoAlcanzable: EnvioWizardPaso = horarioValido && pasoDireccionOk
-    ? 5
-    : pasoDireccionOk
-      ? 4
-      : pasoClienteOk
+  const pasoTrasSucursal: EnvioWizardPaso =
+    clientePrecargado && direccionPrecargada ? 4 : clientePrecargado ? 3 : 2;
+
+  const pasoMaximoAlcanzable: EnvioWizardPaso = !pasoSucursalOk
+    ? 1
+    : !pasoClienteOk
+      ? 2
+      : !pasoDireccionOk
         ? 3
-        : pasoSucursalOk
-          ? 2
-          : 1;
+        : !horarioValido
+          ? 4
+          : 5;
 
   const sucursalSeleccionada = useMemo(
     () => sucursales.find((s) => s.id === sucursalId) ?? null,
@@ -299,7 +314,7 @@ export default function CrearEnvioWizardModal({
 
   function handleSelectSucursal(id: string) {
     setSucursalId(id);
-    setPaso(2);
+    setPaso(pasoTrasSucursal);
   }
 
   function handleSelectCliente(id: string) {
@@ -323,14 +338,22 @@ export default function CrearEnvioWizardModal({
   }
 
   function handleSiguiente() {
-    if (paso === 1 && pasoSucursalOk) setPaso(2);
+    if (paso === 1 && pasoSucursalOk) setPaso(pasoTrasSucursal);
     else if (paso === 2 && pasoClienteOk) setPaso(3);
     else if (paso === 3 && pasoDireccionOk) setPaso(4);
     else if (paso === 4 && horarioValido) setPaso(5);
   }
 
   function handleAtras() {
-    if (paso === 1) return;
+    if (paso <= 1) return;
+    if (paso === 4 && clientePrecargado && direccionPrecargada) {
+      setPaso(1);
+      return;
+    }
+    if (paso === 3 && clientePrecargado) {
+      setPaso(1);
+      return;
+    }
     setPaso((prev) => (prev - 1) as EnvioWizardPaso);
   }
 
@@ -648,7 +671,6 @@ export default function CrearEnvioWizardModal({
                         onFechaChange={setFechaIso}
                         onHoraDesdeChange={setHoraDesde}
                         onHoraHastaChange={setHoraHasta}
-                        onCompleto={() => setPaso(5)}
                       />
                     </div>
                   ) : null}

@@ -89,8 +89,8 @@ import type {
 
 const FILTRO_SUCURSAL_TODAS = "todas";
 const FILTRO_USUARIO_TODOS = "todos";
-const FILTRO_TIPO_TODOS = "todos";
 const FILTRO_TIPO_FACTURA = "factura";
+const FILTRO_TIPO_NOTA_CREDITO = "nota_credito";
 const FILTRO_SALDO_CON = "con_saldo";
 const FILTRO_SALDO_VENCIDO = "con_saldo_vencido";
 const PERIODO_HOY = "hoy";
@@ -239,14 +239,11 @@ export default function FacturaListadoPageClient({
       ) {
         return false;
       }
-      if (
-        filtroTipo &&
-        filtroTipo !== FILTRO_TIPO_TODOS
-      ) {
+      if (filtroTipo) {
         if (filtroTipo === FILTRO_TIPO_FACTURA) {
           if (!esFacturaTipoVenta(item.tipo)) return false;
-        } else if (item.tipo !== filtroTipo) {
-          return false;
+        } else if (filtroTipo === FILTRO_TIPO_NOTA_CREDITO) {
+          if (!esFacturaTipoNotaCredito(item.tipo)) return false;
         }
       }
       if (filtroPendiente === FILTRO_SALDO_CON) {
@@ -571,11 +568,21 @@ export default function FacturaListadoPageClient({
               </FiltroIndividualContainer>
               {esFacturas ? (
                 <FiltroIndividualContainer
-                  activo={Boolean(filtroTipo) && filtroTipo !== FILTRO_TIPO_TODOS}
+                  activo={Boolean(filtroTipo)}
                   onLimpiar={() => setFiltroTipo("")}
                   className={FILTER_SELECT_WRAPPER_CLASS}
                 >
-                  <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                  <Select
+                    value={filtroTipo || undefined}
+                    onValueChange={(value) => {
+                      if (
+                        value === FILTRO_TIPO_FACTURA ||
+                        value === FILTRO_TIPO_NOTA_CREDITO
+                      ) {
+                        setFiltroTipo(value);
+                      }
+                    }}
+                  >
                     <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
                       <SelectValue placeholder="TIPO" />
                     </SelectTrigger>
@@ -585,13 +592,9 @@ export default function FacturaListadoPageClient({
                       side="bottom"
                       align="start"
                     >
-                      <SelectItem value={FILTRO_TIPO_TODOS}>TODO</SelectItem>
                       <SelectItem value={FILTRO_TIPO_FACTURA}>FACTURA</SelectItem>
-                      <SelectItem value="nota_credito_fiscal">
-                        NOTA CRÉDITO FISCAL
-                      </SelectItem>
-                      <SelectItem value="nota_credito_no_fiscal">
-                        NOTA CRÉDITO NO FISCAL
+                      <SelectItem value={FILTRO_TIPO_NOTA_CREDITO}>
+                        NOTA CRÉDITO
                       </SelectItem>
                     </SelectContent>
                   </Select>

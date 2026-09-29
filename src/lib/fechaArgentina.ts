@@ -159,6 +159,25 @@ export function dateToIsoYmdArgentina(d: Date): string {
   return `${m.year}-${m.month}-${m.day}`;
 }
 
+/** Reloj de negocio AR (`hour` 0–23). */
+export function partsRelojArgentina(d: Date): {
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const m = toPartMap(d, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  return {
+    hour: Number(m.hour),
+    minute: Number(m.minute),
+    second: Number(m.second ?? "0"),
+  };
+}
+
 /**
  * `YYYY-MM-DD` desde un `Date` de Prisma para columnas `@db.Date`.
  * El driver suele exponer el día de calendario persistido como medianoche **UTC**

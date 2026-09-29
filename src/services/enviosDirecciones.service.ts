@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   capitalizarTextoEnvio,
   direccionEnvioTieneDato,
-  normalizarNombreCliente,
+  nombreProyectoPersistido,
   properTextoEnvio,
   type EnviosDireccionItem,
 } from "@/lib/envios";
@@ -38,7 +38,7 @@ export function mapEnviosDireccionItem(row: {
   return {
     id: row.id,
     personaId: row.personaId,
-    nombreProyecto: normalizarNombreCliente(row.nombreProyecto),
+    nombreProyecto: nombreProyectoPersistido(row.nombreProyecto),
     calleNombre: properTextoEnvio(row.calleNombre),
     numeracion: capitalizarTextoEnvio(row.numeracion),
     distrito: properTextoEnvio(row.distrito),
@@ -92,7 +92,7 @@ export async function crearEnviosDireccion(
     const row = await prisma.enviosDireccion.create({
       data: {
         personaId: input.personaId,
-        nombreProyecto: normalizarNombreCliente(input.nombreProyecto),
+        nombreProyecto: nombreProyectoPersistido(input.nombreProyecto),
         calleNombre: properTextoEnvio(input.calleNombre),
         numeracion: capitalizarTextoEnvio(input.numeracion),
         distrito: properTextoEnvio(input.distrito),
@@ -121,7 +121,7 @@ export async function editarEnviosDireccion(
       where: { id: input.id },
       data: {
         personaId: input.personaId,
-        nombreProyecto: normalizarNombreCliente(input.nombreProyecto),
+        nombreProyecto: nombreProyectoPersistido(input.nombreProyecto),
         calleNombre: properTextoEnvio(input.calleNombre),
         numeracion: capitalizarTextoEnvio(input.numeracion),
         distrito: properTextoEnvio(input.distrito),
