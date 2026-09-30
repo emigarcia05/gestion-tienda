@@ -75,6 +75,7 @@ export default function MktMultiSelectCatalogo({
         disabled={disabled || opciones.length === 0}
         aria-expanded={open}
         aria-haspopup="listbox"
+        data-placeholder={selectedItems.length === 0 ? "" : undefined}
         aria-label={ariaLabel}
         className={cn(
           "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-1 text-left text-sm shadow-xs outline-none",

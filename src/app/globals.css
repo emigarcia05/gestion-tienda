@@ -2445,6 +2445,14 @@ main button.est-vtas-desc-btn:hover:not(:disabled) {
   text-underline-offset: 2px;
 }
 
+/* Máscara (campo vacío): siempre mayúsculas. El valor elegido no lleva data-placeholder y no se transforma. */
+input::placeholder,
+textarea::placeholder,
+[data-slot="select-trigger"][data-placeholder],
+button[data-placeholder] {
+  text-transform: uppercase;
+}
+
 /* Input/select de filtro: SSOT en @layer components (.input-filtro-unificado). */
 
 /* Tokens de marca: usar en componentes vía Tailwind (bg-primary, text-accent2, etc.) */
