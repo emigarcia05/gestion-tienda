@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   arcaAmbienteDesdeEnv,
   leerArcaEnv,
+  leerArcaEnvPorCuit,
   wsaaLoginCms,
   type WsaaTicket,
 } from "@/lib/arca";
@@ -50,11 +51,16 @@ export async function obtenerAuthArca(args: {
   servicio: string;
   ptoVenta?: string;
   cuitEmisor?: string | null;
+  /** Si true, usa solo el PEM de `cuitEmisor` (no `ARCA_CUIT` ni pto. vta.). */
+  forzarCuitEmisor?: boolean;
 }): Promise<ServiceResult<ArcaAuthTicket>> {
-  const env = leerArcaEnv({
-    ptoVenta: args.ptoVenta,
-    cuitFallback: args.cuitEmisor,
-  });
+  const env =
+    args.forzarCuitEmisor && args.cuitEmisor
+      ? leerArcaEnvPorCuit(args.cuitEmisor)
+      : leerArcaEnv({
+          ptoVenta: args.ptoVenta,
+          cuitFallback: args.cuitEmisor,
+        });
   if ("error" in env) {
     return { success: false, error: env.error };
   }

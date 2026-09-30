@@ -8,6 +8,8 @@ import { parseIsoYmdParts } from "@/lib/fechaArgentina";
 export const ARCA_SERVICIO_WSFE = "wsfe" as const;
 /** WSAA id del WS Constancia de Inscripción (ex padrón A5). */
 export const ARCA_SERVICIO_CONSTANCIA = "ws_sr_constancia_inscripcion" as const;
+/** CUIT emisor fijo para consultar constancia de un cliente (20-37267223-5). */
+export const ARCA_CUIT_CONSTANCIA = "20372672235" as const;
 
 export const ARCA_DOC_TIPO = {
   CUIT: 80,

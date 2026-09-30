@@ -5,6 +5,8 @@ export {
   arcaCertificadosConfigurados,
   leerArcaConexion,
   leerArcaEnv,
+  leerArcaEnvPorCuit,
+  cuitEmisorConstancia,
   listarCuitsEmisorConPem,
   nombresPemPorCuit,
   tieneParPemPorCuit,

@@ -3,7 +3,7 @@ import "server-only";
 import nodeProcess from "node:process";
 import { z } from "zod";
 import { cuitDesdeCertPem } from "@/lib/arca/cms";
-import { esCuitValido, type ArcaAmbiente } from "@/lib/facturaFiscal";
+import { ARCA_CUIT_CONSTANCIA, esCuitValido, type ArcaAmbiente } from "@/lib/facturaFiscal";
 
 const ambienteSchema = z.enum(["homo", "prod"]);
 
@@ -172,6 +172,45 @@ export function leerArcaEnv(opts?: {
     keyPassphrase: pems.keyPassphrase,
     timeoutMs: parseTimeoutMs(),
   };
+}
+
+/**
+ * PEM de un CUIT emisor concreto. Ignora `ARCA_CUIT` (constancia siempre usa el CUIT delegado).
+ */
+export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: string } {
+  const ambiente = parseAmbiente();
+  if (typeof ambiente !== "string") return ambiente;
+  const cuit = cuit11(cuitRaw);
+  if (!cuit) {
+    return { error: MSG_SIN_CUIT };
+  }
+  const pems = leerPems(cuit);
+  if (!pems.certPem || !pems.keyPem) {
+    return { error: msgFaltanCerts(cuit) };
+  }
+  const fromCert = cuitDesdeCertPem(pems.certPem);
+  if (fromCert && fromCert !== cuit) {
+    return { error: MSG_CUIT_DISTINTO };
+  }
+  return {
+    ambiente,
+    cuit,
+    certPem: pems.certPem,
+    keyPem: pems.keyPem,
+    keyPassphrase: pems.keyPassphrase,
+    timeoutMs: parseTimeoutMs(),
+  };
+}
+
+/** CUIT con el que se autentica la constancia (clientes). Override `ARCA_CONSTANCIA_CUIT`. */
+export function cuitEmisorConstancia(): string | { error: string } {
+  const raw = (envRuntime("ARCA_CONSTANCIA_CUIT") ?? "").trim();
+  if (!raw) return ARCA_CUIT_CONSTANCIA;
+  const cuit = cuit11(raw);
+  if (!cuit) {
+    return { error: "ARCA_CONSTANCIA_CUIT debe ser un CUIT de 11 dígitos." };
+  }
+  return cuit;
 }
 
 export function arcaCertificadosConfigurados(): boolean {
