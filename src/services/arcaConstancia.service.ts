@@ -14,6 +14,8 @@ const MSG_SIN_PEM_EMISOR =
 
 const MSG_WS_NO_AUTORIZADO =
   "ARCA rechazó la constancia porque el certificado no está autorizado para este servicio. En ARCA, asociá ws_sr_constancia_inscripcion / ws_sr_padron_a5 al certificado del CUIT emisor.";
+const MSG_FALLO_CONSTANCIA =
+  "No se pudo consultar CUIT con ARCA para ningún emisor habilitado.";
 
 const SERVICIOS_CONSTANCIA_WSAA = [
   ARCA_SERVICIO_CONSTANCIA,
@@ -38,6 +40,11 @@ function esErrorComputadorNoAutorizado(mensaje: string): boolean {
 
 function esErrorNoAutorizadoConstancia(mensaje: string): boolean {
   return esErrorRelacionOWebService(mensaje) || esErrorComputadorNoAutorizado(mensaje);
+}
+
+function compactarError(raw: string): string {
+  const t = raw.trim().replace(/\s+/g, " ");
+  return t.length > 220 ? `${t.slice(0, 220)}...` : t;
 }
 
 async function resolverEmisoresConstancia(): Promise<ServiceResult<EmisorConstancia[]>> {
@@ -87,73 +94,84 @@ export async function consultarConstanciaArca(cuit: string): Promise<
   if (!emisores.success) return emisores;
 
   const erroresNoAutorizado: string[] = [];
+  const erroresOperativos: string[] = [];
 
   for (const emisor of emisores.data) {
     for (const servicio of SERVICIOS_CONSTANCIA_WSAA) {
-      const authRes = await obtenerAuthArca({
-        servicio,
-        ptoVenta: emisor.ptoVenta,
-        cuitEmisor: emisor.cuitEmisor,
-      });
-      if (!authRes.success) {
-        if (esErrorNoAutorizadoConstancia(authRes.error)) {
-          erroresNoAutorizado.push(`${emisor.cuitEmisor} (${servicio})`);
-          continue;
-        }
-        return authRes;
-      }
-
-      const persona = await constanciaGetPersonaV2(
-        {
-          token: authRes.data.token,
-          sign: authRes.data.sign,
-          cuit: authRes.data.cuit,
-        },
-        cuit
-      );
-      if (!persona.ok) {
-        if (esErrorNoAutorizadoConstancia(persona.error)) {
-          erroresNoAutorizado.push(`${emisor.cuitEmisor} (${servicio})`);
-          continue;
-        }
-        return { success: false, error: persona.error };
-      }
-
-      const nombre = nombreDesdeConstanciaArca({
-        razonSocial: persona.data.razonSocial,
-        apellido: persona.data.apellido,
-        nombre: persona.data.nombre,
-      });
-      if (!nombre) {
-        return { success: false, error: "ARCA no devolvió el nombre del contribuyente." };
-      }
-
-      const condicionIva = condicionIvaDesdeConstanciaArca({
-        tieneDatosMonotributo: persona.data.tieneDatosMonotributo,
-        categoriaMonotributo: persona.data.categoriaMonotributo,
-        impuestosRegimenGeneral: persona.data.impuestosRegimenGeneral,
-      });
-
-      let condicionIvaDescripcion: string | null = null;
-      if (condicionIva != null) {
-        const cat = await prisma.ptoVentasCodArca.findUnique({
-          where: { codigo: condicionIva },
-          select: { descripcion: true },
+      const contexto = `${emisor.cuitEmisor}${emisor.ptoVenta ? ` pto ${emisor.ptoVenta}` : ""} (${servicio})`;
+      try {
+        const authRes = await obtenerAuthArca({
+          servicio,
+          ptoVenta: emisor.ptoVenta,
+          cuitEmisor: emisor.cuitEmisor,
         });
-        condicionIvaDescripcion = cat?.descripcion ?? null;
-      }
+        if (!authRes.success) {
+          if (esErrorNoAutorizadoConstancia(authRes.error)) {
+            erroresNoAutorizado.push(contexto);
+            continue;
+          }
+          erroresOperativos.push(`${contexto}: ${compactarError(authRes.error)}`);
+          continue;
+        }
 
-      return {
-        success: true,
-        data: {
-          cuit: persona.data.cuit,
-          nombre,
-          condicionIva,
-          condicionIvaDescripcion,
-          estadoClave: persona.data.estadoClave,
-          tipoPersona: persona.data.tipoPersona,
-        },
-      };
+        const persona = await constanciaGetPersonaV2(
+          {
+            token: authRes.data.token,
+            sign: authRes.data.sign,
+            cuit: authRes.data.cuit,
+          },
+          cuit
+        );
+        if (!persona.ok) {
+          if (esErrorNoAutorizadoConstancia(persona.error)) {
+            erroresNoAutorizado.push(contexto);
+            continue;
+          }
+          erroresOperativos.push(`${contexto}: ${compactarError(persona.error)}`);
+          continue;
+        }
+
+        const nombre = nombreDesdeConstanciaArca({
+          razonSocial: persona.data.razonSocial,
+          apellido: persona.data.apellido,
+          nombre: persona.data.nombre,
+        });
+        if (!nombre) {
+          erroresOperativos.push(`${contexto}: ARCA no devolvió el nombre del contribuyente.`);
+          continue;
+        }
+
+        const condicionIva = condicionIvaDesdeConstanciaArca({
+          tieneDatosMonotributo: persona.data.tieneDatosMonotributo,
+          categoriaMonotributo: persona.data.categoriaMonotributo,
+          impuestosRegimenGeneral: persona.data.impuestosRegimenGeneral,
+        });
+
+        let condicionIvaDescripcion: string | null = null;
+        if (condicionIva != null) {
+          const cat = await prisma.ptoVentasCodArca.findUnique({
+            where: { codigo: condicionIva },
+            select: { descripcion: true },
+          });
+          condicionIvaDescripcion = cat?.descripcion ?? null;
+        }
+
+        return {
+          success: true,
+          data: {
+            cuit: persona.data.cuit,
+            nombre,
+            condicionIva,
+            condicionIvaDescripcion,
+            estadoClave: persona.data.estadoClave,
+            tipoPersona: persona.data.tipoPersona,
+          },
+        };
+      } catch (error) {
+        const detalle =
+          error instanceof Error ? compactarError(error.message) : "Error inesperado.";
+        erroresOperativos.push(`${contexto}: ${detalle}`);
+      }
     }
   }
 
@@ -163,6 +181,11 @@ export async function consultarConstanciaArca(cuit: string): Promise<
       success: false,
       error: `${MSG_WS_NO_AUTORIZADO} Emisores/servicios probados: ${cuitsProbados}.`,
     };
+  }
+
+  if (erroresOperativos.length > 0) {
+    const detalle = [...new Set(erroresOperativos)].slice(0, 3).join(" | ");
+    return { success: false, error: `${MSG_FALLO_CONSTANCIA} Detalle: ${detalle}` };
   }
 
   return {

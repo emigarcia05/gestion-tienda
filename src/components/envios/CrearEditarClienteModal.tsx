@@ -206,7 +206,8 @@ export default function CrearEditarClienteModal({
         `/api/arca/constancia?cuit=${encodeURIComponent(cuitDigits)}`,
         { cache: "no-store" }
       );
-      const json: unknown = await res.json().catch(() => null);
+      const raw = await res.text();
+      const json: unknown = raw ? JSON.parse(raw) : null;
       const parsed = parseArcaConstanciaApiJson(json);
       if (!parsed.ok) {
         toast.error(parsed.error);
@@ -221,7 +222,7 @@ export default function CrearEditarClienteModal({
         toast.error("ARCA no informó la condición IVA.");
       }
     } catch {
-      toast.error("No se pudo consultar el CUIT en ARCA.");
+      toast.error("No se pudo consultar CUIT con ARCA.");
     } finally {
       setConsultandoArca(false);
     }
