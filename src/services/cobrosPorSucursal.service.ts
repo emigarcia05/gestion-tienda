@@ -140,12 +140,11 @@ async function buscarDuplicado(input: {
   return Boolean(row);
 }
 
-/** Sucursales operativas (con depósito). */
+/** Sucursales para filtro/listado de Cobros & Cajas. */
 export async function listarSucursalesCobrosPorSucursal(): Promise<
   CobrosPorSucursalSucursalCol[]
 > {
   const rows = await prisma.sucursal.findMany({
-    where: { idDeposito: { not: null } },
     orderBy: [{ nombre: "asc" }],
     select: { id: true, nombre: true },
   });
@@ -156,9 +155,7 @@ export async function listarSucursalesCobrosPorSucursal(): Promise<
 }
 
 async function validarCajaDestino(
-  cajaDestinoId: string,
-  entidadId: string | null,
-  sucursalesValidas: Set<string>
+  cajaDestinoId: string
 ): Promise<
   ServiceResult<{
     id: string;
@@ -168,10 +165,7 @@ async function validarCajaDestino(
   }>
 > {
   const caja = await prisma.cajaTesoreria.findFirst({
-    where: {
-      id: cajaDestinoId,
-      tipoCaja: { not: "CHEQUE" },
-    },
+    where: { id: cajaDestinoId },
     select: {
       id: true,
       entidadId: true,
@@ -185,16 +179,10 @@ async function validarCajaDestino(
   if (!caja) {
     return { success: false, error: "Caja vinculada inválida." };
   }
-  if (entidadId && caja.entidadId !== entidadId) {
+  if (!caja.sucursalId) {
     return {
       success: false,
-      error: "La caja debe ser de la misma entidad seleccionada.",
-    };
-  }
-  if (!caja.sucursalId || !sucursalesValidas.has(caja.sucursalId)) {
-    return {
-      success: false,
-      error: "La caja debe pertenecer a una sucursal operativa (con depósito).",
+      error: "La caja seleccionada no tiene sucursal asociada.",
     };
   }
   return {
@@ -214,7 +202,6 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       listarSucursalesCobrosPorSucursal(),
       prisma.cajaTesoreria.findMany({
         where: {
-          tipoCaja: { not: "CHEQUE" },
           sucursalId: { not: null },
         },
         orderBy: [{ titular: "asc" }],
@@ -352,12 +339,8 @@ export async function crearCobroPorSucursal(
       entidadNombre = vinculo.entidad.nombre.toLocaleUpperCase("es-AR");
     }
 
-    const sucursales = await listarSucursalesCobrosPorSucursal();
-    const sucursalesValidas = new Set(sucursales.map((s) => s.id));
     const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId,
-      entidadId,
-      sucursalesValidas
+      input.cajaDestinoId
     );
     if (!cajaRes.success) return cajaRes;
 
@@ -425,12 +408,8 @@ export async function actualizarCobroPorSucursal(
       return { success: false, error: "Cobro no encontrado." };
     }
 
-    const sucursales = await listarSucursalesCobrosPorSucursal();
-    const sucursalesValidas = new Set(sucursales.map((s) => s.id));
     const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId,
-      existente.entidadId,
-      sucursalesValidas
+      input.cajaDestinoId
     );
     if (!cajaRes.success) return cajaRes;
 

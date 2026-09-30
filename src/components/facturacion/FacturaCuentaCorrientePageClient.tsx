@@ -226,9 +226,15 @@ export default function FacturaCuentaCorrientePageClient({
         rangoHasta,
         tipo: filtroTipo,
         saldo: filtroSaldo,
+<<<<<<< HEAD
         saldoVencido: filtroSaldoVencido,
       }),
     [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, filtroSaldoVencido]
+=======
+        proyectoId: proyectoFiltroId,
+      }),
+    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, proyectoFiltroId]
+>>>>>>> facturacion
   );
 
   const indicadores = useMemo(
@@ -245,6 +251,7 @@ export default function FacturaCuentaCorrientePageClient({
         if (!rangoDesde || !rangoHasta) return false;
         if (p.fechaIso < rangoDesde || p.fechaIso > rangoHasta) return false;
       }
+      if (proyectoFiltroId && p.proyectoId !== proyectoFiltroId) return false;
       if (filtroMarca && p.marca.trim() !== filtroMarca) return false;
       if (filtroRubro && p.rubro.trim() !== filtroRubro) return false;
       if (!qDescDebounced.trim()) return true;
@@ -255,6 +262,7 @@ export default function FacturaCuentaCorrientePageClient({
     periodo,
     rangoDesde,
     rangoHasta,
+    proyectoFiltroId,
     filtroMarca,
     filtroRubro,
     qDescDebounced,
@@ -848,7 +856,10 @@ export default function FacturaCuentaCorrientePageClient({
               <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1">
                 <ModalMicroLabel align="center">SALDO</ModalMicroLabel>
                 <p
-                  className="flex h-9 w-full items-center justify-center truncate rounded-md border border-input px-2 text-center text-sm tabular-nums text-foreground"
+                  className={cn(
+                    INPUT_FILTER_CLASS,
+                    "justify-center text-center tabular-nums"
+                  )}
                   aria-label="Saldo"
                 >
                   {saldoClienteVisible != null
@@ -1221,61 +1232,62 @@ export default function FacturaCuentaCorrientePageClient({
                       <div
                         className={cn(
                           TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                          "justify-center"
+                          "flex-nowrap justify-center"
                         )}
                       >
-                        {item.tipo === "cobro" ? (
-                          item.id.startsWith("imp-cobrado-") ? null : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Cobro"
-                              aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
-                              onClick={() => setCobroId(item.id)}
-                            >
-                              <CircleDollarSign
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                          )
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            title="Ver"
-                            aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
-                            onClick={() => setDetalleId(item.comprobanteId)}
-                          >
-                            <Eye
-                              className={TABLE_ROW_ACTION_ICON_CLASS}
-                              aria-hidden
-                            />
-                          </Button>
-                        )}
-                        {item.comprobanteId ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            title="PDF"
-                            aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
-                            onClick={() => {
-                              setPdfId(item.comprobanteId);
-                              setPdfNro(item.nroComprobante);
-                            }}
-                          >
-                            <FileText
-                              className={TABLE_ROW_ACTION_ICON_CLASS}
-                              aria-hidden
-                            />
-                          </Button>
-                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Ver"
+                          aria-label={`Ver ${item.nroComprobante || "comprobante"}`}
+                          disabled={
+                            item.tipo !== "venta" && item.tipo !== "nota_credito"
+                          }
+                          onClick={() => setDetalleId(item.comprobanteId)}
+                        >
+                          <Eye
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Cobro"
+                          aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
+                          disabled={
+                            item.tipo !== "cobro" ||
+                            item.id.startsWith("imp-cobrado-")
+                          }
+                          onClick={() => setCobroId(item.id)}
+                        >
+                          <CircleDollarSign
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="PDF"
+                          aria-label={`PDF ${item.nroComprobante || "comprobante"}`}
+                          disabled={!item.comprobanteId}
+                          onClick={() => {
+                            setPdfId(item.comprobanteId);
+                            setPdfNro(item.nroComprobante);
+                          }}
+                        >
+                          <FileText
+                            className={TABLE_ROW_ACTION_ICON_CLASS}
+                            aria-hidden
+                          />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

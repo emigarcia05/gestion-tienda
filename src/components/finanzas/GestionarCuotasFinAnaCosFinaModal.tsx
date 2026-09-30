@@ -214,12 +214,6 @@ export default function GestionarCuotasFinAnaCosFinaModal({
               ) : null}
             </div>
 
-            {esEditor ? (
-              <p className="text-sm text-muted-foreground">
-                Texto libre: número y/o descripción (ej. 01, 03, 06 PROMOCION).
-              </p>
-            ) : null}
-
             <div className="min-h-[12rem]">
               {loading ? (
                 <p className="text-sm text-muted-foreground">Cargando...</p>

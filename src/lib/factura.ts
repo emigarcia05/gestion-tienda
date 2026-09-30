@@ -116,9 +116,6 @@ export const MENSAJE_PTO_VTA_SUCURSAL_USUARIO =
 /** Forma de pago sintética para imputar una NC como cobro de una venta. */
 export const FACTURA_COBRO_NOTA_CREDITO_LABEL = "NOTA DE CRÉDITO";
 
-/** ID local (solo UI) para la opción sintética de cobro por NC. */
-export const FACTURA_COBRO_NOTA_CREDITO_UI_ID = "__factura_nc__";
-
 function normalizarNombreCobro(value: string): string {
   return value
     .normalize("NFD")
@@ -474,8 +471,13 @@ export type CuentaCorrienteClienteMovimiento = {
    * Los cobros `es_cuenta_corriente` no cuentan; la imputación de NC sí.
    */
   cuentaComoPago: boolean;
+<<<<<<< HEAD
   /** Venta con saldo y plazo vencido (filtro SALDO VENCIDO). */
   ventaVencida?: boolean;
+=======
+  /** FK `clientes_proyectos`; null en cobros de cliente sin comprobante. */
+  proyectoId: string | null;
+>>>>>>> facturacion
 };
 
 export type CuentaCorrienteProductoTipo = "venta" | "nota_credito";
@@ -497,6 +499,7 @@ export type CuentaCorrienteProductoLinea = {
   cantidad: number;
   marca: string;
   rubro: string;
+  proyectoId: string | null;
 };
 
 export type CuentaCorrienteClienteDatos = {
@@ -670,11 +673,18 @@ export function filtrarMovimientosCuentaCorriente(
     rangoHasta: string;
     tipo: FiltroTipoCuentaCorriente;
     saldo: FiltroSaldoCuentaCorriente;
+<<<<<<< HEAD
     saldoVencido: FiltroSaldoVencidoCuentaCorriente;
+=======
+    proyectoId: string | null;
+>>>>>>> facturacion
   }
 ): CuentaCorrienteClienteMovimiento[] {
   const estadoPorVenta = mapaEstadoPagoVentasCc(movimientos);
   return movimientos.filter((mov) => {
+    if (filtros.proyectoId && mov.proyectoId !== filtros.proyectoId) {
+      return false;
+    }
     if (filtros.periodo === "rango") {
       if (!filtros.rangoDesde || !filtros.rangoHasta) return false;
       if (mov.fechaIso < filtros.rangoDesde || mov.fechaIso > filtros.rangoHasta) {
@@ -765,6 +775,10 @@ export type FacturaPtoVtaOpcion = {
   ptoVenta: string;
   titular: string;
   cuit: string | null;
+  iiBb: string | null;
+  domicilioComercial: string | null;
+  /** `YYYY-MM-DD` o null. */
+  inicioActividades: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
   /** Códigos de `sucursales` vía `global_pto_vta_sucursales`. */

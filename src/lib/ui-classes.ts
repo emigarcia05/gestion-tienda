@@ -208,7 +208,7 @@ export const TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS =
   "bottom-0 left-11 right-0 top-10 mt-0";
 
 export const TYPEAHEAD_LISTBOX_UL_CLASS =
-  "min-h-0 flex-1 divide-y divide-primary/40 overflow-y-auto [scrollbar-gutter:stable]";
+  "typeahead-listbox-filas min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]";
 
 /**
  * Scroll único de listbox con encabezado de columnas: el header va sticky
@@ -236,31 +236,34 @@ export const TYPEAHEAD_LISTBOX_CELL_CLASS =
 
 /**
  * Fila de opción: `div` con `role="button"` `tabIndex={-1}`.
- * Hover / activo: `TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS`.
+ * Cebra, hover y activo: `.typeahead-listbox-filas` (en el `ul`).
  */
 export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLASS = [
   "w-full cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
-  "hover:bg-accent",
 ].join(" ");
 
 /** Fila de typeahead de clientes: más aire entre ítems que el listado de productos. */
 export const TYPEAHEAD_LISTBOX_OPTION_ROW_CLIENTES_CLASS = "min-h-7 py-1.5";
 
-export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "bg-accent";
+/**
+ * Marca de fila activa (teclado). El fondo lo pinta `.typeahead-listbox-filas`
+ * junto con `:hover`, igual que el hover de `.tabla-gestion-compacta`.
+ */
+export const TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS = "typeahead-listbox-fila-activa";
 
 /**
- * Ícono `Store` dentro del botón de stock por sucursal (typeahead productos).
+ * Ícono `Store` de stock por sucursal: sin recuadro, contorno `foreground`.
+ * El relleno lo pone la clase del botón (`[&_svg]:fill-*`).
  */
-export const TYPEAHEAD_STORE_ICON_CLASS = "size-3 shrink-0 fill-none";
+export const TYPEAHEAD_STORE_ICON_CLASS = "size-4 shrink-0 stroke-foreground";
 
-/**
- * Botón Store: hay stock en otra sucursal → fondo primary, glifo claro.
- */
+const TYPEAHEAD_STORE_BTN_BASE_CLASS =
+  "size-5 shrink-0 rounded-sm border-0 bg-transparent p-0 text-foreground shadow-none hover:bg-transparent hover:text-foreground";
+
+/** Hay stock en otra sucursal: relleno `primary`. */
 export const TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS =
-  "size-5 shrink-0 rounded-sm border-0 bg-primary p-0 text-primary-foreground shadow-none hover:bg-primary/90 hover:text-primary-foreground";
+  `${TYPEAHEAD_STORE_BTN_BASE_CLASS} [&_svg]:fill-primary`;
 
-/**
- * Botón Store: no hay stock en otras sucursales → fondo destructive, glifo claro.
- */
+/** No hay stock en otras sucursales: relleno `destructive`. */
 export const TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS =
-  "size-5 shrink-0 rounded-sm border-0 bg-destructive p-0 text-destructive-foreground shadow-none hover:bg-destructive/90 hover:text-destructive-foreground";
+  `${TYPEAHEAD_STORE_BTN_BASE_CLASS} [&_svg]:fill-destructive`;

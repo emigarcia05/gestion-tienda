@@ -18,7 +18,6 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -37,8 +36,6 @@ import {
 } from "@/components/ui/table";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
-  FACTURA_COBRO_NOTA_CREDITO_LABEL,
-  FACTURA_COBRO_NOTA_CREDITO_UI_ID,
   esCobroNotaCreditoNombre,
   lineasFormaPagoCobro,
   ncPermiteDevolucion,
@@ -97,7 +94,6 @@ export default function FacturaComprobanteCobrosModal({
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
-  const [notaCreditoRef, setNotaCreditoRef] = useState("");
   const [vistaNc, setVistaNc] = useState<FacturaNcCobroVista | null>(null);
   const [asignandoVentaId, setAsignandoVentaId] = useState<string | null>(null);
   const [previewComprobanteId, setPreviewComprobanteId] = useState<string | null>(
@@ -105,31 +101,18 @@ export default function FacturaComprobanteCobrosModal({
   );
 
   const haySaldo = saldoPendiente != null && saldoPendiente > 0;
-  const pagosDisponibles = useMemo<FinAnaCosFinaPagoItem[]>(
-    () => [
-      {
-        id: FACTURA_COBRO_NOTA_CREDITO_UI_ID,
-        nombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
-        enCostosFinancieros: false,
-        enMargenContribucion: false,
-        aceptaCuotas: false,
-        entidadObligatoria: false,
-        entidadIds: [],
-        entidadNombres: [],
-      },
-      ...pagos,
-    ],
+  const pagosDisponibles = useMemo(
+    () => pagos.filter((p) => !esCobroNotaCreditoNombre(p.nombre)),
     [pagos]
   );
   const pagoSel = useMemo(
-    () =>
-      (esNotaCredito ? pagos : pagosDisponibles).find((p) => p.id === pagoId) ??
-      null,
-    [esNotaCredito, pagos, pagosDisponibles, pagoId]
+    () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
+    [pagosDisponibles, pagoId]
   );
-  const pagoEsNotaCredito = pagoSel?.id === FACTURA_COBRO_NOTA_CREDITO_UI_ID;
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const etiquetaMontoForma =
+    !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
   const historialNc = useMemo(() => {
     const asign = (vistaNc?.asignaciones ?? []).map((fila) => ({
       kind: "asig" as const,
@@ -157,7 +140,6 @@ export default function FacturaComprobanteCobrosModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
-    setNotaCreditoRef("");
     setMontoNorm(
       pendiente != null && pendiente > 0
         ? montoArNumberToNormalizedString(pendiente)
@@ -289,9 +271,7 @@ export default function FacturaComprobanteCobrosModal({
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
     setPagoId(nextId);
-    setNotaCreditoRef("");
-    const lista = esNotaCredito ? pagos : pagosDisponibles;
-    const next = lista.find((p) => p.id === nextId);
+    const next = pagosDisponibles.find((p) => p.id === nextId);
     const unicas =
       next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
@@ -337,11 +317,6 @@ export default function FacturaComprobanteCobrosModal({
       );
       return;
     }
-    const referenciaNc = notaCreditoRef.trim().toLocaleUpperCase("es-AR");
-    if (!esNotaCredito && pagoEsNotaCredito && !referenciaNc) {
-      toast.error("Ingresá la referencia de la nota de crédito.");
-      return;
-    }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
@@ -349,7 +324,7 @@ export default function FacturaComprobanteCobrosModal({
     const res = await registrarCobroComprobanteFacturaAction({
       id: comprobanteId,
       pagoNombre: pagoSel.nombre,
-      entidadNombre: pagoEsNotaCredito ? referenciaNc : entidadNombre,
+      entidadNombre,
       cuotaEtiqueta: cuota?.cuotas ?? null,
       montoCents,
     });
@@ -524,7 +499,7 @@ export default function FacturaComprobanteCobrosModal({
                     "$"
                   )}
                 </p>
-                {pagos.length === 0 ? (
+                {pagosDisponibles.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">
                     No hay formas de pago cargadas.
                   </p>
@@ -534,7 +509,7 @@ export default function FacturaComprobanteCobrosModal({
                     aria-label="Forma de devolución"
                     className="flex flex-wrap justify-center gap-2"
                   >
-                    {pagos.map((pago) => {
+                    {pagosDisponibles.map((pago) => {
                       const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
                       const seleccionado = pago.id === pagoId;
                       return (
@@ -618,7 +593,10 @@ export default function FacturaComprobanteCobrosModal({
                       </Select>
                     </label>
                   ) : null}
-                  <div className="w-[8.5rem] shrink-0">
+                  <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    {etiquetaMontoForma ? (
+                      <ModalMicroLabel>{etiquetaMontoForma}</ModalMicroLabel>
+                    ) : null}
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
@@ -762,20 +740,6 @@ export default function FacturaComprobanteCobrosModal({
                     })}
                   </div>
                 )}
-                {pagoEsNotaCredito ? (
-                  <label className="flex min-w-0 flex-1 flex-col gap-1">
-                    <ModalMicroLabel>COMPROBANTE NC</ModalMicroLabel>
-                    <Input
-                      value={notaCreditoRef}
-                      onChange={(e) =>
-                        setNotaCreditoRef(e.target.value.toLocaleUpperCase("es-AR"))
-                      }
-                      placeholder="EJ: 00001-00001234"
-                      disabled={guardando}
-                      className="w-full"
-                    />
-                  </label>
-                ) : null}
                 <div className="flex items-end justify-center gap-2">
                   {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
@@ -837,7 +801,10 @@ export default function FacturaComprobanteCobrosModal({
                       </Select>
                     </label>
                   ) : null}
-                  <div className="w-[8.5rem] shrink-0">
+                  <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    {etiquetaMontoForma ? (
+                      <ModalMicroLabel>{etiquetaMontoForma}</ModalMicroLabel>
+                    ) : null}
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}

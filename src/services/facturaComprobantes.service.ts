@@ -36,6 +36,7 @@ import {
   diasVencimientoPorSaldoPendiente,
   esCobroNotaCreditoNombre,
   esFacturaTipo,
+  esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
   FACTURA_COBRO_NOTA_CREDITO_LABEL,
   esFacturaTipoVenta,
@@ -91,6 +92,11 @@ import type {
   RegistrarPagoCuentaCorrienteInput,
   AsignarClienteCobroComoCobroInput,
 } from "@/lib/validations/factura";
+import {
+  emisorPdfDesdePtoVta,
+  type FacturaComprobantePdfEmisor,
+} from "@/lib/facturaComprobantePdfEmisor";
+import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
@@ -240,6 +246,12 @@ function resolverCobrosYVencimiento(args: {
 }> {
   const esVenta = esFacturaTipoVenta(args.tipo);
   const cobros = esVenta ? args.cobros : [];
+  if (cobros.some((c) => esCobroNotaCreditoNombre(c.pagoNombre))) {
+    return {
+      success: false,
+      error: "La nota de crédito se imputa desde el comprobante NC.",
+    };
+  }
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const totalCents = Math.round(args.impTotal * 100);
   if (cobradoCents > totalCents) {
@@ -311,6 +323,11 @@ export type FacturaComprobantePdfDatos = {
   cae: string | null;
   caeVtoIso: string | null;
   letra: string | null;
+  emisor: FacturaComprobantePdfEmisor | null;
+  clienteCuit: string | null;
+  clienteCondicionIva: string | null;
+  /** Nombre del proyecto solo si el cliente tiene más de uno. */
+  proyectoNombre: string | null;
 };
 
 export async function obtenerFacturaComprobantePdfDatos(
@@ -319,7 +336,21 @@ export async function obtenerFacturaComprobantePdfDatos(
   try {
     const row = await prisma.comprobanteVta.findUnique({
       where: { id },
-      include: { items: { orderBy: { orden: "asc" } } },
+      include: {
+        items: { orderBy: { orden: "asc" } },
+        ptoVta: {
+          select: {
+            titular: true,
+            cuit: true,
+            iiBb: true,
+            domicilioComercial: true,
+            inicioActividades: true,
+          },
+        },
+        receptorCondicionIvaArca: { select: { descripcion: true } },
+        proyecto: { select: { nombreProyecto: true } },
+        cliente: { select: { _count: { select: { direcciones: true } } } },
+      },
     });
     if (!row) return { success: false, error: "El comprobante no existe." };
     const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
@@ -352,6 +383,24 @@ export async function obtenerFacturaComprobantePdfDatos(
         cae: row.cae,
         caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
         letra: row.letra,
+        clienteCuit: esFacturaTipoFiscal(tipo) ? row.receptorDocNro : null,
+        clienteCondicionIva:
+          esFacturaTipoFiscal(tipo) && row.receptorCondicionIvaArca
+            ? etiquetaCondicionIvaArca(row.receptorCondicionIvaArca.descripcion)
+            : null,
+        proyectoNombre:
+          (row.cliente?._count.direcciones ?? 0) > 1
+            ? (row.proyecto?.nombreProyecto.trim() ?? null)
+            : null,
+        emisor: emisorPdfDesdePtoVta({
+          titular: row.ptoVta.titular,
+          cuit: row.ptoVta.cuit,
+          iiBb: row.ptoVta.iiBb,
+          domicilioComercial: row.ptoVta.domicilioComercial,
+          inicioActividades: row.ptoVta.inicioActividades
+            ? isoYmdFromPrismaDateOnly(row.ptoVta.inicioActividades)
+            : null,
+        }),
       },
     };
   } catch (e) {
@@ -1624,6 +1673,12 @@ export async function registrarCobroComprobanteVta(
     }
     if (!esFacturaTipoVenta(tipo)) {
       return { success: false, error: "Solo se pueden agregar cobros a una venta." };
+    }
+    if (esCobroNotaCreditoNombre(input.pagoNombre)) {
+      return {
+        success: false,
+        error: "La nota de crédito se imputa desde el comprobante NC.",
+      };
     }
     if (asEstado(row.estado) === "rechazado") {
       return { success: false, error: "No se puede cobrar un comprobante rechazado." };

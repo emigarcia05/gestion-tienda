@@ -48,6 +48,7 @@ import {
   clienteSuperaTopeCtaCorriente,
   esClienteConsumidorFinalCargado,
   esFacturaTipoNotaCredito,
+  esFacturaTipoFiscal,
   esFacturaTipoVenta,
   etiquetaFacturaTipoVisor,
   facturaTipoDesdeClaseYFiscal,
@@ -71,7 +72,11 @@ import {
   type EnviosDireccionItem,
 } from "@/lib/envios";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import type { PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import { etiquetaCondicionIvaArca, type PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
+import {
+  emisorPdfDesdePtoVta,
+  type FacturaComprobantePdfEmisor,
+} from "@/lib/facturaComprobantePdfEmisor";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 import {
@@ -107,6 +112,15 @@ const CABECERA_EDITOR_FILA2_CLASS =
   "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10.5rem] items-end gap-3";
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
+
+function emisorPdfDePtoVta(
+  ptoVtas: readonly FacturaPtoVtaOpcion[],
+  ptoVtaId: string
+): FacturaComprobantePdfEmisor | null {
+  const pto = ptoVtas.find((p) => p.id === ptoVtaId);
+  if (!pto) return null;
+  return emisorPdfDesdePtoVta(pto);
+}
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -150,6 +164,12 @@ export default function FacturaCrearPageClient({
   const [clienteId, setClienteId] = useState<string | null>(
     () => duplicarBorrador?.clienteId ?? null
   );
+  const [clienteCuit, setClienteCuit] = useState<string | null>(
+    () => duplicarBorrador?.clienteCatalogo?.cuit ?? null
+  );
+  const [clienteCondicionIvaCodigo, setClienteCondicionIvaCodigo] = useState<
+    number | null
+  >(() => duplicarBorrador?.clienteCatalogo?.condicionIva ?? null);
   const [ctaCorrienteMontoMaxCliente, setCtaCorrienteMontoMaxCliente] = useState<
     number | null
   >(() => duplicarBorrador?.clienteCatalogo?.ctaCorrienteMontoMax ?? null);
@@ -252,6 +272,8 @@ export default function FacturaCrearPageClient({
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
+    setClienteCuit(null);
+    setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
     setClienteQActual("");
@@ -267,6 +289,8 @@ export default function FacturaCrearPageClient({
     setClienteQActual(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setCliente(FACTURA_CLIENTE_CONSUMIDOR_FINAL);
     setClienteId(null);
+    setClienteCuit(null);
+    setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
     setClienteProyectos([]);
@@ -283,6 +307,8 @@ export default function FacturaCrearPageClient({
     setClienteQActual(nombre);
     setCliente(nombre);
     setClienteId(item.id);
+    setClienteCuit(item.cuit);
+    setClienteCondicionIvaCodigo(item.condicionIva);
     setCtaCorrienteMontoMaxCliente(item.ctaCorrienteMontoMax);
     setSaldoCuentaCorrienteCliente(
       "saldoCuentaCorriente" in item ? item.saldoCuentaCorriente : 0
@@ -300,6 +326,24 @@ export default function FacturaCrearPageClient({
   const mostrarProyecto = clienteProyectos.length > 1;
   const proyectoElegido =
     clienteProyectos.find((p) => p.id === proyectoId) ?? null;
+
+  function datosClienteComprobantePdf(): Pick<
+    FacturaComprobantePdfInput,
+    "clienteCuit" | "clienteCondicionIva" | "proyectoNombre"
+  > {
+    const fiscal = esFacturaTipoFiscal(tipo);
+    const cond = condicionesIva.find((c) => c.codigo === clienteCondicionIvaCodigo);
+    return {
+      clienteCuit: fiscal ? clienteCuit : null,
+      clienteCondicionIva:
+        fiscal && cond ? etiquetaCondicionIvaArca(cond.descripcion) : null,
+      proyectoNombre:
+        mostrarProyecto && proyectoElegido
+          ? etiquetaNombreProyecto(proyectoElegido)
+          : null,
+    };
+  }
+
   const etiquetaClienteVisor = (() => {
     const nombre = cliente.trim();
     if (!nombre) return "";
@@ -428,6 +472,8 @@ export default function FacturaCrearPageClient({
       cae: null,
       caeVtoIso: null,
       letra: null,
+      emisor: emisorPdfDePtoVta(ptoVtas, ptoVtaId),
+      ...datosClienteComprobantePdf(),
     });
     setComprobanteModalOpen(true);
   }
@@ -483,6 +529,8 @@ export default function FacturaCrearPageClient({
       cae: res.data.cae,
       caeVtoIso: res.data.caeVtoIso,
       letra: res.data.letra,
+      emisor: emisorPdfDePtoVta(ptoVtas, draft.ptoVtaId),
+      ...datosClienteComprobantePdf(),
     };
     setComprobantePdf(pdf);
     return pdf;
@@ -566,7 +614,7 @@ export default function FacturaCrearPageClient({
                   type="text"
                   readOnly
                   value={formatIsoYmdDdMmYyyyArgentina(fechaIso)}
-                  className={cn("tabular-nums", "pr-10", "cursor-pointer")}
+                  className={cn("h-10 min-h-10", "tabular-nums", "pr-10", "cursor-pointer")}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   title="Clic para abrir el calendario"
                   aria-label="Fecha del comprobante. Clic para abrir el calendario."
@@ -576,7 +624,7 @@ export default function FacturaCrearPageClient({
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "absolute right-0 top-0 h-9 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    "absolute right-0 top-0 h-10 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   aria-label="Abrir calendario"
@@ -677,6 +725,8 @@ export default function FacturaCrearPageClient({
                   onChange={(e) => {
                     const next = e.target.value.toLocaleUpperCase("es-AR");
                     setClienteId(null);
+                    setClienteCuit(null);
+                    setClienteCondicionIvaCodigo(null);
                     setClienteProyectos([]);
                     setProyectoId(null);
                     handleClienteQChange(next);
@@ -937,15 +987,10 @@ export default function FacturaCrearPageClient({
             </div>
             )}
 
-            <div
-              className={cn(
-                CABECERA_EDITOR_SLOT_CLASS,
-                "items-center rounded-md border border-input px-2"
-              )}
-            >
+            <div className={cn(CABECERA_EDITOR_SLOT_CLASS, "items-center")}>
               <ModalMicroLabel align="center">SALDO CLIENTE</ModalMicroLabel>
               <p
-                className="flex h-9 w-full items-center justify-center truncate text-center text-sm tabular-nums text-foreground"
+                className="flex h-9 min-h-9 w-full items-center justify-center truncate rounded-md border border-primary px-2 text-center text-sm tabular-nums text-foreground"
                 aria-label="Saldo cliente"
               >
                 {clienteId != null && saldoCuentaCorrienteCliente != null

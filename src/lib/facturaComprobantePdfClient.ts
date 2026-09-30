@@ -1,5 +1,11 @@
 import { descargarPdfBytes } from "@/lib/descargarPdfBase64";
-import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
+import { ENVIOS_PDF_MAX_BYTES } from "@/lib/envios";
+import type {
+  FacturaComprobantePdfInput,
+  FacturaComprobantePdfLogo,
+} from "@/lib/generarPdfFacturaComprobante";
+
+const LOGO_COMPROBANTE_PDF_SRC = "/logo_tiendacolor_letras_negras.png";
 
 /** `2026-03-15` → `15-03-26` (nombre de archivo). */
 export function formatIsoYmdDdMmYyGuionesArchivo(isoYmd: string): string {
@@ -42,13 +48,55 @@ export function nombreArchivoComprobanteFactura(opts: {
   return `${base} - (${comentarios}).pdf`;
 }
 
+export function bytesPdfAAdjuntoEnvio(
+  nombre: string,
+  bytes: Uint8Array
+): { nombre: string; base64: string } | null {
+  if (bytes.byteLength > ENVIOS_PDF_MAX_BYTES) return null;
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return { nombre, base64: btoa(binary) };
+}
+
+async function cargarLogoTiendaColorPdf(): Promise<FacturaComprobantePdfLogo | null> {
+  try {
+    const res = await fetch(LOGO_COMPROBANTE_PDF_SRC);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("No se pudo leer el logo."));
+      reader.readAsDataURL(blob);
+    });
+    const size = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () =>
+        resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => reject(new Error("Logo inválido."));
+      img.src = dataUrl;
+    });
+    return {
+      dataUrl,
+      naturalW: size.w,
+      naturalH: size.h,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function generarBytesPdfFacturaComprobante(
   input: FacturaComprobantePdfInput
 ): Promise<Uint8Array> {
-  const { generarPdfFacturaComprobante } = await import(
-    "@/lib/generarPdfFacturaComprobante"
-  );
-  return generarPdfFacturaComprobante(input);
+  const [{ generarPdfFacturaComprobante }, logo] = await Promise.all([
+    import("@/lib/generarPdfFacturaComprobante"),
+    cargarLogoTiendaColorPdf(),
+  ]);
+  return generarPdfFacturaComprobante({ ...input, logo });
 }
 
 export async function descargarPdfFacturaComprobante(

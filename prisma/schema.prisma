@@ -1797,13 +1797,14 @@ enum EnviosDepartamento {
 }
 
 /** Proyecto de cliente (`clientes_proyectos`; ex `clientes_direcciones` / `envios_direcciones`).
- * `nombre_proyecto` en mayúsculas `es-AR`. Textos de domicilio: `calle_nombre` y `distrito` en proper case; `numeracion` y `referencia` con primera mayúscula de la oración.
+ * `nombre_proyecto` en mayúsculas `es-AR`; vacío persiste `PRINCIPAL` (CHECK + default SQL).
+ * Textos de domicilio: `calle_nombre` y `distrito` en proper case; `numeracion` y `referencia` con primera mayúscula de la oración.
  * Al persistir hace falta al menos un dato (CHECK SQL + Zod + servicio).
  */
 model EnviosDireccion {
   id              String              @id @default(cuid())
   personaId       String              @map("persona_id")
-  nombreProyecto  String              @map("nombre_proyecto")
+  nombreProyecto  String              @default("PRINCIPAL") @map("nombre_proyecto")
   calleNombre     String              @map("calle_nombre")
   numeracion      String              @map("numeracion")
   distrito        String              @map("distrito")

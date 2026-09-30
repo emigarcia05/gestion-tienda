@@ -97,6 +97,8 @@ interface ModalTablaConFiltrosBase<T> {
   contentClassName?: string;
   /** Maneja doble clic en fila (single o multi). En multi puede usarse como “selección rápida” de un solo ítem. */
   onRowDoubleClick?: (row: T) => void;
+  /** Clic simple en la fila (single, sin columna de selección). */
+  onRowClick?: (row: T) => void;
   /**
    * Anchos de columna en % (incluye columna de selección si aplica).
    * Ej. `[5, 10, 20, 65]` → CHECK + 3 columnas de datos.
@@ -188,7 +190,7 @@ function ModalTablaColGroup({ widthsPct }: { widthsPct: readonly number[] }) {
 
 /**
  * Modal reutilizable: título + filtros + tabla.
- * - single: doble clic en fila para seleccionar (ej. vincular producto).
+ * - single: doble clic en fila para seleccionar (ej. vincular producto), o clic simple si hay `onRowClick`.
  * - multi: checkboxes para selección múltiple + botón confirmar (ej. asignar productos a categoría).
  * - multiQuantity: columna CANT con input entero positivo por fila + botón confirmar (ej. bases tintométricas).
  */
@@ -202,6 +204,7 @@ export default function ModalTablaConFiltros<T>({
   rows,
   getRowId,
   onRowDoubleClick,
+  onRowClick,
   onConfirm,
   onConfirmQuantity,
   onConfirmSingle,
@@ -580,7 +583,13 @@ export default function ModalTablaConFiltros<T>({
                             <TableRow
                               key={id}
                               onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}
-                              onClick={isSingleConfirm ? () => selectSingle(id) : undefined}
+                              onClick={
+                                isSingleConfirm
+                                  ? () => selectSingle(id)
+                                  : onRowClick
+                                    ? () => onRowClick(row)
+                                    : undefined
+                              }
                               className={cn(
                                 modalTablaRowVariants({
                                   interaction:
@@ -596,9 +605,11 @@ export default function ModalTablaConFiltros<T>({
                               title={
                                 isSingleConfirm
                                   ? "Clic en la fila para seleccionar"
-                                  : onRowDoubleClick
-                                    ? "Doble Clic Para Seleccionar"
-                                    : undefined
+                                  : onRowClick
+                                    ? "Clic para agregar"
+                                    : onRowDoubleClick
+                                      ? "Doble Clic Para Seleccionar"
+                                      : undefined
                               }
                             >
                               {showSelectColumn ? (

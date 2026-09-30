@@ -69,6 +69,8 @@ import { cn } from "@/lib/utils";
 const FILTRO_TODOS = "__todos__";
 const FILTRO_FECHA_HOY = "hoy";
 const FILTRO_FECHA_MANANA = "manana";
+const FILTRO_ENTREGADO_NO = "no";
+const FILTRO_ENTREGADO_SI = "si";
 const COLSPAN_ENVIOS_PROGRAMADOS = 11;
 
 function CeldaTilte({
@@ -106,7 +108,7 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
   const router = useRouter();
   const [filtroSucursal, setFiltroSucursal] = useState(FILTRO_TODOS);
   const [filtroFecha, setFiltroFecha] = useState(FILTRO_TODOS);
-  const [filtroEntregado, setFiltroEntregado] = useState(FILTRO_TODOS);
+  const [filtroEntregado, setFiltroEntregado] = useState(FILTRO_ENTREGADO_NO);
   const [qDebounced, setQDebounced] = useState("");
   const { q, setQ, handleQChange, isDebouncing, ref: searchRef } = useFiltrosConBusqueda({
     qActual: qDebounced,
@@ -135,8 +137,8 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
           return false;
         }
       }
-      if (filtroEntregado === "si" && !item.entregado) return false;
-      if (filtroEntregado === "no" && item.entregado) return false;
+      if (filtroEntregado === FILTRO_ENTREGADO_SI && !item.entregado) return false;
+      if (filtroEntregado === FILTRO_ENTREGADO_NO && item.entregado) return false;
       if (
         qDebounced.trim() &&
         !matchByMultiTerm(
@@ -169,7 +171,7 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
   function limpiarFiltros() {
     setFiltroSucursal(FILTRO_TODOS);
     setFiltroFecha(FILTRO_TODOS);
-    setFiltroEntregado(FILTRO_TODOS);
+    setFiltroEntregado(FILTRO_ENTREGADO_NO);
     setQ("");
     setQDebounced("");
   }
@@ -285,8 +287,8 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
                     <SelectValue placeholder="ENTREGADO" />
                   </SelectTrigger>
                   <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                    <SelectItem value="si">SÍ</SelectItem>
-                    <SelectItem value="no">NO</SelectItem>
+                    <SelectItem value={FILTRO_ENTREGADO_SI}>SÍ</SelectItem>
+                    <SelectItem value={FILTRO_ENTREGADO_NO}>NO</SelectItem>
                   </SelectContent>
                 </Select>
               </FiltroIndividualContainer>

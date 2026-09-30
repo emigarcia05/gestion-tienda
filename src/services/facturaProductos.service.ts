@@ -40,13 +40,27 @@ export async function buscarProductosParaFactura(params: {
   take?: number;
   /** Código sucursal del usuario (p. ej. guaymallen); define la columna Stock. */
   sucursalCodigo?: string | null;
+  /** Igualdad con `prod_tienda.rubro`. Vacío = sin filtro. */
+  rubro?: string | null;
+  /** Igualdad con `prod_tienda.sub_rubro`. Vacío = sin filtro. */
+  subRubro?: string | null;
+  /** Igualdad con `prod_tienda.marca`. Vacío = sin filtro. */
+  marca?: string | null;
+  /**
+   * Tope de filas. Typeahead: 10 (default). Búsqueda avanzada: 100.
+   */
+  takeMax?: number;
 }): Promise<ServiceResult<{ items: ProductoFacturaBusquedaItem[] }>> {
   const tokens = normalizeTokens(params.q);
-  if (tokens.length === 0) {
+  const rubro = params.rubro?.trim() || null;
+  const subRubro = params.subRubro?.trim() || null;
+  const marca = params.marca?.trim() || null;
+  if (tokens.length === 0 && !rubro && !subRubro && !marca) {
     return { success: true, data: { items: [] } };
   }
 
-  const take = Math.min(10, Math.max(1, Math.floor(Number(params.take) || 10)));
+  const takeMax = Math.min(100, Math.max(1, Math.floor(Number(params.takeMax) || 10)));
+  const take = Math.min(takeMax, Math.max(1, Math.floor(Number(params.take) || takeMax)));
   const sucursalCodigo = params.sucursalCodigo?.trim().toLowerCase() || null;
 
   try {
@@ -65,17 +79,22 @@ export async function buscarProductosParaFactura(params: {
       .map((s) => s.idDeposito)
       .filter((id): id is number => id != null);
 
-    const where: Prisma.ProdTiendaWhereInput = {
-      AND: [
-        { descripcionTienda: { not: null } },
-        { descripcionTienda: { not: "" } },
-        {
-          AND: tokens.map((t) => ({
-            descripcionTienda: { contains: t, mode: "insensitive" as const },
-          })),
-        },
-      ],
-    };
+    const and: Prisma.ProdTiendaWhereInput[] = [
+      { descripcionTienda: { not: null } },
+      { descripcionTienda: { not: "" } },
+    ];
+    if (tokens.length > 0) {
+      and.push({
+        AND: tokens.map((t) => ({
+          descripcionTienda: { contains: t, mode: "insensitive" as const },
+        })),
+      });
+    }
+    if (rubro) and.push({ rubro: { equals: rubro, mode: "insensitive" } });
+    if (subRubro) and.push({ subRubro: { equals: subRubro, mode: "insensitive" } });
+    if (marca) and.push({ marca: { equals: marca, mode: "insensitive" } });
+
+    const where: Prisma.ProdTiendaWhereInput = { AND: and };
 
     const rows = await prisma.prodTienda.findMany({
       where,

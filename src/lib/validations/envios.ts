@@ -6,6 +6,7 @@ import {
   ENVIOS_HORA_VALUES,
   capitalizarTextoEnvio,
   direccionEnvioTieneDato,
+  mensajeHorarioEnvioInvalido,
   normalizarCelCliente,
   normalizarNombreCliente,
   properTextoEnvio,
@@ -278,16 +279,25 @@ const isoYmdSchema = z
 const horaEnvioSchema = z.enum(ENVIOS_HORA_VALUES, "Seleccioná un horario válido.");
 
 function refineHorarioEnvio(
-  data: { horaDesde: string; horaHasta: string },
+  data: { fechaEnvioIso: string; horaDesde: string; horaHasta: string },
   ctx: z.RefinementCtx
 ): void {
-  if (data.horaDesde >= data.horaHasta) {
-    ctx.addIssue({
-      code: "custom",
-      message: "La hora hasta debe ser posterior a la hora desde.",
-      path: ["horaHasta"],
-    });
-  }
+  const mensaje = mensajeHorarioEnvioInvalido({
+    fechaIso: data.fechaEnvioIso,
+    horaDesde: data.horaDesde,
+    horaHasta: data.horaHasta,
+  });
+  if (!mensaje) return;
+  const path = mensaje.includes("fecha")
+    ? (["fechaEnvioIso"] as const)
+    : mensaje.includes("hasta")
+      ? (["horaHasta"] as const)
+      : (["horaDesde"] as const);
+  ctx.addIssue({
+    code: "custom",
+    message: mensaje,
+    path: [...path],
+  });
 }
 
 const envioFinalCamposBase = {

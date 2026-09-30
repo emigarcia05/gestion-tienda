@@ -319,6 +319,11 @@
     border-color: var(--primary) !important;
     background-color: var(--card) !important;
   }
+  p.input-filtro-unificado {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .input-filtro-unificado::placeholder,
   .input-filtro-unificado[data-placeholder] {
     @apply text-muted-foreground font-bold;
@@ -1356,6 +1361,19 @@
 }
 .tabla-gestion-compacta tbody tr:hover td {
   color: var(--foreground) !important;
+}
+/* Listbox typeahead (clientes y productos): sin línea entre ítems.
+   Mismos fondos que el cebra y el hover de `.tabla-gestion-compacta`. */
+.typeahead-listbox-filas > li > [role="button"] {
+  background-color: var(--card);
+}
+.typeahead-listbox-filas > li:nth-child(even) > [role="button"] {
+  background-color: color-mix(in oklab, var(--primary) 8%, var(--card));
+}
+.typeahead-listbox-filas > li > [role="button"]:hover,
+.typeahead-listbox-filas > li[aria-selected="true"] > [role="button"],
+.typeahead-listbox-filas > li > [role="button"].typeahead-listbox-fila-activa {
+  background-color: color-mix(in oklab, var(--primary) 20%, var(--card));
 }
 .tabla-gestion-compacta tbody tr[data-state="selected"] {
   --tabla-row-bg: var(--muted);
@@ -2425,6 +2443,14 @@ main button.est-vtas-desc-btn:active:not(:disabled) {
 main button.est-vtas-desc-btn:hover:not(:disabled) {
   text-decoration-line: underline;
   text-underline-offset: 2px;
+}
+
+/* Máscara (campo vacío): siempre mayúsculas. El valor elegido no lleva data-placeholder y no se transforma. */
+input::placeholder,
+textarea::placeholder,
+[data-slot="select-trigger"][data-placeholder],
+button[data-placeholder] {
+  text-transform: uppercase;
 }
 
 /* Input/select de filtro: SSOT en @layer components (.input-filtro-unificado). */

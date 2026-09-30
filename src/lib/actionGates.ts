@@ -89,9 +89,18 @@ export function requireEnvios(): Promise<ActionGateFail | null> {
   return requirePermiso(PERMISOS.envios.acceso, "Sin permisos para envíos.");
 }
 
+/** Alta de envío final desde Programados o desde Lista Comprobantes. */
+export async function requireEnviosOFacturacion(): Promise<ActionGateFail | null> {
+  const rol = await getRol();
+  if (puede(rol, PERMISOS.envios.acceso) || puede(rol, PERMISOS.facturacion.acceso)) {
+    return null;
+  }
+  return { ok: false, error: "Sin permisos para envíos." };
+}
+
 /**
  * Alta/edición de catálogo `clientes` y `clientes_proyectos` (Envíos o Facturación).
- * Envíos finales siguen con `requireEnvios`.
+ * Listar/editar/borrar envíos finales: `requireEnvios`. Alta de envío: `requireEnviosOFacturacion`.
  */
 export async function requireClientesMutacion(): Promise<ActionGateFail | null> {
   const rol = await getRol();

@@ -17,12 +17,12 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import {
+  ajustarRangoHorarioEnvio,
   esHoraEnvioValida,
-  horasDesdeDisponibles,
+  horasDesdeDisponiblesParaFecha,
   horasHastaDisponibles,
   type EnviosHoraValue,
 } from "@/lib/envios";
-import { cn } from "@/lib/utils";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -41,8 +41,6 @@ interface Props {
   onFechaChange: (iso: string) => void;
   onHoraDesdeChange: (hora: EnviosHoraValue | "") => void;
   onHoraHastaChange: (hora: EnviosHoraValue | "") => void;
-  /** Tras fecha + rango válidos (p. ej. wizard: pasar al paso siguiente). */
-  onCompleto?: () => void;
 }
 
 export default function EnviosFechaHorarioCampos({
@@ -53,40 +51,42 @@ export default function EnviosFechaHorarioCampos({
   onFechaChange,
   onHoraDesdeChange,
   onHoraHastaChange,
-  onCompleto,
 }: Props) {
   const hiddenFechaRef = useRef<HTMLInputElement>(null);
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const mananaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
   const fechaOtra = fechaIso !== "" && fechaIso !== hoyIso && fechaIso !== mananaIso;
-  const horasHasta = horaDesde !== "" ? horasHastaDisponibles(horaDesde) : [];
+  const opcionesDesde = horasDesdeDisponiblesParaFecha(fechaIso);
+  const opcionesHasta =
+    horaDesde !== "" ? horasHastaDisponibles(horaDesde) : [];
 
-  function intentarCompletar(nextFecha: string, nextDesde: string, nextHasta: string) {
-    if (nextFecha !== "" && nextDesde !== "" && nextHasta !== "" && nextDesde < nextHasta) {
-      onCompleto?.();
-    }
-  }
-
-  function handleFecha(iso: string) {
+  function aplicarFecha(iso: string) {
     onFechaChange(iso);
-    intentarCompletar(iso, horaDesde, horaHasta);
+    const ajustado = ajustarRangoHorarioEnvio(iso, horaDesde, horaHasta);
+    if (!ajustado) {
+      onHoraDesdeChange("");
+      onHoraHastaChange("");
+      return;
+    }
+    onHoraDesdeChange(ajustado.horaDesde);
+    onHoraHastaChange(ajustado.horaHasta);
   }
 
   function handleDesde(value: string) {
     if (!esHoraEnvioValida(value)) return;
+    if (!opcionesDesde.includes(value)) return;
     onHoraDesdeChange(value);
-    const hastaSigueValido = horaHasta !== "" && horaHasta > value;
-    if (!hastaSigueValido) {
+    const ajustado = ajustarRangoHorarioEnvio(fechaIso, value, horaHasta);
+    if (!ajustado) {
       onHoraHastaChange("");
       return;
     }
-    intentarCompletar(fechaIso, value, horaHasta);
+    onHoraHastaChange(ajustado.horaHasta);
   }
 
   function handleHasta(value: string) {
     if (!esHoraEnvioValida(value) || horaDesde === "" || value <= horaDesde) return;
     onHoraHastaChange(value);
-    intentarCompletar(fechaIso, horaDesde, value);
   }
 
   return (
@@ -98,7 +98,7 @@ export default function EnviosFechaHorarioCampos({
             type="button"
             variant={fechaIso === hoyIso ? "default" : "outline"}
             disabled={disabled}
-            onClick={() => handleFecha(hoyIso)}
+            onClick={() => aplicarFecha(hoyIso)}
           >
             HOY
           </Button>
@@ -106,7 +106,7 @@ export default function EnviosFechaHorarioCampos({
             type="button"
             variant={fechaIso === mananaIso ? "default" : "outline"}
             disabled={disabled}
-            onClick={() => handleFecha(mananaIso)}
+            onClick={() => aplicarFecha(mananaIso)}
           >
             MAÑANA
           </Button>
@@ -129,10 +129,11 @@ export default function EnviosFechaHorarioCampos({
             aria-hidden
             className="sr-only"
             value={fechaIso}
+            min={hoyIso}
             disabled={disabled}
             onChange={(e) => {
               const v = e.target.value;
-              if (v) handleFecha(v);
+              if (v) aplicarFecha(v);
             }}
           />
         </div>
@@ -147,13 +148,17 @@ export default function EnviosFechaHorarioCampos({
         <ModalMicroLabel align="center">RANGO HORARIO</ModalMicroLabel>
         <div className="flex items-center justify-center gap-3">
           <div className="flex items-center gap-2">
-            <ModalMicroLabel className="w-auto shrink-0">DESDE</ModalMicroLabel>
-            <Select value={horaDesde || undefined} disabled={disabled} onValueChange={handleDesde}>
+            <ModalMicroLabel className="w-auto shrink-0">HORA DESDE</ModalMicroLabel>
+            <Select
+              value={horaDesde || undefined}
+              disabled={disabled || opcionesDesde.length === 0}
+              onValueChange={handleDesde}
+            >
               <SelectTrigger className="min-w-28 tabular-nums" aria-label="Hora desde">
                 <SelectValue placeholder="DESDE..." />
               </SelectTrigger>
               <SelectContent className="select-content-filtro" position="popper" side="bottom" align="center">
-                {horasDesdeDisponibles().map((hora) => (
+                {opcionesDesde.map((hora) => (
                   <SelectItem key={hora} value={hora} className="tabular-nums">
                     {hora}
                   </SelectItem>
@@ -164,18 +169,18 @@ export default function EnviosFechaHorarioCampos({
           <span className="text-sm text-foreground" aria-hidden>
             -
           </span>
-          <div className={cn("flex items-center gap-2", horaDesde === "" && "invisible")}>
-            <ModalMicroLabel className="w-auto shrink-0">HASTA</ModalMicroLabel>
+          <div className="flex items-center gap-2">
+            <ModalMicroLabel className="w-auto shrink-0">HORA HASTA</ModalMicroLabel>
             <Select
               value={horaHasta || undefined}
-              disabled={disabled || horaDesde === ""}
+              disabled={disabled || horaDesde === "" || opcionesHasta.length === 0}
               onValueChange={handleHasta}
             >
               <SelectTrigger className="min-w-28 tabular-nums" aria-label="Hora hasta">
                 <SelectValue placeholder="HASTA..." />
               </SelectTrigger>
               <SelectContent className="select-content-filtro" position="popper" side="bottom" align="center">
-                {horasHasta.map((hora) => (
+                {opcionesHasta.map((hora) => (
                   <SelectItem key={hora} value={hora} className="tabular-nums">
                     {hora}
                   </SelectItem>

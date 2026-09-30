@@ -18,6 +18,7 @@ import type { ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
+  buscarProductosFacturaAvanzadaSchema,
   buscarProductosFacturaSchema,
   compartirLinkCuentaCorrienteSchema,
   obtenerCuentaCorrienteClienteSchema,
@@ -120,6 +121,57 @@ export async function buscarProductosFacturaAction(
   const res = await buscarProductosParaFactura({
     q: parsed.data.q,
     take: parsed.data.take,
+    sucursalCodigo: parsed.data.sucursalCodigo,
+  });
+  return fromServiceResult(res);
+}
+
+export async function listarCatalogoBusquedaProductosFacturaAction(): Promise<
+  ActionResult<{
+    rubros: string[];
+    marcas: string[];
+    subRubros: { rubro: string; subRubro: string }[];
+  }>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  try {
+    const {
+      listarNombresMarcaDistinctProdTienda,
+      listarNombresRubroDistinctProdTienda,
+      listarSubRubrosPorRubroProdTienda,
+    } = await import("@/services/rubrosProdTienda.service");
+    const [rubros, marcas, subRubros] = await Promise.all([
+      listarNombresRubroDistinctProdTienda(),
+      listarNombresMarcaDistinctProdTienda(),
+      listarSubRubrosPorRubroProdTienda(),
+    ]);
+    return { ok: true, data: { rubros, marcas, subRubros } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error al cargar filtros de productos.";
+    console.error("[facturacion][listarCatalogoBusquedaProductosFactura]", e);
+    return { ok: false, error: msg };
+  }
+}
+
+export async function buscarProductosFacturaAvanzadaAction(
+  raw: unknown
+): Promise<ActionResult<{ items: ProductoFacturaBusquedaItem[] }>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = buscarProductosFacturaAvanzadaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const descripcion = parsed.data.q.trim();
+  const res = await buscarProductosParaFactura({
+    q: descripcion.length >= 3 ? descripcion : "",
+    rubro: parsed.data.rubro,
+    subRubro: parsed.data.subRubro,
+    marca: parsed.data.marca,
+    take: parsed.data.take,
+    takeMax: 100,
     sucursalCodigo: parsed.data.sucursalCodigo,
   });
   return fromServiceResult(res);

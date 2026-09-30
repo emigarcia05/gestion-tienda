@@ -142,6 +142,7 @@ export default function CrearEditarEnviosDireccionModal({
             <Input
               value={nombreProyecto}
               onChange={(e) => setNombreProyecto(e.target.value.toLocaleUpperCase("es-AR"))}
+              placeholder="PRINCIPAL"
               autoComplete="off"
             />
           </label>
