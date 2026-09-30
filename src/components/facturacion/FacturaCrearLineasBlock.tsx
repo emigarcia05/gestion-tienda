@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, Percent, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { buscarProductosFacturaAction } from "@/actions/factura";
+import FacturaBusquedaAvanzadaModal from "@/components/facturacion/FacturaBusquedaAvanzadaModal";
 import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
+import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
@@ -39,16 +41,8 @@ import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-  TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
-  TYPEAHEAD_LISTBOX_CELL_CLASS,
-  TYPEAHEAD_LISTBOX_HEADER_CLASS,
-  TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_CLASS,
   TYPEAHEAD_LISTBOX_PANEL_FILL_BLOCK_CLASS,
-  TYPEAHEAD_LISTBOX_UL_CLASS,
-  TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS,
-  TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS,
-  TYPEAHEAD_STORE_ICON_CLASS,
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
@@ -88,15 +82,6 @@ function parseCantidadDraft(raw: string): number | null {
   return Math.trunc(n);
 }
 
-const FILA_BUSQUEDA_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
-
-const FILA_BUSQUEDA_STOCK =
-  "grid w-full min-w-0 grid-cols-2 items-center justify-items-center";
-
-const FILA_BUSQUEDA_STOCK_VALOR =
-  "flex w-full items-center justify-center tabular-nums text-foreground";
-
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
   acciones: 7,
@@ -108,17 +93,6 @@ const REMITO_COL_PCT = {
   pxConDesc: 10,
   total: 10,
 } as const;
-
-function hayStockEnOtraSucursal(
-  item: ProductoFacturaBusquedaItem,
-  sucursalCodigo: string | null
-): boolean {
-  return item.stockPorSucursal.some((s) => {
-    if (s.stock <= 0) return false;
-    if (sucursalCodigo == null) return true;
-    return s.codigo !== sucursalCodigo;
-  });
-}
 
 /**
  * Segundo bloque de Factura · Crear: typeahead de productos + tabla remito local.
@@ -159,6 +133,8 @@ export default function FacturaCrearLineasBlock({
   );
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
+  const [busquedaAvanzadaOpen, setBusquedaAvanzadaOpen] = useState(false);
+  const [stockDesdeAvanzada, setStockDesdeAvanzada] = useState(false);
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
   const pendingFocusCantidadKeyRef = useRef<string | null>(null);
   /** Si el alta fue al final de la grilla, bajar el scroll tras el paint. */
@@ -221,7 +197,12 @@ export default function FacturaCrearLineasBlock({
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
-      if (stockModalItem != null || descuentoModalOpen || comentarioModalOpen)
+      if (
+        stockModalItem != null ||
+        descuentoModalOpen ||
+        comentarioModalOpen ||
+        busquedaAvanzadaOpen
+      )
         return;
       const el = wrapRef.current;
       if (!el) return;
@@ -231,7 +212,7 @@ export default function FacturaCrearLineasBlock({
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [stockModalItem, descuentoModalOpen, comentarioModalOpen]);
+  }, [stockModalItem, descuentoModalOpen, comentarioModalOpen, busquedaAvanzadaOpen]);
 
   useEffect(() => {
     const key = pendingFocusCantidadKeyRef.current;
@@ -254,7 +235,10 @@ export default function FacturaCrearLineasBlock({
     el.select();
   }, [lineas]);
 
-  function agregarItem(item: ProductoFacturaBusquedaItem) {
+  function agregarItem(
+    item: ProductoFacturaBusquedaItem,
+    opts?: { mantenerBusqueda?: boolean }
+  ) {
     const keyFoco = nuevaKeyLinea();
     pendingScrollAlFinalRef.current = true;
     const { descuentoPctEspecial, descuentoSiguiente } =
@@ -274,10 +258,12 @@ export default function FacturaCrearLineasBlock({
         comentario: "",
       },
     ]);
-    setQ("");
-    setSugerencias([]);
-    setHighlight(0);
-    setAbierto(false);
+    if (!opts?.mantenerBusqueda) {
+      setQ("");
+      setSugerencias([]);
+      setHighlight(0);
+      setAbierto(false);
+    }
     pendingFocusCantidadKeyRef.current = keyFoco;
   }
 
@@ -361,12 +347,15 @@ export default function FacturaCrearLineasBlock({
         <div className="flex items-start gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="icon"
             className="size-9 shrink-0"
-            title="Búsqueda avanzada (próximamente)"
-            aria-label="Búsqueda avanzada (próximamente)"
-            onClick={() => toast.message("Búsqueda avanzada: próximamente.")}
+            title="Búsqueda avanzada"
+            aria-label="Búsqueda avanzada"
+            onClick={() => {
+              setAbierto(false);
+              setBusquedaAvanzadaOpen(true);
+            }}
           >
             <Search className="h-4 w-4 shrink-0" aria-hidden />
           </Button>
@@ -651,11 +640,11 @@ export default function FacturaCrearLineasBlock({
           aria-label="Resumen de totales"
         >
           <div className={PIE_METRICA_CLASS}>
-            <span className={PIE_ETIQUETA_CLASS}>TOTAL ITEM</span>
+            <span className={PIE_ETIQUETA_CLASS}>CANT. ITEMS</span>
             <span className={PIE_VALOR_CLASS}>{fmtNumero(resumen.totalItem)}</span>
           </div>
           <div className={PIE_METRICA_CLASS}>
-            <span className={PIE_ETIQUETA_CLASS}>TOTAL $</span>
+            <span className={PIE_ETIQUETA_CLASS}>TOTAL S/ DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalLista)}`}</span>
           </div>
           <div className={PIE_METRICA_CLASS}>
@@ -693,121 +682,48 @@ export default function FacturaCrearLineasBlock({
                 Sin resultados.
               </p>
             ) : (
-              <>
-                <div className={TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS}>
-                  <div
-                    className={cn(FILA_BUSQUEDA_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
-                    aria-hidden
-                  >
-                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>COD.</span>
-                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESCRIPCIÓN</span>
-                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PRECIOS</span>
-                    <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>STOCK</span>
-                  </div>
-                  <ul
-                    className={cn(
-                      TYPEAHEAD_LISTBOX_UL_CLASS,
-                      "flex-none overflow-visible"
-                    )}
-                  >
-                    {sugerencias.map((item, idx) => {
-                    const activo = idx === highlight;
-                    const sinStockLocal = item.stock <= 0;
-                    const stockEnOtra = hayStockEnOtraSucursal(
-                      item,
-                      sucursalUsuario
-                    );
-                    return (
-                      <li
-                        key={item.codTienda}
-                        role="option"
-                        aria-selected={activo}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={-1}
-                          className={cn(
-                            FILA_BUSQUEDA_GRID,
-                            "min-h-5 cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
-                            activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
-                          )}
-                          onMouseEnter={() => setHighlight(idx)}
-                          onClick={() => agregarItem(item)}
-                        >
-                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
-                            {item.codTienda}
-                          </span>
-                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-foreground")}>
-                            {item.descripcion}
-                          </span>
-                          <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "tabular-nums text-foreground")}>
-                            {`$${fmtPrecio(item.pxLista)}`}
-                          </span>
-                          <div className={FILA_BUSQUEDA_STOCK}>
-                            <span className={FILA_BUSQUEDA_STOCK_VALOR}>
-                              {sinStockLocal ? (
-                                <span
-                                  className="inline-flex"
-                                  title="Sin stock en la sucursal"
-                                >
-                                  <AlertTriangle
-                                    className="size-4 shrink-0 text-destructive"
-                                    aria-label="Sin stock en la sucursal"
-                                  />
-                                </span>
-                              ) : (
-                                fmtNumero(item.stock)
-                              )}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              className={
-                                stockEnOtra
-                                  ? TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS
-                                  : TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS
-                              }
-                              title={
-                                stockEnOtra
-                                  ? "Hay stock en otra sucursal"
-                                  : "No hay stock en otras sucursales"
-                              }
-                              aria-label={
-                                stockEnOtra
-                                  ? `Hay stock en otra sucursal — ver detalle de ${item.descripcion}`
-                                  : `No hay stock en otras sucursales — ver detalle de ${item.descripcion}`
-                              }
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setAbierto(false);
-                                setStockModalItem(item);
-                              }}
-                            >
-                              <Store
-                                className={TYPEAHEAD_STORE_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                  </ul>
-                </div>
-              </>
+              <FacturaProductoBusquedaLista
+                items={sugerencias}
+                sucursalCodigo={sucursalUsuario}
+                activoIndex={highlight}
+                onActivar={setHighlight}
+                onElegir={(item) => agregarItem(item)}
+                onVerStock={(item) => {
+                  setAbierto(false);
+                  setStockDesdeAvanzada(false);
+                  setStockModalItem(item);
+                }}
+                className="min-h-0 flex-1"
+              />
             )}
           </div>
         </div>
       ) : null}
 
+      <FacturaBusquedaAvanzadaModal
+        key={busquedaAvanzadaOpen ? "busqueda-avanzada-abierta" : "busqueda-avanzada-cerrada"}
+        open={busquedaAvanzadaOpen && stockModalItem == null}
+        onOpenChange={(open) => {
+          if (!open && stockDesdeAvanzada) return;
+          setBusquedaAvanzadaOpen(open);
+          if (!open) setStockDesdeAvanzada(false);
+        }}
+        sucursalCodigo={sucursalUsuario}
+        onElegir={(item) => agregarItem(item, { mantenerBusqueda: true })}
+        onVerStock={(item) => {
+          setStockDesdeAvanzada(true);
+          setStockModalItem(item);
+        }}
+      />
+
       <FacturaProductoStockModal
         open={stockModalOpen}
         onOpenChange={(open) => {
           if (!open) {
+            const volverAvanzada = stockDesdeAvanzada;
             setStockModalItem(null);
+            setStockDesdeAvanzada(false);
+            if (volverAvanzada) return;
             const qActual = q.trim();
             if (qActual.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
               void fetchSugerencias(qActual);

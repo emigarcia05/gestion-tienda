@@ -22,7 +22,7 @@ export function hayStockEnOtraSucursal(
 }
 
 const FILA_BUSQUEDA_STOCK =
-  "grid w-full min-w-0 grid-cols-2 items-center justify-items-center";
+  "mx-auto grid w-fit grid-cols-[1.75rem_1.25rem] items-center justify-items-center gap-1";
 
 const FILA_BUSQUEDA_STOCK_VALOR =
   "flex w-full items-center justify-center tabular-nums text-foreground";
