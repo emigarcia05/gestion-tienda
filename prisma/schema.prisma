@@ -375,6 +375,7 @@ model PtoVentasCodArca {
 
   ptoVtas                     GlobalPtoVta[]
   comprobantesVtasReceptor    ComprobanteVta[] @relation("ComprobanteVtaReceptorIva")
+  comprobantesVtasEmisor      ComprobanteVta[] @relation("ComprobanteVtaEmisorIva")
   clientes                    Cliente[]
 
   @@map("condicion_iva_cod_arca")
@@ -1936,6 +1937,10 @@ model ComprobanteVta {
   receptorDocTipo      Int?    @map("receptor_doc_tipo")
   receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
   receptorCondicionIva Int?    @map("receptor_condicion_iva")
+  /** Domicilio del receptor al autorizar (factura A). No se relee del proyecto. */
+  receptorDomicilio    String? @map("receptor_domicilio") @db.Text
+  /** Condición IVA del emisor al autorizar (`condicion_iva_cod_arca.codigo`). */
+  emisorCondicionIva   Int?    @map("emisor_condicion_iva")
 
   impNeto     Decimal @map("imp_neto") @db.Decimal(14, 2)
   impIva      Decimal @default(0) @map("imp_iva") @db.Decimal(14, 2)
@@ -1981,6 +1986,7 @@ model ComprobanteVta {
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  emisorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaEmisorIva", fields: [emisorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
   personal GlobalPersonal? @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
@@ -1994,6 +2000,7 @@ model ComprobanteVta {
   @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")
   @@index([proyectoId], map: "comprobantes_vtas_proyecto_id_idx")
   @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
+  @@index([emisorCondicionIva], map: "comprobantes_vtas_emisor_iva_idx")
   @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
   @@index([personalId], map: "comprobantes_vtas_personal_id_idx")
   @@map("comprobantes_vtas")
@@ -2058,7 +2065,7 @@ model ComprobanteVtaItem {
   @@map("comprobantes_vtas_items")
 }
 
-/** Historial de llamadas ARCA (sin XML ni secretos). */
+/** Historial de llamadas ARCA. `payload` es el JSON fiscal (sin token ni certificado). */
 model ComprobanteVtaHistorialArca {
   id            String   @id @default(cuid())
   comprobanteId String   @map("comprobante_id")
@@ -2066,6 +2073,8 @@ model ComprobanteVtaHistorialArca {
   operacion     String   @db.VarChar(64)
   resultado     String?  @db.VarChar(8)
   errores       String?  @db.Text
+  /** Solicitud y respuesta de negocio. Nunca incluye token, sign ni PEM. */
+  payload       String?  @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
 
   comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)

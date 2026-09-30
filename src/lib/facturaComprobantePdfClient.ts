@@ -1,5 +1,7 @@
 import { descargarPdfBytes } from "@/lib/descargarPdfBase64";
 import { ENVIOS_PDF_MAX_BYTES } from "@/lib/envios";
+import { dataUrlQrComprobanteFiscal } from "@/lib/facturaComprobanteQr";
+import { esFacturaTipoFiscal } from "@/lib/factura";
 import type {
   FacturaComprobantePdfInput,
   FacturaComprobantePdfLogo,
@@ -92,11 +94,35 @@ async function cargarLogoTiendaColorPdf(): Promise<FacturaComprobantePdfLogo | n
 export async function generarBytesPdfFacturaComprobante(
   input: FacturaComprobantePdfInput
 ): Promise<Uint8Array> {
+  let listo = input;
+  if (esFacturaTipoFiscal(input.tipo)) {
+    const cae = input.cae?.trim() ?? "";
+    if (!cae) {
+      throw new Error("El comprobante fiscal no está autorizado por ARCA.");
+    }
+    if (!input.fiscal) {
+      throw new Error("Faltan datos fiscales para armar el PDF.");
+    }
+    const qrDataUrl = await dataUrlQrComprobanteFiscal({
+      fechaIso: input.fechaIso,
+      cuitEmisor: input.fiscal.cuitEmisor,
+      ptoVenta: input.fiscal.ptoVenta,
+      cbteTipo: input.fiscal.cbteTipo,
+      cbteNro: input.fiscal.cbteNro,
+      impTotal: input.fiscal.impTotal,
+      moneda: input.fiscal.moneda,
+      cotizacion: input.fiscal.cotizacion,
+      receptorDocTipo: input.fiscal.receptorDocTipo,
+      receptorDocNro: input.fiscal.receptorDocNro,
+      cae,
+    });
+    listo = { ...input, fiscal: { ...input.fiscal, qrDataUrl } };
+  }
   const [{ generarPdfFacturaComprobante }, logo] = await Promise.all([
     import("@/lib/generarPdfFacturaComprobante"),
     cargarLogoTiendaColorPdf(),
   ]);
-  return generarPdfFacturaComprobante({ ...input, logo });
+  return generarPdfFacturaComprobante({ ...listo, logo });
 }
 
 export async function descargarPdfFacturaComprobante(

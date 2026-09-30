@@ -9,6 +9,7 @@ import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
@@ -20,10 +21,12 @@ import {
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esCobroNotaCreditoNombre,
+  esFacturaTipoFiscal,
   esFacturaTipoVenta,
   FACTURA_TIPO_LABELS,
   resumenTotalesFactura,
 } from "@/lib/factura";
+import { ARCA_CF_MAX_SIN_DOC_DEFAULT } from "@/lib/facturaFiscal";
 import {
   descargarPdfFacturaComprobante,
   imprimirPdfFacturaComprobante,
@@ -91,7 +94,8 @@ interface Props {
   comprobante: FacturaComprobantePdfInput | null;
   /** Persiste el comprobante (ARCA si aplica) y devuelve el PDF con nro/CAE. */
   onEmitir: (
-    cobros: CobroFacturaEmitirInput[]
+    cobros: CobroFacturaEmitirInput[],
+    documentoReceptor?: string
   ) => Promise<FacturaComprobantePdfInput | null>;
   onFinalizado?: () => void;
 }
@@ -128,8 +132,19 @@ export default function FacturaGenerarComprobanteModal({
   const [cuotaId, setCuotaId] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
+  const [documentoReceptor, setDocumentoReceptor] = useState("");
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
+  const cuitReceptor = (comprobante?.clienteCuit ?? "").replace(/\D/g, "");
+  const condicionReceptor = (comprobante?.clienteCondicionIva ?? "").toLocaleUpperCase("es-AR");
+  const pideDocumentoCf =
+    comprobante != null &&
+    esFacturaTipoFiscal(comprobante.tipo) &&
+    (condicionReceptor.includes("CONSUMIDOR") || cuitReceptor.length !== 11);
+  const documentoObligatorio =
+    pideDocumentoCf &&
+    cuitReceptor.length !== 11 &&
+    totalCentsDeComprobante(comprobante) > ARCA_CF_MAX_SIN_DOC_DEFAULT * 100;
   const totalCents = totalCentsDeComprobante(comprobante);
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
@@ -157,6 +172,7 @@ export default function FacturaGenerarComprobanteModal({
   useEffect(() => {
     if (!open) return;
     setCobros([]);
+    setDocumentoReceptor("");
     resetFormularioCobro(totalCentsDeComprobante(comprobante));
   }, [open, comprobante, resetFormularioCobro]);
 
@@ -294,9 +310,16 @@ export default function FacturaGenerarComprobanteModal({
         montoCents: extra.cobro.montoCents,
       });
     }
+    if (documentoObligatorio && documentoReceptor.replace(/\D/g, "").length < 7) {
+      toast.error("Por el importe, identificá al consumidor final con DNI o CUIT.");
+      return;
+    }
     setPending(accion);
     try {
-      const emitido = await onEmitir(cobrosEmitir);
+      const emitido = await onEmitir(
+        cobrosEmitir,
+        pideDocumentoCf ? documentoReceptor : undefined
+      );
       if (emitido == null) return;
       try {
         if (accion === "imprimir") {
@@ -501,6 +524,26 @@ export default function FacturaGenerarComprobanteModal({
                   ))}
                 </ul>
               ) : null}
+            </section>
+          ) : null}
+
+          {pideDocumentoCf ? (
+            <section className={SECCION_MODAL_CLASS}>
+              <p className={SECCION_TITULO_CLASS}>
+                {documentoObligatorio ? "DOCUMENTO DEL CONSUMIDOR" : "DOCUMENTO"}
+              </p>
+              <label className="mx-auto flex w-full max-w-xs flex-col gap-1">
+                <ModalMicroLabel align="center">DNI / CUIT</ModalMicroLabel>
+                <Input
+                  value={documentoReceptor}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  disabled={ocupado}
+                  placeholder="DNI o CUIT"
+                  className="h-10 text-center tabular-nums"
+                  onChange={(e) => setDocumentoReceptor(e.target.value)}
+                />
+              </label>
             </section>
           ) : null}
 
