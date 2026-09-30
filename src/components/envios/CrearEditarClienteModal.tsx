@@ -336,7 +336,52 @@ export default function CrearEditarClienteModal({
         >
           <div className="flex flex-col gap-5">
             <section className="flex flex-col gap-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
+                CREAR CON CUIT
+              </p>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CUIT</ModalMicroLabel>
+                <div className="relative">
+                  <Input
+                    value={cuitMasked}
+                    onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
+                    placeholder="##-########-#"
+                    autoComplete="off"
+                    inputMode="numeric"
+                    className={cn("tabular-nums", "pr-10")}
+                    disabled={saving}
+                    aria-label="CUIT"
+                  />
+                  <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon-xs"
+                      className="size-full p-0 shadow-none"
+                      disabled={!puedeConsultarArca}
+                      onClick={() => void consultarConstanciaArca()}
+                      aria-label={
+                        consultandoArca
+                          ? "Consultando CUIT en ARCA"
+                          : "Consultar CUIT en ARCA"
+                      }
+                      title="Consultar ARCA"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "size-3.5 shrink-0",
+                          consultandoArca && "animate-spin"
+                        )}
+                        aria-hidden
+                      />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-3 border-t border-border pt-4">
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                 DATOS CONTACTO
               </p>
               <label className="flex flex-col gap-1">
@@ -468,48 +513,9 @@ export default function CrearEditarClienteModal({
             </section>
 
             <section className="flex flex-col gap-3 border-t border-border pt-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                 DATOS FISCALES
               </p>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CUIT</ModalMicroLabel>
-                <div className="relative">
-                  <Input
-                    value={cuitMasked}
-                    onChange={(e) => setCuitMasked(formatearCuitMascara(e.target.value))}
-                    placeholder="##-########-#"
-                    autoComplete="off"
-                    inputMode="numeric"
-                    className={cn("tabular-nums", "pr-10")}
-                    disabled={saving}
-                    aria-label="CUIT"
-                  />
-                  <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="icon-xs"
-                      className="size-full p-0 shadow-none"
-                      disabled={!puedeConsultarArca}
-                      onClick={() => void consultarConstanciaArca()}
-                      aria-label={
-                        consultandoArca
-                          ? "Consultando CUIT en ARCA"
-                          : "Consultar CUIT en ARCA"
-                      }
-                      title="Consultar ARCA"
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "size-3.5 shrink-0",
-                          consultandoArca && "animate-spin"
-                        )}
-                        aria-hidden
-                      />
-                    </Button>
-                  </div>
-                </div>
-              </div>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
                 <Select
@@ -537,7 +543,7 @@ export default function CrearEditarClienteModal({
             </section>
 
             <section className="flex flex-col gap-3 border-t border-border pt-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+              <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                 CUENTA CORRIENTE
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -571,7 +577,7 @@ export default function CrearEditarClienteModal({
 
             {muestraDirecciones ? (
               <section className="flex flex-col gap-3 border-t border-border pt-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                   PROYECTOS
                 </p>
                 {direccionesLocal.length > 0 ? (
