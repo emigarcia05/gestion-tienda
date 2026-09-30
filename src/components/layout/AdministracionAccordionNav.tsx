@@ -109,11 +109,18 @@ function GroupBranch({
   const directScreens = group.screens ?? [];
 
   return (
-    <div>
-      <div className="sidebar-nav-item" data-ancestor={groupActive ? "true" : undefined}>
+    <div
+      className="sidebar-nav-branch"
+      data-open={groupActive ? "true" : undefined}
+    >
+      <button
+        type="button"
+        className="sidebar-nav-item"
+        data-ancestor={groupActive ? "true" : undefined}
+      >
         <Icon className={subIconClass} aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
-      </div>
+      </button>
       <div className={TREE_PANEL_NESTED}>
         {directScreens.length > 0 ? (
           <ScreensList screens={directScreens} pathname={pathname} />

@@ -385,6 +385,17 @@ function submoduleGroupKey(moduleId: SidebarModuleId, label: string): string {
   return `${moduleId}:${label}`;
 }
 
+function subtreeHasActive(
+  subs: SubmoduleItem[],
+  pathname: string,
+  crearClase: string | null
+): boolean {
+  return subs.some((sub) => {
+    if (sub.href && isSubmoduleActive(pathname, sub.href, crearClase)) return true;
+    return sub.children ? subtreeHasActive(sub.children, pathname, crearClase) : false;
+  });
+}
+
 export default function Sidebar({ rol }: { rol: Rol }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -439,12 +450,21 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     return visible.map((sub) => {
       if (!sub.href && sub.children?.length) {
         const groupKey = submoduleGroupKey(moduleId, sub.label);
+        const abierto = subtreeHasActive(sub.children, pathname, crearClase);
         return (
-          <div key={groupKey}>
-            <div className="sidebar-nav-item" data-ancestor="true">
+          <div
+            key={groupKey}
+            className="sidebar-nav-branch"
+            data-open={abierto ? "true" : undefined}
+          >
+            <button
+              type="button"
+              className="sidebar-nav-item"
+              data-ancestor={abierto ? "true" : undefined}
+            >
               {sub.icon}
               <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
-            </div>
+            </button>
             <div className="sidebar-nav-tree sidebar-nav-tree--nested">
               {renderSubmoduleItems(sub.children, moduleId)}
             </div>
@@ -455,8 +475,15 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       if (!sub.href) return null;
 
       const active = isSubmoduleActive(pathname, sub.href, crearClase);
+      const hijosAbiertos = sub.children
+        ? subtreeHasActive(sub.children, pathname, crearClase) || active
+        : false;
       return (
-        <div key={sub.href}>
+        <div
+          key={sub.href}
+          className={sub.children?.length ? "sidebar-nav-branch" : undefined}
+          data-open={hijosAbiertos ? "true" : undefined}
+        >
           <Link
             href={sub.href}
             className={cn("sidebar-nav-item", sub.isUrgente && "relative")}

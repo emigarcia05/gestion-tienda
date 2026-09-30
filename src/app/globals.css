@@ -392,7 +392,7 @@
   }
 
   /**
-   * Tarjetas / pie de totales: mismo azul oscuro que slidenav y header.
+   * Tarjeta de total: azul oscuro (slidenav / header). El pie que las agrupa no pinta el fondo.
    */
   .finanzas-resumen-tarjeta {
     display: flex;
@@ -413,9 +413,14 @@
   }
 
   /**
-   * Barra tipo pie de página (totales bajo tabla, indicadores fijos).
+   * Pie de página bajo la tabla: sin fondo. El azul oscuro queda en cada `.finanzas-resumen-tarjeta`.
+   * El footer de modal (`.pie-pagina--solido`) sí pinta toda la barra.
    */
   .pie-pagina {
+    background-color: transparent;
+    color: var(--foreground);
+  }
+  .pie-pagina--solido {
     background-color: var(--sidebar);
     color: var(--sidebar-foreground);
     border-color: var(--sidebar-border);
@@ -832,6 +837,18 @@
   .sidebar-nav-tree--nested {
     padding-left: 0.75rem;
     margin-top: 0.15rem;
+  }
+  /**
+   * Acordeón de un grupo: cerrado hasta el hover (o el foco) y abierto
+   * si contiene la ruta actual (`data-open`).
+   */
+  .sidebar-nav-branch > .sidebar-nav-tree {
+    display: none;
+  }
+  .sidebar-nav-branch:hover > .sidebar-nav-tree,
+  .sidebar-nav-branch:focus-within > .sidebar-nav-tree,
+  .sidebar-nav-branch[data-open="true"] > .sidebar-nav-tree {
+    display: flex;
   }
 
   /**

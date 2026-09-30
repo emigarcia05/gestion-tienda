@@ -168,7 +168,7 @@ export default function AppModal({
       {/* Footer: azul oscuro; la botonera resalta por color de botón */}
       <div
         className={cn(
-          "pie-pagina shrink-0 flex flex-row items-center justify-end gap-2 px-6 py-4",
+          "pie-pagina pie-pagina--solido shrink-0 flex flex-row items-center justify-end gap-2 px-6 py-4",
           footerClassName
         )}
       >
