@@ -12,12 +12,42 @@ import type { ServiceResult } from "@/types/service.types";
 const MSG_SIN_PEM_EMISOR =
   "No se encontró un certificado PEM del emisor en el entorno. Cargá ARCA_CERT_PEM_{CUIT} y ARCA_KEY_PEM_{CUIT} del CUIT de la empresa (el mismo que usa WSAA para facturar). No hace falta un par por punto de venta ni por el CUIT del cliente.";
 
-async function resolverEmisorConstancia(): Promise<
-  ServiceResult<{ ptoVenta?: string; cuitEmisor: string }>
-> {
+const MSG_WS_NO_AUTORIZADO =
+  "ARCA rechazó la constancia porque el certificado no está autorizado para este servicio. En ARCA, asociá ws_sr_constancia_inscripcion / ws_sr_padron_a5 al certificado del CUIT emisor.";
+
+const SERVICIOS_CONSTANCIA_WSAA = [
+  ARCA_SERVICIO_CONSTANCIA,
+  "ws_sr_padron_a5",
+] as const;
+
+type EmisorConstancia = { ptoVenta?: string; cuitEmisor: string };
+
+function esErrorRelacionOWebService(mensaje: string): boolean {
+  const lower = mensaje.toLowerCase();
+  return lower.includes("relacion") || lower.includes("web service");
+}
+
+function esErrorComputadorNoAutorizado(mensaje: string): boolean {
+  const lower = mensaje.toLowerCase();
+  return (
+    lower.includes("computador no autorizado") ||
+    lower.includes("computadora no autorizada") ||
+    lower.includes("no autorizado a acceder al servicio")
+  );
+}
+
+function esErrorNoAutorizadoConstancia(mensaje: string): boolean {
+  return esErrorRelacionOWebService(mensaje) || esErrorComputadorNoAutorizado(mensaje);
+}
+
+async function resolverEmisoresConstancia(): Promise<ServiceResult<EmisorConstancia[]>> {
+  const candidatos: EmisorConstancia[] = [];
+  const vistos = new Set<string>();
+
   const envSinPto = leerArcaEnv();
   if (!("error" in envSinPto)) {
-    return { success: true, data: { cuitEmisor: envSinPto.cuit } };
+    candidatos.push({ cuitEmisor: envSinPto.cuit });
+    vistos.add(envSinPto.cuit);
   }
 
   const ptos = await prisma.globalPtoVta.findMany({
@@ -29,7 +59,6 @@ async function resolverEmisorConstancia(): Promise<
     ...ptos.filter((p) => p.estado === "activo"),
     ...ptos.filter((p) => p.estado !== "activo"),
   ];
-  const vistos = new Set<string>();
   for (const pto of ordenados) {
     if (!pto.cuit || vistos.has(pto.cuit)) continue;
     vistos.add(pto.cuit);
@@ -38,13 +67,13 @@ async function resolverEmisorConstancia(): Promise<
       cuitFallback: pto.cuit,
     });
     if ("error" in env) continue;
-    return {
-      success: true,
-      data: { ptoVenta: pto.ptoVenta, cuitEmisor: env.cuit },
-    };
+    candidatos.push({ ptoVenta: pto.ptoVenta, cuitEmisor: env.cuit });
   }
 
-  return { success: false, error: MSG_SIN_PEM_EMISOR };
+  if (candidatos.length === 0) {
+    return { success: false, error: MSG_SIN_PEM_EMISOR };
+  }
+  return { success: true, data: candidatos };
 }
 
 /**
@@ -54,68 +83,90 @@ async function resolverEmisorConstancia(): Promise<
 export async function consultarConstanciaArca(cuit: string): Promise<
   ServiceResult<ArcaConstanciaPersona>
 > {
-  const emisor = await resolverEmisorConstancia();
-  if (!emisor.success) return emisor;
-  const authRes = await obtenerAuthArca({
-    servicio: ARCA_SERVICIO_CONSTANCIA,
-    ptoVenta: emisor.data.ptoVenta,
-    cuitEmisor: emisor.data.cuitEmisor,
-  });
-  if (!authRes.success) {
-    const lower = authRes.error.toLowerCase();
-    if (lower.includes("relacion") || lower.includes("web service")) {
+  const emisores = await resolverEmisoresConstancia();
+  if (!emisores.success) return emisores;
+
+  const erroresNoAutorizado: string[] = [];
+
+  for (const emisor of emisores.data) {
+    for (const servicio of SERVICIOS_CONSTANCIA_WSAA) {
+      const authRes = await obtenerAuthArca({
+        servicio,
+        ptoVenta: emisor.ptoVenta,
+        cuitEmisor: emisor.cuitEmisor,
+      });
+      if (!authRes.success) {
+        if (esErrorNoAutorizadoConstancia(authRes.error)) {
+          erroresNoAutorizado.push(`${emisor.cuitEmisor} (${servicio})`);
+          continue;
+        }
+        return authRes;
+      }
+
+      const persona = await constanciaGetPersonaV2(
+        {
+          token: authRes.data.token,
+          sign: authRes.data.sign,
+          cuit: authRes.data.cuit,
+        },
+        cuit
+      );
+      if (!persona.ok) {
+        if (esErrorNoAutorizadoConstancia(persona.error)) {
+          erroresNoAutorizado.push(`${emisor.cuitEmisor} (${servicio})`);
+          continue;
+        }
+        return { success: false, error: persona.error };
+      }
+
+      const nombre = nombreDesdeConstanciaArca({
+        razonSocial: persona.data.razonSocial,
+        apellido: persona.data.apellido,
+        nombre: persona.data.nombre,
+      });
+      if (!nombre) {
+        return { success: false, error: "ARCA no devolvió el nombre del contribuyente." };
+      }
+
+      const condicionIva = condicionIvaDesdeConstanciaArca({
+        tieneDatosMonotributo: persona.data.tieneDatosMonotributo,
+        categoriaMonotributo: persona.data.categoriaMonotributo,
+        impuestosRegimenGeneral: persona.data.impuestosRegimenGeneral,
+      });
+
+      let condicionIvaDescripcion: string | null = null;
+      if (condicionIva != null) {
+        const cat = await prisma.ptoVentasCodArca.findUnique({
+          where: { codigo: condicionIva },
+          select: { descripcion: true },
+        });
+        condicionIvaDescripcion = cat?.descripcion ?? null;
+      }
+
       return {
-        success: false,
-        error:
-          "El certificado no está habilitado para Constancia de Inscripción. En ARCA, asociá el WS ws_sr_constancia_inscripcion al certificado.",
+        success: true,
+        data: {
+          cuit: persona.data.cuit,
+          nombre,
+          condicionIva,
+          condicionIvaDescripcion,
+          estadoClave: persona.data.estadoClave,
+          tipoPersona: persona.data.tipoPersona,
+        },
       };
     }
-    return authRes;
   }
 
-  const persona = await constanciaGetPersonaV2(
-    {
-      token: authRes.data.token,
-      sign: authRes.data.sign,
-      cuit: authRes.data.cuit,
-    },
-    cuit
-  );
-  if (!persona.ok) return { success: false, error: persona.error };
-
-  const nombre = nombreDesdeConstanciaArca({
-    razonSocial: persona.data.razonSocial,
-    apellido: persona.data.apellido,
-    nombre: persona.data.nombre,
-  });
-  if (!nombre) {
-    return { success: false, error: "ARCA no devolvió el nombre del contribuyente." };
-  }
-
-  const condicionIva = condicionIvaDesdeConstanciaArca({
-    tieneDatosMonotributo: persona.data.tieneDatosMonotributo,
-    categoriaMonotributo: persona.data.categoriaMonotributo,
-    impuestosRegimenGeneral: persona.data.impuestosRegimenGeneral,
-  });
-
-  let condicionIvaDescripcion: string | null = null;
-  if (condicionIva != null) {
-    const cat = await prisma.ptoVentasCodArca.findUnique({
-      where: { codigo: condicionIva },
-      select: { descripcion: true },
-    });
-    condicionIvaDescripcion = cat?.descripcion ?? null;
+  if (erroresNoAutorizado.length > 0) {
+    const cuitsProbados = [...new Set(erroresNoAutorizado)].join(", ");
+    return {
+      success: false,
+      error: `${MSG_WS_NO_AUTORIZADO} Emisores/servicios probados: ${cuitsProbados}.`,
+    };
   }
 
   return {
-    success: true,
-    data: {
-      cuit: persona.data.cuit,
-      nombre,
-      condicionIva,
-      condicionIvaDescripcion,
-      estadoClave: persona.data.estadoClave,
-      tipoPersona: persona.data.tipoPersona,
-    },
+    success: false,
+    error: "No se encontró un emisor habilitado para consultar la constancia en ARCA.",
   };
 }

@@ -647,11 +647,8 @@ type LedgerEvento = {
   /** false = fila informativa (p. ej. cobro marcado cuenta corriente); no mueve el saldo. */
   afectaSaldo: boolean;
   cuentaComoPago: boolean;
-<<<<<<< HEAD
   ventaVencida?: boolean;
-=======
   proyectoId: string | null;
->>>>>>> facturacion
 };
 
 function detalleCobroLedger(cobro: {
@@ -841,11 +838,8 @@ export async function obtenerCuentaCorrienteCliente(
         cbteNro: true,
         impTotal: true,
         impCobrado: true,
-<<<<<<< HEAD
         diasVencimiento: true,
-=======
         proyectoId: true,
->>>>>>> facturacion
       },
     });
 
@@ -962,7 +956,6 @@ export async function obtenerCuentaCorrienteCliente(
         tipoOrden: tipo === "venta" ? 0 : 2,
         afectaSaldo: true,
         cuentaComoPago: false,
-<<<<<<< HEAD
         ventaVencida:
           tipo === "venta"
             ? montoSaldoVencidoVenta({
@@ -972,9 +965,7 @@ export async function obtenerCuentaCorrienteCliente(
                 hoyIso,
               }) > 0
             : undefined,
-=======
         proyectoId,
->>>>>>> facturacion
       });
       if (tipo !== "venta") continue;
 
@@ -1076,11 +1067,8 @@ export async function obtenerCuentaCorrienteCliente(
         saldoCc: saldo,
         afectaSaldo: ev.afectaSaldo,
         cuentaComoPago: ev.cuentaComoPago,
-<<<<<<< HEAD
         ventaVencida: ev.ventaVencida,
-=======
         proyectoId: ev.proyectoId,
->>>>>>> facturacion
       };
     });
     movimientos.reverse();

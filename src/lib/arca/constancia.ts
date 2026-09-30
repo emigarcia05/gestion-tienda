@@ -113,7 +113,14 @@ function mensajeFaultUsable(raw: string): string {
     return "ARCA no encontró un contribuyente con ese CUIT.";
   }
   if (lower.includes("relacion") || lower.includes("web service")) {
-    return "El certificado no está habilitado para Constancia de Inscripción. En ARCA, asociá el WS ws_sr_constancia_inscripcion al certificado.";
+    return "El certificado no está habilitado para Constancia de Inscripción. En ARCA, asociá el WS ws_sr_constancia_inscripcion o ws_sr_padron_a5 al certificado.";
+  }
+  if (
+    lower.includes("computador no autorizado") ||
+    lower.includes("computadora no autorizada") ||
+    lower.includes("no autorizado a acceder al servicio")
+  ) {
+    return "ARCA rechazó la consulta porque el certificado no está autorizado para este servicio. Revisá la relación del WS ws_sr_constancia_inscripcion o ws_sr_padron_a5 en ARCA para ese CUIT emisor.";
   }
   return t.slice(0, 300);
 }

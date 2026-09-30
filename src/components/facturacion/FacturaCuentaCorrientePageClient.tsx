@@ -226,15 +226,19 @@ export default function FacturaCuentaCorrientePageClient({
         rangoHasta,
         tipo: filtroTipo,
         saldo: filtroSaldo,
-<<<<<<< HEAD
         saldoVencido: filtroSaldoVencido,
-      }),
-    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, filtroSaldoVencido]
-=======
         proyectoId: proyectoFiltroId,
       }),
-    [movimientos, periodo, rangoDesde, rangoHasta, filtroTipo, filtroSaldo, proyectoFiltroId]
->>>>>>> facturacion
+    [
+      movimientos,
+      periodo,
+      rangoDesde,
+      rangoHasta,
+      filtroTipo,
+      filtroSaldo,
+      filtroSaldoVencido,
+      proyectoFiltroId,
+    ]
   );
 
   const indicadores = useMemo(
