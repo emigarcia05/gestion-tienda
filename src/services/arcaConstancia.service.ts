@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { constanciaGetPersonaV2, cuitEmisorConstancia } from "@/lib/arca";
+import {
+  cnDesdeCertPem,
+  constanciaGetPersonaV2,
+  cuitEmisorConstancia,
+  leerArcaEnvPorCuit,
+} from "@/lib/arca";
 import type { ArcaConstanciaPersona } from "@/lib/arcaConstancia";
 import {
   ARCA_SERVICIO_CONSTANCIA,
@@ -9,8 +14,10 @@ import {
 import { obtenerAuthArca } from "@/services/arcaAuth.service";
 import type { ServiceResult } from "@/types/service.types";
 
-const MSG_WS_NO_AUTORIZADO =
-  "ARCA rechazó la constancia: el certificado de 20-37267223-5 no está autorizado para ws_sr_constancia_inscripcion. En homologación: WSASS → Crear Autorización a Servicio. En producción: Administrador de Relaciones → delegar ese WS al certificado. ARCA_ENV (homo/prod) tiene que coincidir con el certificado.";
+function msgWsNoAutorizado(cn: string | null, ambiente: string): string {
+  const alias = cn ? ` «${cn}»` : "";
+  return `ARCA rechazó la constancia: el certificado${alias} de 20-37267223-5 no está autorizado para ws_sr_constancia_inscripcion (ambiente ${ambiente}). En homologación: WSASS → Consultar autorizaciones del DN ${cn ?? "TiedaColorC1"} para ese WS. En producción: Administrador de Relaciones. ARCA_ENV tiene que coincidir con el certificado.`;
+}
 
 const MSG_AMBIENTE_CRUZADO =
   "El certificado no corresponde a este ambiente. ARCA_ENV (homo/prod) tiene que coincidir con el certificado (homologación vs producción).";
@@ -67,6 +74,10 @@ export async function consultarConstanciaArca(cuit: string): Promise<
   const emisor = cuitEmisorConstancia();
   if (typeof emisor !== "string") return { success: false, error: emisor.error };
 
+  const envEmisor = leerArcaEnvPorCuit(emisor);
+  if ("error" in envEmisor) return { success: false, error: envEmisor.error };
+  const certCn = cnDesdeCertPem(envEmisor.certPem);
+
   const authRes = await obtenerAuthArca({
     servicio: ARCA_SERVICIO_CONSTANCIA,
     cuitEmisor: emisor,
@@ -77,7 +88,11 @@ export async function consultarConstanciaArca(cuit: string): Promise<
       return { success: false, error: MSG_AMBIENTE_CRUZADO };
     }
     if (esErrorNoAutorizadoConstancia(authRes.error)) {
-      return { success: false, error: MSG_WS_NO_AUTORIZADO };
+      console.error("[arca][constancia] WSAA no autorizado", {
+        cn: certCn,
+        ambiente: envEmisor.ambiente,
+      });
+      return { success: false, error: msgWsNoAutorizado(certCn, envEmisor.ambiente) };
     }
     return { success: false, error: compactarError(authRes.error) };
   }
@@ -98,7 +113,11 @@ export async function consultarConstanciaArca(cuit: string): Promise<
       return { success: false, error: MSG_AMBIENTE_CRUZADO };
     }
     if (esErrorNoAutorizadoConstancia(persona.error)) {
-      return { success: false, error: MSG_WS_NO_AUTORIZADO };
+      console.error("[arca][constancia] getPersona_v2 no autorizado", {
+        cn: certCn,
+        ambiente: envEmisor.ambiente,
+      });
+      return { success: false, error: msgWsNoAutorizado(certCn, envEmisor.ambiente) };
     }
     return { success: false, error: persona.error };
   }

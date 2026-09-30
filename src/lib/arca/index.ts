@@ -3,6 +3,7 @@ import "server-only";
 export {
   arcaAmbienteDesdeEnv,
   arcaCertificadosConfigurados,
+  aliasCertArcaPorCuit,
   leerArcaConexion,
   leerArcaEnv,
   leerArcaEnvPorCuit,
@@ -16,6 +17,7 @@ export {
   urlWsaa,
   urlWsfev1,
 } from "@/lib/arca/env";
+export { cnDesdeCertPem, cuitDesdeCertPem } from "@/lib/arca/cms";
 export { constanciaGetPersonaV2 } from "@/lib/arca/constancia";
 export { wsaaLoginCms } from "@/lib/arca/wsaa";
 export type { WsaaTicket } from "@/lib/arca/wsaa";

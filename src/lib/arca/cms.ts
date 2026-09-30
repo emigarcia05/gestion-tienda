@@ -49,6 +49,17 @@ export function firmarTraCms(
   return forge.util.encode64(der);
 }
 
+/** CN del subject (alias del DN en WSASS). No es secreto; no loguear PEM. */
+export function cnDesdeCertPem(certPem: string): string | null {
+  try {
+    const cert = forge.pki.certificateFromPem(certPem);
+    const cn = cert.subject.getField("CN");
+    return typeof cn?.value === "string" && cn.value.trim() ? cn.value.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** CUIT 11 dígitos del subject del certificado AFIP/ARCA (p. ej. serialNumber=CUIT 20…). */
 export function cuitDesdeCertPem(certPem: string): string | null {
   try {

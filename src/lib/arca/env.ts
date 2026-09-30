@@ -2,7 +2,7 @@ import "server-only";
 
 import nodeProcess from "node:process";
 import { z } from "zod";
-import { cuitDesdeCertPem } from "@/lib/arca/cms";
+import { cnDesdeCertPem, cuitDesdeCertPem } from "@/lib/arca/cms";
 import { ARCA_CUIT_CONSTANCIA, esCuitValido, type ArcaAmbiente } from "@/lib/facturaFiscal";
 
 const ambienteSchema = z.enum(["homo", "prod"]);
@@ -95,32 +95,76 @@ function envRuntime(nombre: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
-/** `ARCA_*_{CUIT}` compartido; fallback `ARCA_CERT_PEM` / `ARCA_KEY_PEM`. */
-function leerPems(cuit: string | null): {
+/**
+ * Acceso con literal estático para que Next/Turbopack no pierda `ARCA_*_{CUIT}`
+ * cuando el nombre se arma en runtime (`ARCA_CERT_PEM_${cuit}`).
+ */
+function envPemPorCuitEstatico(cuit: string): {
+  cert: string | undefined;
+  key: string | undefined;
+  passphrase: string | undefined;
+} {
+  switch (cuit) {
+    case "20372672235":
+      return {
+        cert: envRuntime("ARCA_CERT_PEM_20372672235"),
+        key: envRuntime("ARCA_KEY_PEM_20372672235"),
+        passphrase: envRuntime("ARCA_KEY_PASSPHRASE_20372672235"),
+      };
+    case "23169084289":
+      return {
+        cert: envRuntime("ARCA_CERT_PEM_23169084289"),
+        key: envRuntime("ARCA_KEY_PEM_23169084289"),
+        passphrase: envRuntime("ARCA_KEY_PASSPHRASE_23169084289"),
+      };
+    case "20329808824":
+      return {
+        cert: envRuntime("ARCA_CERT_PEM_20329808824"),
+        key: envRuntime("ARCA_KEY_PEM_20329808824"),
+        passphrase: envRuntime("ARCA_KEY_PASSPHRASE_20329808824"),
+      };
+    default:
+      return { cert: undefined, key: undefined, passphrase: undefined };
+  }
+}
+
+/** `ARCA_*_{CUIT}` compartido; fallback genérico solo si `fallbackGenerico`. */
+function leerPems(
+  cuit: string | null,
+  opts?: { fallbackGenerico?: boolean }
+): {
   certPem: string;
   keyPem: string;
   keyPassphrase: string | null;
 } {
+  const fallbackGenerico = opts?.fallbackGenerico !== false;
   const porCuit = cuit ? nombresPemPorCuit(cuit) : null;
+  const estatico = cuit ? envPemPorCuitEstatico(cuit) : null;
   return {
     certPem: primerPem(
+      estatico?.cert,
       porCuit ? envRuntime(porCuit.cert) : undefined,
-      envRuntime("ARCA_CERT_PEM")
+      fallbackGenerico ? envRuntime("ARCA_CERT_PEM") : undefined
     ),
     keyPem: primerPem(
+      estatico?.key,
       porCuit ? envRuntime(porCuit.key) : undefined,
-      envRuntime("ARCA_KEY_PEM")
+      fallbackGenerico ? envRuntime("ARCA_KEY_PEM") : undefined
     ),
     keyPassphrase: primerPass(
+      estatico?.passphrase,
       porCuit ? envRuntime(porCuit.passphrase) : undefined,
-      envRuntime("ARCA_KEY_PASSPHRASE")
+      fallbackGenerico ? envRuntime("ARCA_KEY_PASSPHRASE") : undefined
     ),
   };
 }
 
-function msgFaltanCerts(cuit: string | null): string {
+function msgFaltanCerts(cuit: string | null, opts?: { fallbackGenerico?: boolean }): string {
   if (cuit) {
     const n = nombresPemPorCuit(cuit);
+    if (opts?.fallbackGenerico === false) {
+      return `Faltan ${n.cert} y ${n.key} en el entorno. La constancia no usa el par genérico ARCA_CERT_PEM (puede ser otro DN del mismo CUIT).`;
+    }
     return `Faltan ${n.cert} y ${n.key} en el entorno (o el par ARCA_CERT_PEM / ARCA_KEY_PEM). El CUIT en la base no alcanza: hace falta el PEM de ese emisor.`;
   }
   return "Faltan ARCA_CERT_PEM y ARCA_KEY_PEM en el entorno (.env). El CUIT del punto de venta en la base no alcanza: para el CAE hace falta el certificado digital del emisor.";
@@ -175,7 +219,8 @@ export function leerArcaEnv(opts?: {
 }
 
 /**
- * PEM de un CUIT emisor concreto. Ignora `ARCA_CUIT` (constancia siempre usa el CUIT delegado).
+ * PEM de un CUIT emisor concreto. Ignora `ARCA_CUIT`.
+ * Sin fallback a `ARCA_CERT_PEM` (otro DN del mismo CUIT firmaría WSAA y ARCA responde 10.4).
  */
 export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: string } {
   const ambiente = parseAmbiente();
@@ -184,9 +229,9 @@ export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: st
   if (!cuit) {
     return { error: MSG_SIN_CUIT };
   }
-  const pems = leerPems(cuit);
+  const pems = leerPems(cuit, { fallbackGenerico: false });
   if (!pems.certPem || !pems.keyPem) {
-    return { error: msgFaltanCerts(cuit) };
+    return { error: msgFaltanCerts(cuit, { fallbackGenerico: false }) };
   }
   const fromCert = cuitDesdeCertPem(pems.certPem);
   if (fromCert && fromCert !== cuit) {
@@ -200,6 +245,13 @@ export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: st
     keyPassphrase: pems.keyPassphrase,
     timeoutMs: parseTimeoutMs(),
   };
+}
+
+/** Alias CN del certificado del emisor (para errores/logs; no es el PEM). */
+export function aliasCertArcaPorCuit(cuitRaw: string): string | null {
+  const env = leerArcaEnvPorCuit(cuitRaw);
+  if ("error" in env) return null;
+  return cnDesdeCertPem(env.certPem);
 }
 
 /** CUIT con el que se autentica la constancia (clientes). Override `ARCA_CONSTANCIA_CUIT`. */
@@ -221,8 +273,8 @@ export function arcaCertificadosConfigurados(): boolean {
 export function tieneParPemPorCuit(cuit: string): boolean {
   const d = (cuit ?? "").replace(/\D/g, "");
   if (!/^\d{11}$/.test(d)) return false;
-  const n = nombresPemPorCuit(d);
-  return Boolean(readPem(envRuntime(n.cert)) && readPem(envRuntime(n.key)));
+  const pems = leerPems(d, { fallbackGenerico: false });
+  return Boolean(pems.certPem && pems.keyPem);
 }
 
 /**
