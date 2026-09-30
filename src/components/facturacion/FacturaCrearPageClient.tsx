@@ -549,7 +549,6 @@ export default function FacturaCrearPageClient({
         open={crearClienteOpen}
         onOpenChange={setCrearClienteOpen}
         modo="crear"
-        condicionesIva={condicionesIva}
         onSuccess={aplicarClienteSeleccionado}
       />
       <CrearEditarEnviosDireccionModal

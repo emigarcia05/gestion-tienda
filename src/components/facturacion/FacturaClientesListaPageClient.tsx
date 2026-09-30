@@ -424,7 +424,6 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         item={modalCliente.open ? modalCliente.item : null}
         pintores={pintores}
         direcciones={direcciones}
-        condicionesIva={condicionesIva}
         onSuccess={() => router.refresh()}
         onCatalogoChanged={() => router.refresh()}
       />

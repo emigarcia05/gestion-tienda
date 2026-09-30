@@ -7,10 +7,9 @@ import { cn } from "@/lib/utils";
 const pageSectionHeaderRootVariants = cva("section-header shrink-0 w-full", {
   variants: {
     tone: {
-      /** Confía en `.section-header` (globals.css) para `--card`. */
+      /** El fondo lo define `.section-header` (`--sidebar-user-switcher-bg`). */
       default: "",
-      /** Refuerzo explícito con token Tailwind cuando el contexto lo requiera. */
-      card: "bg-card",
+      card: "",
     },
   },
   defaultVariants: {
@@ -89,7 +88,7 @@ export default function PageSectionHeader({
           </div>
         )}
       </div>
-      <Separator className={cn("section-header-divider", "bg-border")} />
+      <Separator className="section-header-divider" />
     </header>
   );
 }

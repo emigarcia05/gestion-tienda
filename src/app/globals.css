@@ -146,6 +146,7 @@
   --sidebar-primary-foreground: #fff;
   --sidebar-accent: rgba(255, 255, 255, 0.15);
   --sidebar-accent-foreground: #fff;
+  /** Dock de sesión (slidenav) y fondo de `.section-header`. */
   --sidebar-user-switcher-bg: #021d36;
   --sidebar-border: rgba(255, 255, 255, 0.2);
   --sidebar-ring: rgba(255, 255, 255, 0.3);
@@ -1935,6 +1936,20 @@
   color: var(--modal-field-label-color) !important;
 }
 
+/**
+ * Sección de formulario en modal (modelo: CrearEditarClienteModal).
+ * Contorno 1px `--primary`; línea inferior 2px `--primary` para separar bloques.
+ */
+.modal-seccion-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--primary);
+  border-bottom-width: 2px;
+  border-radius: calc(var(--radius) - 2px);
+}
+
 /* Estilos globales .modal-app: párrafos y strong del cuerpo; inputs/desplegables #0072BB */
 .modal-app__body > p,
 .modal-app__body strong {
@@ -2082,7 +2097,8 @@ button.tabla-row-btn-filled-brand {
   position: relative;
   z-index: 50;
   padding: 0.75rem 1.5rem 0;
-  background-color: var(--card);
+  background-color: var(--sidebar-user-switcher-bg);
+  color: var(--sidebar-foreground);
 }
 .section-header .section-header__inner {
   margin-bottom: 0.75rem;
@@ -2099,31 +2115,31 @@ button.tabla-row-btn-filled-brand {
   line-height: var(--text-2xl--line-height);
   font-weight: var(--font-weight-bold);
   font-family: var(--font-sans);
-  color: var(--foreground);
+  color: var(--sidebar-foreground);
   margin: 0;
   text-transform: uppercase;
 }
 .section-header__subtitulo {
   margin-top: 0.25rem;
   font-size: var(--text-sm);
-  color: var(--muted-foreground);
+  color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
 }
 .section-header__subtitulo-primario {
   font-weight: var(--font-weight-bold);
-  color: var(--foreground);
+  color: var(--sidebar-foreground);
   text-transform: uppercase;
 }
 .section-header__subtitulo-sep {
   font-weight: var(--font-weight-bold);
-  color: var(--muted-foreground);
+  color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
 }
 .section-header__subtitulo-secundario {
   font-weight: var(--font-weight-bold);
-  color: var(--foreground);
+  color: var(--sidebar-foreground);
   text-transform: none;
 }
 .section-header .section-header-divider {
-  background-color: var(--border);
+  background-color: var(--sidebar-border);
 }
 
 /* Header: un solo botón ACCIONES; las acciones de la ventana viven en el menú hover. */

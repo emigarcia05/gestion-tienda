@@ -38,6 +38,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# ARCA: CSR PKCS#10 y claves (nunca commitear)
+/certs/
+*.key
+*.csr
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
