@@ -23,6 +23,8 @@ interface FacturaProductoBusquedaListaProps {
   onElegir: (item: ProductoFacturaBusquedaItem) => void;
   onVerStock: (item: ProductoFacturaBusquedaItem) => void;
   className?: string;
+  /** Alto de fila. El typeahead en `main` crece a 2.5rem por `main button`; el modal (portal) hay que fijarlo. */
+  filaClassName?: string;
 }
 
 /** Misma grilla COD. / DESCRIPCIÓN / PRECIOS / STOCK del buscador de Factura · Crear. */
@@ -34,6 +36,7 @@ export default function FacturaProductoBusquedaLista({
   onElegir,
   onVerStock,
   className,
+  filaClassName = "min-h-5",
 }: FacturaProductoBusquedaListaProps) {
   return (
     <div className={cn(TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS, className)}>
@@ -56,7 +59,8 @@ export default function FacturaProductoBusquedaLista({
                 tabIndex={-1}
                 className={cn(
                   FILA_BUSQUEDA_PRODUCTOS_GRID,
-                  "min-h-5 cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
+                  filaClassName,
+                  "cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
                   activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                 )}
                 onMouseEnter={() => onActivar(idx)}

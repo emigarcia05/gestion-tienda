@@ -304,6 +304,7 @@ export default function FacturaBusquedaAvanzadaModal({
               onElegir={onElegir}
               onVerStock={onVerStock}
               className="min-h-0 flex-1"
+              filaClassName="min-h-10"
             />
           )}
         </div>
