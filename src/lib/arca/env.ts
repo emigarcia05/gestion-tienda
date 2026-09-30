@@ -118,7 +118,7 @@ function envPemPorCuitEstatico(cuit: string): {
         passphrase: primerPass(
           envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE"),
           envRuntime("ARCA_KEY_PASSPHRASE_20372672235")
-        ),
+        ) ?? undefined,
       };
     case "23169084289":
       return {
