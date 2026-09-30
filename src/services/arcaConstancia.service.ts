@@ -20,7 +20,7 @@ function esDnFacturacionNoConstancia(cn: string | null): boolean {
 }
 
 function msgReiniciarPorDn(cn: string, ambiente: string): string {
-  return `El servidor cargó el certificado «${cn}» (ambiente ${ambiente}), que no está autorizado para constancia. En el .env ya está TiedaColorC1: cortá npm run dev con Ctrl+C y volvé a correrlo para recargar certificados.`;
+  return `ARCA_CONSTANCIA_CERT_PEM tiene el certificado «${cn}» (ambiente ${ambiente}), que es el de facturación. Pegá ahí el PEM de TiedaColorC1 (en Vercel: Production y Preview, después Redeploy; en local: .env y reiniciar npm run dev).`;
 }
 
 function msgWsNoAutorizado(cn: string | null, ambiente: string): string {

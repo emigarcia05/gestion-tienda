@@ -107,18 +107,9 @@ function envPemPorCuitEstatico(cuit: string): {
   switch (cuit) {
     case "20372672235":
       return {
-        cert: primerPem(
-          envRuntime("ARCA_CONSTANCIA_CERT_PEM"),
-          envRuntime("ARCA_CERT_PEM_20372672235")
-        ),
-        key: primerPem(
-          envRuntime("ARCA_CONSTANCIA_KEY_PEM"),
-          envRuntime("ARCA_KEY_PEM_20372672235")
-        ),
-        passphrase: primerPass(
-          envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE"),
-          envRuntime("ARCA_KEY_PASSPHRASE_20372672235")
-        ) ?? undefined,
+        cert: envRuntime("ARCA_CERT_PEM_20372672235"),
+        key: envRuntime("ARCA_KEY_PEM_20372672235"),
+        passphrase: envRuntime("ARCA_KEY_PASSPHRASE_20372672235"),
       };
     case "23169084289":
       return {
@@ -149,22 +140,18 @@ function leerPems(
   const fallbackGenerico = opts?.fallbackGenerico !== false;
   const porCuit = cuit ? nombresPemPorCuit(cuit) : null;
   const estatico = cuit ? envPemPorCuitEstatico(cuit) : null;
-  const soloConstancia = fallbackGenerico === false;
   return {
     certPem: primerPem(
-      soloConstancia ? envRuntime("ARCA_CONSTANCIA_CERT_PEM") : undefined,
       estatico?.cert,
       porCuit ? envRuntime(porCuit.cert) : undefined,
       fallbackGenerico ? envRuntime("ARCA_CERT_PEM") : undefined
     ),
     keyPem: primerPem(
-      soloConstancia ? envRuntime("ARCA_CONSTANCIA_KEY_PEM") : undefined,
       estatico?.key,
       porCuit ? envRuntime(porCuit.key) : undefined,
       fallbackGenerico ? envRuntime("ARCA_KEY_PEM") : undefined
     ),
     keyPassphrase: primerPass(
-      soloConstancia ? envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE") : undefined,
       estatico?.passphrase,
       porCuit ? envRuntime(porCuit.passphrase) : undefined,
       fallbackGenerico ? envRuntime("ARCA_KEY_PASSPHRASE") : undefined
@@ -172,12 +159,9 @@ function leerPems(
   };
 }
 
-function msgFaltanCerts(cuit: string | null, opts?: { fallbackGenerico?: boolean }): string {
+function msgFaltanCerts(cuit: string | null): string {
   if (cuit) {
     const n = nombresPemPorCuit(cuit);
-    if (opts?.fallbackGenerico === false) {
-      return `Faltan ARCA_CONSTANCIA_CERT_PEM / ARCA_CONSTANCIA_KEY_PEM (o ${n.cert} / ${n.key}) en el entorno. Reiniciá npm run dev después de cargarlas. La constancia no usa ARCA_CERT_PEM genérico.`;
-    }
     return `Faltan ${n.cert} y ${n.key} en el entorno (o el par ARCA_CERT_PEM / ARCA_KEY_PEM). El CUIT en la base no alcanza: hace falta el PEM de ese emisor.`;
   }
   return "Faltan ARCA_CERT_PEM y ARCA_KEY_PEM en el entorno (.env). El CUIT del punto de venta en la base no alcanza: para el CAE hace falta el certificado digital del emisor.";
@@ -231,9 +215,24 @@ export function leerArcaEnv(opts?: {
   };
 }
 
+const MSG_FALTAN_PEM_CONSTANCIA =
+  "Faltan ARCA_CONSTANCIA_CERT_PEM y ARCA_CONSTANCIA_KEY_PEM (certificado TiedaColorC1). En Vercel: Settings → Environment Variables, Production y Preview, después Redeploy. En local: .env y reiniciar npm run dev. No uses el par ARCA_CERT_PEM de facturación.";
+
+function leerPemsConstancia(): {
+  certPem: string;
+  keyPem: string;
+  keyPassphrase: string | null;
+} {
+  return {
+    certPem: primerPem(envRuntime("ARCA_CONSTANCIA_CERT_PEM")),
+    keyPem: primerPem(envRuntime("ARCA_CONSTANCIA_KEY_PEM")),
+    keyPassphrase: primerPass(envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE")),
+  };
+}
+
 /**
- * PEM de un CUIT emisor concreto. Ignora `ARCA_CUIT`.
- * Sin fallback a `ARCA_CERT_PEM` (otro DN del mismo CUIT firmaría WSAA y ARCA responde 10.4).
+ * PEM de constancia. Solo `ARCA_CONSTANCIA_CERT_PEM` / `ARCA_CONSTANCIA_KEY_PEM`.
+ * No usa `ARCA_CERT_PEM` ni `ARCA_CERT_PEM_{CUIT}` (otro DN / wsfe).
  */
 export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: string } {
   const ambiente = parseAmbiente();
@@ -242,9 +241,9 @@ export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: st
   if (!cuit) {
     return { error: MSG_SIN_CUIT };
   }
-  const pems = leerPems(cuit, { fallbackGenerico: false });
+  const pems = leerPemsConstancia();
   if (!pems.certPem || !pems.keyPem) {
-    return { error: msgFaltanCerts(cuit, { fallbackGenerico: false }) };
+    return { error: MSG_FALTAN_PEM_CONSTANCIA };
   }
   const fromCert = cuitDesdeCertPem(pems.certPem);
   if (fromCert && fromCert !== cuit) {
