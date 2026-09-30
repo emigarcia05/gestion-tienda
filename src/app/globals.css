@@ -392,7 +392,8 @@
   }
 
   /**
-   * Tarjeta de total: azul oscuro (slidenav / header). El pie que las agrupa no pinta el fondo.
+   * Tarjeta de total: azul de marca (`--primary`, #0072BB). El pie que las agrupa no pinta el fondo.
+   * No usa `--sidebar`: ese azul oscuro es el del slidenav y el encabezado.
    */
   .finanzas-resumen-tarjeta {
     display: flex;
@@ -402,19 +403,19 @@
     justify-content: center;
     gap: 0.125rem;
     border-radius: 0.375rem;
-    border: 1px solid var(--sidebar-border);
-    background-color: var(--sidebar);
-    color: var(--sidebar-foreground);
+    border: 1px solid color-mix(in srgb, var(--primary-foreground) 35%, transparent);
+    background-color: var(--primary);
+    color: var(--primary-foreground);
     padding: 0.5rem 0.75rem;
     text-align: center;
   }
   .finanzas-resumen-tarjeta .text-muted-foreground {
-    color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
+    color: color-mix(in srgb, var(--primary-foreground) 75%, transparent);
   }
 
   /**
-   * Pie de página bajo la tabla: sin fondo. El azul oscuro queda en cada `.finanzas-resumen-tarjeta`.
-   * El footer de modal (`.pie-pagina--solido`) sí pinta toda la barra.
+   * Pie de página bajo la tabla: sin fondo. El azul `#0072BB` queda en cada `.finanzas-resumen-tarjeta`.
+   * El footer de modal (`.pie-pagina--solido`) sí pinta toda la barra (`--sidebar`).
    */
   .pie-pagina {
     background-color: transparent;
@@ -839,8 +840,9 @@
     margin-top: 0.15rem;
   }
   /**
-   * Acordeón de un grupo: cerrado hasta el hover (o el foco) y abierto
-   * si contiene la ruta actual (`data-open`).
+   * Acordeón de un grupo: cerrado hasta el hover (o el foco).
+   * `data-open` = la ruta actual está dentro: queda abierto al salir el mouse.
+   * Si el puntero está en la lista de hermanos, solo el grupo bajo el mouse está abierto.
    */
   .sidebar-nav-branch > .sidebar-nav-tree {
     display: none;
@@ -849,6 +851,10 @@
   .sidebar-nav-branch:focus-within > .sidebar-nav-tree,
   .sidebar-nav-branch[data-open="true"] > .sidebar-nav-tree {
     display: flex;
+  }
+  .sidebar-nav-siblings:hover > .sidebar-nav-branch[data-open="true"]:not(:hover) > .sidebar-nav-tree,
+  .sidebar-nav-siblings:focus-within > .sidebar-nav-branch[data-open="true"]:not(:focus-within) > .sidebar-nav-tree {
+    display: none;
   }
 
   /**

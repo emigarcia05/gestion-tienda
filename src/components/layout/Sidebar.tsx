@@ -465,7 +465,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
               {sub.icon}
               <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
             </button>
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
+            <div className="sidebar-nav-tree sidebar-nav-tree--nested sidebar-nav-siblings">
               {renderSubmoduleItems(sub.children, moduleId)}
             </div>
           </div>
@@ -494,7 +494,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             <span className="min-w-0 truncate">{sub.label}</span>
           </Link>
           {sub.children && sub.children.length > 0 ? (
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
+            <div className="sidebar-nav-tree sidebar-nav-tree--nested sidebar-nav-siblings">
               {renderSubmoduleItems(sub.children, moduleId)}
             </div>
           ) : null}
@@ -539,7 +539,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             aria-label="Submódulos"
           >
             {selectedModule && !selectedModule.href ? (
-              <div className="sidebar-nav-tree">
+              <div className="sidebar-nav-tree sidebar-nav-siblings">
                 {renderSubmoduleItems(
                   selectedModule.submodules,
                   selectedModule.id

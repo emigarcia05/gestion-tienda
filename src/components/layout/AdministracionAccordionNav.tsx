@@ -126,7 +126,7 @@ function GroupBranch({
           <ScreensList screens={directScreens} pathname={pathname} />
         ) : null}
         {nestedGroups.length > 0 ? (
-          <div className="flex flex-col gap-0.5">
+          <div className="sidebar-nav-siblings flex flex-col gap-0.5">
             {nestedGroups.map((nested) => (
               <GroupBranch key={nested.id} group={nested} pathname={pathname} />
             ))}
@@ -207,7 +207,7 @@ export default function AdministracionAccordionNav({ rol }: { rol: Rol }) {
       >
         {selectedPillar ? (
           <div className={TREE_PANEL}>
-            <div className="flex flex-col gap-0.5">
+            <div className="sidebar-nav-siblings flex flex-col gap-0.5">
               {screens.length > 0 ? (
                 <ScreensList screens={screens} pathname={pathname} />
               ) : null}
