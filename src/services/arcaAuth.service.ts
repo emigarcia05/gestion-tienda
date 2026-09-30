@@ -26,6 +26,15 @@ function vigente(expiration: Date, now: Date): boolean {
   return expiration.getTime() - MARGIN_MS > now.getTime();
 }
 
+function noExpirado(expiration: Date, now: Date): boolean {
+  return expiration.getTime() > now.getTime();
+}
+
+function esErrorTaYaValido(mensaje: string): boolean {
+  const lower = mensaje.toLowerCase();
+  return lower.includes("ya posee un ta") || lower.includes("ta valido") || lower.includes("ta válido");
+}
+
 export type ArcaAuthTicket = {
   token: string;
   sign: string;
@@ -92,6 +101,50 @@ export async function obtenerAuthArca(args: {
 
   const login = await wsaaLoginCms({ env, servicio: args.servicio });
   if (!login.ok) {
+    if (esErrorTaYaValido(login.error)) {
+      const memTicket = mem.get(key);
+      if (memTicket && noExpirado(memTicket.expiration, now)) {
+        return {
+          success: true,
+          data: {
+            token: memTicket.token,
+            sign: memTicket.sign,
+            cuit: env.cuit,
+            ambiente: env.ambiente,
+          },
+        };
+      }
+      try {
+        const row = await prisma.arcaWsaaTicket.findUnique({
+          where: {
+            cuit_servicio_ambiente: {
+              cuit: env.cuit,
+              servicio: args.servicio,
+              ambiente: env.ambiente,
+            },
+          },
+        });
+        if (row && noExpirado(row.expiration, now)) {
+          mem.set(key, { token: row.token, sign: row.sign, expiration: row.expiration });
+          return {
+            success: true,
+            data: {
+              token: row.token,
+              sign: row.sign,
+              cuit: env.cuit,
+              ambiente: env.ambiente,
+            },
+          };
+        }
+      } catch (e) {
+        console.error("[arca][obtenerAuthArca] ta-existente", e instanceof Error ? e.message : "error");
+      }
+      return {
+        success: false,
+        error:
+          "WSAA ya tiene un ticket vigente para este servicio y no hay copia local. Esperá a que expire (homologación retiene ~10 min) o reintentá.",
+      };
+    }
     return { success: false, error: login.error };
   }
   const ticket: WsaaTicket = login.ticket;

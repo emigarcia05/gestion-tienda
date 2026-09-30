@@ -3,6 +3,7 @@ import "server-only";
 import {
   leerArcaConexion,
   urlConstancia,
+  urlConstanciaAfip,
   type ArcaConexionConfig,
 } from "@/lib/arca/env";
 import { postSoap } from "@/lib/arca/soap";
@@ -105,6 +106,10 @@ function mapRaw(idPersona: string, ret: Record<string, unknown>): ArcaConstancia
   };
 }
 
+function esErrorConexionSoap(mensaje: string): boolean {
+  return mensaje.toLowerCase().includes("no se pudo conectar");
+}
+
 function mensajeFaultUsable(raw: string): string {
   const t = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (!t) return "ARCA rechazó la consulta de constancia.";
@@ -112,17 +117,44 @@ function mensajeFaultUsable(raw: string): string {
   if (lower.includes("no existe") || lower.includes("no se encontr")) {
     return "ARCA no encontró un contribuyente con ese CUIT.";
   }
+  if (lower.includes("acceder a los servicios de afip") || lower.includes("acceder a los servicios de arca")) {
+    return "El certificado no corresponde a este ambiente. ARCA_ENV (homo/prod) tiene que coincidir con el certificado (homologación vs producción).";
+  }
   if (lower.includes("relacion") || lower.includes("web service")) {
-    return "El certificado no está habilitado para Constancia de Inscripción. En ARCA, asociá el WS ws_sr_constancia_inscripcion o ws_sr_padron_a5 al certificado.";
+    return "El certificado no está habilitado para Constancia de Inscripción. En ARCA, asociá el WS ws_sr_constancia_inscripcion al certificado.";
   }
   if (
     lower.includes("computador no autorizado") ||
     lower.includes("computadora no autorizada") ||
     lower.includes("no autorizado a acceder al servicio")
   ) {
-    return "ARCA rechazó la consulta porque el certificado no está autorizado para este servicio. Revisá la relación del WS ws_sr_constancia_inscripcion o ws_sr_padron_a5 en ARCA para ese CUIT emisor.";
+    return "ARCA rechazó la consulta porque el certificado no está autorizado para ws_sr_constancia_inscripcion. En homologación: WSASS → Crear Autorización a Servicio. En producción: Administrador de Relaciones → delegar ese WS al certificado.";
   }
   return t.slice(0, 300);
+}
+
+async function postConstancia(
+  env: ArcaConexionConfig,
+  envelope: string
+): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; error: string }> {
+  const principal = await postSoap({
+    url: urlConstancia(env.ambiente),
+    soapAction: "",
+    envelope,
+    timeoutMs: env.timeoutMs,
+  });
+  if (principal.ok) return { ok: true, body: principal.body };
+  if (!esErrorConexionSoap(principal.error)) {
+    return { ok: false, error: mensajeFaultUsable(principal.error) };
+  }
+  const alias = await postSoap({
+    url: urlConstanciaAfip(env.ambiente),
+    soapAction: "",
+    envelope,
+    timeoutMs: env.timeoutMs,
+  });
+  if (alias.ok) return { ok: true, body: alias.body };
+  return { ok: false, error: mensajeFaultUsable(alias.error) };
 }
 
 export async function constanciaGetPersonaV2(
@@ -132,14 +164,9 @@ export async function constanciaGetPersonaV2(
   const env: ArcaConexionConfig | { error: string } = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
 
-  const soap = await postSoap({
-    url: urlConstancia(env.ambiente),
-    soapAction: "",
-    envelope: envelopeGetPersonaV2(auth, idPersona),
-    timeoutMs: env.timeoutMs,
-  });
+  const soap = await postConstancia(env, envelopeGetPersonaV2(auth, idPersona));
   if (!soap.ok) {
-    return { ok: false, error: mensajeFaultUsable(soap.error) };
+    return { ok: false, error: soap.error };
   }
   const ret = personaReturn(soap.body);
   if (!ret) {

@@ -10,6 +10,7 @@ export {
   tieneParPemPorCuit,
   topeCfSinDocDesdeEnv,
   urlConstancia,
+  urlConstanciaAfip,
   urlWsaa,
   urlWsfev1,
 } from "@/lib/arca/env";

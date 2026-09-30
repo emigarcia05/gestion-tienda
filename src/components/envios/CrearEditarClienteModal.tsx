@@ -207,7 +207,19 @@ export default function CrearEditarClienteModal({
         { cache: "no-store" }
       );
       const raw = await res.text();
-      const json: unknown = raw ? JSON.parse(raw) : null;
+      let json: unknown = null;
+      if (raw.trim()) {
+        try {
+          json = JSON.parse(raw) as unknown;
+        } catch {
+          toast.error(
+            res.status >= 500
+              ? "ARCA tardó demasiado o no respondió. Reintentá."
+              : "ARCA no devolvió una respuesta válida."
+          );
+          return;
+        }
+      }
       const parsed = parseArcaConstanciaApiJson(json);
       if (!parsed.ok) {
         toast.error(parsed.error);
@@ -425,7 +437,13 @@ export default function CrearEditarClienteModal({
                   disabled={saving}
                 />
               </label>
-              {esPintorFijo == null ? (
+            </section>
+
+            {esPintorFijo == null ? (
+              <section className="flex flex-col gap-3 border-t border-border pt-4">
+                <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
+                  TIPO CLIENTE
+                </p>
                 <ModalSiNoChoice
                   label="ES PINTOR"
                   value={esPintor}
@@ -438,79 +456,79 @@ export default function CrearEditarClienteModal({
                     }
                   }}
                 />
-              ) : null}
-              {muestraPintorAsociado ? (
-                <div className="flex flex-col gap-2">
-                  <ModalMicroLabel>PINTOR ASOCIADO</ModalMicroLabel>
-                  {pintorAsociado ? (
-                    <div
-                      className={cn(
-                        "flex min-h-9 items-center gap-2 rounded-md border border-input px-3 py-1"
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                        {nombreCompletoCliente(pintorAsociado)}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
-                          title="Editar"
-                          aria-label={`Editar ${nombreCompletoCliente(pintorAsociado)}`}
-                          disabled={saving}
-                          onClick={() => {
-                            const pintorItem =
-                              pintoresDisponibles.find((p) => p.id === pintorAsociado.id) ??
-                              (item?.pintorAsociado?.id === pintorAsociado.id
-                                ? {
-                                    ...item.pintorAsociado,
-                                    pintorAsociadoId: null,
-                                    pintorAsociado: null,
-                                    cuit: null,
-                                    condicionIva: null,
-                                    ctaCorrientePlazo: null,
-                                    ctaCorrienteMontoMax: null,
-                                  }
-                                : null);
-                            if (!pintorItem) return;
-                            setModalFormPintor({ open: true, modo: "editar", item: pintorItem });
-                          }}
-                        >
-                          <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
-                          title="Borrar"
-                          aria-label={`Quitar pintor asociado ${nombreCompletoCliente(pintorAsociado)}`}
-                          disabled={saving}
-                          onClick={() => setPintorAsociadoId(null)}
-                        >
-                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                        </Button>
+                {muestraPintorAsociado ? (
+                  <div className="flex flex-col gap-2">
+                    <ModalMicroLabel>PINTOR ASOCIADO</ModalMicroLabel>
+                    {pintorAsociado ? (
+                      <div
+                        className={cn(
+                          "flex min-h-9 items-center gap-2 rounded-md border border-input px-3 py-1"
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                          {nombreCompletoCliente(pintorAsociado)}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
+                            title="Editar"
+                            aria-label={`Editar ${nombreCompletoCliente(pintorAsociado)}`}
+                            disabled={saving}
+                            onClick={() => {
+                              const pintorItem =
+                                pintoresDisponibles.find((p) => p.id === pintorAsociado.id) ??
+                                (item?.pintorAsociado?.id === pintorAsociado.id
+                                  ? {
+                                      ...item.pintorAsociado,
+                                      pintorAsociadoId: null,
+                                      pintorAsociado: null,
+                                      cuit: null,
+                                      condicionIva: null,
+                                      ctaCorrientePlazo: null,
+                                      ctaCorrienteMontoMax: null,
+                                    }
+                                  : null);
+                              if (!pintorItem) return;
+                              setModalFormPintor({ open: true, modo: "editar", item: pintorItem });
+                            }}
+                          >
+                            <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS}
+                            title="Borrar"
+                            aria-label={`Quitar pintor asociado ${nombreCompletoCliente(pintorAsociado)}`}
+                            disabled={saving}
+                            onClick={() => setPintorAsociadoId(null)}
+                          >
+                            <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
-                      title="Nuevo"
-                      aria-label="Asociar pintor"
-                      disabled={saving}
-                      onClick={() => setModalListaPintores(true)}
-                    >
-                      <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                    </Button>
-                  )}
-                </div>
-              ) : null}
-            </section>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(CATALOGO_FINDER_COLUMN_NOVO_BUTTON_CLASS, "self-center")}
+                        title="Nuevo"
+                        aria-label="Asociar pintor"
+                        disabled={saving}
+                        onClick={() => setModalListaPintores(true)}
+                      >
+                        <Plus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="flex flex-col gap-3 border-t border-border pt-4">
               <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">

@@ -5,7 +5,7 @@ import { consultarConstanciaArcaSchema } from "@/lib/validations/arcaConstancia"
 import { consultarConstanciaArca } from "@/services/arcaConstancia.service";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 /**
  * GET: Constancia de Inscripción por CUIT (`getPersona_v2`).
