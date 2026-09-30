@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
   emitirFacturaComprobanteAction,
+  obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
@@ -479,7 +480,8 @@ export default function FacturaCrearPageClient({
   }
 
   async function emitirDesdeModal(
-    cobros: CobroFacturaEmitirInput[]
+    cobros: CobroFacturaEmitirInput[],
+    documentoReceptor?: string
   ): Promise<FacturaComprobantePdfInput | null> {
     const draft = emitirDraftRef.current;
     if (!draft) {
@@ -507,6 +509,7 @@ export default function FacturaCrearPageClient({
       })),
       descuento: draft.descuento,
       cobros,
+      documentoReceptor: documentoReceptor?.trim() || undefined,
     });
     if (!res.ok) {
       toast.error(res.error);
@@ -518,22 +521,13 @@ export default function FacturaCrearPageClient({
     } else {
       toast.success("Comprobante guardado.");
     }
-    const pdf: FacturaComprobantePdfInput = {
-      tipo: draft.tipo,
-      fechaIso: draft.fechaIso,
-      cliente: draft.cliente,
-      nroComprobante: res.data.nroComprobante,
-      comentarios: draft.comentarios,
-      lineas: draft.lineas,
-      descuento: draft.descuento,
-      cae: res.data.cae,
-      caeVtoIso: res.data.caeVtoIso,
-      letra: res.data.letra,
-      emisor: emisorPdfDePtoVta(ptoVtas, draft.ptoVtaId),
-      ...datosClienteComprobantePdf(),
-    };
-    setComprobantePdf(pdf);
-    return pdf;
+    const pdfRes = await obtenerFacturaComprobantePdfAction({ id: res.data.id });
+    if (!pdfRes.ok) {
+      toast.error(pdfRes.error ?? "No se pudo armar el PDF.");
+      return null;
+    }
+    setComprobantePdf(pdfRes.data);
+    return pdfRes.data;
   }
 
   return (

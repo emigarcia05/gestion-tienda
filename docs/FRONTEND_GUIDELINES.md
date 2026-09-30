@@ -332,6 +332,8 @@ Para imputar una NC como pago, el modal de cobros de la NC tiene **ASIGNAR** sob
 En `FacturaListadoPageClient` (Comprobantes), la fila principal de filtros incluye además **FISCAL** (máscara `SI/NO`) para acotar por tipo fiscal (`factura_fiscal` / `nota_credito_fiscal`) versus no fiscal. En `FacturaCrearLineasBlock`, al cerrar `FacturaProductoStockModal`, el foco vuelve al input de búsqueda y, si había texto (>= 3 caracteres), se reabre el listado con esa misma búsqueda. También, al volver a enfocar el input con texto vigente (ej. `latex`), se reabre el desplegable con resultados para ese término.
 >>>>>>> facturacion
 
+**PDF fiscal** (`generarPdfFacturaComprobante`): misma grilla (logo 40 % | letra 20 % | datos 40 %), mismos azules y la misma tabla. Si ARCA autorizó, se agregan en ese esquema la leyenda de condición IVA del emisor, `Código Nº`, el domicilio del receptor en factura A, `A CONSUMIDOR FINAL` cuando corresponde, el desglose de neto/IVA si la operación lo exige, el bloque «Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)» y el QR junto al CAE. Sin CAE no se imprime como factura fiscal. En **Generar**, si el receptor es consumidor final sin CUIT, hay un campo **DNI / CUIT** (obligatorio si el total supera $ 10.000.000).
+
 ### Asistente IA
 
 UI en `src/components/asistente-ia/`. Pasos secuenciales: `ProcesoPaso` (alias `AsistenteIaProcesoPaso`). Contratos, prompts y scraper: **`docs/AGENTEIA_GUIDELINES.md`**.

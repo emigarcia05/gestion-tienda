@@ -8,6 +8,31 @@ export type FacturaComprobantePdfEmisor = {
   inicioActividadesIso: string | null;
 };
 
+/** Datos de la autorización ARCA que la representación gráfica fiscal debe repetir. */
+export type FacturaComprobantePdfFiscal = {
+  cbteTipo: number;
+  ptoVenta: number;
+  cbteNro: number;
+  cuitEmisor: string;
+  leyendaEmisor: string;
+  receptorDocTipo: number;
+  receptorDocNro: string;
+  receptorCondicionIva: number;
+  receptorDomicilio: string | null;
+  leyendaConsumidorFinal: boolean;
+  discriminarIva: boolean;
+  transparenciaFiscal: boolean;
+  impNeto: number;
+  impIva: number;
+  impTrib: number;
+  impTotal: number;
+  moneda: string;
+  cotizacion: number;
+  alicuotas: { alicuota: number; baseImp: number; importe: number }[];
+  /** PNG data URL. Lo completa el cliente antes de dibujar. */
+  qrDataUrl?: string | null;
+};
+
 export function formatoCuitPdf(cuit: string | null | undefined): string {
   const d = (cuit ?? "").replace(/\D/g, "");
   if (d.length !== 11) return (cuit ?? "").trim();

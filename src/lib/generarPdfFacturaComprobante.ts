@@ -23,7 +23,12 @@ import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import {
   formatoCuitPdf,
   type FacturaComprobantePdfEmisor,
+  type FacturaComprobantePdfFiscal,
 } from "@/lib/facturaComprobantePdfEmisor";
+import {
+  LEYENDA_A_CONSUMIDOR_FINAL,
+  LEYENDA_TRANSPARENCIA_FISCAL,
+} from "@/lib/facturaFiscal";
 
 const MARGIN = 14;
 const PRIMARY = { r: 0, g: 114, b: 187 };
@@ -62,6 +67,8 @@ export type FacturaComprobantePdfInput = {
   letra?: string | null;
   emisor?: FacturaComprobantePdfEmisor | null;
   logo?: FacturaComprobantePdfLogo | null;
+  /** Presente solo si ARCA autorizó el comprobante. */
+  fiscal?: FacturaComprobantePdfFiscal | null;
 };
 
 function letraComprobantePdf(input: FacturaComprobantePdfInput): string {
@@ -86,6 +93,14 @@ function datoOVacio(raw: string | null | undefined): string {
 export function generarPdfFacturaComprobante(
   input: FacturaComprobantePdfInput
 ): Uint8Array {
+  if (esFacturaTipoFiscal(input.tipo)) {
+    if (!input.cae?.trim()) {
+      throw new Error("El comprobante fiscal no está autorizado por ARCA.");
+    }
+    if (!input.fiscal?.qrDataUrl) {
+      throw new Error("Falta el código QR del comprobante fiscal.");
+    }
+  }
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const contentWidth = 210 - 2 * MARGIN;
   let y = MARGIN;
@@ -211,6 +226,11 @@ export function generarPdfFacturaComprobante(
   }
 
   const resumen = resumenTotalesFactura(input.lineas, input.descuento);
+  const fiscal = input.fiscal ?? null;
+  if (fiscal?.discriminarIva) {
+    y = dibujarDiscriminacionIva(doc, fiscal, y, contentWidth);
+  }
+  const totalMostrado = fiscal ? fiscal.impTotal : resumen.totalConDesc;
   const footerH = 8;
   y += 2;
   if (y + footerH > 270) {
@@ -226,7 +246,7 @@ export function generarPdfFacturaComprobante(
   doc.setTextColor(INK.r, INK.g, INK.b);
   const totalColX = MARGIN + col.cod + col.desc + col.px + col.descPct + col.pxDesc + col.cant;
   const totalColCenterX = totalColX + col.total / 2;
-  const totalValue = `$${fmtPrecio(resumen.totalConDesc)}`;
+  const totalValue = `$${fmtPrecio(totalMostrado)}`;
   /** Mantiene etiqueta y valor juntos, pero alinea el monto con la columna TOTAL. */
   doc.text("TOTAL:", totalColCenterX - doc.getTextWidth(totalValue) / 2 - 0.8, footerY, {
     align: "right",
@@ -235,27 +255,98 @@ export function generarPdfFacturaComprobante(
   y += footerH;
   doc.setTextColor(INK.r, INK.g, INK.b);
 
-  const cae = input.cae?.trim();
-  if (cae) {
-    y += 8;
-    if (y > 270) {
-      doc.addPage();
-      y = MARGIN;
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(`CAE: ${cae}`, MARGIN, y);
-    y += 5;
-    const vto = input.caeVtoIso
-      ? formatIsoYmdDdMmYyyyArgentina(input.caeVtoIso)
-      : "";
-    doc.text(`Vto. CAE: ${vto}`, MARGIN, y);
+  if (fiscal?.qrDataUrl && input.cae?.trim()) {
+    y = dibujarPieFiscal(doc, input, fiscal, y, contentWidth);
   }
 
   const buf = doc.output("arraybuffer");
   return new Uint8Array(
     buf instanceof ArrayBuffer ? buf : (buf as unknown as ArrayBuffer)
   );
+}
+
+function dibujarDiscriminacionIva(
+  doc: jsPDF,
+  fiscal: FacturaComprobantePdfFiscal,
+  y0: number,
+  contentWidth: number
+): number {
+  const filas: { etiqueta: string; valor: string }[] = [
+    { etiqueta: "NETO GRAVADO", valor: `$${fmtPrecio(fiscal.impNeto)}` },
+    ...fiscal.alicuotas.map((a) => ({
+      etiqueta: `IVA ${fmtPorcentajeTabla(a.alicuota)}`,
+      valor: `$${fmtPrecio(a.importe)}`,
+    })),
+    {
+      etiqueta: "OTROS TRIBUTOS",
+      valor: `$${fmtPrecio(fiscal.impTrib)}`,
+    },
+  ];
+  let y = y0 + 1.5;
+  doc.setFontSize(7.5);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  for (const fila of filas) {
+    if (y > 272) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    const right = MARGIN + contentWidth;
+    doc.setFont("helvetica", "bold");
+    doc.text(fila.etiqueta, right - 28, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.text(fila.valor, right, y, { align: "right" });
+    y += 3.6;
+  }
+  return y;
+}
+
+function dibujarPieFiscal(
+  doc: jsPDF,
+  input: FacturaComprobantePdfInput,
+  fiscal: FacturaComprobantePdfFiscal,
+  y0: number,
+  contentWidth: number
+): number {
+  const qrSize = 32;
+  const bloqueTransparencia = fiscal.transparenciaFiscal ? 16 : 0;
+  const bloqueH = qrSize + bloqueTransparencia + 4;
+  let y = y0 + 4;
+  if (y + bloqueH > 280) {
+    doc.addPage();
+    y = MARGIN;
+  }
+  const qr = fiscal.qrDataUrl;
+  if (qr) {
+    doc.addImage(qr, "PNG", MARGIN, y, qrSize, qrSize);
+  }
+  const textX = MARGIN + qrSize + 4;
+  const cae = input.cae?.trim() ?? "";
+  const vto = input.caeVtoIso ? formatIsoYmdDdMmYyyyArgentina(input.caeVtoIso) : "";
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  doc.text(`CAE: ${cae}`, textX, y + 8);
+  doc.text(`Vto. CAE: ${vto}`, textX, y + 14);
+  y += qrSize + 3;
+  if (fiscal.transparenciaFiscal) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    const titulo = doc.splitTextToSize(LEYENDA_TRANSPARENCIA_FISCAL, contentWidth);
+    doc.text(titulo, MARGIN, y);
+    const lineasTitulo = Array.isArray(titulo) ? titulo.length : 1;
+    y += lineasTitulo * 3.6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`IVA Contenido: $${fmtPrecio(fiscal.impIva)}`, MARGIN, y);
+    y += 3.8;
+    doc.text(
+      `Otros Impuestos Nacionales Indirectos: $${fmtPrecio(fiscal.impTrib)}`,
+      MARGIN,
+      y
+    );
+    y += 4;
+  }
+  return y;
 }
 
 function dibujarDatoEtiquetaValor(
@@ -321,9 +412,15 @@ function dibujarBloqueCliente(
 
   let yCol2 = y0;
   if (fiscal) {
+    const etiquetaDoc =
+      input.fiscal?.receptorDocTipo === 96
+        ? "DNI"
+        : input.fiscal?.receptorDocTipo === 86
+          ? "CUIL"
+          : "CUIT";
     const hCuit = dibujarDatoEtiquetaValor(
       doc,
-      "CUIT",
+      etiquetaDoc,
       formatoCuitPdf(input.clienteCuit ?? null),
       col2X,
       yCol2,
@@ -339,6 +436,26 @@ function dibujarBloqueCliente(
       colW - 2
     );
     yCol2 += hCondIva + filaGap;
+    const domicilio = datoOVacio(input.fiscal?.receptorDomicilio);
+    if (domicilio) {
+      const hDom = dibujarDatoEtiquetaValor(
+        doc,
+        "DOMICILIO",
+        domicilio,
+        col2X,
+        yCol2,
+        colW - 2,
+        false
+      );
+      yCol2 += hDom + filaGap;
+    }
+  }
+  if (input.fiscal?.leyendaConsumidorFinal) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(INK.r, INK.g, INK.b);
+    doc.text(LEYENDA_A_CONSUMIDOR_FINAL, col1X, yCol1);
+    yCol1 += 4.2;
   }
 
   let y = Math.max(yCol1, yCol2) + 1;
@@ -372,7 +489,8 @@ function dibujarEncabezado(
   const colLetraX = colLogoX + colLogoW;
   const colDatosX = colLetraX + colLetraW;
   const letraCenterX = colLetraX + colLetraW / 2;
-  const headerH = 36;
+  const leyendaEmisor = datoOVacio(input.fiscal?.leyendaEmisor);
+  const headerH = 36 + (leyendaEmisor ? 4 : 0);
   const logoSlot = { w: Math.min(52, colLogoW), h: 28 };
   const box = 18;
   /** 6.5 pt × 1,2: FECHA y datos de empresa. */
@@ -415,6 +533,17 @@ function dibujarEncabezado(
     doc.text(`N° ${nro}`, letraCenterX, boxY + box + 8, { align: "center" });
     doc.setFontSize(6.5);
   }
+  const cbteTipo = input.fiscal?.cbteTipo;
+  if (cbteTipo != null) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.text(
+      `Código Nº ${String(cbteTipo).padStart(3, "0")}`,
+      letraCenterX,
+      boxY + box + 11.4,
+      { align: "center" }
+    );
+  }
 
   const filasEmpresa = muestraEmisor
     ? [
@@ -428,6 +557,7 @@ function dibujarEncabezado(
             ? formatIsoYmdDdMmYyyyArgentina(emisor.inicioActividadesIso)
             : "",
         },
+        ...(leyendaEmisor ? [{ etiqueta: "COND. IVA", valor: leyendaEmisor }] : []),
       ]
     : [];
   /** FECHA y empresa al borde superior de su columna, alineados al margen derecho. */

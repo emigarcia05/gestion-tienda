@@ -242,7 +242,8 @@ export function urlConstancia(ambiente: ArcaAmbiente): string {
 }
 
 export function topeCfSinDocDesdeEnv(): number {
+  const legal = 10_000_000;
   const raw = Number.parseInt(process.env.ARCA_CF_MAX_SIN_DOC ?? "", 10);
-  if (Number.isFinite(raw) && raw > 0) return raw;
-  return 10_000_000;
+  if (!Number.isFinite(raw) || raw <= 0) return legal;
+  return Math.min(raw, legal);
 }

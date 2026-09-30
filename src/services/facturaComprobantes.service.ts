@@ -70,6 +70,8 @@ import {
   ARCA_ALICUOTA_IVA_DEFAULT,
   ARCA_CONDICION_IVA,
   ARCA_DOC_TIPO,
+  alicuotasParaRepresentacion,
+  aplicarDocumentoConsumidorFinal,
   armarTotalesWsfe,
   coherenciaImpTotal,
   docNroAEnteroArca,
@@ -77,6 +79,9 @@ import {
   esTipoComprobanteFiscal,
   formatoNroComprobante,
   ivaIdDesdeAlicuota,
+  leyendaCondicionIvaEmisor,
+  operacionDiscriminaIva,
+  operacionTransparenciaFiscal,
   ptoVentaAEnteroArca,
   receptorFiscalParaEmitir,
   receptorRequiereCuit,
@@ -95,9 +100,21 @@ import type {
 import {
   emisorPdfDesdePtoVta,
   type FacturaComprobantePdfEmisor,
+  type FacturaComprobantePdfFiscal,
 } from "@/lib/facturaComprobantePdfEmisor";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
+
+function documentoReceptorPdf(
+  tipo: FacturaTipo,
+  docTipo: number | null,
+  docNro: string | null
+): string | null {
+  if (!esFacturaTipoFiscal(tipo)) return null;
+  const nro = (docNro ?? "").replace(/\D/g, "");
+  if (!nro || nro === "0" || docTipo === ARCA_DOC_TIPO.CF) return null;
+  return nro;
+}
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
   return Number(value);
@@ -328,7 +345,118 @@ export type FacturaComprobantePdfDatos = {
   clienteCondicionIva: string | null;
   /** Nombre del proyecto solo si el cliente tiene más de uno. */
   proyectoNombre: string | null;
+  /** Null si no es un fiscal autorizado. */
+  fiscal: FacturaComprobantePdfFiscal | null;
 };
+
+function fiscalPdfDesdeRow(
+  row: {
+    estado: string;
+    cae: string | null;
+    cbteTipo: number | null;
+    cbteNro: number | null;
+    ptoVenta: string;
+    letra: string | null;
+    receptorDocTipo: number | null;
+    receptorDocNro: string | null;
+    receptorCondicionIva: number | null;
+    receptorDomicilio: string | null;
+    emisorCondicionIva: number | null;
+    impNeto: Prisma.Decimal | number;
+    impIva: Prisma.Decimal | number;
+    impTrib: Prisma.Decimal | number;
+    impTotal: Prisma.Decimal | number;
+    moneda: string;
+    cotizacion: Prisma.Decimal | number;
+    items: { importe: Prisma.Decimal | number; alicuotaIva: Prisma.Decimal | number }[];
+    ptoVta: { cuit: string | null; condicionIva: number | null };
+    emisorCondicionIvaArca: { descripcion: string } | null;
+  }
+): FacturaComprobantePdfFiscal | null {
+  if (row.estado !== "autorizado" || !row.cae || row.cbteTipo == null || row.cbteNro == null) {
+    return null;
+  }
+  const cuit = (row.ptoVta.cuit ?? "").replace(/\D/g, "");
+  if (!/^\d{11}$/.test(cuit)) return null;
+  const letra: ArcaLetra =
+    row.letra === "A" || row.letra === "B" || row.letra === "C" ? row.letra : "B";
+  const condicion = row.receptorCondicionIva ?? ARCA_CONDICION_IVA.CF;
+  const impNeto = decimalToNumber(row.impNeto);
+  const impIva = decimalToNumber(row.impIva);
+  return {
+    cbteTipo: row.cbteTipo,
+    ptoVenta: ptoVentaAEnteroArca(row.ptoVenta),
+    cbteNro: row.cbteNro,
+    cuitEmisor: cuit,
+    leyendaEmisor: leyendaCondicionIvaEmisor(
+      row.emisorCondicionIva ?? row.ptoVta.condicionIva,
+      row.emisorCondicionIvaArca?.descripcion
+    ),
+    receptorDocTipo: row.receptorDocTipo ?? ARCA_DOC_TIPO.CF,
+    receptorDocNro: row.receptorDocNro ?? "0",
+    receptorCondicionIva: condicion,
+    receptorDomicilio: row.receptorDomicilio,
+    leyendaConsumidorFinal: condicion === ARCA_CONDICION_IVA.CF,
+    discriminarIva: operacionDiscriminaIva({ letra, receptorCondicionIva: condicion }),
+    transparenciaFiscal: operacionTransparenciaFiscal(condicion),
+    impNeto,
+    impIva,
+    impTrib: decimalToNumber(row.impTrib),
+    impTotal: decimalToNumber(row.impTotal),
+    moneda: row.moneda || "PES",
+    cotizacion: decimalToNumber(row.cotizacion) || 1,
+    alicuotas: alicuotasParaRepresentacion({
+      lineas: row.items.map((l) => ({
+        importeFinal: decimalToNumber(l.importe),
+        alicuotaIva: decimalToNumber(l.alicuotaIva),
+      })),
+      letra,
+      impNeto,
+      impIva,
+    }),
+  };
+}
+
+async function domicilioReceptorParaFiscal(args: {
+  fiscal: boolean;
+  letra: ArcaLetra | null;
+  proyectoId: string | null;
+  domicilioOriginal: string | null;
+}): Promise<ServiceResult<string | null>> {
+  if (!args.fiscal) return { success: true, data: null };
+  const previo = (args.domicilioOriginal ?? "").trim();
+  if (previo) return { success: true, data: previo };
+  let texto: string | null = null;
+  if (args.proyectoId) {
+    const proyecto = await prisma.enviosDireccion.findUnique({
+      where: { id: args.proyectoId },
+      select: {
+        calleNombre: true,
+        numeracion: true,
+        distrito: true,
+        departamento: true,
+      },
+    });
+    if (proyecto) {
+      const calle = [proyecto.calleNombre.trim(), proyecto.numeracion.trim()]
+        .filter((p) => p.length > 0)
+        .join(" ");
+      const lugar = [proyecto.distrito.trim(), (proyecto.departamento ?? "").replaceAll("_", " ")]
+        .filter((p) => p.length > 0)
+        .join(", ");
+      const armado = [calle, lugar].filter((p) => p.length > 0).join(", ").trim();
+      texto = armado || null;
+    }
+  }
+  if (args.letra === "A" && !texto) {
+    return {
+      success: false,
+      error:
+        "La factura A requiere el domicilio del receptor. Cargá la dirección en el proyecto del cliente.",
+    };
+  }
+  return { success: true, data: texto };
+}
 
 export async function obtenerFacturaComprobantePdfDatos(
   id: string
@@ -345,8 +473,10 @@ export async function obtenerFacturaComprobantePdfDatos(
             iiBb: true,
             domicilioComercial: true,
             inicioActividades: true,
+            condicionIva: true,
           },
         },
+        emisorCondicionIvaArca: { select: { descripcion: true } },
         receptorCondicionIvaArca: { select: { descripcion: true } },
         proyecto: { select: { nombreProyecto: true } },
         cliente: { select: { _count: { select: { direcciones: true } } } },
@@ -383,7 +513,7 @@ export async function obtenerFacturaComprobantePdfDatos(
         cae: row.cae,
         caeVtoIso: row.caeVto ? isoYmdFromPrismaDateOnly(row.caeVto) : null,
         letra: row.letra,
-        clienteCuit: esFacturaTipoFiscal(tipo) ? row.receptorDocNro : null,
+        clienteCuit: documentoReceptorPdf(tipo, row.receptorDocTipo, row.receptorDocNro),
         clienteCondicionIva:
           esFacturaTipoFiscal(tipo) && row.receptorCondicionIvaArca
             ? etiquetaCondicionIvaArca(row.receptorCondicionIvaArca.descripcion)
@@ -401,6 +531,7 @@ export async function obtenerFacturaComprobantePdfDatos(
             ? isoYmdFromPrismaDateOnly(row.ptoVta.inicioActividades)
             : null,
         }),
+        fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
       },
     };
   } catch (e) {
@@ -810,6 +941,7 @@ async function persistirIntento(opts: {
   operacion: string;
   resultado: string | null;
   errores: string | null;
+  payload?: string | null;
 }): Promise<void> {
   try {
     await prisma.comprobanteVtaHistorialArca.create({
@@ -819,6 +951,7 @@ async function persistirIntento(opts: {
         operacion: opts.operacion,
         resultado: opts.resultado,
         errores: opts.errores,
+        payload: opts.payload ?? null,
       },
     });
   } catch (e) {
@@ -955,7 +1088,7 @@ export async function emitirFacturaComprobante(
   });
   if (!proyectoResuelto.success) return proyectoResuelto;
   const proyectoId = proyectoResuelto.data;
-  const receptor = receptorFiscalParaEmitir({
+  let receptor = receptorFiscalParaEmitir({
     cliente: clienteFiscal,
     fallback: {
       docTipo: input.receptorDocTipo,
@@ -978,6 +1111,7 @@ export async function emitirFacturaComprobante(
     receptorDocTipo: number | null;
     receptorDocNro: string | null;
     receptorCondicionIva: number | null;
+    receptorDomicilio: string | null;
   } | null = null;
 
   if (esFacturaTipoNotaCredito(input.tipo) && input.cbteAsocId) {
@@ -994,6 +1128,7 @@ export async function emitirFacturaComprobante(
         receptorDocTipo: true,
         receptorDocNro: true,
         receptorCondicionIva: true,
+        receptorDomicilio: true,
       },
     });
     if (input.tipo === "nota_credito_fiscal") {
@@ -1069,6 +1204,13 @@ export async function emitirFacturaComprobante(
     impTrib = tot.impTrib;
     impExento = tot.impExento;
     alicIva = tot.alicIva;
+
+    const docCf = aplicarDocumentoConsumidorFinal(
+      receptor,
+      input.documentoReceptor ?? ""
+    );
+    if (!docCf.ok) return { success: false, error: docCf.error };
+    receptor = docCf.receptor;
 
     const recOk = validarReceptorFiscal({
       letra,
@@ -1164,6 +1306,14 @@ export async function emitirFacturaComprobante(
     }
   }
 
+  const domicilioRes = await domicilioReceptorParaFiscal({
+    fiscal,
+    letra,
+    proyectoId,
+    domicilioOriginal: original?.receptorDomicilio ?? null,
+  });
+  if (!domicilioRes.success) return domicilioRes;
+
   return emitirFiscal({
     input,
     pto,
@@ -1190,6 +1340,8 @@ export async function emitirFacturaComprobante(
     cobros,
     impCobrado,
     diasVencimiento,
+    receptorDomicilio: domicilioRes.data,
+    emisorCondicionIva: fiscal ? pto.condicionIva : null,
   });
 }
 
@@ -1236,6 +1388,8 @@ async function emitirFiscal(args: {
   cobros: EmitirFacturaComprobanteInput["cobros"];
   impCobrado: number;
   diasVencimiento: number | null;
+  receptorDomicilio: string | null;
+  emisorCondicionIva: number | null;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -1360,6 +1514,8 @@ async function emitirFiscal(args: {
           receptorDocTipo: args.receptor.docTipo,
           receptorDocNro: args.receptor.docNro,
           receptorCondicionIva: args.receptor.condicionIva,
+          receptorDomicilio: args.receptorDomicilio,
+          emisorCondicionIva: args.emisorCondicionIva,
           impNeto: args.impNeto,
           impIva: args.impIva,
           impExento: args.impExento,
@@ -1407,6 +1563,7 @@ async function emitirFiscal(args: {
     return { success: false, error: "No se pudo guardar el intento de comprobante." };
   }
 
+  const payloadSolicitud = JSON.stringify({ solicitud: req });
   const caeRes = await wsfeCaeSolicitar(auth, req);
   if (!caeRes.ok) {
     const consultado = await wsfeCompConsultar(auth, ptoNro, args.cbteTipo, cbteNro);
@@ -1428,6 +1585,10 @@ async function emitirFiscal(args: {
         operacion: "FECAESolicitar",
         resultado: "A",
         errores: `reconciliado tras error: ${caeRes.error}`,
+        payload: JSON.stringify({
+          solicitud: req,
+          respuesta: consultado.data,
+        }),
       });
       const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
       return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
@@ -1441,6 +1602,7 @@ async function emitirFiscal(args: {
       operacion: "FECAESolicitar",
       resultado: "R",
       errores: caeRes.error,
+      payload: payloadSolicitud,
     });
     return { success: false, error: caeRes.error };
   }
@@ -1466,6 +1628,7 @@ async function emitirFiscal(args: {
     operacion: "FECAESolicitar",
     resultado: data.resultado,
     errores: obs || null,
+    payload: JSON.stringify({ solicitud: req, respuesta: data }),
   });
   if (estado !== "autorizado") {
     return {

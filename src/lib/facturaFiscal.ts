@@ -119,6 +119,30 @@ export const ARCA_IVA_ALICUOTA_A_ID: Readonly<Record<number, number>> = {
   27: 6,
 };
 
+const ARCA_IVA_ID_A_ALICUOTA: Readonly<Record<number, number>> = {
+  3: 0,
+  9: 2.5,
+  8: 5,
+  4: 10.5,
+  5: 21,
+  6: 27,
+};
+
+/** RG 1415 Anexo II, leyendas de condición del emisor (texto vigente de uso en comprobantes). */
+const LEYENDA_CONDICION_IVA_EMISOR: Readonly<Record<number, string>> = {
+  1: "IVA RESPONSABLE INSCRIPTO",
+  4: "IVA EXENTO",
+  6: "RESPONSABLE MONOTRIBUTO",
+  13: "MONOTRIBUTISTA SOCIAL",
+};
+
+/** RG 5866/2026, Anexo II Apartado A Título II inciso d). */
+export const LEYENDA_A_CONSUMIDOR_FINAL = "A CONSUMIDOR FINAL";
+
+/** RG 5614/2024 art. 2 punto 7, inciso g). */
+export const LEYENDA_TRANSPARENCIA_FISCAL =
+  "Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)";
+
 export const ARCA_ALICUOTA_IVA_DEFAULT = 21;
 
 /** Tope CF sin identificar (DocTipo 99 / DocNro 0). Ajustable por ENV. */
@@ -136,6 +160,121 @@ export function roundArs2(n: number): number {
 export function ivaIdDesdeAlicuota(alicuota: number): number | null {
   const id = ARCA_IVA_ALICUOTA_A_ID[alicuota];
   return id == null ? null : id;
+}
+
+export function leyendaCondicionIvaEmisor(
+  codigo: number | null | undefined,
+  descripcionCatalogo?: string | null
+): string {
+  if (codigo != null && LEYENDA_CONDICION_IVA_EMISOR[codigo]) {
+    return LEYENDA_CONDICION_IVA_EMISOR[codigo];
+  }
+  const catalogo = (descripcionCatalogo ?? "").trim();
+  return catalogo ? catalogo.toLocaleUpperCase("es-AR") : "";
+}
+
+/**
+ * RG 5614 art. 2 punto 5: el emisor responsable inscripto discrimina alícuota e IVA
+ * ante responsable inscripto (factura A) o monotributista (factura B).
+ */
+export function operacionDiscriminaIva(args: {
+  letra: string;
+  receptorCondicionIva: number;
+}): boolean {
+  if (args.letra === "A") return true;
+  if (
+    args.letra === "B" &&
+    (args.receptorCondicionIva === ARCA_CONDICION_IVA.MONO ||
+      args.receptorCondicionIva === ARCA_CONDICION_IVA.MONO_SOCIAL)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * RG 5614 inciso g) + art. 99 Ley 27.743: consumidor final, exento o no alcanzado.
+ */
+export function operacionTransparenciaFiscal(receptorCondicionIva: number): boolean {
+  return (
+    receptorCondicionIva === ARCA_CONDICION_IVA.CF ||
+    receptorCondicionIva === ARCA_CONDICION_IVA.EXENTO
+  );
+}
+
+export type AlicuotaRepresentacion = {
+  alicuota: number;
+  baseImp: number;
+  importe: number;
+};
+
+/** Importes de IVA de la autorización. Si el recálculo no cierra, usa el neto e IVA guardados. */
+export function alicuotasParaRepresentacion(args: {
+  lineas: readonly LineaImporteFiscal[];
+  letra: ArcaLetra;
+  impNeto: number;
+  impIva: number;
+}): AlicuotaRepresentacion[] {
+  const respaldo: AlicuotaRepresentacion[] = [
+    {
+      alicuota: args.lineas[0]?.alicuotaIva ?? ARCA_ALICUOTA_IVA_DEFAULT,
+      baseImp: args.impNeto,
+      importe: args.impIva,
+    },
+  ];
+  if (args.letra === "C") return [];
+  const tot = armarTotalesWsfe(args.lineas, args.letra);
+  if ("ok" in tot) return respaldo;
+  const rows = tot.alicIva.map((a) => ({
+    alicuota: ARCA_IVA_ID_A_ALICUOTA[a.id] ?? respaldo[0]!.alicuota,
+    baseImp: a.baseImp,
+    importe: a.importe,
+  }));
+  const neto = roundArs2(rows.reduce((s, r) => s + r.baseImp, 0));
+  const iva = roundArs2(rows.reduce((s, r) => s + r.importe, 0));
+  if (Math.abs(neto - args.impNeto) > 0.02 || Math.abs(iva - args.impIva) > 0.02) {
+    return respaldo;
+  }
+  return rows;
+}
+
+/**
+ * Identificación opcional del consumidor final (DNI o CUIT/CUIL).
+ * No cambia la condición IVA: sigue siendo consumidor final.
+ */
+export function aplicarDocumentoConsumidorFinal(
+  receptor: ReceptorFiscalSnapshot,
+  documentoRaw: string
+): { ok: true; receptor: ReceptorFiscalSnapshot } | { ok: false; error: string } {
+  const documento = documentoRaw.replace(/\D/g, "");
+  if (!documento) return { ok: true, receptor };
+  if (receptor.condicionIva !== ARCA_CONDICION_IVA.CF) {
+    return { ok: true, receptor };
+  }
+  if (documento.length >= 7 && documento.length <= 8) {
+    return {
+      ok: true,
+      receptor: {
+        ...receptor,
+        docTipo: ARCA_DOC_TIPO.DNI,
+        docNro: documento,
+      },
+    };
+  }
+  if (documento.length === 11 && esCuitValido(documento)) {
+    return {
+      ok: true,
+      receptor: {
+        ...receptor,
+        docTipo: ARCA_DOC_TIPO.CUIT,
+        docNro: documento,
+      },
+    };
+  }
+  return {
+    ok: false,
+    error: "Documento inválido. Usá DNI (7 u 8 dígitos) o CUIT (11 dígitos).",
+  };
 }
 
 /** Dígito verificador CUIT/CUIL (11 dígitos). */

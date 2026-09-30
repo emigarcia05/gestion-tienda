@@ -187,6 +187,11 @@ export const emitirFacturaComprobanteSchema = z
     lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
     descuento: descuentoEmitirSchema.optional().default(null),
     cobros: z.array(cobroFacturaEmitirSchema).max(50).optional().default([]),
+    /**
+     * DNI o CUIT del consumidor final. Obligatorio si el total supera el tope
+     * sin identificar; opcional si el receptor lo pide para Ganancias.
+     */
+    documentoReceptor: z.string().trim().max(20).optional(),
   })
   .superRefine((data, ctx) => {
     const clienteMsg = mensajeClienteFacturaNoSeleccionado(
