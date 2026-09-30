@@ -248,7 +248,7 @@ export default function TablaGastos({
 
         {filas.length > 0 ? (
           <div
-            className="w-full shrink-0 border-t border-border px-2 py-2"
+            className={cn("pie-pagina", "w-full shrink-0 px-2 py-2")}
             role="region"
             aria-label="Totales del listado visible"
             aria-live="polite"

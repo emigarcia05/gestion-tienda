@@ -314,7 +314,7 @@ export default function TablaTesoreriaCajas({
 
         {filas.length > 0 ? (
           <div
-            className="w-full shrink-0 border-t border-border px-2 py-1"
+            className={cn("pie-pagina", "w-full shrink-0 px-2 py-1")}
             role="region"
             aria-label="Totales por tipo de valor"
             aria-live="polite"

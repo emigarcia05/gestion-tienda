@@ -29,7 +29,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 
 ## Guía para IA
 
-1. **Tokens.** Nunca `bg-white`, `text-slate-*`, `bg-slate-*`, `border-slate-*`, ni paletas genéricas (`emerald-*`, `amber-*`, `blue-*`) para estados. Usar `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `primary` / `accent` / `accent2`, o constantes de `@/lib/ui-classes` (`CALLOUT_WARNING_CLASS`, `TEXT_SUCCESS_CLASS`, `TEXT_WARNING_CLASS`, `IMPORT_STAT_BADGE_CLASSES`, `TABLE_ROW_*`). Slidenav: `--sidebar` (azul oscuro). Header de página: `.section-header` usa `--primary` (no `bg-card`).
+1. **Tokens.** Nunca `bg-white`, `text-slate-*`, `bg-slate-*`, `border-slate-*`, ni paletas genéricas (`emerald-*`, `amber-*`, `blue-*`) para estados. Usar `bg-card`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `primary` / `accent` / `accent2`, o constantes de `@/lib/ui-classes` (`CALLOUT_WARNING_CLASS`, `TEXT_SUCCESS_CLASS`, `TEXT_WARNING_CLASS`, `IMPORT_STAT_BADGE_CLASSES`, `TABLE_ROW_*`). Chrome de app (slidenav, `.section-header`, pies `.pie-pagina` / `tfoot` / `.finanzas-resumen-tarjeta` / footer de modal): `--sidebar` (azul oscuro).
 2. **`cn()`.** Siempre. Prohibido `` className={`${a} ${b}`} ``. Una sola utilidad por eje (`px-8`, no `px-4 px-6 px-8`).
 3. **Desktop-only.** Sin breakpoints Tailwind (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`, `max-*:`). Las keys CVA `sm`/`md`/`lg` de `Button`/`AppModal` no son breakpoints. **Excepción única:** Envios · **Conductor** (lienzo fijo `w-[24rem]`, sin media queries).
 4. **Cascarón.** Páginas a pantalla completa: `.area-page-shell` (opcional `bg-gris`). No duplicar `flex h-screen min-h-0 flex-col overflow-hidden`.
@@ -66,7 +66,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 </div>
 ```
 
-- Header: `ClassicFilteredTableLayout` usa `ClassicPageHeader`. API ES: `SectionHeader`. Núcleo: `PageSectionHeader`. Fondo `--primary`; título/subtítulo `--primary-foreground`. Visual: **MÓDULO** → **SUBMÓDULO 1** → **Submódulo 2**.
+- Header: `ClassicFilteredTableLayout` usa `ClassicPageHeader`. API ES: `SectionHeader`. Núcleo: `PageSectionHeader`. Fondo `--sidebar`; título/subtítulo `--sidebar-foreground`. Visual: **MÓDULO** → **SUBMÓDULO 1** → **Submódulo 2**.
 - **`actions` del header:** `PageSectionHeader` las envuelve en `HeaderAccionesMenu`. En pantalla hay **un** botón **ACCIONES**; al hover (o foco) se despliega la lista de la ventana. No dejar una fila de botones sueltos en el header. Los call sites siguen pasando `Button` / `ToolbarActionButton` / triggers de modal como `actions`. Escape cierra el menú.
 - `contentWidth`: `default` (`max-w-7xl`) | `wide150` (Comp. Categorías) | `full` (Balance, Gastos, Flujo, Calcular Lts, Px Tintométricos, Envios).
 - El hueco encabezado → primer bloque lo pone `.contenedor-pagina-con-filtros` (`--espacio-filtros-vertical` = `1rem`). No añadir `py-4` en `children`.
@@ -193,8 +193,8 @@ Constantes: `@/lib/ui-classes` (`TYPEAHEAD_LISTBOX_*`).
 |-------|-----|
 | `.area-page-shell` | Cascarón de página |
 | `.contenedor-pagina-con-filtros` | Gap header / filtros / tabla |
-| `.section-header` + `__titulo` `__subtitulo-*` | Encabezado. Fondo `--primary`; texto `--primary-foreground`. `z-index: 50` para que el menú ACCIONES cubra filtros/tabla |
-| `.header-acciones-menu` `.header-acciones-trigger` `.header-acciones-panel` `.header-acciones-list` `.header-acciones-item` | Menú **ACCIONES** del header (`HeaderAccionesMenu`). Trigger `--sidebar` sobre header `--primary`. Panel abierto `z-[90]`; lista con `divide-y divide-primary` entre opciones |
+| `.section-header` + `__titulo` `__subtitulo-*` | Encabezado. Fondo `--sidebar`; texto `--sidebar-foreground`. `z-index: 50` para que el menú ACCIONES cubra filtros/tabla |
+| `.header-acciones-menu` `.header-acciones-trigger` `.header-acciones-panel` `.header-acciones-list` `.header-acciones-item` | Menú **ACCIONES** del header (`HeaderAccionesMenu`). Trigger `--primary` sobre header `--sidebar`. Panel abierto `z-[90]`; lista con `divide-y divide-primary` entre opciones |
 | `.filtros-contenedor-tienda` `.filtros-doble-bloque-compacto` `.input-filtro-unificado` `.select-content-filtro` `.select-search-input` `.fila-filtros-4\|5\|6` `.filtro-individual-*` `.filtro-count-label` | Filtros. Contorno y **altura `2.5rem`** de `.input-filtro-unificado` (también `<p>` de lectura, p. ej. SALDO CC). Color `--primary`. Máscara vacía en MAYÚSCULAS (`::placeholder` / `[data-placeholder]`) |
 | `.contenedor-tabla-gestion` (+ `--pie-fijo`, `--mc-overlay`, `no-scroll-x`) | Scrollport de tabla |
 | `.card-tabla-envoltorio` | Card alrededor de tabla |
@@ -202,11 +202,11 @@ Constantes: `@/lib/ui-classes` (`TYPEAHEAD_LISTBOX_*`).
 | `.typeahead-listbox-filas` `.typeahead-listbox-fila-activa` | Cebra del listbox typeahead (mismo impar/par/hover que `.tabla-gestion-compacta`). Va en `TYPEAHEAD_LISTBOX_UL_CLASS` |
 | `.modal-app` / `.app-modal` `.modal-micro-label` `.modal-field-label` `.modal-seccion-formulario` | Modales. Secciones de formulario: contorno `--primary` + línea inferior `2px` |
 | `.sidebar-nav-*` `.sidebar-modulos-recuadro` `.sidebar-modulos-trigger` `.sidebar-modulos-panel` `.sidebar-modulos-lista` `.sidebar-user-switcher-surface` | Sidebar. Recuadro de módulos: hover lista módulos; click carga submódulos debajo |
-| `.finanzas-resumen-tarjeta` | Totales Finanzas |
+| `.pie-pagina` `.finanzas-resumen-tarjeta` | Pie de página / totales. Fondo `--sidebar` |
 | `.no-scrollbar` | Oculta barra; mantiene scroll |
 | `.btn-primario-gestion` | CTA toolbar legacy; nuevas toolbars → `ToolbarActionButton` |
 | `.boton-encubierto` | Botón de lectura (no CTA): fondo transparente + contorno `1px` `--primary`; contenido centrado. Factura · Crear visor de cabecera. |
-| `--gris` `--gris-inset` `--primary` `--input` `--sidebar` `--sidebar-user-switcher-bg` | Lienzo / inset / marca. `--input` = contorno de campos (`1px` `--primary`; Tailwind `border-input`). `--border` sigue gris (cards, tablas). `--sidebar` = slidenav (azul oscuro). `--sidebar-user-switcher-bg` = dock de sesión (sigue `--sidebar`). `.section-header` = `--primary`. |
+| `--gris` `--gris-inset` `--primary` `--input` `--sidebar` `--sidebar-user-switcher-bg` | Lienzo / inset / marca. `--input` = contorno de campos (`1px` `--primary`; Tailwind `border-input`). `--border` sigue gris (cards, tablas). `--sidebar` = slidenav, `.section-header`, pies (`.pie-pagina` / `tfoot` / `.finanzas-resumen-tarjeta` / footer modal). `--sidebar-user-switcher-bg` = dock de sesión (sigue `--sidebar`). |
 
 Variantes de tabla (misma familia compacta): `tabla-flujo-de-fondo`, `tabla-deuda-proveedores`, `tabla-recepcion-pedido`, `tabla-est-carga-datos`, `tabla-px-competencia-listado`, `tabla-px-listas-*`, `tabla-fin-ana-margen-contribucion`, `tabla-vinculos-modal`, `tabla-tienda-listado`.
 

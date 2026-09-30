@@ -6,7 +6,7 @@ export type ClassicPageHeaderProps = Omit<PageSectionHeaderProps, "tone">;
 
 /**
  * Encabezado global compartido para páginas con layout clásico.
- * @see PageSectionHeader — núcleo; el fondo lo pinta `.section-header` (`--primary`).
+ * @see PageSectionHeader — núcleo; el fondo lo pinta `.section-header` (`--sidebar`).
  */
 export default function ClassicPageHeader(props: ClassicPageHeaderProps) {
   return <PageSectionHeader {...props} tone="card" />;

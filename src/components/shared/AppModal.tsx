@@ -125,14 +125,14 @@ export default function AppModal({
       )}
       showCloseButton={showCloseButton}
     >
-      {/* Header: fondo corporativo #0072BB, texto blanco Geist, centrado; sin bordes internos */}
+      {/* Header: azul oscuro (`--sidebar`), texto claro, centrado; sin bordes internos */}
       <DialogHeader
         className={cn(
-          "shrink-0 bg-primary px-6 pt-5 pb-4 pr-12",
+          "shrink-0 bg-sidebar px-6 pt-5 pb-4 pr-12",
           headerClassName
         )}
       >
-        <DialogTitle className="font-sans text-lg font-semibold text-primary-foreground tracking-tight w-full flex items-center justify-center gap-3 text-center">
+        <DialogTitle className="font-sans text-lg font-semibold text-sidebar-foreground tracking-tight w-full flex items-center justify-center gap-3 text-center">
           {title}
         </DialogTitle>
       </DialogHeader>
@@ -165,10 +165,10 @@ export default function AppModal({
         </div>
       </div>
 
-      {/* Footer: mismo gris universal que cuerpo externo; botonera centrada verticalmente */}
+      {/* Footer: azul oscuro; la botonera resalta por color de botón */}
       <div
         className={cn(
-          "shrink-0 flex flex-row items-center justify-end gap-2 px-6 py-4 bg-gris",
+          "pie-pagina shrink-0 flex flex-row items-center justify-end gap-2 px-6 py-4",
           footerClassName
         )}
       >

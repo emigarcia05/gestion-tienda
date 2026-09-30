@@ -1024,7 +1024,7 @@ export default function FacturaListadoPageClient({
         </div>
         {esFacturas ? (
           <div
-            className="w-full shrink-0 border-t border-border px-2 py-2"
+            className={cn("pie-pagina", "w-full shrink-0 px-2 py-2")}
             role="region"
             aria-label="Indicadores del listado visible"
           >

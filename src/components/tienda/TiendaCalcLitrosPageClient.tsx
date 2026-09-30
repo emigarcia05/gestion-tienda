@@ -55,7 +55,7 @@ function InputDimensionMts({ className, ...props }: ComponentProps<typeof Input>
   );
 }
 
-const CALC_LITROS_FOOTER_CLASS = "border-t-2 border-primary bg-muted/50";
+const CALC_LITROS_FOOTER_CLASS = "pie-pagina border-t border-sidebar-border";
 const CALC_LITROS_FOOTER_ROW_CLASS =
   "border-0 bg-muted/50 hover:bg-muted/60 odd:bg-muted/50 even:bg-muted/50";
 const CALC_LITROS_FOOTER_TOTAL_LABEL_CLASS =
