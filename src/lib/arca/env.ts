@@ -107,9 +107,18 @@ function envPemPorCuitEstatico(cuit: string): {
   switch (cuit) {
     case "20372672235":
       return {
-        cert: envRuntime("ARCA_CERT_PEM_20372672235"),
-        key: envRuntime("ARCA_KEY_PEM_20372672235"),
-        passphrase: envRuntime("ARCA_KEY_PASSPHRASE_20372672235"),
+        cert: primerPem(
+          envRuntime("ARCA_CONSTANCIA_CERT_PEM"),
+          envRuntime("ARCA_CERT_PEM_20372672235")
+        ),
+        key: primerPem(
+          envRuntime("ARCA_CONSTANCIA_KEY_PEM"),
+          envRuntime("ARCA_KEY_PEM_20372672235")
+        ),
+        passphrase: primerPass(
+          envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE"),
+          envRuntime("ARCA_KEY_PASSPHRASE_20372672235")
+        ),
       };
     case "23169084289":
       return {
@@ -140,18 +149,22 @@ function leerPems(
   const fallbackGenerico = opts?.fallbackGenerico !== false;
   const porCuit = cuit ? nombresPemPorCuit(cuit) : null;
   const estatico = cuit ? envPemPorCuitEstatico(cuit) : null;
+  const soloConstancia = fallbackGenerico === false;
   return {
     certPem: primerPem(
+      soloConstancia ? envRuntime("ARCA_CONSTANCIA_CERT_PEM") : undefined,
       estatico?.cert,
       porCuit ? envRuntime(porCuit.cert) : undefined,
       fallbackGenerico ? envRuntime("ARCA_CERT_PEM") : undefined
     ),
     keyPem: primerPem(
+      soloConstancia ? envRuntime("ARCA_CONSTANCIA_KEY_PEM") : undefined,
       estatico?.key,
       porCuit ? envRuntime(porCuit.key) : undefined,
       fallbackGenerico ? envRuntime("ARCA_KEY_PEM") : undefined
     ),
     keyPassphrase: primerPass(
+      soloConstancia ? envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE") : undefined,
       estatico?.passphrase,
       porCuit ? envRuntime(porCuit.passphrase) : undefined,
       fallbackGenerico ? envRuntime("ARCA_KEY_PASSPHRASE") : undefined
@@ -163,7 +176,7 @@ function msgFaltanCerts(cuit: string | null, opts?: { fallbackGenerico?: boolean
   if (cuit) {
     const n = nombresPemPorCuit(cuit);
     if (opts?.fallbackGenerico === false) {
-      return `Faltan ${n.cert} y ${n.key} en el entorno. La constancia no usa el par genérico ARCA_CERT_PEM (puede ser otro DN del mismo CUIT).`;
+      return `Faltan ARCA_CONSTANCIA_CERT_PEM / ARCA_CONSTANCIA_KEY_PEM (o ${n.cert} / ${n.key}) en el entorno. Reiniciá npm run dev después de cargarlas. La constancia no usa ARCA_CERT_PEM genérico.`;
     }
     return `Faltan ${n.cert} y ${n.key} en el entorno (o el par ARCA_CERT_PEM / ARCA_KEY_PEM). El CUIT en la base no alcanza: hace falta el PEM de ese emisor.`;
   }

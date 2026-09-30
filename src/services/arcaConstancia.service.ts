@@ -14,6 +14,15 @@ import {
 import { obtenerAuthArca } from "@/services/arcaAuth.service";
 import type { ServiceResult } from "@/types/service.types";
 
+function esDnFacturacionNoConstancia(cn: string | null): boolean {
+  if (!cn) return false;
+  return cn.toLowerCase().includes("tiendagestion");
+}
+
+function msgReiniciarPorDn(cn: string, ambiente: string): string {
+  return `El servidor cargó el certificado «${cn}» (ambiente ${ambiente}), que no está autorizado para constancia. En el .env ya está TiedaColorC1: cortá npm run dev con Ctrl+C y volvé a correrlo para recargar certificados.`;
+}
+
 function msgWsNoAutorizado(cn: string | null, ambiente: string): string {
   const alias = cn ? ` «${cn}»` : "";
   return `ARCA rechazó la constancia: el certificado${alias} de 20-37267223-5 no está autorizado para ws_sr_constancia_inscripcion (ambiente ${ambiente}). En homologación: WSASS → Consultar autorizaciones del DN ${cn ?? "TiedaColorC1"} para ese WS. En producción: Administrador de Relaciones. ARCA_ENV tiene que coincidir con el certificado.`;
@@ -77,6 +86,13 @@ export async function consultarConstanciaArca(cuit: string): Promise<
   const envEmisor = leerArcaEnvPorCuit(emisor);
   if ("error" in envEmisor) return { success: false, error: envEmisor.error };
   const certCn = cnDesdeCertPem(envEmisor.certPem);
+  if (esDnFacturacionNoConstancia(certCn) && certCn) {
+    console.error("[arca][constancia] DN de facturación en proceso stale", {
+      cn: certCn,
+      ambiente: envEmisor.ambiente,
+    });
+    return { success: false, error: msgReiniciarPorDn(certCn, envEmisor.ambiente) };
+  }
 
   const authRes = await obtenerAuthArca({
     servicio: ARCA_SERVICIO_CONSTANCIA,
