@@ -709,7 +709,11 @@ export default function FacturaCrearLineasBlock({
           if (!open) setStockDesdeAvanzada(false);
         }}
         sucursalCodigo={sucursalUsuario}
-        onElegir={(item) => agregarItem(item, { mantenerBusqueda: true })}
+        onElegir={(item) => {
+          setBusquedaAvanzadaOpen(false);
+          setStockDesdeAvanzada(false);
+          agregarItem(item, { mantenerBusqueda: true });
+        }}
         onVerStock={(item) => {
           setStockDesdeAvanzada(true);
           setStockModalItem(item);

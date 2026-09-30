@@ -221,9 +221,12 @@ export function generarPdfFacturaComprobante(
   doc.rect(MARGIN, y, contentWidth, footerH, "F");
   const footerY = y + 5.2;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`TOTAL: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN + contentWidth, footerY, {
+  /** Mismo tamaño que filas de tabla, conservando negrita. */
+  doc.setFontSize(7.5);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  /** Deja un pequeño margen al borde derecho del pie. */
+  const footerRightPadding = 2.2;
+  doc.text(`TOTAL: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN + contentWidth - footerRightPadding, footerY, {
     align: "right",
   });
   y += footerH;
