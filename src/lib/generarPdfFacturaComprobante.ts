@@ -224,11 +224,14 @@ export function generarPdfFacturaComprobante(
   /** Mismo tamaño que filas de tabla, conservando negrita. */
   doc.setFontSize(7.5);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  /** Deja un pequeño margen al borde derecho del pie. */
-  const footerRightPadding = 2.2;
-  doc.text(`TOTAL: $${fmtPrecio(resumen.totalConDesc)}`, MARGIN + contentWidth - footerRightPadding, footerY, {
+  const totalColX = MARGIN + col.cod + col.desc + col.px + col.descPct + col.pxDesc + col.cant;
+  const totalColCenterX = totalColX + col.total / 2;
+  const totalValue = `$${fmtPrecio(resumen.totalConDesc)}`;
+  /** Mantiene etiqueta y valor juntos, pero alinea el monto con la columna TOTAL. */
+  doc.text("TOTAL:", totalColCenterX - doc.getTextWidth(totalValue) / 2 - 0.8, footerY, {
     align: "right",
   });
+  doc.text(totalValue, totalColCenterX, footerY, { align: "center" });
   y += footerH;
   doc.setTextColor(INK.r, INK.g, INK.b);
 

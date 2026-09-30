@@ -739,6 +739,7 @@ export default function FacturaCrearLineasBlock({
           }
         }}
         producto={stockModalItem}
+        sucursalCodigo={sucursalUsuario}
       />
 
       <FacturaDescuentoModal
