@@ -140,14 +140,14 @@
    */
   --input: var(--primary);
   --ring: #0072bb;
-  --sidebar: #0072bb;
+  --sidebar: #021d36;
   --sidebar-foreground: #fff;
   --sidebar-primary: #0072bb;
   --sidebar-primary-foreground: #fff;
   --sidebar-accent: rgba(255, 255, 255, 0.15);
   --sidebar-accent-foreground: #fff;
-  /** Dock de sesión (slidenav) y fondo de `.section-header`. */
-  --sidebar-user-switcher-bg: #021d36;
+  /** Dock de sesión: mismo fondo que el slidenav. */
+  --sidebar-user-switcher-bg: var(--sidebar);
   --sidebar-border: rgba(255, 255, 255, 0.2);
   --sidebar-ring: rgba(255, 255, 255, 0.3);
   --sidebar-indicator: #ffc107;
@@ -924,6 +924,73 @@
   }
   .sidebar-nav-item:focus-visible {
     box-shadow: 0 0 0 2px var(--sidebar-ring);
+  }
+
+  /**
+   * Recuadro de módulos: hover despliega la lista; el módulo elegido
+   * carga sus submódulos debajo (fuera del recuadro).
+   */
+  .sidebar-modulos-recuadro {
+    position: relative;
+    z-index: 60;
+    flex-shrink: 0;
+  }
+  .sidebar-modulos-trigger {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--primary);
+    background-color: transparent;
+    padding: 0.625rem 0.75rem;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--sidebar-foreground);
+    cursor: pointer;
+    outline: none;
+  }
+  .sidebar-modulos-trigger svg {
+    color: var(--sidebar-foreground);
+  }
+  .sidebar-modulos-recuadro--abierto .sidebar-modulos-trigger,
+  .sidebar-modulos-trigger:hover,
+  .sidebar-modulos-trigger:focus-visible {
+    background-color: var(--sidebar-accent);
+  }
+  .sidebar-modulos-trigger:focus-visible {
+    box-shadow: 0 0 0 2px var(--sidebar-ring);
+  }
+  .sidebar-modulos-panel {
+    pointer-events: none;
+    visibility: hidden;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 70;
+    padding-top: 0.25rem;
+    opacity: 0;
+  }
+  .sidebar-modulos-panel--abierto {
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+  }
+  .sidebar-modulos-lista {
+    display: flex;
+    max-height: min(24rem, 70vh);
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--primary);
+    background-color: var(--sidebar);
+    padding: 0.25rem;
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar-modulos-lista .sidebar-nav-module {
+    width: 100%;
   }
 
   /**
@@ -2097,8 +2164,8 @@ button.tabla-row-btn-filled-brand {
   position: relative;
   z-index: 50;
   padding: 0.75rem 1.5rem 0;
-  background-color: var(--sidebar-user-switcher-bg);
-  color: var(--sidebar-foreground);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 .section-header .section-header__inner {
   margin-bottom: 0.75rem;
@@ -2108,34 +2175,34 @@ button.tabla-row-btn-filled-brand {
   width: 0.25rem;
   flex-shrink: 0;
   border-radius: 9999px;
-  background-color: var(--primary);
+  background-color: var(--sidebar);
 }
 .section-header__titulo {
   font-size: var(--text-2xl);
   line-height: var(--text-2xl--line-height);
   font-weight: var(--font-weight-bold);
   font-family: var(--font-sans);
-  color: var(--sidebar-foreground);
+  color: var(--primary-foreground);
   margin: 0;
   text-transform: uppercase;
 }
 .section-header__subtitulo {
   margin-top: 0.25rem;
   font-size: var(--text-sm);
-  color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
+  color: color-mix(in srgb, var(--primary-foreground) 70%, transparent);
 }
 .section-header__subtitulo-primario {
   font-weight: var(--font-weight-bold);
-  color: var(--sidebar-foreground);
+  color: var(--primary-foreground);
   text-transform: uppercase;
 }
 .section-header__subtitulo-sep {
   font-weight: var(--font-weight-bold);
-  color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
+  color: color-mix(in srgb, var(--primary-foreground) 70%, transparent);
 }
 .section-header__subtitulo-secundario {
   font-weight: var(--font-weight-bold);
-  color: var(--sidebar-foreground);
+  color: var(--primary-foreground);
   text-transform: none;
 }
 .section-header .section-header-divider {
@@ -2159,8 +2226,8 @@ header .section-header-actions .header-acciones-trigger {
   flex-shrink: 0;
   transition: box-shadow 0.15s, background-color 0.15s;
   box-shadow: 0 1px 2px #0000000d;
-  background-color: var(--primary) !important;
-  color: var(--primary-foreground) !important;
+  background-color: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
 }
 header .section-header-actions .header-acciones-trigger:hover:not(:disabled) {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);

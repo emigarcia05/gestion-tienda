@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ClipboardList,
-  ChevronDown,
   AlarmClock,
   Send,
   FileSearch,
@@ -36,11 +35,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
@@ -52,7 +46,7 @@ import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
-import SidebarNavDivider from "@/components/layout/SidebarNavDivider";
+import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
 
 const iconClass = "h-5 w-5 shrink-0";
 
@@ -371,19 +365,6 @@ function submoduleVisible(sub: SubmoduleItem, rol: Rol): boolean {
   return sub.children?.some((c) => submoduleVisible(c, rol)) ?? false;
 }
 
-function isSubmoduleGroupActive(
-  sub: SubmoduleItem,
-  pathname: string,
-  crearClase: string | null
-): boolean {
-  return (
-    sub.children?.some((c) =>
-      c.href ? isSubmoduleActive(pathname, c.href, crearClase) : false
-    ) ?? false
-  );
-}
-
-/** True si el módulo o algún descendiente coincide con la ruta (ancestro / enlace directo). */
 function isNavModuleActive(
   module: NavModule,
   pathname: string,
@@ -404,38 +385,18 @@ function submoduleGroupKey(moduleId: SidebarModuleId, label: string): string {
   return `${moduleId}:${label}`;
 }
 
-/**
- * Si el módulo tiene exactamente un destino navegable visible, lo devuelve.
- * Grupos con un solo hijo también cuentan (abre ese hijo directo).
- */
-function getSoleNavigableHref(module: NavModule, rol: Rol): string | null {
-  const visible = module.submodules.filter((sub) => submoduleVisible(sub, rol));
-  if (visible.length !== 1) return null;
-  const only = visible[0]!;
-  if (only.href && (!only.children || only.children.length === 0)) {
-    return only.href;
-  }
-  if (!only.href && only.children?.length) {
-    const kids = only.children.filter((c) => submoduleVisible(c, rol));
-    if (kids.length === 1 && kids[0]?.href) return kids[0].href;
-  }
-  return null;
-}
-
 export default function Sidebar({ rol }: { rol: Rol }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const crearClase = searchParams.get(FACTURA_CREAR_QUERY_CLASE);
   const mainAreaId = getMainAppAreaIdFromPathname(pathname);
-  /** Acordeón: arranca cerrado; solo se abre por acción del usuario (no por ruta). */
-  const [openId, setOpenId] = useState<SidebarModuleId | null>(null);
-  const [openSubGroups, setOpenSubGroups] = useState<Set<string>>(() => new Set());
+  const [pickedId, setPickedId] = useState<SidebarModuleId | null>(null);
   const [areaKey, setAreaKey] = useState(mainAreaId);
 
   if (areaKey !== mainAreaId) {
     setAreaKey(mainAreaId);
-    setOpenId(null);
-    setOpenSubGroups(new Set());
+    setPickedId(null);
   }
 
   const modulesForArea: NavModule[] =
@@ -452,48 +413,21 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     return module.submodules.some((sub) => submoduleVisible(sub, rol));
   });
 
-  function toggleSubGroup(moduleId: SidebarModuleId, key: string, open: boolean) {
-    setOpenSubGroups((prev) => {
-      if (!open) {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      }
-      const next = new Set(prev);
-      for (const k of [...next]) {
-        if (k.startsWith(`${moduleId}:`)) next.delete(k);
-      }
-      next.add(key);
-      return next;
-    });
-  }
+  const routeModule =
+    visibleModules.find((module) =>
+      isNavModuleActive(module, pathname, crearClase)
+    ) ?? null;
+  const selectedModule =
+    (pickedId
+      ? visibleModules.find((module) => module.id === pickedId)
+      : null) ?? routeModule;
 
-  function handleModuleOpenChange(module: NavModule, open: boolean) {
-    if (!open) {
-      setOpenId(null);
-      setOpenSubGroups((prev) => {
-        const next = new Set(prev);
-        for (const k of [...next]) {
-          if (k.startsWith(`${module.id}:`)) next.delete(k);
-        }
-        return next;
-      });
-      return;
-    }
-    setOpenId(module.id);
-    // Si hay un agrupador activo por ruta, abrirlo junto con el módulo.
-    for (const sub of module.submodules) {
-      if (!sub.href && sub.children?.length && isSubmoduleGroupActive(sub, pathname, crearClase)) {
-        setOpenSubGroups((prev) => {
-          const next = new Set(prev);
-          for (const k of [...next]) {
-            if (k.startsWith(`${module.id}:`)) next.delete(k);
-          }
-          next.add(submoduleGroupKey(module.id, sub.label));
-          return next;
-        });
-        break;
-      }
+  function onSelectModule(id: string) {
+    const elegido = visibleModules.find((item) => item.id === id);
+    if (!elegido) return;
+    setPickedId(elegido.id);
+    if (elegido.href) {
+      router.push(elegido.href);
     }
   }
 
@@ -505,58 +439,15 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     return visible.map((sub) => {
       if (!sub.href && sub.children?.length) {
         const groupKey = submoduleGroupKey(moduleId, sub.label);
-        const kids = sub.children.filter((c) => submoduleVisible(c, rol));
-        const soleChildHref =
-          kids.length === 1 && kids[0]?.href ? kids[0].href : null;
-        if (soleChildHref) {
-          const active = isSubmoduleActive(pathname, soleChildHref, crearClase);
-          return (
-            <div key={groupKey}>
-              <Link
-                href={soleChildHref}
-                className={cn(
-                  "sidebar-nav-item",
-                  kids[0]?.isUrgente && "relative"
-                )}
-                data-active={active ? "true" : undefined}
-                aria-current={active ? "page" : undefined}
-              >
-                {sub.icon}
-                <span className="min-w-0 truncate">{sub.label}</span>
-              </Link>
-            </div>
-          );
-        }
-        const isSubOpen = openSubGroups.has(groupKey);
-        const groupActive = isSubmoduleGroupActive(sub, pathname, crearClase);
         return (
           <div key={groupKey}>
-            <Collapsible
-              open={isSubOpen}
-              onOpenChange={(open) => toggleSubGroup(moduleId, groupKey, open)}
-              className="group/subcollapsible"
-            >
-              <CollapsibleTrigger
-                className="sidebar-nav-item"
-                data-ancestor={groupActive ? "true" : undefined}
-                aria-expanded={isSubOpen}
-              >
-                {sub.icon}
-                <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
-                <ChevronDown
-                  className={cn(
-                    "sidebar-nav-chevron h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                    isSubOpen && "rotate-180"
-                  )}
-                  aria-hidden
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="sidebar-nav-tree sidebar-nav-tree--nested">
-                  {renderSubmoduleItems(sub.children, moduleId)}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+            <div className="sidebar-nav-item" data-ancestor="true">
+              {sub.icon}
+              <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
+            </div>
+            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
+              {renderSubmoduleItems(sub.children, moduleId)}
+            </div>
           </div>
         );
       }
@@ -566,123 +457,78 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       const active = isSubmoduleActive(pathname, sub.href, crearClase);
       return (
         <div key={sub.href}>
-          <div className="space-y-0">
-            <Link
-              href={sub.href}
-              className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
-              data-active={active ? "true" : undefined}
-              aria-current={active ? "page" : undefined}
-            >
-              {sub.icon}
-              <span className="min-w-0 truncate">{sub.label}</span>
-            </Link>
-
-            {sub.children && sub.children.length > 0 ? (
-              <div className="sidebar-nav-tree sidebar-nav-tree--nested">
-                {renderSubmoduleItems(sub.children, moduleId)}
-              </div>
-            ) : null}
-          </div>
+          <Link
+            href={sub.href}
+            className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
+            data-active={active ? "true" : undefined}
+            aria-current={active ? "page" : undefined}
+          >
+            {sub.icon}
+            <span className="min-w-0 truncate">{sub.label}</span>
+          </Link>
+          {sub.children && sub.children.length > 0 ? (
+            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
+              {renderSubmoduleItems(sub.children, moduleId)}
+            </div>
+          ) : null}
         </div>
       );
     });
   }
 
+  const navVacio = (
+    <div className="rounded-lg border border-sidebar-border/60 bg-sidebar-accent/20 px-3 py-3 text-xs text-sidebar-foreground/80">
+      No Hay Módulos Disponibles En Esta Área.
+    </div>
+  );
+
   return (
     <aside className="sidebar-container w-60 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border">
-      <nav
-        className="sidebar-nav-scroll flex min-h-0 flex-col gap-0.5 px-4 pt-3 pb-2"
-        aria-label="Navegación principal"
-      >
-        {mainAreaId === "finanzas" ? (
+      {mainAreaId === "finanzas" ? (
+        <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
           <AdministracionAccordionNav rol={rol} />
-        ) : visibleModules.length > 0 ? (
-          visibleModules.map((module, moduleIndex) => {
-            const moduleDivider = moduleIndex > 0 ? <SidebarNavDivider /> : null;
-
-            if (module.href) {
-              const active = isSubmoduleActive(pathname, module.href, crearClase);
-              return (
-                <div key={module.id}>
-                  {moduleDivider}
-                  <Link
-                    href={module.href}
-                    className="sidebar-nav-module"
-                    data-active={active ? "true" : undefined}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                      {module.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 text-left">{module.label}</span>
-                  </Link>
-                </div>
-              );
+        </div>
+      ) : visibleModules.length > 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+          <SidebarModulosRecuadro
+            modulos={visibleModules.map((module) => ({
+              id: module.id,
+              label: module.label,
+              icon: module.icon,
+            }))}
+            seleccionado={
+              selectedModule
+                ? {
+                    id: selectedModule.id,
+                    label: selectedModule.label,
+                    icon: selectedModule.icon,
+                  }
+                : null
             }
-
-            const soleHref = getSoleNavigableHref(module, rol);
-            if (soleHref) {
-              const active = isSubmoduleActive(pathname, soleHref, crearClase);
-              return (
-                <div key={module.id}>
-                  {moduleDivider}
-                  <Link
-                    href={soleHref}
-                    className="sidebar-nav-module"
-                    data-active={active ? "true" : undefined}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                      {module.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 text-left">{module.label}</span>
-                  </Link>
-                </div>
-              );
-            }
-
-            const isOpen = openId === module.id;
-            const moduleAncestor = isNavModuleActive(module, pathname, crearClase);
-            return (
-              <div key={module.id}>
-                {moduleDivider}
-                <Collapsible
-                  open={isOpen}
-                  onOpenChange={(open) => handleModuleOpenChange(module, open)}
-                  className="group/collapsible"
-                >
-                  <CollapsibleTrigger
-                    className="sidebar-nav-module"
-                    data-ancestor={moduleAncestor ? "true" : undefined}
-                    aria-expanded={isOpen}
-                  >
-                    <span className="h-5 w-5 shrink-0 flex items-center justify-center">
-                      {module.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 text-left">{module.label}</span>
-                    <ChevronDown
-                      className={cn(
-                        "sidebar-nav-chevron h-4 w-4 shrink-0 transition-transform duration-200",
-                        isOpen && "rotate-180"
-                      )}
-                      aria-hidden
-                    />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="sidebar-nav-tree">
-                      {renderSubmoduleItems(module.submodules, module.id)}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+            onSelect={onSelectModule}
+          />
+          <nav
+            className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5"
+            aria-label="Submódulos"
+          >
+            {selectedModule && !selectedModule.href ? (
+              <div className="sidebar-nav-tree">
+                {renderSubmoduleItems(
+                  selectedModule.submodules,
+                  selectedModule.id
+                )}
               </div>
-            );
-          })
-        ) : (
-          <div className="rounded-lg border border-sidebar-border/60 bg-sidebar-accent/20 px-3 py-3 text-xs text-sidebar-foreground/80">
-            No Hay Módulos Disponibles En Esta Área.
-          </div>
-        )}
-      </nav>
+            ) : null}
+          </nav>
+        </div>
+      ) : (
+        <nav
+          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5 px-4 pt-3 pb-2"
+          aria-label="Navegación principal"
+        >
+          {navVacio}
+        </nav>
+      )}
       <div className="mt-auto flex flex-col gap-2 px-4 pb-3">
         <div className="flex justify-center" aria-hidden>
           <div className="h-px w-[80%] shrink-0 bg-sidebar-foreground/85" />

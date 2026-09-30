@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const pageSectionHeaderRootVariants = cva("section-header shrink-0 w-full", {
   variants: {
     tone: {
-      /** El fondo lo define `.section-header` (`--sidebar-user-switcher-bg`). */
+      /** El fondo lo define `.section-header` (`--primary`). */
       default: "",
       card: "",
     },

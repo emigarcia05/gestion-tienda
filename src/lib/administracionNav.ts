@@ -1,6 +1,6 @@
 /**
  * Navegación del área **Administración**: pilares en sidebar + árbol
- * de decisiones en acordeón vertical (`AdministracionAccordionNav`).
+ * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
  * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
