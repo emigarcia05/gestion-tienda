@@ -7,7 +7,7 @@ import {
   listarCatalogoBusquedaProductosFacturaAction,
 } from "@/actions/factura";
 import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
-import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
+import { FiltroIndividualContainer, SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { Button } from "@/components/ui/button";
@@ -201,60 +201,78 @@ export default function FacturaBusquedaAvanzadaModal({
         }
       >
         <div className="grid shrink-0 grid-cols-3 gap-3">
-          <Select value={rubro} onValueChange={cambiarRubro}>
-            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-              <SelectValue placeholder="RUBRO" />
-            </SelectTrigger>
-            <SelectContent
-              className="select-content-filtro"
-              position="popper"
-              side="bottom"
-              align="start"
-            >
-              <SelectItem value={FILTRO_TODOS}>RUBRO</SelectItem>
-              {(catalogo?.rubros ?? []).map((nombre) => (
-                <SelectItem key={nombre} value={nombre}>
-                  {nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={marca} onValueChange={cambiarMarca}>
-            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-              <SelectValue placeholder="MARCA" />
-            </SelectTrigger>
-            <SelectContent
-              className="select-content-filtro"
-              position="popper"
-              side="bottom"
-              align="start"
-            >
-              <SelectItem value={FILTRO_TODOS}>MARCA</SelectItem>
-              {(catalogo?.marcas ?? []).map((nombre) => (
-                <SelectItem key={nombre} value={nombre}>
-                  {nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={subRubro} onValueChange={cambiarSubRubro}>
-            <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-              <SelectValue placeholder="SUBRUBRO" />
-            </SelectTrigger>
-            <SelectContent
-              className="select-content-filtro"
-              position="popper"
-              side="bottom"
-              align="start"
-            >
-              <SelectItem value={FILTRO_TODOS}>SUBRUBRO</SelectItem>
-              {subRubros.map((nombre) => (
-                <SelectItem key={nombre} value={nombre}>
-                  {nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FiltroIndividualContainer
+            activo={rubro !== FILTRO_TODOS}
+            onLimpiar={() => cambiarRubro(FILTRO_TODOS)}
+            className="w-full flex-none"
+          >
+            <Select value={rubro} onValueChange={cambiarRubro}>
+              <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                <SelectValue placeholder="RUBRO" />
+              </SelectTrigger>
+              <SelectContent
+                className="select-content-filtro"
+                position="popper"
+                side="bottom"
+                align="start"
+              >
+                <SelectItem value={FILTRO_TODOS}>RUBRO</SelectItem>
+                {(catalogo?.rubros ?? []).map((nombre) => (
+                  <SelectItem key={nombre} value={nombre}>
+                    {nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FiltroIndividualContainer>
+          <FiltroIndividualContainer
+            activo={subRubro !== FILTRO_TODOS}
+            onLimpiar={() => cambiarSubRubro(FILTRO_TODOS)}
+            className="w-full flex-none"
+          >
+            <Select value={subRubro} onValueChange={cambiarSubRubro}>
+              <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                <SelectValue placeholder="SUBRUBRO" />
+              </SelectTrigger>
+              <SelectContent
+                className="select-content-filtro"
+                position="popper"
+                side="bottom"
+                align="start"
+              >
+                <SelectItem value={FILTRO_TODOS}>SUBRUBRO</SelectItem>
+                {subRubros.map((nombre) => (
+                  <SelectItem key={nombre} value={nombre}>
+                    {nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FiltroIndividualContainer>
+          <FiltroIndividualContainer
+            activo={marca !== FILTRO_TODOS}
+            onLimpiar={() => cambiarMarca(FILTRO_TODOS)}
+            className="w-full flex-none"
+          >
+            <Select value={marca} onValueChange={cambiarMarca}>
+              <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                <SelectValue placeholder="MARCA" />
+              </SelectTrigger>
+              <SelectContent
+                className="select-content-filtro"
+                position="popper"
+                side="bottom"
+                align="start"
+              >
+                <SelectItem value={FILTRO_TODOS}>MARCA</SelectItem>
+                {(catalogo?.marcas ?? []).map((nombre) => (
+                  <SelectItem key={nombre} value={nombre}>
+                    {nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FiltroIndividualContainer>
         </div>
         <FiltroBusquedaInput
           id="factura-busqueda-avanzada-descripcion"
