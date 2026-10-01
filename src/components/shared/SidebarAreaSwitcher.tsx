@@ -159,10 +159,7 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   }
 
   function aplicarModulo(usuario: UsuarioSesion, areaId: MainAppAreaId) {
-    if (areaId === currentId && !forceChoose) {
-      setModuloOpen(false);
-      return;
-    }
+    if (areaId === currentId && !forceChoose) return;
     const area = getMainAppAreaById(areaId);
     if (area.requierePassword && rolActual !== "editor") {
       pedirClave(usuario, areaId);
