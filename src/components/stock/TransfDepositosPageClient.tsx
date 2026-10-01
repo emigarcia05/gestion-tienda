@@ -14,7 +14,6 @@ import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import { Button } from "@/components/ui/button";
 import { registrarTransferenciasDepositosAction } from "@/actions/stock";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
-import { avisarIndicadorSlidenav } from "@/lib/indicadorSlidenav";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { enfocarDuxTransferenciaDepositosTab } from "@/lib/transfDepositosControl";
 import type { Sucursal, TransfDepositosData } from "@/actions/stock";
@@ -35,7 +34,7 @@ interface Props {
  * Pantalla **Stock · Trans. Depósitos**: origen/destino → marca/rubro/búsqueda;
  * grilla DESCRIPCIÓN / {origen} / → / {destino} / ACCIONES;
  * header **Generar Transf.** persiste cantidades de la grilla (si hay) y abre
- * el modal de pendientes origen→destino. El borrador de la grilla se conserva
+ * el modal del lote abierto origen→destino. El borrador de la grilla se conserva
  * en `localStorage` por par origen→destino hasta **Transferido**.
  */
 export default function TransfDepositosPageClient({
@@ -109,7 +108,6 @@ export default function TransfDepositosPageClient({
         toast.error(res.error);
         return;
       }
-      avisarIndicadorSlidenav();
       setModalOpen(true);
     });
   }
@@ -161,7 +159,6 @@ export default function TransfDepositosPageClient({
         destinoCodigo={destino}
         onTransferido={() => {
           tablaRef.current?.clearCantidades();
-          avisarIndicadorSlidenav();
           router.refresh();
         }}
       />

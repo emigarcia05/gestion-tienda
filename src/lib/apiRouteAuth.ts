@@ -93,15 +93,6 @@ export async function guardEstPorProdImportarEsEditor(): Promise<NextResponse | 
   return null;
 }
 
-/** Lectura del indicador Pendientes (slidenav). */
-export async function guardIndicadorSlidenavLectura(): Promise<NextResponse | null> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.pedidos.acceso) && !puede(rol, PERMISOS.stock.acceso)) {
-    return NextResponse.json({ ok: false, error: "Sin permisos." }, { status: 403 });
-  }
-  return null;
-}
-
 /** Health ARCA (`FEDummy`): mismo gate que emitir CAE (módulo facturación, simple o editor). */
 export async function guardFacturacionLectura(): Promise<NextResponse | null> {
   const rol = await getRol();

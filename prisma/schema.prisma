@@ -1243,7 +1243,7 @@ model ProdPedMerc2 {
 model PedidoHistoria {
   id            String   @id @default(cuid())
   generadoAt    DateTime @default(now()) @map("generado_at")
-  estado        String   @default("PENDIENTE") @map("estado") // PENDIENTE | RECEPCIONADO
+  estado        String   @default("ABIERTO") @map("estado") // ABIERTO | RECEPCIONADO
   registradoAt  DateTime? @map("registrado_at")
   /**
    * Fecha de recepción / factura (calendario AR, `YYYY-MM-DD`).

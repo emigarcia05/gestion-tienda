@@ -28,7 +28,7 @@ const SUCURSALES = [
   { value: "maipu", label: "MAIPÚ" },
 ] as const;
 
-export type EstadoFiltroPedido = "PENDIENTE" | "RECEPCIONADO" | "ALL";
+export type EstadoFiltroPedido = "ABIERTO" | "RECEPCIONADO" | "ALL";
 
 interface Proveedor {
   id: string;
@@ -107,7 +107,7 @@ export default function FiltrosHistorialPedidos({
     applyNavigate({
       proveedorId: "",
       sucursalCodigo: "",
-      estado: "PENDIENTE",
+      estado: "ABIERTO",
       q: "",
     });
   }
@@ -172,8 +172,8 @@ export default function FiltrosHistorialPedidos({
 
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={estado !== "PENDIENTE"}
-            onLimpiar={() => applyNavigate({ estado: "PENDIENTE" })}
+            activo={estado !== "ABIERTO"}
+            onLimpiar={() => applyNavigate({ estado: "ABIERTO" })}
           >
             <Select
               value={estado}
@@ -188,7 +188,7 @@ export default function FiltrosHistorialPedidos({
                 align="start"
                 className="select-content-filtro"
               >
-                <SelectItem value="PENDIENTE">PENDIENTE</SelectItem>
+                <SelectItem value="ABIERTO">ABIERTO</SelectItem>
                 <SelectItem value="RECEPCIONADO">RECEPCIONADO</SelectItem>
                 <SelectItem value="ALL">TODOS</SelectItem>
               </SelectContent>

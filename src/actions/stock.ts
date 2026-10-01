@@ -210,7 +210,7 @@ export type ControlTransfDepositosRecienteDto = {
   createdAtIso: string;
 };
 
-export type PendienteTransfDepositoItemDto = {
+export type LoteAbiertoTransfDepositoItemDto = {
   codTienda: string;
   descripcionTienda: string;
   cantidad: number;
@@ -236,8 +236,8 @@ export interface TransfDepositosData {
   rubros: string[];
   /** Controles del par origen→destino en la ventana anti-duplicado. */
   controlesRecientes: ControlTransfDepositosRecienteDto[];
-  /** Lote pendiente (antes de Transferido) para hidratar la grilla. */
-  pendientes: PendienteTransfDepositoItemDto[];
+  /** Lote abierto (antes de Transferido) para hidratar la grilla. */
+  loteAbierto: LoteAbiertoTransfDepositoItemDto[];
 }
 
 export interface GetTransfDepositosParams {
@@ -254,7 +254,7 @@ const emptyTransfDepositos: TransfDepositosData = {
   marcas: [],
   rubros: [],
   controlesRecientes: [],
-  pendientes: [],
+  loteAbierto: [],
 };
 
 /**
@@ -358,13 +358,13 @@ export async function getTransfDepositos(
     const totalPaginas = total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE);
 
     let controlesRecientes: ControlTransfDepositosRecienteDto[] = [];
-    let pendientes: PendienteTransfDepositoItemDto[] = [];
+    let loteAbierto: LoteAbiertoTransfDepositoItemDto[] = [];
     if (destinoOk) {
       const {
         listarControlesRecientesTransfDepositos,
-        listarPendientesTransfDepositosPorCodigos,
+        listarLoteAbiertoTransfDepositosPorCodigos,
       } = await import("@/services/transfDepositos.service");
-      pendientes = await listarPendientesTransfDepositosPorCodigos(
+      loteAbierto = await listarLoteAbiertoTransfDepositosPorCodigos(
         origen,
         destinoOk
       );
@@ -384,7 +384,7 @@ export async function getTransfDepositos(
       marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => m.marca!),
       rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => r.rubro!),
       controlesRecientes,
-      pendientes,
+      loteAbierto,
     };
   } catch (e) {
     console.error("[getTransfDepositos]", e);
@@ -473,9 +473,9 @@ export async function listarSucursalesTransfDepositosAction(): Promise<
   }
 }
 
-export async function listarPendientesTransfDepositosAction(
+export async function listarLoteAbiertoTransfDepositosAction(
   raw: unknown
-): Promise<ActionResult<PendienteTransfDepositoItemDto[]>> {
+): Promise<ActionResult<LoteAbiertoTransfDepositoItemDto[]>> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.stock.acceso)) {
     return { ok: false, error: "Sin acceso." };
@@ -485,13 +485,13 @@ export async function listarPendientesTransfDepositosAction(
     return { ok: false, error: "Datos inválidos." };
   }
   try {
-    const { listarPendientesTransfDepositos } = await import(
+    const { listarLoteAbiertoTransfDepositos } = await import(
       "@/services/transfDepositos.service"
     );
-    const data = await listarPendientesTransfDepositos(parsed.data);
+    const data = await listarLoteAbiertoTransfDepositos(parsed.data);
     return { ok: true, data };
   } catch (e) {
-    console.error("[listarPendientesTransfDepositosAction]", e);
+    console.error("[listarLoteAbiertoTransfDepositosAction]", e);
     return { ok: false, error: "Error al cargar transferencias." };
   }
 }
@@ -521,11 +521,6 @@ export async function marcarTransferidoTransfDepositosAction(
   revalidatePath(GP_INTERNAL.ayudaVendedor.transfDepositos);
   return { ok: true, data: result.data };
 }
-
-export type {
-  IndicadorSlidenavDto,
-  IndicadorSlidenavProveedorPedidoDto,
-} from "@/lib/indicadorSlidenav";
 
 /**
  * Exportar Excel: ÚLT. CONTROL + stock local del depósito de la sucursal.

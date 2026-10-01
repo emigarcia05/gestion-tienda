@@ -42,7 +42,7 @@ import {
   SUCURSAL_LABEL_TRANSF,
   TRANSF_DEPOSITOS_VENTANA_DUPLICADO_DIAS,
   borrarBorradorTransfDepositos,
-  borradorDesdePendientesTransfDepositos,
+  borradorDesdeLoteAbiertoTransfDepositos,
   claveStorageBorradorTransfDepositos,
   guardarBorradorTransfDepositos,
   leerBorradorTransfDepositos,
@@ -76,7 +76,7 @@ export type TablaTransfDepositosHandle = {
  * DESCRIPCIÓN · {origen} · → · {destino} · ACCIONES (Trash2, Check historial, AlertTriangle).
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
  * hasta **Transferido**. Si el borrador local está vacío, se hidrata desde
- * pendientes de `stock_trasn_depositos` (Generar Transf. hecho, Transferido no).
+ * lote abierto de `stock_trasn_depositos` (Generar Transf. hecho, Transferido no).
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   function TablaTransfDepositos({ data, origen, destino }, ref) {
@@ -113,19 +113,19 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
         setBorrador(local);
         return;
       }
-      const desdePendientes = borradorDesdePendientesTransfDepositos(
-        data.pendientes.map((p) => ({
+      const desdeLoteAbierto = borradorDesdeLoteAbiertoTransfDepositos(
+        data.loteAbierto.map((p) => ({
           codTienda: p.codTienda,
           cantidad: p.cantidad,
           descripcion: p.descripcionTienda,
         }))
       );
-      setBorrador(desdePendientes);
-      if (Object.keys(desdePendientes).length > 0) {
-        guardarBorradorTransfDepositos(origen, destino, desdePendientes);
+      setBorrador(desdeLoteAbierto);
+      if (Object.keys(desdeLoteAbierto).length > 0) {
+        guardarBorradorTransfDepositos(origen, destino, desdeLoteAbierto);
       }
     });
-  }, [origen, destino, data.pendientes]);
+  }, [origen, destino, data.loteAbierto]);
 
   useEffect(() => {
     if (!origen || !destino || origen === destino) return;

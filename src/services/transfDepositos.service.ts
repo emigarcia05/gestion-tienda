@@ -163,7 +163,7 @@ export async function listarHistorialTransfDepositosPorProducto(
 }
 
 /**
- * Reemplaza el lote pendiente del par origen→destino en `stock_trasn_depositos`
+ * Reemplaza el lote abierto del par origen→destino en `stock_trasn_depositos`
  * (delete + create). Re-Generar Transf. no duplica filas.
  */
 export async function registrarTransferenciasDepositos(input: {
@@ -218,7 +218,7 @@ export type SucursalTransfDepositoOption = {
   tieneDeposito: boolean;
 };
 
-export type PendienteTransfDepositoItem = {
+export type LoteAbiertoTransfDepositoItem = {
   codTienda: string;
   descripcionTienda: string;
   cantidad: number;
@@ -270,29 +270,29 @@ async function validarParSucursales(
 }
 
 /**
- * Pendientes del par origen→destino por código de sucursal (grilla / hidratar borrador).
+ * Lote abierto del par origen→destino por código de sucursal (grilla / hidratar borrador).
  */
-export async function listarPendientesTransfDepositosPorCodigos(
+export async function listarLoteAbiertoTransfDepositosPorCodigos(
   origen: SucursalCodigoTransf,
   destino: SucursalCodigoTransf
-): Promise<PendienteTransfDepositoItem[]> {
+): Promise<LoteAbiertoTransfDepositoItem[]> {
   if (origen === destino) return [];
   const sucursales = await idsSucursalesPorCodigo(origen, destino);
   if (!sucursales.success) return [];
-  return listarPendientesTransfDepositos({
+  return listarLoteAbiertoTransfDepositos({
     sucOrigenId: sucursales.data.sucOrigen,
     sucDestinoId: sucursales.data.sucDestino,
   });
 }
 
 /**
- * Ítems pendientes de `stock_trasn_depositos` para un par origen→destino,
+ * Ítems del lote abierto de `stock_trasn_depositos` para un par origen→destino,
  * agrupados por `cod_tienda` (suma `cant`).
  */
-export async function listarPendientesTransfDepositos(input: {
+export async function listarLoteAbiertoTransfDepositos(input: {
   sucOrigenId: string;
   sucDestinoId: string;
-}): Promise<PendienteTransfDepositoItem[]> {
+}): Promise<LoteAbiertoTransfDepositoItem[]> {
   const ok = await validarParSucursales(input.sucOrigenId, input.sucDestinoId);
   if (!ok.success) return [];
   try {
@@ -308,7 +308,7 @@ export async function listarPendientesTransfDepositos(input: {
         },
       },
     });
-    const porCodigo = new Map<string, PendienteTransfDepositoItem>();
+    const porCodigo = new Map<string, LoteAbiertoTransfDepositoItem>();
     for (const r of rows) {
       const prev = porCodigo.get(r.prodTienda.codTienda);
       if (prev) {
@@ -325,7 +325,7 @@ export async function listarPendientesTransfDepositos(input: {
       a.descripcionTienda.localeCompare(b.descripcionTienda, "es")
     );
   } catch (e) {
-    console.error("[listarPendientesTransfDepositos]", e);
+    console.error("[listarLoteAbiertoTransfDepositos]", e);
     return [];
   }
 }
@@ -358,24 +358,3 @@ export async function marcarTransferidoTransfDepositos(input: {
   }
 }
 
-/**
- * True si la sucursal (código) figura como **SUC. ORIGEN** en `stock_trasn_depositos`.
- */
-export async function hayPendientesTransfDepositosComoOrigen(
-  sucursalCodigo: SucursalCodigoTransf
-): Promise<boolean> {
-  try {
-    const suc = await prisma.sucursal.findUnique({
-      where: { codigo: sucursalCodigo },
-      select: { id: true },
-    });
-    if (!suc) return false;
-    const n = await prisma.stockTrasnDeposito.count({
-      where: { sucOrigen: suc.id },
-    });
-    return n > 0;
-  } catch (e) {
-    console.error("[hayPendientesTransfDepositosComoOrigen]", e);
-    return false;
-  }
-}

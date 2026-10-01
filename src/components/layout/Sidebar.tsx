@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
-import SidebarMainAppArea from "@/components/shared/SidebarMainAppArea";
 import type { Rol } from "@/lib/permisos";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
@@ -523,11 +522,13 @@ export default function Sidebar({ rol }: { rol: Rol }) {
   return (
     <aside className="sidebar-container w-60 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border">
       {mainAreaId === "finanzas" ? (
-        <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           <AdministracionAccordionNav rol={rol} />
         </div>
       ) : visibleModules.length > 0 ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           <SidebarModulosRecuadro
             modulos={visibleModules.map((module) => ({
               id: module.id,
@@ -543,6 +544,8 @@ export default function Sidebar({ rol }: { rol: Rol }) {
                   }
                 : null
             }
+            placeholder="MÓDULO"
+            menuLabel="Módulos"
             onSelect={onSelectModule}
           />
           <nav
@@ -561,9 +564,10 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         </div>
       ) : (
         <nav
-          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5 px-4 pt-3 pb-2"
+          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2"
           aria-label="Navegación principal"
         >
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           {navVacio}
         </nav>
       )}
@@ -581,11 +585,6 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           )}
           aria-label="Sesión"
         >
-          <SidebarMainAppArea />
-          <div
-            className="mx-2 h-px shrink-0 bg-sidebar-foreground/40"
-            aria-hidden
-          />
           <SidebarAreaSwitcher rolActual={rol} />
         </div>
       </div>

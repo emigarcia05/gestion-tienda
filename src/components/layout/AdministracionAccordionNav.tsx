@@ -221,6 +221,8 @@ export default function AdministracionAccordionNav({ rol }: { rol: Rol }) {
               }
             : null
         }
+        placeholder="MÓDULO"
+        menuLabel="Módulos"
         onSelect={(id) => {
           const pillar = visiblePillars.find((item) => item.id === id);
           if (pillar) setPickedId(pillar.id);

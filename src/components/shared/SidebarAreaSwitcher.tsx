@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Eye,
@@ -17,37 +18,30 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import AppModal from "@/components/shared/AppModal";
-import TransferenciaPendienteAvisoModal from "@/components/stock/TransferenciaPendienteAvisoModal";
 import { activarModoEditor } from "@/actions/sesion";
 import { listUsuariosParaInicioSesionAction } from "@/actions/globalPersonal";
-import {
-  EVENTO_AVISO_TRANSF_PENDIENTE,
-  fetchIndicadorSlidenav,
-} from "@/lib/indicadorSlidenav";
 import {
   areaLabelMayusculas,
   getMainAppAreaById,
   getMainAppAreaIdFromPathname,
+  isMainAppAreaId,
   type MainAppAreaId,
 } from "@/lib/main-app-areas";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
 import {
   guardarUsuarioSesion,
-  hayAvisoTransfPendiente,
-  limpiarAvisoTransfPendiente,
-  marcarAvisoTransfPendiente,
   leerUsuarioSesion,
   usuarioSesionDesdeItem,
   type UsuarioSesion,
 } from "@/lib/usuarioSesion";
 import { type SucursalPreferida } from "@/lib/sucursalPreferida";
-import { hrefAbrirGenerarTransfDepositos } from "@/lib/transfDepositosControl";
 import {
   puedeCambiarModulo,
   primerModuloPermitido,
   etiquetaSucursalPorDefecto,
 } from "@/lib/usuarios";
 import type { Rol } from "@/lib/permisos";
+import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -91,8 +85,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const [pendingUsuario, setPendingUsuario] = useState<UsuarioSesion | null>(null);
   const [pendingAreaId, setPendingAreaId] = useState<MainAppAreaId | null>(null);
   const [pending, startTransition] = useTransition();
-  const [transfPendienteOpen, setTransfPendienteOpen] = useState(false);
-  const [avisoTransfTick, setAvisoTransfTick] = useState(0);
 
   const currentId = getMainAppAreaIdFromPathname(pathname);
   const puedeCambiar = usuarioSesion
@@ -162,29 +154,9 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     };
   }, [moduloOpen]);
 
-  useEffect(() => {
-    function onAvisoListo() {
-      setAvisoTransfTick((n) => n + 1);
-    }
-    window.addEventListener(EVENTO_AVISO_TRANSF_PENDIENTE, onAvisoListo);
-    return () => {
-      window.removeEventListener(EVENTO_AVISO_TRANSF_PENDIENTE, onAvisoListo);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (usuarioOpen || claveOpen || moduloOpen) return;
-    if (!hayAvisoTransfPendiente()) return;
-    const id = window.setTimeout(() => {
-      setTransfPendienteOpen(true);
-    }, 450);
-    return () => window.clearTimeout(id);
-  }, [usuarioOpen, claveOpen, moduloOpen, avisoTransfTick]);
-
   function persistirYNavegar(
     usuario: UsuarioSesion,
-    areaId: MainAppAreaId,
-    avisarTransfPendiente = false
+    areaId: MainAppAreaId
   ) {
     guardarUsuarioSesion(usuario);
     setUsuarioSesion(usuario);
@@ -194,19 +166,9 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     setClaveOpen(false);
     setPendingUsuario(null);
     setPendingAreaId(null);
-    if (avisarTransfPendiente) {
-      void consultarYAvisarTransfPendiente(usuario.sucursalPorDefecto);
-    }
     if (getMainAppAreaIdFromPathname(pathname) !== areaId) {
       router.push(getMainAppAreaById(areaId).href);
     }
-  }
-
-  async function consultarYAvisarTransfPendiente(sucursal: SucursalPreferida) {
-    const data = await fetchIndicadorSlidenav(sucursal, "transf");
-    if (!data?.hayTransfOrigen) return;
-    marcarAvisoTransfPendiente();
-    window.dispatchEvent(new Event(EVENTO_AVISO_TRANSF_PENDIENTE));
   }
 
   function pedirClave(usuario: UsuarioSesion, areaId: MainAppAreaId) {
@@ -230,7 +192,7 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
       pedirClave(usuario, destino);
       return;
     }
-    persistirYNavegar(usuario, destino, true);
+    persistirYNavegar(usuario, destino);
   }
 
   function aplicarModulo(usuario: UsuarioSesion, areaId: MainAppAreaId) {
@@ -255,7 +217,7 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
         setError(res.error ?? "Error desconocido.");
         return;
       }
-      persistirYNavegar(pendingUsuario, pendingAreaId, true);
+      persistirYNavegar(pendingUsuario, pendingAreaId);
       router.refresh();
     });
   }
@@ -311,6 +273,22 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
       : `Usuarios ${etiquetaSucursalPorDefecto(sucursalSeleccionadaUsuario)}`;
 
   const IconoModulo = ICONO_MODULO[currentId];
+  const anclaModuloGeneral = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return document.getElementById("sidebar-modulo-general-ancla");
+  }, []);
+
+  const modulosGenerales = (usuarioSesion?.modulosPermitidos ?? []).map((id) => {
+    const area = getMainAppAreaById(id);
+    const Icono = ICONO_MODULO[id];
+    return {
+      id,
+      label: areaLabelMayusculas(area.label),
+      icon: <Icono className="h-5 w-5 shrink-0" aria-hidden />,
+    };
+  });
+  const moduloGeneralActual =
+    modulosGenerales.find((item) => item.id === currentId) ?? null;
 
   function abrirCambiarModulo() {
     setModuloOpen(true);
@@ -321,21 +299,23 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     setUsuarioOpen(true);
   }
 
-  function handleTransferirAhora() {
-    limpiarAvisoTransfPendiente();
-    setTransfPendienteOpen(false);
-    const origen =
-      usuarioSesion?.sucursalPorDefecto ?? sucursalSeleccionadaUsuario;
-    router.push(hrefAbrirGenerarTransfDepositos(origen));
-  }
-
-  function handleAvisoTransfOpenChange(open: boolean) {
-    setTransfPendienteOpen(open);
-    if (!open) limpiarAvisoTransfPendiente();
-  }
-
   return (
     <>
+      {anclaModuloGeneral && usuarioSesion
+        ? createPortal(
+            <SidebarModulosRecuadro
+              modulos={modulosGenerales}
+              seleccionado={moduloGeneralActual}
+              placeholder="MÓDULO GENERAL"
+              menuLabel="Módulos generales"
+              onSelect={(id) => {
+                if (!isMainAppAreaId(id) || !usuarioSesion) return;
+                aplicarModulo(usuarioSesion, id);
+              }}
+            />,
+            anclaModuloGeneral
+          )
+        : null}
       {puedeCambiar ? (
         <div
           className={cn(
@@ -647,13 +627,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
         </AppModal>
       </Dialog>
 
-      {transfPendienteOpen ? (
-        <TransferenciaPendienteAvisoModal
-          open
-          onOpenChange={handleAvisoTransfOpenChange}
-          onTransferirAhora={handleTransferirAhora}
-        />
-      ) : null}
     </>
   );
 }

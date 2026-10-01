@@ -24,10 +24,10 @@ import {
 } from "@/components/ui/table";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import {
-  listarPendientesTransfDepositosAction,
+  listarLoteAbiertoTransfDepositosAction,
   listarSucursalesTransfDepositosAction,
   marcarTransferidoTransfDepositosAction,
-  type PendienteTransfDepositoItemDto,
+  type LoteAbiertoTransfDepositoItemDto,
   type Sucursal,
   type SucursalTransfDepositoOptionDto,
 } from "@/actions/stock";
@@ -48,7 +48,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Código de sucursal del usuario (origen de las filas). */
   origenCodigo: Sucursal | null;
-  /** Destino de la página (si hay): precarga el lote pendiente en la tabla. */
+  /** Destino de la página (si hay): precarga el lote abierto en la tabla. */
   destinoCodigo: Sucursal | null;
   onTransferido?: () => void;
 }
@@ -73,7 +73,7 @@ async function copiarDatoTransf(texto: string, toastTitle: string): Promise<void
 /**
  * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** (sucursal del usuario)
  * y **SUC. DESTINO** (`sucursales` distintas, con `deposito` no vacío);
- * al abrir, si la página ya tiene destino, precarga el lote pendiente en la tabla
+ * al abrir, si la página ya tiene destino, precarga el lote abierto en la tabla
  * (reabrir el modal sin haber pulsado Transferido muestra los mismos ítems);
  * al elegir destino abre (o enfoca) transferencia de depósitos en DUX;
  * tabla Control de ítem / COD. TIENDA (**OK** a la izquierda del código) / DESCRIPCIÓN / CANTIDAD (copiar a la derecha);
@@ -93,7 +93,7 @@ export default function GenerarTransfDepositosModal({
   );
   const [sucOrigenId, setSucOrigenId] = useState<string | null>(null);
   const [sucDestinoId, setSucDestinoId] = useState<string | null>(null);
-  const [items, setItems] = useState<PendienteTransfDepositoItemDto[]>([]);
+  const [items, setItems] = useState<LoteAbiertoTransfDepositoItemDto[]>([]);
   const [okPorCodTienda, setOkPorCodTienda] = useState<Record<string, boolean>>(
     {}
   );
@@ -115,7 +115,7 @@ export default function GenerarTransfDepositosModal({
 
   const cargarItems = useCallback(
     async (origenId: string, destinoId: string) => {
-      const res = await listarPendientesTransfDepositosAction({
+      const res = await listarLoteAbiertoTransfDepositosAction({
         sucOrigenId: origenId,
         sucDestinoId: destinoId,
       });
@@ -383,7 +383,7 @@ export default function GenerarTransfDepositosModal({
           sucDestinoId !== null &&
           items.length === 0 ? (
             <p className="text-sm text-foreground py-6 text-center">
-              No hay transferencias pendientes hacia esta sucursal.
+              No hay transferencias abiertas hacia esta sucursal.
             </p>
           ) : null}
 
@@ -411,7 +411,7 @@ export default function GenerarTransfDepositosModal({
                       key={item.codTienda}
                       className={cn(
                         "transition-colors duration-100",
-                        ok ? "recepcion-fila-verificada" : "recepcion-fila-pendiente"
+                        ok ? "recepcion-fila-verificada" : "recepcion-fila-activa"
                       )}
                     >
                       <TablaControlItemCelda

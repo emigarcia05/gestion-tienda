@@ -36,15 +36,15 @@ export default async function HistorialPedidosPage({ searchParams }: Props) {
     sucursal === "maipu" ? "maipu" : sucursal === "guaymallen" ? "guaymallen" : "";
 
   const estadoParam = estado.trim().toUpperCase();
-  /** Sin `estado` en la URL (entrada al módulo): por defecto solo pedidos pendientes de recepción. */
+  /** Sin `estado` en la URL (entrada al módulo): por defecto solo pedidos abiertos. */
   const estadoFiltro: PedidoHistoriaEstado | "ALL" =
     estadoParam === "RECEPCIONADO"
       ? "RECEPCIONADO"
       : estadoParam === "ALL"
         ? "ALL"
-        : "PENDIENTE";
+        : "ABIERTO";
 
-  const estadoUi: "PENDIENTE" | "RECEPCIONADO" | "ALL" = estadoFiltro;
+  const estadoUi: "ABIERTO" | "RECEPCIONADO" | "ALL" = estadoFiltro;
 
   // Resolución defensiva del listado de proveedores: cualquier error transitorio
   // de Neon (timeout, pool exhausted, conn reset) NO debe romper el render del

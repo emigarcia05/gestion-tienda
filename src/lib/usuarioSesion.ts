@@ -18,33 +18,6 @@ export const STORAGE_USUARIO_SESION = "main-app-usuario-sesion";
 
 export const EVENTO_USUARIO_SESION = "main-app-usuario-sesion-changed";
 
-/** Flag: mostrar aviso de transferencia pendiente tras cerrar Elegir Usuario. */
-export const STORAGE_AVISO_TRANSF_PENDIENTE = "main-app-aviso-transf-pendiente";
-
-export function marcarAvisoTransfPendiente(): void {
-  try {
-    sessionStorage.setItem(STORAGE_AVISO_TRANSF_PENDIENTE, "1");
-  } catch {
-    /* ignore */
-  }
-}
-
-export function hayAvisoTransfPendiente(): boolean {
-  try {
-    return sessionStorage.getItem(STORAGE_AVISO_TRANSF_PENDIENTE) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function limpiarAvisoTransfPendiente(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_AVISO_TRANSF_PENDIENTE);
-  } catch {
-    /* ignore */
-  }
-}
-
 export type UsuarioSesion = {
   idPersonal: number;
   nombrePersonal: string;

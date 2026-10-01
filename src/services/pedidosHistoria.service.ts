@@ -92,12 +92,12 @@ function normalizarTokensBusquedaHistorial(q: string | undefined): string[] {
   return raw.split(/\s+/).filter(Boolean).slice(0, HISTORIAL_Q_MAX_TOKENS);
 }
 
-export type PedidoHistoriaEstado = "PENDIENTE" | "RECEPCIONADO";
+export type PedidoHistoriaEstado = "ABIERTO" | "RECEPCIONADO";
 
 function normalizarEstadoPedidoHistoria(
   estado: string | null | undefined
 ): PedidoHistoriaEstado {
-  return estado === "RECEPCIONADO" ? "RECEPCIONADO" : "PENDIENTE";
+  return estado === "RECEPCIONADO" ? "RECEPCIONADO" : "ABIERTO";
 }
 
 export interface PedidoHistoriaResumen {
@@ -288,7 +288,7 @@ export async function crearPedidoHistoriaSnapshot(params: {
         data: {
           proveedorId: proveedorId.trim(),
           sucursalId: sucursal.id,
-          estado: "PENDIENTE",
+          estado: "ABIERTO",
         },
         select: { id: true },
       });
@@ -459,11 +459,7 @@ export async function listarPedidosHistoria(params: {
 
     const where: Prisma.PedidoHistoriaWhereInput = {};
     if (params.estado && params.estado !== "ALL") {
-      if (params.estado === "PENDIENTE") {
-        where.estado = { in: ["PENDIENTE", "SIN RECEPCION"] };
-      } else {
-        where.estado = params.estado;
-      }
+      where.estado = params.estado;
     }
     if (params.proveedorId?.trim()) where.proveedorId = params.proveedorId.trim();
     if (sucursalId) where.sucursalId = sucursalId;

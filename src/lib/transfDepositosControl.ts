@@ -2,7 +2,7 @@
  * Ventana (días) compartida: historial del modal y aviso de transferencia duplicada.
  * Mismo `cod_tienda` + origen + destino + cantidad dentro de esta ventana → advertencia.
  * Borrador de grilla: `localStorage` por par origen→destino hasta **Transferido**.
- * Si el local está vacío, la grilla se hidrata desde pendientes de `stock_trasn_depositos`.
+ * Si el local está vacío, la grilla se hidrata desde el lote abierto de `stock_trasn_depositos`.
  */
 
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
@@ -18,18 +18,18 @@ export type ItemBorradorTransfDepositos = {
 
 export type BorradorTransfDepositos = Record<string, ItemBorradorTransfDepositos>;
 
-export type PendienteParaBorradorTransf = {
+export type LoteAbiertoParaBorradorTransf = {
   codTienda: string;
   cantidad: number;
   descripcion: string;
 };
 
-/** Convierte pendientes de `stock_trasn_depositos` al shape del borrador de grilla. */
-export function borradorDesdePendientesTransfDepositos(
-  pendientes: PendienteParaBorradorTransf[]
+/** Convierte el lote abierto de `stock_trasn_depositos` al shape del borrador de grilla. */
+export function borradorDesdeLoteAbiertoTransfDepositos(
+  loteAbierto: LoteAbiertoParaBorradorTransf[]
 ): BorradorTransfDepositos {
   const out: BorradorTransfDepositos = {};
-  for (const p of pendientes) {
+  for (const p of loteAbierto) {
     if (!Number.isInteger(p.cantidad) || p.cantidad <= 0) continue;
     const parsed = parseEntradaBorrador(p.codTienda, {
       cantidad: p.cantidad,

@@ -49,7 +49,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedidoHistoriaId: string | null;
-  /** Si el pedido está en estado PENDIENTE y hay callback, se muestra junto a Cerrar. */
+  /** Si el pedido está en estado ABIERTO y hay callback, se muestra junto a Cerrar. */
   onIrARecepcion?: () => void;
   onDescargarPdf?: () => Promise<void> | void;
   descargandoPdf?: boolean;

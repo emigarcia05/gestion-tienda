@@ -900,11 +900,14 @@
   .sidebar-nav-module svg {
     color: var(--sidebar-foreground) !important;
   }
-  .sidebar-container .sidebar-nav-module:hover {
+  .sidebar-container .sidebar-nav-module:hover,
+  .sidebar-modulos-lista .sidebar-nav-module:hover {
     background-color: var(--sidebar-accent) !important;
   }
   .sidebar-container .sidebar-nav-module[data-active="true"],
-  .sidebar-container .sidebar-nav-module[data-active="true"]:hover {
+  .sidebar-container .sidebar-nav-module[data-active="true"]:hover,
+  .sidebar-modulos-lista .sidebar-nav-module[data-active="true"],
+  .sidebar-modulos-lista .sidebar-nav-module[data-active="true"]:hover {
     background-color: var(--sidebar-accent) !important;
     border-left-color: var(--sidebar-indicator);
   }
@@ -981,8 +984,8 @@
   }
 
   /**
-   * Recuadro de módulos: hover despliega la lista; el módulo elegido
-   * carga sus submódulos debajo (fuera del recuadro).
+   * Recuadro de módulo general y de módulo: el hover abre la lista a la derecha.
+   * El click elige y deja los submódulos fijos debajo.
    */
   .sidebar-modulos-recuadro {
     position: relative;
@@ -1015,24 +1018,9 @@
   .sidebar-modulos-trigger:focus-visible {
     box-shadow: 0 0 0 2px var(--sidebar-ring);
   }
-  .sidebar-modulos-panel {
-    pointer-events: none;
-    visibility: hidden;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    z-index: 70;
-    padding-top: 0.25rem;
-    opacity: 0;
-  }
-  .sidebar-modulos-panel--abierto {
-    pointer-events: auto;
-    visibility: visible;
-    opacity: 1;
-  }
   .sidebar-modulos-lista {
     display: flex;
+    min-width: 12rem;
     max-height: min(24rem, 70vh);
     flex-direction: column;
     gap: 0.125rem;

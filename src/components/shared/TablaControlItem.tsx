@@ -26,7 +26,7 @@ export function TablaControlItemHead({ className }: { className?: string }) {
 type TablaControlItemCeldaProps = {
   verificado: boolean;
   /** Si true, no reserva el hueco cuando el ítem aún no está marcado (p. ej. Recepción en modo lectura). */
-  ocultarPendiente?: boolean;
+  ocultarPlaceholder?: boolean;
   /** Tooltip del hueco vacío (cómo marcar el ítem). */
   placeholderTitle?: string;
   className?: string;
@@ -37,7 +37,7 @@ type TablaControlItemCeldaProps = {
  */
 export function TablaControlItemCelda({
   verificado,
-  ocultarPendiente = false,
+  ocultarPlaceholder = false,
   placeholderTitle,
   className,
 }: TablaControlItemCeldaProps) {
@@ -49,7 +49,7 @@ export function TablaControlItemCelda({
         <span className={TABLA_CONTROL_ITEM_BADGE_CLASS} aria-label="Ítem verificado">
           <Check className={TABLA_CONTROL_ITEM_BADGE_ICON_CLASS} aria-hidden />
         </span>
-      ) : ocultarPendiente ? null : (
+      ) : ocultarPlaceholder ? null : (
         <span
           aria-label="Lista de verificación"
           title={placeholderTitle}
