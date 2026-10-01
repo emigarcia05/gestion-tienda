@@ -2336,12 +2336,20 @@ main button[data-variant="default"]:hover:not(:disabled),
 main button:not([data-variant]):hover:not(:disabled) {
   filter: brightness(0.9);
 }
-/* Secundario/outline: paginación, cancelar, etc. Mismas dimensiones y radio. */
+/* Secundario/outline: paginación, cancelar, etc. Mismas dimensiones y radio.
+ * Outline: texto siempre `--primary` (#0072BB), también en el pie oscuro del modal
+ * (si no, hereda el blanco de `.pie-pagina--solido` y no se lee). */
 main button[data-variant="outline"],
 main button[data-variant="secondary"] {
   background-color: var(--secondary) !important;
-  color: var(--secondary-foreground) !important;
   border: 1px solid var(--border);
+}
+main button[data-variant="outline"],
+.pie-pagina--solido button[data-variant="outline"] {
+  color: var(--primary) !important;
+}
+main button[data-variant="secondary"] {
+  color: var(--secondary-foreground) !important;
 }
 main button[data-variant="outline"]:hover:not(:disabled),
 main button[data-variant="secondary"]:hover:not(:disabled) {
