@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Branch as DismissableLayerBranch } from "@radix-ui/react-dismissable-layer";
 import { ChevronDown } from "lucide-react";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import SelectSearchInput from "@/components/shared/SelectSearchInput";
@@ -129,13 +130,18 @@ export default function FiltroMultiSelect({
 
   const panel =
     panelOpen && panelPos ? (
-      <div
+      <DismissableLayerBranch
         ref={panelRef}
         className="fixed z-[90] flex max-h-72 min-w-[8rem] flex-col overflow-hidden rounded-md border border-border bg-popover shadow-md"
-        style={{ top: panelPos.top, left: panelPos.left, width: panelPos.width }}
+        style={{
+          top: panelPos.top,
+          left: panelPos.left,
+          width: panelPos.width,
+          pointerEvents: "auto",
+        }}
         role="listbox"
         aria-multiselectable="true"
-        onMouseDownCapture={(event) => event.stopPropagation()}
+        data-filtro-multiselect-panel=""
       >
         <div className="shrink-0 border-b border-border p-1">
           <SelectSearchInput value={query} onValueChange={setQuery} autoFocus />
@@ -171,7 +177,7 @@ export default function FiltroMultiSelect({
             })
           )}
         </div>
-      </div>
+      </DismissableLayerBranch>
     ) : null;
 
   return (

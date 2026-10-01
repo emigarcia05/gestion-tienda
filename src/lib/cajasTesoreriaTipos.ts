@@ -14,7 +14,7 @@ export const OPCIONES_TIPO_CAJA_TESORERIA_UI: { value: TipoCajaTesoreria; label:
 
 export const OPCIONES_TIPO_VALOR_TESORERIA_UI: { value: TipoValorTesoreria; label: string }[] = [
   { value: "DIGITAL", label: "DIGITAL" },
-  { value: "EFECTIVO", label: "FÍSICO" },
+  { value: "EFECTIVO", label: "DIGITAL" },
   { value: "CHEQUE", label: "CHEQUE" },
 ];
 
@@ -23,7 +23,7 @@ export const OPCIONES_TIPO_VALOR_CAJA_MODAL_UI: {
   value: Exclude<TipoValorTesoreria, "CHEQUE">;
   label: string;
 }[] = [
-  { value: "EFECTIVO", label: "FÍSICO" },
+  { value: "EFECTIVO", label: "DIGITAL" },
   { value: "DIGITAL", label: "DIGITAL" },
 ];
 
@@ -33,7 +33,7 @@ export function tipoValorDesdeTipoCaja(tipo: TipoCajaTesoreria): TipoValorTesore
   return "CHEQUE";
 }
 
-/** CHEQUE de caja exige `tipo_valor = CHEQUE`; el resto elige FÍSICO (`EFECTIVO`) o DIGITAL. */
+/** CHEQUE de caja exige `tipo_valor = CHEQUE`; el resto elige EFECTIVO o DIGITAL (ambos se muestran DIGITAL). */
 export function tipoValorCompatibleConTipoCaja(
   tipoCaja: TipoCajaTesoreria,
   tipoValor: TipoValorTesoreria
