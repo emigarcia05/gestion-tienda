@@ -76,7 +76,7 @@ export function requireEditorAsistenteIa(): Promise<ActionGateFail | null> {
   );
 }
 
-/** Gasto eventual: Ayuda Vendedor o el mismo flujo desde Balance · Gastos. */
+/** Gasto eventual desde Balance · Gastos (ya no hay pantalla en Vendedor). */
 export function requireCargarGastoEventual(): Promise<ActionGateFail | null> {
   return requirePermiso(
     PERMISOS.ayudaVendedor.cargarGasto,

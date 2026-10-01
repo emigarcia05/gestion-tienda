@@ -438,8 +438,9 @@ model FinTesoreriaTipoCaja {
 // el SSOT del saldo pasará a ser SUM(`tesoreria_movimientos.monto`) por caja.
 model CajaTesoreria {
   id               String            @id @default(cuid())
-  entidadId        String            @map("entidad_id")
-  entidad          FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  /** Null si la caja no usa una entidad de `cobros_entidades`. */
+  entidadId        String?           @map("entidad_id")
+  entidad          FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
   /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
   titular          String            @map("titular")
   /** Null solo si `tipoCaja = CHEQUE`. Resto de tipos: FK Restrict a `sucursales`. */

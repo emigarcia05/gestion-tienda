@@ -12,6 +12,7 @@ import {
   Pipette,
   Droplets,
   Receipt,
+  Wrench,
   CircleDollarSign,
   ListChecks,
   PackageCheck,
@@ -55,8 +56,7 @@ type ModuleId =
   | "pedidos"
   | "control-stock"
   | "asistencia-precios"
-  | "calcular-lts"
-  | "cargar-gastos"
+  | "herramientas"
   | "envios"
   | "asistente-ia";
 type MarketingModuleId = "publicaciones" | "base-multimedia";
@@ -168,12 +168,17 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "calcular-lts",
-    label: "CALCULAR LTS",
-    icon: <Droplets className={iconClass} />,
-    href: GP_ROUTES.ayudaVendedor.calcLitros,
-    permiso: PERMISOS.tienda.tintoLts,
-    submodules: [],
+    id: "herramientas",
+    label: "HERRAMIENTAS",
+    icon: <Wrench className={iconClass} />,
+    submodules: [
+      {
+        href: GP_ROUTES.ayudaVendedor.calcLitros,
+        label: "Calcular Lts",
+        icon: <Droplets className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.tienda.tintoLts,
+      },
+    ],
   },
   {
     id: "control-stock",
@@ -193,14 +198,6 @@ const MODULES: NavModule[] = [
         permiso: PERMISOS.stock.acceso,
       },
     ],
-  },
-  {
-    id: "cargar-gastos",
-    label: "CARGAR GASTOS",
-    icon: <Receipt className={iconClass} />,
-    href: GP_ROUTES.ayudaVendedor.cargarGasto,
-    permiso: PERMISOS.ayudaVendedor.cargarGasto,
-    submodules: [],
   },
   {
     id: "asistente-ia",

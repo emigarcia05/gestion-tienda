@@ -380,6 +380,15 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         >
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Cuotas</ModalMicroLabel>
+              <Input
+                value={formCuotas}
+                onChange={(e) => setFormCuotas(e.target.value.toLocaleUpperCase("es-AR"))}
+                placeholder="Ej. 06 CUOTAS SIN INTERES"
+                disabled={pending}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
               <ModalMicroLabel>Forma de pago</ModalMicroLabel>
               {formasOpciones.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -442,15 +451,6 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                   </SelectContent>
                 </Select>
               )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Cuotas</ModalMicroLabel>
-              <Input
-                value={formCuotas}
-                onChange={(e) => setFormCuotas(e.target.value.toLocaleUpperCase("es-AR"))}
-                placeholder="Ej. 06 CUOTAS SIN INTERES"
-                disabled={pending}
-              />
             </div>
           </div>
         </AppModal>

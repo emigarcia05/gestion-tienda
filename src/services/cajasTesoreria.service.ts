@@ -27,8 +27,8 @@ type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
 
 export interface CajaTesoreriaItem {
   id: string;
-  entidadId: string;
-  /** Texto del catálogo `cobros_entidades.nombre` (MAYÚSCULAS). */
+  entidadId: string | null;
+  /** Texto del catálogo `cobros_entidades.nombre` (MAYÚSCULAS). Vacío si no hay entidad. */
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
@@ -53,7 +53,7 @@ export interface CajaTesoreriaItem {
 }
 
 export interface CrearCajaTesoreriaInput {
-  entidadId: string;
+  entidadId: string | null;
   titular: string;
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
@@ -63,7 +63,7 @@ export interface CrearCajaTesoreriaInput {
 
 export interface EditarCajaTesoreriaInput {
   id: string;
-  entidadId: string;
+  entidadId: string | null;
   titular: string;
   sucursalId: string | null;
   tipoCaja: TipoCajaTesoreria;
@@ -84,7 +84,7 @@ function mapCaja(
   return {
     id: row.id,
     entidadId: row.entidadId,
-    entidadNombre: row.entidad.nombre.toUpperCase(),
+    entidadNombre: row.entidad ? row.entidad.nombre.toLocaleUpperCase("es-AR") : "",
     titular: row.titular.toUpperCase(),
     sucursalId: row.sucursalId,
     sucursalNombre: row.sucursal

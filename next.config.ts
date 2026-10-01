@@ -18,7 +18,8 @@ function legacyGestionProductosRedirects(): { source: string; destination: strin
     { source: "/gestion-productos/tienda/calc-litros", destination: R.ayudaVendedor.calcLitros, permanent: true },
     { source: "/gestion-productos/procesos", destination: R.defaultEntry, permanent: true },
     { source: "/gestion-productos/ayuda-vendedor/procesos", destination: R.defaultEntry, permanent: true },
-    { source: "/gestion-productos/cargar-gasto", destination: R.ayudaVendedor.cargarGasto, permanent: true },
+    { source: "/gestion-productos/cargar-gasto", destination: R.defaultEntry, permanent: true },
+    { source: "/gestion-productos/ayuda-vendedor/cargar-gasto", destination: R.defaultEntry, permanent: true },
     { source: "/gestion-productos/tienda/control-stock", destination: R.ayudaVendedor.controlStock, permanent: true },
     {
       source: "/gestion-productos/proveedores/lista-precios/reglas-descuentos",
@@ -61,7 +62,6 @@ function canonicalGestionProductosRewrites(): { source: string; destination: str
     { source: R.ayudaVendedor.pxVenta.pxVtaSugerido, destination: I.ayudaVendedor.pxVenta.pxVtaSugerido },
     { source: R.ayudaVendedor.pxVenta.pxTintometrico, destination: I.ayudaVendedor.pxVenta.pxTintometrico },
     { source: R.ayudaVendedor.calcLitros, destination: I.ayudaVendedor.calcLitros },
-    { source: R.ayudaVendedor.cargarGasto, destination: I.ayudaVendedor.cargarGasto },
     { source: R.envios.programados, destination: I.envios.programados },
     { source: R.envios.conductor, destination: I.envios.conductor },
     { source: R.ayudaVendedor.controlStock, destination: I.ayudaVendedor.controlStock },
@@ -251,7 +251,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/cargar-gasto",
-        destination: R.ayudaVendedor.cargarGasto,
+        destination: R.defaultEntry,
         permanent: true,
       },
       {

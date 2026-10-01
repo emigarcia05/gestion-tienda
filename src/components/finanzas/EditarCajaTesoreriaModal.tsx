@@ -85,7 +85,7 @@ export default function EditarCajaTesoreriaModal({
     if (!open || !caja) return;
     setTitular(caja.titular);
     setSucursalId(caja.sucursalId ?? "");
-    setEntidadId(caja.entidadId);
+    setEntidadId(caja.entidadId ?? "");
     setTipoCaja(caja.tipoCaja as TipoCajaTesoreria);
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
   }, [open, caja]);
@@ -102,7 +102,7 @@ export default function EditarCajaTesoreriaModal({
   const hasChanges = useMemo(() => {
     if (!caja) return false;
     return (
-      entidadId !== caja.entidadId ||
+      entidadId !== (caja.entidadId ?? "") ||
       sucursalId !== (caja.sucursalId ?? "") ||
       titular.trim() !== caja.titular ||
       tipoCaja !== caja.tipoCaja ||
@@ -114,11 +114,10 @@ export default function EditarCajaTesoreriaModal({
     () =>
       saving ||
       !caja ||
-      entidadId.trim().length === 0 ||
       (cajaTesoreriaUsaSucursal(tipoCaja) && sucursalId.trim().length === 0) ||
       titular.trim().length === 0 ||
       !hasChanges,
-    [saving, caja, entidadId, sucursalId, titular, tipoCaja, hasChanges]
+    [saving, caja, sucursalId, titular, tipoCaja, hasChanges]
   );
 
   async function handleSubmit() {

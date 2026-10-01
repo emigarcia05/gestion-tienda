@@ -101,9 +101,9 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Ayuda Vendedor — Cargar Gasto (modal Nuevo Gasto Eventual) ───────────
+  // ─── Gasto eventual (Balance · Gastos). Sin módulo en el sidenav de Vendedor. ──
   ayudaVendedor: {
-    /** Misma capacidad que **GASTO EVENTUAL** en `/finanzas/balance/gastos`; área Vendedor abierta a `simple`. */
+    /** Misma capacidad que **GASTO EVENTUAL** en `/finanzas/balance/gastos`; `simple` y `editor`. */
     cargarGasto: { simple: true, editor: true },
   },
 

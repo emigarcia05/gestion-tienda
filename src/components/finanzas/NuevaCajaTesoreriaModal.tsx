@@ -73,11 +73,10 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
   const disabledSubmit = useMemo(
     () =>
       saving ||
-      entidadId.trim().length === 0 ||
       (cajaTesoreriaUsaSucursal(tipoCaja) && sucursalId.trim().length === 0) ||
       titular.trim().length === 0 ||
       tipoCaja.trim().length === 0,
-    [saving, entidadId, sucursalId, titular, tipoCaja]
+    [saving, sucursalId, titular, tipoCaja]
   );
 
   function resetForm() {

@@ -54,7 +54,10 @@ export default function FinanzasTesoreriaPageClient({
   const [filtroTitular, setFiltroTitular] = useState("");
 
   const entidadesOptions = useMemo(
-    () => [...new Set(filas.map((f) => f.entidadNombre))].sort((a, b) => a.localeCompare(b, "es")),
+    () =>
+      [...new Set(filas.map((f) => f.entidadNombre).filter((nombre) => nombre.trim() !== ""))].sort(
+        (a, b) => a.localeCompare(b, "es")
+      ),
     [filas]
   );
   const sucursalesOptions = useMemo(

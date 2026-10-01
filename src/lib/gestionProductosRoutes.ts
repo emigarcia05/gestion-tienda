@@ -1,6 +1,6 @@
 /**
  * URLs canónicas de Vendedor / Análisis de Precios alineadas a sidebar:
- * - Mercadería, Precios, Calcular Lts, Cargar Gastos, Asistente IA → área Vendedor
+ * - Mercadería, Precios, Herramientas, Asistente IA → área Vendedor
  * - Análisis de Precios → área Administración (id `finanzas`; URLs siguen bajo `/gestion-productos/analisis-precios/...`)
  * área → módulo → agrupador → submódulo.
  * Las rutas internas (`src/app/pedidos`, `proveedores`, …) se sirven vía rewrites en `next.config.ts`.
@@ -26,7 +26,6 @@ export const GP_ROUTES = {
       pxTintometrico: `${GP}/ayuda-vendedor/px-venta/px-tintometrico`,
     },
     calcLitros: `${GP}/ayuda-vendedor/calc-litros`,
-    cargarGasto: `${GP}/ayuda-vendedor/cargar-gasto`,
     /** Submódulo **Control Stock** bajo el módulo sidebar **STOCK**. */
     controlStock: `${GP}/ayuda-vendedor/control-stock`,
     /** Submódulo **Trans. Depósitos** bajo el módulo sidebar **STOCK**. */
@@ -75,7 +74,6 @@ export const GP_INTERNAL = {
       pxTintometrico: "/tienda/tintometrico",
     },
     calcLitros: "/tienda/litros",
-    cargarGasto: "/cargar-gasto",
     controlStock: "/stock",
     transfDepositos: "/transf-depositos",
   },
@@ -138,7 +136,6 @@ const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
     "/tienda/tinto-lts",
   ],
   [GP_ROUTES.ayudaVendedor.calcLitros]: ["/gestion-productos/tienda/calc-litros", "/tienda/litros"],
-  [GP_ROUTES.ayudaVendedor.cargarGasto]: ["/gestion-productos/cargar-gasto", "/cargar-gasto"],
   [GP_ROUTES.ayudaVendedor.controlStock]: [
     "/gestion-productos/tienda/control-stock",
     "/stock",
@@ -217,12 +214,6 @@ const CALCULAR_LTS_PREFIXES = [
   GP_ROUTES.ayudaVendedor.calcLitros,
   "/gestion-productos/tienda/calc-litros",
   "/tienda/litros",
-] as const;
-
-const CARGAR_GASTOS_PREFIXES = [
-  GP_ROUTES.ayudaVendedor.cargarGasto,
-  "/gestion-productos/cargar-gasto",
-  "/cargar-gasto",
 ] as const;
 
 const CONTROL_STOCK_PREFIXES = [
@@ -337,8 +328,7 @@ export function esRutaEnviosConductor(pathname: string): boolean {
 export type GpSidebarModuleId =
   | "pedidos"
   | "asistencia-precios"
-  | "calcular-lts"
-  | "cargar-gastos"
+  | "herramientas"
   | "envios"
   | "control-stock"
   | "analisis-precios"
@@ -352,10 +342,7 @@ export function getGpSidebarModule(pathname: string): GpSidebarModuleId {
     return "asistencia-precios";
   }
   if (CALCULAR_LTS_PREFIXES.some((p) => pathnameMatchesPrefix(pathname, p))) {
-    return "calcular-lts";
-  }
-  if (CARGAR_GASTOS_PREFIXES.some((p) => pathnameMatchesPrefix(pathname, p))) {
-    return "cargar-gastos";
+    return "herramientas";
   }
   if (ENVIOS_PREFIXES.some((p) => pathnameMatchesPrefix(pathname, p))) {
     return "envios";

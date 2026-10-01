@@ -24,7 +24,7 @@ import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
 
 export interface TesoreriaCajaFila {
   id: string;
-  entidadId: string;
+  entidadId: string | null;
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
@@ -203,7 +203,7 @@ export default function TablaTesoreriaCajas({
                       {etiquetaTipoCajaEnPantalla(f.tipoCaja as TipoCajaTesoreria)}
                     </TableCell>
                     <TableCell className={cn("celda-datos", CELL_MIN)} title={f.entidadNombre}>
-                      <span className="celda-destacado block truncate">{f.entidadNombre}</span>
+                      <span className="celda-destacado block truncate">{fmtCelda(f.entidadNombre)}</span>
                     </TableCell>
                     <TableCell className={cn("celda-datos", CELL_MIN)} title={f.sucursalNombre || undefined}>
                       <span className="block truncate">{fmtCelda(f.sucursalNombre)}</span>

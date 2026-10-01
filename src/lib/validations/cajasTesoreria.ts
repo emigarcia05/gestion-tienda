@@ -66,8 +66,13 @@ function refinSucursalSegunTipoCaja(
   }
 }
 
+const entidadCajaTesoreriaSchema = z.preprocess(
+  (value) => (value === "none" || value === "" || value == null ? null : value),
+  prismaCuidOrUuidSchema.nullable()
+);
+
 const cajaTesoreriaCamposSchema = z.object({
-  entidadId: prismaCuidOrUuidSchema,
+  entidadId: entidadCajaTesoreriaSchema,
   titular: titularCajaTesoreriaSchema,
   sucursalId: sucursalCajaTesoreriaSchema,
   tipoCaja: tipoCajaTesoreriaSchema,
