@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import {
   Scale,
   ShieldCheck,
   Store,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,7 @@ function nombreUsuarioLabel(nombre: string): string {
 }
 
 /**
- * Pie de slidenav: fila de usuario (ícono módulo si puede cambiar + nombre).
+ * Pie de slidenav: fila de usuario (nombre). Ícono User junto al recuadro de módulos.
  * Vive dentro del dock de sesión (`sidebar-user-switcher-surface` en `Sidebar`).
  * Primera visita: modal **Elegir Usuario**.
  * La clave se solicita solo al entrar a un área que la requiere (Administración).
@@ -85,6 +86,9 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const [pendingUsuario, setPendingUsuario] = useState<UsuarioSesion | null>(null);
   const [pendingAreaId, setPendingAreaId] = useState<MainAppAreaId | null>(null);
   const [pending, startTransition] = useTransition();
+  const [anclaModuloGeneral, setAnclaModuloGeneral] =
+    useState<HTMLElement | null>(null);
+  const [anclaUsuario, setAnclaUsuario] = useState<HTMLElement | null>(null);
 
   const currentId = getMainAppAreaIdFromPathname(pathname);
 
@@ -120,6 +124,13 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
       cancelled = true;
     };
   }, [usuarioOpen]);
+
+  useLayoutEffect(() => {
+    setAnclaModuloGeneral(
+      document.getElementById("sidebar-modulo-general-ancla")
+    );
+    setAnclaUsuario(document.getElementById("sidebar-usuario-ancla"));
+  }, [pathname, usuarioSesion]);
 
   function persistirYNavegar(
     usuario: UsuarioSesion,
@@ -234,11 +245,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
       ? "Elegir Sucursal"
       : `Usuarios ${etiquetaSucursalPorDefecto(sucursalSeleccionadaUsuario)}`;
 
-  const anclaModuloGeneral = useMemo(() => {
-    if (typeof document === "undefined") return null;
-    return document.getElementById("sidebar-modulo-general-ancla");
-  }, []);
-
   const modulosGenerales = (usuarioSesion?.modulosPermitidos ?? []).map((id) => {
     const area = getMainAppAreaById(id);
     const Icono = ICONO_MODULO[id];
@@ -249,7 +255,9 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     };
   });
   const moduloGeneralActual =
-    modulosGenerales.find((item) => item.id === currentId) ?? null;
+    modulosGenerales.find((item) => item.id === currentId) ??
+    modulosGenerales[0] ??
+    null;
 
   function abrirCambiarUsuario() {
     setUsuariosError("");
@@ -272,6 +280,24 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
               }}
             />,
             anclaModuloGeneral
+          )
+        : null}
+      {anclaUsuario && usuarioSesion
+        ? createPortal(
+            <button
+              type="button"
+              onClick={abrirCambiarUsuario}
+              disabled={pending || forceChoose}
+              aria-label="Cambiar Usuario"
+              title="Cambiar Usuario"
+              className={cn(
+                "sidebar-modulos-trigger sidebar-usuario-trigger",
+                pending && "cursor-not-allowed opacity-90"
+              )}
+            >
+              <User className="h-5 w-5 shrink-0" aria-hidden />
+            </button>,
+            anclaUsuario
           )
         : null}
       <button

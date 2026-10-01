@@ -122,7 +122,7 @@ SSOT: `src/lib/main-app-areas.ts`, `administracionNav.ts`, `marketingRoutes.ts`,
 | Marketing | `marketing` | `/marketing` |
 | Facturación | `facturacion` (sin clave) | `/facturacion` |
 
-**Vendedor** (recuadro de módulos): hover en el recuadro lista todos los módulos; click carga los submódulos **debajo**. Logo `/logo_tiendacolor_letras_blancas.png` arriba (`w-[62%]`). **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
+**Vendedor** (recuadro de módulos): hover en el recuadro lista todos los módulos; click carga los submódulos **debajo**. Si no hay módulo de ruta ni elección, el recuadro queda en el **primer** módulo visible para que siempre haya funciones debajo. A la izquierda del recuadro, ícono `User` (`.sidebar-usuario-trigger`) abre **Elegir Usuario**. Logo `/logo_tiendacolor_letras_blancas.png` al pie del slidenav (`w-[50%]`). **ENVIOS** (Programados / Conductor) → **MERCADERÍA** (Cant. Pedida → Urgente / Tintométrico / Reposición → Generar Pedido → Recepción) → **PRECIOS** (Px Sugeridos, Px Tintométricos) → **CALCULAR LTS** → **STOCK** (Control Stock, Trans. Depósitos) → **CARGAR GASTOS** → **ASISTENTE IA**. Rol `simple` ve estos módulos; CRUD de prompts IA solo `editor`.
 
 **Administración** (`AdministracionAccordionNav`): mismo recuadro de pilares; click muestra grupos/pantallas debajo. **FINANZAS** (TESORERIA → Fondos / Flujo De Fondos | BALANCE | OPERACIONES → COMPRAS / GASTOS | IMPUESTOS) → **LISTA PRECIOS** (PX TIENDA | PROVEEDORES | ANÁLISIS M.C.) → **VTAS. & COBROS** (Ptos. Vtas. / Cx. Fin. Cobros / Cobros & Cajas, pantallas directas) → **PEDIDO A FÁB.** → **ESTADÍSTICAS** → **USUARIOS**. **IMPUESTOS** agrupa Posición De IVA (`/finanzas/posicion-iva`).
 
@@ -201,7 +201,7 @@ Constantes: `@/lib/ui-classes` (`TYPEAHEAD_LISTBOX_*`).
 | `.tabla-gestion-compacta` `.celda-datos` `.tabla-check-toggle` `.tabla-row-btn-filled-brand` `.tabla-bloque-secundario-*` `.tabla-fila-seccion-subencabezado*` | Tablas |
 | `.typeahead-listbox-filas` `.typeahead-listbox-fila-activa` | Cebra del listbox typeahead (mismo impar/par/hover que `.tabla-gestion-compacta`). Va en `TYPEAHEAD_LISTBOX_UL_CLASS` |
 | `.modal-app` / `.app-modal` `.modal-micro-label` `.modal-field-label` `.modal-seccion-formulario` | Modales. Secciones de formulario: contorno `--primary` + línea inferior `2px` |
-| `.sidebar-nav-*` `.sidebar-modulos-recuadro` `.sidebar-modulos-trigger` `.sidebar-modulos-panel` `.sidebar-modulos-lista` `.sidebar-user-switcher-surface` | Sidebar. Recuadro de módulos: hover lista módulos; click carga submódulos debajo |
+| `.sidebar-nav-*` `.sidebar-modulos-recuadro` `.sidebar-modulos-trigger` `.sidebar-usuario-trigger` `.sidebar-modulos-panel` `.sidebar-modulos-lista` `.sidebar-user-switcher-surface` | Sidebar. Recuadro de módulos: hover lista módulos; click carga submódulos debajo. `.sidebar-usuario-trigger` = ícono User a la izquierda del recuadro |
 | `.pie-pagina` `.finanzas-resumen-tarjeta` | Pie de página / totales. Fondo `--sidebar` |
 | `.no-scrollbar` | Oculta barra; mantiene scroll |
 | `.btn-primario-gestion` | CTA toolbar legacy; nuevas toolbars → `ToolbarActionButton` |

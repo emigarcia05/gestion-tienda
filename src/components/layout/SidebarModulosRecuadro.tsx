@@ -33,6 +33,7 @@ type Props = {
 
 /**
  * Recuadro del slidenav. El hover abre la lista a la derecha; el click elige.
+ * Sin `seleccionado`, usa el primer módulo para no dejar el trigger vacío.
  */
 export default function SidebarModulosRecuadro({
   modulos,
@@ -116,6 +117,8 @@ export default function SidebarModulosRecuadro({
 
   if (modulos.length === 0) return null;
 
+  const seleccionadoEfectivo = seleccionado ?? modulos[0] ?? null;
+
   return (
     <div
       ref={rootRef}
@@ -141,10 +144,10 @@ export default function SidebarModulosRecuadro({
         aria-controls={menuId}
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-          {seleccionado?.icon ?? null}
+          {seleccionadoEfectivo?.icon ?? null}
         </span>
         <span className="min-w-0 flex-1 truncate text-left">
-          {seleccionado?.label ?? placeholder}
+          {seleccionadoEfectivo?.label ?? placeholder}
         </span>
         <ChevronRight className="sidebar-nav-chevron h-4 w-4 shrink-0" aria-hidden />
       </button>
@@ -165,7 +168,7 @@ export default function SidebarModulosRecuadro({
                 style={{ maxHeight: pos.maxHeight }}
               >
                 {modulos.map((modulo) => {
-                  const activo = seleccionado?.id === modulo.id;
+                  const activo = seleccionadoEfectivo?.id === modulo.id;
                   return (
                     <li key={modulo.id} role="none">
                       <button

@@ -432,7 +432,10 @@ export default function Sidebar({ rol }: { rol: Rol }) {
   const selectedModule =
     (pickedId
       ? visibleModules.find((module) => module.id === pickedId)
-      : null) ?? routeModule;
+      : null) ??
+    routeModule ??
+    visibleModules[0] ??
+    null;
 
   function onSelectModule(id: string) {
     const elegido = visibleModules.find((item) => item.id === id);
@@ -522,13 +525,6 @@ export default function Sidebar({ rol }: { rol: Rol }) {
 
   return (
     <aside className="sidebar-container w-60 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border">
-      <div className="shrink-0 px-4 pt-3">
-        <img
-          src="/logo_tiendacolor_letras_blancas.png"
-          alt="TiendaColor Pinturerías"
-          className={cn("mx-auto h-auto w-[62%] object-contain")}
-        />
-      </div>
       {mainAreaId === "finanzas" ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
           <div id="sidebar-modulo-general-ancla" className="shrink-0" />
@@ -541,25 +537,30 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       ) : visibleModules.length > 0 ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
           <div id="sidebar-modulo-general-ancla" className="shrink-0" />
-          <SidebarModulosRecuadro
-            modulos={visibleModules.map((module) => ({
-              id: module.id,
-              label: module.label,
-              icon: module.icon,
-            }))}
-            seleccionado={
-              selectedModule
-                ? {
-                    id: selectedModule.id,
-                    label: selectedModule.label,
-                    icon: selectedModule.icon,
-                  }
-                : null
-            }
-            placeholder="MÓDULO"
-            menuLabel="Módulos"
-            onSelect={onSelectModule}
-          />
+          <div className="flex items-center gap-2">
+            <div id="sidebar-usuario-ancla" className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <SidebarModulosRecuadro
+                modulos={visibleModules.map((module) => ({
+                  id: module.id,
+                  label: module.label,
+                  icon: module.icon,
+                }))}
+                seleccionado={
+                  selectedModule
+                    ? {
+                        id: selectedModule.id,
+                        label: selectedModule.label,
+                        icon: selectedModule.icon,
+                      }
+                    : null
+                }
+                placeholder="MÓDULO"
+                menuLabel="Módulos"
+                onSelect={onSelectModule}
+              />
+            </div>
+          </div>
           <nav
             className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5"
             aria-label="Submódulos"
@@ -580,6 +581,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           aria-label="Navegación principal"
         >
           <div id="sidebar-modulo-general-ancla" className="shrink-0" />
+          <div id="sidebar-usuario-ancla" className="shrink-0" />
           {navVacio}
         </nav>
       )}
@@ -602,7 +604,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         <img
           src="/logo_tiendacolor_letras_blancas.png"
           alt="TiendaColor Pinturerías"
-          className="mx-auto h-auto w-[88%] object-contain"
+          className="mx-auto h-auto w-[50%] object-contain"
         />
       </div>
     </aside>
