@@ -587,6 +587,11 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         >
           <SidebarAreaSwitcher rolActual={rol} />
         </div>
+        <img
+          src="/logo_tiendacolor_letras_blancas.png"
+          alt="TiendaColor Pinturerías"
+          className="mx-auto h-auto w-[88%] object-contain"
+        />
       </div>
     </aside>
   );

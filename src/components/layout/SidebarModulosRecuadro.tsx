@@ -26,6 +26,8 @@ type Props = {
   seleccionado: SidebarModuloOpcion | null;
   placeholder?: string;
   menuLabel?: string;
+  /** `general` = área (ADMINISTRACIÓN). `modulo` = pilar (FINANZAS). */
+  nivel?: "general" | "modulo";
   onSelect: (id: string) => void;
 };
 
@@ -37,6 +39,7 @@ export default function SidebarModulosRecuadro({
   seleccionado,
   placeholder = "MÓDULO",
   menuLabel = "Módulos",
+  nivel = "modulo",
   onSelect,
 }: Props) {
   const menuId = useId();
@@ -116,7 +119,11 @@ export default function SidebarModulosRecuadro({
   return (
     <div
       ref={rootRef}
-      className={cn("sidebar-modulos-recuadro", open && "sidebar-modulos-recuadro--abierto")}
+      className={cn(
+        "sidebar-modulos-recuadro",
+        nivel === "general" && "sidebar-modulos-recuadro--general",
+        open && "sidebar-modulos-recuadro--abierto"
+      )}
       onMouseEnter={openMenu}
       onMouseLeave={scheduleClose}
       onFocusCapture={openMenu}

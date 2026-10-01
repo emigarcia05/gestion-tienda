@@ -2,17 +2,16 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
- * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
+ * TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
+ * PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * VTAS. & COBROS → Ptos. Vtas. / Cx. Fin. Cobros / Cobros & Cajas
  * PEDIDO A FÁB. → pantallas
- * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
+ * VENTAS | CONFIGURACIÓN → pantallas
  * USUARIOS → pantallas
  */
 
 import {
   GP_ROUTES,
-  isAnalisisPreciosPathname,
   isGpRouteActive,
 } from "@/lib/gestionProductosRoutes";
 import { ESTADISTICAS_PRODUCTOS_ROUTES } from "@/lib/estadisticasProductosRoutes";
@@ -29,11 +28,17 @@ import {
 } from "@/lib/vtasCobrosRoutes";
 
 export type AdmPillarId =
-  | "finanzas"
+  | "tesoreria"
+  | "balance"
+  | "operaciones"
+  | "impuestos"
+  | "px-tienda"
+  | "proveedores"
+  | "analisis-mc"
   | "vtas-cobros"
-  | "listas-precios"
   | "pedido-a-fabrica"
-  | "estadisticas"
+  | "ventas"
+  | "configuracion"
   | "usuarios";
 
 export type AdmIconId =
@@ -323,60 +328,46 @@ const usuariosScreens: AdmScreenDef[] = [
 
 export const ADM_PILLARS: AdmPillarDef[] = [
   {
-    id: "finanzas",
-    label: "FINANZAS",
-    icon: "landmark",
-    groups: [
-      {
-        id: "flujo",
-        label: "TESORERIA",
-        icon: "calendar-days",
-        screens: flujosScreens,
-      },
-      {
-        id: "balance",
-        label: "BALANCE",
-        icon: "scale",
-        screens: balanceScreens,
-      },
-      {
-        id: "operaciones",
-        label: "OPERACIONES",
-        icon: "banknote",
-        groups: operacionesGroups,
-      },
-      {
-        id: "impuestos",
-        label: "IMPUESTOS",
-        icon: "percent",
-        screens: impuestosScreens,
-      },
-    ],
+    id: "tesoreria",
+    label: "TESORERIA",
+    icon: "calendar-days",
+    screens: flujosScreens,
   },
   {
-    id: "listas-precios",
-    label: "LISTA PRECIOS",
-    icon: "handshake",
-    groups: [
-      {
-        id: "px-tienda",
-        label: "PX TIENDA",
-        icon: "circle-dollar",
-        screens: pxTiendaScreens,
-      },
-      {
-        id: "proveedores",
-        label: "PROVEEDORES",
-        icon: "list",
-        screens: proveedoresScreens,
-      },
-      {
-        id: "analisis-mc",
-        label: "ANÁLISIS M.C.",
-        icon: "line-chart",
-        screens: analisisMcScreens,
-      },
-    ],
+    id: "balance",
+    label: "BALANCE",
+    icon: "scale",
+    screens: balanceScreens,
+  },
+  {
+    id: "operaciones",
+    label: "OPERACIONES",
+    icon: "banknote",
+    groups: operacionesGroups,
+  },
+  {
+    id: "impuestos",
+    label: "IMPUESTOS",
+    icon: "percent",
+    screens: impuestosScreens,
+  },
+  {
+    id: "px-tienda",
+    label: "PX TIENDA",
+    icon: "circle-dollar",
+    screens: pxTiendaScreens,
+  },
+  {
+    id: "proveedores",
+    label: "PROVEEDORES",
+    icon: "list",
+    screens: proveedoresScreens,
+  },
+  {
+    id: "analisis-mc",
+    label: "ANÁLISIS M.C.",
+    icon: "line-chart",
+    screens: analisisMcScreens,
   },
   {
     id: "vtas-cobros",
@@ -391,18 +382,16 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     screens: pedidoAFabricaScreens,
   },
   {
-    id: "estadisticas",
-    label: "ESTADÍSTICAS",
-    icon: "bar-chart-3",
+    id: "ventas",
+    label: "VENTAS",
+    icon: "line-chart",
     screens: estadisticasVentasScreens,
-    groups: [
-      {
-        id: "configuracion",
-        label: "CONFIGURACION",
-        icon: "settings",
-        screens: estadisticasConfiguracionScreens,
-      },
-    ],
+  },
+  {
+    id: "configuracion",
+    label: "CONFIGURACIÓN",
+    icon: "settings",
+    screens: estadisticasConfiguracionScreens,
   },
   {
     id: "usuarios",
@@ -479,35 +468,12 @@ export function isAdmGroupActive(pathname: string, group: AdmGroupDef): boolean 
 }
 
 export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boolean {
-  if (pillar.id === "listas-precios") {
-    if (isAnalisisPreciosPathname(pathname)) return true;
-    if (
-      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
-    ) {
-      return false;
-    }
-    if (pathname.startsWith("/finanzas/analisis-mc")) return true;
-    return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
-  }
   if (pillar.id === "pedido-a-fabrica") {
     return (
       pathname === PEDIDO_A_FABRICA_ROUTES.defaultEntry ||
       pathname.startsWith(`${PEDIDO_A_FABRICA_ROUTES.defaultEntry}/`) ||
       pathname === PEDIDO_A_FABRICA_LEGACY_PATH ||
       pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
-    );
-  }
-  if (pillar.id === "estadisticas") {
-    if (
-      pathname === PEDIDO_A_FABRICA_LEGACY_PATH ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
-    ) {
-      return false;
-    }
-    return (
-      pathname.startsWith("/estadisticas-productos") ||
-      collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s))
     );
   }
   if (pillar.id === "usuarios") {
@@ -523,22 +489,7 @@ export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boole
       pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
     );
   }
-  // FINANZAS: /finanzas/* excepto analisis-mc (LISTA PRECIOS), usuarios y aliases de VTAS. & COBROS
-  if (pathname.startsWith("/finanzas/analisis-mc")) return false;
-  if (
-    pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
-    pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`)
-  ) {
-    return false;
-  }
-  if (pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`)) {
-    return false;
-  }
-  return (
-    pathname === "/finanzas" ||
-    pathname.startsWith("/finanzas/") ||
-    collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s))
-  );
+  return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
 }
 
 export function pillarHasVisibleItems(

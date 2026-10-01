@@ -189,7 +189,9 @@ export default function AdministracionAccordionNav({ rol }: { rol: Rol }) {
     visiblePillars.find((p) => isAdmPillarActive(pathname, p)) ?? null;
   const selectedPillar =
     (pickedId ? visiblePillars.find((p) => p.id === pickedId) : null) ??
-    routePillar;
+    routePillar ??
+    visiblePillars[0] ??
+    null;
 
   const groups = selectedPillar?.groups
     ? filterVisibleGroups(selectedPillar.groups, puedeFn)

@@ -410,7 +410,7 @@
     text-align: center;
   }
   .finanzas-resumen-tarjeta .text-muted-foreground {
-    color: color-mix(in srgb, var(--primary-foreground) 75%, transparent);
+    color: var(--primary-foreground) !important;
   }
 
   /**
@@ -1017,6 +1017,24 @@
   }
   .sidebar-modulos-trigger:focus-visible {
     box-shadow: 0 0 0 2px var(--sidebar-ring);
+  }
+  /* Módulo general: relleno de marca y letra más grande. El módulo de abajo queda con contorno. */
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+    font-size: var(--text-base);
+    padding: 0.75rem 0.875rem;
+  }
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger svg {
+    color: var(--primary-foreground);
+  }
+  .sidebar-modulos-recuadro--general.sidebar-modulos-recuadro--abierto .sidebar-modulos-trigger,
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger:hover,
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger:focus-visible {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    filter: brightness(0.92);
   }
   .sidebar-modulos-lista {
     display: flex;

@@ -36,7 +36,6 @@ import {
 } from "@/lib/usuarioSesion";
 import { type SucursalPreferida } from "@/lib/sucursalPreferida";
 import {
-  puedeCambiarModulo,
   primerModuloPermitido,
   etiquetaSucursalPorDefecto,
 } from "@/lib/usuarios";
@@ -71,7 +70,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const router = useRouter();
   const [forceChoose, setForceChoose] = useState(false);
   const [usuarioOpen, setUsuarioOpen] = useState(false);
-  const [moduloOpen, setModuloOpen] = useState(false);
   const [claveOpen, setClaveOpen] = useState(false);
   const [usuarios, setUsuarios] = useState<GlobalPersonalItem[]>([]);
   const [usuariosError, setUsuariosError] = useState("");
@@ -87,9 +85,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const [pending, startTransition] = useTransition();
 
   const currentId = getMainAppAreaIdFromPathname(pathname);
-  const puedeCambiar = usuarioSesion
-    ? puedeCambiarModulo(usuarioSesion.modulosPermitidos)
-    : false;
 
   useEffect(() => {
     const guardado = leerUsuarioSesion();
@@ -124,36 +119,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     };
   }, [usuarioOpen]);
 
-  /**
-   * Al abrir Cambiar Módulo, sincroniza `modulosPermitidos` desde BD
-   * (p. ej. se asignó Facturación en Usuarios sin volver a Elegir Usuario).
-   */
-  useEffect(() => {
-    if (!moduloOpen) return;
-    const idPersonal = leerUsuarioSesion()?.idPersonal;
-    if (idPersonal == null) return;
-    let cancelled = false;
-    void listUsuariosParaInicioSesionAction().then((res) => {
-      if (cancelled || !res.ok) return;
-      const item = res.data.find((u) => u.idPersonal === idPersonal);
-      if (!item) return;
-      const next = usuarioSesionDesdeItem(item);
-      if (!next) return;
-      const actual = leerUsuarioSesion();
-      const mismos =
-        actual != null &&
-        actual.idPersonal === next.idPersonal &&
-        actual.modulosPermitidos.length === next.modulosPermitidos.length &&
-        actual.modulosPermitidos.every((id, i) => id === next.modulosPermitidos[i]);
-      if (mismos && actual?.nombrePersonal === next.nombrePersonal) return;
-      guardarUsuarioSesion(next);
-      setUsuarioSesion(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [moduloOpen]);
-
   function persistirYNavegar(
     usuario: UsuarioSesion,
     areaId: MainAppAreaId
@@ -162,7 +127,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     setUsuarioSesion(usuario);
     setForceChoose(false);
     setUsuarioOpen(false);
-    setModuloOpen(false);
     setClaveOpen(false);
     setPendingUsuario(null);
     setPendingAreaId(null);
@@ -175,7 +139,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     setPendingUsuario(usuario);
     setPendingAreaId(areaId);
     setUsuarioOpen(false);
-    setModuloOpen(false);
     setClave("");
     setError("");
     setMostrarClave(false);
@@ -272,7 +235,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
       ? "Elegir Sucursal"
       : `Usuarios ${etiquetaSucursalPorDefecto(sucursalSeleccionadaUsuario)}`;
 
-  const IconoModulo = ICONO_MODULO[currentId];
   const anclaModuloGeneral = useMemo(() => {
     if (typeof document === "undefined") return null;
     return document.getElementById("sidebar-modulo-general-ancla");
@@ -290,10 +252,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const moduloGeneralActual =
     modulosGenerales.find((item) => item.id === currentId) ?? null;
 
-  function abrirCambiarModulo() {
-    setModuloOpen(true);
-  }
-
   function abrirCambiarUsuario() {
     setUsuariosError("");
     setUsuarioOpen(true);
@@ -308,6 +266,7 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
               seleccionado={moduloGeneralActual}
               placeholder="MÓDULO GENERAL"
               menuLabel="Módulos generales"
+              nivel="general"
               onSelect={(id) => {
                 if (!isMainAppAreaId(id) || !usuarioSesion) return;
                 aplicarModulo(usuarioSesion, id);
@@ -316,63 +275,23 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
             anclaModuloGeneral
           )
         : null}
-      {puedeCambiar ? (
-        <div
-          className={cn(
-            "flex h-9 w-full items-center justify-center gap-1.5 rounded-md px-2",
-            "text-sidebar-foreground"
-          )}
-        >
-          <button
-            type="button"
-            onClick={abrirCambiarModulo}
-            disabled={pending || forceChoose}
-            aria-label="Cambiar Módulo"
-            title="Cambiar Módulo"
-            className={cn(
-              "flex h-8 w-[15%] max-w-6 shrink-0 items-center justify-center rounded-md",
-              "outline-none hover:bg-sidebar-accent/80",
-              "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-              pending && "cursor-not-allowed opacity-90"
-            )}
-          >
-            <IconoModulo className="size-4 shrink-0" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={abrirCambiarUsuario}
-            disabled={pending || forceChoose}
-            aria-label="Cambiar Usuario"
-            title="Cambiar Usuario"
-            className={cn(
-              "h-8 min-w-0 max-w-[85%] flex-1 truncate rounded-md px-2 text-center text-xs font-semibold tracking-wide",
-              "outline-none hover:bg-sidebar-accent/80",
-              "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-              pending && "cursor-not-allowed opacity-90"
-            )}
-          >
-            {labelUsuario}
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={abrirCambiarUsuario}
-          disabled={pending || forceChoose}
-          aria-label="Cambiar Usuario"
-          title="Cambiar Usuario"
-          className={cn(
-            "flex h-9 w-full items-center justify-center rounded-md px-2",
-            "truncate text-center text-xs font-semibold tracking-wide",
-            "text-sidebar-foreground",
-            "outline-none hover:bg-sidebar-accent/80",
-            "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            pending && "cursor-not-allowed opacity-90"
-          )}
-        >
-          {labelUsuario}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={abrirCambiarUsuario}
+        disabled={pending || forceChoose}
+        aria-label="Cambiar Usuario"
+        title="Cambiar Usuario"
+        className={cn(
+          "flex h-9 w-full items-center justify-center rounded-md px-2",
+          "truncate text-center text-xs font-semibold tracking-wide",
+          "text-sidebar-foreground",
+          "outline-none hover:bg-sidebar-accent/80",
+          "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          pending && "cursor-not-allowed opacity-90"
+        )}
+      >
+        {labelUsuario}
+      </button>
 
       <Dialog open={usuarioOpen} onOpenChange={handleUsuarioOpenChange}>
         <AppModal
@@ -499,62 +418,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
               </>
             ) : null}
           </div>
-        </AppModal>
-      </Dialog>
-
-      <Dialog open={moduloOpen} onOpenChange={setModuloOpen}>
-        <AppModal
-          size="sm"
-          title="Cambiar Módulo"
-          padding="sm"
-          actions={
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setModuloOpen(false)}
-              disabled={pending}
-            >
-              Cerrar
-            </Button>
-          }
-        >
-          <div
-            className="flex w-full min-w-0 flex-col gap-2"
-            role="list"
-            aria-label="Módulos disponibles"
-          >
-            {(usuarioSesion?.modulosPermitidos ?? []).map((id) => {
-              const area = getMainAppAreaById(id);
-              const Icono = ICONO_MODULO[id];
-              const activo = id === currentId;
-              return (
-                <Button
-                  key={id}
-                  type="button"
-                  role="listitem"
-                  variant={activo ? "default" : "outline"}
-                  disabled={pending || !usuarioSesion}
-                  onClick={() => {
-                    if (!usuarioSesion) return;
-                    aplicarModulo(usuarioSesion, id);
-                  }}
-                  className={cn(
-                    "h-auto w-full justify-start gap-3 px-3 py-2.5 text-left",
-                    "whitespace-normal"
-                  )}
-                >
-                  <Icono className="size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 truncate text-sm font-semibold tracking-wide">
-                    {areaLabelMayusculas(area.label)}
-                  </span>
-                </Button>
-              );
-            })}
-            {(usuarioSesion?.modulosPermitidos?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Este usuario no tiene módulos asignados.
-              </p>
-            ) : null}          </div>
         </AppModal>
       </Dialog>
 
