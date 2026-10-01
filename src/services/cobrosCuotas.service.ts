@@ -12,7 +12,10 @@ const CUOTA_SELECT = {
   id: true,
   cuotas: true,
   vinculos: {
-    orderBy: [{ pago: { nombre: "asc" as const } }, { entidad: { nombre: "asc" as const } }],
+    orderBy: [
+      { pago: { nombre: "asc" as const } },
+      { entidad: { nombre: "asc" as const } },
+    ],
     select: {
       pagoId: true,
       entidadId: true,
@@ -20,7 +23,7 @@ const CUOTA_SELECT = {
       entidad: { select: { nombre: true } },
     },
   },
-} as const;
+} satisfies Prisma.CobrosCuotaSelect;
 
 type CuotaRow = {
   id: string;
