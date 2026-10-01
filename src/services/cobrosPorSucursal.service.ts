@@ -15,13 +15,13 @@ export type CobrosPorSucursalSucursalCol = {
 
 export type CobrosPorSucursalCajaOption = {
   id: string;
-  entidadId: string;
+  entidadId: string | null;
   sucursalId: string;
   tipoCaja: string;
   entidadNombre: string;
   sucursalNombre: string;
   titular: string;
-  /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR` */
+  /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR`. Sin entidad: `SIN ENTIDAD`. */
   etiqueta: string;
 };
 
@@ -76,13 +76,15 @@ function mapDbError(error: unknown, fallback: string): string {
 }
 
 function etiquetaCajaLista(row: {
-  entidad: { nombre: string };
+  entidad: { nombre: string } | null;
   titular: string;
   sucursal: { nombre: string } | null;
   tipoCaja: TipoCajaTesoreria;
 }): string {
   const tipo = etiquetaTipoCajaEnPantalla(row.tipoCaja);
-  const entidad = row.entidad.nombre.toLocaleUpperCase("es-AR");
+  const entidad = row.entidad
+    ? row.entidad.nombre.toLocaleUpperCase("es-AR")
+    : "SIN ENTIDAD";
   const suc = row.sucursal?.nombre.toLocaleUpperCase("es-AR") ?? "SIN SUC.";
   const titular = row.titular.toLocaleUpperCase("es-AR");
   return `${tipo} - ${entidad} - ${suc} - ${titular}`;
@@ -277,7 +279,9 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       entidadId: row.entidadId,
       sucursalId: row.sucursalId,
       tipoCaja: row.tipoCaja,
-      entidadNombre: row.entidad.nombre.toLocaleUpperCase("es-AR"),
+      entidadNombre: row.entidad
+        ? row.entidad.nombre.toLocaleUpperCase("es-AR")
+        : "",
       sucursalNombre: row.sucursal?.nombre.toLocaleUpperCase("es-AR") ?? "SIN SUC.",
       titular: row.titular.toLocaleUpperCase("es-AR"),
       etiqueta: etiquetaCajaLista(row),

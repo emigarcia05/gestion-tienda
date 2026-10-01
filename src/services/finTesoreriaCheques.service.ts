@@ -53,9 +53,10 @@ export interface FinTesoreriaChequeItem {
 }
 
 function etiquetaCajaDestino(
-  dest: { titular: string; entidad: { nombre: string } } | null | undefined
+  dest: { titular: string; entidad: { nombre: string } | null } | null | undefined
 ): string | null {
   if (!dest) return null;
+  if (!dest.entidad) return dest.titular;
   return `${dest.entidad.nombre} - ${dest.titular}`;
 }
 
@@ -74,7 +75,7 @@ function mapCheque(row: {
   proveedorId?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  cajaDestino?: { titular: string; entidad: { nombre: string } } | null;
+  cajaDestino?: { titular: string; entidad: { nombre: string } | null } | null;
   proveedor?: { nombre: string } | null;
 }): FinTesoreriaChequeItem {
   return {
