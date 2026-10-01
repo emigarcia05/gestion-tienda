@@ -307,7 +307,7 @@ export async function crearCobroPorSucursal(
 
     const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
       where: { id: input.pagoId },
-      select: { id: true },
+      select: { id: true, nombre: true },
     });
     if (!pago) {
       return { success: false, error: "Forma de pago inválida." };
