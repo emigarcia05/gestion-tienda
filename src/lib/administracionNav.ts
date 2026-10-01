@@ -2,14 +2,11 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
- * VTAS. & COBROS → Ptos. Vtas. / Cx. Fin. Cobros / Cobros & Cajas
- * PEDIDO A FÁB. → pantallas
- * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
- * USUARIOS → pantallas
+ * LISTA PRECIOS, VTAS. & COBROS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
+ * muestran sus funciones en una sola lista (sin grupo intermedio).
  *
- * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo acordeón:
- * TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS.
+ * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
+ * TESORERIA | BALANCE | OPERACIONES | IMPUESTOS, también con funciones planas.
  */
 
 import {
@@ -74,7 +71,7 @@ export interface AdmScreenDef {
   permiso: { simple: boolean; editor: boolean };
 }
 
-/** Grupo intermedio del acordeón (abre pantallas hijas o subgrupos). */
+/** Grupo histórico. La navegación no lo muestra: las funciones van planas en el pilar. */
 export interface AdmGroupDef {
   id: string;
   label: string;
@@ -88,10 +85,7 @@ export interface AdmPillarDef {
   /** Label sidebar (MAYÚSCULAS). */
   label: string;
   icon: AdmIconId;
-  /**
-   * Primer desglose: grupos (acordeón anidado) y/o pantallas directas.
-   * Si hay ambos, se renderizan pantallas y luego grupos.
-   */
+  /** Primer nivel bajo el módulo: solo funciones. `groups` queda por compatibilidad y se aplana. */
   groups?: AdmGroupDef[];
   screens?: AdmScreenDef[];
 }
@@ -157,7 +151,7 @@ const impuestosScreens: AdmScreenDef[] = [
 const comprasScreens: AdmScreenDef[] = [
   {
     id: "venc-provee-merc",
-    label: "Resumen Venc.",
+    label: "Venc. Mercadería",
     href: "/finanzas/deuda-proveedores",
     icon: "wallet",
     permiso: PERMISOS.finanzas.acceso,
@@ -174,25 +168,10 @@ const comprasScreens: AdmScreenDef[] = [
 const gastosScreens: AdmScreenDef[] = [
   {
     id: "venc-provee-gastos",
-    label: "Resumen Venc.",
+    label: "Venc. Gastos",
     href: "/finanzas/vencimientos-gastos",
     icon: "calendar-clock",
     permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
-const operacionesGroups: AdmGroupDef[] = [
-  {
-    id: "compras",
-    label: "COMPRAS",
-    icon: "file-search",
-    screens: comprasScreens,
-  },
-  {
-    id: "gastos",
-    label: "GASTOS",
-    icon: "receipt",
-    screens: gastosScreens,
   },
 ];
 
@@ -343,7 +322,7 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     id: "operaciones",
     label: "OPERACIONES",
     icon: "wallet",
-    groups: operacionesGroups,
+    screens: [...comprasScreens, ...gastosScreens],
   },
   {
     id: "impuestos",
@@ -358,25 +337,10 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     id: "listas-precios",
     label: "LISTA PRECIOS",
     icon: "handshake",
-    groups: [
-      {
-        id: "px-tienda",
-        label: "PX TIENDA",
-        icon: "circle-dollar",
-        screens: pxTiendaScreens,
-      },
-      {
-        id: "proveedores",
-        label: "PROVEEDORES",
-        icon: "list",
-        screens: proveedoresScreens,
-      },
-      {
-        id: "analisis-mc",
-        label: "ANÁLISIS M.C.",
-        icon: "line-chart",
-        screens: analisisMcScreens,
-      },
+    screens: [
+      ...pxTiendaScreens,
+      ...proveedoresScreens,
+      ...analisisMcScreens,
     ],
   },
   {
@@ -395,15 +359,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     id: "estadisticas",
     label: "ESTADÍSTICAS",
     icon: "bar-chart-3",
-    screens: estadisticasVentasScreens,
-    groups: [
-      {
-        id: "configuracion",
-        label: "CONFIGURACION",
-        icon: "settings",
-        screens: estadisticasConfiguracionScreens,
-      },
-    ],
+    screens: [...estadisticasVentasScreens, ...estadisticasConfiguracionScreens],
   },
   {
     id: "usuarios",

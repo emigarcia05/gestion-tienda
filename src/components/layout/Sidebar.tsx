@@ -14,7 +14,6 @@ import {
   Receipt,
   Wrench,
   CircleDollarSign,
-  ListChecks,
   PackageCheck,
   Boxes,
   Megaphone,
@@ -48,7 +47,6 @@ import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacion
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
 import { FIN_PILLARS } from "@/lib/administracionNav";
 import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
-import SidebarSubmoduloFlyout from "@/components/layout/SidebarSubmoduloFlyout";
 
 const iconClass = "h-5 w-5 shrink-0";
 
@@ -64,14 +62,12 @@ type FacturacionModuleId = "factura" | "clientes";
 type SidebarModuleId = ModuleId | MarketingModuleId | FacturacionModuleId;
 
 interface SubmoduleItem {
-  /** Omitir en agrupadores solo desplegables (sin página propia). */
-  href?: string;
+  href: string;
   label: string;
   icon: React.ReactNode;
   isUrgente?: boolean;
   /** Permiso para ver este enlace (por rol). Si no se define, solo editor. */
   permiso?: { simple: boolean; editor: boolean };
-  children?: SubmoduleItem[];
 }
 
 type NavModule = {
@@ -110,29 +106,23 @@ const MODULES: NavModule[] = [
     icon: <ClipboardList className={iconClass} />,
     submodules: [
       {
-        label: "Cant. Pedida",
-        icon: <ListChecks className="h-4 w-4 shrink-0" />,
-        children: [
-          {
-            href: GP_ROUTES.pedidoMercaderia.confPedido.urgente,
-            label: "Urgente",
-            icon: <AlarmClock className="h-4 w-4 shrink-0" />,
-            isUrgente: true,
-            permiso: PERMISOS.pedidos.acceso,
-          },
-          {
-            href: GP_ROUTES.pedidoMercaderia.confPedido.tintometrico,
-            label: "Tintométrico",
-            icon: <Pipette className="h-4 w-4 shrink-0" />,
-            permiso: PERMISOS.pedidos.acceso,
-          },
-          {
-            href: GP_ROUTES.pedidoMercaderia.confPedido.reposicion,
-            label: "Reposición",
-            icon: <RotateCw className="h-4 w-4 shrink-0" />,
-            permiso: PERMISOS.pedidos.acceso,
-          },
-        ],
+        href: GP_ROUTES.pedidoMercaderia.confPedido.urgente,
+        label: "Urgente",
+        icon: <AlarmClock className="h-4 w-4 shrink-0" />,
+        isUrgente: true,
+        permiso: PERMISOS.pedidos.acceso,
+      },
+      {
+        href: GP_ROUTES.pedidoMercaderia.confPedido.tintometrico,
+        label: "Tintométrico",
+        icon: <Pipette className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.pedidos.acceso,
+      },
+      {
+        href: GP_ROUTES.pedidoMercaderia.confPedido.reposicion,
+        label: "Reposición",
+        icon: <RotateCw className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.pedidos.acceso,
       },
       {
         href: GP_ROUTES.pedidoMercaderia.generarPedido,
@@ -355,12 +345,7 @@ function isSubmoduleActive(
 }
 
 function submoduleVisible(sub: SubmoduleItem, rol: Rol): boolean {
-  if (sub.href) {
-    const selfAllowed = !sub.permiso || puede(rol, sub.permiso);
-    const childAllowed = sub.children?.some((c) => submoduleVisible(c, rol)) ?? false;
-    return selfAllowed || childAllowed;
-  }
-  return sub.children?.some((c) => submoduleVisible(c, rol)) ?? false;
+  return !sub.permiso || puede(rol, sub.permiso);
 }
 
 function isNavModuleActive(
@@ -369,29 +354,9 @@ function isNavModuleActive(
   crearClase: string | null
 ): boolean {
   if (module.href && isSubmoduleActive(pathname, module.href, crearClase)) return true;
-  function walk(items: SubmoduleItem[]): boolean {
-    for (const item of items) {
-      if (item.href && isSubmoduleActive(pathname, item.href, crearClase)) return true;
-      if (item.children?.length && walk(item.children)) return true;
-    }
-    return false;
-  }
-  return walk(module.submodules);
-}
-
-function submoduleGroupKey(moduleId: SidebarModuleId, label: string): string {
-  return `${moduleId}:${label}`;
-}
-
-function subtreeHasActive(
-  subs: SubmoduleItem[],
-  pathname: string,
-  crearClase: string | null
-): boolean {
-  return subs.some((sub) => {
-    if (sub.href && isSubmoduleActive(pathname, sub.href, crearClase)) return true;
-    return sub.children ? subtreeHasActive(sub.children, pathname, crearClase) : false;
-  });
+  return module.submodules.some((item) =>
+    isSubmoduleActive(pathname, item.href, crearClase)
+  );
 }
 
 export default function Sidebar({ rol }: { rol: Rol }) {
@@ -443,60 +408,9 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     }
   }
 
-  function renderFunciones(
-    items: SubmoduleItem[],
-    moduleId: SidebarModuleId
-  ) {
-    const visibles = items.filter((sub) => submoduleVisible(sub, rol));
-    return visibles.map((sub) => {
-      if (!sub.href && sub.children?.length) {
-        return (
-          <div key={submoduleGroupKey(moduleId, sub.label)}>
-            <p className="sidebar-funciones-seccion">{sub.label}</p>
-            {renderFunciones(sub.children, moduleId)}
-          </div>
-        );
-      }
-      if (!sub.href) return null;
-      const active = isSubmoduleActive(pathname, sub.href, crearClase);
-      return (
-        <Link
-          key={sub.href}
-          href={sub.href}
-          role="menuitem"
-          className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
-          data-active={active ? "true" : undefined}
-          aria-current={active ? "page" : undefined}
-        >
-          {sub.icon}
-          <span className="min-w-0 truncate">{sub.label}</span>
-        </Link>
-      );
-    });
-  }
-
-  function renderSubmoduleItems(
-    submodules: SubmoduleItem[],
-    moduleId: SidebarModuleId
-  ) {
+  function renderSubmoduleItems(submodules: SubmoduleItem[]) {
     const visible = submodules.filter((sub) => submoduleVisible(sub, rol));
     return visible.map((sub) => {
-      if (!sub.href && sub.children?.length) {
-        const groupKey = submoduleGroupKey(moduleId, sub.label);
-        return (
-          <SidebarSubmoduloFlyout
-            key={groupKey}
-            label={sub.label}
-            icon={sub.icon}
-            activo={subtreeHasActive(sub.children, pathname, crearClase)}
-          >
-            {renderFunciones(sub.children, moduleId)}
-          </SidebarSubmoduloFlyout>
-        );
-      }
-
-      if (!sub.href) return null;
-
       const active = isSubmoduleActive(pathname, sub.href, crearClase);
       return (
         <div key={sub.href}>
@@ -555,10 +469,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             >
               {selectedModule && !selectedModule.href ? (
                 <div className="sidebar-nav-tree">
-                  {renderSubmoduleItems(
-                    selectedModule.submodules,
-                    selectedModule.id
-                  )}
+                  {renderSubmoduleItems(selectedModule.submodules)}
                 </div>
               ) : null}
             </nav>

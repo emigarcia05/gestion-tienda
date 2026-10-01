@@ -863,14 +863,6 @@
     padding: 0.25rem;
     box-shadow: var(--shadow-md);
   }
-  .sidebar-funciones-seccion {
-    margin: 0.35rem 0.5rem 0.1rem;
-    font-size: 0.65rem;
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
-  }
 
   /**
    * Módulo / pilar de primer nivel (MAYÚSCULAS).
