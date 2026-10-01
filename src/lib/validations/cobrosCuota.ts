@@ -12,11 +12,15 @@ const cuotasTextoSchema = z
 
 export const crearCobrosCuotaSchema = z.object({
   cuotas: cuotasTextoSchema,
+  pagoId: prismaCuidOrUuidSchema,
+  entidadId: prismaCuidOrUuidSchema,
 });
 
 export const editarCobrosCuotaSchema = z.object({
   id: prismaCuidOrUuidSchema,
   cuotas: cuotasTextoSchema,
+  pagoId: prismaCuidOrUuidSchema,
+  entidadId: prismaCuidOrUuidSchema,
 });
 
 export const eliminarCobrosCuotaSchema = z.object({

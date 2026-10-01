@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
+import { cuotasParaFormaYEntidad, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esCobroNotaCreditoNombre,
   lineasFormaPagoCobro,
@@ -538,9 +538,10 @@ export default function FacturaComprobanteCobrosModal({
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
-                        onValueChange={(value) =>
-                          setEntidadId(value === VACIO ? "" : value)
-                        }
+                        onValueChange={(value) => {
+                          setEntidadId(value === VACIO ? "" : value);
+                          setCuotaId("");
+                        }}
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
@@ -584,7 +585,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>
@@ -746,9 +747,10 @@ export default function FacturaComprobanteCobrosModal({
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
-                        onValueChange={(value) =>
-                          setEntidadId(value === VACIO ? "" : value)
-                        }
+                        onValueChange={(value) => {
+                          setEntidadId(value === VACIO ? "" : value);
+                          setCuotaId("");
+                        }}
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
@@ -792,7 +794,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

@@ -63,7 +63,7 @@ function nombreUsuarioLabel(nombre: string): string {
 }
 
 /**
- * Pie de slidenav: fila de usuario (nombre). Ícono User junto al recuadro de módulos.
+ * Pie de slidenav: fila de usuario (ícono `User` + nombre).
  * Vive dentro del dock de sesión (`sidebar-user-switcher-surface` en `Sidebar`).
  * Primera visita: modal **Elegir Usuario**.
  * La clave se solicita solo al entrar a un área que la requiere (Administración).
@@ -88,7 +88,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const [pending, startTransition] = useTransition();
   const [anclaModuloGeneral, setAnclaModuloGeneral] =
     useState<HTMLElement | null>(null);
-  const [anclaUsuario, setAnclaUsuario] = useState<HTMLElement | null>(null);
 
   const currentId = getMainAppAreaIdFromPathname(pathname);
 
@@ -129,7 +128,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
     setAnclaModuloGeneral(
       document.getElementById("sidebar-modulo-general-ancla")
     );
-    setAnclaUsuario(document.getElementById("sidebar-usuario-ancla"));
   }, [pathname, usuarioSesion]);
 
   function persistirYNavegar(
@@ -282,24 +280,6 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
             anclaModuloGeneral
           )
         : null}
-      {anclaUsuario && usuarioSesion
-        ? createPortal(
-            <button
-              type="button"
-              onClick={abrirCambiarUsuario}
-              disabled={pending || forceChoose}
-              aria-label="Cambiar Usuario"
-              title="Cambiar Usuario"
-              className={cn(
-                "sidebar-modulos-trigger sidebar-usuario-trigger",
-                pending && "cursor-not-allowed opacity-90"
-              )}
-            >
-              <User className="h-5 w-5 shrink-0" aria-hidden />
-            </button>,
-            anclaUsuario
-          )
-        : null}
       <button
         type="button"
         onClick={abrirCambiarUsuario}
@@ -307,15 +287,16 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
         aria-label="Cambiar Usuario"
         title="Cambiar Usuario"
         className={cn(
-          "flex h-9 w-full items-center justify-center rounded-md px-2",
-          "truncate text-center text-xs font-semibold tracking-wide",
+          "flex h-9 w-full min-w-0 items-center justify-center gap-2 rounded-md px-2",
+          "text-center text-xs font-semibold tracking-wide",
           "text-sidebar-foreground",
           "outline-none hover:bg-sidebar-accent/80",
           "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           pending && "cursor-not-allowed opacity-90"
         )}
       >
-        {labelUsuario}
+        <User className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{labelUsuario}</span>
       </button>
 
       <Dialog open={usuarioOpen} onOpenChange={handleUsuarioOpenChange}>

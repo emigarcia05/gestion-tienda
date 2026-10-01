@@ -1318,6 +1318,7 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
+  cuotas   CobrosCuota[]
   cobrosPorSucursal CobrosPorSucursal[]
 
   @@index([orden], map: "cobros_entidades_orden_idx")
@@ -1330,7 +1331,7 @@ model FinAnaCosFinaPagoCat {
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
-  /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
+  /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota de esa forma y entidad. */
   aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
@@ -1338,6 +1339,7 @@ model FinAnaCosFinaPagoCat {
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
+  cuotas        CobrosCuota[]
   cobrosPorSucursal CobrosPorSucursal[]
 
   @@map("cobros_forma_pago")
@@ -1359,15 +1361,24 @@ model CobrosFormaPagoEntidad {
   @@map("cobros_forma_pago_entidades")
 }
 
-/** Catálogo de etiquetas de cuotas (Cx. Fin. Cobros). Texto libre (ej. `01`, `06 PROMOCION`). */
+/**
+ * Cuota de una forma de pago y una entidad (`cobros_cuotas`).
+ * El mismo texto puede repetirse en otro par. La entidad tiene que estar en el N:M de esa forma.
+ */
 model CobrosCuota {
   id        String   @id @default(cuid())
-  cuotas    String   @unique(map: "cobros_cuotas_cuotas_key")
+  cuotas    String
+  pagoId    String   @map("pago_id")
+  pago      FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  entidadId String   @map("entidad_id")
+  entidad   FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   filasCostos FinAnaCosFina[]
 
+  @@unique([pagoId, entidadId, cuotas], map: "cobros_cuotas_pago_entidad_cuotas_key")
+  @@index([entidadId], map: "cobros_cuotas_entidad_id_idx")
   @@map("cobros_cuotas")
 }
 

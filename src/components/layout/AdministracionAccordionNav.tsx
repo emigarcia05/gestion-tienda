@@ -212,36 +212,31 @@ export default function AdministracionAccordionNav({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <div id="sidebar-usuario-ancla" className="shrink-0" />
-        <div className="min-w-0 flex-1">
-          <SidebarModulosRecuadro
-            modulos={visiblePillars.map((pillar) => {
-              const Icon = ADM_ICON_MAP[pillar.icon];
-              return {
-                id: pillar.id,
-                label: pillar.label,
-                icon: <Icon className={iconClass} aria-hidden />,
-              };
-            })}
-            seleccionado={
-              selectedPillar && SelectedIcon
-                ? {
-                    id: selectedPillar.id,
-                    label: selectedPillar.label,
-                    icon: <SelectedIcon className={iconClass} aria-hidden />,
-                  }
-                : null
-            }
-            placeholder="MÓDULO"
-            menuLabel="Módulos"
-            onSelect={(id) => {
-              const pillar = visiblePillars.find((item) => item.id === id);
-              if (pillar) setPickedId(pillar.id);
-            }}
-          />
-        </div>
-      </div>
+      <SidebarModulosRecuadro
+        modulos={visiblePillars.map((pillar) => {
+          const Icon = ADM_ICON_MAP[pillar.icon];
+          return {
+            id: pillar.id,
+            label: pillar.label,
+            icon: <Icon className={iconClass} aria-hidden />,
+          };
+        })}
+        seleccionado={
+          selectedPillar && SelectedIcon
+            ? {
+                id: selectedPillar.id,
+                label: selectedPillar.label,
+                icon: <SelectedIcon className={iconClass} aria-hidden />,
+              }
+            : null
+        }
+        placeholder="MÓDULO"
+        menuLabel="Módulos"
+        onSelect={(id) => {
+          const pillar = visiblePillars.find((item) => item.id === id);
+          if (pillar) setPickedId(pillar.id);
+        }}
+      />
       <nav
         className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5"
         aria-label="Submódulos"

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
+import { cuotasParaFormaYEntidad, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esCobroNotaCreditoNombre,
   esFacturaTipoFiscal,
@@ -207,6 +207,7 @@ export default function FacturaGenerarComprobanteModal({
 
   function handleEntidadChange(value: string) {
     setEntidadId(value === VACIO ? "" : value);
+    setCuotaId("");
   }
 
   function handleCuotaChange(value: string) {
@@ -462,7 +463,7 @@ export default function FacturaGenerarComprobanteModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

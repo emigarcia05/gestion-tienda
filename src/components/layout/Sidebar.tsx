@@ -525,66 +525,56 @@ export default function Sidebar({ rol }: { rol: Rol }) {
 
   return (
     <aside className="sidebar-container w-60 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border">
-      {mainAreaId === "finanzas" ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
-          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+        <div id="sidebar-modulo-general-ancla" className="shrink-0" />
+        {mainAreaId === "finanzas" ? (
           <AdministracionAccordionNav rol={rol} />
-        </div>
-      ) : mainAreaId === "area-finanzas" ? (
-        <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
+        ) : mainAreaId === "area-finanzas" ? (
           <AdministracionAccordionNav rol={rol} pillars={FIN_PILLARS} />
-        </div>
-      ) : visibleModules.length > 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
-          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
-          <div className="flex items-center gap-2">
-            <div id="sidebar-usuario-ancla" className="shrink-0" />
-            <div className="min-w-0 flex-1">
-              <SidebarModulosRecuadro
-                modulos={visibleModules.map((module) => ({
-                  id: module.id,
-                  label: module.label,
-                  icon: module.icon,
-                }))}
-                seleccionado={
-                  selectedModule
-                    ? {
-                        id: selectedModule.id,
-                        label: selectedModule.label,
-                        icon: selectedModule.icon,
-                      }
-                    : null
-                }
-                placeholder="MÓDULO"
-                menuLabel="Módulos"
-                onSelect={onSelectModule}
-              />
-            </div>
-          </div>
+        ) : visibleModules.length > 0 ? (
+          <>
+            <SidebarModulosRecuadro
+              modulos={visibleModules.map((module) => ({
+                id: module.id,
+                label: module.label,
+                icon: module.icon,
+              }))}
+              seleccionado={
+                selectedModule
+                  ? {
+                      id: selectedModule.id,
+                      label: selectedModule.label,
+                      icon: selectedModule.icon,
+                    }
+                  : null
+              }
+              placeholder="MÓDULO"
+              menuLabel="Módulos"
+              onSelect={onSelectModule}
+            />
+            <nav
+              className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5"
+              aria-label="Submódulos"
+            >
+              {selectedModule && !selectedModule.href ? (
+                <div className="sidebar-nav-tree">
+                  {renderSubmoduleItems(
+                    selectedModule.submodules,
+                    selectedModule.id
+                  )}
+                </div>
+              ) : null}
+            </nav>
+          </>
+        ) : (
           <nav
             className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5"
-            aria-label="Submódulos"
+            aria-label="Navegación principal"
           >
-            {selectedModule && !selectedModule.href ? (
-              <div className="sidebar-nav-tree">
-                {renderSubmoduleItems(
-                  selectedModule.submodules,
-                  selectedModule.id
-                )}
-              </div>
-            ) : null}
+            {navVacio}
           </nav>
-        </div>
-      ) : (
-        <nav
-          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2"
-          aria-label="Navegación principal"
-        >
-          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
-          <div id="sidebar-usuario-ancla" className="shrink-0" />
-          {navVacio}
-        </nav>
-      )}
+        )}
+      </div>
       <div className="mt-auto flex flex-col gap-2 px-4 pb-3">
         <div className="flex justify-center" aria-hidden>
           <div className="h-px w-[80%] shrink-0 bg-sidebar-foreground/85" />

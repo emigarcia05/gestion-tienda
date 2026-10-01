@@ -7,20 +7,24 @@ function claveMatriz(terminalId: string, pagoId: string, cuotaId: string | null)
 type DbClient = Prisma.TransactionClient;
 
 /**
- * Sincroniza `fin_ana_cos_fina` con vínculos N:M forma×entidad:
- * - conserva las cuotas ya configuradas por par forma+entidad;
- * - para un par nuevo, hereda el set de cuotas de otro par de la misma forma de pago;
- * - si no hay plantilla, crea una fila base con `cuota_id = null`.
- * Crea faltantes (copia valores de una fila hermana del mismo par si existe) y borra huérfanas.
+ * Sincroniza `cobros_cx_fin` con el N:M forma×entidad y el catálogo `cobros_cuotas`.
+ * - Forma sin cuotas: una fila con `cuota_id` null por vínculo.
+ * - Forma con `acepta_cuotas`: una fila por cuota de ese par (`pago_id` + `entidad_id`).
+ *   Si el par todavía no tiene cuotas, queda la fila con `cuota_id` null.
+ * Crea faltantes (copia valores de una fila hermana del mismo par) y borra huérfanas.
  */
 export async function sincronizarMatrizFinAnaCosFina(tx: DbClient): Promise<void> {
-  const [vinculos, existentes] = await Promise.all([
+  const [vinculos, cuotas, existentes] = await Promise.all([
     tx.cobrosFormaPagoEntidad.findMany({
       where: { pago: { enCostosFinancieros: true } },
       select: {
         pagoId: true,
         entidadId: true,
+        pago: { select: { aceptaCuotas: true } },
       },
+    }),
+    tx.cobrosCuota.findMany({
+      select: { id: true, pagoId: true, entidadId: true },
     }),
     tx.finAnaCosFina.findMany({
       select: {
@@ -37,34 +41,36 @@ export async function sincronizarMatrizFinAnaCosFina(tx: DbClient): Promise<void
     }),
   ]);
 
-  type Deseado = { terminalId: string; pagoId: string; cuotaId: string | null };
-  const deseados: Deseado[] = [];
-  const existentesPorPar = new Map<string, (string | null)[]>();
-  for (const fila of existentes) {
-    const keyPar = `${fila.terminalId}:${fila.pagoId}`;
-    const cur = existentesPorPar.get(keyPar) ?? [];
-    cur.push(fila.cuotaId);
-    existentesPorPar.set(keyPar, cur);
-  }
-  const plantillaCuotasPorPago = new Map<string, string[]>();
-  for (const fila of existentes) {
-    if (!fila.cuotaId) continue;
-    const cur = plantillaCuotasPorPago.get(fila.pagoId) ?? [];
-    cur.push(fila.cuotaId);
-    plantillaCuotasPorPago.set(fila.pagoId, cur);
+  const cuotasPorPar = new Map<string, string[]>();
+  for (const cuota of cuotas) {
+    const key = `${cuota.entidadId}:${cuota.pagoId}`;
+    const cur = cuotasPorPar.get(key) ?? [];
+    cur.push(cuota.id);
+    cuotasPorPar.set(key, cur);
   }
 
+  type Deseado = { terminalId: string; pagoId: string; cuotaId: string | null };
+  const deseados: Deseado[] = [];
   for (const vinculo of vinculos) {
     const parKey = `${vinculo.entidadId}:${vinculo.pagoId}`;
-    const existentesPar = existentesPorPar.get(parKey) ?? [];
-    const idsCuota: Array<string | null> =
-      existentesPar.length > 0
-        ? [...new Set(existentesPar)]
-        : (() => {
-            const plantilla = [...new Set(plantillaCuotasPorPago.get(vinculo.pagoId) ?? [])];
-            return plantilla.length > 0 ? plantilla : [null];
-          })();
-    for (const cuotaId of idsCuota) {
+    if (!vinculo.pago.aceptaCuotas) {
+      deseados.push({
+        terminalId: vinculo.entidadId,
+        pagoId: vinculo.pagoId,
+        cuotaId: null,
+      });
+      continue;
+    }
+    const ids = cuotasPorPar.get(parKey) ?? [];
+    if (ids.length === 0) {
+      deseados.push({
+        terminalId: vinculo.entidadId,
+        pagoId: vinculo.pagoId,
+        cuotaId: null,
+      });
+      continue;
+    }
+    for (const cuotaId of ids) {
       deseados.push({
         terminalId: vinculo.entidadId,
         pagoId: vinculo.pagoId,

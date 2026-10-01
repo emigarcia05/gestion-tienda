@@ -9,13 +9,23 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
+import {
   crearCobrosCuotaAction,
   editarCobrosCuotaAction,
   eliminarCobrosCuotaAction,
   listarCobrosCuotasAction,
+  listarFinAnaCosFinaPagosAction,
 } from "@/actions/finAnaCosFina";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
+import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +42,8 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
   "h-9 w-9 min-h-9 max-h-9"
 );
 
+const VACIO = "none";
+
 export default function GestionarCuotasFinAnaCosFinaModal({
   open,
   onOpenChange,
@@ -40,11 +52,14 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   onCatalogoChanged,
 }: Props) {
   const [items, setItems] = useState<CobrosCuotaItem[]>(cuotasIniciales);
+  const [pagos, setPagos] = useState<FinAnaCosFinaPagoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CobrosCuotaItem | null>(null);
   const [formCuotas, setFormCuotas] = useState("");
+  const [formPagoId, setFormPagoId] = useState("");
+  const [formEntidadId, setFormEntidadId] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<CobrosCuotaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -60,13 +75,22 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await listarCobrosCuotasAction();
-      if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron cargar las cuotas.");
+      const [resCuotas, resPagos] = await Promise.all([
+        listarCobrosCuotasAction(),
+        listarFinAnaCosFinaPagosAction(),
+      ]);
+      if (!resCuotas.ok) {
+        toast.error(resCuotas.error ?? "No se pudieron cargar las cuotas.");
         setItems([]);
-        return;
+      } else {
+        setItems(resCuotas.data);
       }
-      setItems(res.data);
+      if (!resPagos.ok) {
+        toast.error(resPagos.error ?? "No se pudieron cargar las formas de pago.");
+        setPagos([]);
+      } else {
+        setPagos(resPagos.data);
+      }
     } finally {
       setLoading(false);
     }
@@ -79,6 +103,8 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     setFormOpen(false);
     setEditingItem(null);
     setFormCuotas("");
+    setFormPagoId("");
+    setFormEntidadId("");
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -88,12 +114,16 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
     if (!q) return items;
-    return items.filter((item) => matchByMultiTerm([item.cuotas], q));
+    return items.filter((item) =>
+      matchByMultiTerm([item.cuotas, item.pagoNombre, item.entidadNombre], q)
+    );
   }, [items, busqueda]);
 
   function resetForm() {
     setEditingItem(null);
     setFormCuotas("");
+    setFormPagoId("");
+    setFormEntidadId("");
   }
 
   function abrirCrear() {
@@ -106,10 +136,45 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     if (!esEditor || pending) return;
     setEditingItem(item);
     setFormCuotas(item.cuotas);
+    setFormPagoId(item.pagoId);
+    setFormEntidadId(item.entidadId);
     setFormOpen(true);
   }
 
-  const formValido = formCuotas.trim().length > 0;
+  const formasOpciones = useMemo(() => {
+    const base = pagos.filter(
+      (pago) => pago.entidadIds.length > 0 || pago.id === formPagoId
+    );
+    return [...base].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [pagos, formPagoId]);
+
+  const pagoSel = pagos.find((pago) => pago.id === formPagoId) ?? null;
+  const entidadesDelPago = useMemo(() => {
+    if (!pagoSel) return [];
+    const lista = pagoSel.entidadIds.map((id, idx) => ({
+      id,
+      nombre: pagoSel.entidadNombres[idx] ?? "",
+    }));
+    if (
+      editingItem &&
+      formEntidadId === editingItem.entidadId &&
+      formPagoId === editingItem.pagoId &&
+      !lista.some((entidad) => entidad.id === formEntidadId)
+    ) {
+      lista.push({ id: editingItem.entidadId, nombre: editingItem.entidadNombre });
+    }
+    return lista;
+  }, [pagoSel, editingItem, formEntidadId, formPagoId]);
+
+  function cambiarPago(nextId: string) {
+    const id = nextId === VACIO ? "" : nextId;
+    setFormPagoId(id);
+    const pago = pagos.find((item) => item.id === id);
+    setFormEntidadId((prev) => (pago && pago.entidadIds.includes(prev) ? prev : ""));
+  }
+
+  const formValido =
+    formCuotas.trim().length > 0 && formPagoId.length > 0 && formEntidadId.length > 0;
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
@@ -119,6 +184,8 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         const res = await editarCobrosCuotaAction({
           id: editingItem.id,
           cuotas: formCuotas,
+          pagoId: formPagoId,
+          entidadId: formEntidadId,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -126,7 +193,11 @@ export default function GestionarCuotasFinAnaCosFinaModal({
         }
         toast.success("Cuota actualizada.");
       } else {
-        const res = await crearCobrosCuotaAction({ cuotas: formCuotas });
+        const res = await crearCobrosCuotaAction({
+          cuotas: formCuotas,
+          pagoId: formPagoId,
+          entidadId: formEntidadId,
+        });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la cuota.");
           return;
@@ -230,9 +301,12 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                       key={item.id}
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
-                      <p className="min-w-0 flex-1 truncate text-left font-medium text-foreground">
-                        {item.cuotas}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-left font-medium text-foreground">{item.cuotas}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.pagoNombre} · {item.entidadNombre}
+                        </p>
+                      </div>
                       {esEditor ? (
                         <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5">
                           <Button
@@ -304,15 +378,80 @@ export default function GestionarCuotasFinAnaCosFinaModal({
             </div>
           }
         >
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Cuotas</ModalMicroLabel>
-            <Input
-              value={formCuotas}
-              onChange={(e) => setFormCuotas(e.target.value.toLocaleUpperCase("es-AR"))}
-              placeholder="Ej. 01, 03, 06 PROMOCION"
-              disabled={pending}
-              autoFocus
-            />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Forma de pago</ModalMicroLabel>
+              {formasOpciones.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay formas de pago con entidades. Vinculalas en Gestionar Formas Pago.
+                </p>
+              ) : (
+                <Select
+                  value={formPagoId || VACIO}
+                  onValueChange={cambiarPago}
+                  disabled={pending}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")} aria-label="Forma de pago">
+                    <SelectValue placeholder="FORMA DE PAGO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                    className="select-content-filtro"
+                  >
+                    <SelectItem value={VACIO}>FORMA DE PAGO</SelectItem>
+                    {formasOpciones.map((pago) => (
+                      <SelectItem key={pago.id} value={pago.id}>
+                        {pago.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Entidad</ModalMicroLabel>
+              {!formPagoId ? (
+                <p className="text-sm text-muted-foreground">Elegí primero la forma de pago.</p>
+              ) : entidadesDelPago.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Esta forma de pago no tiene entidades vinculadas.
+                </p>
+              ) : (
+                <Select
+                  value={formEntidadId || VACIO}
+                  onValueChange={(value) => setFormEntidadId(value === VACIO ? "" : value)}
+                  disabled={pending}
+                >
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")} aria-label="Entidad">
+                    <SelectValue placeholder="ENTIDAD" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                    className="select-content-filtro"
+                  >
+                    <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                    {entidadesDelPago.map((entidad) => (
+                      <SelectItem key={entidad.id} value={entidad.id}>
+                        {entidad.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Cuotas</ModalMicroLabel>
+              <Input
+                value={formCuotas}
+                onChange={(e) => setFormCuotas(e.target.value.toLocaleUpperCase("es-AR"))}
+                placeholder="Ej. 06 CUOTAS SIN INTERES"
+                disabled={pending}
+              />
+            </div>
           </div>
         </AppModal>
       </Dialog>
