@@ -334,7 +334,7 @@ export default function GenerarNotaCreditoDuxModal({
                         "transition-colors duration-100",
                         ok
                           ? "recepcion-fila-verificada"
-                          : "recepcion-fila-pendiente"
+                          : "recepcion-fila-activa"
                       )}
                     >
                       <TablaControlItemCelda

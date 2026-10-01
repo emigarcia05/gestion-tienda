@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
-import SidebarMainAppArea from "@/components/shared/SidebarMainAppArea";
 import type { Rol } from "@/lib/permisos";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
@@ -48,6 +47,7 @@ import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacion
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
 import { FIN_PILLARS } from "@/lib/administracionNav";
 import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
+import SidebarSubmoduloFlyout from "@/components/layout/SidebarSubmoduloFlyout";
 
 const iconClass = "h-5 w-5 shrink-0";
 
@@ -386,6 +386,17 @@ function submoduleGroupKey(moduleId: SidebarModuleId, label: string): string {
   return `${moduleId}:${label}`;
 }
 
+function subtreeHasActive(
+  subs: SubmoduleItem[],
+  pathname: string,
+  crearClase: string | null
+): boolean {
+  return subs.some((sub) => {
+    if (sub.href && isSubmoduleActive(pathname, sub.href, crearClase)) return true;
+    return sub.children ? subtreeHasActive(sub.children, pathname, crearClase) : false;
+  });
+}
+
 export default function Sidebar({ rol }: { rol: Rol }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -432,6 +443,38 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     }
   }
 
+  function renderFunciones(
+    items: SubmoduleItem[],
+    moduleId: SidebarModuleId
+  ) {
+    const visibles = items.filter((sub) => submoduleVisible(sub, rol));
+    return visibles.map((sub) => {
+      if (!sub.href && sub.children?.length) {
+        return (
+          <div key={submoduleGroupKey(moduleId, sub.label)}>
+            <p className="sidebar-funciones-seccion">{sub.label}</p>
+            {renderFunciones(sub.children, moduleId)}
+          </div>
+        );
+      }
+      if (!sub.href) return null;
+      const active = isSubmoduleActive(pathname, sub.href, crearClase);
+      return (
+        <Link
+          key={sub.href}
+          href={sub.href}
+          role="menuitem"
+          className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
+          data-active={active ? "true" : undefined}
+          aria-current={active ? "page" : undefined}
+        >
+          {sub.icon}
+          <span className="min-w-0 truncate">{sub.label}</span>
+        </Link>
+      );
+    });
+  }
+
   function renderSubmoduleItems(
     submodules: SubmoduleItem[],
     moduleId: SidebarModuleId
@@ -441,15 +484,14 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       if (!sub.href && sub.children?.length) {
         const groupKey = submoduleGroupKey(moduleId, sub.label);
         return (
-          <div key={groupKey}>
-            <div className="sidebar-nav-item" data-ancestor="true">
-              {sub.icon}
-              <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
-            </div>
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
-              {renderSubmoduleItems(sub.children, moduleId)}
-            </div>
-          </div>
+          <SidebarSubmoduloFlyout
+            key={groupKey}
+            label={sub.label}
+            icon={sub.icon}
+            activo={subtreeHasActive(sub.children, pathname, crearClase)}
+          >
+            {renderFunciones(sub.children, moduleId)}
+          </SidebarSubmoduloFlyout>
         );
       }
 
@@ -467,11 +509,6 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             {sub.icon}
             <span className="min-w-0 truncate">{sub.label}</span>
           </Link>
-          {sub.children && sub.children.length > 0 ? (
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested">
-              {renderSubmoduleItems(sub.children, moduleId)}
-            </div>
-          ) : null}
         </div>
       );
     });
@@ -493,7 +530,8 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         />
       </div>
       {mainAreaId === "finanzas" ? (
-        <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           <AdministracionAccordionNav rol={rol} />
         </div>
       ) : mainAreaId === "area-finanzas" ? (
@@ -502,6 +540,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         </div>
       ) : visibleModules.length > 0 ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           <SidebarModulosRecuadro
             modulos={visibleModules.map((module) => ({
               id: module.id,
@@ -517,6 +556,8 @@ export default function Sidebar({ rol }: { rol: Rol }) {
                   }
                 : null
             }
+            placeholder="MÓDULO"
+            menuLabel="Módulos"
             onSelect={onSelectModule}
           />
           <nav
@@ -535,9 +576,10 @@ export default function Sidebar({ rol }: { rol: Rol }) {
         </div>
       ) : (
         <nav
-          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-0.5 px-4 pt-3 pb-2"
+          className="sidebar-nav-scroll flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2"
           aria-label="Navegación principal"
         >
+          <div id="sidebar-modulo-general-ancla" className="shrink-0" />
           {navVacio}
         </nav>
       )}
@@ -555,13 +597,13 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           )}
           aria-label="Sesión"
         >
-          <SidebarMainAppArea />
-          <div
-            className="mx-2 h-px shrink-0 bg-sidebar-foreground/40"
-            aria-hidden
-          />
           <SidebarAreaSwitcher rolActual={rol} />
         </div>
+        <img
+          src="/logo_tiendacolor_letras_blancas.png"
+          alt="TiendaColor Pinturerías"
+          className="mx-auto h-auto w-[88%] object-contain"
+        />
       </div>
     </aside>
   );

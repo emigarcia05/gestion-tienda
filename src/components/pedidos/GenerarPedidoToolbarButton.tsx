@@ -46,7 +46,6 @@ import {
   listarProveedoresConPedidoActivoAction,
 } from "@/actions/pedidos";
 import { descargarPdfBase64 } from "@/lib/descargarPdfBase64";
-import { avisarIndicadorSlidenav } from "@/lib/indicadorSlidenav";
 import { leerSucursalPreferida } from "@/lib/sucursalPreferida";
 import SobreStockReposicionAdvertenciaModal from "@/components/shared/SobreStockReposicionAdvertenciaModal";
 import ReposicionProveedorPrioritarioModal, {
@@ -332,7 +331,6 @@ export default function GenerarPedidoToolbarButton({
     sentViaWhatsApp: boolean;
   }) {
     onGeneradoExito?.();
-    avisarIndicadorSlidenav();
     router.refresh();
     setReposicionPrioritarioSeleccion(null);
     setReposicionPrioritarioOpen(false);

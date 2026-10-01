@@ -8,7 +8,7 @@ interface Props {
   open: boolean;
   /**
    * El cierre por overlay/ESC equivale a cancelar (no decisión). El padre
-   * debe limpiar cualquier promesa pendiente al recibir `false`.
+   * debe limpiar cualquier promesa en curso al recibir `false`.
    */
   onOpenChange: (open: boolean) => void;
   /**

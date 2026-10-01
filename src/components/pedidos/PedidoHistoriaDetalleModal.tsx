@@ -165,7 +165,7 @@ export default function PedidoHistoriaDetalleModal({
   /**
    * Modal "¿La compra genera comprobante fiscal?" — solo se abre cuando
    * `proveedor.iva === PREGUNTA` antes de cualquier disparador del export.
-   * El resolver de la promesa pendiente se guarda en `decisionFiscalResolverRef`;
+   * El resolver de la promesa activa se guarda en `decisionFiscalResolverRef`;
    * si el modal se cierra sin elegir (ESC/overlay) la operación se cancela.
    */
   type DecisionFiscalResult = boolean | "cancelado";
@@ -899,9 +899,9 @@ export default function PedidoHistoriaDetalleModal({
                             : "";
 
                       const checkListConfirmed = checkListConfirmedByItem[item.id] === true;
-                      /** En **PENDIENTE**, la columna solo muestra valor tras confirmar checklist (OK / cesto / check edición). */
+                      /** En estado ABIERTO, la columna solo muestra valor tras confirmar checklist (OK / cesto / check edición). */
                       const cantRecibidaCeldaLectura =
-                        estado === "PENDIENTE" && !checkListConfirmed
+                        estado === "ABIERTO" && !checkListConfirmed
                           ? ""
                           : cantRecibidaVisible;
 
@@ -915,12 +915,12 @@ export default function PedidoHistoriaDetalleModal({
                             "transition-colors duration-100",
                             checkListConfirmed
                               ? "recepcion-fila-verificada cursor-not-allowed"
-                              : "recepcion-fila-pendiente"
+                              : "recepcion-fila-activa"
                           )}
                         >
                           <TablaControlItemCelda
                             verificado={checkListConfirmed}
-                            ocultarPendiente={locked}
+                            ocultarPlaceholder={locked}
                             placeholderTitle="Verificá con OK, Editar o Cesto en la columna ACCIONES."
                           />
                           <TableCell

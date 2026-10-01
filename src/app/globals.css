@@ -392,7 +392,8 @@
   }
 
   /**
-   * Tarjetas / pie de totales: mismo azul oscuro que slidenav y header.
+   * Tarjeta de total: azul de marca (`--primary`, #0072BB). El pie que las agrupa no pinta el fondo.
+   * No usa `--sidebar`: ese azul oscuro es el del slidenav y el encabezado.
    */
   .finanzas-resumen-tarjeta {
     display: flex;
@@ -402,20 +403,25 @@
     justify-content: center;
     gap: 0.125rem;
     border-radius: 0.375rem;
-    border: 1px solid var(--sidebar-border);
-    background-color: var(--sidebar);
-    color: var(--sidebar-foreground);
+    border: 1px solid color-mix(in srgb, var(--primary-foreground) 35%, transparent);
+    background-color: var(--primary);
+    color: var(--primary-foreground);
     padding: 0.5rem 0.75rem;
     text-align: center;
   }
   .finanzas-resumen-tarjeta .text-muted-foreground {
-    color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
+    color: var(--primary-foreground) !important;
   }
 
   /**
-   * Barra tipo pie de página (totales bajo tabla, indicadores fijos).
+   * Pie de página bajo la tabla: sin fondo. El azul `#0072BB` queda en cada `.finanzas-resumen-tarjeta`.
+   * El footer de modal (`.pie-pagina--solido`) sí pinta toda la barra (`--sidebar`).
    */
   .pie-pagina {
+    background-color: transparent;
+    color: var(--foreground);
+  }
+  .pie-pagina--solido {
     background-color: var(--sidebar);
     color: var(--sidebar-foreground);
     border-color: var(--sidebar-border);
@@ -833,6 +839,38 @@
     padding-left: 0.75rem;
     margin-top: 0.15rem;
   }
+  /**
+   * Panel de funciones: a la derecha del slidenav, al hover del submódulo.
+   * El puente (`.sidebar-funciones-ancla`) cubre el hueco para no cerrar al cruzar.
+   */
+  .sidebar-funciones-ancla {
+    position: fixed;
+    z-index: 80;
+    display: flex;
+    padding-left: 0.35rem;
+    box-sizing: border-box;
+  }
+  .sidebar-funciones-panel {
+    display: flex;
+    min-width: 12rem;
+    max-width: 16rem;
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--primary);
+    background-color: var(--sidebar);
+    padding: 0.25rem;
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar-funciones-seccion {
+    margin: 0.35rem 0.5rem 0.1rem;
+    font-size: 0.65rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
+  }
 
   /**
    * Módulo / pilar de primer nivel (MAYÚSCULAS).
@@ -862,11 +900,14 @@
   .sidebar-nav-module svg {
     color: var(--sidebar-foreground) !important;
   }
-  .sidebar-container .sidebar-nav-module:hover {
+  .sidebar-container .sidebar-nav-module:hover,
+  .sidebar-modulos-lista .sidebar-nav-module:hover {
     background-color: var(--sidebar-accent) !important;
   }
   .sidebar-container .sidebar-nav-module[data-active="true"],
-  .sidebar-container .sidebar-nav-module[data-active="true"]:hover {
+  .sidebar-container .sidebar-nav-module[data-active="true"]:hover,
+  .sidebar-modulos-lista .sidebar-nav-module[data-active="true"],
+  .sidebar-modulos-lista .sidebar-nav-module[data-active="true"]:hover {
     background-color: var(--sidebar-accent) !important;
     border-left-color: var(--sidebar-indicator);
   }
@@ -916,12 +957,15 @@
   .sidebar-nav-item svg {
     color: var(--sidebar-foreground) !important;
   }
-  .sidebar-container .sidebar-nav-item:hover {
+  .sidebar-container .sidebar-nav-item:hover,
+  .sidebar-funciones-panel .sidebar-nav-item:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
   }
   .sidebar-container .sidebar-nav-item[data-active="true"],
-  .sidebar-container .sidebar-nav-item[data-active="true"]:hover {
+  .sidebar-container .sidebar-nav-item[data-active="true"]:hover,
+  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"],
+  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"]:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
     border-left-color: var(--sidebar-indicator);
@@ -940,8 +984,8 @@
   }
 
   /**
-   * Recuadro de módulos: hover despliega la lista; el módulo elegido
-   * carga sus submódulos debajo (fuera del recuadro).
+   * Recuadro de módulo general y de módulo: el hover abre la lista a la derecha.
+   * El click elige y deja los submódulos fijos debajo.
    */
   .sidebar-modulos-recuadro {
     position: relative;
@@ -974,24 +1018,27 @@
   .sidebar-modulos-trigger:focus-visible {
     box-shadow: 0 0 0 2px var(--sidebar-ring);
   }
-  .sidebar-modulos-panel {
-    pointer-events: none;
-    visibility: hidden;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    z-index: 70;
-    padding-top: 0.25rem;
-    opacity: 0;
+  /* Módulo general: relleno de marca y letra más grande. El módulo de abajo queda con contorno. */
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    border-color: var(--primary);
+    font-size: var(--text-base);
+    padding: 0.75rem 0.875rem;
   }
-  .sidebar-modulos-panel--abierto {
-    pointer-events: auto;
-    visibility: visible;
-    opacity: 1;
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger svg {
+    color: var(--primary-foreground);
+  }
+  .sidebar-modulos-recuadro--general.sidebar-modulos-recuadro--abierto .sidebar-modulos-trigger,
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger:hover,
+  .sidebar-modulos-recuadro--general .sidebar-modulos-trigger:focus-visible {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    filter: brightness(0.92);
   }
   .sidebar-modulos-lista {
     display: flex;
+    min-width: 12rem;
     max-height: min(24rem, 70vh);
     flex-direction: column;
     gap: 0.125rem;
@@ -2295,12 +2342,20 @@ main button[data-variant="default"]:hover:not(:disabled),
 main button:not([data-variant]):hover:not(:disabled) {
   filter: brightness(0.9);
 }
-/* Secundario/outline: paginación, cancelar, etc. Mismas dimensiones y radio. */
+/* Secundario/outline: paginación, cancelar, etc. Mismas dimensiones y radio.
+ * Outline: texto siempre `--primary` (#0072BB), también en el pie oscuro del modal
+ * (si no, hereda el blanco de `.pie-pagina--solido` y no se lee). */
 main button[data-variant="outline"],
 main button[data-variant="secondary"] {
   background-color: var(--secondary) !important;
-  color: var(--secondary-foreground) !important;
   border: 1px solid var(--border);
+}
+main button[data-variant="outline"],
+.pie-pagina--solido button[data-variant="outline"] {
+  color: var(--primary) !important;
+}
+main button[data-variant="secondary"] {
+  color: var(--secondary-foreground) !important;
 }
 main button[data-variant="outline"]:hover:not(:disabled),
 main button[data-variant="secondary"]:hover:not(:disabled) {

@@ -212,7 +212,7 @@ export default function HistorialPedidosPageClient({
                             <TableCell className="celda-datos">
                               {it.estado === "RECEPCIONADO"
                                 ? "RECEPCIONADO"
-                                : "PENDIENTE"}
+                                : "ABIERTO"}
                             </TableCell>
                             <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                               <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "gap-2")}>

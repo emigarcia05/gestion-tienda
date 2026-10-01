@@ -142,27 +142,8 @@ function TarjetaResumenTesoreria({
   );
 }
 
-/** Etiqueta a la izquierda de cada fila de tarjetas del pie de Tesorería. */
-function EtiquetaFilaResumenTesoreria({
-  linea1,
-  linea2,
-}: {
-  linea1: string;
-  linea2: string;
-}) {
-  return (
-    <div className="flex min-h-0 min-w-0 items-center justify-center text-center">
-      <p className="text-xs font-semibold uppercase leading-tight text-foreground">
-        {linea1}
-        <br />
-        {linea2}
-      </p>
-    </div>
-  );
-}
-
 const RESUMEN_FILA_GRID_CLASS =
-  "grid w-full grid-cols-[6.75rem_1fr_1fr_1fr] items-stretch gap-2";
+  "grid w-full grid-cols-3 items-stretch gap-2";
 
 export default function TablaTesoreriaCajas({
   filas,
@@ -326,10 +307,6 @@ export default function TablaTesoreriaCajas({
               )}
             >
               <div className={RESUMEN_FILA_GRID_CLASS}>
-                <EtiquetaFilaResumenTesoreria
-                  linea1="Totales por"
-                  linea2="tipo de valor"
-                />
                 <TarjetaResumenTesoreria etiqueta="EFECTIVO" compact>
                   ${fmtPrecio(efectivoTipoValor)}
                 </TarjetaResumenTesoreria>
