@@ -58,8 +58,9 @@ export default function GestionarCuotasFinAnaCosFinaModal({
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CobrosCuotaItem | null>(null);
   const [formCuotas, setFormCuotas] = useState("");
-  const [formPagoId, setFormPagoId] = useState("");
-  const [formEntidadId, setFormEntidadId] = useState("");
+  const [formPares, setFormPares] = useState<{ pagoId: string; entidadId: string }[]>([
+    { pagoId: "", entidadId: "" },
+  ]);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<CobrosCuotaItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -103,8 +104,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     setFormOpen(false);
     setEditingItem(null);
     setFormCuotas("");
-    setFormPagoId("");
-    setFormEntidadId("");
+    setFormPares([{ pagoId: "", entidadId: "" }]);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -115,15 +115,17 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     const q = busqueda.trim();
     if (!q) return items;
     return items.filter((item) =>
-      matchByMultiTerm([item.cuotas, item.pagoNombre, item.entidadNombre], q)
+      matchByMultiTerm([
+        item.cuotas,
+        ...item.vinculos.flatMap((vinculo) => [vinculo.pagoNombre, vinculo.entidadNombre]),
+      ], q)
     );
   }, [items, busqueda]);
 
   function resetForm() {
     setEditingItem(null);
     setFormCuotas("");
-    setFormPagoId("");
-    setFormEntidadId("");
+    setFormPares([{ pagoId: "", entidadId: "" }]);
   }
 
   function abrirCrear() {
@@ -136,56 +138,76 @@ export default function GestionarCuotasFinAnaCosFinaModal({
     if (!esEditor || pending) return;
     setEditingItem(item);
     setFormCuotas(item.cuotas);
-    setFormPagoId(item.pagoId);
-    setFormEntidadId(item.entidadId);
+    setFormPares(
+      item.vinculos.length > 0
+        ? item.vinculos.map((vinculo) => ({
+            pagoId: vinculo.pagoId,
+            entidadId: vinculo.entidadId,
+          }))
+        : [{ pagoId: "", entidadId: "" }]
+    );
     setFormOpen(true);
   }
 
   const formasOpciones = useMemo(() => {
-    const base = pagos.filter(
-      (pago) => pago.entidadIds.length > 0 || pago.id === formPagoId
-    );
-    return [...base].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [pagos, formPagoId]);
+    const enUso = new Set(formPares.map((par) => par.pagoId).filter(Boolean));
+    return pagos
+      .filter((pago) => pago.entidadIds.length > 0 || enUso.has(pago.id))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [pagos, formPares]);
 
-  const pagoSel = pagos.find((pago) => pago.id === formPagoId) ?? null;
-  const entidadesDelPago = useMemo(() => {
-    if (!pagoSel) return [];
-    const lista = pagoSel.entidadIds.map((id, idx) => ({
+  function entidadesDe(pagoId: string, entidadId: string) {
+    const pago = pagos.find((item) => item.id === pagoId);
+    if (!pago) return [];
+    const lista = pago.entidadIds.map((id, idx) => ({
       id,
-      nombre: pagoSel.entidadNombres[idx] ?? "",
+      nombre: pago.entidadNombres[idx] ?? "",
     }));
-    if (
-      editingItem &&
-      formEntidadId === editingItem.entidadId &&
-      formPagoId === editingItem.pagoId &&
-      !lista.some((entidad) => entidad.id === formEntidadId)
-    ) {
-      lista.push({ id: editingItem.entidadId, nombre: editingItem.entidadNombre });
+    if (entidadId && !lista.some((entidad) => entidad.id === entidadId)) {
+      const guardada = editingItem?.vinculos.find(
+        (vinculo) => vinculo.pagoId === pagoId && vinculo.entidadId === entidadId
+      );
+      if (guardada) lista.push({ id: guardada.entidadId, nombre: guardada.entidadNombre });
     }
     return lista;
-  }, [pagoSel, editingItem, formEntidadId, formPagoId]);
+  }
 
-  function cambiarPago(nextId: string) {
-    const id = nextId === VACIO ? "" : nextId;
-    setFormPagoId(id);
-    const pago = pagos.find((item) => item.id === id);
-    setFormEntidadId((prev) => (pago && pago.entidadIds.includes(prev) ? prev : ""));
+  function cambiarPagoPar(indice: number, nextId: string) {
+    const pagoId = nextId === VACIO ? "" : nextId;
+    setFormPares((prev) =>
+      prev.map((par, i) => {
+        if (i !== indice) return par;
+        const pago = pagos.find((item) => item.id === pagoId);
+        const entidadId = pago && pago.entidadIds.includes(par.entidadId) ? par.entidadId : "";
+        return { pagoId, entidadId };
+      })
+    );
+  }
+
+  function cambiarEntidadPar(indice: number, nextId: string) {
+    const entidadId = nextId === VACIO ? "" : nextId;
+    setFormPares((prev) => prev.map((par, i) => (i === indice ? { ...par, entidadId } : par)));
   }
 
   const formValido =
-    formCuotas.trim().length > 0 && formPagoId.length > 0 && formEntidadId.length > 0;
+    formCuotas.trim().length > 0 &&
+    formPares.length > 0 &&
+    formPares.every((par) => par.pagoId.length > 0 && par.entidadId.length > 0) &&
+    new Set(formPares.map((par) => `${par.pagoId}:${par.entidadId}`)).size === formPares.length;
 
   async function handleGuardarForm() {
     if (!esEditor || !formValido || pending) return;
     setPending(true);
+    const vinculos = formPares.map((par) => ({
+      pagoId: par.pagoId,
+      entidadId: par.entidadId,
+    }));
     try {
       if (editingItem) {
         const res = await editarCobrosCuotaAction({
           id: editingItem.id,
           cuotas: formCuotas,
-          pagoId: formPagoId,
-          entidadId: formEntidadId,
+          vinculos,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -195,8 +217,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
       } else {
         const res = await crearCobrosCuotaAction({
           cuotas: formCuotas,
-          pagoId: formPagoId,
-          entidadId: formEntidadId,
+          vinculos,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la cuota.");
@@ -304,7 +325,9 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">{item.cuotas}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {item.pagoNombre} · {item.entidadNombre}
+                          {item.vinculos
+                            .map((vinculo) => `${vinculo.pagoNombre} · ${vinculo.entidadNombre}`)
+                            .join(" · ")}
                         </p>
                       </div>
                       {esEditor ? (
@@ -388,68 +411,110 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                 disabled={pending}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Forma de pago</ModalMicroLabel>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <ModalMicroLabel>Forma de pago y entidad</ModalMicroLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label="Agregar forma de pago y entidad"
+                  disabled={pending || formasOpciones.length === 0}
+                  onClick={() =>
+                    setFormPares((prev) => [...prev, { pagoId: "", entidadId: "" }])
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               {formasOpciones.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No hay formas de pago con entidades. Vinculalas en Gestionar Formas Pago.
                 </p>
               ) : (
-                <Select
-                  value={formPagoId || VACIO}
-                  onValueChange={cambiarPago}
-                  disabled={pending}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")} aria-label="Forma de pago">
-                    <SelectValue placeholder="FORMA DE PAGO" />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro"
-                  >
-                    <SelectItem value={VACIO}>FORMA DE PAGO</SelectItem>
-                    {formasOpciones.map((pago) => (
-                      <SelectItem key={pago.id} value={pago.id}>
-                        {pago.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Entidad</ModalMicroLabel>
-              {!formPagoId ? (
-                <p className="text-sm text-muted-foreground">Elegí primero la forma de pago.</p>
-              ) : entidadesDelPago.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Esta forma de pago no tiene entidades vinculadas.
-                </p>
-              ) : (
-                <Select
-                  value={formEntidadId || VACIO}
-                  onValueChange={(value) => setFormEntidadId(value === VACIO ? "" : value)}
-                  disabled={pending}
-                >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")} aria-label="Entidad">
-                    <SelectValue placeholder="ENTIDAD" />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro"
-                  >
-                    <SelectItem value={VACIO}>ENTIDAD</SelectItem>
-                    {entidadesDelPago.map((entidad) => (
-                      <SelectItem key={entidad.id} value={entidad.id}>
-                        {entidad.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                formPares.map((par, indice) => {
+                  const entidades = entidadesDe(par.pagoId, par.entidadId);
+                  return (
+                    <div key={indice} className="flex items-start gap-2">
+                      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                        <Select
+                          value={par.pagoId || VACIO}
+                          onValueChange={(value) => cambiarPagoPar(indice, value)}
+                          disabled={pending}
+                        >
+                          <SelectTrigger
+                            className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                            aria-label={`Forma de pago ${indice + 1}`}
+                          >
+                            <SelectValue placeholder="FORMA DE PAGO" />
+                          </SelectTrigger>
+                          <SelectContent
+                            position="popper"
+                            side="bottom"
+                            align="start"
+                            className="select-content-filtro"
+                          >
+                            <SelectItem value={VACIO}>FORMA DE PAGO</SelectItem>
+                            {formasOpciones.map((pago) => (
+                              <SelectItem key={pago.id} value={pago.id}>
+                                {pago.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!par.pagoId ? (
+                          <p className="self-center text-sm text-muted-foreground">
+                            Elegí la forma de pago.
+                          </p>
+                        ) : entidades.length === 0 ? (
+                          <p className="self-center text-sm text-muted-foreground">
+                            Sin entidades vinculadas.
+                          </p>
+                        ) : (
+                          <Select
+                            value={par.entidadId || VACIO}
+                            onValueChange={(value) => cambiarEntidadPar(indice, value)}
+                            disabled={pending}
+                          >
+                            <SelectTrigger
+                              className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                              aria-label={`Entidad ${indice + 1}`}
+                            >
+                              <SelectValue placeholder="ENTIDAD" />
+                            </SelectTrigger>
+                            <SelectContent
+                              position="popper"
+                              side="bottom"
+                              align="start"
+                              className="select-content-filtro"
+                            >
+                              <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                              {entidades.map((entidad) => (
+                                <SelectItem key={entidad.id} value={entidad.id}>
+                                  {entidad.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={LIST_ROW_ICON_BTN_CLASS}
+                        aria-label={`Quitar vínculo ${indice + 1}`}
+                        disabled={pending || formPares.length === 1}
+                        onClick={() =>
+                          setFormPares((prev) => prev.filter((_, i) => i !== indice))
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

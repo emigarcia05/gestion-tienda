@@ -248,9 +248,7 @@ export default function FinAnaCosFinaPageClient({
                     >
                       {cuotas.map((cuota) => (
                         <SelectItem key={cuota.id} value={cuota.id}>
-                          {etiquetaFiltroMayusculas(
-                            `${cuota.pagoNombre} · ${cuota.entidadNombre} · ${cuota.cuotas}`
-                          )}
+                          {etiquetaFiltroMayusculas(cuota.cuotas)}
                         </SelectItem>
                       ))}
                     </SelectContent>

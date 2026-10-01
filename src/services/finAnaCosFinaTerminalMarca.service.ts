@@ -120,7 +120,8 @@ export async function eliminarFinAnaCosFinaTerminalMarca(
 
     await prisma.$transaction(async (tx) => {
       await tx.cobrosFormaPagoEntidad.deleteMany({ where: { entidadId: id } });
-      await tx.cobrosCuota.deleteMany({ where: { entidadId: id } });
+      await tx.cobrosCuotaVinculo.deleteMany({ where: { entidadId: id } });
+      await tx.cobrosCuota.deleteMany({ where: { vinculos: { none: {} } } });
       await tx.finAnaCosFina.deleteMany({ where: { terminalId: id } });
       await tx.finAnaCosFinaTerminalMarca.delete({ where: { id } });
     });

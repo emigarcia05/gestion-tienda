@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,7 +53,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [editingItem, setEditingItem] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
-  const [formAceptaCuotas, setFormAceptaCuotas] = useState(false);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -102,7 +100,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setFormAceptaCuotas(false);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -117,7 +114,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
         [
           item.nombre,
           ...item.entidadNombres,
-          item.aceptaCuotas ? "cuotas" : "",
           item.entidadNombres.length === 0 ? "sin entidad" : "",
         ],
         q
@@ -129,7 +125,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setFormAceptaCuotas(false);
   }
 
   function abrirCrear() {
@@ -143,7 +138,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(item);
     setFormNombre(item.nombre);
     setFormEntidadIds([...item.entidadIds]);
-    setFormAceptaCuotas(item.aceptaCuotas);
     setFormOpen(true);
   }
 
@@ -158,7 +152,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
           id: editingItem.id,
           nombre: formNombre,
           entidadIds: formEntidadIds,
-          aceptaCuotas: formAceptaCuotas,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -169,7 +162,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
           entidadIds: formEntidadIds,
-          aceptaCuotas: formAceptaCuotas,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la forma de pago.");
@@ -261,7 +253,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
             {esEditor ? (
               <p className="text-sm text-muted-foreground">
                 Las entidades son opcionales. Si no vinculás ninguna, la forma se usa sin entidad.
-                Si acepta cuotas, Cx. Fin. Cobros genera una fila por cada cuota del catálogo.
+                Las cuotas se vinculan desde Gestionar Cuotas.
               </p>
             ) : null}
 
@@ -286,11 +278,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">
                           {pago.nombre}
-                          {pago.aceptaCuotas ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              · CUOTAS
-                            </span>
-                          ) : null}
                           {pago.entidadNombres.length === 0 ? (
                             <span className="ml-2 text-xs font-normal text-muted-foreground">
                               · SIN ENTIDAD
@@ -406,12 +393,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 />
               )}
             </div>
-            <ModalSiNoChoice
-              label="ACEPTA CUOTAS"
-              value={formAceptaCuotas}
-              onChange={setFormAceptaCuotas}
-              disabled={pending}
-            />
           </div>
         </AppModal>
       </Dialog>

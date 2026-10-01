@@ -109,7 +109,8 @@ export default function FacturaComprobanteCobrosModal({
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
     [pagosDisponibles, pagoId]
   );
-  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
+  const muestraCuotas =
+    cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;

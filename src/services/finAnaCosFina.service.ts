@@ -9,13 +9,13 @@ export type FinAnaCosFinaItem = {
   id: string;
   habilitado: boolean;
   impCheque: boolean;
-  terminalId: string;
+  terminalId: string | null;
   terminalNombre: string;
   terminalOrden: number;
   pagoId: string;
   pagoNombre: string;
   cuotaId: string | null;
-  /** Etiqueta del catálogo `cobros_cuotas.cuotas`; null si la forma no acepta cuotas. */
+  /** Etiqueta del catálogo `cobros_cuotas.cuotas`; null si el par todavía no tiene cuota. */
   cuotas: string | null;
   diasAcreditacion: number | null;
   arancel: number;
@@ -36,13 +36,13 @@ type FinAnaCosFinaRow = {
   id: string;
   habilitado: boolean;
   impCheque: boolean;
-  terminalId: string;
+  terminalId: string | null;
   pagoId: string;
   cuotaId: string | null;
   diasAcreditacion: number | null;
   arancel: Prisma.Decimal;
   costoFinanciero: Prisma.Decimal;
-  terminal: { nombre: string; orden: number };
+  terminal: { nombre: string; orden: number } | null;
   pago: { nombre: string };
   cuota: { cuotas: string } | null;
 };
@@ -53,8 +53,8 @@ function mapRow(row: FinAnaCosFinaRow): FinAnaCosFinaItem {
     habilitado: row.habilitado,
     impCheque: row.impCheque,
     terminalId: row.terminalId,
-    terminalNombre: row.terminal.nombre.toUpperCase(),
-    terminalOrden: row.terminal.orden,
+    terminalNombre: row.terminal ? row.terminal.nombre.toUpperCase() : "",
+    terminalOrden: row.terminal?.orden ?? 0,
     pagoId: row.pagoId,
     pagoNombre: row.pago.nombre.toUpperCase(),
     cuotaId: row.cuotaId,

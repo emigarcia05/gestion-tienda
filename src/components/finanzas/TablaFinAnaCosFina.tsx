@@ -25,6 +25,7 @@ import {
   porcentajeCentFromNumber,
 } from "@/lib/porcentajeCentMask";
 import { cn } from "@/lib/utils";
+import { fmtCelda } from "@/lib/format";
 import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
 
@@ -333,7 +334,7 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                   {fila.pagoNombre}
                 </TableCell>
                 <TableCell className="celda-datos text-center text-xs font-medium">
-                  {fila.terminalNombre}
+                  {fmtCelda(fila.terminalNombre)}
                 </TableCell>
                 <TableCell className="celda-datos text-center text-xs">
                   {fila.cuotas ?? "—"}

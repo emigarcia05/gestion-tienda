@@ -461,7 +461,7 @@ export type CxFinancieroPorFormaPago = Record<FormaPagoMargenContribucion, numbe
 export type FilaCostosFinancierosMargenContribucion = {
   habilitado: boolean;
   impCheque: boolean;
-  terminalId: string;
+  terminalId: string | null;
   pagoId: string;
   arancel: number;
   costoFinanciero: number;

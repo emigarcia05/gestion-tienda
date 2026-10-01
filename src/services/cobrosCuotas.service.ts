@@ -11,71 +11,75 @@ import type { ServiceResult } from "@/types/service.types";
 const CUOTA_SELECT = {
   id: true,
   cuotas: true,
-  pagoId: true,
-  entidadId: true,
-  pago: { select: { nombre: true } },
-  entidad: { select: { nombre: true } },
+  vinculos: {
+    orderBy: [{ pago: { nombre: "asc" as const } }, { entidad: { nombre: "asc" as const } }],
+    select: {
+      pagoId: true,
+      entidadId: true,
+      pago: { select: { nombre: true } },
+      entidad: { select: { nombre: true } },
+    },
+  },
 } as const;
 
 type CuotaRow = {
   id: string;
   cuotas: string;
-  pagoId: string;
-  entidadId: string;
-  pago: { nombre: string };
-  entidad: { nombre: string };
+  vinculos: {
+    pagoId: string;
+    entidadId: string;
+    pago: { nombre: string };
+    entidad: { nombre: string };
+  }[];
 };
 
 function mapCuota(row: CuotaRow): CobrosCuotaItem {
   return {
     id: row.id,
     cuotas: row.cuotas,
-    pagoId: row.pagoId,
-    pagoNombre: row.pago.nombre,
-    entidadId: row.entidadId,
-    entidadNombre: row.entidad.nombre,
+    vinculos: row.vinculos.map((vinculo) => ({
+      pagoId: vinculo.pagoId,
+      pagoNombre: vinculo.pago.nombre,
+      entidadId: vinculo.entidadId,
+      entidadNombre: vinculo.entidad.nombre,
+    })),
   };
 }
 
 function compararCuotas(a: CobrosCuotaItem, b: CobrosCuotaItem): number {
-  const porPago = a.pagoNombre.localeCompare(b.pagoNombre, "es");
-  if (porPago !== 0) return porPago;
-  const porEntidad = a.entidadNombre.localeCompare(b.entidadNombre, "es");
-  if (porEntidad !== 0) return porEntidad;
   return a.cuotas.localeCompare(b.cuotas, "es");
 }
 
 function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
-    if (code === "P2002") return "Ya existe esa cuota para esta forma de pago y entidad.";
+    if (code === "P2002") return "Ya existe una cuota con ese texto.";
     if (code === "P2003") return "La forma de pago o la entidad no existen.";
     if (code === "P2025") return "Cuota no encontrada.";
   }
   return error instanceof Error ? error.message : fallback;
 }
 
-async function assertParCuota(
+async function assertVinculos(
   tx: Prisma.TransactionClient,
-  pagoId: string,
-  entidadId: string
+  vinculos: { pagoId: string; entidadId: string }[]
 ): Promise<string | null> {
-  const pago = await tx.finAnaCosFinaPagoCat.findUnique({
-    where: { id: pagoId },
-    select: { id: true, aceptaCuotas: true },
-  });
-  if (!pago) return "Forma de pago no encontrada.";
-  if (!pago.aceptaCuotas) {
-    await tx.finAnaCosFinaPagoCat.update({
-      where: { id: pagoId },
-      data: { aceptaCuotas: true },
+  const vistos = new Set<string>();
+  for (const vinculo of vinculos) {
+    const clave = `${vinculo.pagoId}:${vinculo.entidadId}`;
+    if (vistos.has(clave)) return "Hay un par forma de pago y entidad repetido.";
+    vistos.add(clave);
+    const pago = await tx.finAnaCosFinaPagoCat.findUnique({
+      where: { id: vinculo.pagoId },
+      select: { id: true },
     });
+    if (!pago) return "Forma de pago no encontrada.";
+    const nexo = await tx.cobrosFormaPagoEntidad.findUnique({
+      where: { pagoId_entidadId: { pagoId: vinculo.pagoId, entidadId: vinculo.entidadId } },
+      select: { pagoId: true },
+    });
+    if (!nexo) return "La entidad no está vinculada a esa forma de pago.";
   }
-  const vinculo = await tx.cobrosFormaPagoEntidad.findUnique({
-    where: { pagoId_entidadId: { pagoId, entidadId } },
-    select: { pagoId: true },
-  });
-  if (!vinculo) return "La entidad no está vinculada a esa forma de pago.";
   return null;
 }
 
@@ -89,13 +93,17 @@ export async function crearCobrosCuota(
 ): Promise<ServiceResult<CobrosCuotaItem>> {
   try {
     const created = await prisma.$transaction(async (tx) => {
-      const parError = await assertParCuota(tx, input.pagoId, input.entidadId);
+      const parError = await assertVinculos(tx, input.vinculos);
       if (parError) throw new Error(parError);
       const row = await tx.cobrosCuota.create({
         data: {
           cuotas: input.cuotas,
-          pagoId: input.pagoId,
-          entidadId: input.entidadId,
+          vinculos: {
+            create: input.vinculos.map((vinculo) => ({
+              pagoId: vinculo.pagoId,
+              entidadId: vinculo.entidadId,
+            })),
+          },
         },
         select: CUOTA_SELECT,
       });
@@ -113,14 +121,19 @@ export async function editarCobrosCuota(
 ): Promise<ServiceResult<CobrosCuotaItem>> {
   try {
     const updated = await prisma.$transaction(async (tx) => {
-      const parError = await assertParCuota(tx, input.pagoId, input.entidadId);
+      const parError = await assertVinculos(tx, input.vinculos);
       if (parError) throw new Error(parError);
+      await tx.cobrosCuotaVinculo.deleteMany({ where: { cuotaId: input.id } });
       const row = await tx.cobrosCuota.update({
         where: { id: input.id },
         data: {
           cuotas: input.cuotas,
-          pagoId: input.pagoId,
-          entidadId: input.entidadId,
+          vinculos: {
+            create: input.vinculos.map((vinculo) => ({
+              pagoId: vinculo.pagoId,
+              entidadId: vinculo.entidadId,
+            })),
+          },
         },
         select: CUOTA_SELECT,
       });

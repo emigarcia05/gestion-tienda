@@ -15,8 +15,6 @@ export type FinAnaCosFinaPagoItem = {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  /** Si true, Cx. Fin. Cobros genera una fila por cada cuota de esa forma y entidad. */
-  aceptaCuotas: boolean;
   /** IDs de `cobros_entidades` vinculados. Vacío = la forma se usa sin entidad. */
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */

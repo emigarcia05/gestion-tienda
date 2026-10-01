@@ -10,17 +10,38 @@ const cuotasTextoSchema = z
   .transform((value) => value.replace(/\s+/g, " ").toLocaleUpperCase("es-AR"))
   .refine((value) => value.length > 0, "Ingresá las cuotas.");
 
-export const crearCobrosCuotaSchema = z.object({
-  cuotas: cuotasTextoSchema,
+const parCuotaSchema = z.object({
   pagoId: prismaCuidOrUuidSchema,
   entidadId: prismaCuidOrUuidSchema,
+});
+
+const vinculosCuotaSchema = z
+  .array(parCuotaSchema)
+  .min(1, "Vinculá al menos una forma de pago y una entidad.")
+  .superRefine((vinculos, ctx) => {
+    const vistos = new Set<string>();
+    for (const vinculo of vinculos) {
+      const clave = `${vinculo.pagoId}:${vinculo.entidadId}`;
+      if (vistos.has(clave)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Hay un par forma de pago y entidad repetido.",
+        });
+        return;
+      }
+      vistos.add(clave);
+    }
+  });
+
+export const crearCobrosCuotaSchema = z.object({
+  cuotas: cuotasTextoSchema,
+  vinculos: vinculosCuotaSchema,
 });
 
 export const editarCobrosCuotaSchema = z.object({
   id: prismaCuidOrUuidSchema,
   cuotas: cuotasTextoSchema,
-  pagoId: prismaCuidOrUuidSchema,
-  entidadId: prismaCuidOrUuidSchema,
+  vinculos: vinculosCuotaSchema,
 });
 
 export const eliminarCobrosCuotaSchema = z.object({

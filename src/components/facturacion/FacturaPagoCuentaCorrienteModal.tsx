@@ -80,7 +80,8 @@ export default function FacturaPagoCuentaCorrienteModal({
     () => pagosForma.find((p) => p.id === pagoId) ?? null,
     [pagosForma, pagoId]
   );
-  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
+  const muestraCuotas =
+    cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const etiquetaMonto =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : "MONTO";

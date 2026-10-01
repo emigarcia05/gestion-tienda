@@ -1319,7 +1319,7 @@ model FinAnaCosFinaTerminalMarca {
   filas    FinAnaCosFina[]
   mcConfig FinAnaMcConfig[]
   formasPago CobrosFormaPagoEntidad[]
-  cuotas   CobrosCuota[]
+  cuotaVinculos CobrosCuotaVinculo[]
   cobrosPorSucursal CobrosPorSucursal[]
 
   @@index([orden], map: "cobros_entidades_orden_idx")
@@ -1332,15 +1332,13 @@ model FinAnaCosFinaPagoCat {
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
-  /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota de esa forma y entidad. */
-  aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   filasCostos   FinAnaCosFina[]
   descuentosFp  FinAnaMcDescuentoFp[]
   entidades     CobrosFormaPagoEntidad[]
-  cuotas        CobrosCuota[]
+  cuotaVinculos CobrosCuotaVinculo[]
   cobrosPorSucursal CobrosPorSucursal[]
 
   @@map("cobros_forma_pago")
@@ -1363,37 +1361,48 @@ model CobrosFormaPagoEntidad {
 }
 
 /**
- * Cuota de una forma de pago y una entidad (`cobros_cuotas`).
- * El mismo texto puede repetirse en otro par. La entidad tiene que estar en el N:M de esa forma.
+ * Texto de cuota (`cobros_cuotas`). Los pares forma de pago + entidad van en `cobros_cuota_vinculos`.
+ * El mismo texto es único: una cuota puede tener varios pares.
  */
 model CobrosCuota {
   id        String   @id @default(cuid())
-  cuotas    String
-  pagoId    String   @map("pago_id")
-  pago      FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  entidadId String   @map("entidad_id")
-  entidad   FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  cuotas    String   @unique(map: "cobros_cuotas_cuotas_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  vinculos    CobrosCuotaVinculo[]
   filasCostos FinAnaCosFina[]
 
-  @@unique([pagoId, entidadId, cuotas], map: "cobros_cuotas_pago_entidad_cuotas_key")
-  @@index([entidadId], map: "cobros_cuotas_entidad_id_idx")
   @@map("cobros_cuotas")
+}
+
+/** Par forma de pago + entidad de una cuota. La entidad tiene que estar en el N:M de esa forma. */
+model CobrosCuotaVinculo {
+  cuotaId   String @map("cuota_id")
+  pagoId    String @map("pago_id")
+  entidadId String @map("entidad_id")
+
+  cuota   CobrosCuota                @relation(fields: [cuotaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pago    FinAnaCosFinaPagoCat       @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  entidad FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([cuotaId, pagoId, entidadId], map: "cobros_cuota_vinculos_pkey")
+  @@index([pagoId], map: "cobros_cuota_vinculos_pago_id_idx")
+  @@index([entidadId], map: "cobros_cuota_vinculos_entidad_id_idx")
+  @@map("cobros_cuota_vinculos")
 }
 
 /**
  * Matriz entidad × forma de pago [× cuota] para costos financieros (`cobros_cx_fin`, ex `fin_ana_cos_fina`).
- * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
- * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
+ * `terminal_id` null si la forma no tiene entidades (la columna ENTIDAD queda vacía).
+ * Toda forma de pago acepta cuotas; el vínculo nace en `cobros_cuotas`.
  */
 model FinAnaCosFina {
   id               String              @id @default(cuid())
   habilitado       Boolean             @default(true)
   impCheque        Boolean             @default(false) @map("imp_cheque")
-  terminalId       String              @map("terminal_id")
-  terminal         FinAnaCosFinaTerminalMarca @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  terminalId       String?             @map("terminal_id")
+  terminal         FinAnaCosFinaTerminalMarca? @relation(fields: [terminalId], references: [id], onDelete: Cascade)
   pagoId           String              @map("pago_id")
   pago             FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
   cuotaId          String?             @map("cuota_id")
