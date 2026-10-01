@@ -394,7 +394,7 @@ model GlobalPersonal {
   idDux              String?  @unique(map: "personal_id_dux_key") @map("id_dux")
   /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
-  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | facturacion | area-finanzas (0..n). */
+  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | area-finanzas (0..n). `facturacion` ya no es área. */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
 

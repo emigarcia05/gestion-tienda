@@ -21,7 +21,9 @@ export const MODULOS_PERMITIDOS_USUARIO: {
 export function ordenarModulosPermitidos(
   ids: readonly string[]
 ): MainAppAreaId[] {
-  const set = new Set(ids);
+  const set = new Set(
+    ids.map((id) => (id === "facturacion" ? "gestion-productos" : id))
+  );
   return MODULOS_PERMITIDOS_USUARIO.map((m) => m.id).filter((id) => set.has(id));
 }
 

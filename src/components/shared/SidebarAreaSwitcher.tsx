@@ -8,7 +8,6 @@ import {
   EyeOff,
   Landmark,
   Megaphone,
-  Receipt,
   Scale,
   ShieldCheck,
   Store,
@@ -54,7 +53,6 @@ const ICONO_MODULO: Record<MainAppAreaId, LucideIcon> = {
   "gestion-productos": Store,
   finanzas: Landmark,
   marketing: Megaphone,
-  facturacion: Receipt,
   "area-finanzas": Scale,
 };
 

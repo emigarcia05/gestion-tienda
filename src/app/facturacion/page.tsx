@@ -1,8 +1,6 @@
-/**
- * Hub del área Facturación: panel central vacío hasta elegir una ruta hoja
- * en el sidenav (Crear, Comprobante, Presupuesto, Cuenta Corrientes,
- * Lista Clientes).
- */
+import { redirect } from "next/navigation";
+
+/** Hub `/facturacion` ya no es un área. Las pantallas viven en Vendedor. */
 export default function FacturacionPage() {
-  return null;
+  redirect("/");
 }

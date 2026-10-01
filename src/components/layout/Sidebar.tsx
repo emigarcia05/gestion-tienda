@@ -12,8 +12,8 @@ import {
   Pipette,
   Droplets,
   Receipt,
+  Plus,
   Wrench,
-  CircleDollarSign,
   PackageCheck,
   Boxes,
   Megaphone,
@@ -25,7 +25,6 @@ import {
   CalendarClock,
   CircleUser,
   Truck,
-  Sparkles,
   ScanSearch,
   Paintbrush,
   ArrowLeftRight,
@@ -51,15 +50,14 @@ import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
 const iconClass = "h-5 w-5 shrink-0";
 
 type ModuleId =
+  | "ventas"
+  | "clientes"
   | "pedidos"
   | "control-stock"
-  | "asistencia-precios"
   | "herramientas"
-  | "envios"
-  | "asistente-ia";
+  | "envios";
 type MarketingModuleId = "publicaciones" | "base-multimedia";
-type FacturacionModuleId = "factura" | "clientes";
-type SidebarModuleId = ModuleId | MarketingModuleId | FacturacionModuleId;
+type SidebarModuleId = ModuleId | MarketingModuleId;
 
 interface SubmoduleItem {
   href: string;
@@ -81,6 +79,62 @@ type NavModule = {
 };
 
 const MODULES: NavModule[] = [
+  {
+    id: "ventas",
+    label: "VENTAS",
+    icon: <Receipt className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.factura.crear,
+        label: "Crear",
+        icon: <Plus className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: FACTURACION_ROUTES.factura.facturas,
+        label: "Comprobantes",
+        icon: <Files className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: FACTURACION_ROUTES.factura.presupuestos,
+        label: "Presupuestos",
+        icon: <ScrollText className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido,
+        label: "Px Sugeridos",
+        icon: <FileSearch className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.proveedores.sugeridos,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.pxVenta.pxTintometrico,
+        label: "Px Tintométrico",
+        icon: <Pipette className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.tienda.tintoLts,
+      },
+    ],
+  },
+  {
+    id: "clientes",
+    label: "CLIENTES",
+    icon: <Users className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
+        label: "Cuentas Corrientes",
+        icon: <Wallet className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Lista Clientes",
+        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+    ],
+  },
   {
     id: "envios",
     label: "ENVIOS",
@@ -139,38 +193,6 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "asistencia-precios",
-    label: "PRECIOS",
-    icon: <CircleDollarSign className={iconClass} />,
-    submodules: [
-      {
-        href: GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido,
-        label: "Px Sugeridos",
-        icon: <FileSearch className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.proveedores.sugeridos,
-      },
-      {
-        href: GP_ROUTES.ayudaVendedor.pxVenta.pxTintometrico,
-        label: "Px Tintométricos",
-        icon: <Pipette className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.tienda.tintoLts,
-      },
-    ],
-  },
-  {
-    id: "herramientas",
-    label: "HERRAMIENTAS",
-    icon: <Wrench className={iconClass} />,
-    submodules: [
-      {
-        href: GP_ROUTES.ayudaVendedor.calcLitros,
-        label: "Calcular Lts",
-        icon: <Droplets className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.tienda.tintoLts,
-      },
-    ],
-  },
-  {
     id: "control-stock",
     label: "STOCK",
     icon: <Boxes className={iconClass} />,
@@ -190,13 +212,19 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "asistente-ia",
-    label: "ASISTENTE IA",
-    icon: <Sparkles className={iconClass} />,
+    id: "herramientas",
+    label: "HERRAMIENTAS",
+    icon: <Wrench className={iconClass} />,
     submodules: [
       {
+        href: GP_ROUTES.ayudaVendedor.calcLitros,
+        label: "Calculadora de Lts",
+        icon: <Droplets className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.tienda.tintoLts,
+      },
+      {
         href: GP_ROUTES.asistenteIa.buscarColorImagen,
-        label: "Buscar Cód. Imagen",
+        label: "Buscar Cod. Imagen",
         icon: <ScanSearch className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.asistenteIa.acceso,
       },
@@ -257,47 +285,6 @@ const MARKETING_MODULES: NavModule[] = [
   },
 ];
 
-const FACTURACION_MODULES: NavModule[] = [
-  {
-    id: "factura",
-    label: "COMPROBANTES",
-    icon: <Receipt className={iconClass} />,
-    submodules: [
-      {
-        href: FACTURACION_ROUTES.factura.facturas,
-        label: "Comprobante",
-        icon: <Files className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
-        href: FACTURACION_ROUTES.factura.presupuestos,
-        label: "Presupuesto",
-        icon: <ScrollText className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-    ],
-  },
-  {
-    id: "clientes",
-    label: "CLIENTES",
-    icon: <Users className={iconClass} />,
-    submodules: [
-      {
-        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
-        label: "Cuenta Corrientes",
-        icon: <Wallet className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
-        href: FACTURACION_ROUTES.clientes.lista,
-        label: "Lista Clientes",
-        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-    ],
-  },
-];
-
 function isSubmoduleActive(
   pathname: string,
   href: string,
@@ -321,12 +308,13 @@ function isSubmoduleActive(
   if (href === MARKETING_ROUTES.baseMultimedia.coloresMarca) {
     return pathname === MARKETING_ROUTES.baseMultimedia.coloresMarca;
   }
-  if (href === FACTURACION_ROUTES.factura.facturas) {
+  if (href === FACTURACION_ROUTES.factura.crear) {
     return (
-      pathname === FACTURACION_ROUTES.factura.facturas ||
-      (pathname === FACTURACION_ROUTES.factura.crear &&
-        crearClase !== "presupuesto")
+      pathname === FACTURACION_ROUTES.factura.crear && crearClase !== "presupuesto"
     );
+  }
+  if (href === FACTURACION_ROUTES.factura.facturas) {
+    return pathname === FACTURACION_ROUTES.factura.facturas;
   }
   if (href === FACTURACION_ROUTES.factura.presupuestos) {
     return (
@@ -378,9 +366,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
       ? MODULES
       : mainAreaId === "marketing"
         ? MARKETING_MODULES
-        : mainAreaId === "facturacion"
-          ? FACTURACION_MODULES
-          : [];
+        : [];
 
   const visibleModules: NavModule[] = modulesForArea.filter((module) => {
     if (module.href && module.permiso && puede(rol, module.permiso)) return true;

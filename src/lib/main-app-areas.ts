@@ -1,13 +1,11 @@
 /**
  * Áreas principales de la aplicación (macro-secciones).
- * **Vendedor** (id `gestion-productos`): pedidos, ayuda vendedor, asistente IA.
+ * **Vendedor** (id `gestion-productos`): ventas, clientes, envíos, mercadería, stock y herramientas.
  * **Administración** (id `finanzas`): análisis M.C., **VTAS. & COBROS**
  * (`/vtas-cobros/...`), Análisis de Precios
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
  * **Marketing** (id `marketing`).
- * **Facturación** (id `facturacion`): módulo COMPROBANTES (Comprobante / Presupuesto)
- * y CLIENTES (Cuenta Corrientes / Lista Clientes).
  * **Finanzas** (id `area-finanzas`): TESORERIA, BALANCE, OPERACIONES e IMPUESTOS
  * (las pantallas siguen en `/finanzas/...`; el hub vacío es `/area-finanzas`).
  */
@@ -21,7 +19,6 @@ export type MainAppAreaId =
   | "gestion-productos"
   | "finanzas"
   | "marketing"
-  | "facturacion"
   | "area-finanzas";
 
 interface MainAppAreaDefinition {
@@ -65,14 +62,6 @@ export const MAIN_APP_AREAS: MainAppAreaDefinition[] = [
     requierePassword: false,
   },
   {
-    id: "facturacion",
-    label: "Facturación",
-    statusLabel: "A construir",
-    /** Hub vacío; el usuario elige una ruta hoja en el sidenav. */
-    href: "/facturacion",
-    requierePassword: false,
-  },
-  {
     id: "area-finanzas",
     label: "Finanzas",
     statusLabel: "A construir",
@@ -113,10 +102,7 @@ export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) {
     return "marketing";
   }
-  if (pathname === "/facturacion" || pathname.startsWith("/facturacion/")) {
-    return "facturacion";
-  }
-  // Vendedor (id `gestion-productos`) — resto de rutas GP y legacy.
+  // Ventas y Clientes siguen en `/facturacion/...` y pertenecen a Vendedor.
   return "gestion-productos";
 }
 
