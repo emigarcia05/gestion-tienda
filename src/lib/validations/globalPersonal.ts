@@ -12,6 +12,7 @@ export const moduloPermitidoUsuarioSchema = z.enum([
   "finanzas",
   "marketing",
   "facturacion",
+  "area-finanzas",
 ]);
 
 export const idPersonalSchema = z.coerce
@@ -42,7 +43,7 @@ const idDuxPersonalOpcionalSchema = z.preprocess((value) => {
 const modulosPermitidosSchema = z
   .array(moduloPermitidoUsuarioSchema)
   .min(1, "Elegí al menos un módulo.")
-  .max(4)
+  .max(5)
   .refine((mods) => new Set(mods).size === mods.length, {
     message: "Módulos duplicados.",
   });

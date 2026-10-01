@@ -46,6 +46,7 @@ import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
+import { FIN_PILLARS } from "@/lib/administracionNav";
 import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
 
 const iconClass = "h-5 w-5 shrink-0";
@@ -484,9 +485,20 @@ export default function Sidebar({ rol }: { rol: Rol }) {
 
   return (
     <aside className="sidebar-container w-60 shrink-0 flex flex-col bg-sidebar border-r border-sidebar-border">
+      <div className="shrink-0 px-4 pt-3">
+        <img
+          src="/logo_tiendacolor_letras_blancas.png"
+          alt="TiendaColor Pinturerías"
+          className={cn("mx-auto h-auto w-[62%] object-contain")}
+        />
+      </div>
       {mainAreaId === "finanzas" ? (
         <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
           <AdministracionAccordionNav rol={rol} />
+        </div>
+      ) : mainAreaId === "area-finanzas" ? (
+        <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-2">
+          <AdministracionAccordionNav rol={rol} pillars={FIN_PILLARS} />
         </div>
       ) : visibleModules.length > 0 ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pt-3 pb-2">

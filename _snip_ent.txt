@@ -1,0 +1,5 @@
+ ignorar el `onOpenChange(false)` del padre al cerrar el hijo. **Formas Pago** (`GestionarPagosFinAnaCosFinaModal`): mismo cascarón; **sin** arrastre. Alta/edición: **NOMBRE** → **ACEPTA CUOTAS** y **ENTIDAD OBLIGATORIA** (`ModalSiNoChoice`; ACEPTA CUOTAS default NO, ENTIDAD OBLIGATORIA default SI) → **ENTIDADES** (`FiltroMultiSelect`; mín. 1 solo si ENTIDAD OBLIGATORIA). No alta inline ni edición en la fila. **Tipo Caja** (`GestionarTesoreriaTipoCajaModal`): mismo cascarón; alta/edición en `Dialog` hijo (código enum + nombre). No alta inline ni edición en la fila.
+
+### 1.5 Finder
+
+`@/components/shared/catalogo-finder/` + `CATALOGO_FINDER_*` en `ui-classes`. Columnas con header `bg-primary` 

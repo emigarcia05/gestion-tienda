@@ -394,7 +394,7 @@ model GlobalPersonal {
   idDux              String?  @unique(map: "personal_id_dux_key") @map("id_dux")
   /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
-  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing (0..n). */
+  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | facturacion | area-finanzas (0..n). */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
 
@@ -1306,10 +1306,10 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo unificado de entidades cobros/tesorería (`tesoreria_cobros_entidades`; `nombre` único en MAYÚSCULAS). */
+/** Catálogo unificado de entidades cobros/tesorería (`cobros_entidades`; `nombre` único en MAYÚSCULAS). */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "tesoreria_cobros_entidades_nombre_key")
+  nombre    String   @unique(map: "cobros_entidades_nombre_key")
   orden     Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1320,8 +1320,8 @@ model FinAnaCosFinaTerminalMarca {
   formasPago CobrosFormaPagoEntidad[]
   cobrosPorSucursal CobrosPorSucursal[]
 
-  @@index([orden], map: "tesoreria_cobros_entidades_orden_idx")
-  @@map("tesoreria_cobros_entidades")
+  @@index([orden], map: "cobros_entidades_orden_idx")
+  @@map("cobros_entidades")
 }
 
 /** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
@@ -1332,8 +1332,6 @@ model FinAnaCosFinaPagoCat {
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
   /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
   aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
-  /** Si es false, la forma de pago puede existir sin entidades N:M. */
-  entidadObligatoria   Boolean  @default(true) @map("entidad_obligatoria")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -1346,8 +1344,8 @@ model FinAnaCosFinaPagoCat {
 }
 
 /**
- * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `tesoreria_cobros_entidades`).
- * Si `entidad_obligatoria` es true, debe haber ≥ 1 entidad (Zod + servicio).
+ * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `cobros_entidades`).
+ * La vinculación es opcional: una forma puede no tener entidades.
  */
 model CobrosFormaPagoEntidad {
   pagoId    String @map("pago_id")
@@ -1410,7 +1408,7 @@ model CobrosPorSucursal {
   id            String   @id @default(cuid())
   pagoId        String   @map("pago_id")
   pago          FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  /** Null si la forma de pago no exige entidad (`entidad_obligatoria = false`). */
+  /** Null si la forma de pago no tiene entidades vinculadas. */
   entidadId     String?  @map("entidad_id")
   entidad       FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   sucursalId    String   @map("sucursal_id")

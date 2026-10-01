@@ -13,7 +13,6 @@ const pagoSelect = {
   enCostosFinancieros: true,
   enMargenContribucion: true,
   aceptaCuotas: true,
-  entidadObligatoria: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
     select: {
@@ -29,7 +28,6 @@ type PagoRowConEntidades = {
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
   aceptaCuotas: boolean;
-  entidadObligatoria: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
@@ -40,7 +38,6 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
     aceptaCuotas: row.aceptaCuotas,
-    entidadObligatoria: row.entidadObligatoria,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };
@@ -96,14 +93,10 @@ const PAGOS_SEMILLA: {
 ];
 
 async function resolverEntidadIdsExistentes(
-  entidadIds: string[],
-  entidadObligatoria: boolean
+  entidadIds: string[]
 ): Promise<ServiceResult<string[]>> {
   const unique = [...new Set(entidadIds)];
   if (unique.length === 0) {
-    if (entidadObligatoria) {
-      return { success: false, error: "Seleccioná al menos una entidad." };
-    }
     return { success: true, data: [] };
   }
   const encontradas = await prisma.finAnaCosFinaTerminalMarca.findMany({
@@ -156,10 +149,7 @@ export async function crearFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
-  const entidadesOk = await resolverEntidadIdsExistentes(
-    input.entidadIds,
-    input.entidadObligatoria
-  );
+  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
   if (!entidadesOk.success) return entidadesOk;
   const entidadIds = entidadesOk.data;
 
@@ -171,7 +161,6 @@ export async function crearFinAnaCosFinaPago(
           enCostosFinancieros: true,
           enMargenContribucion: true,
           aceptaCuotas: input.aceptaCuotas,
-          entidadObligatoria: input.entidadObligatoria,
           entidades:
             entidadIds.length === 0
               ? undefined
@@ -211,10 +200,7 @@ export async function editarFinAnaCosFinaPago(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
 
-  const entidadesOk = await resolverEntidadIdsExistentes(
-    input.entidadIds,
-    input.entidadObligatoria
-  );
+  const entidadesOk = await resolverEntidadIdsExistentes(input.entidadIds);
   if (!entidadesOk.success) return entidadesOk;
   const entidadIds = entidadesOk.data;
 
@@ -248,7 +234,6 @@ export async function editarFinAnaCosFinaPago(
         data: {
           nombre,
           aceptaCuotas: input.aceptaCuotas,
-          entidadObligatoria: input.entidadObligatoria,
         },
         select: pagoSelect,
       });

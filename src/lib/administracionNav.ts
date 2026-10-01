@@ -2,12 +2,14 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * FINANZAS → TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS → pantallas
  * LISTA PRECIOS → PX TIENDA | PROVEEDORES | ANÁLISIS M.C. → pantallas
  * VTAS. & COBROS → Ptos. Vtas. / Cx. Fin. Cobros / Cobros & Cajas
  * PEDIDO A FÁB. → pantallas
  * ESTADÍSTICAS → VENTAS (pantalla) | CONFIGURACION → pantallas
  * USUARIOS → pantallas
+ *
+ * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo acordeón:
+ * TESORERIA | BALANCE | OPERACIONES (COMPRAS / GASTOS) | IMPUESTOS.
  */
 
 import {
@@ -29,7 +31,10 @@ import {
 } from "@/lib/vtasCobrosRoutes";
 
 export type AdmPillarId =
-  | "finanzas"
+  | "tesoreria"
+  | "balance"
+  | "operaciones"
+  | "impuestos"
   | "vtas-cobros"
   | "listas-precios"
   | "pedido-a-fabrica"
@@ -321,38 +326,34 @@ const usuariosScreens: AdmScreenDef[] = [
   },
 ];
 
-export const ADM_PILLARS: AdmPillarDef[] = [
+export const FIN_PILLARS: AdmPillarDef[] = [
   {
-    id: "finanzas",
-    label: "FINANZAS",
-    icon: "landmark",
-    groups: [
-      {
-        id: "flujo",
-        label: "TESORERIA",
-        icon: "calendar-days",
-        screens: flujosScreens,
-      },
-      {
-        id: "balance",
-        label: "BALANCE",
-        icon: "scale",
-        screens: balanceScreens,
-      },
-      {
-        id: "operaciones",
-        label: "OPERACIONES",
-        icon: "banknote",
-        groups: operacionesGroups,
-      },
-      {
-        id: "impuestos",
-        label: "IMPUESTOS",
-        icon: "percent",
-        screens: impuestosScreens,
-      },
-    ],
+    id: "tesoreria",
+    label: "TESORERIA",
+    icon: "banknote",
+    screens: flujosScreens,
   },
+  {
+    id: "balance",
+    label: "BALANCE",
+    icon: "scale",
+    screens: balanceScreens,
+  },
+  {
+    id: "operaciones",
+    label: "OPERACIONES",
+    icon: "wallet",
+    groups: operacionesGroups,
+  },
+  {
+    id: "impuestos",
+    label: "IMPUESTOS",
+    icon: "percent",
+    screens: impuestosScreens,
+  },
+];
+
+export const ADM_PILLARS: AdmPillarDef[] = [
   {
     id: "listas-precios",
     label: "LISTA PRECIOS",
@@ -463,7 +464,7 @@ function collectPillarScreens(pillar: AdmPillarDef): AdmScreenDef[] {
 export function isAdmScreenActive(pathname: string, screen: AdmScreenDef): boolean {
   // Prefijo más largo gana entre todos los screens del área (catálogo vs gastos).
   let best: AdmScreenDef | null = null;
-  for (const pillar of ADM_PILLARS) {
+  for (const pillar of [...FIN_PILLARS, ...ADM_PILLARS]) {
     for (const s of collectPillarScreens(pillar)) {
       if (!pathnameMatchesScreen(pathname, s.href)) continue;
       if (!best || s.href.length > best.href.length) best = s;
@@ -523,22 +524,7 @@ export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boole
       pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
     );
   }
-  // FINANZAS: /finanzas/* excepto analisis-mc (LISTA PRECIOS), usuarios y aliases de VTAS. & COBROS
-  if (pathname.startsWith("/finanzas/analisis-mc")) return false;
-  if (
-    pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
-    pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`)
-  ) {
-    return false;
-  }
-  if (pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`)) {
-    return false;
-  }
-  return (
-    pathname === "/finanzas" ||
-    pathname.startsWith("/finanzas/") ||
-    collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s))
-  );
+  return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
 }
 
 export function pillarHasVisibleItems(

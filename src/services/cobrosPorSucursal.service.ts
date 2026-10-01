@@ -30,9 +30,7 @@ export type CobrosPorSucursalCatalogoItem = {
   nombre: string;
 };
 
-export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
-  entidadObligatoria: boolean;
-};
+export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem;
 
 export type CobrosPorSucursalVinculoPagoEntidad = {
   pagoId: string;
@@ -41,7 +39,7 @@ export type CobrosPorSucursalVinculoPagoEntidad = {
 
 /**
  * Una fila = un registro `cobros_vinc_cajas` (forma [× entidad] × una sola sucursal).
- * Si la forma no exige entidad, `entidadId` es null.
+ * Si la forma no tiene entidades vinculadas, `entidadId` es null.
  */
 export type CobrosPorSucursalFila = {
   id: string;
@@ -238,7 +236,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       }),
       prisma.finAnaCosFinaPagoCat.findMany({
         orderBy: [{ nombre: "asc" }],
-        select: { id: true, nombre: true, entidadObligatoria: true },
+        select: { id: true, nombre: true },
       }),
       prisma.finAnaCosFinaTerminalMarca.findMany({
         orderBy: [{ nombre: "asc" }],
@@ -292,7 +290,6 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     pagos: pagosRows.map((p) => ({
       id: p.id,
       nombre: p.nombre.toLocaleUpperCase("es-AR"),
-      entidadObligatoria: p.entidadObligatoria,
     })),
     entidades: entidadesRows.map((e) => ({
       id: e.id,
@@ -310,29 +307,27 @@ export async function crearCobroPorSucursal(
 
     const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
       where: { id: input.pagoId },
-      select: { id: true, nombre: true, entidadObligatoria: true },
+      select: { id: true },
     });
     if (!pago) {
       return { success: false, error: "Forma de pago inválida." };
     }
 
-    const entidadId = pago.entidadObligatoria ? (input.entidadId ?? null) : null;
+    const vinculos = await prisma.cobrosFormaPagoEntidad.findMany({
+      where: { pagoId: input.pagoId },
+      select: {
+        entidadId: true,
+        entidad: { select: { nombre: true } },
+      },
+    });
+    const exigeEntidad = vinculos.length > 0;
+    const entidadId = exigeEntidad ? (input.entidadId ?? null) : null;
     let entidadNombre = "";
-    if (pago.entidadObligatoria) {
+    if (exigeEntidad) {
       if (!entidadId) {
         return { success: false, error: "Seleccioná una entidad." };
       }
-      const vinculo = await prisma.cobrosFormaPagoEntidad.findUnique({
-        where: {
-          pagoId_entidadId: {
-            pagoId: input.pagoId,
-            entidadId,
-          },
-        },
-        select: {
-          entidad: { select: { nombre: true } },
-        },
-      });
+      const vinculo = vinculos.find((v) => v.entidadId === entidadId);
       if (!vinculo) {
         return { success: false, error: "Combinación forma de pago × entidad inválida." };
       }

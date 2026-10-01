@@ -1,13 +1,15 @@
 /**
  * Áreas principales de la aplicación (macro-secciones).
  * **Vendedor** (id `gestion-productos`): pedidos, ayuda vendedor, asistente IA.
- * **Administración** (id `finanzas`): balance, tesorería, análisis M.C., **VTAS. & COBROS**
+ * **Administración** (id `finanzas`): análisis M.C., **VTAS. & COBROS**
  * (`/vtas-cobros/...`), Análisis de Precios
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
  * **Marketing** (id `marketing`).
  * **Facturación** (id `facturacion`): módulo COMPROBANTES (Comprobante / Presupuesto)
  * y CLIENTES (Cuenta Corrientes / Lista Clientes).
+ * **Finanzas** (id `area-finanzas`): TESORERIA, BALANCE, OPERACIONES e IMPUESTOS
+ * (las pantallas siguen en `/finanzas/...`; el hub vacío es `/area-finanzas`).
  */
 
 import {
@@ -19,7 +21,8 @@ export type MainAppAreaId =
   | "gestion-productos"
   | "finanzas"
   | "marketing"
-  | "facturacion";
+  | "facturacion"
+  | "area-finanzas";
 
 interface MainAppAreaDefinition {
   id: MainAppAreaId;
@@ -69,12 +72,26 @@ export const MAIN_APP_AREAS: MainAppAreaDefinition[] = [
     href: "/facturacion",
     requierePassword: false,
   },
+  {
+    id: "area-finanzas",
+    label: "Finanzas",
+    statusLabel: "A construir",
+    /** Hub vacío; Tesorería, Balance, Operaciones e Impuestos se eligen en el sidenav. */
+    href: "/area-finanzas",
+    requierePassword: false,
+  },
 ];
 
 export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
   // Análisis de Precios: sidebar en Administración; URLs canónicas siguen en /gestion-productos/...
   if (isAnalisisPreciosPathname(pathname)) {
     return "finanzas";
+  }
+  if (pathname === "/area-finanzas" || pathname.startsWith("/area-finanzas/")) {
+    return "area-finanzas";
+  }
+  if (isModuloFinanzasPathname(pathname)) {
+    return "area-finanzas";
   }
   if (pathname === "/finanzas" || pathname.startsWith("/finanzas/")) {
     return "finanzas";
@@ -113,6 +130,28 @@ export function getMainAppAreaById(id: MainAppAreaId): MainAppAreaDefinition {
 
 export function isMainAppAreaId(value: string): value is MainAppAreaId {
   return MAIN_APP_AREAS.some((area) => area.id === value);
+}
+
+/** Pantallas de Tesorería, Balance, Operaciones e Impuestos (siguen bajo `/finanzas/...`). */
+const MODULO_FINANZAS_PREFIXES = [
+  "/finanzas/tesoreria",
+  "/finanzas/venc-por-fecha",
+  "/finanzas/balance/mensual",
+  "/finanzas/balance/gastos",
+  "/finanzas/balance/vtas",
+  "/finanzas/balance/posicion-iva",
+  "/finanzas/deuda-proveedores",
+  "/finanzas/control-comprobantes",
+  "/finanzas/vencimientos-gastos",
+  "/finanzas/venc-proveedores-mercaderia",
+  "/finanzas/posicion-iva",
+] as const;
+
+export function isModuloFinanzasPathname(pathname: string): boolean {
+  if (pathname === "/finanzas/balance") return true;
+  return MODULO_FINANZAS_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 }
 
 /** Nombre del área en MAYÚSCULAS para slidenav y modal (locale `es`). */

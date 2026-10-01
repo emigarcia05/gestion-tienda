@@ -18,37 +18,18 @@ const entidadIdsFormaPagoSchema = z
     }
   });
 
-function refineEntidadObligatoria(
-  data: { entidadObligatoria: boolean; entidadIds: string[] },
-  ctx: z.RefinementCtx
-): void {
-  if (data.entidadObligatoria && data.entidadIds.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Seleccioná al menos una entidad.",
-      path: ["entidadIds"],
-    });
-  }
-}
+export const crearFinAnaCosFinaPagoSchema = z.object({
+  nombre: nombreFinAnaCosFinaPagoSchema,
+  entidadIds: entidadIdsFormaPagoSchema,
+  aceptaCuotas: z.boolean().optional().default(false),
+});
 
-export const crearFinAnaCosFinaPagoSchema = z
-  .object({
-    nombre: nombreFinAnaCosFinaPagoSchema,
-    entidadIds: entidadIdsFormaPagoSchema,
-    aceptaCuotas: z.boolean().optional().default(false),
-    entidadObligatoria: z.boolean().optional().default(true),
-  })
-  .superRefine(refineEntidadObligatoria);
-
-export const editarFinAnaCosFinaPagoSchema = z
-  .object({
-    id: prismaCuidOrUuidSchema,
-    nombre: nombreFinAnaCosFinaPagoSchema,
-    entidadIds: entidadIdsFormaPagoSchema,
-    aceptaCuotas: z.boolean(),
-    entidadObligatoria: z.boolean(),
-  })
-  .superRefine(refineEntidadObligatoria);
+export const editarFinAnaCosFinaPagoSchema = z.object({
+  id: prismaCuidOrUuidSchema,
+  nombre: nombreFinAnaCosFinaPagoSchema,
+  entidadIds: entidadIdsFormaPagoSchema,
+  aceptaCuotas: z.boolean(),
+});
 
 export const eliminarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,

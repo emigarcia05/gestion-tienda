@@ -8,6 +8,7 @@ import {
   Landmark,
   Megaphone,
   Receipt,
+  Scale,
   ShieldCheck,
   Store,
   type LucideIcon,
@@ -60,6 +61,7 @@ const ICONO_MODULO: Record<MainAppAreaId, LucideIcon> = {
   finanzas: Landmark,
   marketing: Megaphone,
   facturacion: Receipt,
+  "area-finanzas": Scale,
 };
 
 function nombreUsuarioLabel(nombre: string): string {

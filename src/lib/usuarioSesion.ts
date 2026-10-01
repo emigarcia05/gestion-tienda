@@ -52,6 +52,13 @@ export type UsuarioSesion = {
   modulosPermitidos: MainAppAreaId[];
 };
 
+function conModuloFinanzas(modulos: MainAppAreaId[]): MainAppAreaId[] {
+  if (!modulos.includes("finanzas") || modulos.includes("area-finanzas")) {
+    return modulos;
+  }
+  return ordenarModulosPermitidos([...modulos, "area-finanzas"]);
+}
+
 function parseUsuarioSesion(raw: unknown): UsuarioSesion | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
@@ -74,7 +81,7 @@ function parseUsuarioSesion(raw: unknown): UsuarioSesion | null {
     idPersonal: o.idPersonal,
     nombrePersonal: o.nombrePersonal.trim(),
     sucursalPorDefecto: sucursal,
-    modulosPermitidos: modulos,
+    modulosPermitidos: conModuloFinanzas(modulos),
   };
 }
 
@@ -111,6 +118,6 @@ export function usuarioSesionDesdeItem(item: {
     idPersonal: item.idPersonal,
     nombrePersonal: item.nombrePersonal,
     sucursalPorDefecto: item.sucursalPorDefecto,
-    modulosPermitidos: ordenarModulosPermitidos(item.modulosPermitidos),
+    modulosPermitidos: conModuloFinanzas(ordenarModulosPermitidos(item.modulosPermitidos)),
   };
 }

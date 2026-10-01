@@ -158,7 +158,7 @@ export default function FacturaGenerarComprobanteModal({
     [pagosDisponibles, pagoId]
   );
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
-  const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
 
@@ -200,7 +200,7 @@ export default function FacturaGenerarComprobanteModal({
     setPagoId(nextId);
     const next = pagosDisponibles.find((p) => p.id === nextId);
     const unicas =
-      next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
+      next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
   }
@@ -217,7 +217,7 @@ export default function FacturaGenerarComprobanteModal({
     | { ok: true; cobro: Omit<CobroRegistrado, "id"> | null }
     | { ok: false; error: string } {
     if (!pagoSel) return { ok: true, cobro: null };
-    if (pagoSel.entidadObligatoria && !entidadId) {
+    if ((pagoSel.entidadIds.length > 0) && !entidadId) {
       return { ok: false, error: "Seleccioná una entidad." };
     }
     if (muestraCuotas && !cuotaId) {

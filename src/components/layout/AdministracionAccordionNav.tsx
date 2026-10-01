@@ -12,6 +12,7 @@ import {
   isAdmScreenActive,
   pillarHasVisibleItems,
   type AdmGroupDef,
+  type AdmPillarDef,
   type AdmPillarId,
   type AdmScreenDef,
 } from "@/lib/administracionNav";
@@ -131,15 +132,21 @@ function GroupBranch({
 }
 
 /**
- * Sidebar Administración: recuadro de pilares + submódulos debajo.
- * SSOT `administracionNav.ts`.
+ * Recuadro de pilares + submódulos debajo.
+ * Administración usa `ADM_PILLARS`; el módulo Finanzas pasa `FIN_PILLARS`.
  */
-export default function AdministracionAccordionNav({ rol }: { rol: Rol }) {
+export default function AdministracionAccordionNav({
+  rol,
+  pillars = ADM_PILLARS,
+}: {
+  rol: Rol;
+  pillars?: AdmPillarDef[];
+}) {
   const pathname = usePathname();
   const puedeFn = (permiso: { simple: boolean; editor: boolean }) =>
     puede(rol, permiso);
 
-  const visiblePillars = ADM_PILLARS.filter((p) =>
+  const visiblePillars = pillars.filter((p) =>
     pillarHasVisibleItems(p, puedeFn)
   );
 

@@ -110,23 +110,6 @@ export async function eliminarFinAnaCosFinaTerminalMarca(
   id: string
 ): Promise<ServiceResult<void>> {
   try {
-    const pagosSoloEsta = await prisma.cobrosFormaPagoEntidad.findMany({
-      where: { entidadId: id },
-      select: { pagoId: true, pago: { select: { entidadObligatoria: true } } },
-    });
-    for (const link of pagosSoloEsta) {
-      const n = await prisma.cobrosFormaPagoEntidad.count({
-        where: { pagoId: link.pagoId },
-      });
-      if (n <= 1 && link.pago.entidadObligatoria) {
-        return {
-          success: false,
-          error:
-            "No se puede eliminar: es la única entidad de al menos una forma de pago. Asociá otra entidad desde Gestionar Formas Pago.",
-        };
-      }
-    }
-
     const cajas = await prisma.cajaTesoreria.count({ where: { entidadId: id } });
     if (cajas > 0) {
       return {

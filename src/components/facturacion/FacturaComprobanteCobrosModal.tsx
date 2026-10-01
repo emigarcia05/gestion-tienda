@@ -110,7 +110,7 @@ export default function FacturaComprobanteCobrosModal({
     [pagosDisponibles, pagoId]
   );
   const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
-  const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
   const historialNc = useMemo(() => {
@@ -273,7 +273,7 @@ export default function FacturaComprobanteCobrosModal({
     setPagoId(nextId);
     const next = pagosDisponibles.find((p) => p.id === nextId);
     const unicas =
-      next?.entidadObligatoria && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
+      next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
   }
@@ -290,7 +290,7 @@ export default function FacturaComprobanteCobrosModal({
       toast.error("Seleccioná una forma de pago.");
       return;
     }
-    if (pagoSel.entidadObligatoria && !entidadId) {
+    if ((pagoSel.entidadIds.length > 0) && !entidadId) {
       toast.error("Seleccioná una entidad.");
       return;
     }

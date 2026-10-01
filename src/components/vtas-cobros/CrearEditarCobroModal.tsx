@@ -59,11 +59,7 @@ export default function CrearEditarCobroModal({
   const [saving, setSaving] = useState(false);
 
   const esEditar = mode === "editar";
-  const pagoSel = useMemo(
-    () => pagos.find((p) => p.id === pagoId) ?? null,
-    [pagos, pagoId]
-  );
-  const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const muestraEntidad = vinculosPagoEntidad.some((v) => v.pagoId === pagoId);
 
   useEffect(() => {
     if (!open) return;

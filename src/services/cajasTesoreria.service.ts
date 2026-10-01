@@ -28,7 +28,7 @@ type CajaTesoreriaRowLista = Prisma.CajaTesoreriaGetPayload<{
 export interface CajaTesoreriaItem {
   id: string;
   entidadId: string;
-  /** Texto del catálogo `tesoreria_cobros_entidades.nombre` (MAYÚSCULAS). */
+  /** Texto del catálogo `cobros_entidades.nombre` (MAYÚSCULAS). */
   entidadNombre: string;
   titular: string;
   sucursalId: string | null;
