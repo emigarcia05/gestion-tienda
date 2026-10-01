@@ -15,14 +15,14 @@ export type FinAnaCosFinaPagoItem = {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  /** Si true, Cx. Fin. Cobros genera filas por cada cuota del catálogo. */
-  aceptaCuotas: boolean;
   /** Si true, hay que vincular ≥ 1 entidad. */
   entidadObligatoria: boolean;
   /** IDs de `tesoreria_cobros_entidades` vinculados. */
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
   entidadNombres: string[];
+  /** Mapa entidad -> ids de cuotas habilitadas para esa combinación forma+entidad. */
+  cuotaIdsPorEntidad: Record<string, string[]>;
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */
@@ -53,6 +53,14 @@ export function buscarPagoPorId(
   id: string
 ): FinAnaCosFinaPagoItem | undefined {
   return pagos.find((p) => p.id === id);
+}
+
+export function cuotaIdsHabilitadasParaPago(
+  pago: FinAnaCosFinaPagoItem | null,
+  entidadId: string
+): string[] {
+  if (!pago || !entidadId) return [];
+  return pago.cuotaIdsPorEntidad[entidadId] ?? [];
 }
 
 function nombrePagoNormalizado(nombre: string): string {

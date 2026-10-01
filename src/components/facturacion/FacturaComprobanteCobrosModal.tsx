@@ -48,6 +48,7 @@ import {
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import {
+  cuotaIdsHabilitadasParaPago,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
@@ -109,8 +110,17 @@ export default function FacturaComprobanteCobrosModal({
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
     [pagosDisponibles, pagoId]
   );
-  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const cuotaIdsHabilitadas = useMemo(
+    () => cuotaIdsHabilitadasParaPago(pagoSel, entidadId),
+    [pagoSel, entidadId]
+  );
+  const cuotasDisponibles = useMemo(() => {
+    if (cuotaIdsHabilitadas.length === 0) return [];
+    const permitidas = new Set(cuotaIdsHabilitadas);
+    return cuotas.filter((c) => permitidas.has(c.id));
+  }, [cuotas, cuotaIdsHabilitadas]);
+  const muestraCuotas = cuotasDisponibles.length > 0;
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
   const historialNc = useMemo(() => {
@@ -319,7 +329,7 @@ export default function FacturaComprobanteCobrosModal({
     }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
-    const cuota = cuotas.find((c) => c.id === cuotaId);
+    const cuota = cuotasDisponibles.find((c) => c.id === cuotaId);
     setGuardando(true);
     const res = await registrarCobroComprobanteFacturaAction({
       id: comprobanteId,
@@ -538,9 +548,10 @@ export default function FacturaComprobanteCobrosModal({
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
-                        onValueChange={(value) =>
-                          setEntidadId(value === VACIO ? "" : value)
-                        }
+                        onValueChange={(value) => {
+                          setEntidadId(value === VACIO ? "" : value);
+                          setCuotaId("");
+                        }}
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
@@ -584,7 +595,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasDisponibles.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>
@@ -746,9 +757,10 @@ export default function FacturaComprobanteCobrosModal({
                       <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
-                        onValueChange={(value) =>
-                          setEntidadId(value === VACIO ? "" : value)
-                        }
+                        onValueChange={(value) => {
+                          setEntidadId(value === VACIO ? "" : value);
+                          setCuotaId("");
+                        }}
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
@@ -792,7 +804,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasDisponibles.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

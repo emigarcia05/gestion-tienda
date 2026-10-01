@@ -1330,8 +1330,6 @@ model FinAnaCosFinaPagoCat {
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
-  /** Si es true, Cx. Fin. Cobros genera una fila por cada cuota del catálogo. */
-  aceptaCuotas         Boolean  @default(false) @map("acepta_cuotas")
   /** Si es false, la forma de pago puede existir sin entidades N:M. */
   entidadObligatoria   Boolean  @default(true) @map("entidad_obligatoria")
   createdAt            DateTime @default(now()) @map("created_at")
@@ -1375,7 +1373,7 @@ model CobrosCuota {
 
 /**
  * Matriz entidad × forma de pago [× cuota] para costos financieros (`cobros_cx_fin`, ex `fin_ana_cos_fina`).
- * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null si la forma no acepta cuotas.
+ * `terminal_id` = entidad; `pago_id` = `cobros_forma_pago`; `cuota_id` null para fila base sin cuota.
  * Uniques parciales en SQL: con cuota / sin cuota (ver migración `acepta_cuotas`).
  */
 model FinAnaCosFina {

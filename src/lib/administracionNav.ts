@@ -69,7 +69,7 @@ export interface AdmScreenDef {
   permiso: { simple: boolean; editor: boolean };
 }
 
-/** Grupo intermedio del acordeón (abre pantallas hijas o subgrupos). */
+/** Submódulo fijo. Varias pantallas: panel de funciones a la derecha. Una sola: enlace directo. */
 export interface AdmGroupDef {
   id: string;
   label: string;

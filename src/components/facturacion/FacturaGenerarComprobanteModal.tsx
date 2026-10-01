@@ -34,6 +34,7 @@ import {
 } from "@/lib/facturaComprobantePdfClient";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import {
+  cuotaIdsHabilitadasParaPago,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
@@ -157,8 +158,17 @@ export default function FacturaGenerarComprobanteModal({
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
     [pagosDisponibles, pagoId]
   );
-  const muestraCuotas = Boolean(pagoSel?.aceptaCuotas);
   const muestraEntidad = Boolean(pagoSel?.entidadObligatoria);
+  const cuotaIdsHabilitadas = useMemo(
+    () => cuotaIdsHabilitadasParaPago(pagoSel, entidadId),
+    [pagoSel, entidadId]
+  );
+  const cuotasDisponibles = useMemo(() => {
+    if (cuotaIdsHabilitadas.length === 0) return [];
+    const permitidas = new Set(cuotaIdsHabilitadas);
+    return cuotas.filter((c) => permitidas.has(c.id));
+  }, [cuotas, cuotaIdsHabilitadas]);
+  const muestraCuotas = cuotasDisponibles.length > 0;
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
 
@@ -207,6 +217,7 @@ export default function FacturaGenerarComprobanteModal({
 
   function handleEntidadChange(value: string) {
     setEntidadId(value === VACIO ? "" : value);
+    setCuotaId("");
   }
 
   function handleCuotaChange(value: string) {
@@ -232,7 +243,7 @@ export default function FacturaGenerarComprobanteModal({
     }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
-    const cuota = cuotas.find((c) => c.id === cuotaId);
+    const cuota = cuotasDisponibles.find((c) => c.id === cuotaId);
     return {
       ok: true,
       cobro: {
@@ -462,7 +473,7 @@ export default function FacturaGenerarComprobanteModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotas.map((cuota) => (
+                          {cuotasDisponibles.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

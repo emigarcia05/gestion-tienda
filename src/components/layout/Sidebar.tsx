@@ -47,6 +47,7 @@ import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
 import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
+import SidebarSubmoduloFlyout from "@/components/layout/SidebarSubmoduloFlyout";
 
 const iconClass = "h-5 w-5 shrink-0";
 
@@ -442,6 +443,38 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     }
   }
 
+  function renderFunciones(
+    items: SubmoduleItem[],
+    moduleId: SidebarModuleId
+  ) {
+    const visibles = items.filter((sub) => submoduleVisible(sub, rol));
+    return visibles.map((sub) => {
+      if (!sub.href && sub.children?.length) {
+        return (
+          <div key={submoduleGroupKey(moduleId, sub.label)}>
+            <p className="sidebar-funciones-seccion">{sub.label}</p>
+            {renderFunciones(sub.children, moduleId)}
+          </div>
+        );
+      }
+      if (!sub.href) return null;
+      const active = isSubmoduleActive(pathname, sub.href, crearClase);
+      return (
+        <Link
+          key={sub.href}
+          href={sub.href}
+          role="menuitem"
+          className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
+          data-active={active ? "true" : undefined}
+          aria-current={active ? "page" : undefined}
+        >
+          {sub.icon}
+          <span className="min-w-0 truncate">{sub.label}</span>
+        </Link>
+      );
+    });
+  }
+
   function renderSubmoduleItems(
     submodules: SubmoduleItem[],
     moduleId: SidebarModuleId
@@ -450,40 +483,23 @@ export default function Sidebar({ rol }: { rol: Rol }) {
     return visible.map((sub) => {
       if (!sub.href && sub.children?.length) {
         const groupKey = submoduleGroupKey(moduleId, sub.label);
-        const abierto = subtreeHasActive(sub.children, pathname, crearClase);
         return (
-          <div
+          <SidebarSubmoduloFlyout
             key={groupKey}
-            className="sidebar-nav-branch"
-            data-open={abierto ? "true" : undefined}
+            label={sub.label}
+            icon={sub.icon}
+            activo={subtreeHasActive(sub.children, pathname, crearClase)}
           >
-            <button
-              type="button"
-              className="sidebar-nav-item"
-              data-ancestor={abierto ? "true" : undefined}
-            >
-              {sub.icon}
-              <span className="min-w-0 flex-1 truncate text-left">{sub.label}</span>
-            </button>
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested sidebar-nav-siblings">
-              {renderSubmoduleItems(sub.children, moduleId)}
-            </div>
-          </div>
+            {renderFunciones(sub.children, moduleId)}
+          </SidebarSubmoduloFlyout>
         );
       }
 
       if (!sub.href) return null;
 
       const active = isSubmoduleActive(pathname, sub.href, crearClase);
-      const hijosAbiertos = sub.children
-        ? subtreeHasActive(sub.children, pathname, crearClase) || active
-        : false;
       return (
-        <div
-          key={sub.href}
-          className={sub.children?.length ? "sidebar-nav-branch" : undefined}
-          data-open={hijosAbiertos ? "true" : undefined}
-        >
+        <div key={sub.href}>
           <Link
             href={sub.href}
             className={cn("sidebar-nav-item", sub.isUrgente && "relative")}
@@ -493,11 +509,6 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             {sub.icon}
             <span className="min-w-0 truncate">{sub.label}</span>
           </Link>
-          {sub.children && sub.children.length > 0 ? (
-            <div className="sidebar-nav-tree sidebar-nav-tree--nested sidebar-nav-siblings">
-              {renderSubmoduleItems(sub.children, moduleId)}
-            </div>
-          ) : null}
         </div>
       );
     });
@@ -539,7 +550,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
             aria-label="Submódulos"
           >
             {selectedModule && !selectedModule.href ? (
-              <div className="sidebar-nav-tree sidebar-nav-siblings">
+              <div className="sidebar-nav-tree">
                 {renderSubmoduleItems(
                   selectedModule.submodules,
                   selectedModule.id

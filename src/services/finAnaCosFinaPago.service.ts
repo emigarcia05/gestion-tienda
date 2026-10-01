@@ -12,7 +12,6 @@ const pagoSelect = {
   nombre: true,
   enCostosFinancieros: true,
   enMargenContribucion: true,
-  aceptaCuotas: true,
   entidadObligatoria: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
@@ -28,26 +27,49 @@ type PagoRowConEntidades = {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  aceptaCuotas: boolean;
   entidadObligatoria: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
-function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
+function mapPago(
+  row: PagoRowConEntidades,
+  cuotaIdsPorEntidad: Record<string, string[]>
+): FinAnaCosFinaPagoItem {
   return {
     id: row.id,
     nombre: row.nombre.toUpperCase(),
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
-    aceptaCuotas: row.aceptaCuotas,
     entidadObligatoria: row.entidadObligatoria,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
+    cuotaIdsPorEntidad,
   };
 }
 
 function normalizarNombrePago(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
+
+async function cuotaIdsPorEntidadDePago(
+  pagoId: string
+): Promise<Record<string, string[]>> {
+  const filas = await prisma.finAnaCosFina.findMany({
+    where: { pagoId, cuotaId: { not: null }, habilitado: true },
+    select: { terminalId: true, cuotaId: true },
+  });
+  const out = new Map<string, Set<string>>();
+  for (const fila of filas) {
+    if (!fila.cuotaId) continue;
+    const set = out.get(fila.terminalId) ?? new Set<string>();
+    set.add(fila.cuotaId);
+    out.set(fila.terminalId, set);
+  }
+  const record: Record<string, string[]> = {};
+  for (const [entidadId, ids] of out.entries()) {
+    record[entidadId] = [...ids].sort((a, b) => a.localeCompare(b, "es"));
+  }
+  return record;
 }
 
 function mapDbError(error: unknown, fallback: string): string {
@@ -70,28 +92,24 @@ const PAGOS_SEMILLA: {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
-  aceptaCuotas: boolean;
 }[] = [
   {
     id: "clfinapago0000008efe",
     nombre: "EFECTIVO",
     enCostosFinancieros: false,
     enMargenContribucion: true,
-    aceptaCuotas: false,
   },
   {
     id: "clfinapago0000001deb",
     nombre: "DÉBITO",
     enCostosFinancieros: true,
     enMargenContribucion: true,
-    aceptaCuotas: false,
   },
   {
     id: "clfinapago0000002c01",
     nombre: "CRÉDITO",
     enCostosFinancieros: true,
     enMargenContribucion: true,
-    aceptaCuotas: true,
   },
 ];
 
@@ -141,11 +159,37 @@ export async function ensureFinAnaCosFinaPagosSeed(): Promise<void> {
 
 export async function listarFinAnaCosFinaPagos(): Promise<FinAnaCosFinaPagoItem[]> {
   await ensureFinAnaCosFinaPagosSeed();
-  const rows = await prisma.finAnaCosFinaPagoCat.findMany({
-    orderBy: [{ nombre: "asc" }],
-    select: pagoSelect,
+  const [rows, matrizCuotas] = await Promise.all([
+    prisma.finAnaCosFinaPagoCat.findMany({
+      orderBy: [{ nombre: "asc" }],
+      select: pagoSelect,
+    }),
+    prisma.finAnaCosFina.findMany({
+      where: { cuotaId: { not: null }, habilitado: true },
+      select: { pagoId: true, terminalId: true, cuotaId: true },
+    }),
+  ]);
+
+  const cuotasPorPago = new Map<string, Map<string, Set<string>>>();
+  for (const fila of matrizCuotas) {
+    if (!fila.cuotaId) continue;
+    const porEntidad = cuotasPorPago.get(fila.pagoId) ?? new Map<string, Set<string>>();
+    const cuotas = porEntidad.get(fila.terminalId) ?? new Set<string>();
+    cuotas.add(fila.cuotaId);
+    porEntidad.set(fila.terminalId, cuotas);
+    cuotasPorPago.set(fila.pagoId, porEntidad);
+  }
+
+  return rows.map((row) => {
+    const porEntidad = cuotasPorPago.get(row.id);
+    const cuotaIdsPorEntidad: Record<string, string[]> = {};
+    for (const entidad of row.entidades) {
+      const ids = [...(porEntidad?.get(entidad.entidadId) ?? new Set<string>())];
+      ids.sort((a, b) => a.localeCompare(b, "es"));
+      cuotaIdsPorEntidad[entidad.entidadId] = ids;
+    }
+    return mapPago(row, cuotaIdsPorEntidad);
   });
-  return rows.map(mapPago);
 }
 
 export async function crearFinAnaCosFinaPago(
@@ -170,7 +214,6 @@ export async function crearFinAnaCosFinaPago(
           nombre,
           enCostosFinancieros: true,
           enMargenContribucion: true,
-          aceptaCuotas: input.aceptaCuotas,
           entidadObligatoria: input.entidadObligatoria,
           entidades:
             entidadIds.length === 0
@@ -194,7 +237,10 @@ export async function crearFinAnaCosFinaPago(
       return created;
     });
 
-    return { success: true, data: mapPago(pago) };
+    return {
+      success: true,
+      data: mapPago(pago, await cuotaIdsPorEntidadDePago(pago.id)),
+    };
   } catch (error: unknown) {
     return {
       success: false,
@@ -247,7 +293,6 @@ export async function editarFinAnaCosFinaPago(
         where: { id: input.id },
         data: {
           nombre,
-          aceptaCuotas: input.aceptaCuotas,
           entidadObligatoria: input.entidadObligatoria,
         },
         select: pagoSelect,
@@ -257,7 +302,10 @@ export async function editarFinAnaCosFinaPago(
       return row;
     });
 
-    return { success: true, data: mapPago(updated) };
+    return {
+      success: true,
+      data: mapPago(updated, await cuotaIdsPorEntidadDePago(updated.id)),
+    };
   } catch (error: unknown) {
     return {
       success: false,

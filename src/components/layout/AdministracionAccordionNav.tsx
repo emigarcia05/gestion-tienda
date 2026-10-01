@@ -18,12 +18,12 @@ import {
 import { ADM_ICON_MAP } from "@/lib/administracionNavIcons";
 import { puede, type Rol } from "@/lib/permisos";
 import SidebarModulosRecuadro from "@/components/layout/SidebarModulosRecuadro";
+import SidebarSubmoduloFlyout from "@/components/layout/SidebarSubmoduloFlyout";
 
 const iconClass = "h-5 w-5 shrink-0";
 const subIconClass = "h-4 w-4 shrink-0";
 
 const TREE_PANEL = "sidebar-nav-tree";
-const TREE_PANEL_NESTED = "sidebar-nav-tree sidebar-nav-tree--nested";
 
 function ScreenLink({
   screen,
@@ -77,6 +77,53 @@ function getSoleScreenHrefForGroup(group: AdmGroupDef): string | null {
   return null;
 }
 
+function FuncionesDeGrupo({
+  group,
+  pathname,
+}: {
+  group: AdmGroupDef;
+  pathname: string;
+}) {
+  const directScreens = group.screens ?? [];
+  const nestedGroups = group.groups ?? [];
+  return (
+    <>
+      {directScreens.length > 0 ? (
+        <ScreensList screens={directScreens} pathname={pathname} />
+      ) : null}
+      {nestedGroups.map((nested) => {
+        const soleHref = getSoleScreenHrefForGroup(nested);
+        if (soleHref) {
+          const soleScreen = collectGroupScreens(nested).find((s) => s.href === soleHref);
+          const active = soleScreen
+            ? isAdmScreenActive(pathname, soleScreen)
+            : isAdmGroupActive(pathname, nested);
+          const Icon = ADM_ICON_MAP[nested.icon];
+          return (
+            <Link
+              key={nested.id}
+              href={soleHref}
+              className="sidebar-nav-item"
+              role="menuitem"
+              data-active={active ? "true" : undefined}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className={subIconClass} aria-hidden />
+              <span className="min-w-0 truncate">{nested.label}</span>
+            </Link>
+          );
+        }
+        return (
+          <div key={nested.id}>
+            <p className="sidebar-funciones-seccion">{nested.label}</p>
+            <FuncionesDeGrupo group={nested} pathname={pathname} />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function GroupBranch({
   group,
   pathname,
@@ -104,36 +151,14 @@ function GroupBranch({
     );
   }
 
-  const groupActive = isAdmGroupActive(pathname, group);
-  const nestedGroups = group.groups ?? [];
-  const directScreens = group.screens ?? [];
-
   return (
-    <div
-      className="sidebar-nav-branch"
-      data-open={groupActive ? "true" : undefined}
+    <SidebarSubmoduloFlyout
+      label={group.label}
+      icon={<Icon className={subIconClass} aria-hidden />}
+      activo={isAdmGroupActive(pathname, group)}
     >
-      <button
-        type="button"
-        className="sidebar-nav-item"
-        data-ancestor={groupActive ? "true" : undefined}
-      >
-        <Icon className={subIconClass} aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
-      </button>
-      <div className={TREE_PANEL_NESTED}>
-        {directScreens.length > 0 ? (
-          <ScreensList screens={directScreens} pathname={pathname} />
-        ) : null}
-        {nestedGroups.length > 0 ? (
-          <div className="sidebar-nav-siblings flex flex-col gap-0.5">
-            {nestedGroups.map((nested) => (
-              <GroupBranch key={nested.id} group={nested} pathname={pathname} />
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
+      <FuncionesDeGrupo group={group} pathname={pathname} />
+    </SidebarSubmoduloFlyout>
   );
 }
 
@@ -207,7 +232,7 @@ export default function AdministracionAccordionNav({ rol }: { rol: Rol }) {
       >
         {selectedPillar ? (
           <div className={TREE_PANEL}>
-            <div className="sidebar-nav-siblings flex flex-col gap-0.5">
+            <div className="flex flex-col gap-0.5">
               {screens.length > 0 ? (
                 <ScreensList screens={screens} pathname={pathname} />
               ) : null}

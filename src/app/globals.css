@@ -840,21 +840,36 @@
     margin-top: 0.15rem;
   }
   /**
-   * Acordeón de un grupo: cerrado hasta el hover (o el foco).
-   * `data-open` = la ruta actual está dentro: queda abierto al salir el mouse.
-   * Si el puntero está en la lista de hermanos, solo el grupo bajo el mouse está abierto.
+   * Panel de funciones: a la derecha del slidenav, al hover del submódulo.
+   * El puente (`.sidebar-funciones-ancla`) cubre el hueco para no cerrar al cruzar.
    */
-  .sidebar-nav-branch > .sidebar-nav-tree {
-    display: none;
-  }
-  .sidebar-nav-branch:hover > .sidebar-nav-tree,
-  .sidebar-nav-branch:focus-within > .sidebar-nav-tree,
-  .sidebar-nav-branch[data-open="true"] > .sidebar-nav-tree {
+  .sidebar-funciones-ancla {
+    position: fixed;
+    z-index: 80;
     display: flex;
+    padding-left: 0.35rem;
+    box-sizing: border-box;
   }
-  .sidebar-nav-siblings:hover > .sidebar-nav-branch[data-open="true"]:not(:hover) > .sidebar-nav-tree,
-  .sidebar-nav-siblings:focus-within > .sidebar-nav-branch[data-open="true"]:not(:focus-within) > .sidebar-nav-tree {
-    display: none;
+  .sidebar-funciones-panel {
+    display: flex;
+    min-width: 12rem;
+    max-width: 16rem;
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--primary);
+    background-color: var(--sidebar);
+    padding: 0.25rem;
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar-funciones-seccion {
+    margin: 0.35rem 0.5rem 0.1rem;
+    font-size: 0.65rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--sidebar-foreground) 70%, transparent);
   }
 
   /**
@@ -939,12 +954,15 @@
   .sidebar-nav-item svg {
     color: var(--sidebar-foreground) !important;
   }
-  .sidebar-container .sidebar-nav-item:hover {
+  .sidebar-container .sidebar-nav-item:hover,
+  .sidebar-funciones-panel .sidebar-nav-item:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
   }
   .sidebar-container .sidebar-nav-item[data-active="true"],
-  .sidebar-container .sidebar-nav-item[data-active="true"]:hover {
+  .sidebar-container .sidebar-nav-item[data-active="true"]:hover,
+  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"],
+  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"]:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
     border-left-color: var(--sidebar-indicator);

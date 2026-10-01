@@ -77,7 +77,7 @@ function sortItems(items: FinAnaCosFinaItem[]): FinAnaCosFinaItem[] {
   });
 }
 
-/** Sincroniza la matriz con vínculos N:M y `acepta_cuotas`. */
+/** Sincroniza la matriz con vínculos N:M forma×entidad y cuotas por par. */
 export async function ensureFinAnaCosFinaSeed(): Promise<void> {
   await ensureFinAnaCosFinaTerminalesMarcasSeed();
   await ensureFinAnaCosFinaPagosSeed();

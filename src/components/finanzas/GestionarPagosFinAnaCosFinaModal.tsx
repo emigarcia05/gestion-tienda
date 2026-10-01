@@ -54,7 +54,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [editingItem, setEditingItem] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
-  const [formAceptaCuotas, setFormAceptaCuotas] = useState(false);
   const [formEntidadObligatoria, setFormEntidadObligatoria] = useState(true);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
@@ -103,7 +102,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setFormAceptaCuotas(false);
     setFormEntidadObligatoria(true);
     setBorrarTarget(null);
     void cargar();
@@ -119,7 +117,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
         [
           item.nombre,
           ...item.entidadNombres,
-          item.aceptaCuotas ? "cuotas" : "",
           item.entidadObligatoria ? "" : "sin entidad",
         ],
         q
@@ -131,7 +128,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setFormAceptaCuotas(false);
     setFormEntidadObligatoria(true);
   }
 
@@ -146,7 +142,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(item);
     setFormNombre(item.nombre);
     setFormEntidadIds([...item.entidadIds]);
-    setFormAceptaCuotas(item.aceptaCuotas);
     setFormEntidadObligatoria(item.entidadObligatoria);
     setFormOpen(true);
   }
@@ -164,7 +159,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
           id: editingItem.id,
           nombre: formNombre,
           entidadIds: formEntidadObligatoria ? formEntidadIds : [],
-          aceptaCuotas: formAceptaCuotas,
           entidadObligatoria: formEntidadObligatoria,
         });
         if (!res.ok) {
@@ -176,7 +170,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
           entidadIds: formEntidadObligatoria ? formEntidadIds : [],
-          aceptaCuotas: formAceptaCuotas,
           entidadObligatoria: formEntidadObligatoria,
         });
         if (!res.ok) {
@@ -269,8 +262,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
             {esEditor ? (
               <p className="text-sm text-muted-foreground">
                 Si ENTIDAD OBLIGATORIA está activo, hay que vincular al menos una entidad. Si no, la
-                forma puede usarse sin entidad. Si acepta cuotas, Cx. Fin. Cobros genera una fila por
-                cada cuota del catálogo.
+                forma puede usarse sin entidad.
               </p>
             ) : null}
 
@@ -295,11 +287,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">
                           {pago.nombre}
-                          {pago.aceptaCuotas ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              · CUOTAS
-                            </span>
-                          ) : null}
                           {pago.entidadObligatoria ? null : (
                             <span className="ml-2 text-xs font-normal text-muted-foreground">
                               · SIN ENTIDAD
@@ -426,12 +413,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 )}
               </div>
             ) : null}
-            <ModalSiNoChoice
-              label="ACEPTA CUOTAS"
-              value={formAceptaCuotas}
-              onChange={setFormAceptaCuotas}
-              disabled={pending}
-            />
           </div>
         </AppModal>
       </Dialog>

@@ -35,7 +35,6 @@ export const crearFinAnaCosFinaPagoSchema = z
   .object({
     nombre: nombreFinAnaCosFinaPagoSchema,
     entidadIds: entidadIdsFormaPagoSchema,
-    aceptaCuotas: z.boolean().optional().default(false),
     entidadObligatoria: z.boolean().optional().default(true),
   })
   .superRefine(refineEntidadObligatoria);
@@ -45,7 +44,6 @@ export const editarFinAnaCosFinaPagoSchema = z
     id: prismaCuidOrUuidSchema,
     nombre: nombreFinAnaCosFinaPagoSchema,
     entidadIds: entidadIdsFormaPagoSchema,
-    aceptaCuotas: z.boolean(),
     entidadObligatoria: z.boolean(),
   })
   .superRefine(refineEntidadObligatoria);
