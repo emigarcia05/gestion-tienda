@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { globalSucursalIdSchema, prismaIdSchema } from "@/lib/validations/common";
+import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 const isoYmdSchema = z
   .string()
@@ -22,6 +23,8 @@ export const crearMovimientoTesoreriaSchema = z
     monto: z.number().int().positive("El monto tiene que ser mayor a cero."),
     fecha: isoYmdSchema,
     sucursalId: globalSucursalIdSchema,
+    /** Usuario de pestaña que registra el movimiento. */
+    personalId: idPersonalSchema,
     observacion: z.string().max(2000).default(""),
     pagoId: prismaIdSchema.optional(),
     entidadId: prismaIdSchema.nullable().optional(),
@@ -60,6 +63,7 @@ export const crearTransferenciaEntreCajasSchema = z.object({
   monto: z.number().int().positive("El monto tiene que ser mayor a cero."),
   fecha: isoYmdSchema,
   sucursalId: globalSucursalIdSchema,
+  personalId: idPersonalSchema,
   observacion: z.string().max(2000).default(""),
 }).superRefine((data, ctx) => {
   if (data.cajaOrigenId === data.cajaDestinoId) {
@@ -83,6 +87,8 @@ export const ajustarMontoCajaTesoreriaSchema = z.object({
   cajaId: prismaIdSchema,
   /** Saldo deseado de la caja (≥ 0). */
   montoObjetivo: z.number().int().min(0, "El monto no puede ser negativo."),
+  /** Usuario de pestaña que registra el ajuste. */
+  personalId: idPersonalSchema,
   /**
    * Código de sucursal del operador (`guaymallen` | `maipu`).
    * Obligatorio si la caja no tiene `sucursal_id` (p. ej. CHEQUE).

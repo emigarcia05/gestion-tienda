@@ -10,7 +10,9 @@ import FilterBar, {
   FilaFiltrosDesplegables,
   FilterRowSelection,
   LimpiarFiltrosButton,
+  SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import {
   Select,
   SelectContent,
@@ -27,40 +29,70 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import {
+  addDaysToIsoYmdArgentina,
+  dateToIsoYmdArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TesoreriaMovimientoFila } from "@/services/tesoreriaMovimientos.service";
 
-const FILTRO_TODOS = "none";
+const PERIODO_HOY = "hoy";
+const PERIODO_RANGO = "rango";
+
+const TIPOS_MOVIMIENTO = ["INGRESO", "EGRESO"] as const;
+
+const CATEGORIAS_MOVIMIENTO = [
+  "COBRO",
+  "NOTA DE CRÉDITO",
+  "PAGO PROVEEDOR",
+  "PAGO GASTOS",
+  "AJUSTE CAJA",
+  "TRANSFERENCIA ENTRE CAJAS",
+] as const;
+
+type PeriodoFiltro = "hoy" | "ayer" | "mes" | "rango" | "todos";
+
+function esPeriodoFiltroPreset(
+  value: string
+): value is Exclude<PeriodoFiltro, "rango"> {
+  return (
+    value === "hoy" ||
+    value === "ayer" ||
+    value === "mes" ||
+    value === "todos"
+  );
+}
 
 interface Props {
   filas: TesoreriaMovimientoFila[];
 }
 
 export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props) {
-  const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
+  const [rangoDesde, setRangoDesde] = useState("");
+  const [rangoHasta, setRangoHasta] = useState("");
+  const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [filtroUsuario, setFiltroUsuario] = useState("");
+
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+  const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
 
   const sucursales = useMemo(
     () =>
-      [...new Set(filas.map((f) => f.sucursalNombre))].sort((a, b) =>
-        a.localeCompare(b, "es")
+      [...new Set(filas.map((f) => f.sucursalNombre).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "es")
       ),
     [filas]
   );
-  const tipos = useMemo(
+  const usuarios = useMemo(
     () =>
-      [...new Set(filas.map((f) => f.tipoEtiqueta))].sort((a, b) =>
-        a.localeCompare(b, "es")
-      ),
-    [filas]
-  );
-  const categorias = useMemo(
-    () =>
-      [...new Set(filas.map((f) => f.categoriaEtiqueta))].sort((a, b) =>
-        a.localeCompare(b, "es")
+      [...new Set(filas.map((f) => f.usuarioNombre).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "es")
       ),
     [filas]
   );
@@ -68,17 +100,74 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
   const filasFiltradas = useMemo(
     () =>
       filas.filter((fila) => {
-        if (filtroSucursal && fila.sucursalNombre !== filtroSucursal) return false;
+        if (periodo === "hoy" && fila.fechaIso !== hoyIso) return false;
+        if (periodo === "ayer" && fila.fechaIso !== ayerIso) return false;
+        if (
+          periodo === "mes" &&
+          fila.fechaIso.slice(0, 7) !== hoyIso.slice(0, 7)
+        ) {
+          return false;
+        }
+        if (periodo === "rango") {
+          if (!rangoDesde || !rangoHasta) return false;
+          if (fila.fechaIso < rangoDesde || fila.fechaIso > rangoHasta) {
+            return false;
+          }
+        }
         if (filtroTipo && fila.tipoEtiqueta !== filtroTipo) return false;
         if (filtroCategoria && fila.categoriaEtiqueta !== filtroCategoria) {
           return false;
         }
+        if (filtroSucursal && fila.sucursalNombre !== filtroSucursal) {
+          return false;
+        }
+        if (filtroUsuario && fila.usuarioNombre !== filtroUsuario) {
+          return false;
+        }
         return true;
       }),
-    [filas, filtroSucursal, filtroTipo, filtroCategoria]
+    [
+      filas,
+      periodo,
+      rangoDesde,
+      rangoHasta,
+      hoyIso,
+      ayerIso,
+      filtroTipo,
+      filtroCategoria,
+      filtroSucursal,
+      filtroUsuario,
+    ]
   );
 
-  const hayFiltros = Boolean(filtroSucursal || filtroTipo || filtroCategoria);
+  function onPeriodoChange(value: string) {
+    if (value === PERIODO_RANGO) {
+      setRangoModalOpen(true);
+      return;
+    }
+    if (!esPeriodoFiltroPreset(value)) return;
+    setRangoDesde("");
+    setRangoHasta("");
+    setPeriodo(value);
+  }
+
+  function limpiarPeriodo() {
+    setPeriodo(PERIODO_HOY);
+    setRangoDesde("");
+    setRangoHasta("");
+  }
+
+  function limpiarFiltros() {
+    limpiarPeriodo();
+    setFiltroTipo("");
+    setFiltroCategoria("");
+    setFiltroSucursal("");
+    setFiltroUsuario("");
+  }
+
+  const hayFiltros =
+    periodo !== PERIODO_HOY ||
+    Boolean(filtroTipo || filtroCategoria || filtroSucursal || filtroUsuario);
 
   return (
     <ClassicFilteredTableLayout
@@ -89,28 +178,39 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
           <FilaFiltrosDesplegables columnas={5}>
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={Boolean(filtroSucursal)}
-              onLimpiar={() => setFiltroSucursal("")}
+              activo={periodo !== PERIODO_HOY}
+              onLimpiar={limpiarPeriodo}
             >
-              <Select
-                value={filtroSucursal || FILTRO_TODOS}
-                onValueChange={(v) =>
-                  setFiltroSucursal(v === FILTRO_TODOS ? "" : v)
-                }
-              >
+              <Select value={periodo} onValueChange={onPeriodoChange}>
                 <SelectTrigger
-                  className="input-filtro-unificado"
-                  aria-label="Sucursal"
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
                 >
-                  <SelectValue placeholder="SUCURSAL" />
+                  {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
+                    <span data-slot="select-value" className="truncate">
+                      {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="FECHA" />
+                  )}
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
-                  {sucursales.map((nombre) => (
-                    <SelectItem key={nombre} value={nombre}>
-                      {nombre}
-                    </SelectItem>
-                  ))}
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  <SelectItem value="hoy">HOY</SelectItem>
+                  <SelectItem value="ayer">AYER</SelectItem>
+                  <SelectItem value="mes">ESTE MES</SelectItem>
+                  <SelectItem
+                    value={PERIODO_RANGO}
+                    onPointerDown={() => {
+                      queueMicrotask(() => setRangoModalOpen(true));
+                    }}
+                  >
+                    RANGO PERSONALIZADO
+                  </SelectItem>
+                  <SelectItem value="todos">TODO</SelectItem>
                 </SelectContent>
               </Select>
             </FiltroIndividualContainer>
@@ -120,19 +220,30 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               onLimpiar={() => setFiltroTipo("")}
             >
               <Select
-                value={filtroTipo || FILTRO_TODOS}
-                onValueChange={(v) =>
-                  setFiltroTipo(v === FILTRO_TODOS ? "" : v)
-                }
+                value={filtroTipo || undefined}
+                onValueChange={(value) => {
+                  if (
+                    value === "INGRESO" ||
+                    value === "EGRESO"
+                  ) {
+                    setFiltroTipo(value);
+                  }
+                }}
               >
-                <SelectTrigger className="input-filtro-unificado" aria-label="Tipo">
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                >
                   <SelectValue placeholder="TIPO" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={FILTRO_TODOS}>TODOS</SelectItem>
-                  {tipos.map((nombre) => (
-                    <SelectItem key={nombre} value={nombre}>
-                      {nombre}
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {TIPOS_MOVIMIENTO.map((tipo) => (
+                    <SelectItem key={tipo} value={tipo}>
+                      {tipo}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -144,20 +255,49 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               onLimpiar={() => setFiltroCategoria("")}
             >
               <Select
-                value={filtroCategoria || FILTRO_TODOS}
-                onValueChange={(v) =>
-                  setFiltroCategoria(v === FILTRO_TODOS ? "" : v)
-                }
+                value={filtroCategoria || undefined}
+                onValueChange={setFiltroCategoria}
               >
                 <SelectTrigger
-                  className="input-filtro-unificado"
-                  aria-label="Categoría"
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
                 >
                   <SelectValue placeholder="CATEGORÍA" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
-                  {categorias.map((nombre) => (
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {CATEGORIAS_MOVIMIENTO.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FiltroIndividualContainer>
+            <FiltroIndividualContainer
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroSucursal)}
+              onLimpiar={() => setFiltroSucursal("")}
+            >
+              <Select
+                value={filtroSucursal || undefined}
+                onValueChange={setFiltroSucursal}
+              >
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                >
+                  <SelectValue placeholder="SUCURSAL" />
+                </SelectTrigger>
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {sucursales.map((nombre) => (
                     <SelectItem key={nombre} value={nombre}>
                       {nombre}
                     </SelectItem>
@@ -165,22 +305,44 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                 </SelectContent>
               </Select>
             </FiltroIndividualContainer>
-            <FilterRowSelection className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "col-span-2")}>
-              <span className={FILTER_COUNT_CLASS}>
-                {filasFiltradas.length}{" "}
-                {filasFiltradas.length === 1 ? "MOVIMIENTO" : "MOVIMIENTOS"}
-              </span>
-              {hayFiltros ? (
-                <LimpiarFiltrosButton
-                  onClick={() => {
-                    setFiltroSucursal("");
-                    setFiltroTipo("");
-                    setFiltroCategoria("");
-                  }}
-                />
-              ) : null}
-            </FilterRowSelection>
+            <FiltroIndividualContainer
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroUsuario)}
+              onLimpiar={() => setFiltroUsuario("")}
+            >
+              <Select
+                value={filtroUsuario || undefined}
+                onValueChange={setFiltroUsuario}
+              >
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                >
+                  <SelectValue placeholder="USUARIO" />
+                </SelectTrigger>
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {usuarios.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FiltroIndividualContainer>
           </FilaFiltrosDesplegables>
+          <FilterRowSelection className={FILTER_INLINE_ACTION_SLOT_CLASS}>
+            <span className={FILTER_COUNT_CLASS}>
+              {filasFiltradas.length}{" "}
+              {filasFiltradas.length === 1 ? "MOVIMIENTO" : "MOVIMIENTOS"}
+            </span>
+            {hayFiltros ? (
+              <LimpiarFiltrosButton onClick={limpiarFiltros} />
+            ) : null}
+          </FilterRowSelection>
         </FilterBar>
       }
     >
@@ -193,12 +355,13 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               <TableHead>TIPO</TableHead>
               <TableHead>CATEGORÍA</TableHead>
               <TableHead>CAJA</TableHead>
+              <TableHead>USUARIO</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filasFiltradas.length === 0 ? (
-              <EmptyTableRow colSpan={6} message="No hay movimientos." />
+              <EmptyTableRow colSpan={7} message="No hay movimientos." />
             ) : (
               filasFiltradas.map((fila) => (
                 <TableRow key={fila.id}>
@@ -217,6 +380,9 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                   <TableCell className="celda-datos">
                     {fmtCelda(fila.cajaEtiqueta)}
                   </TableCell>
+                  <TableCell className="celda-datos">
+                    {fmtCelda(fila.usuarioNombre)}
+                  </TableCell>
                   <TableCell
                     className={cn(
                       "celda-datos text-right tabular-nums",
@@ -232,6 +398,18 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
           </TableBody>
         </Table>
       </div>
+      <FiltroRangoFechasCalendarioModal
+        open={rangoModalOpen}
+        onOpenChange={setRangoModalOpen}
+        fechaDesde={rangoDesde}
+        fechaHasta={rangoHasta}
+        onAplicarRango={(desde, hasta) => {
+          setRangoDesde(desde);
+          setRangoHasta(hasta);
+          setPeriodo(PERIODO_RANGO);
+        }}
+        onLimpiar={limpiarPeriodo}
+      />
     </ClassicFilteredTableLayout>
   );
 }

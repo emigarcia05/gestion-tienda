@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { Prisma, type CategoriaMovimientoTesoreria, type SentidoMovimientoTesoreria, type TipoCajaTesoreria } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
+import { esCobroNotaCreditoNombre } from "@/lib/factura";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -10,12 +12,9 @@ import type {
   CrearMovimientoTesoreriaInput,
   CrearTransferenciaEntreCajasInput,
 } from "@/lib/validations/tesoreriaMovimientos";
-import type {
-  CategoriaMovimientoTesoreria,
-  SentidoMovimientoTesoreria,
-  TipoCajaTesoreria,
-} from "@prisma/client";
 import type { ServiceResult } from "@/types";
+
+type DbClient = Prisma.TransactionClient | typeof prisma;
 
 const CATEGORIAS_COBRO: ReadonlySet<CategoriaMovimientoTesoreria> = new Set([
   "COBRO",
@@ -148,6 +147,15 @@ async function cajaYSucursalExisten(cajaId: string, sucursalId: string): Promise
   return null;
 }
 
+async function personalExiste(personalId: number): Promise<string | null> {
+  const personal = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: personalId },
+    select: { idPersonal: true },
+  });
+  if (!personal) return "Usuario inválido.";
+  return null;
+}
+
 /**
  * Alta de un movimiento que no es transferencia entre cajas.
  * El costo financiero se resuelve solo: la fila de `cobros_cx_fin` de esa
@@ -161,6 +169,9 @@ export async function crearMovimientoTesoreria(
 
   const existe = await cajaYSucursalExisten(input.cajaId, input.sucursalId);
   if (existe) return { success: false, error: existe };
+
+  const personalErr = await personalExiste(input.personalId);
+  if (personalErr) return { success: false, error: personalErr };
 
   const cobro = await resolverDatosCobro(input);
   if (!cobro.success) return cobro;
@@ -178,6 +189,7 @@ export async function crearMovimientoTesoreria(
       cuotaId: cobro.data.cuotaId,
       cxFinId: cobro.data.cxFinId,
       sucursalId: input.sucursalId,
+      personalId: input.personalId,
     },
     select: {
       id: true,
@@ -206,6 +218,9 @@ export async function crearTransferenciaEntreCajas(
   if (!origen || !destino) return { success: false, error: "Caja inválida." };
   if (!sucursal) return { success: false, error: "Sucursal inválida." };
 
+  const personalErr = await personalExiste(input.personalId);
+  if (personalErr) return { success: false, error: personalErr };
+
   const transferenciaGrupoId = randomUUID();
   const fecha = fechaNegocio(input.fecha);
   const observacion = input.observacion.trim();
@@ -215,6 +230,7 @@ export async function crearTransferenciaEntreCajas(
     fecha,
     observacion,
     sucursalId: input.sucursalId,
+    personalId: input.personalId,
     transferenciaGrupoId,
   };
 
@@ -289,6 +305,7 @@ export type TesoreriaMovimientoFila = {
   categoriaEtiqueta: string;
   cajaId: string;
   cajaEtiqueta: string;
+  usuarioNombre: string;
   monto: number;
 };
 
@@ -327,6 +344,7 @@ export async function listarMovimientosTesoreria(): Promise<
       monto: true,
       cajaId: true,
       sucursal: { select: { nombre: true } },
+      personal: { select: { nombrePersonal: true } },
       caja: {
         select: {
           titular: true,
@@ -348,8 +366,277 @@ export async function listarMovimientosTesoreria(): Promise<
     categoriaEtiqueta: ETIQUETA_CATEGORIA[row.catMovimiento],
     cajaId: row.cajaId,
     cajaEtiqueta: etiquetaCajaMovimiento(row.caja),
+    usuarioNombre: row.personal?.nombrePersonal.trim()
+      ? row.personal.nombrePersonal.toLocaleUpperCase("es-AR")
+      : "",
     monto: row.monto,
   }));
+}
+
+/** Snapshot de cobro de factura (nombres) para impactar el ledger. */
+export type CobroSnapshotParaTesoreria = {
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+  montoCents: number;
+};
+
+type MovimientoCobroFacturaData = {
+  cajaId: string;
+  tipoMovimiento: SentidoMovimientoTesoreria;
+  catMovimiento: CategoriaMovimientoTesoreria;
+  monto: number;
+  fecha: Date;
+  observacion: string;
+  pagoId: string;
+  entidadId: string | null;
+  cuotaId: string | null;
+  cxFinId: string | null;
+  sucursalId: string;
+  personalId: number;
+};
+
+function normalizarTextoCobro(value: string): string {
+  return value.trim().toLocaleUpperCase("es-AR");
+}
+
+/**
+ * Resuelve cada cobro de factura (nombres) a filas de `tesoreria_movimientos`:
+ * caja destino vía `cobros_vinc_cajas` de la sucursal del operador.
+ * Omite NOTA DE CRÉDITO y montos ≤ 0. Falla si falta vínculo o caja destino.
+ */
+export async function prepararMovimientosCobroDesdeSnapshots(
+  args: {
+    cobros: readonly CobroSnapshotParaTesoreria[];
+    sucursalCodigo: string;
+    fechaIso: string;
+    personalId: number;
+    observacion?: string;
+  },
+  db: DbClient = prisma
+): Promise<ServiceResult<MovimientoCobroFacturaData[]>> {
+  const cobros = args.cobros.filter(
+    (c) => c.montoCents > 0 && !esCobroNotaCreditoNombre(c.pagoNombre)
+  );
+  if (cobros.length === 0) {
+    return { success: true, data: [] };
+  }
+
+  const personal = await db.globalPersonal.findUnique({
+    where: { idPersonal: args.personalId },
+    select: { idPersonal: true },
+  });
+  if (!personal) {
+    return { success: false, error: "Usuario inválido para el cobro en tesorería." };
+  }
+
+  const codigo = args.sucursalCodigo.trim();
+  if (!codigo) {
+    return {
+      success: false,
+      error: "El usuario no tiene sucursal para registrar el cobro en tesorería.",
+    };
+  }
+
+  const sucursal = await db.sucursal.findUnique({
+    where: { codigo },
+    select: { id: true, codigo: true },
+  });
+  if (!sucursal) {
+    return { success: false, error: "Sucursal inválida para el cobro en tesorería." };
+  }
+
+  const fecha = fechaNegocio(args.fechaIso);
+  const observacionBase = (args.observacion ?? "").trim();
+  const out: MovimientoCobroFacturaData[] = [];
+
+  for (const cobro of cobros) {
+    const pagoNombre = normalizarTextoCobro(cobro.pagoNombre);
+    const entidadNombre = normalizarTextoCobro(cobro.entidadNombre);
+    const cuotaEtiqueta = cobro.cuotaEtiqueta
+      ? normalizarTextoCobro(cobro.cuotaEtiqueta)
+      : null;
+    const monto = Math.round(cobro.montoCents / 100);
+    if (monto <= 0) {
+      return {
+        success: false,
+        error: "El monto del cobro en tesorería tiene que ser mayor a cero.",
+      };
+    }
+
+    const pago = await db.finAnaCosFinaPagoCat.findFirst({
+      where: { nombre: pagoNombre },
+      select: { id: true, nombre: true },
+    });
+    if (!pago) {
+      return {
+        success: false,
+        error: `Forma de pago «${pagoNombre}» no encontrada en el catálogo.`,
+      };
+    }
+
+    const vinculosEntidad = await db.cobrosFormaPagoEntidad.findMany({
+      where: { pagoId: pago.id },
+      select: { entidadId: true },
+    });
+
+    let entidadId: string | null = null;
+    if (vinculosEntidad.length === 0) {
+      if (entidadNombre) {
+        return {
+          success: false,
+          error: `La forma de pago «${pagoNombre}» no tiene entidad.`,
+        };
+      }
+    } else {
+      if (!entidadNombre) {
+        return {
+          success: false,
+          error: `Seleccioná una entidad para «${pagoNombre}».`,
+        };
+      }
+      const entidad = await db.finAnaCosFinaTerminalMarca.findFirst({
+        where: { nombre: entidadNombre },
+        select: { id: true, nombre: true },
+      });
+      if (!entidad || !vinculosEntidad.some((v) => v.entidadId === entidad.id)) {
+        return {
+          success: false,
+          error: `Entidad «${entidadNombre}» inválida para «${pagoNombre}».`,
+        };
+      }
+      entidadId = entidad.id;
+    }
+
+    let cuotaId: string | null = null;
+    if (!entidadId) {
+      if (cuotaEtiqueta) {
+        return {
+          success: false,
+          error: `La forma de pago «${pagoNombre}» no tiene cuotas.`,
+        };
+      }
+    } else {
+      const vinculosCuota = await db.cobrosCuotaVinculo.findMany({
+        where: { pagoId: pago.id, entidadId },
+        select: { cuotaId: true, cuota: { select: { id: true, cuotas: true } } },
+      });
+      if (vinculosCuota.length === 0) {
+        if (cuotaEtiqueta) {
+          return {
+            success: false,
+            error: `«${pagoNombre}» / «${entidadNombre}» no tiene cuotas.`,
+          };
+        }
+      } else if (!cuotaEtiqueta) {
+        return {
+          success: false,
+          error: `Seleccioná una cuota para «${pagoNombre}» / «${entidadNombre}».`,
+        };
+      } else {
+        const match = vinculosCuota.find(
+          (v) => normalizarTextoCobro(v.cuota.cuotas) === cuotaEtiqueta
+        );
+        if (!match) {
+          return {
+            success: false,
+            error: `Cuota «${cuotaEtiqueta}» inválida para «${pagoNombre}» / «${entidadNombre}».`,
+          };
+        }
+        cuotaId = match.cuotaId;
+      }
+    }
+
+    const vinculoCaja = await db.cobrosPorSucursal.findFirst({
+      where: {
+        pagoId: pago.id,
+        sucursalId: sucursal.id,
+        entidadId,
+      },
+      select: { cajaDestinoId: true },
+    });
+    if (!vinculoCaja) {
+      return {
+        success: false,
+        error: `No hay cobro habilitado para «${pagoNombre}» en ${sucursal.codigo}.`,
+      };
+    }
+    if (!vinculoCaja.cajaDestinoId) {
+      return {
+        success: false,
+        error: `No hay caja destino para «${pagoNombre}» en ${sucursal.codigo}.`,
+      };
+    }
+
+    const costos = await db.finAnaCosFina.findMany({
+      where: {
+        pagoId: pago.id,
+        terminalId: entidadId,
+        cuotaId,
+      },
+      select: { id: true },
+    });
+    if (costos.length > 1) {
+      return {
+        success: false,
+        error: `Hay más de un costo financiero para «${pagoNombre}».`,
+      };
+    }
+
+    out.push({
+      cajaId: vinculoCaja.cajaDestinoId,
+      tipoMovimiento: "INGRESO",
+      catMovimiento: "COBRO",
+      monto,
+      fecha,
+      observacion: observacionBase,
+      pagoId: pago.id,
+      entidadId,
+      cuotaId,
+      cxFinId: costos[0]?.id ?? null,
+      sucursalId: sucursal.id,
+      personalId: args.personalId,
+    });
+  }
+
+  return { success: true, data: out };
+}
+
+/** Persiste filas ya resueltas de cobro de factura en el ledger (misma transacción). */
+export async function crearMovimientosCobroPreparados(
+  filas: readonly MovimientoCobroFacturaData[],
+  db: DbClient = prisma
+): Promise<ServiceResult<{ ids: string[] }>> {
+  if (filas.length === 0) {
+    return { success: true, data: { ids: [] } };
+  }
+  const ids: string[] = [];
+  for (const data of filas) {
+    const created = await db.tesoreriaMovimiento.create({
+      data,
+      select: { id: true },
+    });
+    ids.push(created.id);
+  }
+  return { success: true, data: { ids } };
+}
+
+/**
+ * Resuelve y crea movimientos COBRO/INGRESO a partir de los snapshots de cobro de factura.
+ */
+export async function registrarMovimientosDesdeCobrosFactura(
+  args: {
+    cobros: readonly CobroSnapshotParaTesoreria[];
+    sucursalCodigo: string;
+    fechaIso: string;
+    personalId: number;
+    observacion?: string;
+  },
+  db: DbClient = prisma
+): Promise<ServiceResult<{ ids: string[] }>> {
+  const prep = await prepararMovimientosCobroDesdeSnapshots(args, db);
+  if (!prep.success) return prep;
+  return crearMovimientosCobroPreparados(prep.data, db);
 }
 
 /**
@@ -404,6 +691,7 @@ export async function ajustarMontoCajaTesoreria(
     monto: Math.abs(delta),
     fecha,
     sucursalId,
+    personalId: input.personalId,
     observacion,
   });
 }

@@ -61,10 +61,16 @@ export default function ActualizarMontoCajaTesoreriaModal({
     if (!caja || disabledSubmit) return;
     setSaving(true);
     try {
-      const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
+      const usuario = leerUsuarioSesion();
+      if (!usuario) {
+        toast.error("Elegí un usuario en el menú de sesión.");
+        return;
+      }
+      const sucursalCodigo = usuario.sucursalPorDefecto;
       const res = await ajustarMontoCajaTesoreriaAction({
         cajaId: caja.id,
         montoObjetivo: parsedMonto,
+        personalId: usuario.idPersonal,
         ...(caja.sucursalId ? {} : sucursalCodigo ? { sucursalCodigo } : {}),
       });
 

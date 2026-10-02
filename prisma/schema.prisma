@@ -400,6 +400,7 @@ model GlobalPersonal {
 
   sucursalDefault Sucursal? @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
   comprobantesVtas ComprobanteVta[]
+  movimientosTesoreria TesoreriaMovimiento[]
 
   @@index([sucursalPorDefecto], map: "personal_sucursal_por_defecto_idx")
   @@map("personal")
@@ -507,6 +508,9 @@ model TesoreriaMovimiento {
   /** Sucursal del movimiento. Distinta de `tesoreria_cajas.sucursal_id`. */
   sucursalId           String                        @map("sucursal_id")
   sucursal             Sucursal                      @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  /** Usuario de pestaña (`personal`) que registró el movimiento. Null en filas previas. */
+  personalId           Int?                          @map("personal_id")
+  personal             GlobalPersonal?               @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   createdAt            DateTime                      @default(now()) @map("created_at")
   updatedAt            DateTime                      @updatedAt @map("updated_at")
 
@@ -521,6 +525,7 @@ model TesoreriaMovimiento {
   @@index([transferenciaGrupoId], map: "tesoreria_movimientos_transferencia_grupo_idx")
   @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
   @@index([sucursalId], map: "tesoreria_movimientos_sucursal_idx")
+  @@index([personalId], map: "tesoreria_movimientos_personal_idx")
   @@map("tesoreria_movimientos")
 }
 
