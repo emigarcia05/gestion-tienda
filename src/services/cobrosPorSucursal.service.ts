@@ -21,7 +21,7 @@ export type CobrosPorSucursalCajaOption = {
   entidadNombre: string;
   sucursalNombre: string;
   titular: string;
-  /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR`. Se omiten los datos null o vacíos. */
+  /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR`. Omite el tramo si el dato es null. */
   etiqueta: string;
 };
 
@@ -75,8 +75,8 @@ function mapDbError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function parteEtiquetaCaja(valor: string | null | undefined): string | null {
-  const texto = valor?.trim() ?? "";
+function textoEtiqueta(valor: string | null | undefined): string | null {
+  const texto = (valor ?? "").trim();
   return texto.length > 0 ? texto.toLocaleUpperCase("es-AR") : null;
 }
 
@@ -87,10 +87,10 @@ function etiquetaCajaLista(row: {
   tipoCaja: TipoCajaTesoreria;
 }): string {
   const partes = [
-    etiquetaTipoCajaEnPantalla(row.tipoCaja),
-    parteEtiquetaCaja(row.entidad?.nombre),
-    parteEtiquetaCaja(row.sucursal?.nombre),
-    parteEtiquetaCaja(row.titular),
+    textoEtiqueta(etiquetaTipoCajaEnPantalla(row.tipoCaja)),
+    textoEtiqueta(row.entidad?.nombre),
+    textoEtiqueta(row.sucursal?.nombre),
+    textoEtiqueta(row.titular),
   ].filter((parte): parte is string => parte != null);
   return partes.join(" - ");
 }
@@ -164,13 +164,17 @@ async function validarCajaDestino(
 ): Promise<
   ServiceResult<{
     id: string;
+    sucursalId: string | null;
     etiqueta: string;
+    sucursalNombre: string;
   }>
 > {
   const caja = await prisma.cajaTesoreria.findFirst({
     where: { id: cajaDestinoId },
     select: {
       id: true,
+      entidadId: true,
+      sucursalId: true,
       titular: true,
       tipoCaja: true,
       entidad: { select: { nombre: true } },
@@ -184,7 +188,9 @@ async function validarCajaDestino(
     success: true,
     data: {
       id: caja.id,
+      sucursalId: caja.sucursalId,
       etiqueta: etiquetaCajaLista(caja),
+      sucursalNombre: textoEtiqueta(caja.sucursal?.nombre) ?? "",
     },
   };
 }
@@ -264,11 +270,9 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     entidadId: row.entidadId,
     sucursalId: row.sucursalId,
     tipoCaja: row.tipoCaja,
-    entidadNombre: row.entidad
-      ? row.entidad.nombre.toLocaleUpperCase("es-AR")
-      : "",
-    sucursalNombre: row.sucursal?.nombre.toLocaleUpperCase("es-AR") ?? "",
-    titular: row.titular.toLocaleUpperCase("es-AR"),
+    entidadNombre: textoEtiqueta(row.entidad?.nombre) ?? "",
+    sucursalNombre: textoEtiqueta(row.sucursal?.nombre) ?? "",
+    titular: textoEtiqueta(row.titular) ?? "",
     etiqueta: etiquetaCajaLista(row),
   }));
 
@@ -349,7 +353,7 @@ export async function crearCobroPorSucursal(
       data: {
         pagoId: input.pagoId,
         entidadId,
-        sucursalId: input.sucursalId,
+        sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
         observacion,
       },
@@ -365,7 +369,7 @@ export async function crearCobroPorSucursal(
         entidadId,
         entidadNombre,
         sucursalId: sucursal.id,
-        sucursalNombre: sucursal.nombre.toLocaleUpperCase("es-AR"),
+        sucursalNombre: textoEtiqueta(sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         observacion,
@@ -425,7 +429,7 @@ export async function actualizarCobroPorSucursal(
           ? existente.entidad.nombre.toLocaleUpperCase("es-AR")
           : "",
         sucursalId: existente.sucursalId,
-        sucursalNombre: existente.sucursal.nombre.toLocaleUpperCase("es-AR"),
+        sucursalNombre: textoEtiqueta(existente.sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         observacion,

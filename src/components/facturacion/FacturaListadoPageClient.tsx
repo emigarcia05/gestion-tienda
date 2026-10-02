@@ -427,16 +427,16 @@ export default function FacturaListadoPageClient({
       setBusyId(item.id);
       try {
         const res = await eliminarComprobanteNoFiscalAction({ id: item.id });
-        if (!res.ok) {
+      if (!res.ok) {
           toast.error(res.error ?? "No se pudo eliminar.");
-          return;
-        }
+        return;
+      }
         toast.success("Comprobante eliminado.");
         setModalAccion({ open: false });
-        router.refresh();
-      } finally {
-        setBusyId(null);
-      }
+      router.refresh();
+    } finally {
+      setBusyId(null);
+    }
       return;
     }
     const personalId = leerUsuarioSesion()?.idPersonal;
@@ -662,7 +662,7 @@ export default function FacturaListadoPageClient({
                 </FiltroIndividualContainer>
               ) : null}
             </FilaFiltrosDesplegables>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
               {esFacturas ? (
                 <>
                   <FiltroIndividualContainer
@@ -727,25 +727,25 @@ export default function FacturaListadoPageClient({
                   </FiltroIndividualContainer>
                 </>
               ) : (
-                <FilterRowSearch className="flex-1">
-                  <FiltroBusquedaInput
+            <FilterRowSearch className="flex-1">
+              <FiltroBusquedaInput
                     id="filtro-presupuestos-busqueda"
-                    placeholder="BUSCAR POR CLIENTE, N°, CAE…"
-                    value={q}
-                    onChange={handleQChange}
-                    isDebouncing={isDebouncing}
-                    inputRef={searchRef}
-                  />
-                </FilterRowSearch>
+                placeholder="BUSCAR POR CLIENTE, N°, CAE…"
+                value={q}
+                onChange={handleQChange}
+                isDebouncing={isDebouncing}
+                inputRef={searchRef}
+              />
+            </FilterRowSearch>
               )}
-              <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
-            </div>
-          </FilterBar>
-        }
+            <LimpiarFiltrosButton onClick={limpiarFiltros} />
+            <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
+              {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
+              {itemsFiltrados.length === 1 ? "" : "S"}
+            </span>
+          </div>
+        </FilterBar>
+      }
     >
       <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo min-h-0 flex-1">
         <div className="contenedor-tabla-gestion--pie-fijo-scroll">
@@ -1021,7 +1021,7 @@ export default function FacturaListadoPageClient({
             )}
           </TableBody>
         </Table>
-        </div>
+      </div>
         {esFacturas ? (
           <div
             className={cn("pie-pagina", "w-full shrink-0 px-2 py-2")}
