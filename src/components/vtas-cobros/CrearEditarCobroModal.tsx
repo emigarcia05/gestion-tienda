@@ -93,9 +93,9 @@ export default function CrearEditarCobroModal({
   }, [pagoId, entidades, vinculosPagoEntidad]);
 
   const cajasDisponibles = useMemo(() => {
-    if (!pagoId || !sucursalId) return [];
-    return cajas.filter((caja) => caja.sucursalId === sucursalId);
-  }, [cajas, pagoId, sucursalId]);
+    if (!pagoId) return [];
+    return cajas;
+  }, [cajas, pagoId]);
 
   useEffect(() => {
     if (!open || !muestraEntidad) return;
@@ -245,10 +245,7 @@ export default function CrearEditarCobroModal({
             <ModalMicroLabel>SUCURSAL</ModalMicroLabel>
             <Select
               value={sucursalId || undefined}
-              onValueChange={(value) => {
-                setSucursalId(value);
-                setCajaDestinoId("");
-              }}
+              onValueChange={setSucursalId}
               disabled={saving || esEditar}
             >
               <SelectTrigger
