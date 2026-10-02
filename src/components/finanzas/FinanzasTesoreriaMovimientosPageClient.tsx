@@ -100,17 +100,20 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
   const filasFiltradas = useMemo(
     () =>
       filas.filter((fila) => {
-        if (periodo === "hoy" && fila.fechaIso !== hoyIso) return false;
-        if (periodo === "ayer" && fila.fechaIso !== ayerIso) return false;
+        if (periodo === "hoy" && fila.fechaRegistroIso !== hoyIso) return false;
+        if (periodo === "ayer" && fila.fechaRegistroIso !== ayerIso) return false;
         if (
           periodo === "mes" &&
-          fila.fechaIso.slice(0, 7) !== hoyIso.slice(0, 7)
+          fila.fechaRegistroIso.slice(0, 7) !== hoyIso.slice(0, 7)
         ) {
           return false;
         }
         if (periodo === "rango") {
           if (!rangoDesde || !rangoHasta) return false;
-          if (fila.fechaIso < rangoDesde || fila.fechaIso > rangoHasta) {
+          if (
+            fila.fechaRegistroIso < rangoDesde ||
+            fila.fechaRegistroIso > rangoHasta
+          ) {
             return false;
           }
         }
@@ -350,23 +353,28 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>FECHA</TableHead>
+              <TableHead>FECHA REGISTRO</TableHead>
+              <TableHead>FECHA ACREDITACIÓN</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>TIPO</TableHead>
               <TableHead>CATEGORÍA</TableHead>
               <TableHead>CAJA</TableHead>
               <TableHead>USUARIO</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
+              <TableHead className="text-right">ACREDITADO</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filasFiltradas.length === 0 ? (
-              <EmptyTableRow colSpan={7} message="No hay movimientos." />
+              <EmptyTableRow colSpan={9} message="No hay movimientos." />
             ) : (
               filasFiltradas.map((fila) => (
                 <TableRow key={fila.id}>
                   <TableCell className="celda-datos">
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaIso)}
+                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaRegistroIso)}
+                  </TableCell>
+                  <TableCell className="celda-datos">
+                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaAcreditacionIso)}
                   </TableCell>
                   <TableCell className="celda-datos">
                     {fmtCelda(fila.sucursalNombre)}
@@ -391,6 +399,15 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                   >
                     {fila.tipoMovimiento === "EGRESO" ? "−" : ""}
                     ${fmtPrecio(fila.monto)}
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      "celda-datos text-right tabular-nums",
+                      fila.tipoMovimiento === "EGRESO" && "text-destructive"
+                    )}
+                  >
+                    {fila.tipoMovimiento === "EGRESO" ? "−" : ""}
+                    ${fmtPrecio(fila.montoAcreditado)}
                   </TableCell>
                 </TableRow>
               ))

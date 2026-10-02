@@ -484,10 +484,24 @@ model TesoreriaMovimiento {
   caja                 CajaTesoreria?                @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
   tipoMovimiento       SentidoMovimientoTesoreria    @map("tipo_movimiento")
   catMovimiento        CategoriaMovimientoTesoreria  @map("cat_movimiento")
-  /** Importe positivo. CHECK `monto > 0` en SQL. */
+  /**
+   * Importe bruto positivo (CHECK `monto > 0` en SQL).
+   * En cobros = lo que pagó el cliente (alimenta `imp_cobrado` / UI de factura).
+   */
   monto                Int
-  /** Fecha de negocio (calendario Argentina). */
-  fecha                DateTime                      @map("fecha") @db.Date
+  /**
+   * Importe que impacta el saldo de caja (entero ≥ 0).
+   * En cobros: `monto` × (1 − `cobros_cx_fin.costo_financiero` %), redondeado.
+   * En el resto de categorías: igual a `monto`.
+   */
+  montoAcreditado      Int                           @map("monto_acreditado")
+  /** Día en que se registró el movimiento (calendario Argentina). */
+  fechaRegistro        DateTime                      @map("fecha_registro") @db.Date
+  /**
+   * Día en que impacta el saldo de la caja (calendario Argentina).
+   * En cobros: `fecha_registro` + `cobros_cx_fin.dias_acreditacion` (0 si null).
+   */
+  fechaAcreditacion    DateTime                      @map("fecha_acreditacion") @db.Date
   observacion          String                        @default("") @map("observacion") @db.Text
   /** Forma de pago. Obligatoria en COBRO; en NOTA_CREDITO null si es imputación de NC. */
   pagoId               String?                       @map("pago_id")
@@ -526,10 +540,11 @@ model TesoreriaMovimiento {
   createdAt            DateTime                      @default(now()) @map("created_at")
   updatedAt            DateTime                      @updatedAt @map("updated_at")
 
-  @@index([cajaId, fecha], map: "tesoreria_movimientos_caja_fecha_idx")
+  @@index([cajaId, fechaAcreditacion], map: "tesoreria_movimientos_caja_fecha_acred_idx")
   @@index([tipoMovimiento], map: "tesoreria_movimientos_tipo_movimiento_idx")
   @@index([catMovimiento], map: "tesoreria_movimientos_cat_movimiento_idx")
-  @@index([fecha], map: "tesoreria_movimientos_fecha_idx")
+  @@index([fechaRegistro], map: "tesoreria_movimientos_fecha_registro_idx")
+  @@index([fechaAcreditacion], map: "tesoreria_movimientos_fecha_acreditacion_idx")
   @@index([pagoId], map: "tesoreria_movimientos_pago_idx")
   @@index([entidadId], map: "tesoreria_movimientos_entidad_idx")
   @@index([cuotaId], map: "tesoreria_movimientos_cuota_idx")

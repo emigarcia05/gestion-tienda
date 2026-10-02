@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
 import { esCobroNotaCreditoNombre } from "@/lib/factura";
 import {
+  addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
 } from "@/lib/fechaArgentina";
@@ -32,6 +33,40 @@ export type TesoreriaMovimientoCreado = {
 
 function fechaNegocio(iso: string): Date {
   return new Date(`${iso}T12:00:00.000Z`);
+}
+
+/** `fecha_acreditacion` = registro + días (0 si null/negativo). */
+function fechasRegistroYAcreditacion(
+  fechaRegistroIso: string,
+  diasAcreditacion: number | null | undefined
+): { fechaRegistro: Date; fechaAcreditacion: Date } {
+  const dias = Math.max(0, diasAcreditacion ?? 0);
+  const acredIso = addDaysToIsoYmdArgentina(fechaRegistroIso, dias);
+  return {
+    fechaRegistro: fechaNegocio(fechaRegistroIso),
+    fechaAcreditacion: fechaNegocio(acredIso),
+  };
+}
+
+/**
+ * Neto que impacta caja: bruto × (1 − % costo financiero), redondeado a pesos.
+ * % fuera de 0…100 se acota. Sin costo (null/0) → igual al bruto.
+ */
+export function montoAcreditadoDesdeCostoFinanciero(
+  montoBruto: number,
+  costoFinancieroPct: number | null | undefined
+): number {
+  const pctRaw = Number(costoFinancieroPct ?? 0);
+  const pct = Number.isFinite(pctRaw)
+    ? Math.min(100, Math.max(0, pctRaw))
+    : 0;
+  return Math.max(0, Math.round(montoBruto * (1 - pct / 100)));
+}
+
+function decimalPctToNumber(value: Prisma.Decimal | number | null | undefined): number {
+  if (value == null) return 0;
+  if (typeof value === "number") return value;
+  return Number(value.toString());
 }
 
 function sentidoDeCategoria(
@@ -176,13 +211,36 @@ export async function crearMovimientoTesoreria(
   const cobro = await resolverDatosCobro(input);
   if (!cobro.success) return cobro;
 
+  let diasAcreditacion: number | null = null;
+  let costoFinancieroPct = 0;
+  if (cobro.data.cxFinId) {
+    const cx = await prisma.finAnaCosFina.findUnique({
+      where: { id: cobro.data.cxFinId },
+      select: { diasAcreditacion: true, costoFinanciero: true },
+    });
+    diasAcreditacion = cx?.diasAcreditacion ?? null;
+    costoFinancieroPct = decimalPctToNumber(cx?.costoFinanciero);
+  }
+  const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
+    input.fecha,
+    input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO"
+      ? diasAcreditacion
+      : 0
+  );
+  const montoAcreditado =
+    input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO"
+      ? montoAcreditadoDesdeCostoFinanciero(input.monto, costoFinancieroPct)
+      : input.monto;
+
   const created = await prisma.tesoreriaMovimiento.create({
     data: {
       cajaId: input.cajaId,
       tipoMovimiento: sentido.data,
       catMovimiento: input.catMovimiento,
       monto: input.monto,
-      fecha: fechaNegocio(input.fecha),
+      montoAcreditado,
+      fechaRegistro,
+      fechaAcreditacion,
       observacion: input.observacion.trim(),
       pagoId: cobro.data.pagoId,
       entidadId: cobro.data.entidadId,
@@ -222,12 +280,17 @@ export async function crearTransferenciaEntreCajas(
   if (personalErr) return { success: false, error: personalErr };
 
   const transferenciaGrupoId = randomUUID();
-  const fecha = fechaNegocio(input.fecha);
+  const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
+    input.fecha,
+    0
+  );
   const observacion = input.observacion.trim();
   const base = {
     catMovimiento: "TRANSFERENCIA_ENTRE_CAJAS" as const,
     monto: input.monto,
-    fecha,
+    montoAcreditado: input.monto,
+    fechaRegistro,
+    fechaAcreditacion,
     observacion,
     sucursalId: input.sucursalId,
     personalId: input.personalId,
@@ -262,12 +325,14 @@ export async function crearTransferenciaEntreCajas(
 }
 
 /**
- * Saldo por caja = Σ monto con signo de `tipo_movimiento`
- * (INGRESO +, EGRESO −). Sin movimientos → 0.
+ * Saldo por caja = Σ `monto_acreditado` con signo de `tipo_movimiento`
+ * (INGRESO +, EGRESO −), solo movimientos con `fecha_acreditacion` ≤ hoy AR.
+ * Sin movimientos acreditados → 0.
  */
 export async function saldosPorCajaDesdeMovimientos(
   cajaIds?: readonly string[]
 ): Promise<Map<string, number>> {
+  const hoy = fechaNegocio(dateToIsoYmdArgentina(new Date()));
   const rows = await prisma.tesoreriaMovimiento.groupBy({
     by: ["cajaId", "tipoMovimiento"],
     where: {
@@ -275,14 +340,15 @@ export async function saldosPorCajaDesdeMovimientos(
         not: null,
         ...(cajaIds && cajaIds.length > 0 ? { in: [...cajaIds] } : {}),
       },
+      fechaAcreditacion: { lte: hoy },
     },
-    _sum: { monto: true },
+    _sum: { montoAcreditado: true },
   });
   const map = new Map<string, number>();
   for (const row of rows) {
     if (!row.cajaId) continue;
     const prev = map.get(row.cajaId) ?? 0;
-    const suma = row._sum.monto ?? 0;
+    const suma = row._sum.montoAcreditado ?? 0;
     map.set(
       row.cajaId,
       prev + (row.tipoMovimiento === "INGRESO" ? suma : -suma)
@@ -302,7 +368,8 @@ const ETIQUETA_CATEGORIA: Record<CategoriaMovimientoTesoreria, string> = {
 
 export type TesoreriaMovimientoFila = {
   id: string;
-  fechaIso: string;
+  fechaRegistroIso: string;
+  fechaAcreditacionIso: string;
   sucursalNombre: string;
   tipoMovimiento: SentidoMovimientoTesoreria;
   tipoEtiqueta: string;
@@ -311,7 +378,10 @@ export type TesoreriaMovimientoFila = {
   cajaId: string;
   cajaEtiqueta: string;
   usuarioNombre: string;
+  /** Bruto del movimiento (cobro = lo pagado por el cliente). */
   monto: number;
+  /** Neto que impacta caja (tras costo financiero en cobros). */
+  montoAcreditado: number;
 };
 
 function etiquetaCajaMovimiento(caja: {
@@ -340,13 +410,15 @@ export async function listarMovimientosTesoreria(): Promise<
   TesoreriaMovimientoFila[]
 > {
   const rows = await prisma.tesoreriaMovimiento.findMany({
-    orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ fechaRegistro: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
-      fecha: true,
+      fechaRegistro: true,
+      fechaAcreditacion: true,
       tipoMovimiento: true,
       catMovimiento: true,
       monto: true,
+      montoAcreditado: true,
       cajaId: true,
       sucursal: { select: { nombre: true } },
       personal: { select: { nombrePersonal: true } },
@@ -363,7 +435,8 @@ export async function listarMovimientosTesoreria(): Promise<
 
   return rows.map((row) => ({
     id: row.id,
-    fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+    fechaRegistroIso: isoYmdFromPrismaDateOnly(row.fechaRegistro),
+    fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
     sucursalNombre: row.sucursal.nombre.toLocaleUpperCase("es-AR"),
     tipoMovimiento: row.tipoMovimiento,
     tipoEtiqueta: row.tipoMovimiento === "INGRESO" ? "INGRESO" : "EGRESO",
@@ -375,6 +448,7 @@ export async function listarMovimientosTesoreria(): Promise<
       ? row.personal.nombrePersonal.toLocaleUpperCase("es-AR")
       : "",
     monto: row.monto,
+    montoAcreditado: row.montoAcreditado,
   }));
 }
 
@@ -408,7 +482,9 @@ export type MovimientoCobroFacturaData = {
   tipoMovimiento: SentidoMovimientoTesoreria;
   catMovimiento: CategoriaMovimientoTesoreria;
   monto: number;
-  fecha: Date;
+  montoAcreditado: number;
+  fechaRegistro: Date;
+  fechaAcreditacion: Date;
   observacion: string;
   pagoId: string;
   entidadId: string | null;
@@ -471,7 +547,6 @@ export async function prepararMovimientosCobroDesdeSnapshots(
     return { success: false, error: "Sucursal inválida para el cobro en tesorería." };
   }
 
-  const fecha = fechaNegocio(args.fechaIso);
   const observacionBase = (args.observacion ?? "").trim();
   const out: MovimientoCobroFacturaData[] = [];
 
@@ -599,7 +674,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
         terminalId: entidadId,
         cuotaId,
       },
-      select: { id: true },
+      select: { id: true, diasAcreditacion: true, costoFinanciero: true },
     });
     if (costos.length > 1) {
       return {
@@ -608,12 +683,21 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       };
     }
 
+    const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
+      args.fechaIso,
+      costos[0]?.diasAcreditacion
+    );
+    const costoPct = decimalPctToNumber(costos[0]?.costoFinanciero);
+    const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
+
     out.push({
       cajaId: vinculoCaja.cajaDestinoId,
       tipoMovimiento: "INGRESO",
       catMovimiento: "COBRO",
       monto,
-      fecha,
+      montoAcreditado,
+      fechaRegistro,
+      fechaAcreditacion,
       observacion: observacionBase,
       pagoId: pago.id,
       entidadId,

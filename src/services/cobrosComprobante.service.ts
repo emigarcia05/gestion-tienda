@@ -288,13 +288,16 @@ export async function crearImputacionNotaCreditoMovimiento(
   if (args.montoPesos <= 0) {
     return { success: false, error: "El monto de la imputación tiene que ser mayor a cero." };
   }
+  const fecha = fechaNegocioLocal(args.fechaIso);
   const created = await db.tesoreriaMovimiento.create({
     data: {
       cajaId: null,
       tipoMovimiento: "EGRESO",
       catMovimiento: "NOTA_CREDITO",
       monto: args.montoPesos,
-      fecha: fechaNegocioLocal(args.fechaIso),
+      montoAcreditado: args.montoPesos,
+      fechaRegistro: fecha,
+      fechaAcreditacion: fecha,
       observacion: (args.observacion ?? "").trim(),
       pagoId: null,
       entidadId: null,

@@ -2235,9 +2235,16 @@ export async function asignarClienteCobroComoCobro(
             data: { comprobanteId: input.ventaId, orden },
           });
         } else {
+          const acredTomar =
+            anticipo.monto > 0
+              ? Math.round((anticipo.montoAcreditado * tomar) / anticipo.monto)
+              : 0;
           await tx.tesoreriaMovimiento.update({
             where: { id: anticipo.id },
-            data: { monto: anticipo.monto - tomar },
+            data: {
+              monto: anticipo.monto - tomar,
+              montoAcreditado: Math.max(0, anticipo.montoAcreditado - acredTomar),
+            },
           });
           await tx.tesoreriaMovimiento.create({
             data: {
@@ -2245,7 +2252,9 @@ export async function asignarClienteCobroComoCobro(
               tipoMovimiento: anticipo.tipoMovimiento,
               catMovimiento: anticipo.catMovimiento,
               monto: tomar,
-              fecha: anticipo.fecha,
+              montoAcreditado: acredTomar,
+              fechaRegistro: anticipo.fechaRegistro,
+              fechaAcreditacion: anticipo.fechaAcreditacion,
               observacion: anticipo.observacion,
               pagoId: anticipo.pagoId,
               entidadId: anticipo.entidadId,
