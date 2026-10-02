@@ -34,24 +34,24 @@ enum TenenciaChequeTesoreria {
   PROVEEDOR
 }
 
-/**
- * Tipo de movimiento en el ledger `tesoreria_movimientos`.
- * El saldo de una caja será la suma de `monto` (firmado) de sus movimientos.
- */
-enum TipoMovimientoTesoreria {
-  COBRO
-  NOTA_CREDITO_VENTA
-  PAGO
-  ARQUEO
-  TRANSFERENCIA_ENTRE_CAJAS
+/** Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo. */
+enum SentidoMovimientoTesoreria {
+  INGRESO
+  EGRESO
 }
 
-/** Subtipo cuando `tipo = PAGO` (proveedores, personal, gastos, etc.). */
-enum CategoriaPagoTesoreria {
-  PROVEEDOR
-  PERSONAL
-  GASTO
-  OTRO
+/**
+ * Categoría de `tesoreria_movimientos`.
+ * COBRO es ingreso. NOTA_CREDITO, PAGO_PROVEEDOR y PAGO_GASTOS son egreso.
+ * AJUSTE_CAJA y TRANSFERENCIA_ENTRE_CAJAS eligen el sentido.
+ */
+enum CategoriaMovimientoTesoreria {
+  COBRO
+  NOTA_CREDITO
+  PAGO_PROVEEDOR
+  PAGO_GASTOS
+  AJUSTE_CAJA
+  TRANSFERENCIA_ENTRE_CAJAS
 }
 
 /**
@@ -435,7 +435,8 @@ model FinTesoreriaTipoCaja {
 }
 
 // Cajas de tesorería. `monto` / `ult_actualizacion` siguen como caché legacy;
-// el SSOT del saldo pasará a ser SUM(`tesoreria_movimientos.monto`) por caja.
+// el SSOT del saldo pasará a ser la suma de `tesoreria_movimientos.monto`
+// con signo según `tipo_movimiento` (INGRESO +, EGRESO −).
 model CajaTesoreria {
   id               String            @id @default(cuid())
   /** Null si la caja no usa una entidad de `cobros_entidades`. */
@@ -470,46 +471,55 @@ model CajaTesoreria {
 
 /**
  * Ledger de movimientos por caja (`tesoreria_movimientos`).
- * Una fila afecta **una** caja (`caja_id`). `monto` firmado: positivo = ingreso, negativo = egreso.
- * - COBRO: +
- * - NOTA_CREDITO_VENTA: −
- * - PAGO: − (detalle en `categoria_pago`)
- * - ARQUEO: delta +/−
- * - TRANSFERENCIA_ENTRE_CAJAS: dos filas con el mismo `transferencia_grupo_id`
- *   (origen −monto, destino +monto); `caja_contraparte_id` apunta a la otra caja.
+ * Una fila afecta **una** caja. `monto` siempre positivo; el signo lo da `tipo_movimiento`.
+ * Forma de pago, entidad, cuota y costo financiero solo en COBRO y NOTA_CREDITO.
+ * Entidad y cuota pueden quedar null si el catálogo no las tiene.
+ * TRANSFERENCIA_ENTRE_CAJAS: dos filas con el mismo `transferencia_grupo_id`.
  */
 model TesoreriaMovimiento {
-  id                   String                   @id @default(cuid())
-  cajaId               String                   @map("caja_id")
-  caja                 CajaTesoreria            @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
-  tipo                 TipoMovimientoTesoreria
-  /** Obligatorio en servicio si `tipo = PAGO`; null en el resto. */
-  categoriaPago        CategoriaPagoTesoreria?  @map("categoria_pago")
-  /** Importe firmado (≠ 0). CHECK en SQL. */
+  id                   String                        @id @default(cuid())
+  cajaId               String                        @map("caja_id")
+  caja                 CajaTesoreria                 @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  tipoMovimiento       SentidoMovimientoTesoreria    @map("tipo_movimiento")
+  catMovimiento        CategoriaMovimientoTesoreria  @map("cat_movimiento")
+  /** Importe positivo. CHECK `monto > 0` en SQL. */
   monto                Int
   /** Fecha de negocio (calendario Argentina). */
-  fecha                DateTime                 @map("fecha") @db.Date
-  observacion          String                   @default("") @map("observacion") @db.Text
+  fecha                DateTime                      @map("fecha") @db.Date
+  observacion          String                        @default("") @map("observacion") @db.Text
+  /** Forma de pago. Obligatoria en COBRO y NOTA_CREDITO; null en el resto. */
+  pagoId               String?                       @map("pago_id")
+  pago                 FinAnaCosFinaPagoCat?         @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  /** Entidad de la forma. Null si la forma no tiene entidades, o si la categoría no es cobro. */
+  entidadId            String?                       @map("entidad_id")
+  entidad              FinAnaCosFinaTerminalMarca?   @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  /** Cuota del par forma+entidad. Null si ese par no tiene cuotas. */
+  cuotaId              String?                       @map("cuota_id")
+  cuota                CobrosCuota?                  @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
+  /** Fila de `cobros_cx_fin` de esa forma × entidad × cuota. Null si no hay fila. */
+  cxFinId              String?                       @map("cx_fin_id")
+  cxFin                FinAnaCosFina?                @relation(fields: [cxFinId], references: [id], onDelete: Restrict)
   /** Pareja de piernas en TRANSFERENCIA_ENTRE_CAJAS. */
-  transferenciaGrupoId String?                  @map("transferencia_grupo_id")
-  /** La otra caja en una transferencia (informativo / UI). */
-  cajaContraparteId    String?                  @map("caja_contraparte_id")
-  cajaContraparte      CajaTesoreria?           @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
-  /**
-   * Sucursal del operador que creó el registro (sesión / `global_personal.sucursal_por_defecto`).
-   * Distinta de `tesoreria_cajas.sucursal_id` (sucursal de la caja).
-   */
-  sucursalId           String?                  @map("sucursal_id")
-  sucursal             Sucursal?                @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  createdAt            DateTime                 @default(now()) @map("created_at")
-  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  transferenciaGrupoId String?                       @map("transferencia_grupo_id")
+  /** La otra caja en una transferencia. */
+  cajaContraparteId    String?                       @map("caja_contraparte_id")
+  cajaContraparte      CajaTesoreria?                @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
+  /** Sucursal del movimiento. Distinta de `tesoreria_cajas.sucursal_id`. */
+  sucursalId           String                        @map("sucursal_id")
+  sucursal             Sucursal                      @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  createdAt            DateTime                      @default(now()) @map("created_at")
+  updatedAt            DateTime                      @updatedAt @map("updated_at")
 
   @@index([cajaId, fecha], map: "tesoreria_movimientos_caja_fecha_idx")
-  @@index([tipo], map: "tesoreria_movimientos_tipo_idx")
+  @@index([tipoMovimiento], map: "tesoreria_movimientos_tipo_movimiento_idx")
+  @@index([catMovimiento], map: "tesoreria_movimientos_cat_movimiento_idx")
   @@index([fecha], map: "tesoreria_movimientos_fecha_idx")
+  @@index([pagoId], map: "tesoreria_movimientos_pago_idx")
+  @@index([entidadId], map: "tesoreria_movimientos_entidad_idx")
+  @@index([cuotaId], map: "tesoreria_movimientos_cuota_idx")
+  @@index([cxFinId], map: "tesoreria_movimientos_cx_fin_idx")
   @@index([transferenciaGrupoId], map: "tesoreria_movimientos_transferencia_grupo_idx")
   @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
-  @@index([categoriaPago], map: "tesoreria_movimientos_categoria_pago_idx")
   @@index([sucursalId], map: "tesoreria_movimientos_sucursal_idx")
   @@map("tesoreria_movimientos")
 }
@@ -1321,6 +1331,7 @@ model FinAnaCosFinaTerminalMarca {
   formasPago CobrosFormaPagoEntidad[]
   cuotaVinculos CobrosCuotaVinculo[]
   cobrosPorSucursal CobrosPorSucursal[]
+  movimientosTesoreria TesoreriaMovimiento[]
 
   @@index([orden], map: "cobros_entidades_orden_idx")
   @@map("cobros_entidades")
@@ -1340,6 +1351,7 @@ model FinAnaCosFinaPagoCat {
   entidades     CobrosFormaPagoEntidad[]
   cuotaVinculos CobrosCuotaVinculo[]
   cobrosPorSucursal CobrosPorSucursal[]
+  movimientosTesoreria TesoreriaMovimiento[]
 
   @@map("cobros_forma_pago")
 }
@@ -1372,6 +1384,7 @@ model CobrosCuota {
 
   vinculos    CobrosCuotaVinculo[]
   filasCostos FinAnaCosFina[]
+  movimientosTesoreria TesoreriaMovimiento[]
 
   @@map("cobros_cuotas")
 }
@@ -1412,6 +1425,8 @@ model FinAnaCosFina {
   costoFinanciero  Decimal             @default(0) @map("costo_financiero") @db.Decimal(5, 2)
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  movimientosTesoreria TesoreriaMovimiento[]
 
   @@index([terminalId], map: "cobros_cx_fin_terminal_idx")
   @@index([pagoId], map: "cobros_cx_fin_pago_idx")

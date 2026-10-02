@@ -1,0 +1,76 @@
+import { z } from "zod";
+import { globalSucursalIdSchema, prismaIdSchema } from "@/lib/validations/common";
+
+const isoYmdSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (use YYYY-MM-DD).");
+
+const categoriasConCobro = ["COBRO", "NOTA_CREDITO"] as const;
+const categoriasSinTransferencia = [
+  "COBRO",
+  "NOTA_CREDITO",
+  "PAGO_PROVEEDOR",
+  "PAGO_GASTOS",
+  "AJUSTE_CAJA",
+] as const;
+
+export const crearMovimientoTesoreriaSchema = z
+  .object({
+    cajaId: prismaIdSchema,
+    catMovimiento: z.enum(categoriasSinTransferencia),
+    tipoMovimiento: z.enum(["INGRESO", "EGRESO"]).optional(),
+    monto: z.number().int().positive("El monto tiene que ser mayor a cero."),
+    fecha: isoYmdSchema,
+    sucursalId: globalSucursalIdSchema,
+    observacion: z.string().max(2000).default(""),
+    pagoId: prismaIdSchema.optional(),
+    entidadId: prismaIdSchema.nullable().optional(),
+    cuotaId: prismaIdSchema.nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const esCobro = (categoriasConCobro as readonly string[]).includes(data.catMovimiento);
+    if (esCobro && !data.pagoId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["pagoId"],
+        message: "Seleccioná la forma de pago.",
+      });
+    }
+    if (!esCobro && (data.pagoId || data.entidadId || data.cuotaId)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["pagoId"],
+        message: "Esta categoría no lleva datos de cobro.",
+      });
+    }
+    if (data.catMovimiento === "AJUSTE_CAJA" && !data.tipoMovimiento) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tipoMovimiento"],
+        message: "El ajuste tiene que ser ingreso o egreso.",
+      });
+    }
+  });
+
+export type CrearMovimientoTesoreriaInput = z.infer<typeof crearMovimientoTesoreriaSchema>;
+
+export const crearTransferenciaEntreCajasSchema = z.object({
+  cajaOrigenId: prismaIdSchema,
+  cajaDestinoId: prismaIdSchema,
+  monto: z.number().int().positive("El monto tiene que ser mayor a cero."),
+  fecha: isoYmdSchema,
+  sucursalId: globalSucursalIdSchema,
+  observacion: z.string().max(2000).default(""),
+}).superRefine((data, ctx) => {
+  if (data.cajaOrigenId === data.cajaDestinoId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["cajaDestinoId"],
+      message: "La caja destino tiene que ser otra caja.",
+    });
+  }
+});
+
+export type CrearTransferenciaEntreCajasInput = z.infer<
+  typeof crearTransferenciaEntreCajasSchema
+>;

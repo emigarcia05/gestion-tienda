@@ -11,6 +11,7 @@ import {
   listarVistaCobroNotaCreditoAction,
   registrarCobroComprobanteFacturaAction,
 } from "@/actions/factura";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import AppModal from "@/components/shared/AppModal";
@@ -253,7 +254,17 @@ export default function FacturaComprobanteCobrosModal({
       (esNotaCredito && vistaNc != null && ncPermiteDevolucion(vistaNc));
     if (!cargarCatalogo) return;
     let cancelled = false;
-    void listarCatalogoCobroFacturaAction().then((res) => {
+    const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
+    void (sucursalCodigo
+      ? listarCatalogoCobroFacturaAction({ sucursalCodigo })
+      : Promise.resolve({
+          ok: true as const,
+          data: {
+            pagos: [] as FinAnaCosFinaPagoItem[],
+            cuotas: [] as CobrosCuotaItem[],
+          },
+        })
+    ).then((res) => {
       if (cancelled) return;
       if (!res.ok) {
         toast.error(res.error ?? "No se pudieron cargar las formas de pago.");

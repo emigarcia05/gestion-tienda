@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listarCatalogoCobroFacturaAction } from "@/actions/factura";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -180,7 +181,17 @@ export default function FacturaGenerarComprobanteModal({
   useEffect(() => {
     if (!open || !esVenta) return;
     let cancelled = false;
-    void listarCatalogoCobroFacturaAction().then((res) => {
+    const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
+    void (sucursalCodigo
+      ? listarCatalogoCobroFacturaAction({ sucursalCodigo })
+      : Promise.resolve({
+          ok: true as const,
+          data: {
+            pagos: [] as FinAnaCosFinaPagoItem[],
+            cuotas: [] as CobrosCuotaItem[],
+          },
+        })
+    ).then((res) => {
       if (cancelled) return;
       if (!res.ok) {
         toast.error(res.error ?? "No se pudieron cargar las formas de pago.");

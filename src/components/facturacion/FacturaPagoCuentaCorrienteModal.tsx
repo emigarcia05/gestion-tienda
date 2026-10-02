@@ -7,6 +7,7 @@ import {
   listarVentasPendientesPagoCuentaCorrienteAction,
   registrarPagoCuentaCorrienteAction,
 } from "@/actions/factura";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -104,9 +105,18 @@ export default function FacturaPagoCuentaCorrienteModal({
       setCuotaId("");
       setMontoNorm("");
     });
+    const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
     void Promise.all([
       listarVentasPendientesPagoCuentaCorrienteAction({ clienteId }),
-      listarCatalogoCobroFacturaAction(),
+      sucursalCodigo
+        ? listarCatalogoCobroFacturaAction({ sucursalCodigo })
+        : Promise.resolve({
+            ok: true as const,
+            data: {
+              pagos: [] as FinAnaCosFinaPagoItem[],
+              cuotas: [] as CobrosCuotaItem[],
+            },
+          }),
     ]).then(([ventasRes, catRes]) => {
       if (cancelled) return;
       setLoading(false);

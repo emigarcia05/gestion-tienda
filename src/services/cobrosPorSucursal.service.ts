@@ -7,6 +7,8 @@ import type {
 } from "@/lib/validations/cobrosPorSucursal";
 import { Prisma, type TipoCajaTesoreria } from "@prisma/client";
 import type { ServiceResult } from "@/types";
+import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
+import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 
 export type CobrosPorSucursalSucursalCol = {
   id: string;
@@ -457,4 +459,45 @@ export async function eliminarCobroPorSucursal(
       error: mapDbError(error, "No se pudo eliminar el cobro."),
     };
   }
+}
+
+/** Formas de pago con fila en `cobros_vinc_cajas` para esa sucursal (código `guaymallen` | `maipu`). */
+export async function listarPagosCobroHabilitadosSucursal(
+  sucursalCodigo: string
+): Promise<FinAnaCosFinaPagoItem[]> {
+  const [pagos, vinculos] = await Promise.all([
+    listarFinAnaCosFinaPagos(),
+    prisma.cobrosPorSucursal.findMany({
+      where: { sucursal: { codigo: sucursalCodigo } },
+      select: { pagoId: true, entidadId: true },
+    }),
+  ]);
+
+  const pagosConFila = new Set<string>();
+  const entidadesPorPago = new Map<string, Set<string>>();
+  for (const vinculo of vinculos) {
+    pagosConFila.add(vinculo.pagoId);
+    if (!vinculo.entidadId) continue;
+    const entidades = entidadesPorPago.get(vinculo.pagoId) ?? new Set<string>();
+    entidades.add(vinculo.entidadId);
+    entidadesPorPago.set(vinculo.pagoId, entidades);
+  }
+
+  return pagos.flatMap((pago) => {
+    if (!pagosConFila.has(pago.id)) return [];
+    const permitidas = entidadesPorPago.get(pago.id);
+    if (!permitidas || permitidas.size === 0) {
+      return [{ ...pago, entidadIds: [], entidadNombres: [] }];
+    }
+    const pares = pago.entidadIds
+      .map((id, indice) => ({ id, nombre: pago.entidadNombres[indice] ?? "" }))
+      .filter((entidad) => permitidas.has(entidad.id));
+    return [
+      {
+        ...pago,
+        entidadIds: pares.map((entidad) => entidad.id),
+        entidadNombres: pares.map((entidad) => entidad.nombre),
+      },
+    ];
+  });
 }

@@ -26,6 +26,7 @@ import {
   emitirNotaCreditoFacturaSchema,
   convertirComprobanteNoFiscalEnFiscalSchema,
   facturaComprobanteIdSchema,
+  listarCatalogoCobroFacturaSchema,
   guardarDiasVencimientoFacturaSchema,
   registrarCobroComprobanteFacturaSchema,
   asignarNotaCreditoComoCobroSchema,
@@ -47,7 +48,7 @@ import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
 import { listarCobrosCuotas } from "@/services/cobrosCuotas.service";
-import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
+import { listarPagosCobroHabilitadosSucursal } from "@/services/cobrosPorSucursal.service";
 
 function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.crear);
@@ -271,14 +272,16 @@ export async function obtenerFacturaComprobantePdfAction(
   }
 }
 
-export async function listarCatalogoCobroFacturaAction(): Promise<
-  ActionResult<{ pagos: FinAnaCosFinaPagoItem[]; cuotas: CobrosCuotaItem[] }>
-> {
+export async function listarCatalogoCobroFacturaAction(
+  raw: unknown
+): Promise<ActionResult<{ pagos: FinAnaCosFinaPagoItem[]; cuotas: CobrosCuotaItem[] }>> {
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
+  const parsed = listarCatalogoCobroFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
   try {
     const [pagos, cuotas] = await Promise.all([
-      listarFinAnaCosFinaPagos(),
+      listarPagosCobroHabilitadosSucursal(parsed.data.sucursalCodigo),
       listarCobrosCuotas(),
     ]);
     return { ok: true, data: { pagos, cuotas } };

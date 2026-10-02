@@ -11,6 +11,14 @@ import {
   sucursalPorDefectoSchema,
 } from "@/lib/validations/globalPersonal";
 
+export const listarCatalogoCobroFacturaSchema = z.object({
+  sucursalCodigo: sucursalPorDefectoSchema,
+});
+
+export type ListarCatalogoCobroFacturaInput = z.infer<
+  typeof listarCatalogoCobroFacturaSchema
+>;
+
 const isoYmdSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.")
