@@ -130,6 +130,13 @@ const flujosScreens: AdmScreenDef[] = [
     permiso: PERMISOS.finanzas.acceso,
   },
   {
+    id: "tesoreria-movimientos",
+    label: "Movimientos",
+    href: "/finanzas/tesoreria/movimientos",
+    icon: "list",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
     id: "flujo-de-fondos",
     label: "Flujo De Fondos",
     href: "/finanzas/venc-por-fecha",

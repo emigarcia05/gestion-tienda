@@ -8,9 +8,13 @@ import AppModal from "@/components/shared/AppModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MontoArInput from "@/components/shared/MontoArInput";
-import { editarCajaTesoreriaAction } from "@/actions/cajasTesoreria";
+import { ajustarMontoCajaTesoreriaAction } from "@/actions/tesoreriaMovimientos";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
-import { montoArNormalizedStringToPesosIntRounded } from "@/lib/montoArMask";
+import {
+  montoArNormalizedStringToPesosIntRounded,
+  montoArNumberToNormalizedString,
+} from "@/lib/montoArMask";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 
 interface Props {
   open: boolean;
@@ -28,46 +32,48 @@ export default function ActualizarMontoCajaTesoreriaModal({
   const [montoNorm, setMontoNorm] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const saldoActual = caja?.montoDisponible ?? 0;
+
   useEffect(() => {
     if (!open) {
       setMontoNorm("");
       return;
     }
     if (!caja) return;
-    setMontoNorm("");
+    setMontoNorm(montoArNumberToNormalizedString(caja.montoDisponible));
   }, [open, caja]);
 
-  const parsedMonto = useMemo(() => montoArNormalizedStringToPesosIntRounded(montoNorm), [montoNorm]);
+  const parsedMonto = useMemo(
+    () => montoArNormalizedStringToPesosIntRounded(montoNorm),
+    [montoNorm]
+  );
 
   const disabledSubmit = useMemo(
     () =>
       saving ||
       !caja ||
       montoNorm.trim() === "" ||
-      parsedMonto === caja.monto,
-    [saving, caja, montoNorm, parsedMonto]
+      parsedMonto === saldoActual,
+    [saving, caja, montoNorm, parsedMonto, saldoActual]
   );
 
   async function handleSubmit() {
     if (!caja || disabledSubmit) return;
     setSaving(true);
     try {
-      const res = await editarCajaTesoreriaAction({
-        id: caja.id,
-        entidadId: caja.entidadId,
-        titular: caja.titular,
-        sucursalId: caja.sucursalId,
-        tipoCaja: caja.tipoCaja,
-        tipoValor: caja.tipoValor,
-        monto: parsedMonto,
+      const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
+      const res = await ajustarMontoCajaTesoreriaAction({
+        cajaId: caja.id,
+        montoObjetivo: parsedMonto,
+        ...(caja.sucursalId ? {} : sucursalCodigo ? { sucursalCodigo } : {}),
       });
 
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudo actualizar el monto.");
+        toast.error(res.error ?? "No se pudo ajustar el monto.");
         return;
       }
 
-      toast.success("Monto actualizado correctamente.");
+      toast.success("Monto ajustado.");
       onOpenChange(false);
       onUpdated?.();
     } finally {
@@ -78,7 +84,7 @@ export default function ActualizarMontoCajaTesoreriaModal({
   return (
     <Dialog open={open} onOpenChange={(next) => (!saving ? onOpenChange(next) : undefined)}>
       <AppModal
-        title="Actualizar Monto"
+        title="AJUSTAR MONTO"
         size="sm"
         className="max-w-md"
         actions={
@@ -113,7 +119,7 @@ export default function ActualizarMontoCajaTesoreriaModal({
               onValueNormalizedChange={setMontoNorm}
               treatEmptyNormalizedAsBlank
               disabled={saving}
-              aria-label="Monto de la caja"
+              aria-label="Monto objetivo de la caja"
             />
           </label>
         </div>

@@ -74,3 +74,24 @@ export const crearTransferenciaEntreCajasSchema = z.object({
 export type CrearTransferenciaEntreCajasInput = z.infer<
   typeof crearTransferenciaEntreCajasSchema
 >;
+
+/**
+ * El usuario carga el monto al que quiere dejar la caja.
+ * Se genera un AJUSTE_CAJA por la diferencia (ingreso o egreso).
+ */
+export const ajustarMontoCajaTesoreriaSchema = z.object({
+  cajaId: prismaIdSchema,
+  /** Saldo deseado de la caja (≥ 0). */
+  montoObjetivo: z.number().int().min(0, "El monto no puede ser negativo."),
+  /**
+   * Código de sucursal del operador (`guaymallen` | `maipu`).
+   * Obligatorio si la caja no tiene `sucursal_id` (p. ej. CHEQUE).
+   */
+  sucursalCodigo: z.enum(["guaymallen", "maipu"]).optional(),
+  fecha: isoYmdSchema.optional(),
+  observacion: z.string().max(2000).default(""),
+});
+
+export type AjustarMontoCajaTesoreriaInput = z.infer<
+  typeof ajustarMontoCajaTesoreriaSchema
+>;

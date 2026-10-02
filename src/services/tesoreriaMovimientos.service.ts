@@ -1,10 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
+import {
+  dateToIsoYmdArgentina,
+  isoYmdFromPrismaDateOnly,
+} from "@/lib/fechaArgentina";
 import type {
+  AjustarMontoCajaTesoreriaInput,
   CrearMovimientoTesoreriaInput,
   CrearTransferenciaEntreCajasInput,
 } from "@/lib/validations/tesoreriaMovimientos";
-import type { CategoriaMovimientoTesoreria, SentidoMovimientoTesoreria } from "@prisma/client";
+import type {
+  CategoriaMovimientoTesoreria,
+  SentidoMovimientoTesoreria,
+  TipoCajaTesoreria,
+} from "@prisma/client";
 import type { ServiceResult } from "@/types";
 
 const CATEGORIAS_COBRO: ReadonlySet<CategoriaMovimientoTesoreria> = new Set([
@@ -233,4 +243,167 @@ export async function crearTransferenciaEntreCajas(
     success: true,
     data: { transferenciaGrupoId, ids: [egreso.id, ingreso.id] },
   };
+}
+
+/**
+ * Saldo por caja = Σ monto con signo de `tipo_movimiento`
+ * (INGRESO +, EGRESO −). Sin movimientos → 0.
+ */
+export async function saldosPorCajaDesdeMovimientos(
+  cajaIds?: readonly string[]
+): Promise<Map<string, number>> {
+  const rows = await prisma.tesoreriaMovimiento.groupBy({
+    by: ["cajaId", "tipoMovimiento"],
+    where:
+      cajaIds && cajaIds.length > 0 ? { cajaId: { in: [...cajaIds] } } : undefined,
+    _sum: { monto: true },
+  });
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const prev = map.get(row.cajaId) ?? 0;
+    const suma = row._sum.monto ?? 0;
+    map.set(
+      row.cajaId,
+      prev + (row.tipoMovimiento === "INGRESO" ? suma : -suma)
+    );
+  }
+  return map;
+}
+
+const ETIQUETA_CATEGORIA: Record<CategoriaMovimientoTesoreria, string> = {
+  COBRO: "COBRO",
+  NOTA_CREDITO: "NOTA DE CRÉDITO",
+  PAGO_PROVEEDOR: "PAGO PROVEEDOR",
+  PAGO_GASTOS: "PAGO GASTOS",
+  AJUSTE_CAJA: "AJUSTE CAJA",
+  TRANSFERENCIA_ENTRE_CAJAS: "TRANSFERENCIA ENTRE CAJAS",
+};
+
+export type TesoreriaMovimientoFila = {
+  id: string;
+  fechaIso: string;
+  sucursalNombre: string;
+  tipoMovimiento: SentidoMovimientoTesoreria;
+  tipoEtiqueta: string;
+  catMovimiento: CategoriaMovimientoTesoreria;
+  categoriaEtiqueta: string;
+  cajaId: string;
+  cajaEtiqueta: string;
+  monto: number;
+};
+
+function etiquetaCajaMovimiento(caja: {
+  titular: string;
+  tipoCaja: TipoCajaTesoreria;
+  entidad: { nombre: string } | null;
+  sucursal: { nombre: string } | null;
+}): string {
+  const partes = [
+    etiquetaTipoCajaEnPantalla(caja.tipoCaja),
+    caja.entidad?.nombre.trim()
+      ? caja.entidad.nombre.toLocaleUpperCase("es-AR")
+      : null,
+    caja.sucursal?.nombre.trim()
+      ? caja.sucursal.nombre.toLocaleUpperCase("es-AR")
+      : null,
+    caja.titular.trim()
+      ? caja.titular.toLocaleUpperCase("es-AR")
+      : null,
+  ].filter((parte): parte is string => parte != null && parte.length > 0);
+  return partes.join(" - ");
+}
+
+/** Listado del ledger para TESORERIA → Movimientos (más recientes primero). */
+export async function listarMovimientosTesoreria(): Promise<
+  TesoreriaMovimientoFila[]
+> {
+  const rows = await prisma.tesoreriaMovimiento.findMany({
+    orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      fecha: true,
+      tipoMovimiento: true,
+      catMovimiento: true,
+      monto: true,
+      cajaId: true,
+      sucursal: { select: { nombre: true } },
+      caja: {
+        select: {
+          titular: true,
+          tipoCaja: true,
+          entidad: { select: { nombre: true } },
+          sucursal: { select: { nombre: true } },
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+    sucursalNombre: row.sucursal.nombre.toLocaleUpperCase("es-AR"),
+    tipoMovimiento: row.tipoMovimiento,
+    tipoEtiqueta: row.tipoMovimiento === "INGRESO" ? "INGRESO" : "EGRESO",
+    catMovimiento: row.catMovimiento,
+    categoriaEtiqueta: ETIQUETA_CATEGORIA[row.catMovimiento],
+    cajaId: row.cajaId,
+    cajaEtiqueta: etiquetaCajaMovimiento(row.caja),
+    monto: row.monto,
+  }));
+}
+
+/**
+ * Lleva el saldo de la caja a `montoObjetivo` con un movimiento AJUSTE_CAJA.
+ * Ejemplo: saldo 100 → objetivo 40 ⇒ egreso 60.
+ */
+export async function ajustarMontoCajaTesoreria(
+  input: AjustarMontoCajaTesoreriaInput
+): Promise<ServiceResult<TesoreriaMovimientoCreado>> {
+  const caja = await prisma.cajaTesoreria.findUnique({
+    where: { id: input.cajaId },
+    select: { id: true, sucursalId: true },
+  });
+  if (!caja) {
+    return { success: false, error: "Caja inválida." };
+  }
+
+  let sucursalId = caja.sucursalId;
+  if (!sucursalId) {
+    if (!input.sucursalCodigo) {
+      return {
+        success: false,
+        error: "Indicá la sucursal del movimiento (la caja no tiene sucursal).",
+      };
+    }
+    const sucursal = await prisma.sucursal.findUnique({
+      where: { codigo: input.sucursalCodigo },
+      select: { id: true },
+    });
+    if (!sucursal) {
+      return { success: false, error: "Sucursal inválida." };
+    }
+    sucursalId = sucursal.id;
+  }
+
+  const saldos = await saldosPorCajaDesdeMovimientos([caja.id]);
+  const saldoActual = saldos.get(caja.id) ?? 0;
+  const delta = input.montoObjetivo - saldoActual;
+  if (delta === 0) {
+    return { success: false, error: "El monto ya es ese valor." };
+  }
+
+  const fecha = input.fecha ?? dateToIsoYmdArgentina(new Date());
+  const observacion =
+    input.observacion.trim() ||
+    `Ajuste de monto a $${input.montoObjetivo.toLocaleString("es-AR")}`;
+
+  return crearMovimientoTesoreria({
+    cajaId: caja.id,
+    catMovimiento: "AJUSTE_CAJA",
+    tipoMovimiento: delta > 0 ? "INGRESO" : "EGRESO",
+    monto: Math.abs(delta),
+    fecha,
+    sucursalId,
+    observacion,
+  });
 }

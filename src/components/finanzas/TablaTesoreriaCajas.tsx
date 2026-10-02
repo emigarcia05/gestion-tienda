@@ -31,9 +31,9 @@ export interface TesoreriaCajaFila {
   sucursalNombre: string;
   tipoCaja: string;
   tipoValor: string;
-  /** Valor persistido en BD (p. ej. edición de caja); no usar para totales si existe `montoDisponible`. */
+  /** Caché legacy en BD; la columna MONTO usa `montoDisponible`. */
   monto: number;
-  /** Monto que cuenta hoy para totales y columna MONTO (cajas CHEQUE: cheques con fecha de acreditación ≤ hoy AR). */
+  /** Saldo = Σ movimientos (INGRESO +, EGRESO −). */
   montoDisponible: number;
   /** Solo cajas CHEQUE: cheques con fecha de acreditación > hoy AR (diferidos). */
   montoChequesDiferidos: number;
@@ -247,8 +247,8 @@ export default function TablaTesoreriaCajas({
                                 event.stopPropagation();
                                 onEditMontoClick(f);
                               }}
-                              aria-label="Editar monto"
-                              title="Editar monto"
+                              aria-label="Ajustar monto"
+                              title="Ajustar monto"
                             >
                               <Banknote className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>

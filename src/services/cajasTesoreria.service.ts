@@ -7,12 +7,12 @@ import { prisma } from "@/lib/prisma";
 import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import type { ServiceResult } from "@/types";
 import {
-  sumarMontosChequesAcreditadosHasta,
   sumarMontosChequesDiferidosPorCaja,
 } from "@/services/finTesoreriaCheques.service";
 import { tipoValorCompatibleConTipoCaja } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
+import { saldosPorCajaDesdeMovimientos } from "@/services/tesoreriaMovimientos.service";
 
 export type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 
@@ -36,11 +36,11 @@ export interface CajaTesoreriaItem {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   supervisionFiscal: boolean;
-  /** Valor persistido en `fin_tesoreria.monto` (para edición legacy; en CHEQUE no alimenta el disponible). */
+  /** Caché legacy en `tesoreria_cajas.monto`. La UI usa `montoDisponible`. */
   monto: number;
   /**
-   * Monto que cuenta para totales y “caja disponible”: en `CHEQUE`, suma de `tesoreria_cheques`
-   * con `fecha_acreditacion` ≤ hoy (calendario Argentina); en otros tipos, igual a `monto`.
+   * Saldo de la caja = Σ `tesoreria_movimientos.monto` con signo de `tipo_movimiento`
+   * (INGRESO +, EGRESO −). Sin movimientos → 0.
    */
   montoDisponible: number;
   /**
@@ -93,7 +93,7 @@ function mapCaja(
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
     supervisionFiscal: row.supervisionFiscal,
-    monto: row.monto,
+    monto: montoDisponible,
     montoDisponible,
     montoChequesDiferidos,
     ultActualizacion: row.ultActualizacion,
@@ -247,16 +247,16 @@ export async function listarCajasTesoreria(): Promise<CajaTesoreriaItem[]> {
     orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const hoyIso = dateToIsoYmdArgentina(new Date());
-  const [sumasCheque, sumasDiferido] = await Promise.all([
-    sumarMontosChequesAcreditadosHasta(hoyIso),
+  const ids = rows.map((row) => row.id);
+  const [saldos, sumasDiferido] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
     sumarMontosChequesDiferidosPorCaja(hoyIso),
   ]);
   return rows.map((row) => {
-    const disponible =
-      row.tipoCaja === "CHEQUE" ? (sumasCheque.get(row.id) ?? 0) : row.monto;
+    const saldo = saldos.get(row.id) ?? 0;
     const diferido =
       row.tipoCaja === "CHEQUE" ? (sumasDiferido.get(row.id) ?? 0) : 0;
-    return mapCaja(row, disponible, diferido);
+    return mapCaja(row, saldo, diferido);
   });
 }
 
@@ -270,16 +270,16 @@ export async function listarCajasTesoreriaPorTipoCaja(
     orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const hoyIso = dateToIsoYmdArgentina(new Date());
-  const [sumasCheque, sumasDiferido] = await Promise.all([
-    sumarMontosChequesAcreditadosHasta(hoyIso),
+  const ids = rows.map((row) => row.id);
+  const [saldos, sumasDiferido] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
     sumarMontosChequesDiferidosPorCaja(hoyIso),
   ]);
   return rows.map((row) => {
-    const disponible =
-      row.tipoCaja === "CHEQUE" ? (sumasCheque.get(row.id) ?? 0) : row.monto;
+    const saldo = saldos.get(row.id) ?? 0;
     const diferido =
       row.tipoCaja === "CHEQUE" ? (sumasDiferido.get(row.id) ?? 0) : 0;
-    return mapCaja(row, disponible, diferido);
+    return mapCaja(row, saldo, diferido);
   });
 }
 
@@ -311,7 +311,7 @@ export async function crearCajaTesoreria(
     });
     return {
       success: true,
-      data: mapCaja(row, row.tipoCaja === "CHEQUE" ? 0 : row.monto, 0),
+      data: mapCaja(row, 0, 0),
     };
   } catch (error: unknown) {
     return {
@@ -370,15 +370,14 @@ export async function editarCajaTesoreria(
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
     const hoyIso = dateToIsoYmdArgentina(new Date());
-    const [sumasCheque, sumasDiferido] = await Promise.all([
-      sumarMontosChequesAcreditadosHasta(hoyIso),
+    const [saldos, sumasDiferido] = await Promise.all([
+      saldosPorCajaDesdeMovimientos([row.id]),
       sumarMontosChequesDiferidosPorCaja(hoyIso),
     ]);
-    const disponible =
-      row.tipoCaja === "CHEQUE" ? (sumasCheque.get(row.id) ?? 0) : row.monto;
+    const saldo = saldos.get(row.id) ?? 0;
     const diferido =
       row.tipoCaja === "CHEQUE" ? (sumasDiferido.get(row.id) ?? 0) : 0;
-    return { success: true, data: mapCaja(row, disponible, diferido) };
+    return { success: true, data: mapCaja(row, saldo, diferido) };
   } catch (error: unknown) {
     return {
       success: false,
