@@ -38,7 +38,6 @@ import {
   esFacturaTipo,
   esFacturaTipoFiscal,
   esFacturaTipoNotaCredito,
-  FACTURA_COBRO_NOTA_CREDITO_LABEL,
   esFacturaTipoVenta,
   ncPermiteDevolucion,
   puedeConvertirComprobanteEnFiscal,
@@ -47,7 +46,6 @@ import {
   tipoNotaCreditoDesdeVenta,
   impCobradoDesdeCobros,
   imputarPagoFifoVentas,
-  leftoverClienteCobroPesos,
   saldoPendienteTrasCobro,
   MENSAJE_CLIENTE_TOPE_CTA_CORRIENTE,
   MENSAJE_PERSONAL_SIN_SUCURSAL,
@@ -104,6 +102,39 @@ import {
 } from "@/lib/facturaComprobantePdfEmisor";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
+import {
+  conComprobanteEnMovimientos,
+  crearMovimientosCobroPreparados,
+  prepararMovimientosCobroDesdeSnapshots,
+  type MovimientoCobroFacturaData,
+} from "@/services/tesoreriaMovimientos.service";
+import {
+  crearImputacionNotaCreditoMovimiento,
+  eliminarImputacionesNotaCredito,
+  leftoverClienteCobroDesdeMovimientos,
+  listarCobrosDeComprobante,
+  siguienteOrdenCobroComprobante,
+  sumarImpCobradoDesdeMovimientos,
+} from "@/services/cobrosComprobante.service";
+
+/** Error de negocio al impactar cobros en tesorería (rollback de la misma tx). */
+class TesoreriaCobroFacturaError extends Error {
+  constructor(readonly serviceError: string) {
+    super(serviceError);
+    this.name = "TesoreriaCobroFacturaError";
+  }
+}
+
+async function persistirMovimientosCobroEnTx(
+  filas: readonly MovimientoCobroFacturaData[],
+  tx: Prisma.TransactionClient
+): Promise<void> {
+  if (filas.length === 0) return;
+  const mov = await crearMovimientosCobroPreparados(filas, tx);
+  if (!mov.success) {
+    throw new TesoreriaCobroFacturaError(mov.error);
+  }
+}
 
 function documentoReceptorPdf(
   tipo: FacturaTipo,
@@ -125,37 +156,29 @@ function asEstado(raw: string): FacturaComprobanteEstado {
   return "borrador";
 }
 
+/** Sucursal (`sucursales.id`) a partir de `personal.sucursal_por_defecto` (código). */
+async function sucursalIdDesdeCodigo(
+  codigo: string | null | undefined,
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<string | null> {
+  const limpio = (codigo ?? "").trim();
+  if (!limpio) return null;
+  const sucursal = await db.sucursal.findUnique({
+    where: { codigo: limpio },
+    select: { id: true },
+  });
+  return sucursal?.id ?? null;
+}
+
+/** Elimina las imputaciones de una NC en el ledger y devuelve el saldo a cada venta. */
 async function revertirImputacionesNotaCredito(
   tx: Prisma.TransactionClient,
-  nroNc: string
+  notaCreditoId: string
 ): Promise<void> {
-  const nro = nroNc.trim();
-  if (!nro) return;
-  const cobros = await tx.comprobanteVtaCobro.findMany({
-    where: { entidadNombre: nro },
-    select: {
-      id: true,
-      comprobanteId: true,
-      pagoNombre: true,
-      montoCents: true,
-    },
-  });
-  const imputados = cobros.filter((c) => esCobroNotaCreditoNombre(c.pagoNombre));
-  if (imputados.length === 0) return;
+  const eliminadas = await eliminarImputacionesNotaCredito(notaCreditoId, tx);
+  if (eliminadas.length === 0) return;
 
-  const porVenta = new Map<string, { ids: string[]; montoCents: number }>();
-  for (const cobro of imputados) {
-    const cur = porVenta.get(cobro.comprobanteId) ?? { ids: [], montoCents: 0 };
-    cur.ids.push(cobro.id);
-    cur.montoCents += cobro.montoCents;
-    porVenta.set(cobro.comprobanteId, cur);
-  }
-
-  await tx.comprobanteVtaCobro.deleteMany({
-    where: { id: { in: imputados.map((c) => c.id) } },
-  });
-
-  for (const [ventaId, agg] of porVenta) {
+  for (const { ventaId, montoPesos } of eliminadas) {
     const venta = await tx.comprobanteVta.findUnique({
       where: { id: ventaId },
       select: {
@@ -166,7 +189,7 @@ async function revertirImputacionesNotaCredito(
       },
     });
     if (!venta) continue;
-    const restar = roundArs2(agg.montoCents / 100);
+    const restar = roundArs2(montoPesos);
     const siguienteImpCobrado = roundArs2(
       Math.max(0, decimalToNumber(venta.impCobrado) - restar)
     );
@@ -198,24 +221,26 @@ async function revertirImputacionesNotaCredito(
   }
 }
 
+function observacionImputacionNc(nroNc: string): string {
+  return `Imputación NC ${nroNc.trim()}`;
+}
+
+/** Reasigna las imputaciones de la NC no fiscal a la NC fiscal que la reemplaza. */
 async function retargetImputacionesNotaCredito(
-  nroViejo: string,
-  nroNuevo: string
+  ncViejoId: string,
+  ncNuevo: { id: string; nroComprobante: string }
 ): Promise<void> {
-  const desde = nroViejo.trim();
-  const hacia = nroNuevo.trim();
-  if (!desde || !hacia || desde === hacia) return;
-  const cobros = await prisma.comprobanteVtaCobro.findMany({
-    where: { entidadNombre: desde },
-    select: { id: true, pagoNombre: true },
-  });
-  const ids = cobros
-    .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
-    .map((c) => c.id);
-  if (ids.length === 0) return;
-  await prisma.comprobanteVtaCobro.updateMany({
-    where: { id: { in: ids } },
-    data: { entidadNombre: hacia },
+  if (!ncViejoId || !ncNuevo.id || ncViejoId === ncNuevo.id) return;
+  await prisma.tesoreriaMovimiento.updateMany({
+    where: {
+      notaCreditoId: ncViejoId,
+      catMovimiento: "NOTA_CREDITO",
+      cajaId: null,
+    },
+    data: {
+      notaCreditoId: ncNuevo.id,
+      observacion: observacionImputacionNc(ncNuevo.nroComprobante),
+    },
   });
 }
 
@@ -234,21 +259,6 @@ async function imputarNcEmitidaAlOriginal(
     console.error("[facturaComprobantes][imputarNc]", asoc.error);
   }
   return emitido;
-}
-
-function nestedCobrosCreate(cobros: EmitirFacturaComprobanteInput["cobros"]) {
-  if (cobros.length === 0) return undefined;
-  return {
-    create: cobros.map((c, orden) => ({
-      orden,
-      pagoNombre: c.pagoNombre,
-      entidadNombre: c.entidadNombre,
-      cuotaEtiqueta: c.cuotaEtiqueta,
-      montoCents: c.montoCents,
-      esCuentaCorriente: false,
-      plazoDias: null,
-    })),
-  };
 }
 
 function resolverCobrosYVencimiento(args: {
@@ -676,10 +686,7 @@ export async function eliminarComprobanteNoFiscal(
     }
     await prisma.$transaction(async (tx) => {
       if (esFacturaTipoNotaCredito(tipo)) {
-        await revertirImputacionesNotaCredito(
-          tx,
-          formatoNroComprobante(row.ptoVenta, row.cbteNro)
-        );
+        await revertirImputacionesNotaCredito(tx, id);
       }
       await tx.comprobanteVta.updateMany({
         where: { cbteAsocId: id },
@@ -709,7 +716,6 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
       where: { id: input.id },
       include: {
         items: { orderBy: { orden: "asc" } },
-        cobros: { orderBy: { orden: "asc" } },
         notasCredito: { select: { id: true }, take: 1 },
       },
     });
@@ -743,7 +749,8 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
       return { success: false, error: "El comprobante no tiene ítems." };
     }
 
-    const cobros = row.cobros
+    const cobrosActuales = await listarCobrosDeComprobante(row.id);
+    const cobros = cobrosActuales
       .filter((c) => !c.esCuentaCorriente && c.montoCents > 0)
       .map((c) => ({
         pagoNombre: c.pagoNombre,
@@ -796,10 +803,10 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
     }
 
     if (esFacturaTipoNotaCredito(tipoOrigen)) {
-      await retargetImputacionesNotaCredito(
-        formatoNroComprobante(row.ptoVenta, row.cbteNro),
-        emitRes.data.nroComprobante
-      );
+      await retargetImputacionesNotaCredito(row.id, {
+        id: emitRes.data.id,
+        nroComprobante: emitRes.data.nroComprobante,
+      });
     }
     if (esFacturaTipoVenta(tipoOrigen)) {
       await prisma.comprobanteVta.updateMany({
@@ -1231,6 +1238,15 @@ export async function emitirFacturaComprobante(
   if (!cobrosRes.success) return cobrosRes;
   const { cobros, impCobrado, diasVencimiento } = cobrosRes.data;
 
+  const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
+    cobros,
+    sucursalCodigo: personal.sucursalPorDefecto ?? "",
+    fechaIso: input.fechaIso,
+    personalId: personal.idPersonal,
+  });
+  if (!movsPrep.success) return movsPrep;
+  const movimientosCobro = movsPrep.data;
+
   const ambiente = ambienteArcaActual();
   const concepto = pto.concepto || "1";
   const receptorNombre = nombreClienteFactura(input.cliente);
@@ -1293,14 +1309,23 @@ export async function emitirFacturaComprobante(
                 comentario: l.comentario,
               })),
             },
-            cobros: nestedCobrosCreate(cobros),
           },
         });
+        await persistirMovimientosCobroEnTx(
+          conComprobanteEnMovimientos(movimientosCobro, {
+            comprobanteId: header.id,
+            ordenInicio: 0,
+          }),
+          tx
+        );
         return header;
       });
       const emitido = { success: true as const, data: emitirResultadoDesdeRow(created) };
       return imputarNcEmitidaAlOriginal(emitido, original?.id ?? null);
     } catch (e) {
+      if (e instanceof TesoreriaCobroFacturaError) {
+        return { success: false, error: e.serviceError };
+      }
       console.error("[facturaComprobantes][emitirInterno]", e);
       return { success: false, error: "No se pudo guardar el comprobante." };
     }
@@ -1337,11 +1362,11 @@ export async function emitirFacturaComprobante(
     alicIva,
     ambiente,
     original,
-    cobros,
     impCobrado,
     diasVencimiento,
     receptorDomicilio: domicilioRes.data,
     emisorCondicionIva: fiscal ? pto.condicionIva : null,
+    movimientosCobro,
   });
 }
 
@@ -1385,11 +1410,11 @@ async function emitirFiscal(args: {
     receptorDocNro: string | null;
     receptorCondicionIva: number | null;
   } | null;
-  cobros: EmitirFacturaComprobanteInput["cobros"];
   impCobrado: number;
   diasVencimiento: number | null;
   receptorDomicilio: string | null;
   emisorCondicionIva: number | null;
+  movimientosCobro: readonly MovimientoCobroFacturaData[];
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -1497,7 +1522,7 @@ async function emitirFiscal(args: {
   let createdId: string;
   try {
     const created = await prisma.$transaction(async (tx) => {
-      return tx.comprobanteVta.create({
+      const header = await tx.comprobanteVta.create({
         data: {
           tipoComprobante: args.input.tipo,
           cbteTipo: args.cbteTipo,
@@ -1553,12 +1578,22 @@ async function emitirFiscal(args: {
               comentario: l.comentario,
             })),
           },
-          cobros: nestedCobrosCreate(args.cobros),
         },
       });
+      await persistirMovimientosCobroEnTx(
+        conComprobanteEnMovimientos(args.movimientosCobro, {
+          comprobanteId: header.id,
+          ordenInicio: 0,
+        }),
+        tx
+      );
+      return header;
     });
     createdId = created.id;
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     console.error("[facturaComprobantes][emitirFiscal] persist", e);
     return { success: false, error: "No se pudo guardar el intento de comprobante." };
   }
@@ -1744,38 +1779,73 @@ export async function guardarDiasVencimientoComprobante(
   input: GuardarDiasVencimientoFacturaInput
 ): Promise<ServiceResult<void>> {
   try {
-    const cobradoCents = input.cobros
-      .filter((c) => !c.esCuentaCorriente)
-      .reduce((acc, c) => acc + c.montoCents, 0);
-    const impCobrado = roundArs2(cobradoCents / 100);
-    await prisma.$transaction(async (tx) => {
-      await tx.comprobanteVtaCobro.deleteMany({
-        where: { comprobanteId: input.id },
-      });
-      if (input.cobros.length > 0) {
-        await tx.comprobanteVtaCobro.createMany({
-          data: input.cobros.map((c, orden) => ({
-            comprobanteId: input.id,
-            orden,
-            pagoNombre: c.pagoNombre,
-            entidadNombre: c.entidadNombre,
-            cuotaEtiqueta: c.cuotaEtiqueta,
-            montoCents: c.montoCents,
-            esCuentaCorriente: c.esCuentaCorriente,
-            plazoDias: c.plazoDias,
-          })),
-        });
+    const row = await prisma.comprobanteVta.findUnique({
+      where: { id: input.id },
+      select: {
+        fecha: true,
+        personalId: true,
+        personal: { select: { sucursalPorDefecto: true } },
+      },
+    });
+    if (!row) {
+      return { success: false, error: "No se encontró el comprobante." };
+    }
+    const cobrosLedger = input.cobros.filter(
+      (c) =>
+        !c.esCuentaCorriente &&
+        c.montoCents > 0 &&
+        !esCobroNotaCreditoNombre(c.pagoNombre)
+    );
+    const cobradoCents = cobrosLedger.reduce((acc, c) => acc + c.montoCents, 0);
+    let movimientos: MovimientoCobroFacturaData[] = [];
+    if (cobrosLedger.length > 0) {
+      if (row.personalId == null || !row.personal?.sucursalPorDefecto) {
+        return {
+          success: false,
+          error: "El comprobante no tiene usuario/sucursal para registrar el cobro en tesorería.",
+        };
       }
+      const prep = await prepararMovimientosCobroDesdeSnapshots({
+        cobros: cobrosLedger,
+        sucursalCodigo: row.personal.sucursalPorDefecto,
+        fechaIso: isoYmdFromPrismaDateOnly(row.fecha),
+        personalId: row.personalId,
+      });
+      if (!prep.success) return prep;
+      movimientos = prep.data;
+    }
+    await prisma.$transaction(async (tx) => {
+      // Solo se reescriben los cobros directos; imputaciones de NC y pagos de CC se conservan.
+      await tx.tesoreriaMovimiento.deleteMany({
+        where: {
+          comprobanteId: input.id,
+          catMovimiento: "COBRO",
+          clienteCobroId: null,
+          notaCreditoId: null,
+        },
+      });
+      const retenido = await sumarImpCobradoDesdeMovimientos(input.id, tx);
+      const ordenInicio = await siguienteOrdenCobroComprobante(input.id, tx);
+      await persistirMovimientosCobroEnTx(
+        conComprobanteEnMovimientos(movimientos, {
+          comprobanteId: input.id,
+          ordenInicio,
+        }),
+        tx
+      );
       await tx.comprobanteVta.update({
         where: { id: input.id },
         data: {
           diasVencimiento: input.diasVencimiento,
-          impCobrado,
+          impCobrado: roundArs2(retenido + cobradoCents / 100),
         },
       });
     });
     return { success: true, data: undefined };
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     console.error("[guardarDiasVencimientoComprobante]", e);
     return { success: false, error: "No se pudieron guardar los días de vencimiento." };
   }
@@ -1790,10 +1860,12 @@ export async function registrarCobroComprobanteVta(
       select: {
         tipoComprobante: true,
         estado: true,
+        fecha: true,
         impTotal: true,
         impCobrado: true,
         diasVencimiento: true,
-        cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+        personalId: true,
+        personal: { select: { sucursalPorDefecto: true } },
       },
     });
     if (!row) {
@@ -1819,18 +1891,42 @@ export async function registrarCobroComprobanteVta(
       if (montoPesos > vista.saldoDisponible) {
         return { success: false, error: "El monto no puede ser mayor al saldo disponible." };
       }
-      const siguienteOrden = (row.cobros[0]?.orden ?? -1) + 1;
-      await prisma.comprobanteVtaCobro.create({
-        data: {
-          comprobanteId: input.id,
-          orden: siguienteOrden,
-          pagoNombre: input.pagoNombre,
-          entidadNombre: input.entidadNombre,
-          cuotaEtiqueta: input.cuotaEtiqueta,
-          montoCents: input.montoCents,
-          esCuentaCorriente: false,
-          plazoDias: null,
-        },
+      if (row.personalId == null || !row.personal?.sucursalPorDefecto) {
+        return {
+          success: false,
+          error: "El comprobante no tiene usuario/sucursal para registrar la devolución en tesorería.",
+        };
+      }
+      const prep = await prepararMovimientosCobroDesdeSnapshots({
+        cobros: [
+          {
+            pagoNombre: input.pagoNombre,
+            entidadNombre: input.entidadNombre,
+            cuotaEtiqueta: input.cuotaEtiqueta,
+            montoCents: input.montoCents,
+          },
+        ],
+        sucursalCodigo: row.personal.sucursalPorDefecto,
+        fechaIso: dateToIsoYmdArgentina(new Date()),
+        personalId: row.personalId,
+        observacion: "Devolución de nota de crédito",
+      });
+      if (!prep.success) return prep;
+      // La devolución saca plata de la caja: egreso categoría NOTA_CREDITO con forma de pago.
+      const egresos: MovimientoCobroFacturaData[] = prep.data.map((fila) => ({
+        ...fila,
+        tipoMovimiento: "EGRESO",
+        catMovimiento: "NOTA_CREDITO",
+      }));
+      await prisma.$transaction(async (tx) => {
+        const ordenInicio = await siguienteOrdenCobroComprobante(input.id, tx);
+        await persistirMovimientosCobroEnTx(
+          conComprobanteEnMovimientos(egresos, {
+            comprobanteId: input.id,
+            ordenInicio,
+          }),
+          tx
+        );
       });
       return { success: true, data: undefined };
     }
@@ -1846,6 +1942,12 @@ export async function registrarCobroComprobanteVta(
     if (asEstado(row.estado) === "rechazado") {
       return { success: false, error: "No se puede cobrar un comprobante rechazado." };
     }
+    if (row.personalId == null || !row.personal?.sucursalPorDefecto) {
+      return {
+        success: false,
+        error: "El comprobante no tiene usuario/sucursal para registrar el cobro en tesorería.",
+      };
+    }
     const impTotal = decimalToNumber(row.impTotal);
     const impCobrado = decimalToNumber(row.impCobrado);
     const saldo = saldoPendienteTrasCobro(impTotal, impCobrado);
@@ -1856,22 +1958,33 @@ export async function registrarCobroComprobanteVta(
     if (montoPesos > saldo) {
       return { success: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
-    const siguienteOrden = (row.cobros[0]?.orden ?? -1) + 1;
-    const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
-    const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
-    await prisma.$transaction(async (tx) => {
-      await tx.comprobanteVtaCobro.create({
-        data: {
-          comprobanteId: input.id,
-          orden: siguienteOrden,
+    const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
+    const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
+      cobros: [
+        {
           pagoNombre: input.pagoNombre,
           entidadNombre: input.entidadNombre,
           cuotaEtiqueta: input.cuotaEtiqueta,
           montoCents: input.montoCents,
-          esCuentaCorriente: false,
-          plazoDias: null,
         },
-      });
+      ],
+      sucursalCodigo: row.personal.sucursalPorDefecto,
+      fechaIso,
+      personalId: row.personalId,
+    });
+    if (!movsPrep.success) return movsPrep;
+
+    const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
+    const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+    await prisma.$transaction(async (tx) => {
+      const ordenInicio = await siguienteOrdenCobroComprobante(input.id, tx);
+      await persistirMovimientosCobroEnTx(
+        conComprobanteEnMovimientos(movsPrep.data, {
+          comprobanteId: input.id,
+          ordenInicio,
+        }),
+        tx
+      );
       await tx.comprobanteVta.update({
         where: { id: input.id },
         data: {
@@ -1882,11 +1995,19 @@ export async function registrarCobroComprobanteVta(
     });
     return { success: true, data: undefined };
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     console.error("[registrarCobroComprobanteVta]", e);
     return { success: false, error: "No se pudo registrar el cobro." };
   }
 }
 
+/**
+ * Pago de cuenta corriente: el efectivo entra a la caja del pago y se reparte en el ledger
+ * (una fila por venta imputada + una fila sin comprobante por el anticipo restante),
+ * todas con `cliente_cobro_id` del pago padre. El total en caja es el monto cobrado.
+ */
 export async function registrarPagoCuentaCorriente(
   input: RegistrarPagoCuentaCorrienteInput
 ): Promise<ServiceResult<void>> {
@@ -1905,6 +2026,25 @@ export async function registrarPagoCuentaCorriente(
     const imputaciones = imputarPagoFifoVentas(ventas, montoPesos).filter(
       (fila) => fila.asignado > 0
     );
+    const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
+      cobros: [
+        {
+          pagoNombre: input.pagoNombre,
+          entidadNombre: input.entidadNombre,
+          cuotaEtiqueta: input.cuotaEtiqueta,
+          montoCents: input.montoCents,
+        },
+      ],
+      sucursalCodigo: input.sucursalCodigo,
+      fechaIso: dateToIsoYmdArgentina(new Date()),
+      personalId: input.personalId,
+    });
+    if (!movsPrep.success) return movsPrep;
+    const base = movsPrep.data[0];
+    if (!base) {
+      return { success: false, error: "No se pudo resolver el cobro en tesorería." };
+    }
+
     await prisma.$transaction(async (tx) => {
       const padre = await tx.clienteCobro.create({
         data: {
@@ -1915,6 +2055,7 @@ export async function registrarPagoCuentaCorriente(
           montoCents: input.montoCents,
         },
       });
+      let restantePesos = base.monto;
       for (const fila of imputaciones) {
         const row = await tx.comprobanteVta.findUnique({
           where: { id: fila.id },
@@ -1924,7 +2065,6 @@ export async function registrarPagoCuentaCorriente(
             impTotal: true,
             impCobrado: true,
             diasVencimiento: true,
-            cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
           },
         });
         if (!row) {
@@ -1943,21 +2083,28 @@ export async function registrarPagoCuentaCorriente(
         if (montoFila > saldo) {
           throw new Error("saldo-cambio");
         }
+        const pesosLedger = Math.min(restantePesos, Math.max(1, Math.round(montoFila)));
+        if (pesosLedger <= 0) {
+          throw new TesoreriaCobroFacturaError(
+            "El monto cobrado no alcanza para imputar todos los comprobantes en pesos enteros."
+          );
+        }
+        restantePesos -= pesosLedger;
         const siguienteImpCobrado = roundArs2(impCobrado + montoFila);
         const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
-        await tx.comprobanteVtaCobro.create({
-          data: {
-            comprobanteId: fila.id,
-            orden: (row.cobros[0]?.orden ?? -1) + 1,
-            pagoNombre: input.pagoNombre,
-            entidadNombre: input.entidadNombre,
-            cuotaEtiqueta: input.cuotaEtiqueta,
-            montoCents: Math.round(montoFila * 100),
-            esCuentaCorriente: false,
-            plazoDias: null,
-            clienteCobroId: padre.id,
-          },
-        });
+        const ordenInicio = await siguienteOrdenCobroComprobante(fila.id, tx);
+        await persistirMovimientosCobroEnTx(
+          [
+            {
+              ...base,
+              monto: pesosLedger,
+              comprobanteId: fila.id,
+              orden: ordenInicio,
+              clienteCobroId: padre.id,
+            },
+          ],
+          tx
+        );
         await tx.comprobanteVta.update({
           where: { id: fila.id },
           data: {
@@ -1966,9 +2113,26 @@ export async function registrarPagoCuentaCorriente(
           },
         });
       }
+      if (restantePesos > 0) {
+        await persistirMovimientosCobroEnTx(
+          [
+            {
+              ...base,
+              monto: restantePesos,
+              comprobanteId: null,
+              orden: null,
+              clienteCobroId: padre.id,
+            },
+          ],
+          tx
+        );
+      }
     });
     return { success: true, data: undefined };
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     if (e instanceof Error && e.message === "saldo-cambio") {
       return {
         success: false,
@@ -1980,6 +2144,10 @@ export async function registrarPagoCuentaCorriente(
   }
 }
 
+/**
+ * Imputa (parte de) un pago de cliente a una venta: el movimiento de caja del anticipo
+ * (sin comprobante) se reasigna a la venta; si sobra, se parte en dos filas.
+ */
 export async function asignarClienteCobroComoCobro(
   input: AsignarClienteCobroComoCobroInput
 ): Promise<ServiceResult<void>> {
@@ -1988,21 +2156,21 @@ export async function asignarClienteCobroComoCobro(
       where: { id: input.cobroId },
       select: {
         clienteId: true,
-        pagoNombre: true,
-        entidadNombre: true,
-        cuotaEtiqueta: true,
         montoCents: true,
-        imputaciones: { select: { montoCents: true } },
+        imputaciones: {
+          where: { comprobanteId: { not: null } },
+          select: { monto: true },
+        },
       },
     });
     if (!cobro) {
       return { success: false, error: "El cobro no existe." };
     }
-    const disponible = leftoverClienteCobroPesos(
+    const disponiblePesos = leftoverClienteCobroDesdeMovimientos(
       cobro.montoCents,
       cobro.imputaciones
     );
-    if (disponible <= 0) {
+    if (disponiblePesos <= 0) {
       return { success: false, error: "El cobro ya está imputado." };
     }
     const ventas = await listarVentasPendientesPagoCuentaCorriente(cobro.clienteId);
@@ -2010,7 +2178,9 @@ export async function asignarClienteCobroComoCobro(
     if (!ventaPendiente) {
       return { success: false, error: "La venta no tiene saldo pendiente." };
     }
-    const montoPesos = roundArs2(Math.min(disponible, ventaPendiente.saldoPendiente));
+    const montoPesos = roundArs2(
+      Math.min(disponiblePesos, ventaPendiente.saldoPendiente)
+    );
     const venta = await prisma.comprobanteVta.findUnique({
       where: { id: input.ventaId },
       select: {
@@ -2019,7 +2189,6 @@ export async function asignarClienteCobroComoCobro(
         impTotal: true,
         impCobrado: true,
         diasVencimiento: true,
-        cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
       },
     });
     if (!venta) {
@@ -2040,22 +2209,64 @@ export async function asignarClienteCobroComoCobro(
         error: "El saldo de un comprobante cambió. Recargá e intentá de nuevo.",
       };
     }
+    const pesosLedger = Math.min(
+      disponiblePesos,
+      Math.max(1, Math.round(montoPesos))
+    );
     const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
     const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
     await prisma.$transaction(async (tx) => {
-      await tx.comprobanteVtaCobro.create({
-        data: {
-          comprobanteId: input.ventaId,
-          orden: (venta.cobros[0]?.orden ?? -1) + 1,
-          pagoNombre: cobro.pagoNombre,
-          entidadNombre: cobro.entidadNombre,
-          cuotaEtiqueta: cobro.cuotaEtiqueta,
-          montoCents: Math.round(montoPesos * 100),
-          esCuentaCorriente: false,
-          plazoDias: null,
+      const anticipos = await tx.tesoreriaMovimiento.findMany({
+        where: {
           clienteCobroId: input.cobroId,
+          comprobanteId: null,
+          catMovimiento: "COBRO",
         },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       });
+      let restante = pesosLedger;
+      let orden = await siguienteOrdenCobroComprobante(input.ventaId, tx);
+      for (const anticipo of anticipos) {
+        if (restante <= 0) break;
+        const tomar = Math.min(anticipo.monto, restante);
+        if (tomar === anticipo.monto) {
+          await tx.tesoreriaMovimiento.update({
+            where: { id: anticipo.id },
+            data: { comprobanteId: input.ventaId, orden },
+          });
+        } else {
+          await tx.tesoreriaMovimiento.update({
+            where: { id: anticipo.id },
+            data: { monto: anticipo.monto - tomar },
+          });
+          await tx.tesoreriaMovimiento.create({
+            data: {
+              cajaId: anticipo.cajaId,
+              tipoMovimiento: anticipo.tipoMovimiento,
+              catMovimiento: anticipo.catMovimiento,
+              monto: tomar,
+              fecha: anticipo.fecha,
+              observacion: anticipo.observacion,
+              pagoId: anticipo.pagoId,
+              entidadId: anticipo.entidadId,
+              cuotaId: anticipo.cuotaId,
+              cxFinId: anticipo.cxFinId,
+              sucursalId: anticipo.sucursalId,
+              personalId: anticipo.personalId,
+              comprobanteId: input.ventaId,
+              orden,
+              clienteCobroId: input.cobroId,
+            },
+          });
+        }
+        orden += 1;
+        restante -= tomar;
+      }
+      if (restante > 0) {
+        throw new TesoreriaCobroFacturaError(
+          "No se encontró el movimiento de tesorería del cobro a imputar."
+        );
+      }
       await tx.comprobanteVta.update({
         where: { id: input.ventaId },
         data: {
@@ -2066,6 +2277,9 @@ export async function asignarClienteCobroComoCobro(
     });
     return { success: true, data: undefined };
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     console.error("[asignarClienteCobroComoCobro]", e);
     return { success: false, error: "No se pudo asignar el cobro." };
   }
@@ -2088,6 +2302,8 @@ export async function asignarNotaCreditoComoCobro(input: {
           clienteId: true,
           estado: true,
           cbteAsocId: true,
+          personalId: true,
+          personal: { select: { sucursalPorDefecto: true } },
         },
       }),
       prisma.comprobanteVta.findUnique({
@@ -2099,7 +2315,8 @@ export async function asignarNotaCreditoComoCobro(input: {
           impCobrado: true,
           clienteId: true,
           diasVencimiento: true,
-          cobros: { select: { orden: true }, orderBy: { orden: "desc" }, take: 1 },
+          personalId: true,
+          personal: { select: { sucursalPorDefecto: true } },
         },
       }),
     ]);
@@ -2122,7 +2339,7 @@ export async function asignarNotaCreditoComoCobro(input: {
       }
     }
     const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
-    const usadoPesos = await usadoNotaCreditoPesos(nro, input.notaCreditoId);
+    const usadoPesos = await usadoNotaCreditoPesos(input.notaCreditoId);
     const disponibleCents = Math.max(
       0,
       Math.round(decimalToNumber(nc.impTotal) * 100) - Math.round(usadoPesos * 100)
@@ -2137,25 +2354,40 @@ export async function asignarNotaCreditoComoCobro(input: {
     if (saldoVenta <= 0) {
       return { success: false, error: "La venta no tiene saldo pendiente." };
     }
+    const sucursalId =
+      (await sucursalIdDesdeCodigo(nc.personal?.sucursalPorDefecto)) ??
+      (await sucursalIdDesdeCodigo(venta.personal?.sucursalPorDefecto));
+    if (!sucursalId) {
+      return {
+        success: false,
+        error: "No se pudo determinar la sucursal para registrar la imputación de la nota de crédito.",
+      };
+    }
     const montoCents = Math.min(disponibleCents, Math.round(saldoVenta * 100));
+    const montoPesos = Math.max(1, Math.round(montoCents / 100));
     const siguienteImpCobrado = roundArs2(decimalToNumber(venta.impCobrado) + montoCents / 100);
     const siguienteSaldo = saldoPendienteTrasCobro(
       decimalToNumber(venta.impTotal),
       siguienteImpCobrado
     );
     await prisma.$transaction(async (tx) => {
-      await tx.comprobanteVtaCobro.create({
-        data: {
-          comprobanteId: input.ventaId,
-          orden: (venta.cobros[0]?.orden ?? -1) + 1,
-          pagoNombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
-          entidadNombre: nro,
-          cuotaEtiqueta: null,
-          montoCents,
-          esCuentaCorriente: false,
-          plazoDias: null,
+      const orden = await siguienteOrdenCobroComprobante(input.ventaId, tx);
+      const imputacion = await crearImputacionNotaCreditoMovimiento(
+        {
+          ventaId: input.ventaId,
+          notaCreditoId: input.notaCreditoId,
+          montoPesos,
+          orden,
+          fechaIso: dateToIsoYmdArgentina(new Date()),
+          personalId: nc.personalId ?? venta.personalId,
+          sucursalId,
+          observacion: observacionImputacionNc(nro),
         },
-      });
+        tx
+      );
+      if (!imputacion.success) {
+        throw new TesoreriaCobroFacturaError(imputacion.error);
+      }
       await tx.comprobanteVta.update({
         where: { id: input.ventaId },
         data: {
@@ -2166,10 +2398,14 @@ export async function asignarNotaCreditoComoCobro(input: {
     });
     return { success: true, data: undefined };
   } catch (e) {
+    if (e instanceof TesoreriaCobroFacturaError) {
+      return { success: false, error: e.serviceError };
+    }
     console.error("[asignarNotaCreditoComoCobro]", e);
     return { success: false, error: "No se pudo asignar la nota de crédito." };
   }
 }
+
 
 export async function healthArca(): Promise<
   ServiceResult<{

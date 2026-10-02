@@ -200,7 +200,7 @@ export async function crearMovimientoTesoreria(
       sucursalId: true,
     },
   });
-  return { success: true, data: created };
+  return { success: true, data: { ...created, cajaId: input.cajaId } };
 }
 
 /** Egreso en la caja origen e ingreso en la caja destino, sin datos de cobro. */
@@ -270,12 +270,17 @@ export async function saldosPorCajaDesdeMovimientos(
 ): Promise<Map<string, number>> {
   const rows = await prisma.tesoreriaMovimiento.groupBy({
     by: ["cajaId", "tipoMovimiento"],
-    where:
-      cajaIds && cajaIds.length > 0 ? { cajaId: { in: [...cajaIds] } } : undefined,
+    where: {
+      cajaId: {
+        not: null,
+        ...(cajaIds && cajaIds.length > 0 ? { in: [...cajaIds] } : {}),
+      },
+    },
     _sum: { monto: true },
   });
   const map = new Map<string, number>();
   for (const row of rows) {
+    if (!row.cajaId) continue;
     const prev = map.get(row.cajaId) ?? 0;
     const suma = row._sum.monto ?? 0;
     map.set(
@@ -364,12 +369,29 @@ export async function listarMovimientosTesoreria(): Promise<
     tipoEtiqueta: row.tipoMovimiento === "INGRESO" ? "INGRESO" : "EGRESO",
     catMovimiento: row.catMovimiento,
     categoriaEtiqueta: ETIQUETA_CATEGORIA[row.catMovimiento],
-    cajaId: row.cajaId,
-    cajaEtiqueta: etiquetaCajaMovimiento(row.caja),
+    cajaId: row.cajaId ?? "",
+    cajaEtiqueta: row.caja ? etiquetaCajaMovimiento(row.caja) : "",
     usuarioNombre: row.personal?.nombrePersonal.trim()
       ? row.personal.nombrePersonal.toLocaleUpperCase("es-AR")
       : "",
     monto: row.monto,
+  }));
+}
+
+/** Completa comprobante/orden/clienteCobro en filas ya resueltas de cobro. */
+export function conComprobanteEnMovimientos(
+  filas: readonly MovimientoCobroFacturaData[],
+  args: {
+    comprobanteId: string;
+    ordenInicio: number;
+    clienteCobroId?: string | null;
+  }
+): MovimientoCobroFacturaData[] {
+  return filas.map((fila, idx) => ({
+    ...fila,
+    comprobanteId: args.comprobanteId,
+    orden: args.ordenInicio + idx,
+    clienteCobroId: args.clienteCobroId ?? null,
   }));
 }
 
@@ -381,7 +403,7 @@ export type CobroSnapshotParaTesoreria = {
   montoCents: number;
 };
 
-type MovimientoCobroFacturaData = {
+export type MovimientoCobroFacturaData = {
   cajaId: string;
   tipoMovimiento: SentidoMovimientoTesoreria;
   catMovimiento: CategoriaMovimientoTesoreria;
@@ -394,6 +416,9 @@ type MovimientoCobroFacturaData = {
   cxFinId: string | null;
   sucursalId: string;
   personalId: number;
+  comprobanteId?: string | null;
+  orden?: number | null;
+  clienteCobroId?: string | null;
 };
 
 function normalizarTextoCobro(value: string): string {

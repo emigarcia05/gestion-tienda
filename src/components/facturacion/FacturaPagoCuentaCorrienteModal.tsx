@@ -172,12 +172,20 @@ export default function FacturaPagoCuentaCorrienteModal({
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
     setGuardando(true);
+    const usuario = leerUsuarioSesion();
+    if (!usuario) {
+      toast.error("Elegí un usuario en el menú de sesión.");
+      setGuardando(false);
+      return;
+    }
     const res = await registrarPagoCuentaCorrienteAction({
       clienteId,
       pagoNombre: pagoSel.nombre,
       entidadNombre,
       cuotaEtiqueta: cuota?.cuotas ?? null,
       montoCents,
+      personalId: usuario.idPersonal,
+      sucursalCodigo: usuario.sucursalPorDefecto,
     });
     setGuardando(false);
     if (!res.ok) {

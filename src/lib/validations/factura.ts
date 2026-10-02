@@ -294,6 +294,8 @@ export type AsignarClienteCobroComoCobroInput = z.infer<
 
 export const registrarPagoCuentaCorrienteSchema = cobroFacturaEmitirSchema.extend({
   clienteId: prismaCuidSchema,
+  personalId: idPersonalSchema,
+  sucursalCodigo: sucursalPorDefectoSchema,
 });
 
 export type RegistrarPagoCuentaCorrienteInput = z.infer<

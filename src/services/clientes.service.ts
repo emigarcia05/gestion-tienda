@@ -19,10 +19,7 @@ import {
   type ClienteResumen,
 } from "@/lib/envios";
 import {
-  esCobroNotaCreditoNombre,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
-  FACTURA_COBRO_NOTA_CREDITO_LABEL,
-  leftoverClienteCobroPesos,
   montoSaldoVencidoVenta,
   type ClienteConSaldoCuentaCorriente,
   type CuentaCorrienteClienteDatos,
@@ -36,6 +33,11 @@ import {
   isoYmdFromPrismaDateOnly,
 } from "@/lib/fechaArgentina";
 import type { CrearClienteInput, EditarClienteInput } from "@/lib/validations/envios";
+import {
+  leftoverClienteCobroDesdeMovimientos,
+  listarCobrosDeComprobantes,
+  usadoImputadoNcPesosPorIds,
+} from "@/services/cobrosComprobante.service";
 import { mapEnviosDireccionItem } from "@/services/enviosDirecciones.service";
 import type { ServiceResult } from "@/types/service.types";
 
@@ -131,8 +133,11 @@ export async function saldosCuentaCorrientePorCliente(
       round2((out.get(row.clienteId) ?? 0) + total - cobrado)
     );
   }
-  const ncCobros = await prisma.comprobanteVtaCobro.findMany({
+  const ncCobros = await prisma.tesoreriaMovimiento.findMany({
     where: {
+      catMovimiento: "NOTA_CREDITO",
+      notaCreditoId: { not: null },
+      cajaId: null,
       comprobante: {
         clienteId: { in: clienteIds },
         tipoComprobante: { in: [...TIPOS_VENTA_CTA_CTE] },
@@ -140,30 +145,31 @@ export async function saldosCuentaCorrientePorCliente(
       },
     },
     select: {
-      montoCents: true,
-      pagoNombre: true,
+      monto: true,
       comprobante: { select: { clienteId: true } },
     },
   });
   for (const cobro of ncCobros) {
-    if (!esCobroNotaCreditoNombre(cobro.pagoNombre)) continue;
-    const clienteId = cobro.comprobante.clienteId;
+    const clienteId = cobro.comprobante?.clienteId;
     if (!clienteId) continue;
-    out.set(
-      clienteId,
-      round2((out.get(clienteId) ?? 0) + cobro.montoCents / 100)
-    );
+    out.set(clienteId, round2((out.get(clienteId) ?? 0) + cobro.monto));
   }
   const anticipos = await prisma.clienteCobro.findMany({
     where: { clienteId: { in: clienteIds } },
     select: {
       clienteId: true,
       montoCents: true,
-      imputaciones: { select: { montoCents: true } },
+      imputaciones: {
+        where: { comprobanteId: { not: null } },
+        select: { monto: true },
+      },
     },
   });
   for (const cobro of anticipos) {
-    const leftover = leftoverClienteCobroPesos(cobro.montoCents, cobro.imputaciones);
+    const leftover = leftoverClienteCobroDesdeMovimientos(
+      cobro.montoCents,
+      cobro.imputaciones
+    );
     if (leftover <= 0) continue;
     out.set(cobro.clienteId, round2((out.get(cobro.clienteId) ?? 0) - leftover));
   }
@@ -620,18 +626,6 @@ export async function eliminarCliente(id: string): Promise<ServiceResult<{ id: s
   }
 }
 
-type LedgerCobroVenta = {
-  id: string;
-  comprobanteId: string;
-  montoCents: number;
-  createdAt: Date;
-  pagoNombre: string;
-  entidadNombre: string;
-  cuotaEtiqueta: string | null;
-  esCuentaCorriente: boolean;
-  clienteCobroId: string | null;
-};
-
 type LedgerEvento = {
   id: string;
   tipo: CuentaCorrienteMovimientoTipo;
@@ -804,8 +798,7 @@ export function whereComprobantesCuentaCorriente(
 /**
  * Historial de cuenta corriente: VENTA, NOTA CRÉDITO y COBRO.
  * Comprobantes por `cliente_id`, CUIT o `receptor_nombre`. Cobros: todas las
- * filas de `comprobantes_vtas_cobros` de esas ventas (`monto_cents` > 0).
- * `es_cuenta_corriente` se lista como COBRO pero no mueve el SALDO CC.
+ * movimientos de `tesoreria_movimientos` (COBRO / imputación NC) de esas ventas.
  * `saldoCc` se acumula de más antiguo a más reciente y el array se invierte
  * (más reciente primero) para la tabla.
  */
@@ -846,43 +839,15 @@ export async function obtenerCuentaCorrienteCliente(
     const idsVenta = rows
       .filter((row) => tipoMovimientoDesdeTipoComprobante(row.tipoComprobante) === "venta")
       .map((row) => row.id);
-    const nrosNc = rows
+    const idsNc = rows
       .filter(
         (row) =>
           tipoMovimientoDesdeTipoComprobante(row.tipoComprobante) ===
           "nota_credito"
       )
-      .map((row) => formatoNroComprobante(row.ptoVenta, row.cbteNro));
-    const [cobros, cobrosCliente, imputNc]: [
-      LedgerCobroVenta[],
-      {
-        id: string;
-        pagoNombre: string;
-        entidadNombre: string;
-        cuotaEtiqueta: string | null;
-        montoCents: number;
-        createdAt: Date;
-        imputaciones: { montoCents: number }[];
-      }[],
-      { entidadNombre: string; montoCents: number }[],
-    ] = await Promise.all([
-      idsVenta.length === 0
-        ? Promise.resolve([] as LedgerCobroVenta[])
-        : prisma.comprobanteVtaCobro.findMany({
-            where: { comprobanteId: { in: idsVenta } },
-            orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
-            select: {
-              id: true,
-              comprobanteId: true,
-              montoCents: true,
-              createdAt: true,
-              pagoNombre: true,
-              entidadNombre: true,
-              cuotaEtiqueta: true,
-              esCuentaCorriente: true,
-              clienteCobroId: true,
-            },
-          }),
+      .map((row) => row.id);
+    const [cobrosPorComprobante, cobrosCliente, usadoNcPorId] = await Promise.all([
+      listarCobrosDeComprobantes(idsVenta),
       prisma.clienteCobro.findMany({
         where: { clienteId: cliente.id },
         orderBy: { createdAt: "asc" },
@@ -893,35 +858,14 @@ export async function obtenerCuentaCorrienteCliente(
           cuotaEtiqueta: true,
           montoCents: true,
           createdAt: true,
-          imputaciones: { select: { montoCents: true } },
+          imputaciones: {
+            where: { comprobanteId: { not: null } },
+            select: { monto: true },
+          },
         },
       }),
-      nrosNc.length === 0
-        ? Promise.resolve([] as { entidadNombre: string; montoCents: number }[])
-        : prisma.comprobanteVtaCobro.findMany({
-            where: {
-              pagoNombre: FACTURA_COBRO_NOTA_CREDITO_LABEL,
-              entidadNombre: { in: nrosNc },
-            },
-            select: { entidadNombre: true, montoCents: true },
-          }),
+      usadoImputadoNcPesosPorIds(idsNc),
     ]);
-
-    const usadoNcPorNro = new Map<string, number>();
-    for (const cobro of imputNc) {
-      const nro = cobro.entidadNombre.trim();
-      usadoNcPorNro.set(
-        nro,
-        round2((usadoNcPorNro.get(nro) ?? 0) + cobro.montoCents / 100)
-      );
-    }
-
-    const cobrosPorComprobante = new Map<string, LedgerCobroVenta[]>();
-    for (const cobro of cobros) {
-      const lista = cobrosPorComprobante.get(cobro.comprobanteId);
-      if (lista) lista.push(cobro);
-      else cobrosPorComprobante.set(cobro.comprobanteId, [cobro]);
-    }
 
     const eventos: LedgerEvento[] = [];
     const hoyIso = dateToIsoYmdArgentina(new Date());
@@ -939,7 +883,7 @@ export async function obtenerCuentaCorrienteCliente(
           : round2(
               Math.max(
                 0,
-                impTotal - impCobrado - (usadoNcPorNro.get(nroComprobante) ?? 0)
+                impTotal - impCobrado - (usadoNcPorId.get(row.id) ?? 0)
               )
             );
       eventos.push({
@@ -973,7 +917,7 @@ export async function obtenerCuentaCorrienteCliente(
         (c) => c.montoCents > 0 && c.clienteCobroId == null
       );
       for (const cobro of cobrosDeVenta) {
-        const esNcCobro = esCobroNotaCreditoNombre(cobro.pagoNombre);
+        const esNcCobro = cobro.notaCreditoId != null;
         eventos.push({
           id: cobro.id,
           tipo: "cobro",
@@ -1028,7 +972,7 @@ export async function obtenerCuentaCorrienteCliente(
         nroComprobante: "",
         detalle: detalleCobroLedger(cobro),
         monto: round2(cobro.montoCents / 100),
-        saldoComprobante: leftoverClienteCobroPesos(
+        saldoComprobante: leftoverClienteCobroDesdeMovimientos(
           cobro.montoCents,
           cobro.imputaciones
         ),
@@ -1241,11 +1185,15 @@ export async function assertCobroCuentaCorrientePublica(
   cobroId: string
 ): Promise<ServiceResult<void>> {
   try {
-    const cobroVta = await prisma.comprobanteVtaCobro.findUnique({
-      where: { id: cobroId },
-      select: { comprobanteId: true, clienteCobroId: true },
+    const cobroVta = await prisma.tesoreriaMovimiento.findFirst({
+      where: {
+        id: cobroId,
+        comprobanteId: { not: null },
+        catMovimiento: { in: ["COBRO", "NOTA_CREDITO"] },
+      },
+      select: { comprobanteId: true },
     });
-    if (cobroVta) {
+    if (cobroVta?.comprobanteId) {
       return assertComprobanteCuentaCorrientePublica(token, cobroVta.comprobanteId);
     }
     const cobroCliente = await prisma.clienteCobro.findUnique({

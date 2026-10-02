@@ -1,11 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  esCobroNotaCreditoNombre,
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
-  leftoverClienteCobroPesos,
   type FacturaCobroDetalle,
   type FacturaNcCobroVista,
   type FacturaComprobanteCobroItem,
@@ -28,6 +26,16 @@ import {
   obtenerClienteListaPorId,
   whereComprobantesCuentaCorriente,
 } from "@/services/clientes.service";
+import {
+  leftoverClienteCobroDesdeMovimientos,
+  listarCobrosDeComprobante,
+  listarImputacionesNotaCredito,
+  obtenerCobroDeComprobantePorId,
+  usadoDevolucionNcPesos,
+  usadoDevolucionNcPesosPorIds,
+  usadoImputadoNcPesos,
+  usadoImputadoNcPesosPorIds,
+} from "@/services/cobrosComprobante.service";
 
 function decimalToNumber(value: Prisma.Decimal | number): number {
   return Number(value);
@@ -35,40 +43,6 @@ function decimalToNumber(value: Prisma.Decimal | number): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
-}
-
-const TIPOS_NC_CTA = ["nota_credito_fiscal", "nota_credito_no_fiscal"] as const;
-
-async function idsNotaCreditoPorNro(
-  nros: readonly string[]
-): Promise<Map<string, string>> {
-  const unicos = [...new Set(nros.map((n) => n.trim()).filter(Boolean))];
-  const out = new Map<string, string>();
-  if (unicos.length === 0) return out;
-  const cbtes = [
-    ...new Set(
-      unicos.flatMap((n) => {
-        const i = n.lastIndexOf("-");
-        if (i <= 0) return [];
-        const cbteNro = Number.parseInt(n.slice(i + 1), 10);
-        return Number.isInteger(cbteNro) && cbteNro > 0 ? [cbteNro] : [];
-      })
-    ),
-  ];
-  if (cbtes.length === 0) return out;
-  const rows = await prisma.comprobanteVta.findMany({
-    where: {
-      tipoComprobante: { in: [...TIPOS_NC_CTA] },
-      cbteNro: { in: cbtes },
-    },
-    select: { id: true, ptoVenta: true, cbteNro: true },
-  });
-  const wanted = new Set(unicos);
-  for (const r of rows) {
-    const nro = formatoNroComprobante(r.ptoVenta, r.cbteNro);
-    if (wanted.has(nro) && !out.has(nro)) out.set(nro, r.id);
-  }
-  return out;
 }
 
 function asEstado(raw: string): FacturaComprobanteEstado {
@@ -106,53 +80,13 @@ function saldoYDiasCtaCte(args: {
   };
 }
 
-async function usadoImputadoNcPorNro(
-  nros: readonly string[]
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  const claves = [...new Set(nros.map((n) => n.trim()).filter(Boolean))];
-  if (claves.length === 0) return out;
-  const cobros = await prisma.comprobanteVtaCobro.findMany({
-    where: { entidadNombre: { in: claves } },
-    select: { entidadNombre: true, pagoNombre: true, montoCents: true },
-  });
-  for (const cobro of cobros) {
-    if (!esCobroNotaCreditoNombre(cobro.pagoNombre)) continue;
-    const nro = cobro.entidadNombre.trim();
-    out.set(nro, round2((out.get(nro) ?? 0) + cobro.montoCents / 100));
-  }
-  return out;
-}
-
-async function usadoDevolucionNcPorId(
-  ids: readonly string[]
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  const claves = [...new Set(ids.filter(Boolean))];
-  if (claves.length === 0) return out;
-  const cobros = await prisma.comprobanteVtaCobro.findMany({
-    where: { comprobanteId: { in: claves } },
-    select: { comprobanteId: true, montoCents: true },
-  });
-  for (const cobro of cobros) {
-    out.set(
-      cobro.comprobanteId,
-      round2((out.get(cobro.comprobanteId) ?? 0) + cobro.montoCents / 100)
-    );
-  }
-  return out;
-}
-
-/** Imputaciones a ventas + devoluciones (cobros en la propia NC). */
-export async function usadoNotaCreditoPesos(
-  nro: string,
-  ncId: string
-): Promise<number> {
+/** Imputaciones a ventas + devoluciones (movimientos en el ledger) de una NC. */
+export async function usadoNotaCreditoPesos(ncId: string): Promise<number> {
   const [imputado, devolucion] = await Promise.all([
-    usadoImputadoNcPorNro([nro]),
-    usadoDevolucionNcPorId([ncId]),
+    usadoImputadoNcPesos(ncId),
+    usadoDevolucionNcPesos(ncId),
   ]);
-  return round2((imputado.get(nro.trim()) ?? 0) + (devolucion.get(ncId) ?? 0));
+  return round2(imputado + devolucion);
 }
 
 function mapListItem(
@@ -358,31 +292,24 @@ export async function listarFacturasComprobantes(): Promise<FacturaComprobanteLi
     take: 500,
     select: listSelect,
   });
-  const ncs = rows
+  const idsNc = rows
     .filter((row) =>
       esFacturaTipoNotaCredito(
         esFacturaTipo(row.tipoComprobante) ? row.tipoComprobante : "factura_no_fiscal"
       )
     )
-    .map((row) => ({
-      id: row.id,
-      nro: formatoNroComprobante(row.ptoVenta, row.cbteNro),
-    }));
+    .map((row) => row.id);
   const [imputadosNc, devolucionesNc] = await Promise.all([
-    usadoImputadoNcPorNro(ncs.map((n) => n.nro)),
-    usadoDevolucionNcPorId(ncs.map((n) => n.id)),
+    usadoImputadoNcPesosPorIds(idsNc),
+    usadoDevolucionNcPesosPorIds(idsNc),
   ]);
-  const usadosNc = new Map<string, number>();
-  for (const nc of ncs) {
-    usadosNc.set(
-      nc.nro,
-      round2((imputadosNc.get(nc.nro) ?? 0) + (devolucionesNc.get(nc.id) ?? 0))
-    );
-  }
-  return rows.map((row) => {
-    const nro = formatoNroComprobante(row.ptoVenta, row.cbteNro);
-    return mapListItem(row, hoyIso, usadosNc.get(nro) ?? 0);
-  });
+  return rows.map((row) =>
+    mapListItem(
+      row,
+      hoyIso,
+      round2((imputadosNc.get(row.id) ?? 0) + (devolucionesNc.get(row.id) ?? 0))
+    )
+  );
 }
 
 export async function listarPresupuestosComprobantes(): Promise<FacturaComprobanteListItem[]> {
@@ -441,25 +368,13 @@ export async function listarCobrosComprobanteVta(
       ptoVenta: true,
       cbteNro: true,
       notasCredito: { select: { id: true }, take: 1 },
-      cobros: {
-        orderBy: { orden: "asc" },
-        select: {
-          id: true,
-          createdAt: true,
-          pagoNombre: true,
-          entidadNombre: true,
-          cuotaEtiqueta: true,
-          montoCents: true,
-          esCuentaCorriente: true,
-          plazoDias: true,
-        },
-      },
       personal: { select: { nombrePersonal: true } },
     },
   });
   if (!row) {
     return { items: [], saldoPendiente: null };
   }
+  const cobros = await listarCobrosDeComprobante(comprobanteId);
   const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
     ? row.tipoComprobante
     : "factura_no_fiscal";
@@ -467,8 +382,7 @@ export async function listarCobrosComprobanteVta(
   const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
   let impCobrado = decimalToNumber(row.impCobrado);
   if (esFacturaTipoNotaCredito(tipo) && asEstado(row.estado) !== "rechazado") {
-    const nro = formatoNroComprobante(row.ptoVenta, row.cbteNro);
-    impCobrado = await usadoNotaCreditoPesos(nro, comprobanteId);
+    impCobrado = await usadoNotaCreditoPesos(comprobanteId);
   }
   const { saldoPendiente } = saldoYDiasCtaCte({
     tipo,
@@ -481,14 +395,9 @@ export async function listarCobrosComprobanteVta(
   });
   const personalNombre =
     row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
-  const idNcPorNro = await idsNotaCreditoPorNro(
-    row.cobros
-      .filter((c) => esCobroNotaCreditoNombre(c.pagoNombre))
-      .map((c) => c.entidadNombre)
-  );
   return {
     saldoPendiente,
-    items: row.cobros.map((r) => ({
+    items: cobros.map((r) => ({
       id: r.id,
       createdAtIso: r.createdAt.toISOString(),
       pagoNombre: r.pagoNombre,
@@ -497,10 +406,8 @@ export async function listarCobrosComprobanteVta(
       montoCents: r.montoCents,
       esCuentaCorriente: r.esCuentaCorriente,
       plazoDias: r.plazoDias,
-      personalNombre,
-      notaCreditoId: esCobroNotaCreditoNombre(r.pagoNombre)
-        ? idNcPorNro.get(r.entidadNombre.trim()) ?? null
-        : null,
+      personalNombre: r.personalNombre || personalNombre,
+      notaCreditoId: r.notaCreditoId,
     })),
   };
 }
@@ -512,24 +419,9 @@ export async function listarVistaCobroNotaCredito(
     where: { id: notaCreditoId },
     select: {
       tipoComprobante: true,
-      ptoVenta: true,
-      cbteNro: true,
       impTotal: true,
       clienteId: true,
       personal: { select: { nombrePersonal: true } },
-      cobros: {
-        orderBy: { orden: "asc" },
-        select: {
-          id: true,
-          createdAt: true,
-          pagoNombre: true,
-          entidadNombre: true,
-          cuotaEtiqueta: true,
-          montoCents: true,
-          esCuentaCorriente: true,
-          plazoDias: true,
-        },
-      },
     },
   });
   if (!nc) return null;
@@ -538,42 +430,36 @@ export async function listarVistaCobroNotaCredito(
     : "factura_no_fiscal";
   if (!esFacturaTipoNotaCredito(tipo)) return null;
 
-  const nro = formatoNroComprobante(nc.ptoVenta, nc.cbteNro);
   const personalNombreNc =
     nc.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
-  const cobros = await prisma.comprobanteVtaCobro.findMany({
-    where: { entidadNombre: nro },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      createdAt: true,
-      pagoNombre: true,
-      montoCents: true,
-      comprobante: {
-        select: {
-          id: true,
-          ptoVenta: true,
-          cbteNro: true,
-          personal: { select: { nombrePersonal: true } },
-        },
-      },
-    },
-  });
-  const asignaciones = cobros
-    .filter(
-      (c) =>
-        esCobroNotaCreditoNombre(c.pagoNombre) && c.comprobante.id !== notaCreditoId
-    )
-    .map((c) => ({
-      id: c.id,
-      comprobanteId: c.comprobante.id,
-      comprobanteNro: formatoNroComprobante(c.comprobante.ptoVenta, c.comprobante.cbteNro),
-      createdAtIso: c.createdAt.toISOString(),
-      montoCents: c.montoCents,
-      personalNombre:
-        c.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "",
-    }));
-  const devoluciones = nc.cobros.map((r) => ({
+  const [imputaciones, cobrosNc] = await Promise.all([
+    listarImputacionesNotaCredito(notaCreditoId),
+    listarCobrosDeComprobante(notaCreditoId),
+  ]);
+  const asignaciones = imputaciones.flatMap((c) =>
+    c.comprobante
+      ? [
+          {
+            id: c.id,
+            comprobanteId: c.comprobante.id,
+            comprobanteNro: formatoNroComprobante(
+              c.comprobante.ptoVenta,
+              c.comprobante.cbteNro
+            ),
+            createdAtIso: c.createdAt.toISOString(),
+            montoCents: c.monto * 100,
+            personalNombre: (
+              c.personal?.nombrePersonal ??
+              c.comprobante.personal?.nombrePersonal ??
+              ""
+            )
+              .trim()
+              .toLocaleUpperCase("es-AR"),
+          },
+        ]
+      : []
+  );
+  const devoluciones = cobrosNc.map((r) => ({
     id: r.id,
     createdAtIso: r.createdAt.toISOString(),
     pagoNombre: r.pagoNombre,
@@ -582,7 +468,7 @@ export async function listarVistaCobroNotaCredito(
     montoCents: r.montoCents,
     esCuentaCorriente: r.esCuentaCorriente,
     plazoDias: r.plazoDias,
-    personalNombre: personalNombreNc,
+    personalNombre: r.personalNombre || personalNombreNc,
     notaCreditoId: null,
   }));
   const usado = round2(
@@ -667,9 +553,10 @@ export async function obtenerDetalleCobroComprobante(
         cuotaEtiqueta: true,
         montoCents: true,
         imputaciones: {
+          where: { comprobanteId: { not: null } },
           orderBy: [{ createdAt: "asc" }, { orden: "asc" }],
           select: {
-            montoCents: true,
+            monto: true,
             comprobante: {
               select: { id: true, ptoVenta: true, cbteNro: true },
             },
@@ -678,7 +565,7 @@ export async function obtenerDetalleCobroComprobante(
       },
     });
     if (clienteCobro) {
-      const saldoDisponible = leftoverClienteCobroPesos(
+      const saldoDisponible = leftoverClienteCobroDesdeMovimientos(
         clienteCobro.montoCents,
         clienteCobro.imputaciones
       );
@@ -701,30 +588,32 @@ export async function obtenerDetalleCobroComprobante(
             personalNombre: "",
             notaCreditoId: null,
           },
-          comprobantes: clienteCobro.imputaciones.map((fila) => ({
-            id: fila.comprobante.id,
-            nroComprobante: formatoNroComprobante(
-              fila.comprobante.ptoVenta,
-              fila.comprobante.cbteNro
-            ),
-          })),
+          comprobantes: clienteCobro.imputaciones.flatMap((fila) =>
+            fila.comprobante
+              ? [
+                  {
+                    id: fila.comprobante.id,
+                    nroComprobante: formatoNroComprobante(
+                      fila.comprobante.ptoVenta,
+                      fila.comprobante.cbteNro
+                    ),
+                  },
+                ]
+              : []
+          ),
           saldoDisponible,
           ventasPendientes,
           esClienteCobro: true,
         },
       };
     }
-    const row = await prisma.comprobanteVtaCobro.findUnique({
-      where: { id: cobroId },
+    const mov = await prisma.tesoreriaMovimiento.findFirst({
+      where: {
+        id: cobroId,
+        comprobanteId: { not: null },
+        catMovimiento: { in: ["COBRO", "NOTA_CREDITO"] },
+      },
       select: {
-        id: true,
-        createdAt: true,
-        pagoNombre: true,
-        entidadNombre: true,
-        cuotaEtiqueta: true,
-        montoCents: true,
-        esCuentaCorriente: true,
-        plazoDias: true,
         clienteCobroId: true,
         comprobante: {
           select: {
@@ -736,18 +625,15 @@ export async function obtenerDetalleCobroComprobante(
         },
       },
     });
-    if (!row) return { success: false, error: "El cobro no existe." };
-    if (row.clienteCobroId) {
-      return obtenerDetalleCobroComprobante(row.clienteCobroId);
+    if (!mov?.comprobante) return { success: false, error: "El cobro no existe." };
+    if (mov.clienteCobroId) {
+      return obtenerDetalleCobroComprobante(mov.clienteCobroId);
     }
+    const row = await obtenerCobroDeComprobantePorId(cobroId);
+    if (!row) return { success: false, error: "El cobro no existe." };
     const personalNombre =
-      row.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ??
-      "";
-    const notaCreditoId = esCobroNotaCreditoNombre(row.pagoNombre)
-      ? (await idsNotaCreditoPorNro([row.entidadNombre])).get(
-          row.entidadNombre.trim()
-        ) ?? null
-      : null;
+      row.personalNombre ||
+      (mov.comprobante.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "");
     return {
       success: true,
       data: {
@@ -761,14 +647,14 @@ export async function obtenerDetalleCobroComprobante(
           esCuentaCorriente: row.esCuentaCorriente,
           plazoDias: row.plazoDias,
           personalNombre,
-          notaCreditoId,
+          notaCreditoId: row.notaCreditoId,
         },
         comprobantes: [
           {
-            id: row.comprobante.id,
+            id: mov.comprobante.id,
             nroComprobante: formatoNroComprobante(
-              row.comprobante.ptoVenta,
-              row.comprobante.cbteNro
+              mov.comprobante.ptoVenta,
+              mov.comprobante.cbteNro
             ),
           },
         ],

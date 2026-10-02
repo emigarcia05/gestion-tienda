@@ -472,15 +472,16 @@ model CajaTesoreria {
 
 /**
  * Ledger de movimientos por caja (`tesoreria_movimientos`).
- * Una fila afecta **una** caja. `monto` siempre positivo; el signo lo da `tipo_movimiento`.
+ * Una fila afecta **una** caja (salvo imputación NOTA_CREDITO sin caja).
+ * `monto` siempre positivo; el signo lo da `tipo_movimiento`.
  * Forma de pago, entidad, cuota y costo financiero solo en COBRO y NOTA_CREDITO.
- * Entidad y cuota pueden quedar null si el catálogo no las tiene.
- * TRANSFERENCIA_ENTRE_CAJAS: dos filas con el mismo `transferencia_grupo_id`.
+ * Cobros de factura: `comprobante_id` apunta a la venta/NC; SSOT (ya no `comprobantes_vtas_cobros`).
  */
 model TesoreriaMovimiento {
   id                   String                        @id @default(cuid())
-  cajaId               String                        @map("caja_id")
-  caja                 CajaTesoreria                 @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  /** Null solo en imputación de NOTA_CREDITO (sin impacto de caja). */
+  cajaId               String?                       @map("caja_id")
+  caja                 CajaTesoreria?                @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
   tipoMovimiento       SentidoMovimientoTesoreria    @map("tipo_movimiento")
   catMovimiento        CategoriaMovimientoTesoreria  @map("cat_movimiento")
   /** Importe positivo. CHECK `monto > 0` en SQL. */
@@ -488,7 +489,7 @@ model TesoreriaMovimiento {
   /** Fecha de negocio (calendario Argentina). */
   fecha                DateTime                      @map("fecha") @db.Date
   observacion          String                        @default("") @map("observacion") @db.Text
-  /** Forma de pago. Obligatoria en COBRO y NOTA_CREDITO; null en el resto. */
+  /** Forma de pago. Obligatoria en COBRO; en NOTA_CREDITO null si es imputación de NC. */
   pagoId               String?                       @map("pago_id")
   pago                 FinAnaCosFinaPagoCat?         @relation(fields: [pagoId], references: [id], onDelete: Restrict)
   /** Entidad de la forma. Null si la forma no tiene entidades, o si la categoría no es cobro. */
@@ -511,6 +512,17 @@ model TesoreriaMovimiento {
   /** Usuario de pestaña (`personal`) que registró el movimiento. Null en filas previas. */
   personalId           Int?                          @map("personal_id")
   personal             GlobalPersonal?               @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  /** Comprobante (venta o NC) al que aplica el cobro / imputación / devolución. */
+  comprobanteId        String?                       @map("comprobante_id")
+  comprobante          ComprobanteVta?               @relation("MovimientoComprobante", fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  /** Orden relativo de cobros en ese comprobante. */
+  orden                Int?
+  /** Pago CC padre cuando el cobro nace de `clientes_cobros`. */
+  clienteCobroId       String?                       @map("cliente_cobro_id")
+  clienteCobro         ClienteCobro?                 @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /** NC origen cuando `cat_movimiento = NOTA_CREDITO` es imputación a una venta. */
+  notaCreditoId        String?                       @map("nota_credito_id")
+  notaCredito          ComprobanteVta?               @relation("MovimientoNotaCredito", fields: [notaCreditoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdAt            DateTime                      @default(now()) @map("created_at")
   updatedAt            DateTime                      @updatedAt @map("updated_at")
 
@@ -526,6 +538,9 @@ model TesoreriaMovimiento {
   @@index([cajaContraparteId], map: "tesoreria_movimientos_caja_contraparte_idx")
   @@index([sucursalId], map: "tesoreria_movimientos_sucursal_idx")
   @@index([personalId], map: "tesoreria_movimientos_personal_idx")
+  @@index([comprobanteId], map: "tesoreria_movimientos_comprobante_idx")
+  @@index([clienteCobroId], map: "tesoreria_movimientos_cliente_cobro_idx")
+  @@index([notaCreditoId], map: "tesoreria_movimientos_nota_credito_idx")
   @@map("tesoreria_movimientos")
 }
 
@@ -2031,7 +2046,10 @@ model ComprobanteVta {
   notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
   items        ComprobanteVtaItem[]
   historialArca ComprobanteVtaHistorialArca[]
-  cobros       ComprobanteVtaCobro[]
+  /** Cobros / imputaciones / devoluciones en el ledger. */
+  movimientosCobro TesoreriaMovimiento[] @relation("MovimientoComprobante")
+  /** Imputaciones de esta NC como cobro de ventas. */
+  movimientosComoNotaCredito TesoreriaMovimiento[] @relation("MovimientoNotaCredito")
 
   @@index([tipoComprobante, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
   @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
@@ -2045,7 +2063,7 @@ model ComprobanteVta {
   @@map("comprobantes_vtas")
 }
 
-/** Cobro de cuenta corriente del cliente (pago completo; imputaciones en `comprobantes_vtas_cobros`). */
+/** Cobro de cuenta corriente del cliente (pago completo; imputaciones en `tesoreria_movimientos`). */
 model ClienteCobro {
   id            String   @id @default(cuid())
   clienteId     String   @map("cliente_id")
@@ -2056,32 +2074,10 @@ model ClienteCobro {
   createdAt     DateTime @default(now()) @map("created_at")
 
   cliente      Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  imputaciones ComprobanteVtaCobro[]
+  imputaciones TesoreriaMovimiento[]
 
   @@index([clienteId], map: "clientes_cobros_cliente_id_idx")
   @@map("clientes_cobros")
-}
-
-/** Cobros registrados al emitir (Imprimir / Descargar). No son `tesoreria_movimientos`. */
-model ComprobanteVtaCobro {
-  id                 String   @id @default(cuid())
-  comprobanteId      String   @map("comprobante_id")
-  orden              Int
-  pagoNombre         String   @map("pago_nombre")
-  entidadNombre      String   @default("") @map("entidad_nombre")
-  cuotaEtiqueta      String?  @map("cuota_etiqueta")
-  montoCents         Int      @map("monto_cents")
-  esCuentaCorriente  Boolean  @default(false) @map("es_cuenta_corriente")
-  plazoDias          Int?     @map("plazo_dias")
-  clienteCobroId     String?  @map("cliente_cobro_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-
-  comprobante  ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  clienteCobro ClienteCobro?  @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-
-  @@index([comprobanteId], map: "comprobantes_vtas_cobros_comp_idx")
-  @@index([clienteCobroId], map: "comprobantes_vtas_cobros_cliente_cobro_idx")
-  @@map("comprobantes_vtas_cobros")
 }
 
 model ComprobanteVtaItem {
