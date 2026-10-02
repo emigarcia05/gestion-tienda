@@ -88,88 +88,82 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
         <FilterBar className="filtros-contenedor-tienda bg-card">
           <FilaFiltrosDesplegables columnas={5}>
             <FiltroIndividualContainer
-              label="SUCURSAL"
-              limpiar={() => setFiltroSucursal("")}
-              valorActivo={filtroSucursal !== ""}
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroSucursal)}
+              onLimpiar={() => setFiltroSucursal("")}
             >
-              <div className={FILTER_SELECT_WRAPPER_CLASS}>
-                <Select
-                  value={filtroSucursal || FILTRO_TODOS}
-                  onValueChange={(v) =>
-                    setFiltroSucursal(v === FILTRO_TODOS ? "" : v)
-                  }
+              <Select
+                value={filtroSucursal || FILTRO_TODOS}
+                onValueChange={(v) =>
+                  setFiltroSucursal(v === FILTRO_TODOS ? "" : v)
+                }
+              >
+                <SelectTrigger
+                  className="input-filtro-unificado"
+                  aria-label="Sucursal"
                 >
-                  <SelectTrigger
-                    className="input-filtro-unificado"
-                    aria-label="Sucursal"
-                  >
-                    <SelectValue placeholder="SUCURSAL" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
-                    {sucursales.map((nombre) => (
-                      <SelectItem key={nombre} value={nombre}>
-                        {nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <SelectValue placeholder="SUCURSAL" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
+                  {sucursales.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FiltroIndividualContainer>
             <FiltroIndividualContainer
-              label="TIPO"
-              limpiar={() => setFiltroTipo("")}
-              valorActivo={filtroTipo !== ""}
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroTipo)}
+              onLimpiar={() => setFiltroTipo("")}
             >
-              <div className={FILTER_SELECT_WRAPPER_CLASS}>
-                <Select
-                  value={filtroTipo || FILTRO_TODOS}
-                  onValueChange={(v) =>
-                    setFiltroTipo(v === FILTRO_TODOS ? "" : v)
-                  }
-                >
-                  <SelectTrigger className="input-filtro-unificado" aria-label="Tipo">
-                    <SelectValue placeholder="TIPO" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={FILTRO_TODOS}>TODOS</SelectItem>
-                    {tipos.map((nombre) => (
-                      <SelectItem key={nombre} value={nombre}>
-                        {nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select
+                value={filtroTipo || FILTRO_TODOS}
+                onValueChange={(v) =>
+                  setFiltroTipo(v === FILTRO_TODOS ? "" : v)
+                }
+              >
+                <SelectTrigger className="input-filtro-unificado" aria-label="Tipo">
+                  <SelectValue placeholder="TIPO" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTRO_TODOS}>TODOS</SelectItem>
+                  {tipos.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FiltroIndividualContainer>
             <FiltroIndividualContainer
-              label="CATEGORÍA"
-              limpiar={() => setFiltroCategoria("")}
-              valorActivo={filtroCategoria !== ""}
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroCategoria)}
+              onLimpiar={() => setFiltroCategoria("")}
             >
-              <div className={FILTER_SELECT_WRAPPER_CLASS}>
-                <Select
-                  value={filtroCategoria || FILTRO_TODOS}
-                  onValueChange={(v) =>
-                    setFiltroCategoria(v === FILTRO_TODOS ? "" : v)
-                  }
+              <Select
+                value={filtroCategoria || FILTRO_TODOS}
+                onValueChange={(v) =>
+                  setFiltroCategoria(v === FILTRO_TODOS ? "" : v)
+                }
+              >
+                <SelectTrigger
+                  className="input-filtro-unificado"
+                  aria-label="Categoría"
                 >
-                  <SelectTrigger
-                    className="input-filtro-unificado"
-                    aria-label="Categoría"
-                  >
-                    <SelectValue placeholder="CATEGORÍA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
-                    {categorias.map((nombre) => (
-                      <SelectItem key={nombre} value={nombre}>
-                        {nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <SelectValue placeholder="CATEGORÍA" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTRO_TODOS}>TODAS</SelectItem>
+                  {categorias.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FiltroIndividualContainer>
             <FilterRowSelection className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "col-span-2")}>
               <span className={FILTER_COUNT_CLASS}>
