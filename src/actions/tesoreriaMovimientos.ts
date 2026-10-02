@@ -1,3 +1,5 @@
+"use server";
+
 import { revalidatePath } from "next/cache";
 import { requireFinanzasLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
