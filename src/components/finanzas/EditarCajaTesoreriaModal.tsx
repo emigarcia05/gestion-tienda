@@ -114,10 +114,9 @@ export default function EditarCajaTesoreriaModal({
     () =>
       saving ||
       !caja ||
-      (cajaTesoreriaUsaSucursal(tipoCaja) && sucursalId.trim().length === 0) ||
       titular.trim().length === 0 ||
       !hasChanges,
-    [saving, caja, sucursalId, titular, tipoCaja, hasChanges]
+    [saving, caja, titular, hasChanges]
   );
 
   async function handleSubmit() {

@@ -342,11 +342,14 @@ export async function crearCobroPorSucursal(
       input.cajaDestinoId
     );
     if (!cajaRes.success) return cajaRes;
+    if (cajaRes.data.sucursalId !== input.sucursalId) {
+      return { success: false, error: "La caja no pertenece a la sucursal elegida." };
+    }
 
     const duplicado = await buscarDuplicado({
       pagoId: input.pagoId,
       entidadId,
-      sucursalId: cajaRes.data.sucursalId,
+      sucursalId: input.sucursalId,
     });
     if (duplicado) {
       return { success: false, error: mensajeDuplicado(Boolean(entidadId)) };
@@ -413,18 +416,7 @@ export async function actualizarCobroPorSucursal(
     if (!cajaRes.success) return cajaRes;
 
     if (cajaRes.data.sucursalId !== existente.sucursalId) {
-      const conflicto = await buscarDuplicado({
-        pagoId: existente.pagoId,
-        entidadId: existente.entidadId,
-        sucursalId: cajaRes.data.sucursalId,
-        excludeId: existente.id,
-      });
-      if (conflicto) {
-        return {
-          success: false,
-          error: mensajeDuplicado(Boolean(existente.entidadId)),
-        };
-      }
+      return { success: false, error: "La caja no pertenece a la sucursal del cobro." };
     }
 
     await prisma.cobrosPorSucursal.update({

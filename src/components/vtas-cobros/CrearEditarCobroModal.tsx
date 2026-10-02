@@ -24,6 +24,7 @@ import type {
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalPagoCatalogo,
+  CobrosPorSucursalSucursalCol,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
 
@@ -38,6 +39,7 @@ interface Props {
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   cajas: CobrosPorSucursalCajaOption[];
+  sucursales: CobrosPorSucursalSucursalCol[];
   onSaved: (fila: CobrosPorSucursalFila) => void;
 }
 
@@ -50,10 +52,12 @@ export default function CrearEditarCobroModal({
   entidades,
   vinculosPagoEntidad,
   cajas,
+  sucursales,
   onSaved,
 }: Props) {
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
+  const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
@@ -66,12 +70,14 @@ export default function CrearEditarCobroModal({
     if (esEditar && fila) {
       setPagoId(fila.pagoId);
       setEntidadId(fila.entidadId ?? "");
+      setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setObservacion(fila.observacion);
       return;
     }
     setPagoId("");
     setEntidadId("");
+    setSucursalId("");
     setCajaDestinoId("");
     setObservacion("");
   }, [open, esEditar, fila]);
@@ -87,9 +93,9 @@ export default function CrearEditarCobroModal({
   }, [pagoId, entidades, vinculosPagoEntidad]);
 
   const cajasDisponibles = useMemo(() => {
-    if (!pagoId) return [];
-    return cajas;
-  }, [cajas, pagoId]);
+    if (!pagoId || !sucursalId) return [];
+    return cajas.filter((caja) => caja.sucursalId === sucursalId);
+  }, [cajas, pagoId, sucursalId]);
 
   useEffect(() => {
     if (!open || !muestraEntidad) return;
@@ -109,11 +115,13 @@ export default function CrearEditarCobroModal({
   const cajaLista =
     !saving &&
     pagoId.trim().length > 0 &&
+    sucursalId.trim().length > 0 &&
     (!muestraEntidad || entidadId.trim().length > 0);
   const disabledSubmit =
     saving ||
     pagoId.trim().length === 0 ||
     (muestraEntidad && entidadId.trim().length === 0) ||
+    sucursalId.trim().length === 0 ||
     cajaDestinoId.trim().length === 0;
 
   async function handleSubmit() {
@@ -129,6 +137,7 @@ export default function CrearEditarCobroModal({
         : await crearCobroPorSucursalAction({
             pagoId,
             entidadId: muestraEntidad ? entidadId : null,
+            sucursalId,
             cajaDestinoId,
             observacion,
           });
@@ -183,6 +192,7 @@ export default function CrearEditarCobroModal({
               onValueChange={(value) => {
                 setPagoId(value);
                 setEntidadId("");
+                setSucursalId("");
                 setCajaDestinoId("");
               }}
               disabled={saving || esEditar}
@@ -230,6 +240,37 @@ export default function CrearEditarCobroModal({
               </Select>
             </div>
           ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <ModalMicroLabel>SUCURSAL</ModalMicroLabel>
+            <Select
+              value={sucursalId || undefined}
+              onValueChange={(value) => {
+                setSucursalId(value);
+                setCajaDestinoId("");
+              }}
+              disabled={saving || esEditar}
+            >
+              <SelectTrigger
+                className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                aria-label="Sucursal"
+              >
+                <SelectValue placeholder="Seleccionar sucursal" />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="select-content-filtro"
+              >
+                {sucursales.map((sucursal) => (
+                  <SelectItem key={sucursal.id} value={sucursal.id}>
+                    {sucursal.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>

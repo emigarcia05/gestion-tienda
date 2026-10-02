@@ -144,11 +144,8 @@ async function resolverSucursalCajaTesoreria(
   tipoCaja: TipoCajaTesoreria,
   sucursalId: string | null
 ): Promise<ServiceResult<string | null>> {
-  if (tipoCaja === "CHEQUE") {
+  if (tipoCaja === "CHEQUE" || !sucursalId) {
     return { success: true, data: null };
-  }
-  if (!sucursalId) {
-    return { success: false, error: "Seleccioná una sucursal." };
   }
   const sucursal = await prisma.sucursal.findUnique({
     where: { id: sucursalId },

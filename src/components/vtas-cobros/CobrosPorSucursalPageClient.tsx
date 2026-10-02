@@ -392,6 +392,7 @@ export default function CobrosPorSucursalPageClient({
         entidades={entidades}
         vinculosPagoEntidad={vinculosPagoEntidad}
         cajas={cajas}
+        sucursales={sucursales}
         onSaved={handleSaved}
       />
 

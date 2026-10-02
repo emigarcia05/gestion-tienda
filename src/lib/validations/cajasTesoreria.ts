@@ -47,20 +47,10 @@ function refinSucursalSegunTipoCaja(
   data: { tipoCaja: string; sucursalId: string | null },
   ctx: z.RefinementCtx
 ): void {
-  if (data.tipoCaja === "CHEQUE") {
-    if (data.sucursalId != null) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Las cajas CHEQUE no tienen sucursal.",
-        path: ["sucursalId"],
-      });
-    }
-    return;
-  }
-  if (data.sucursalId == null) {
+  if (data.tipoCaja === "CHEQUE" && data.sucursalId != null) {
     ctx.addIssue({
       code: "custom",
-      message: "Seleccioná una sucursal.",
+      message: "Las cajas CHEQUE no tienen sucursal.",
       path: ["sucursalId"],
     });
   }

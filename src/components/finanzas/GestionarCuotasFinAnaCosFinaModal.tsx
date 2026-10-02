@@ -416,7 +416,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
                 <ModalMicroLabel>Forma de pago y entidad</ModalMicroLabel>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="icon"
                   className="h-8 w-8"
                   aria-label="Agregar forma de pago y entidad"
