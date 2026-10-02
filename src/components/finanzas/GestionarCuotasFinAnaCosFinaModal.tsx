@@ -376,7 +376,7 @@ export default function GestionarCuotasFinAnaCosFinaModal({
       >
         <AppModal
           title={editingItem ? "EDITAR CUOTA" : "NUEVA CUOTA"}
-          size="sm"
+          size="lg"
           actions={
             <div className="flex w-full justify-end gap-2">
               <Button

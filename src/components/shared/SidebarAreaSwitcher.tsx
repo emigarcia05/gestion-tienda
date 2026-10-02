@@ -61,7 +61,7 @@ function nombreUsuarioLabel(nombre: string): string {
 }
 
 /**
- * Pie de slidenav: fila de usuario (ícono `User` + nombre).
+ * Pie de slidenav: ícono `User` + nombre, y debajo la sucursal.
  * Vive dentro del dock de sesión (`sidebar-user-switcher-surface` en `Sidebar`).
  * Primera visita: modal **Elegir Usuario**.
  * La clave se solicita solo al entrar a un área que la requiere (Administración).
@@ -225,6 +225,9 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
   const labelUsuario = usuarioSesion
     ? nombreUsuarioLabel(usuarioSesion.nombrePersonal)
     : "USUARIO";
+  const etiquetaSucursal = usuarioSesion
+    ? etiquetaSucursalPorDefecto(usuarioSesion.sucursalPorDefecto)
+    : "";
   const sucursalesUsuario = Array.from(
     new Set(
       usuarios
@@ -285,7 +288,7 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
         aria-label="Cambiar Usuario"
         title="Cambiar Usuario"
         className={cn(
-          "flex h-9 w-full min-w-0 items-center justify-center gap-2 rounded-md px-2",
+          "flex min-h-11 w-full min-w-0 items-center justify-center gap-2 rounded-md px-2 py-1",
           "text-center text-xs font-semibold tracking-wide",
           "text-sidebar-foreground",
           "outline-none hover:bg-sidebar-accent/80",
@@ -294,7 +297,14 @@ export default function SidebarAreaSwitcher({ rolActual }: Props) {
         )}
       >
         <User className="h-4 w-4 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate">{labelUsuario}</span>
+        <span className="flex min-w-0 flex-col items-center leading-tight">
+          <span className="w-full truncate">{labelUsuario}</span>
+          {etiquetaSucursal ? (
+            <span className="w-full truncate text-[0.65rem] font-medium">
+              {etiquetaSucursal}
+            </span>
+          ) : null}
+        </span>
       </button>
 
       <Dialog open={usuarioOpen} onOpenChange={handleUsuarioOpenChange}>
