@@ -12,6 +12,8 @@ import FilterBar, {
 import {
   TablaFlujoDeFondo,
   TablaFlujoDeFondoDetalleDia,
+  TablaFlujoDeFondoIngresosCaja,
+  TituloSeccionDetalleDia,
   type FilaFlujoDeFondoVista,
 } from "@/components/finanzas/TablaFlujoDeFondo";
 import AppModal from "@/components/shared/AppModal";
@@ -29,10 +31,12 @@ import {
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
+import type { FlujoFondoIngresoCajaFila } from "@/services/tesoreriaMovimientos.service";
 import type { FlujoFondoDetalleDiaFila } from "@/services/vencimientosPorFecha.service";
 
 export interface FinanzasVencPorFechaPageClientProps {
   detallesPorDia: Record<string, FlujoFondoDetalleDiaFila[]>;
+  ingresosPorDia: Record<string, FlujoFondoIngresoCajaFila[]>;
   proveedoresConVencimientos: string[];
   /** Filas del periodo ya calculadas en servidor (slice de la página actual). */
   filas: FilaFlujoDeFondoVista[];
@@ -43,6 +47,7 @@ export interface FinanzasVencPorFechaPageClientProps {
 
 export default function FinanzasVencPorFechaPageClient({
   detallesPorDia,
+  ingresosPorDia,
   proveedoresConVencimientos,
   filas,
   paginaActual,
@@ -57,6 +62,10 @@ export default function FinanzasVencPorFechaPageClient({
     if (!filtroProveedor) return base;
     return base.filter((f) => f.proveedor === filtroProveedor);
   }, [detalleIsoYmd, detallesPorDia, filtroProveedor]);
+  const ingresosFilas = useMemo(() => {
+    if (!detalleIsoYmd) return [];
+    return ingresosPorDia[detalleIsoYmd] ?? [];
+  }, [detalleIsoYmd, ingresosPorDia]);
   const detalleFechaLarga = useMemo(() => {
     if (!detalleIsoYmd) return "";
     const [yy, mm, dd] = detalleIsoYmd.split("-").map(Number);
@@ -127,7 +136,7 @@ export default function FinanzasVencPorFechaPageClient({
           <TablaFlujoDeFondo
             filas={filasVista}
             montoVencimientoPorDia={montoVencimientoPorDia}
-            onRowDoubleClick={setDetalleIsoYmd}
+            onVerDia={setDetalleIsoYmd}
           />
 
           {totalPaginas > 1 ? (
@@ -157,17 +166,25 @@ export default function FinanzasVencPorFechaPageClient({
               "Detalle Del Día"
             )
           }
-          size="lg"
+          size="xl"
           padding="sm"
           scrollBody={false}
+          className="h-[85vh] max-w-[min(72rem,calc(100%-2rem))]"
           actions={
             <Button type="button" variant="outline" onClick={() => setDetalleIsoYmd(null)}>
               Cerrar
             </Button>
           }
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <TablaFlujoDeFondoDetalleDia filas={detalleFilas} />
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
+            <section className="flex min-h-0 min-w-0 flex-col gap-2">
+              <TituloSeccionDetalleDia>Vencimiento Del Día</TituloSeccionDetalleDia>
+              <TablaFlujoDeFondoDetalleDia filas={detalleFilas} llenarAlto />
+            </section>
+            <section className="flex min-h-0 min-w-0 flex-col gap-2">
+              <TituloSeccionDetalleDia>Ingresos De Caja</TituloSeccionDetalleDia>
+              <TablaFlujoDeFondoIngresosCaja filas={ingresosFilas} />
+            </section>
           </div>
         </AppModal>
       </Dialog>
