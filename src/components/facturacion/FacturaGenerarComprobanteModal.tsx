@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 
 export type FacturaGenerarComprobanteAccion =
+  | "solo"
   | "imprimir"
   | "descargar"
   | "ambos";
@@ -69,9 +70,11 @@ const BOTON_FORMA_PAGO_CLASS =
 
 const ACCIONES_GENERAR: {
   id: FacturaGenerarComprobanteAccion;
+  /** Segunda línea bajo GENERAR; vacío = solo la palabra GENERAR. */
   linea2: string;
   ariaLabel: string;
 }[] = [
+  { id: "solo", linea2: "", ariaLabel: "Generar" },
   { id: "imprimir", linea2: "IMPRIMIR", ariaLabel: "Generar imprimir" },
   { id: "descargar", linea2: "DESCARGAR", ariaLabel: "Generar descargar" },
   {
@@ -115,8 +118,8 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
 }
 
 /**
- * Modal **Generar Comprobante**: cobro (solo ventas) + PDF.
- * El comprobante se emite al Generar Imprimir / Descargar / Imprimir & Descargar.
+ * Modal **Generar Comprobante**: cobro (solo ventas) + emisión.
+ * Emite al **GENERAR** (sin PDF) o Generar Imprimir / Descargar / Imprimir & Descargar.
  */
 export default function FacturaGenerarComprobanteModal({
   open,
@@ -334,18 +337,20 @@ export default function FacturaGenerarComprobanteModal({
         pideDocumentoCf ? documentoReceptor : undefined
       );
       if (emitido == null) return;
-      try {
-        if (accion === "imprimir") {
-          await imprimirPdfFacturaComprobante(emitido);
-        } else if (accion === "descargar") {
-          await descargarPdfFacturaComprobante(emitido);
-        } else {
-          await imprimirYDescargarPdfFacturaComprobante(emitido);
+      if (accion !== "solo") {
+        try {
+          if (accion === "imprimir") {
+            await imprimirPdfFacturaComprobante(emitido);
+          } else if (accion === "descargar") {
+            await descargarPdfFacturaComprobante(emitido);
+          } else {
+            await imprimirYDescargarPdfFacturaComprobante(emitido);
+          }
+        } catch (e) {
+          const msg =
+            e instanceof Error ? e.message : "No se pudo generar el PDF.";
+          toast.error(msg);
         }
-      } catch (e) {
-        const msg =
-          e instanceof Error ? e.message : "No se pudo generar el PDF.";
-        toast.error(msg);
       }
       onFinalizado?.();
       onOpenChange(false);
@@ -576,7 +581,7 @@ export default function FacturaGenerarComprobanteModal({
                 </p>
               </div>
             ) : null}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {ACCIONES_GENERAR.map((accion) => (
                 <Button
                   key={accion.id}
@@ -592,7 +597,7 @@ export default function FacturaGenerarComprobanteModal({
                   ) : (
                     <span className="flex flex-col items-center justify-center gap-0.5 text-center text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
                       <span>GENERAR</span>
-                      <span>{accion.linea2}</span>
+                      {accion.linea2 ? <span>{accion.linea2}</span> : null}
                     </span>
                   )}
                 </Button>
