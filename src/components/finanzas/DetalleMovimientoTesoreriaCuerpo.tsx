@@ -1,4 +1,5 @@
 import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
+import { Button } from "@/components/ui/button";
 import type { TesoreriaMovimientoFila } from "@/services/tesoreriaMovimientos.service";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
@@ -25,8 +26,10 @@ const TITULO_SECCION_CLASS =
 
 export default function DetalleMovimientoTesoreriaCuerpo({
   fila,
+  onOpenComprobantePreview,
 }: {
   fila: TesoreriaMovimientoFila;
+  onOpenComprobantePreview?: (comprobanteId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -38,6 +41,24 @@ export default function DetalleMovimientoTesoreriaCuerpo({
         />
         <LineaLecturaModal etiqueta="SUCURSAL" valor={fmtCelda(fila.sucursalNombre)} />
         <LineaLecturaModal etiqueta="USUARIO" valor={fmtCelda(fila.usuarioNombre)} />
+        <LineaLecturaModal etiqueta="CLIENTE" valor={fmtCelda(fila.clienteNombre)} />
+        <LineaLecturaModal
+          etiqueta="COMPROBANTE"
+          valor={
+            fila.comprobanteId && fila.comprobanteEtiqueta && onOpenComprobantePreview ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-left text-sm font-semibold leading-snug"
+                onClick={() => onOpenComprobantePreview(fila.comprobanteId as string)}
+              >
+                {fila.comprobanteEtiqueta}
+              </Button>
+            ) : (
+              fmtCelda(fila.comprobanteEtiqueta)
+            )
+          }
+        />
         <LineaLecturaModal etiqueta="TIPO" valor={fmtCelda(fila.tipoEtiqueta)} />
         <LineaLecturaModal etiqueta="CATEGORÍA" valor={categoriaDetalleMovimiento(fila)} />
         <LineaLecturaModal etiqueta="MONTO" valor={`$${fmtPrecio(fila.monto)}`} tabular />

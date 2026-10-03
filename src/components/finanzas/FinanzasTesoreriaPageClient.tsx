@@ -10,7 +10,6 @@ import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaMod
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
-import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarTesoreriaTitularesModal from "@/components/vtas-cobros/GestionarTesoreriaTitularesModal";
@@ -47,7 +46,6 @@ export default function FinanzasTesoreriaPageClient({
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
-  const [cajaChequeSeleccionada, setCajaChequeSeleccionada] = useState<TesoreriaCajaFila | null>(null);
   const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
@@ -260,7 +258,6 @@ export default function FinanzasTesoreriaPageClient({
           filas={filasFiltradas}
           esEditor={esEditor}
           onEditMontoClick={esEditor ? (fila) => setCajaParaEditarMonto(fila) : undefined}
-          onChequeRowClick={(fila) => setCajaChequeSeleccionada(fila)}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
           onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
         />
@@ -295,15 +292,6 @@ export default function FinanzasTesoreriaPageClient({
             setCajaParaEliminar(null);
             refreshCatalogos();
           }}
-        />
-        <ChequesCajaTesoreriaModal
-          open={cajaChequeSeleccionada != null}
-          onOpenChange={(open) => {
-            if (!open) setCajaChequeSeleccionada(null);
-          }}
-          caja={cajaChequeSeleccionada}
-          esEditor={esEditor}
-          onChequesChanged={refreshCatalogos}
         />
         <GestionarTesoreriaTipoCajaModal
           open={openGestionarTipoCaja}

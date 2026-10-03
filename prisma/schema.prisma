@@ -15,23 +15,10 @@ enum TipoCajaTesoreria {
   TARJETAS_A_COBRAR
 }
 
-/** Agrupación para totales / destino de transferencia de cheques (no confundir con `TipoCajaTesoreria`). */
 enum TipoValorTesoreria {
   DIGITAL
   EFECTIVO
   CHEQUE
-}
-
-enum TipoChequeTesoreria {
-  FISICO
-  ECHEQUE
-}
-
-/** Custodia del cheque en tesorería (detalle de cheques). */
-enum TenenciaChequeTesoreria {
-  TIENDA
-  DEPOSITADO
-  PROVEEDOR
 }
 
 /** Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo. */
@@ -116,7 +103,6 @@ model Proveedor {
   pedidosHistoria     PedidoHistoria[]
   comprobantesProveedor ComprobanteProveedor[]
   finBalGastoFinal   FinBalGastoFinal[]
-  finTesoreriaChequesPago FinTesoreriaCheque[]
   competenciasPrecios ProdCompetencia[]
   preciosRex          ProdPrecioRex[]
   reglasDescuentosListaPrecio ProdPrecioProveeRegla[]
@@ -457,8 +443,6 @@ model CajaTesoreria {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  cheques                        FinTesoreriaCheque[]
-  chequesAcreditadosComoDestino FinTesoreriaCheque[] @relation("FinTesoreriaChequeCajaDestino")
   cobrosPorSucursalDestino       CobrosPorSucursal[]
   movimientos                    TesoreriaMovimiento[] @relation("MovimientoCaja")
   movimientosComoContraparte     TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
@@ -557,43 +541,6 @@ model TesoreriaMovimiento {
   @@index([clienteCobroId], map: "tesoreria_movimientos_cliente_cobro_idx")
   @@index([notaCreditoId], map: "tesoreria_movimientos_nota_credito_idx")
   @@map("tesoreria_movimientos")
-}
-
-// Cheques asociados a una caja de tesorería tipo CHEQUE. El disponible para totales
-// (hoy en calendario Argentina) suma solo filas con fecha_acreditacion <= hoy y sin transferencia.
-// Tras acreditar a una caja con tipo_valor DIGITAL, la fila conserva `fecha_transferencia` hasta 500 días (purge en servicio).
-model FinTesoreriaCheque {
-  id                  String               @id @default(cuid())
-  cajaId              String               @map("caja_id")
-  tipo                TipoChequeTesoreria  @map("tipo")
-  emisor              String
-  /** Nombre de `global_personal` con `titular_financiero = true` (misma fuente que `tesoreria_cajas.titular`). */
-  tenedor             String                 @map("tenedor")
-  /** Custodia: en tienda (alta), depositado (transferido a caja con tipo_valor DIGITAL), proveedor (pago a proveedor mercadería). */
-  tenencia            TenenciaChequeTesoreria @default(TIENDA) @map("tenencia")
-  monto               Int
-  fechaAcreditacion   DateTime             @map("fecha_acreditacion") @db.Date
-  /** Si no es null, el importe ya se acreditó en `cajaDestinoId`; no suma al disponible de la caja CHEQUE. */
-  fechaTransferencia DateTime?            @map("fecha_transferencia")
-  cajaDestinoId       String?              @map("caja_destino_id")
-  /** Día en que la tienda recibió el cheque (calendario Argentina). */
-  fechaRecibido       DateTime             @map("fecha_recibido") @db.Date
-  /** Día (calendario Argentina) en que se transfirió a caja con tipo_valor DIGITAL; null si aún no se transfirió. */
-  fechaTransferido    DateTime?            @map("fecha_transferido") @db.Date
-  /** Proveedor de mercadería al registrar pago a proveedor (`tenencia = PROVEEDOR`). */
-  proveedorId         String?              @map("proveedor_id")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  caja              CajaTesoreria  @relation(fields: [cajaId], references: [id], onDelete: Cascade)
-  cajaDestino       CajaTesoreria? @relation("FinTesoreriaChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: SetNull)
-  proveedor         Proveedor?     @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-
-  @@index([cajaId], map: "tesoreria_cheques_caja_id_idx")
-  @@index([cajaId, fechaAcreditacion], map: "tesoreria_cheques_caja_id_fecha_acreditacion_idx")
-  @@index([cajaId, fechaTransferencia], map: "tesoreria_cheques_caja_id_fecha_transferencia_idx")
-  @@index([proveedorId], map: "tesoreria_cheques_proveedor_id_idx")
-  @@map("tesoreria_cheques")
 }
 
 // Catálogo raíz de la jerarquía Finanzas → Balance → Gastos: Tipo (1) ─→ Rubros (N) ─→ Gastos (N).

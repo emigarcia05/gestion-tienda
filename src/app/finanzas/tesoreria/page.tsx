@@ -26,7 +26,6 @@ export default async function FinanzasTesoreriaPage() {
     tipoValor: c.tipoValor,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
-    montoChequesDiferidos: c.montoChequesDiferidos,
     ultActualizacionIso: c.ultActualizacion.toISOString(),
   }));
 

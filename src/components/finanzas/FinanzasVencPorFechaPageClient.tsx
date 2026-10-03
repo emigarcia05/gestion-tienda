@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { obtenerMovimientoTesoreriaPorIdAction } from "@/actions/tesoreriaMovimientos";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -72,6 +73,7 @@ export default function FinanzasVencPorFechaPageClient({
   );
   const [detalleIngresoMovimiento, setDetalleIngresoMovimiento] =
     useState<TesoreriaMovimientoFila | null>(null);
+  const [comprobantePreviewId, setComprobantePreviewId] = useState<string | null>(null);
   const [loadingDetalleIngreso, setLoadingDetalleIngreso] = useState(false);
   const detalleFilas = useMemo(() => {
     if (!detalleIsoYmd) return [];
@@ -278,10 +280,21 @@ export default function FinanzasVencPorFechaPageClient({
               </Button>
             }
           >
-            <DetalleMovimientoTesoreriaCuerpo fila={detalleIngresoMovimiento} />
+            <DetalleMovimientoTesoreriaCuerpo
+              fila={detalleIngresoMovimiento}
+              onOpenComprobantePreview={setComprobantePreviewId}
+            />
           </AppModal>
         ) : null}
       </Dialog>
+
+      <FacturaComprobanteDetalleModal
+        open={comprobantePreviewId != null}
+        onOpenChange={(open) => {
+          if (!open) setComprobantePreviewId(null);
+        }}
+        comprobanteId={comprobantePreviewId}
+      />
     </div>
   );
 }

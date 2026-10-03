@@ -5,6 +5,7 @@ import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarMovimientoTesoreriaAction } from "@/actions/tesoreriaMovimientos";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_INLINE_ACTION_SLOT_CLASS,
@@ -94,6 +95,7 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filaDetalle, setFilaDetalle] = useState<TesoreriaMovimientoFila | null>(null);
   const [filaParaEliminar, setFilaParaEliminar] = useState<TesoreriaMovimientoFila | null>(null);
+  const [comprobantePreviewId, setComprobantePreviewId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
@@ -489,7 +491,10 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               </Button>
             }
           >
-            <DetalleMovimientoTesoreriaCuerpo fila={filaDetalle} />
+            <DetalleMovimientoTesoreriaCuerpo
+              fila={filaDetalle}
+              onOpenComprobantePreview={setComprobantePreviewId}
+            />
           </AppModal>
         ) : null}
       </Dialog>
@@ -546,6 +551,14 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
           </AppModal>
         ) : null}
       </Dialog>
+
+      <FacturaComprobanteDetalleModal
+        open={comprobantePreviewId != null}
+        onOpenChange={(open) => {
+          if (!open) setComprobantePreviewId(null);
+        }}
+        comprobanteId={comprobantePreviewId}
+      />
     </ClassicFilteredTableLayout>
   );
 }

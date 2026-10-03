@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /** Dato de solo lectura en modal: etiqueta en negrita y valor en la misma línea. */
@@ -7,7 +8,7 @@ export default function LineaLecturaModal({
   tabular = false,
 }: {
   etiqueta: string;
-  valor: string;
+  valor: ReactNode;
   tabular?: boolean;
 }) {
   return (

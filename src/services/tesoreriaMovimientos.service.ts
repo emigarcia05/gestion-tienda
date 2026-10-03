@@ -387,6 +387,9 @@ export type TesoreriaMovimientoFila = {
   entidadNombre: string;
   cuotaEtiqueta: string;
   costoFinanciero: number | null;
+  comprobanteId: string | null;
+  clienteNombre: string;
+  comprobanteEtiqueta: string;
 };
 
 function etiquetaCajaMovimiento(caja: {
@@ -408,6 +411,15 @@ function etiquetaCajaMovimiento(caja: {
       : null,
   ].filter((parte): parte is string => parte != null && parte.length > 0);
   return partes.join(" - ");
+}
+
+function etiquetaComprobanteMovimiento(comprobante: {
+  ptoVenta: string;
+  cbteNro: number | null;
+} | null): string {
+  if (!comprobante || comprobante.cbteNro == null) return "";
+  const nro = comprobante.cbteNro.toString().padStart(8, "0");
+  return `${comprobante.ptoVenta}-${nro}`;
 }
 
 /** Listado del ledger para TESORERIA → Movimientos (más recientes primero). */
@@ -439,6 +451,14 @@ export async function listarMovimientosTesoreria(): Promise<
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
       cxFin: { select: { costoFinanciero: true } },
+      comprobante: {
+        select: {
+          id: true,
+          receptorNombre: true,
+          ptoVenta: true,
+          cbteNro: true,
+        },
+      },
     },
   });
 
@@ -471,6 +491,11 @@ export async function listarMovimientosTesoreria(): Promise<
       row.cxFin?.costoFinanciero != null
         ? decimalPctToNumber(row.cxFin.costoFinanciero)
         : null,
+    comprobanteId: row.comprobante?.id ?? null,
+    clienteNombre: row.comprobante?.receptorNombre?.trim()
+      ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
+      : "",
+    comprobanteEtiqueta: etiquetaComprobanteMovimiento(row.comprobante ?? null),
   }));
 }
 
@@ -502,6 +527,14 @@ export async function obtenerMovimientoTesoreriaPorId(
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
       cxFin: { select: { costoFinanciero: true } },
+      comprobante: {
+        select: {
+          id: true,
+          receptorNombre: true,
+          ptoVenta: true,
+          cbteNro: true,
+        },
+      },
     },
   });
   if (!row) return { success: false, error: "Movimiento inexistente." };
@@ -537,6 +570,11 @@ export async function obtenerMovimientoTesoreriaPorId(
         row.cxFin?.costoFinanciero != null
           ? decimalPctToNumber(row.cxFin.costoFinanciero)
           : null,
+      comprobanteId: row.comprobante?.id ?? null,
+      clienteNombre: row.comprobante?.receptorNombre?.trim()
+        ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
+        : "",
+      comprobanteEtiqueta: etiquetaComprobanteMovimiento(row.comprobante ?? null),
     },
   };
 }

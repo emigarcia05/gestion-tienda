@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
-import { Banknote, Pencil, ScrollText, Trash2 } from "lucide-react";
+import { Banknote, Pencil, Trash2 } from "lucide-react";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -35,8 +35,6 @@ export interface TesoreriaCajaFila {
   monto: number;
   /** Saldo = Σ movimientos (INGRESO +, EGRESO −). */
   montoDisponible: number;
-  /** Solo cajas CHEQUE: cheques con fecha de acreditación > hoy AR (diferidos). */
-  montoChequesDiferidos: number;
   /** Solo para ordenar en cliente; no se muestra en la grilla. */
   ultActualizacionIso: string;
 }
@@ -44,9 +42,7 @@ export interface TesoreriaCajaFila {
 interface Props {
   filas: TesoreriaCajaFila[];
   esEditor?: boolean;
-  /** Caja tipo CHEQUE: abrir detalle de cheques (botón en ACCIONES). */
-  onChequeRowClick?: (fila: TesoreriaCajaFila) => void;
-  /** Cajas no CHEQUE: abrir modal de actualización de monto. */
+  /** Cajas: abrir modal de actualización de monto. */
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
   onDeleteClick?: (fila: TesoreriaCajaFila) => void;
@@ -74,8 +70,7 @@ function ColgroupAnchos({ anchos }: { anchos: readonly number[] }) {
 
 /**
  * Pie de resumen (filas ya filtradas en cliente).
- * Subtotales por `tipoValor` (**CHEQUE** = disponible + diferido por caja según
- * `fecha_acreditacion` ≤ / > hoy AR en cheques no transferidos).
+ * Subtotales por `tipoValor` usando el saldo disponible de cada caja.
  */
 function totalesPieResumenTesoreria(filas: TesoreriaCajaFila[]): {
   efectivoTipoValor: number;
@@ -88,11 +83,10 @@ function totalesPieResumenTesoreria(filas: TesoreriaCajaFila[]): {
 
   for (const f of filas) {
     const m = f.montoDisponible;
-    const cheqDif = f.montoChequesDiferidos;
 
     if (f.tipoValor === "EFECTIVO") efectivoTipoValor += m;
     else if (f.tipoValor === "DIGITAL") digitalTipoValor += m;
-    else if (f.tipoValor === "CHEQUE") chequeTipoValor += m + cheqDif;
+    else if (f.tipoValor === "CHEQUE") chequeTipoValor += m;
   }
 
   return { efectivoTipoValor, digitalTipoValor, chequeTipoValor };
@@ -148,7 +142,6 @@ const RESUMEN_FILA_GRID_CLASS =
 export default function TablaTesoreriaCajas({
   filas,
   esEditor = false,
-  onChequeRowClick,
   onEditMontoClick,
   onEditDataClick,
   onDeleteClick,
@@ -183,22 +176,7 @@ export default function TablaTesoreriaCajas({
                 <EmptyTableRow colSpan={colCount} message="No hay cajas de tesorería registradas." />
               ) : (
                 filas.map((f) => (
-                  <TableRow
-                    key={f.id}
-                    onDoubleClick={
-                      !esEditor && f.tipoCaja === "CHEQUE" && onChequeRowClick
-                        ? () => onChequeRowClick(f)
-                        : undefined
-                    }
-                    title={
-                      !esEditor && f.tipoCaja === "CHEQUE" && onChequeRowClick
-                        ? "Doble clic para ver los cheques de esta caja"
-                        : undefined
-                    }
-                    className={cn(
-                      !esEditor && f.tipoCaja === "CHEQUE" && onChequeRowClick && "cursor-pointer"
-                    )}
-                  >
+                  <TableRow key={f.id}>
                     <TableCell className={cn("celda-datos whitespace-nowrap", CELL_MIN)}>
                       {etiquetaTipoCajaEnPantalla(f.tipoCaja as TipoCajaTesoreria)}
                     </TableCell>
@@ -222,22 +200,7 @@ export default function TablaTesoreriaCajas({
                         )}
                       >
                         <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "flex-wrap justify-center gap-1")}>
-                          {f.tipoCaja === "CHEQUE" && onChequeRowClick ? (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onChequeRowClick(f);
-                              }}
-                              aria-label="Ver cheques de la caja"
-                              title="Ver cheques"
-                            >
-                              <ScrollText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                          ) : onEditMontoClick ? (
+                          {onEditMontoClick ? (
                             <Button
                               type="button"
                               size="icon"

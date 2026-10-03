@@ -20,7 +20,6 @@ import {
 } from "@/services/finBalGastoMensualBalance.service";
 import { listarCajasTesoreria } from "@/services/cajasTesoreria.service";
 import { listarIngresosCajaPorFechaAcreditacion } from "@/services/tesoreriaMovimientos.service";
-import { sumarMontosChequesDiferidosPorFechaAcreditacion } from "@/services/finTesoreriaCheques.service";
 import type { FilaFlujoDeFondoVista } from "@/components/finanzas/TablaFlujoDeFondo";
 import { calcularFilasFlujoDeFondo } from "@/lib/flujoDeFondoFilas";
 import { PAGE_SIZE, skipForPagina, totalPaginasFromTotal } from "@/lib/pagination";
@@ -64,7 +63,6 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     saldoComprasAntes,
     saldoGastosAntes,
     cajasTesoreria,
-    incrementosChequePorFecha,
     ingresosPorDia,
   ] = await Promise.all([
     listarVencimientosEnRango(hoyIso, hastaIso),
@@ -72,7 +70,6 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     sumarSaldoVencimientosConFechaVencAnteriorA(hoyIso),
     sumarPendienteGastosConFechaVencAnteriorA(hoyIso),
     listarCajasTesoreria(),
-    sumarMontosChequesDiferidosPorFechaAcreditacion(hoyIso),
     listarIngresosCajaPorFechaAcreditacion(hoyIso, hastaIso),
   ]);
   const saldoVencidoAntesDeHoy = saldoComprasAntes + saldoGastosAntes;
@@ -145,18 +142,9 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     ingresosAcreditadosPorDia.set(isoYmd, totalDia);
   }
 
-  /** Liquidez extra por cheques diferidos incorporada hasta cada día (inclusive). */
-  const liquidoChequesDiferidosHasta = new Map<string, number>();
-  let acumChequesDif = 0;
-  for (const { isoYmd } of filasTotales) {
-    acumChequesDif += incrementosChequePorFecha.get(isoYmd) ?? 0;
-    liquidoChequesDiferidosHasta.set(isoYmd, acumChequesDif);
-  }
-
   const filasCompletas: FilaFlujoDeFondoVista[] = calcularFilasFlujoDeFondo(filasTotales, {
     cajaDisponibleInicial,
     saldoVencidoAntesDeHoy,
-    liquidoChequesAcumuladoHasta: liquidoChequesDiferidosHasta,
     ingresosAcreditadosPorDia,
   });
 

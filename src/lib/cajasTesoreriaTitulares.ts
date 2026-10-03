@@ -6,7 +6,7 @@ export interface TesoreriaTitularItem {
   nombre: string;
 }
 
-/** Nombre persistido en `tesoreria_cajas.titular` / `tesoreria_cheques.tenedor`. */
+/** Nombre persistido en `tesoreria_cajas.titular`. */
 export const titularCajaTesoreriaSchema = z
   .string()
   .trim()
