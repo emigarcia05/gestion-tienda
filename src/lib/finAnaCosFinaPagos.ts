@@ -19,6 +19,8 @@ export type FinAnaCosFinaPagoItem = {
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
   entidadNombres: string[];
+  /** El cobro pide la fecha de acreditación a mano. */
+  fechaAcreditacionVariable: boolean;
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */

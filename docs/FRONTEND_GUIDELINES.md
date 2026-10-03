@@ -331,7 +331,7 @@ En `FacturaListadoPageClient` (Comprobantes), la fila principal de filtros inclu
 
 **PDF fiscal** (`generarPdfFacturaComprobante`): misma grilla (logo 40 % | letra 20 % | datos 40 %), mismos azules y la misma tabla. Si ARCA autorizó, se agregan en ese esquema la leyenda de condición IVA del emisor, `Código Nº`, el domicilio del receptor en factura A, `A CONSUMIDOR FINAL` cuando corresponde, el desglose de neto/IVA si la operación lo exige, el bloque «Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)» y el QR junto al CAE. Sin CAE no se imprime como factura fiscal. En **Generar**, si el receptor es consumidor final sin CUIT, hay un campo **DNI / CUIT** (obligatorio si el total supera $ 10.000.000).
 
-**Cobros con acreditación variable:** cuando la forma de pago tiene `fechaAcreditacionVariable = true`, los modales `FacturaGenerarComprobanteModal`, `FacturaComprobanteCobrosModal` y `FacturaPagoCuentaCorrienteModal` muestran y exigen **FECHA ACREDITACIÓN** (`Input type="date"`). Esa fecha viaja en el payload del cobro (`fechaAcreditacionIso`) y se usa para `tesoreria_movimientos.fecha_acreditacion`.
+**Cobros con acreditación variable:** el catálogo `FinAnaCosFinaPagoItem` trae `fechaAcreditacionVariable` (`cobros_forma_pago`). Cuando es `true`, los modales `FacturaGenerarComprobanteModal`, `FacturaComprobanteCobrosModal` y `FacturaPagoCuentaCorrienteModal` muestran y exigen **FECHA ACREDITACIÓN** (`Input type="date"`). Esa fecha viaja en el payload del cobro (`fechaAcreditacionIso`) y se usa para `tesoreria_movimientos.fecha_acreditacion`.
 
 ### Asistente IA
 
