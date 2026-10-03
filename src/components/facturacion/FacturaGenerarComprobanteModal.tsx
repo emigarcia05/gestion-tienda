@@ -33,7 +33,10 @@ import {
   imprimirPdfFacturaComprobante,
   imprimirYDescargarPdfFacturaComprobante,
 } from "@/lib/facturaComprobantePdfClient";
-import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import {
+  dateToIsoYmdArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
 import {
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
@@ -86,6 +89,7 @@ type CobroRegistrado = {
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string | null;
+  fechaAcreditacionIso?: string;
   montoCents: number;
 };
 
@@ -131,6 +135,7 @@ export default function FacturaGenerarComprobanteModal({
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
+  const [fechaAcreditacionIso, setFechaAcreditacionIso] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
   const [documentoReceptor, setDocumentoReceptor] = useState("");
@@ -168,6 +173,7 @@ export default function FacturaGenerarComprobanteModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
+    setFechaAcreditacionIso("");
     setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
   }, []);
 
@@ -215,6 +221,9 @@ export default function FacturaGenerarComprobanteModal({
       next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
+    setFechaAcreditacionIso(
+      next?.fechaAcreditacionVariable ? dateToIsoYmdArgentina(new Date()) : ""
+    );
   }
 
   function handleEntidadChange(value: string) {
@@ -236,6 +245,9 @@ export default function FacturaGenerarComprobanteModal({
     if (muestraCuotas && !cuotaId) {
       return { ok: false, error: "Seleccioná las cuotas." };
     }
+    if (pagoSel.fechaAcreditacionVariable && !fechaAcreditacionIso) {
+      return { ok: false, error: "Ingresá la fecha de acreditación." };
+    }
     const montoCents = montoArNormalizedStringToCents(montoNorm);
     if (montoCents <= 0) {
       return { ok: false, error: "Ingresá un monto a pagar." };
@@ -252,6 +264,9 @@ export default function FacturaGenerarComprobanteModal({
         pagoNombre: pagoSel.nombre,
         entidadNombre,
         cuotaEtiqueta: cuota?.cuotas ?? null,
+        fechaAcreditacionIso: pagoSel.fechaAcreditacionVariable
+          ? fechaAcreditacionIso
+          : undefined,
         montoCents,
       },
     };
@@ -273,6 +288,7 @@ export default function FacturaGenerarComprobanteModal({
       pagoNombre: res.cobro.pagoNombre,
       entidadNombre: res.cobro.entidadNombre,
       cuotaEtiqueta: res.cobro.cuotaEtiqueta,
+      fechaAcreditacionIso: res.cobro.fechaAcreditacionIso,
       montoCents: res.cobro.montoCents,
     };
     setCobros((prev) => [...prev, fila]);
@@ -308,10 +324,17 @@ export default function FacturaGenerarComprobanteModal({
       return;
     }
     const cobrosEmitir: CobroFacturaEmitirInput[] = cobros.map(
-      ({ pagoNombre, entidadNombre, cuotaEtiqueta, montoCents }) => ({
+      ({
+        pagoNombre,
+        entidadNombre,
+        cuotaEtiqueta,
+        fechaAcreditacionIso,
+        montoCents,
+      }) => ({
         pagoNombre,
         entidadNombre: entidadNombre ?? "",
         cuotaEtiqueta,
+        fechaAcreditacionIso,
         montoCents,
       })
     );
@@ -320,6 +343,7 @@ export default function FacturaGenerarComprobanteModal({
         pagoNombre: extra.cobro.pagoNombre,
         entidadNombre: extra.cobro.entidadNombre ?? "",
         cuotaEtiqueta: extra.cobro.cuotaEtiqueta,
+        fechaAcreditacionIso: extra.cobro.fechaAcreditacionIso,
         montoCents: extra.cobro.montoCents,
       });
     }
@@ -496,6 +520,18 @@ export default function FacturaGenerarComprobanteModal({
                       aria-label="Monto a pagar"
                     />
                   </div>
+                  {pagoSel?.fechaAcreditacionVariable ? (
+                    <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
+                      <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
+                      <Input
+                        type="date"
+                        value={fechaAcreditacionIso}
+                        onChange={(e) => setFechaAcreditacionIso(e.target.value)}
+                        disabled={ocupado}
+                        className="h-9"
+                      />
+                    </label>
+                  ) : null}
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"
@@ -520,6 +556,9 @@ export default function FacturaGenerarComprobanteModal({
                         {cobro.pagoNombre}
                         {cobro.entidadNombre ? ` · ${cobro.entidadNombre}` : ""}
                         {cobro.cuotaEtiqueta ? ` · ${cobro.cuotaEtiqueta}` : ""}
+                        {cobro.fechaAcreditacionIso
+                          ? ` · ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
+                          : ""}
                         {` · ${montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}`}
                       </span>
                       <Button

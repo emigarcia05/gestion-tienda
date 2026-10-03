@@ -651,7 +651,7 @@ const includeGastoFlujoGastoMensual = {
     select: {
       diaDevengado: true,
       vencimiento: true,
-      proveedor: { select: { nombre: true, proveedorMercaderia: true } },
+      proveedor: { select: { nombre: true, prefijo: true, proveedorMercaderia: true } },
       gasto: { select: { nombre: true } },
     },
   },
@@ -663,6 +663,8 @@ export interface VencimientoGastoFlujoLinea {
   fechaVenc: string;
   /** Proveedor (catálogo balance), para filtro y grilla. */
   proveedor: string;
+  /** Prefijo de 3 letras, en MAYÚSCULAS. Vacío si no tiene. */
+  proveedorPrefijo: string;
   /** Nombre de gasto en catálogo (MAYÚSCULAS, como en Balance). */
   detalle: string;
   monto: number;
@@ -738,6 +740,7 @@ export async function listarVencimientosGastoFlujoEnRango(
       imputacionId: r.id,
       fechaVenc,
       proveedor: gf.proveedor.nombre.toUpperCase(),
+      proveedorPrefijo: (gf.proveedor.prefijo ?? "").trim().toUpperCase(),
       detalle: gf.gasto.nombre.toUpperCase(),
       monto: montoPendVenc,
       devengoIso: fechaDevengoIso,

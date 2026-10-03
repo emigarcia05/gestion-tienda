@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,6 +53,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
+  const [formFechaAcreditacionVariable, setFormFechaAcreditacionVariable] = useState(false);
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
@@ -99,6 +101,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setFormOpen(false);
     setEditingItem(null);
     setFormNombre("");
+    setFormFechaAcreditacionVariable(false);
     setFormEntidadIds([]);
     setBorrarTarget(null);
     void cargar();
@@ -137,6 +140,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     if (!esEditor || pending) return;
     setEditingItem(item);
     setFormNombre(item.nombre);
+    setFormFechaAcreditacionVariable(item.fechaAcreditacionVariable);
     setFormEntidadIds([...item.entidadIds]);
     setFormOpen(true);
   }
@@ -151,6 +155,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await editarFinAnaCosFinaPagoAction({
           id: editingItem.id,
           nombre: formNombre,
+          fechaAcreditacionVariable: formFechaAcreditacionVariable,
           entidadIds: formEntidadIds,
         });
         if (!res.ok) {
@@ -161,6 +166,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
       } else {
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
+          fechaAcreditacionVariable: formFechaAcreditacionVariable,
           entidadIds: formEntidadIds,
         });
         if (!res.ok) {
@@ -278,6 +284,11 @@ export default function GestionarPagosFinAnaCosFinaModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">
                           {pago.nombre}
+                          {pago.fechaAcreditacionVariable ? (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              · FECHA ACREDITACIÓN VARIABLE
+                            </span>
+                          ) : null}
                           {pago.entidadNombres.length === 0 ? (
                             <span className="ml-2 text-xs font-normal text-muted-foreground">
                               · SIN ENTIDAD
@@ -393,6 +404,12 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 />
               )}
             </div>
+            <ModalSiNoChoice
+              label="FECHA ACREDITACIÓN VARIABLE"
+              value={formFechaAcreditacionVariable}
+              onChange={setFormFechaAcreditacionVariable}
+              disabled={pending}
+            />
           </div>
         </AppModal>
       </Dialog>

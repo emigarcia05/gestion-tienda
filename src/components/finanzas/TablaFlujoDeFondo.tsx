@@ -11,6 +11,7 @@
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  formatIsoYmdDdMmYyArgentina,
   formatIsoYmdDdMmYyyyArgentina,
   formatMesDiaMayusculasDesdeIsoYmd,
 } from "@/lib/fechaArgentina";
@@ -164,6 +165,8 @@ export interface TablaFlujoDeFondoDetalleDiaProps {
   emptyMessage?: string;
   /** La tabla ocupa el alto libre del panel (modal partido en dos). */
   llenarAlto?: boolean;
+  /** Flujo De Fondo: fechas `dd/mm/aa` y proveedor = prefijo de 3 letras. */
+  fechaDdMmAa?: boolean;
 }
 
 /**
@@ -174,7 +177,11 @@ export function TablaFlujoDeFondoDetalleDia({
   filas,
   emptyMessage = "Sin vencimientos para el día seleccionado.",
   llenarAlto = false,
+  fechaDdMmAa = false,
 }: TablaFlujoDeFondoDetalleDiaProps) {
+  const fmtFecha = fechaDdMmAa
+    ? formatIsoYmdDdMmYyArgentina
+    : formatIsoYmdDdMmYyyyArgentina;
   return (
     <div
       className={cn(
@@ -212,16 +219,20 @@ export function TablaFlujoDeFondoDetalleDia({
               filas.map((fila) => (
                 <TableRow key={fila.sortId}>
                   <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaDevengadaIso)}
+                    {fmtFecha(fila.fechaDevengadaIso)}
                   </TableCell>
                   <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaVencimientoIso)}
+                    {fmtFecha(fila.fechaVencimientoIso)}
                   </TableCell>
                   <TableCell
                     className={cn("celda-datos max-w-[14rem] text-left celda-destacado", CELL_MIN)}
                     title={fila.proveedor}
                   >
-                    <span className="block truncate">{fila.proveedor}</span>
+                    <span className="block truncate">
+                      {fechaDdMmAa && fila.proveedorPrefijo
+                        ? fila.proveedorPrefijo
+                        : fila.proveedor}
+                    </span>
                   </TableCell>
                   <TableCell
                     className={cn("celda-datos max-w-[18rem] text-left", CELL_MIN)}
@@ -279,7 +290,7 @@ export function TablaFlujoDeFondoIngresosCaja({ filas }: TablaFlujoDeFondoIngres
               filas.map((fila) => (
                 <TableRow key={fila.id}>
                   <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaAcreditacionIso)}
+                    {formatIsoYmdDdMmYyArgentina(fila.fechaAcreditacionIso)}
                   </TableCell>
                   <TableCell className={cn("celda-datos text-left", CELL_MIN)}>
                     <span className="block truncate" title={fila.categoriaEtiqueta}>

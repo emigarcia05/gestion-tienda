@@ -29,6 +29,7 @@ export const crearMovimientoTesoreriaSchema = z
     pagoId: prismaIdSchema.optional(),
     entidadId: prismaIdSchema.nullable().optional(),
     cuotaId: prismaIdSchema.nullable().optional(),
+    fechaAcreditacionIso: isoYmdSchema.optional(),
   })
   .superRefine((data, ctx) => {
     const esCobro = (categoriasConCobro as readonly string[]).includes(data.catMovimiento);
@@ -39,7 +40,7 @@ export const crearMovimientoTesoreriaSchema = z
         message: "Seleccioná la forma de pago.",
       });
     }
-    if (!esCobro && (data.pagoId || data.entidadId || data.cuotaId)) {
+    if (!esCobro && (data.pagoId || data.entidadId || data.cuotaId || data.fechaAcreditacionIso)) {
       ctx.addIssue({
         code: "custom",
         path: ["pagoId"],

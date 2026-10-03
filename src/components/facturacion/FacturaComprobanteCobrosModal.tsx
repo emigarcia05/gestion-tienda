@@ -19,6 +19,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ import {
   type FacturaNcCobroVista,
 } from "@/lib/factura";
 import {
+  dateToIsoYmdArgentina,
   formatInstanteDdMmYyHhMmArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
@@ -94,6 +96,7 @@ export default function FacturaComprobanteCobrosModal({
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
+  const [fechaAcreditacionIso, setFechaAcreditacionIso] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [vistaNc, setVistaNc] = useState<FacturaNcCobroVista | null>(null);
   const [asignandoVentaId, setAsignandoVentaId] = useState<string | null>(null);
@@ -142,6 +145,7 @@ export default function FacturaComprobanteCobrosModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
+    setFechaAcreditacionIso("");
     setMontoNorm(
       pendiente != null && pendiente > 0
         ? montoArNumberToNormalizedString(pendiente)
@@ -288,6 +292,9 @@ export default function FacturaComprobanteCobrosModal({
       next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
+    setFechaAcreditacionIso(
+      next?.fechaAcreditacionVariable ? dateToIsoYmdArgentina(new Date()) : ""
+    );
   }
 
   async function persistirCobro() {
@@ -308,6 +315,10 @@ export default function FacturaComprobanteCobrosModal({
     }
     if (muestraCuotas && !cuotaId) {
       toast.error("Seleccioná las cuotas.");
+      return;
+    }
+    if (pagoSel.fechaAcreditacionVariable && !fechaAcreditacionIso) {
+      toast.error("Ingresá la fecha de acreditación.");
       return;
     }
     const montoCents = montoArNormalizedStringToCents(montoNorm);
@@ -338,6 +349,9 @@ export default function FacturaComprobanteCobrosModal({
       pagoNombre: pagoSel.nombre,
       entidadNombre,
       cuotaEtiqueta: cuota?.cuotas ?? null,
+      fechaAcreditacionIso: pagoSel.fechaAcreditacionVariable
+        ? fechaAcreditacionIso
+        : undefined,
       montoCents,
     });
     setGuardando(false);
@@ -617,6 +631,18 @@ export default function FacturaComprobanteCobrosModal({
                       aria-label="Monto a devolver"
                     />
                   </div>
+                  {pagoSel?.fechaAcreditacionVariable ? (
+                    <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
+                      <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
+                      <Input
+                        type="date"
+                        value={fechaAcreditacionIso}
+                        onChange={(e) => setFechaAcreditacionIso(e.target.value)}
+                        disabled={guardando}
+                        className="h-9"
+                      />
+                    </label>
+                  ) : null}
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"
@@ -826,6 +852,18 @@ export default function FacturaComprobanteCobrosModal({
                       aria-label="Monto a pagar"
                     />
                   </div>
+                  {pagoSel?.fechaAcreditacionVariable ? (
+                    <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
+                      <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
+                      <Input
+                        type="date"
+                        value={fechaAcreditacionIso}
+                        onChange={(e) => setFechaAcreditacionIso(e.target.value)}
+                        disabled={guardando}
+                        className="h-9"
+                      />
+                    </label>
+                  ) : null}
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"

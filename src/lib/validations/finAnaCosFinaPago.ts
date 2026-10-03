@@ -20,12 +20,14 @@ const entidadIdsFormaPagoSchema = z
 
 export const crearFinAnaCosFinaPagoSchema = z.object({
   nombre: nombreFinAnaCosFinaPagoSchema,
+  fechaAcreditacionVariable: z.boolean(),
   entidadIds: entidadIdsFormaPagoSchema,
 });
 
 export const editarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
   nombre: nombreFinAnaCosFinaPagoSchema,
+  fechaAcreditacionVariable: z.boolean(),
   entidadIds: entidadIdsFormaPagoSchema,
 });
 

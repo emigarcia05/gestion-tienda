@@ -95,6 +95,7 @@ type DatosCobroResueltos = {
   entidadId: string | null;
   cuotaId: string | null;
   cxFinId: string | null;
+  fechaAcreditacionVariable: boolean;
 };
 
 async function resolverDatosCobro(
@@ -105,6 +106,7 @@ async function resolverDatosCobro(
     entidadId: null,
     cuotaId: null,
     cxFinId: null,
+    fechaAcreditacionVariable: false,
   };
   if (!CATEGORIAS_COBRO.has(input.catMovimiento)) {
     return { success: true, data: vacio };
@@ -115,7 +117,7 @@ async function resolverDatosCobro(
 
   const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
     where: { id: input.pagoId },
-    select: { id: true },
+    select: { id: true, fechaAcreditacionVariable: true },
   });
   if (!pago) return { success: false, error: "Forma de pago inválida." };
 
@@ -169,7 +171,13 @@ async function resolverDatosCobro(
 
   return {
     success: true,
-    data: { pagoId: input.pagoId, entidadId, cuotaId, cxFinId },
+    data: {
+      pagoId: input.pagoId,
+      entidadId,
+      cuotaId,
+      cxFinId,
+      fechaAcreditacionVariable: pago.fechaAcreditacionVariable,
+    },
   };
 }
 
@@ -222,12 +230,25 @@ export async function crearMovimientoTesoreria(
     diasAcreditacion = cx?.diasAcreditacion ?? null;
     costoFinancieroPct = decimalPctToNumber(cx?.costoFinanciero);
   }
+  const usaFechaAcreditacionVariable =
+    (input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO") &&
+    cobro.data.fechaAcreditacionVariable;
+  const fechaAcreditacionManual = usaFechaAcreditacionVariable
+    ? prismaDateOnlyFromIsoYmd(input.fechaAcreditacionIso ?? "")
+    : null;
+  if (usaFechaAcreditacionVariable && !fechaAcreditacionManual) {
+    return {
+      success: false,
+      error: "La forma de pago requiere indicar fecha de acreditación.",
+    };
+  }
   const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
     input.fecha,
     input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO"
       ? diasAcreditacion
       : 0
   );
+  const fechaAcreditacionFinal = fechaAcreditacionManual ?? fechaAcreditacion;
   const montoAcreditado =
     input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO"
       ? montoAcreditadoDesdeCostoFinanciero(input.monto, costoFinancieroPct)
@@ -241,7 +262,7 @@ export async function crearMovimientoTesoreria(
       monto: input.monto,
       montoAcreditado,
       fechaRegistro,
-      fechaAcreditacion,
+      fechaAcreditacion: fechaAcreditacionFinal,
       observacion: input.observacion.trim(),
       pagoId: cobro.data.pagoId,
       entidadId: cobro.data.entidadId,
@@ -537,6 +558,7 @@ export type CobroSnapshotParaTesoreria = {
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string | null;
+  fechaAcreditacionIso?: string;
   montoCents: number;
 };
 
@@ -629,7 +651,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
 
     const pago = await db.finAnaCosFinaPagoCat.findFirst({
       where: { nombre: pagoNombre },
-      select: { id: true, nombre: true },
+      select: { id: true, nombre: true, fechaAcreditacionVariable: true },
     });
     if (!pago) {
       return {
@@ -750,6 +772,15 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       args.fechaIso,
       costos[0]?.diasAcreditacion
     );
+    const fechaAcreditacionManual = pago.fechaAcreditacionVariable
+      ? prismaDateOnlyFromIsoYmd(cobro.fechaAcreditacionIso ?? "")
+      : null;
+    if (pago.fechaAcreditacionVariable && !fechaAcreditacionManual) {
+      return {
+        success: false,
+        error: `La forma de pago «${pagoNombre}» requiere fecha de acreditación.`,
+      };
+    }
     const costoPct = decimalPctToNumber(costos[0]?.costoFinanciero);
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
 
@@ -760,7 +791,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       monto,
       montoAcreditado,
       fechaRegistro,
-      fechaAcreditacion,
+      fechaAcreditacion: fechaAcreditacionManual ?? fechaAcreditacion,
       observacion: observacionBase,
       pagoId: pago.id,
       entidadId,

@@ -12,6 +12,7 @@ const pagoSelect = {
   nombre: true,
   enCostosFinancieros: true,
   enMargenContribucion: true,
+  fechaAcreditacionVariable: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
     select: {
@@ -26,6 +27,7 @@ type PagoRowConEntidades = {
   nombre: string;
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
+  fechaAcreditacionVariable: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
@@ -35,6 +37,7 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     nombre: row.nombre.toUpperCase(),
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
+    fechaAcreditacionVariable: row.fechaAcreditacionVariable,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };
@@ -153,6 +156,7 @@ export async function crearFinAnaCosFinaPago(
           nombre,
           enCostosFinancieros: true,
           enMargenContribucion: true,
+          fechaAcreditacionVariable: input.fechaAcreditacionVariable,
           entidades:
             entidadIds.length === 0
               ? undefined
@@ -225,6 +229,7 @@ export async function editarFinAnaCosFinaPago(
         where: { id: input.id },
         data: {
           nombre,
+          fechaAcreditacionVariable: input.fechaAcreditacionVariable,
         },
         select: pagoSelect,
       });

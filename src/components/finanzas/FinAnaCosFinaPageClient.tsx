@@ -113,7 +113,7 @@ export default function FinAnaCosFinaPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="VTAS. & COBROS"
+        title="COBROS"
         subtitle="Cx. Fin. Cobros"
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">

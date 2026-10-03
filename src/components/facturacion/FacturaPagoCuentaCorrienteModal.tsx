@@ -14,6 +14,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -37,7 +38,10 @@ import {
   totalSaldoVentasPendientes,
   type FacturaVentaPendientePago,
 } from "@/lib/factura";
-import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import {
+  dateToIsoYmdArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import {
   iconoFormaPagoDesdeNombre,
@@ -71,6 +75,7 @@ export default function FacturaPagoCuentaCorrienteModal({
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
+  const [fechaAcreditacionIso, setFechaAcreditacionIso] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
 
   const pagosForma = useMemo(
@@ -103,6 +108,7 @@ export default function FacturaPagoCuentaCorrienteModal({
       setPagoId("");
       setEntidadId("");
       setCuotaId("");
+      setFechaAcreditacionIso("");
       setMontoNorm("");
     });
     const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
@@ -148,6 +154,9 @@ export default function FacturaPagoCuentaCorrienteModal({
       next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
+    setFechaAcreditacionIso(
+      next?.fechaAcreditacionVariable ? dateToIsoYmdArgentina(new Date()) : ""
+    );
   }
 
   async function confirmar() {
@@ -162,6 +171,10 @@ export default function FacturaPagoCuentaCorrienteModal({
     }
     if (muestraCuotas && !cuotaId) {
       toast.error("Seleccioná las cuotas.");
+      return;
+    }
+    if (pagoSel.fechaAcreditacionVariable && !fechaAcreditacionIso) {
+      toast.error("Ingresá la fecha de acreditación.");
       return;
     }
     if (montoCents <= 0) {
@@ -183,6 +196,9 @@ export default function FacturaPagoCuentaCorrienteModal({
       pagoNombre: pagoSel.nombre,
       entidadNombre,
       cuotaEtiqueta: cuota?.cuotas ?? null,
+      fechaAcreditacionIso: pagoSel.fechaAcreditacionVariable
+        ? fechaAcreditacionIso
+        : undefined,
       montoCents,
       personalId: usuario.idPersonal,
       sucursalCodigo: usuario.sucursalPorDefecto,
@@ -327,6 +343,18 @@ export default function FacturaPagoCuentaCorrienteModal({
                   aria-label="Monto a pagar"
                 />
               </div>
+              {pagoSel?.fechaAcreditacionVariable ? (
+                <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
+                  <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
+                  <Input
+                    type="date"
+                    value={fechaAcreditacionIso}
+                    onChange={(e) => setFechaAcreditacionIso(e.target.value)}
+                    disabled={guardando}
+                    className="h-9"
+                  />
+                </label>
+              ) : null}
             </div>
             {aFavor > 0 ? (
               <p className="text-center text-sm font-semibold tabular-nums">

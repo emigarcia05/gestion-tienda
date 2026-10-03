@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * LISTA PRECIOS, VTAS. & COBROS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
+ * LISTA PRECIOS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
  * muestran sus funciones en una sola lista (sin grupo intermedio).
  *
  * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
@@ -337,6 +337,12 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     icon: "percent",
     screens: impuestosScreens,
   },
+  {
+    id: "vtas-cobros",
+    label: "COBROS",
+    icon: "circle-dollar",
+    screens: vtasCobrosScreens,
+  },
 ];
 
 export const ADM_PILLARS: AdmPillarDef[] = [
@@ -349,12 +355,6 @@ export const ADM_PILLARS: AdmPillarDef[] = [
       ...proveedoresScreens,
       ...analisisMcScreens,
     ],
-  },
-  {
-    id: "vtas-cobros",
-    label: "VTAS. & COBROS",
-    icon: "circle-dollar",
-    screens: vtasCobrosScreens,
   },
   {
     id: "pedido-a-fabrica",

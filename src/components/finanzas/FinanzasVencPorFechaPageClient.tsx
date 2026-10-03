@@ -178,11 +178,11 @@ export default function FinanzasVencPorFechaPageClient({
         >
           <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
             <section className="flex min-h-0 min-w-0 flex-col gap-2">
-              <TituloSeccionDetalleDia>Vencimiento Del Día</TituloSeccionDetalleDia>
-              <TablaFlujoDeFondoDetalleDia filas={detalleFilas} llenarAlto />
+              <TituloSeccionDetalleDia>Vencimientos</TituloSeccionDetalleDia>
+              <TablaFlujoDeFondoDetalleDia filas={detalleFilas} llenarAlto fechaDdMmAa />
             </section>
             <section className="flex min-h-0 min-w-0 flex-col gap-2">
-              <TituloSeccionDetalleDia>Ingresos De Caja</TituloSeccionDetalleDia>
+              <TituloSeccionDetalleDia>Ingresos</TituloSeccionDetalleDia>
               <TablaFlujoDeFondoIngresosCaja filas={ingresosFilas} />
             </section>
           </div>
