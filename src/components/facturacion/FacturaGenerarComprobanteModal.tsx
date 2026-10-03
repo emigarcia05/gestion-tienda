@@ -70,7 +70,7 @@ const BOTON_FORMA_PAGO_CLASS =
 
 const ACCIONES_GENERAR: {
   id: FacturaGenerarComprobanteAccion;
-  /** Segunda línea bajo GENERAR; vacío = solo la palabra GENERAR. */
+  /** Segunda línea; vacío = solo «GENERAR». */
   linea2: string;
   ariaLabel: string;
 }[] = [
@@ -119,7 +119,7 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
 
 /**
  * Modal **Generar Comprobante**: cobro (solo ventas) + emisión.
- * Emite al **GENERAR** (sin PDF) o Generar Imprimir / Descargar / Imprimir & Descargar.
+ * Botones: Generar (sin PDF) / Generar Imprimir / Descargar / Imprimir & Descargar.
  */
 export default function FacturaGenerarComprobanteModal({
   open,

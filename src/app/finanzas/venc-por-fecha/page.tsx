@@ -19,6 +19,7 @@ import {
   sumarPendienteGastosConFechaVencAnteriorA,
 } from "@/services/finBalGastoMensualBalance.service";
 import { listarCajasTesoreria } from "@/services/cajasTesoreria.service";
+import { listarIngresosCajaPorFechaAcreditacion } from "@/services/tesoreriaMovimientos.service";
 import { sumarMontosChequesDiferidosPorFechaAcreditacion } from "@/services/finTesoreriaCheques.service";
 import type { FilaFlujoDeFondoVista } from "@/components/finanzas/TablaFlujoDeFondo";
 import { calcularFilasFlujoDeFondo } from "@/lib/flujoDeFondoFilas";
@@ -64,6 +65,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     saldoGastosAntes,
     cajasTesoreria,
     incrementosChequePorFecha,
+    ingresosPorDia,
   ] = await Promise.all([
     listarVencimientosEnRango(hoyIso, hastaIso),
     listarVencimientosGastoFlujoEnRango(hoyIso, hastaIso),
@@ -71,6 +73,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     sumarPendienteGastosConFechaVencAnteriorA(hoyIso),
     listarCajasTesoreria(),
     sumarMontosChequesDiferidosPorFechaAcreditacion(hoyIso),
+    listarIngresosCajaPorFechaAcreditacion(hoyIso, hastaIso),
   ]);
   const saldoVencidoAntesDeHoy = saldoComprasAntes + saldoGastosAntes;
 
@@ -92,6 +95,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
       fechaDevengadaIso: sortFechaCompToIso(l.fechaComp),
       fechaVencimientoIso: key,
       proveedor: l.nombre.trim().toUpperCase(),
+      proveedorPrefijo: (l.prefijo ?? "").trim().toUpperCase(),
       detalle: FLUJO_FONDO_DETALLE_MERCADERIA,
       monto: m,
       sortFecha: sortFechaCompToIso(l.fechaComp),
@@ -107,6 +111,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
       fechaDevengadaIso: g.devengoIso,
       fechaVencimientoIso: g.fechaVenc,
       proveedor: g.proveedor,
+      proveedorPrefijo: g.proveedorPrefijo,
       detalle: g.detalle,
       monto: g.monto,
       sortFecha: g.devengoIso,
@@ -130,6 +135,16 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     });
   }
 
+  /** Ingresos de caja del día (`fecha_acreditacion`) para ajustar SALDO diario. */
+  const ingresosAcreditadosPorDia = new Map<string, number>();
+  for (const { isoYmd } of filasTotales) {
+    const totalDia = (ingresosPorDia[isoYmd] ?? []).reduce(
+      (acc, row) => acc + row.montoAcreditado,
+      0
+    );
+    ingresosAcreditadosPorDia.set(isoYmd, totalDia);
+  }
+
   /** Liquidez extra por cheques diferidos incorporada hasta cada día (inclusive). */
   const liquidoChequesDiferidosHasta = new Map<string, number>();
   let acumChequesDif = 0;
@@ -142,6 +157,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     cajaDisponibleInicial,
     saldoVencidoAntesDeHoy,
     liquidoChequesAcumuladoHasta: liquidoChequesDiferidosHasta,
+    ingresosAcreditadosPorDia,
   });
 
   const total = filasCompletas.length;
@@ -161,6 +177,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     <div className="area-page-shell">
       <FinanzasVencPorFechaPageClient
         detallesPorDia={detallesPorDia}
+        ingresosPorDia={ingresosPorDia}
         proveedoresConVencimientos={proveedoresConVencimientos}
         filas={filas}
         paginaActual={paginaActual}

@@ -5,14 +5,23 @@
  * `TablaDeudaProveedores` / `TablaControlComprobantes` (`contenedor-tabla-gestion` → scroll →
  * `<Table variant="compact" scrollX={false}>`). Clase `tabla-flujo-de-fondo`: columna **FECHA**
  * centrada; importes con `TD_NUM`. **SALDO** negativo: `text-destructive font-semibold` en la celda.
+ * El detalle del día se abre con el ícono Ver de **ACCIONES**.
  */
 
+import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
+  formatIsoYmdDdMmYyArgentina,
   formatIsoYmdDdMmYyyyArgentina,
   formatMesDiaMayusculasDesdeIsoYmd,
 } from "@/lib/fechaArgentina";
 import type { FilaFlujoDeFondoCalculada } from "@/lib/flujoDeFondoFilas";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import type { FlujoFondoIngresoCajaFila } from "@/services/tesoreriaMovimientos.service";
 import type { FlujoFondoDetalleDiaFila } from "@/services/vencimientosPorFecha.service";
 import {
   EmptyTableRow,
@@ -31,7 +40,14 @@ function fmtMontoAr(n: number): string {
   })}`;
 }
 
-const COL_WIDTH_CLASSES_MAIN = ["w-[25%]", "w-[25%]", "w-[25%]", "w-[25%]"] as const;
+const COL_WIDTH_CLASSES_MAIN = [
+  "w-[22%]",
+  "w-[22%]",
+  "w-[22%]",
+  "w-[22%]",
+  "w-[12%]",
+] as const;
+const COL_WIDTH_CLASSES_INGRESOS = ["w-[22%]", "w-[24%]", "w-[34%]", "w-[20%]"] as const;
 const COL_WIDTH_CLASSES_MODAL = [
   "w-[14%]",
   "w-[14%]",
@@ -59,16 +75,16 @@ export type FilaFlujoDeFondoVista = FilaFlujoDeFondoCalculada;
 export interface TablaFlujoDeFondoProps {
   filas: FilaFlujoDeFondoVista[];
   montoVencimientoPorDia: Record<string, number>;
-  onRowDoubleClick: (isoYmd: string) => void;
+  onVerDia: (isoYmd: string) => void;
 }
 
 /**
- * Grilla paginada principal: cuatro columnas 25% (`table-layout: fixed`), doble clic en fila = detalle.
+ * Grilla paginada principal. El detalle del día se abre con el ícono Ver de ACCIONES.
  */
 export function TablaFlujoDeFondo({
   filas,
   montoVencimientoPorDia,
-  onRowDoubleClick,
+  onVerDia,
 }: TablaFlujoDeFondoProps) {
   return (
     <div className="contenedor-tabla-gestion overflow-hidden">
@@ -85,22 +101,18 @@ export function TablaFlujoDeFondo({
               <TableHead className={cn(TH_NUM, CELL_MIN)}>VENCIMIENTO DEL DÍA</TableHead>
               <TableHead className={cn(TH_NUM, CELL_MIN)}>CAJA DISPONIBLE</TableHead>
               <TableHead className={cn(TH_NUM, CELL_MIN)}>SALDO</TableHead>
+              <TableHead className={cn(CELL_MIN, "text-center")}>ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filas.length === 0 ? (
               <EmptyTableRow
-                colSpan={4}
+                colSpan={5}
                 message="Sin vencimientos en los próximos 150 días."
               />
             ) : (
               filas.map((fila) => (
-                <TableRow
-                  key={fila.isoYmd}
-                  title="Doble clic para abrir el detalle del día (proveedores, detalle, montos)"
-                  onDoubleClick={() => onRowDoubleClick(fila.isoYmd)}
-                  className="cursor-pointer"
-                >
+                <TableRow key={fila.isoYmd}>
                   <TableCell
                     className={cn("celda-datos celda-destacado text-center", CELL_MIN)}
                   >
@@ -122,6 +134,18 @@ export function TablaFlujoDeFondo({
                   >
                     {fmtMontoAr(fila.saldo)}
                   </TableCell>
+                  <TableCell className={cn("celda-datos text-center", CELL_MIN)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Ver detalle del día"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      onClick={() => onVerDia(fila.isoYmd)}
+                    >
+                      <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -139,6 +163,10 @@ export interface TablaFlujoDeFondoDetalleDiaProps {
    * En **Venc. Provee. Gastos** pasar mensaje acorde al filtro por proveedor.
    */
   emptyMessage?: string;
+  /** La tabla ocupa el alto libre del panel (modal partido en dos). */
+  llenarAlto?: boolean;
+  /** Flujo De Fondo: fechas `dd/mm/aa` y proveedor = prefijo de 3 letras. */
+  fechaDdMmAa?: boolean;
 }
 
 /**
@@ -148,10 +176,27 @@ export interface TablaFlujoDeFondoDetalleDiaProps {
 export function TablaFlujoDeFondoDetalleDia({
   filas,
   emptyMessage = "Sin vencimientos para el día seleccionado.",
+  llenarAlto = false,
+  fechaDdMmAa = false,
 }: TablaFlujoDeFondoDetalleDiaProps) {
+  const fmtFecha = fechaDdMmAa
+    ? formatIsoYmdDdMmYyArgentina
+    : formatIsoYmdDdMmYyyyArgentina;
   return (
-    <div className="contenedor-tabla-gestion max-h-full overflow-hidden">
-      <div className="no-scrollbar flex-1 min-h-[14rem] min-w-0 max-h-[min(28rem,70vh)] overflow-x-auto overflow-y-auto">
+    <div
+      className={cn(
+        "contenedor-tabla-gestion overflow-hidden",
+        llenarAlto ? "min-h-0 flex-1" : "max-h-full"
+      )}
+    >
+      <div
+        className={cn(
+          "no-scrollbar min-w-0 overflow-x-auto overflow-y-auto",
+          llenarAlto
+            ? "h-full min-h-0 flex-1"
+            : "min-h-[14rem] max-h-[min(28rem,70vh)] flex-1"
+        )}
+      >
         <Table
           variant="compact"
           scrollX={false}
@@ -174,16 +219,20 @@ export function TablaFlujoDeFondoDetalleDia({
               filas.map((fila) => (
                 <TableRow key={fila.sortId}>
                   <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaDevengadaIso)}
+                    {fmtFecha(fila.fechaDevengadaIso)}
                   </TableCell>
                   <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaVencimientoIso)}
+                    {fmtFecha(fila.fechaVencimientoIso)}
                   </TableCell>
                   <TableCell
                     className={cn("celda-datos max-w-[14rem] text-left celda-destacado", CELL_MIN)}
                     title={fila.proveedor}
                   >
-                    <span className="block truncate">{fila.proveedor}</span>
+                    <span className="block truncate">
+                      {fechaDdMmAa && fila.proveedorPrefijo
+                        ? fila.proveedorPrefijo
+                        : fila.proveedor}
+                    </span>
                   </TableCell>
                   <TableCell
                     className={cn("celda-datos max-w-[18rem] text-left", CELL_MIN)}
@@ -193,6 +242,69 @@ export function TablaFlujoDeFondoDetalleDia({
                   </TableCell>
                   <TableCell className={cn(TD_NUM, CELL_MIN)}>
                     {fmtMontoAr(fila.monto)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+const TITULO_SECCION_MODAL =
+  "shrink-0 text-center text-xs font-bold uppercase tracking-wide text-foreground";
+
+export function TituloSeccionDetalleDia({ children }: { children: string }) {
+  return <h3 className={TITULO_SECCION_MODAL}>{children}</h3>;
+}
+
+export interface TablaFlujoDeFondoIngresosCajaProps {
+  filas: FlujoFondoIngresoCajaFila[];
+}
+
+/** Ingresos de caja del día: fecha de acreditación, categoría, caja y monto acreditado. */
+export function TablaFlujoDeFondoIngresosCaja({ filas }: TablaFlujoDeFondoIngresosCajaProps) {
+  return (
+    <div className="contenedor-tabla-gestion min-h-0 flex-1 overflow-hidden">
+      <div className="no-scrollbar h-full min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto">
+        <Table
+          variant="compact"
+          scrollX={false}
+          className="tabla-flujo-de-fondo table-fixed w-full"
+        >
+          <ColgroupAnchos anchos={COL_WIDTH_CLASSES_INGRESOS} />
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className={cn(CELL_MIN, "text-center")}>FECHA ACREDITACIÓN</TableHead>
+              <TableHead className={CELL_MIN}>CATEGORÍA</TableHead>
+              <TableHead className={CELL_MIN}>CAJA</TableHead>
+              <TableHead className={cn(TH_NUM, CELL_MIN)}>ACREDITADO</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filas.length === 0 ? (
+              <EmptyTableRow colSpan={4} message="Sin ingresos de caja para el día seleccionado." />
+            ) : (
+              filas.map((fila) => (
+                <TableRow key={fila.id}>
+                  <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
+                    {formatIsoYmdDdMmYyArgentina(fila.fechaAcreditacionIso)}
+                  </TableCell>
+                  <TableCell className={cn("celda-datos text-left", CELL_MIN)}>
+                    <span className="block truncate" title={fila.categoriaEtiqueta}>
+                      {fila.categoriaEtiqueta}
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className={cn("celda-datos text-left celda-destacado", CELL_MIN)}
+                    title={fila.cajaEtiqueta}
+                  >
+                    <span className="block truncate">{fila.cajaEtiqueta}</span>
+                  </TableCell>
+                  <TableCell className={cn(TD_NUM, CELL_MIN)}>
+                    {fmtMontoAr(fila.montoAcreditado)}
                   </TableCell>
                 </TableRow>
               ))

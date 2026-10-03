@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { fmtCelda } from "@/lib/format";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
-  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
@@ -64,6 +63,7 @@ function CeldaToggleHabilitado({
 }) {
   const [saving, startTransition] = useTransition();
   const activo = fila.habilitado;
+  const contextoFila = `${fila.terminalNombre} ${fila.pagoNombre}`;
 
   if (!esEditor) {
     return (
@@ -102,7 +102,7 @@ function CeldaToggleHabilitado({
           activo && "[&_svg]:!text-[#0072bb]"
         )}
         aria-pressed={activo}
-        aria-label={`Habilitar ${fila.terminalNombre} ${fila.pagoNombre}`}
+        aria-label={`Habilitar ${contextoFila}`}
       >
         {activo ? <Check className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden /> : null}
       </Button>
@@ -118,14 +118,6 @@ function CeldaPorcentajeLectura({ valor, etiqueta }: { valor: number; etiqueta: 
   );
 }
 
-function CeldaDiasLectura({ valor }: { valor: number | null }) {
-  return (
-    <span className="block w-full text-center text-xs tabular-nums">
-      {valor == null ? "" : String(valor)}
-    </span>
-  );
-}
-
 export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada }: Props) {
   const [filaEditar, setFilaEditar] = useState<FinAnaCosFinaFila | null>(null);
 
@@ -137,25 +129,25 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
             <TableHeader>
               <TableRow>
                 <TableHead className={cn("w-[5%]", TH_COLUMNA_CLASS)}>HAB.</TableHead>
-                <TableHead className={cn("w-[12%]", TH_COLUMNA_CLASS)}>
+                <TableHead className={cn("w-[11%]", TH_COLUMNA_CLASS)}>
                   FORMA DE
                   <br />
                   PAGO
                 </TableHead>
-                <TableHead className={cn("w-[10%]", TH_COLUMNA_CLASS)}>ENTIDAD</TableHead>
+                <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>ENTIDAD</TableHead>
                 <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>CUOTAS</TableHead>
-                <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>
+                <TableHead className={cn("w-[8%]", TH_COLUMNA_CLASS)}>
                   DÍAS DE
                   <br />
                   ACREDITACIÓN
                 </TableHead>
-                <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>ARANCEL</TableHead>
-                <TableHead className={cn("w-[9%]", TH_COLUMNA_CLASS)}>
+                <TableHead className={cn("w-[8%]", TH_COLUMNA_CLASS)}>ARANCEL</TableHead>
+                <TableHead className={cn("w-[8%]", TH_COLUMNA_CLASS)}>
                   CX
                   <br />
                   FINANCIERO
                 </TableHead>
-                <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>
+                <TableHead className={cn("w-[6%]", TH_COLUMNA_CLASS)}>
                   IMP.
                   <br />
                   CHEQUE
@@ -171,7 +163,7 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                   C/ IVA
                 </TableHead>
                 {esEditor ? (
-                  <TableHead className={cn("w-[7%]", TH_COLUMNA_CLASS)}>ACCIONES</TableHead>
+                  <TableHead className={cn("w-[8%]", TH_COLUMNA_CLASS)}>ACCIONES</TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
@@ -194,8 +186,8 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                   <TableCell className="celda-datos text-center text-xs">
                     {fmtCelda(fila.cuotas)}
                   </TableCell>
-                  <TableCell className="celda-datos">
-                    <CeldaDiasLectura valor={fila.diasAcreditacion} />
+                  <TableCell className="celda-datos text-center text-xs tabular-nums">
+                    {fila.diasAcreditacion == null ? "" : String(fila.diasAcreditacion)}
                   </TableCell>
                   <TableCell className="celda-datos">
                     <CeldaPorcentajeLectura
@@ -236,7 +228,7 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                   </TableCell>
                   {esEditor ? (
                     <TableCell className="celda-datos">
-                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <div className="flex items-center justify-center">
                         <Button
                           type="button"
                           variant="ghost"
@@ -256,16 +248,15 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
           </Table>
         </div>
       </div>
-
       <EditarFinAnaCosFinaModal
         open={filaEditar != null}
         onOpenChange={(next) => {
           if (!next) setFilaEditar(null);
         }}
         fila={filaEditar}
-        onGuardado={(actualizada) => {
+        onFilaActualizada={(actualizada) => {
           onFilaActualizada(actualizada);
-          setFilaEditar(null);
+          setFilaEditar(actualizada);
         }}
       />
     </>

@@ -25,13 +25,20 @@ export interface CalcularFilasFlujoDeFondoParams {
   saldoVencidoAntesDeHoy: number;
   /** Cheques diferidos acumulados hasta cada día (inclusive), por `isoYmd`. */
   liquidoChequesAcumuladoHasta?: Map<string, number>;
+  /** Ingresos de caja acreditados por día (`fecha_acreditacion`). */
+  ingresosAcreditadosPorDia?: Map<string, number>;
 }
 
 export function calcularFilasFlujoDeFondo(
   filasOrdenadas: FlujoDeFondoFilaEntrada[],
   params: CalcularFilasFlujoDeFondoParams
 ): FilaFlujoDeFondoCalculada[] {
-  const { cajaDisponibleInicial, saldoVencidoAntesDeHoy, liquidoChequesAcumuladoHasta } = params;
+  const {
+    cajaDisponibleInicial,
+    saldoVencidoAntesDeHoy,
+    liquidoChequesAcumuladoHasta,
+    ingresosAcreditadosPorDia,
+  } = params;
 
   let vtosAcum = saldoVencidoAntesDeHoy;
   let saldoAnterior = 0;
@@ -39,11 +46,12 @@ export function calcularFilasFlujoDeFondo(
 
   return filasOrdenadas.map((fila, index) => {
     vtosAcum += fila.vencimientoDelDia;
+    const ingresosDia = ingresosAcreditadosPorDia?.get(fila.isoYmd) ?? 0;
 
     if (index === 0) {
       const chequesHasta = liquidoChequesAcumuladoHasta?.get(fila.isoYmd) ?? 0;
       const cajaDisponible = cajaDisponibleInicial + chequesHasta;
-      const saldo = vtosAcum - cajaDisponible;
+      const saldo = vtosAcum - cajaDisponible - ingresosDia;
       cajaFilasSiguientes = saldo > cajaDisponible ? 0 : cajaDisponible - saldo;
       saldoAnterior = saldo;
       return {
@@ -55,7 +63,7 @@ export function calcularFilasFlujoDeFondo(
     }
 
     const cajaDisponible = cajaFilasSiguientes ?? 0;
-    const saldo = saldoAnterior + fila.vencimientoDelDia - cajaDisponible;
+    const saldo = saldoAnterior + fila.vencimientoDelDia - cajaDisponible - ingresosDia;
     saldoAnterior = saldo;
     return {
       isoYmd: fila.isoYmd,

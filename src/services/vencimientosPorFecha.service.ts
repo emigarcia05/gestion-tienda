@@ -12,6 +12,8 @@ export const FLUJO_FONDO_DETALLE_MERCADERIA = "MERCADERÍA" as const;
 export interface VencimientoPorFechaLinea {
   fechaVenc: string;
   nombre: string;
+  /** Abreviatura de 3 letras (`global_proveedores.prefijo`). Vacío si no tiene. */
+  prefijo: string | null;
   saldo: Prisma.Decimal;
   comprobanteId: string;
   /** `fecha_comp` (yyyy-mm-dd). Orden y desempate con gastos. */
@@ -27,10 +29,12 @@ export async function listarVencimientosEnRango(
     SELECT
       cm.fecha_venc::text AS "fechaVenc",
       cm.nombre AS nombre,
+      gp.prefijo AS prefijo,
       cm.saldo_cuota AS saldo,
       (cm.id::text || ':' || cm.nro_cuota::text) AS "comprobanteId",
       cm.fecha_comp::text AS "fechaComp"
     FROM cuotas_mercaderia cm
+    LEFT JOIN global_proveedores gp ON gp.nombre = cm.nombre
     WHERE cm.saldo_cuota > 0
       AND cm.fecha_venc >= ${fechaDesde}::date
       AND cm.fecha_venc <= ${fechaHasta}::date
@@ -46,7 +50,10 @@ export async function listarVencimientosEnRango(
 export type FlujoFondoDetalleDiaFila = {
   fechaDevengadaIso: string;
   fechaVencimientoIso: string;
+  /** Nombre en MAYÚSCULAS. El filtro y el tooltip usan este valor. */
   proveedor: string;
+  /** Prefijo de 3 letras. Vacío si el proveedor no tiene. */
+  proveedorPrefijo?: string;
   detalle: string;
   monto: number;
   sortFecha: string;

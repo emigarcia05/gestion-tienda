@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -14,15 +14,14 @@ import {
   parsePorcentajeCentNormalized,
   porcentajeCentFromNumber,
 } from "@/lib/porcentajeCentMask";
-import { INPUT_FILTER_CLASS } from "@/components/FilterBar";
-import { cn } from "@/lib/utils";
+import { fmtCelda } from "@/lib/format";
 import type { FinAnaCosFinaFila } from "@/components/finanzas/TablaFinAnaCosFina";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fila: FinAnaCosFinaFila | null;
-  onGuardado: (fila: FinAnaCosFinaFila) => void;
+  onFilaActualizada: (fila: FinAnaCosFinaFila) => void;
 }
 
 function parseDiasAcreditacionInput(raw: string): number | null | undefined {
@@ -38,13 +37,13 @@ export default function EditarFinAnaCosFinaModal({
   open,
   onOpenChange,
   fila,
-  onGuardado,
+  onFilaActualizada,
 }: Props) {
-  const [saving, setSaving] = useState(false);
   const [diasDraft, setDiasDraft] = useState("");
   const [arancelDraft, setArancelDraft] = useState("");
   const [costoDraft, setCostoDraft] = useState("");
   const [impCheque, setImpCheque] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -54,33 +53,48 @@ export default function EditarFinAnaCosFinaModal({
     setImpCheque(fila.impCheque);
   }, [open, fila]);
 
-  async function handleGuardar() {
-    if (!fila || saving) return;
+  const diasParsed = useMemo(() => parseDiasAcreditacionInput(diasDraft), [diasDraft]);
+  const arancelParsed = useMemo(
+    () => parsePorcentajeCentNormalized(arancelDraft),
+    [arancelDraft]
+  );
+  const costoParsed = useMemo(
+    () => parsePorcentajeCentNormalized(costoDraft),
+    [costoDraft]
+  );
 
-    const dias = parseDiasAcreditacionInput(diasDraft);
-    if (dias === undefined) {
-      toast.error("Ingresá días de acreditación válidos (0–999) o dejá vacío.");
-      return;
+  const hasChanges = useMemo(() => {
+    if (!fila) return false;
+    if (diasParsed === undefined || arancelParsed === undefined || costoParsed === undefined) {
+      return false;
     }
-    const arancel = parsePorcentajeCentNormalized(arancelDraft);
-    if (arancel === undefined) {
-      toast.error("Ingresá un arancel válido (0–100).");
-      return;
-    }
-    const costoFinanciero = parsePorcentajeCentNormalized(costoDraft);
-    if (costoFinanciero === undefined) {
-      toast.error("Ingresá un cx. financiero válido (0–100).");
-      return;
-    }
+    return (
+      diasParsed !== fila.diasAcreditacion ||
+      arancelParsed !== fila.arancel ||
+      costoParsed !== fila.costoFinanciero ||
+      impCheque !== fila.impCheque
+    );
+  }, [fila, diasParsed, arancelParsed, costoParsed, impCheque]);
 
+  const disabledSubmit =
+    saving ||
+    !fila ||
+    !hasChanges ||
+    diasParsed === undefined ||
+    arancelParsed === undefined ||
+    costoParsed === undefined;
+
+  async function handleSubmit() {
+    if (disabledSubmit || !fila || diasParsed === undefined) return;
+    if (arancelParsed === undefined || costoParsed === undefined) return;
     setSaving(true);
     try {
       const res = await actualizarFinAnaCosFinaAction({
         id: fila.id,
         campos: {
-          diasAcreditacion: dias,
-          arancel,
-          costoFinanciero,
+          diasAcreditacion: diasParsed,
+          arancel: arancelParsed,
+          costoFinanciero: costoParsed,
           impCheque,
         },
       });
@@ -88,33 +102,21 @@ export default function EditarFinAnaCosFinaModal({
         toast.error(res.error);
         return;
       }
-      onGuardado(res.data);
+      onFilaActualizada(res.data);
+      toast.success("Combinación actualizada.");
       onOpenChange(false);
     } finally {
       setSaving(false);
     }
   }
 
-  const contexto = fila
-    ? [fila.pagoNombre, fila.terminalNombre, fila.cuotas]
-        .map((p) => p?.trim())
-        .filter((p): p is string => Boolean(p && p.length > 0))
-        .join(" · ")
-    : "";
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (saving) return;
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
-        title="EDITAR CX. FIN."
+        title="EDITAR COSTO FINANCIERO"
         size="md"
-        actions={
-          <div className="flex w-full justify-end gap-2">
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -123,65 +125,75 @@ export default function EditarFinAnaCosFinaModal({
             >
               Cancelar
             </Button>
-            <Button
-              type="button"
-              disabled={saving || !fila}
-              onClick={() => void handleGuardar()}
-            >
-              Guardar
+            <Button type="button" disabled={disabledSubmit} onClick={() => void handleSubmit()}>
+              {saving ? "Guardando…" : "Guardar"}
             </Button>
-          </div>
+          </>
         }
       >
-        <div className="flex flex-col gap-4">
-          {contexto ? (
-            <p className="text-center text-sm font-medium text-foreground">
-              {contexto}
-            </p>
-          ) : null}
+        {fila ? (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
+                <p className="truncate text-sm text-foreground">{fila.pagoNombre}</p>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                <p className="truncate text-sm text-foreground">
+                  {fmtCelda(fila.terminalNombre)}
+                </p>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                <ModalMicroLabel>CUOTAS</ModalMicroLabel>
+                <p className="truncate text-sm text-foreground">{fmtCelda(fila.cuotas)}</p>
+              </div>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <ModalMicroLabel>DÍAS DE ACREDITACIÓN</ModalMicroLabel>
-            <Input
-              value={diasDraft}
-              onChange={(e) => setDiasDraft(e.target.value)}
-              inputMode="numeric"
-              autoComplete="off"
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>DÍAS DE ACREDITACIÓN</ModalMicroLabel>
+              <Input
+                value={diasDraft}
+                onChange={(e) => setDiasDraft(e.target.value)}
+                inputMode="numeric"
+                autoComplete="off"
+                disabled={saving}
+                className="tabular-nums"
+                aria-label="Días de acreditación"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>ARANCEL</ModalMicroLabel>
+                <PorcentajeCentInput
+                  valueNormalized={arancelDraft}
+                  onValueNormalizedChange={setArancelDraft}
+                  disabled={saving}
+                  pctSuffixAlwaysVisible
+                  aria-label="Arancel"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
+                <PorcentajeCentInput
+                  valueNormalized={costoDraft}
+                  onValueNormalizedChange={setCostoDraft}
+                  disabled={saving}
+                  pctSuffixAlwaysVisible
+                  aria-label="Cx. financiero"
+                />
+              </div>
+            </div>
+
+            <ModalSiNoChoice
+              label="IMP. CHEQUE"
+              value={impCheque}
+              onChange={setImpCheque}
               disabled={saving}
-              className={cn(INPUT_FILTER_CLASS, "w-full tabular-nums")}
-              aria-label="Días de acreditación"
             />
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <ModalMicroLabel>ARANCEL</ModalMicroLabel>
-            <PorcentajeCentInput
-              valueNormalized={arancelDraft}
-              onValueNormalizedChange={setArancelDraft}
-              disabled={saving}
-              className="w-full"
-              aria-label="Arancel"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
-            <PorcentajeCentInput
-              valueNormalized={costoDraft}
-              onValueNormalizedChange={setCostoDraft}
-              disabled={saving}
-              className="w-full"
-              aria-label="Cx. financiero"
-            />
-          </div>
-
-          <ModalSiNoChoice
-            label="IMP. CHEQUE"
-            value={impCheque}
-            onChange={setImpCheque}
-            disabled={saving}
-          />
-        </div>
+        ) : null}
       </AppModal>
     </Dialog>
   );
