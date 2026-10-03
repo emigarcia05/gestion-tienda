@@ -192,7 +192,7 @@ const vtasCobrosScreens: AdmScreenDef[] = [
   },
   {
     id: "cx-fin-cobros",
-    label: "Cx. Fin. Cobros",
+    label: "Cobros & Cx. Fin.",
     href: VTAS_COBROS_ROUTES.cxFinCobros,
     icon: "circle-dollar",
     permiso: PERMISOS.finanzas.acceso,

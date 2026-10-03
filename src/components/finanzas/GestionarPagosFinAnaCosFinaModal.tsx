@@ -284,21 +284,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-left font-medium text-foreground">
                           {pago.nombre}
-                          {pago.fechaAcreditacionVariable ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              · FECHA ACREDITACIÓN VARIABLE
-                            </span>
-                          ) : null}
-                          {pago.entidadNombres.length === 0 ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              · SIN ENTIDAD
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {pago.entidadNombres.length > 0
-                            ? pago.entidadNombres.join(", ")
-                            : "Sin entidades"}
                         </p>
                       </div>
                       {esEditor ? (
