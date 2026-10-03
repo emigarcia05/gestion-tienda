@@ -170,6 +170,7 @@ export function TablaFlujoDeFondoDetalleDia({
   filas,
   emptyMessage = "Sin vencimientos para el día seleccionado.",
   llenarAlto = false,
+  fechaDdMmAa = false,
   onVerDetalle,
 }: TablaFlujoDeFondoDetalleDiaProps) {
   return (
