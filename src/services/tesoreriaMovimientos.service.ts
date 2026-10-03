@@ -383,6 +383,10 @@ export type TesoreriaMovimientoFila = {
   monto: number;
   /** Neto que impacta caja (tras costo financiero en cobros). */
   montoAcreditado: number;
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string;
+  costoFinanciero: number | null;
 };
 
 function etiquetaCajaMovimiento(caja: {
@@ -431,6 +435,10 @@ export async function listarMovimientosTesoreria(): Promise<
           sucursal: { select: { nombre: true } },
         },
       },
+      pago: { select: { nombre: true } },
+      entidad: { select: { nombre: true } },
+      cuota: { select: { cuotas: true } },
+      cxFin: { select: { costoFinanciero: true } },
     },
   });
 
@@ -450,7 +458,72 @@ export async function listarMovimientosTesoreria(): Promise<
       : "",
     monto: row.monto,
     montoAcreditado: row.montoAcreditado,
+    pagoNombre: row.pago?.nombre?.trim()
+      ? row.pago.nombre.toLocaleUpperCase("es-AR")
+      : "",
+    entidadNombre: row.entidad?.nombre?.trim()
+      ? row.entidad.nombre.toLocaleUpperCase("es-AR")
+      : "",
+    cuotaEtiqueta: row.cuota?.cuotas?.trim()
+      ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
+      : "",
+    costoFinanciero:
+      row.cxFin?.costoFinanciero != null
+        ? decimalPctToNumber(row.cxFin.costoFinanciero)
+        : null,
   }));
+}
+
+export type EliminarMovimientoTesoreriaResultado = {
+  idsEliminados: string[];
+};
+
+/**
+ * Elimina un movimiento manual de tesorería.
+ * Si es transferencia, elimina ambas piernas por `transferenciaGrupoId`.
+ * No permite borrar movimientos ligados a comprobantes/cobros.
+ */
+export async function eliminarMovimientoTesoreria(
+  id: string
+): Promise<ServiceResult<EliminarMovimientoTesoreriaResultado>> {
+  const row = await prisma.tesoreriaMovimiento.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      transferenciaGrupoId: true,
+      comprobanteId: true,
+      clienteCobroId: true,
+      notaCreditoId: true,
+      catMovimiento: true,
+    },
+  });
+  if (!row) {
+    return { success: false, error: "Movimiento inexistente." };
+  }
+  if (row.comprobanteId || row.clienteCobroId || row.notaCreditoId) {
+    return {
+      success: false,
+      error:
+        "No se puede borrar este movimiento porque está vinculado a un comprobante o cobro.",
+    };
+  }
+
+  if (row.transferenciaGrupoId) {
+    const pares = await prisma.tesoreriaMovimiento.findMany({
+      where: { transferenciaGrupoId: row.transferenciaGrupoId },
+      select: { id: true },
+    });
+    if (pares.length === 0) {
+      return { success: false, error: "No se encontraron movimientos para eliminar." };
+    }
+    await prisma.tesoreriaMovimiento.deleteMany({
+      where: { transferenciaGrupoId: row.transferenciaGrupoId },
+    });
+    return { success: true, data: { idsEliminados: pares.map((item) => item.id) } };
+  }
+
+  await prisma.tesoreriaMovimiento.delete({ where: { id: row.id } });
+  return { success: true, data: { idsEliminados: [row.id] } };
 }
 
 export type FlujoFondoIngresoCajaFila = {

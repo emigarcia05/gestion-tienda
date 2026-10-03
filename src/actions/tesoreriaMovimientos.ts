@@ -8,11 +8,14 @@ import {
   ajustarMontoCajaTesoreriaSchema,
   crearMovimientoTesoreriaSchema,
   crearTransferenciaEntreCajasSchema,
+  eliminarMovimientoTesoreriaSchema,
 } from "@/lib/validations/tesoreriaMovimientos";
 import {
   ajustarMontoCajaTesoreria,
   crearMovimientoTesoreria,
   crearTransferenciaEntreCajas,
+  eliminarMovimientoTesoreria,
+  type EliminarMovimientoTesoreriaResultado,
   listarMovimientosTesoreria,
   type TesoreriaMovimientoCreado,
   type TesoreriaMovimientoFila,
@@ -70,6 +73,18 @@ export async function crearTransferenciaEntreCajasAction(
   const parsed = crearTransferenciaEntreCajasSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
   const res = await crearTransferenciaEntreCajas(parsed.data);
+  if (res.success) revalidateTesoreria();
+  return fromServiceResult(res);
+}
+
+export async function eliminarMovimientoTesoreriaAction(
+  raw: unknown
+): Promise<ActionResult<EliminarMovimientoTesoreriaResultado>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  const parsed = eliminarMovimientoTesoreriaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  const res = await eliminarMovimientoTesoreria(parsed.data.id);
   if (res.success) revalidateTesoreria();
   return fromServiceResult(res);
 }

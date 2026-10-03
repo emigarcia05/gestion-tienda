@@ -2,11 +2,11 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * LISTA PRECIOS, VTAS. & COBROS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
+ * LISTA PRECIOS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
  * muestran sus funciones en una sola lista (sin grupo intermedio).
  *
  * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
- * TESORERIA | BALANCE | OPERACIONES | IMPUESTOS, también con funciones planas.
+ * TESORERIA | BALANCE | OPERACIONES | COBROS | IMPUESTOS, también con funciones planas.
  */
 
 import {
@@ -192,7 +192,7 @@ const vtasCobrosScreens: AdmScreenDef[] = [
   },
   {
     id: "cx-fin-cobros",
-    label: "Cx. Fin. Cobros",
+    label: "Cobros & Cx. Fin.",
     href: VTAS_COBROS_ROUTES.cxFinCobros,
     icon: "circle-dollar",
     permiso: PERMISOS.finanzas.acceso,
@@ -332,6 +332,12 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     screens: [...comprasScreens, ...gastosScreens],
   },
   {
+    id: "vtas-cobros",
+    label: "COBROS",
+    icon: "circle-dollar",
+    screens: vtasCobrosScreens,
+  },
+  {
     id: "impuestos",
     label: "IMPUESTOS",
     icon: "percent",
@@ -349,12 +355,6 @@ export const ADM_PILLARS: AdmPillarDef[] = [
       ...proveedoresScreens,
       ...analisisMcScreens,
     ],
-  },
-  {
-    id: "vtas-cobros",
-    label: "VTAS. & COBROS",
-    icon: "circle-dollar",
-    screens: vtasCobrosScreens,
   },
   {
     id: "pedido-a-fabrica",

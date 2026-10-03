@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Eye, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { eliminarMovimientoTesoreriaAction } from "@/actions/tesoreriaMovimientos";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -12,7 +15,11 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import AppModal from "@/components/shared/AppModal";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -35,6 +42,11 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import type { TesoreriaMovimientoFila } from "@/services/tesoreriaMovimientos.service";
 
@@ -70,6 +82,7 @@ interface Props {
 }
 
 export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props) {
+  const [filasState, setFilasState] = useState(filas);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
   const [rangoDesde, setRangoDesde] = useState("");
   const [rangoHasta, setRangoHasta] = useState("");
@@ -78,28 +91,31 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
+  const [filaDetalle, setFilaDetalle] = useState<TesoreriaMovimientoFila | null>(null);
+  const [filaParaEliminar, setFilaParaEliminar] = useState<TesoreriaMovimientoFila | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
   const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
 
   const sucursales = useMemo(
     () =>
-      [...new Set(filas.map((f) => f.sucursalNombre).filter(Boolean))].sort(
+      [...new Set(filasState.map((f) => f.sucursalNombre).filter(Boolean))].sort(
         (a, b) => a.localeCompare(b, "es")
       ),
-    [filas]
+    [filasState]
   );
   const usuarios = useMemo(
     () =>
-      [...new Set(filas.map((f) => f.usuarioNombre).filter(Boolean))].sort(
+      [...new Set(filasState.map((f) => f.usuarioNombre).filter(Boolean))].sort(
         (a, b) => a.localeCompare(b, "es")
       ),
-    [filas]
+    [filasState]
   );
 
   const filasFiltradas = useMemo(
     () =>
-      filas.filter((fila) => {
+      filasState.filter((fila) => {
         if (periodo === "hoy" && fila.fechaRegistroIso !== hoyIso) return false;
         if (periodo === "ayer" && fila.fechaRegistroIso !== ayerIso) return false;
         if (
@@ -130,7 +146,7 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
         return true;
       }),
     [
-      filas,
+      filasState,
       periodo,
       rangoDesde,
       rangoHasta,
@@ -142,6 +158,40 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
       filtroUsuario,
     ]
   );
+
+  function detalleCategoria(fila: TesoreriaMovimientoFila): string {
+    if (fila.catMovimiento !== "COBRO") return fila.categoriaEtiqueta;
+    const partes = [fila.pagoNombre, fila.entidadNombre, fila.cuotaEtiqueta].filter(
+      (v) => v.trim().length > 0
+    );
+    if (partes.length === 0) return fila.categoriaEtiqueta;
+    return `${fila.categoriaEtiqueta}: ${partes.join(" - ")}`;
+  }
+
+  async function handleConfirmarBorrado() {
+    if (!filaParaEliminar) return;
+    const fila = filaParaEliminar;
+    setDeletingId(fila.id);
+    try {
+      const res = await eliminarMovimientoTesoreriaAction({ id: fila.id });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setFilasState((prev) => prev.filter((item) => !res.data.idsEliminados.includes(item.id)));
+      if (filaDetalle && res.data.idsEliminados.includes(filaDetalle.id)) {
+        setFilaDetalle(null);
+      }
+      toast.success(
+        res.data.idsEliminados.length > 1
+          ? "Transferencia eliminada."
+          : "Movimiento eliminado."
+      );
+      setFilaParaEliminar(null);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   function onPeriodoChange(value: string) {
     if (value === PERIODO_RANGO) {
@@ -353,28 +403,23 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>FECHA REGISTRO</TableHead>
-              <TableHead>FECHA ACREDITACIÓN</TableHead>
+              <TableHead>FECHA</TableHead>
               <TableHead>SUCURSAL</TableHead>
               <TableHead>TIPO</TableHead>
               <TableHead>CATEGORÍA</TableHead>
-              <TableHead>CAJA</TableHead>
               <TableHead>USUARIO</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
-              <TableHead className="text-right">ACREDITADO</TableHead>
+              <TableHead className="text-right">ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filasFiltradas.length === 0 ? (
-              <EmptyTableRow colSpan={9} message="No hay movimientos." />
+              <EmptyTableRow colSpan={7} message="No hay movimientos." />
             ) : (
               filasFiltradas.map((fila) => (
                 <TableRow key={fila.id}>
                   <TableCell className="celda-datos">
                     {formatIsoYmdDdMmYyyyArgentina(fila.fechaRegistroIso)}
-                  </TableCell>
-                  <TableCell className="celda-datos">
-                    {formatIsoYmdDdMmYyyyArgentina(fila.fechaAcreditacionIso)}
                   </TableCell>
                   <TableCell className="celda-datos">
                     {fmtCelda(fila.sucursalNombre)}
@@ -384,9 +429,6 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                   </TableCell>
                   <TableCell className="celda-datos">
                     {fmtCelda(fila.categoriaEtiqueta)}
-                  </TableCell>
-                  <TableCell className="celda-datos">
-                    {fmtCelda(fila.cajaEtiqueta)}
                   </TableCell>
                   <TableCell className="celda-datos">
                     {fmtCelda(fila.usuarioNombre)}
@@ -400,14 +442,30 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                     {fila.tipoMovimiento === "EGRESO" ? "−" : ""}
                     ${fmtPrecio(fila.monto)}
                   </TableCell>
-                  <TableCell
-                    className={cn(
-                      "celda-datos text-right tabular-nums",
-                      fila.tipoMovimiento === "EGRESO" && "text-destructive"
-                    )}
-                  >
-                    {fila.tipoMovimiento === "EGRESO" ? "−" : ""}
-                    ${fmtPrecio(fila.montoAcreditado)}
+                  <TableCell className="celda-datos">
+                    <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-end")}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Ver movimiento"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        onClick={() => setFilaDetalle(fila)}
+                      >
+                        <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Borrar movimiento"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        disabled={deletingId === fila.id}
+                        onClick={() => setFilaParaEliminar(fila)}
+                      >
+                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -427,6 +485,130 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
         }}
         onLimpiar={limpiarPeriodo}
       />
+
+      <Dialog open={filaDetalle != null} onOpenChange={(open) => (!open ? setFilaDetalle(null) : null)}>
+        {filaDetalle ? (
+          <AppModal
+            title="DETALLE MOVIMIENTO"
+            size="md"
+            actions={
+              <Button type="button" variant="outline" onClick={() => setFilaDetalle(null)}>
+                Cerrar
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>FECHA REGISTRO</ModalMicroLabel>
+                <p className="text-sm text-foreground">
+                  {formatIsoYmdDdMmYyyyArgentina(filaDetalle.fechaRegistroIso)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>SUCURSAL</ModalMicroLabel>
+                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.sucursalNombre)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>TIPO</ModalMicroLabel>
+                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.tipoEtiqueta)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CATEGORÍA</ModalMicroLabel>
+                <p className="text-sm text-foreground">{detalleCategoria(filaDetalle)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>USUARIO</ModalMicroLabel>
+                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.usuarioNombre)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>MONTO</ModalMicroLabel>
+                <p className="text-sm tabular-nums text-foreground">${fmtPrecio(filaDetalle.monto)}</p>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
+                <p className="text-sm text-foreground">
+                  {formatIsoYmdDdMmYyyyArgentina(filaDetalle.fechaAcreditacionIso)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
+                <p className="text-sm text-foreground">
+                  {filaDetalle.costoFinanciero == null
+                    ? ""
+                    : `${filaDetalle.costoFinanciero.toLocaleString("es-AR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}%`}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>MONTO A ACREDITAR</ModalMicroLabel>
+                <p className="text-sm tabular-nums text-foreground">
+                  ${fmtPrecio(filaDetalle.montoAcreditado)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CUENTA A ACREDITAR</ModalMicroLabel>
+                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.cajaEtiqueta)}</p>
+              </div>
+            </div>
+          </AppModal>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={filaParaEliminar != null}
+        onOpenChange={(open) => (!open ? setFilaParaEliminar(null) : null)}
+      >
+        {filaParaEliminar ? (
+          <AppModal
+            title="CONFIRMAR BORRADO"
+            size="sm"
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={deletingId === filaParaEliminar.id}
+                  onClick={() => setFilaParaEliminar(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={deletingId === filaParaEliminar.id}
+                  onClick={() => void handleConfirmarBorrado()}
+                >
+                  {deletingId === filaParaEliminar.id ? "Borrando..." : "Borrar"}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-foreground">
+                ¿Querés borrar este movimiento? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>FECHA</ModalMicroLabel>
+                <p className="text-sm text-foreground">
+                  {formatIsoYmdDdMmYyyyArgentina(filaParaEliminar.fechaRegistroIso)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>CATEGORÍA</ModalMicroLabel>
+                <p className="text-sm text-foreground">{fmtCelda(filaParaEliminar.categoriaEtiqueta)}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>MONTO</ModalMicroLabel>
+                <p className="text-sm tabular-nums text-foreground">
+                  ${fmtPrecio(filaParaEliminar.monto)}
+                </p>
+              </div>
+            </div>
+          </AppModal>
+        ) : null}
+      </Dialog>
     </ClassicFilteredTableLayout>
   );
 }

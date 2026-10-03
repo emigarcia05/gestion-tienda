@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listarCatalogoCobroFacturaAction } from "@/actions/factura";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
@@ -36,6 +36,8 @@ import {
 import {
   dateToIsoYmdArgentina,
   formatIsoYmdDdMmYyyyArgentina,
+  maskDigitsToDdMmYyyyDisplay,
+  parseDdMmYyyyToIsoYmdArgentina,
 } from "@/lib/fechaArgentina";
 import {
   iconoFormaPagoDesdeNombre,
@@ -70,6 +72,15 @@ const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal px-1.5 py-1";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
+
+function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
+  if (!el) return;
+  try {
+    void el.showPicker?.();
+  } catch {
+    el.click();
+  }
+}
 
 const ACCIONES_GENERAR: {
   id: FacturaGenerarComprobanteAccion;
@@ -136,10 +147,11 @@ export default function FacturaGenerarComprobanteModal({
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
   const [cuotaId, setCuotaId] = useState("");
-  const [fechaAcreditacionIso, setFechaAcreditacionIso] = useState("");
+  const [fechaAcreditacionDdMmYyyy, setFechaAcreditacionDdMmYyyy] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
   const [documentoReceptor, setDocumentoReceptor] = useState("");
+  const hiddenFechaAcreditacionRef = useRef<HTMLInputElement>(null);
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
   const cuitReceptor = (comprobante?.clienteCuit ?? "").replace(/\D/g, "");
@@ -167,6 +179,14 @@ export default function FacturaGenerarComprobanteModal({
   const muestraCuotas =
     cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
+  const fechaAcreditacionIso = useMemo(
+    () => parseDdMmYyyyToIsoYmdArgentina(fechaAcreditacionDdMmYyyy),
+    [fechaAcreditacionDdMmYyyy]
+  );
+  const fechaAcreditacionIsoParaPicker = useMemo(
+    () => (fechaAcreditacionIso !== "" ? fechaAcreditacionIso : dateToIsoYmdArgentina(new Date())),
+    [fechaAcreditacionIso]
+  );
   const etiquetaMontoForma =
     !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
 
@@ -174,7 +194,7 @@ export default function FacturaGenerarComprobanteModal({
     setPagoId("");
     setEntidadId("");
     setCuotaId("");
-    setFechaAcreditacionIso("");
+    setFechaAcreditacionDdMmYyyy("");
     setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
   }, []);
 
@@ -222,8 +242,10 @@ export default function FacturaGenerarComprobanteModal({
       next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
     setEntidadId(unicas);
     setCuotaId("");
-    setFechaAcreditacionIso(
-      next?.fechaAcreditacionVariable ? dateToIsoYmdArgentina(new Date()) : ""
+    setFechaAcreditacionDdMmYyyy(
+      next?.fechaAcreditacionVariable
+        ? formatIsoYmdDdMmYyyyArgentina(dateToIsoYmdArgentina(new Date()))
+        : ""
     );
   }
 
@@ -456,19 +478,6 @@ export default function FacturaGenerarComprobanteModal({
                       </div>
                     )}
 
-                  <Button
-                    type="button"
-                    className="h-10 w-full"
-                    disabled={ocupado}
-                    onClick={() => void ejecutar("emitir")}
-                  >
-                    {pending === "emitir" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      "Generar"
-                    )}
-                  </Button>
-
                   <div className="flex items-end justify-center gap-2">
                     {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
@@ -541,12 +550,56 @@ export default function FacturaGenerarComprobanteModal({
                   {pagoSel?.fechaAcreditacionVariable ? (
                     <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
                       <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
-                      <Input
+                      <div className="relative w-full">
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="dd/mm/aaaa"
+                          value={fechaAcreditacionDdMmYyyy}
+                          onChange={(e) =>
+                            setFechaAcreditacionDdMmYyyy(
+                              maskDigitsToDdMmYyyyDisplay(e.target.value)
+                            )
+                          }
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            abrirSelectorFechaNativo(hiddenFechaAcreditacionRef.current);
+                          }}
+                          disabled={ocupado}
+                          className="h-9 pr-10 tabular-nums"
+                          aria-label="Fecha de acreditación (dd/mm/aaaa). Ícono de calendario o doble clic para calendario."
+                          title="Ícono de calendario o doble clic para abrir el calendario"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={ocupado}
+                          className={cn(
+                            "absolute right-0 top-0 h-9 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            abrirSelectorFechaNativo(hiddenFechaAcreditacionRef.current);
+                          }}
+                          aria-label="Abrir calendario para fecha de acreditación"
+                          title="Abrir calendario"
+                        >
+                          <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+                        </Button>
+                      </div>
+                      <input
+                        ref={hiddenFechaAcreditacionRef}
                         type="date"
-                        value={fechaAcreditacionIso}
-                        onChange={(e) => setFechaAcreditacionIso(e.target.value)}
-                        disabled={ocupado}
-                        className="h-9"
+                        tabIndex={-1}
+                        aria-hidden
+                        className="sr-only"
+                        value={fechaAcreditacionIsoParaPicker}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) setFechaAcreditacionDdMmYyyy(formatIsoYmdDdMmYyyyArgentina(v));
+                        }}
                       />
                     </label>
                   ) : null}
@@ -595,20 +648,6 @@ export default function FacturaGenerarComprobanteModal({
                 </ul>
               ) : null}
 
-              {!formCobroVisible ? (
-                <Button
-                  type="button"
-                  className="h-10 w-full"
-                  disabled={ocupado}
-                  onClick={() => void ejecutar("emitir")}
-                >
-                  {pending === "emitir" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    "Generar"
-                  )}
-                </Button>
-              ) : null}
             </section>
           ) : null}
 
@@ -648,7 +687,23 @@ export default function FacturaGenerarComprobanteModal({
                 </p>
               </div>
             ) : null}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
+              <Button
+                type="button"
+                variant="default"
+                className={BOTON_GENERAR_CLASS}
+                disabled={ocupado}
+                aria-label="Generar"
+                onClick={() => void ejecutar("emitir")}
+              >
+                {pending === "emitir" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <span className="text-center text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
+                    GENERAR
+                  </span>
+                )}
+              </Button>
               {ACCIONES_GENERAR.map((accion) => (
                 <Button
                   key={accion.id}

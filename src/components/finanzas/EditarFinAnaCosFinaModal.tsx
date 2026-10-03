@@ -133,21 +133,19 @@ export default function EditarFinAnaCosFinaModal({
       >
         {fila ? (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
-                <p className="truncate text-sm text-foreground">{fila.pagoNombre}</p>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
-                <p className="truncate text-sm text-foreground">
-                  {fmtCelda(fila.terminalNombre)}
-                </p>
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>CUOTAS</ModalMicroLabel>
-                <p className="truncate text-sm text-foreground">{fmtCelda(fila.cuotas)}</p>
-              </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
+              <p className="truncate text-sm text-foreground">{fila.pagoNombre}</p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+              <p className="truncate text-sm text-foreground">
+                {fmtCelda(fila.terminalNombre)}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>CUOTAS</ModalMicroLabel>
+              <p className="truncate text-sm text-foreground">{fmtCelda(fila.cuotas)}</p>
             </div>
 
             <div className="flex flex-col gap-1">

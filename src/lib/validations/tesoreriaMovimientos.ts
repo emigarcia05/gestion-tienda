@@ -101,3 +101,11 @@ export const ajustarMontoCajaTesoreriaSchema = z.object({
 export type AjustarMontoCajaTesoreriaInput = z.infer<
   typeof ajustarMontoCajaTesoreriaSchema
 >;
+
+export const eliminarMovimientoTesoreriaSchema = z.object({
+  id: prismaIdSchema,
+});
+
+export type EliminarMovimientoTesoreriaInput = z.infer<
+  typeof eliminarMovimientoTesoreriaSchema
+>;
