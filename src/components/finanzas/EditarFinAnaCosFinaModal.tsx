@@ -115,7 +115,7 @@ export default function EditarFinAnaCosFinaModal({
       <AppModal
         title="EDITAR COSTO FINANCIERO"
         size="md"
-        footer={
+        actions={
           <>
             <Button
               type="button"
