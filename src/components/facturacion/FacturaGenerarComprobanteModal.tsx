@@ -55,6 +55,7 @@ import { cn } from "@/lib/utils";
 import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 
 export type FacturaGenerarComprobanteAccion =
+  | "emitir"
   | "imprimir"
   | "descargar"
   | "ambos";
@@ -120,7 +121,7 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
 
 /**
  * Modal **Generar Comprobante**: cobro (solo ventas) + PDF.
- * El comprobante se emite al Generar Imprimir / Descargar / Imprimir & Descargar.
+ * **Generar** emite sin imprimir ni PDF. Imprimir / Descargar / Imprimir & Descargar también emiten.
  */
 export default function FacturaGenerarComprobanteModal({
   open,
@@ -358,18 +359,22 @@ export default function FacturaGenerarComprobanteModal({
         pideDocumentoCf ? documentoReceptor : undefined
       );
       if (emitido == null) return;
-      try {
-        if (accion === "imprimir") {
-          await imprimirPdfFacturaComprobante(emitido);
-        } else if (accion === "descargar") {
-          await descargarPdfFacturaComprobante(emitido);
-        } else {
-          await imprimirYDescargarPdfFacturaComprobante(emitido);
+      if (accion === "emitir") {
+        toast.success("Comprobante generado.");
+      } else {
+        try {
+          if (accion === "imprimir") {
+            await imprimirPdfFacturaComprobante(emitido);
+          } else if (accion === "descargar") {
+            await descargarPdfFacturaComprobante(emitido);
+          } else {
+            await imprimirYDescargarPdfFacturaComprobante(emitido);
+          }
+        } catch (e) {
+          const msg =
+            e instanceof Error ? e.message : "No se pudo generar el PDF.";
+          toast.error(msg);
         }
-      } catch (e) {
-        const msg =
-          e instanceof Error ? e.message : "No se pudo generar el PDF.";
-        toast.error(msg);
       }
       onFinalizado?.();
       onOpenChange(false);
@@ -450,6 +455,19 @@ export default function FacturaGenerarComprobanteModal({
                         })}
                       </div>
                     )}
+
+                  <Button
+                    type="button"
+                    className="h-10 w-full"
+                    disabled={ocupado}
+                    onClick={() => void ejecutar("emitir")}
+                  >
+                    {pending === "emitir" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      "Generar"
+                    )}
+                  </Button>
 
                   <div className="flex items-end justify-center gap-2">
                     {muestraEntidad ? (
@@ -575,6 +593,21 @@ export default function FacturaGenerarComprobanteModal({
                     </li>
                   ))}
                 </ul>
+              ) : null}
+
+              {!formCobroVisible ? (
+                <Button
+                  type="button"
+                  className="h-10 w-full"
+                  disabled={ocupado}
+                  onClick={() => void ejecutar("emitir")}
+                >
+                  {pending === "emitir" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    "Generar"
+                  )}
+                </Button>
               ) : null}
             </section>
           ) : null}
