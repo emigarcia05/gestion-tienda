@@ -2056,6 +2056,7 @@ export async function registrarPagoCuentaCorriente(
         },
       });
       let restantePesos = base.monto;
+      let restanteAcreditado = base.montoAcreditado;
       for (const fila of imputaciones) {
         const row = await tx.comprobanteVta.findUnique({
           where: { id: fila.id },
@@ -2089,7 +2090,20 @@ export async function registrarPagoCuentaCorriente(
             "El monto cobrado no alcanza para imputar todos los comprobantes en pesos enteros."
           );
         }
+        // El neto acreditado se reparte en la misma proporción que el monto bruto
+        // para conservar el total impactado por costo financiero.
+        const acredLedger =
+          restantePesos === pesosLedger
+            ? restanteAcreditado
+            : Math.max(
+                0,
+                Math.min(
+                  restanteAcreditado,
+                  Math.round((restanteAcreditado * pesosLedger) / restantePesos)
+                )
+              );
         restantePesos -= pesosLedger;
+        restanteAcreditado -= acredLedger;
         const siguienteImpCobrado = roundArs2(impCobrado + montoFila);
         const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
         const ordenInicio = await siguienteOrdenCobroComprobante(fila.id, tx);
@@ -2098,6 +2112,7 @@ export async function registrarPagoCuentaCorriente(
             {
               ...base,
               monto: pesosLedger,
+              montoAcreditado: acredLedger,
               comprobanteId: fila.id,
               orden: ordenInicio,
               clienteCobroId: padre.id,
@@ -2119,6 +2134,7 @@ export async function registrarPagoCuentaCorriente(
             {
               ...base,
               monto: restantePesos,
+              montoAcreditado: restanteAcreditado,
               comprobanteId: null,
               orden: null,
               clienteCobroId: padre.id,

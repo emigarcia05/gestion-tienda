@@ -15,6 +15,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import DetalleMovimientoTesoreriaCuerpo from "@/components/finanzas/DetalleMovimientoTesoreriaCuerpo";
 import AppModal from "@/components/shared/AppModal";
 import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -158,15 +159,6 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
       filtroUsuario,
     ]
   );
-
-  function detalleCategoria(fila: TesoreriaMovimientoFila): string {
-    if (fila.catMovimiento !== "COBRO") return fila.categoriaEtiqueta;
-    const partes = [fila.pagoNombre, fila.entidadNombre, fila.cuotaEtiqueta].filter(
-      (v) => v.trim().length > 0
-    );
-    if (partes.length === 0) return fila.categoriaEtiqueta;
-    return `${fila.categoriaEtiqueta}: ${partes.join(" - ")}`;
-  }
 
   async function handleConfirmarBorrado() {
     if (!filaParaEliminar) return;
@@ -409,7 +401,7 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               <TableHead>CATEGORÍA</TableHead>
               <TableHead>USUARIO</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
-              <TableHead className="text-right">ACCIONES</TableHead>
+              <TableHead className="text-center">ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -443,7 +435,7 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
                     ${fmtPrecio(fila.monto)}
                   </TableCell>
                   <TableCell className="celda-datos">
-                    <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-end")}>
+                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
                       <Button
                         type="button"
                         variant="ghost"
@@ -497,62 +489,7 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
               </Button>
             }
           >
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA REGISTRO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(filaDetalle.fechaRegistroIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>SUCURSAL</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.sucursalNombre)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>TIPO</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.tipoEtiqueta)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CATEGORÍA</ModalMicroLabel>
-                <p className="text-sm text-foreground">{detalleCategoria(filaDetalle)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>USUARIO</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.usuarioNombre)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>MONTO</ModalMicroLabel>
-                <p className="text-sm tabular-nums text-foreground">${fmtPrecio(filaDetalle.monto)}</p>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(filaDetalle.fechaAcreditacionIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {filaDetalle.costoFinanciero == null
-                    ? ""
-                    : `${filaDetalle.costoFinanciero.toLocaleString("es-AR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}%`}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>MONTO A ACREDITAR</ModalMicroLabel>
-                <p className="text-sm tabular-nums text-foreground">
-                  ${fmtPrecio(filaDetalle.montoAcreditado)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CUENTA A ACREDITAR</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(filaDetalle.cajaEtiqueta)}</p>
-              </div>
-            </div>
+            <DetalleMovimientoTesoreriaCuerpo fila={filaDetalle} />
           </AppModal>
         ) : null}
       </Dialog>

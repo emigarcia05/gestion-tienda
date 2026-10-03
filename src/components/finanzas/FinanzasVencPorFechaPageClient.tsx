@@ -11,6 +11,7 @@ import FilterBar, {
   FilterRowSelection,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
+import DetalleMovimientoTesoreriaCuerpo from "@/components/finanzas/DetalleMovimientoTesoreriaCuerpo";
 import {
   TablaFlujoDeFondo,
   TablaFlujoDeFondoDetalleDia,
@@ -20,14 +21,14 @@ import {
 } from "@/components/finanzas/TablaFlujoDeFondo";
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
   formatFechaLargaNotaPedidoArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
-import { fmtCelda, fmtPrecio } from "@/lib/format";
+import { fmtPrecio } from "@/lib/format";
 import {
   Select,
   SelectContent,
@@ -103,15 +104,6 @@ export default function FinanzasVencPorFechaPageClient({
     }
     return porDia;
   }, [detallesPorDia, filas, filtroProveedor]);
-
-  function detalleCategoriaMovimiento(fila: TesoreriaMovimientoFila): string {
-    if (fila.catMovimiento !== "COBRO") return fila.categoriaEtiqueta;
-    const partes = [fila.pagoNombre, fila.entidadNombre, fila.cuotaEtiqueta].filter(
-      (v) => v.trim().length > 0
-    );
-    if (partes.length === 0) return fila.categoriaEtiqueta;
-    return `${fila.categoriaEtiqueta}: ${partes.join(" - ")}`;
-  }
 
   async function handleVerIngresoMovimiento(movimientoId: string) {
     if (loadingDetalleIngreso) return;
@@ -251,33 +243,22 @@ export default function FinanzasVencPorFechaPageClient({
               </Button>
             }
           >
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA DEVENGADO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(detalleVencimientoFila.fechaDevengadaIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA VENCIMIENTO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(detalleVencimientoFila.fechaVencimientoIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>PROVEEDOR</ModalMicroLabel>
-                <p className="text-sm text-foreground">{detalleVencimientoFila.proveedor}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>DETALLE</ModalMicroLabel>
-                <p className="text-sm text-foreground">{detalleVencimientoFila.detalle}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>MONTO</ModalMicroLabel>
-                <p className="text-sm tabular-nums text-foreground">
-                  ${fmtPrecio(detalleVencimientoFila.monto)}
-                </p>
-              </div>
+            <div className="flex flex-col gap-2">
+              <LineaLecturaModal
+                etiqueta="FECHA DEVENGADO"
+                valor={formatIsoYmdDdMmYyyyArgentina(detalleVencimientoFila.fechaDevengadaIso)}
+              />
+              <LineaLecturaModal
+                etiqueta="FECHA VENCIMIENTO"
+                valor={formatIsoYmdDdMmYyyyArgentina(detalleVencimientoFila.fechaVencimientoIso)}
+              />
+              <LineaLecturaModal etiqueta="PROVEEDOR" valor={detalleVencimientoFila.proveedor} />
+              <LineaLecturaModal etiqueta="DETALLE" valor={detalleVencimientoFila.detalle} />
+              <LineaLecturaModal
+                etiqueta="MONTO"
+                valor={`$${fmtPrecio(detalleVencimientoFila.monto)}`}
+                tabular
+              />
             </div>
           </AppModal>
         ) : null}
@@ -297,65 +278,7 @@ export default function FinanzasVencPorFechaPageClient({
               </Button>
             }
           >
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA REGISTRO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(detalleIngresoMovimiento.fechaRegistroIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>SUCURSAL</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(detalleIngresoMovimiento.sucursalNombre)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>TIPO</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(detalleIngresoMovimiento.tipoEtiqueta)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CATEGORÍA</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {detalleCategoriaMovimiento(detalleIngresoMovimiento)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>USUARIO</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(detalleIngresoMovimiento.usuarioNombre)}</p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>MONTO</ModalMicroLabel>
-                <p className="text-sm tabular-nums text-foreground">
-                  ${fmtPrecio(detalleIngresoMovimiento.monto)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {formatIsoYmdDdMmYyyyArgentina(detalleIngresoMovimiento.fechaAcreditacionIso)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
-                <p className="text-sm text-foreground">
-                  {detalleIngresoMovimiento.costoFinanciero == null
-                    ? ""
-                    : `${detalleIngresoMovimiento.costoFinanciero.toLocaleString("es-AR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}%`}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>MONTO A ACREDITAR</ModalMicroLabel>
-                <p className="text-sm tabular-nums text-foreground">
-                  ${fmtPrecio(detalleIngresoMovimiento.montoAcreditado)}
-                </p>
-              </div>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CUENTA A ACREDITAR</ModalMicroLabel>
-                <p className="text-sm text-foreground">{fmtCelda(detalleIngresoMovimiento.cajaEtiqueta)}</p>
-              </div>
-            </div>
+            <DetalleMovimientoTesoreriaCuerpo fila={detalleIngresoMovimiento} />
           </AppModal>
         ) : null}
       </Dialog>
