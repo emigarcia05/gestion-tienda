@@ -28,3 +28,12 @@ export const eliminarCobroPorSucursalSchema = z.object({
 export type EliminarCobroPorSucursalInput = z.infer<
   typeof eliminarCobroPorSucursalSchema
 >;
+
+export const actualizarFechaAcreditacionVariablePagoSchema = z.object({
+  pagoId: prismaCuidOrUuidSchema,
+  fechaAcreditacionVariable: z.boolean(),
+});
+
+export type ActualizarFechaAcreditacionVariablePagoInput = z.infer<
+  typeof actualizarFechaAcreditacionVariablePagoSchema
+>;

@@ -7,6 +7,7 @@ import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
+  prismaDateOnlyFromIsoYmd,
 } from "@/lib/fechaArgentina";
 import type {
   AjustarMontoCajaTesoreriaInput,
@@ -450,6 +451,67 @@ export async function listarMovimientosTesoreria(): Promise<
     monto: row.monto,
     montoAcreditado: row.montoAcreditado,
   }));
+}
+
+export type FlujoFondoIngresoCajaFila = {
+  id: string;
+  fechaAcreditacionIso: string;
+  categoriaEtiqueta: string;
+  cajaEtiqueta: string;
+  /** Neto que entra a la caja ese día. */
+  montoAcreditado: number;
+};
+
+/**
+ * Ingresos con caja (`tipo_movimiento = INGRESO`) cuya `fecha_acreditacion`
+ * cae en el rango, agrupados por día. El monto es `monto_acreditado`.
+ */
+export async function listarIngresosCajaPorFechaAcreditacion(
+  desdeIso: string,
+  hastaIso: string
+): Promise<Record<string, FlujoFondoIngresoCajaFila[]>> {
+  const desde = prismaDateOnlyFromIsoYmd(desdeIso);
+  const hasta = prismaDateOnlyFromIsoYmd(hastaIso);
+  if (!desde || !hasta) return {};
+
+  const rows = await prisma.tesoreriaMovimiento.findMany({
+    where: {
+      tipoMovimiento: "INGRESO",
+      cajaId: { not: null },
+      fechaAcreditacion: { gte: desde, lte: hasta },
+    },
+    orderBy: [{ fechaAcreditacion: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      fechaAcreditacion: true,
+      catMovimiento: true,
+      montoAcreditado: true,
+      caja: {
+        select: {
+          titular: true,
+          tipoCaja: true,
+          entidad: { select: { nombre: true } },
+          sucursal: { select: { nombre: true } },
+        },
+      },
+    },
+  });
+
+  const porDia: Record<string, FlujoFondoIngresoCajaFila[]> = {};
+  for (const row of rows) {
+    const iso = isoYmdFromPrismaDateOnly(row.fechaAcreditacion);
+    const fila: FlujoFondoIngresoCajaFila = {
+      id: row.id,
+      fechaAcreditacionIso: iso,
+      categoriaEtiqueta: ETIQUETA_CATEGORIA[row.catMovimiento],
+      cajaEtiqueta: row.caja ? etiquetaCajaMovimiento(row.caja) : "",
+      montoAcreditado: row.montoAcreditado,
+    };
+    const lista = porDia[iso] ?? [];
+    lista.push(fila);
+    porDia[iso] = lista;
+  }
+  return porDia;
 }
 
 /** Completa comprobante/orden/clienteCobro en filas ya resueltas de cobro. */
