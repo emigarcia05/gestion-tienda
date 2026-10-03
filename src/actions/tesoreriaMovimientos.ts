@@ -17,6 +17,7 @@ import {
   eliminarMovimientoTesoreria,
   type EliminarMovimientoTesoreriaResultado,
   listarMovimientosTesoreria,
+  obtenerMovimientoTesoreriaPorId,
   type TesoreriaMovimientoCreado,
   type TesoreriaMovimientoFila,
 } from "@/services/tesoreriaMovimientos.service";
@@ -39,6 +40,17 @@ export async function listarMovimientosTesoreriaAction(): Promise<
     console.error("[listarMovimientosTesoreriaAction]", e);
     return { ok: false, error: "No se pudieron cargar los movimientos." };
   }
+}
+
+export async function obtenerMovimientoTesoreriaPorIdAction(
+  raw: unknown
+): Promise<ActionResult<TesoreriaMovimientoFila>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  const parsed = eliminarMovimientoTesoreriaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  const res = await obtenerMovimientoTesoreriaPorId(parsed.data.id);
+  return fromServiceResult(res);
 }
 
 export async function crearMovimientoTesoreriaAction(

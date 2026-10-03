@@ -474,6 +474,73 @@ export async function listarMovimientosTesoreria(): Promise<
   }));
 }
 
+export async function obtenerMovimientoTesoreriaPorId(
+  id: string
+): Promise<ServiceResult<TesoreriaMovimientoFila>> {
+  const row = await prisma.tesoreriaMovimiento.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      fechaRegistro: true,
+      fechaAcreditacion: true,
+      tipoMovimiento: true,
+      catMovimiento: true,
+      monto: true,
+      montoAcreditado: true,
+      cajaId: true,
+      sucursal: { select: { nombre: true } },
+      personal: { select: { nombrePersonal: true } },
+      caja: {
+        select: {
+          titular: true,
+          tipoCaja: true,
+          entidad: { select: { nombre: true } },
+          sucursal: { select: { nombre: true } },
+        },
+      },
+      pago: { select: { nombre: true } },
+      entidad: { select: { nombre: true } },
+      cuota: { select: { cuotas: true } },
+      cxFin: { select: { costoFinanciero: true } },
+    },
+  });
+  if (!row) return { success: false, error: "Movimiento inexistente." };
+
+  return {
+    success: true,
+    data: {
+      id: row.id,
+      fechaRegistroIso: isoYmdFromPrismaDateOnly(row.fechaRegistro),
+      fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
+      sucursalNombre: row.sucursal.nombre.toLocaleUpperCase("es-AR"),
+      tipoMovimiento: row.tipoMovimiento,
+      tipoEtiqueta: row.tipoMovimiento === "INGRESO" ? "INGRESO" : "EGRESO",
+      catMovimiento: row.catMovimiento,
+      categoriaEtiqueta: ETIQUETA_CATEGORIA[row.catMovimiento],
+      cajaId: row.cajaId ?? "",
+      cajaEtiqueta: row.caja ? etiquetaCajaMovimiento(row.caja) : "",
+      usuarioNombre: row.personal?.nombrePersonal.trim()
+        ? row.personal.nombrePersonal.toLocaleUpperCase("es-AR")
+        : "",
+      monto: row.monto,
+      montoAcreditado: row.montoAcreditado,
+      pagoNombre: row.pago?.nombre?.trim()
+        ? row.pago.nombre.toLocaleUpperCase("es-AR")
+        : "",
+      entidadNombre: row.entidad?.nombre?.trim()
+        ? row.entidad.nombre.toLocaleUpperCase("es-AR")
+        : "",
+      cuotaEtiqueta: row.cuota?.cuotas?.trim()
+        ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
+        : "",
+      costoFinanciero:
+        row.cxFin?.costoFinanciero != null
+          ? decimalPctToNumber(row.cxFin.costoFinanciero)
+          : null,
+    },
+  };
+}
+
 export type EliminarMovimientoTesoreriaResultado = {
   idsEliminados: string[];
 };

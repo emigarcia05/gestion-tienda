@@ -11,8 +11,6 @@
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  formatIsoYmdDdMmYyArgentina,
-  formatIsoYmdDdMmYyyyArgentina,
   formatMesDiaMayusculasDesdeIsoYmd,
 } from "@/lib/fechaArgentina";
 import type { FilaFlujoDeFondoCalculada } from "@/lib/flujoDeFondoFilas";
@@ -47,14 +45,8 @@ const COL_WIDTH_CLASSES_MAIN = [
   "w-[22%]",
   "w-[12%]",
 ] as const;
-const COL_WIDTH_CLASSES_INGRESOS = ["w-[22%]", "w-[24%]", "w-[34%]", "w-[20%]"] as const;
-const COL_WIDTH_CLASSES_MODAL = [
-  "w-[14%]",
-  "w-[14%]",
-  "w-[24%]",
-  "w-[28%]",
-  "w-[20%]",
-] as const;
+const COL_WIDTH_CLASSES_INGRESOS = ["w-[58%]", "w-[28%]", "w-[14%]"] as const;
+const COL_WIDTH_CLASSES_MODAL = ["w-[26%]", "w-[36%]", "w-[24%]", "w-[14%]"] as const;
 
 const TH_NUM = "text-right whitespace-nowrap";
 const TD_NUM = "celda-datos text-right tabular-nums";
@@ -98,8 +90,8 @@ export function TablaFlujoDeFondo({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className={CELL_MIN}>FECHA</TableHead>
-              <TableHead className={cn(TH_NUM, CELL_MIN)}>VENCIMIENTO DEL DÍA</TableHead>
-              <TableHead className={cn(TH_NUM, CELL_MIN)}>CAJA DISPONIBLE</TableHead>
+              <TableHead className={cn(TH_NUM, CELL_MIN)}>VENCIMIENTOS</TableHead>
+              <TableHead className={cn(TH_NUM, CELL_MIN)}>INGRESOS</TableHead>
               <TableHead className={cn(TH_NUM, CELL_MIN)}>SALDO</TableHead>
               <TableHead className={cn(CELL_MIN, "text-center")}>ACCIONES</TableHead>
             </TableRow>
@@ -167,6 +159,7 @@ export interface TablaFlujoDeFondoDetalleDiaProps {
   llenarAlto?: boolean;
   /** Flujo De Fondo: fechas `dd/mm/aa` y proveedor = prefijo de 3 letras. */
   fechaDdMmAa?: boolean;
+  onVerDetalle?: (fila: FlujoFondoDetalleDiaFila) => void;
 }
 
 /**
@@ -177,11 +170,8 @@ export function TablaFlujoDeFondoDetalleDia({
   filas,
   emptyMessage = "Sin vencimientos para el día seleccionado.",
   llenarAlto = false,
-  fechaDdMmAa = false,
+  onVerDetalle,
 }: TablaFlujoDeFondoDetalleDiaProps) {
-  const fmtFecha = fechaDdMmAa
-    ? formatIsoYmdDdMmYyArgentina
-    : formatIsoYmdDdMmYyyyArgentina;
   return (
     <div
       className={cn(
@@ -205,25 +195,18 @@ export function TablaFlujoDeFondoDetalleDia({
           <ColgroupAnchos anchos={COL_WIDTH_CLASSES_MODAL} />
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(CELL_MIN, "text-center")}>FECHA DEVENGADA</TableHead>
-              <TableHead className={cn(CELL_MIN, "text-center")}>FECHA VENCIMIENTO</TableHead>
               <TableHead className={CELL_MIN}>PROVEEDOR</TableHead>
               <TableHead className={CELL_MIN}>DETALLE</TableHead>
               <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO</TableHead>
+              <TableHead className={cn(CELL_MIN, "text-center")}>ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filas.length === 0 ? (
-              <EmptyTableRow colSpan={5} message={emptyMessage} />
+              <EmptyTableRow colSpan={4} message={emptyMessage} />
             ) : (
               filas.map((fila) => (
                 <TableRow key={fila.sortId}>
-                  <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {fmtFecha(fila.fechaDevengadaIso)}
-                  </TableCell>
-                  <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {fmtFecha(fila.fechaVencimientoIso)}
-                  </TableCell>
                   <TableCell
                     className={cn("celda-datos max-w-[14rem] text-left celda-destacado", CELL_MIN)}
                     title={fila.proveedor}
@@ -242,6 +225,18 @@ export function TablaFlujoDeFondoDetalleDia({
                   </TableCell>
                   <TableCell className={cn(TD_NUM, CELL_MIN)}>
                     {fmtMontoAr(fila.monto)}
+                  </TableCell>
+                  <TableCell className={cn("celda-datos text-center", CELL_MIN)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Ver detalle de vencimiento"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      onClick={() => onVerDetalle?.(fila)}
+                    >
+                      <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -262,10 +257,14 @@ export function TituloSeccionDetalleDia({ children }: { children: string }) {
 
 export interface TablaFlujoDeFondoIngresosCajaProps {
   filas: FlujoFondoIngresoCajaFila[];
+  onVerMovimiento?: (movimientoId: string) => void;
 }
 
 /** Ingresos de caja del día: fecha de acreditación, categoría, caja y monto acreditado. */
-export function TablaFlujoDeFondoIngresosCaja({ filas }: TablaFlujoDeFondoIngresosCajaProps) {
+export function TablaFlujoDeFondoIngresosCaja({
+  filas,
+  onVerMovimiento,
+}: TablaFlujoDeFondoIngresosCajaProps) {
   return (
     <div className="contenedor-tabla-gestion min-h-0 flex-1 overflow-hidden">
       <div className="no-scrollbar h-full min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto">
@@ -277,26 +276,17 @@ export function TablaFlujoDeFondoIngresosCaja({ filas }: TablaFlujoDeFondoIngres
           <ColgroupAnchos anchos={COL_WIDTH_CLASSES_INGRESOS} />
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(CELL_MIN, "text-center")}>FECHA ACREDITACIÓN</TableHead>
-              <TableHead className={CELL_MIN}>CATEGORÍA</TableHead>
               <TableHead className={CELL_MIN}>CAJA</TableHead>
-              <TableHead className={cn(TH_NUM, CELL_MIN)}>ACREDITADO</TableHead>
+              <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO A ACREDITAR</TableHead>
+              <TableHead className={cn(CELL_MIN, "text-center")}>ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filas.length === 0 ? (
-              <EmptyTableRow colSpan={4} message="Sin ingresos de caja para el día seleccionado." />
+              <EmptyTableRow colSpan={3} message="Sin ingresos de caja para el día seleccionado." />
             ) : (
               filas.map((fila) => (
                 <TableRow key={fila.id}>
-                  <TableCell className={cn("celda-datos text-center tabular-nums", CELL_MIN)}>
-                    {formatIsoYmdDdMmYyArgentina(fila.fechaAcreditacionIso)}
-                  </TableCell>
-                  <TableCell className={cn("celda-datos text-left", CELL_MIN)}>
-                    <span className="block truncate" title={fila.categoriaEtiqueta}>
-                      {fila.categoriaEtiqueta}
-                    </span>
-                  </TableCell>
                   <TableCell
                     className={cn("celda-datos text-left celda-destacado", CELL_MIN)}
                     title={fila.cajaEtiqueta}
@@ -305,6 +295,18 @@ export function TablaFlujoDeFondoIngresosCaja({ filas }: TablaFlujoDeFondoIngres
                   </TableCell>
                   <TableCell className={cn(TD_NUM, CELL_MIN)}>
                     {fmtMontoAr(fila.montoAcreditado)}
+                  </TableCell>
+                  <TableCell className={cn("celda-datos text-center", CELL_MIN)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Ver detalle de ingreso"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      onClick={() => onVerMovimiento?.(fila.id)}
+                    >
+                      <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
