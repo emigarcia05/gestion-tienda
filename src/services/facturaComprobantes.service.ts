@@ -1903,7 +1903,6 @@ export async function registrarCobroComprobanteVta(
             pagoNombre: input.pagoNombre,
             entidadNombre: input.entidadNombre,
             cuotaEtiqueta: input.cuotaEtiqueta,
-            fechaAcreditacionIso: input.fechaAcreditacionIso,
             montoCents: input.montoCents,
           },
         ],
@@ -1966,7 +1965,6 @@ export async function registrarCobroComprobanteVta(
           pagoNombre: input.pagoNombre,
           entidadNombre: input.entidadNombre,
           cuotaEtiqueta: input.cuotaEtiqueta,
-          fechaAcreditacionIso: input.fechaAcreditacionIso,
           montoCents: input.montoCents,
         },
       ],
@@ -2034,7 +2032,6 @@ export async function registrarPagoCuentaCorriente(
           pagoNombre: input.pagoNombre,
           entidadNombre: input.entidadNombre,
           cuotaEtiqueta: input.cuotaEtiqueta,
-          fechaAcreditacionIso: input.fechaAcreditacionIso,
           montoCents: input.montoCents,
         },
       ],
@@ -2059,7 +2056,6 @@ export async function registrarPagoCuentaCorriente(
         },
       });
       let restantePesos = base.monto;
-      let restanteAcreditadoPesos = base.montoAcreditado;
       for (const fila of imputaciones) {
         const row = await tx.comprobanteVta.findUnique({
           where: { id: fila.id },
@@ -2093,18 +2089,7 @@ export async function registrarPagoCuentaCorriente(
             "El monto cobrado no alcanza para imputar todos los comprobantes en pesos enteros."
           );
         }
-        const acredPesosLedger =
-          restantePesos > 0
-            ? Math.min(
-                restanteAcreditadoPesos,
-                Math.max(
-                  0,
-                  Math.round((restanteAcreditadoPesos * pesosLedger) / restantePesos)
-                )
-              )
-            : 0;
         restantePesos -= pesosLedger;
-        restanteAcreditadoPesos -= acredPesosLedger;
         const siguienteImpCobrado = roundArs2(impCobrado + montoFila);
         const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
         const ordenInicio = await siguienteOrdenCobroComprobante(fila.id, tx);
@@ -2113,7 +2098,6 @@ export async function registrarPagoCuentaCorriente(
             {
               ...base,
               monto: pesosLedger,
-              montoAcreditado: acredPesosLedger,
               comprobanteId: fila.id,
               orden: ordenInicio,
               clienteCobroId: padre.id,
@@ -2135,7 +2119,6 @@ export async function registrarPagoCuentaCorriente(
             {
               ...base,
               monto: restantePesos,
-              montoAcreditado: Math.max(0, restanteAcreditadoPesos),
               comprobanteId: null,
               orden: null,
               clienteCobroId: padre.id,

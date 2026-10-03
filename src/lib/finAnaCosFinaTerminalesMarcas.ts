@@ -1,4 +1,4 @@
-/** Catálogo `cobros_entidades` (Cobros & Cx. Fin. / Cajas). */
+/** Catálogo `cobros_entidades` (Cx. Fin. Cobros / Cajas). */
 export type FinAnaCosFinaTerminalMarcaItem = {
   id: string;
   nombre: string;

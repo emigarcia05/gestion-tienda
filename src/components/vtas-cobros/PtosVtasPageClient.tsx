@@ -135,7 +135,7 @@ export default function PtosVtasPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="COBROS"
+        title="VTAS. & COBROS"
         subtitle="Ptos. Vtas."
         contentWidth="full"
         actions={

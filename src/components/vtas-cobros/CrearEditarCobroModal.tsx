@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import {
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import {
   actualizarCobroPorSucursalAction,
-  actualizarFechaAcreditacionVariablePagoAction,
   crearCobroPorSucursalAction,
 } from "@/actions/cobrosPorSucursal";
 import { cn } from "@/lib/utils";
@@ -62,7 +60,6 @@ export default function CrearEditarCobroModal({
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [observacion, setObservacion] = useState("");
-  const [fechaAcreditacionVariable, setFechaAcreditacionVariable] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const esEditar = mode === "editar";
@@ -76,8 +73,6 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setObservacion(fila.observacion);
-      const pagoActual = pagos.find((p) => p.id === fila.pagoId);
-      setFechaAcreditacionVariable(pagoActual?.fechaAcreditacionVariable ?? false);
       return;
     }
     setPagoId("");
@@ -85,13 +80,7 @@ export default function CrearEditarCobroModal({
     setSucursalId("");
     setCajaDestinoId("");
     setObservacion("");
-    setFechaAcreditacionVariable(false);
-  }, [open, esEditar, fila, pagos]);
-
-  const pagoSel = useMemo(
-    () => pagos.find((p) => p.id === pagoId) ?? null,
-    [pagos, pagoId]
-  );
+  }, [open, esEditar, fila]);
 
   const entidadesDisponibles = useMemo(() => {
     if (!pagoId) return [];
@@ -139,18 +128,6 @@ export default function CrearEditarCobroModal({
     if (disabledSubmit) return;
     setSaving(true);
     try {
-      if (pagoSel && pagoSel.fechaAcreditacionVariable !== fechaAcreditacionVariable) {
-        const resPago = await actualizarFechaAcreditacionVariablePagoAction({
-          pagoId: pagoSel.id,
-          fechaAcreditacionVariable,
-        });
-        if (!resPago.ok) {
-          toast.error(
-            resPago.error ?? "No se pudo actualizar la fecha de acreditación personalizada."
-          );
-          return;
-        }
-      }
       const res = esEditar && fila
         ? await actualizarCobroPorSucursalAction({
             id: fila.id,
@@ -214,8 +191,6 @@ export default function CrearEditarCobroModal({
               value={pagoId || undefined}
               onValueChange={(value) => {
                 setPagoId(value);
-                const pago = pagos.find((item) => item.id === value);
-                setFechaAcreditacionVariable(pago?.fechaAcreditacionVariable ?? false);
                 setEntidadId("");
                 setSucursalId("");
                 setCajaDestinoId("");
@@ -316,13 +291,6 @@ export default function CrearEditarCobroModal({
               </SelectContent>
             </Select>
           </div>
-
-          <ModalSiNoChoice
-            label="FECHA ACREDITACIÓN PERSONALIZADA"
-            value={fechaAcreditacionVariable}
-            onChange={setFechaAcreditacionVariable}
-            disabled={saving || pagoId.trim().length === 0}
-          />
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>OBSERVACIÓN</ModalMicroLabel>

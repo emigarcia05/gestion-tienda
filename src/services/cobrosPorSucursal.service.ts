@@ -465,24 +465,6 @@ export async function eliminarCobroPorSucursal(
   }
 }
 
-export async function actualizarFechaAcreditacionVariablePago(
-  input: ActualizarFechaAcreditacionVariablePagoInput
-): Promise<ServiceResult<void>> {
-  try {
-    await prisma.finAnaCosFinaPagoCat.update({
-      where: { id: input.pagoId },
-      data: { fechaAcreditacionVariable: input.fechaAcreditacionVariable },
-      select: { id: true },
-    });
-    return { success: true, data: undefined };
-  } catch (error: unknown) {
-    return {
-      success: false,
-      error: mapDbError(error, "No se pudo actualizar la forma de pago."),
-    };
-  }
-}
-
 /** Formas de pago con fila en `cobros_vinc_cajas` para esa sucursal (código `guaymallen` | `maipu`). */
 export async function listarPagosCobroHabilitadosSucursal(
   sucursalCodigo: string
@@ -522,4 +504,22 @@ export async function listarPagosCobroHabilitadosSucursal(
       },
     ];
   });
+}
+
+export async function actualizarFechaAcreditacionVariablePago(
+  input: ActualizarFechaAcreditacionVariablePagoInput
+): Promise<ServiceResult<void>> {
+  try {
+    await prisma.finAnaCosFinaPagoCat.update({
+      where: { id: input.pagoId },
+      data: { fechaAcreditacionVariable: input.fechaAcreditacionVariable },
+      select: { id: true },
+    });
+    return { success: true, data: undefined };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: mapDbError(error, "No se pudo actualizar la forma de pago."),
+    };
+  }
 }

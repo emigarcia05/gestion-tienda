@@ -1378,6 +1378,7 @@ model FinAnaCosFinaPagoCat {
   nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
   enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
   enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
+  /** Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`). */
   fechaAcreditacionVariable Boolean @default(false) @map("fecha_acreditacion_variable")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
