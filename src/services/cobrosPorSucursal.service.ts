@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
 import type {
   ActualizarCobroPorSucursalInput,
+  ActualizarFechaAcreditacionVariablePagoInput,
   CrearCobroPorSucursalInput,
   EliminarCobroPorSucursalInput,
 } from "@/lib/validations/cobrosPorSucursal";
@@ -32,7 +33,9 @@ export type CobrosPorSucursalCatalogoItem = {
   nombre: string;
 };
 
-export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem;
+export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
+  fechaAcreditacionVariable: boolean;
+};
 
 export type CobrosPorSucursalVinculoPagoEntidad = {
   pagoId: string;
@@ -236,7 +239,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       }),
       prisma.finAnaCosFinaPagoCat.findMany({
         orderBy: [{ nombre: "asc" }],
-        select: { id: true, nombre: true },
+        select: { id: true, nombre: true, fechaAcreditacionVariable: true },
       }),
       prisma.finAnaCosFinaTerminalMarca.findMany({
         orderBy: [{ nombre: "asc" }],
@@ -285,6 +288,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     pagos: pagosRows.map((p) => ({
       id: p.id,
       nombre: p.nombre.toLocaleUpperCase("es-AR"),
+      fechaAcreditacionVariable: p.fechaAcreditacionVariable,
     })),
     entidades: entidadesRows.map((e) => ({
       id: e.id,
@@ -457,6 +461,24 @@ export async function eliminarCobroPorSucursal(
     return {
       success: false,
       error: mapDbError(error, "No se pudo eliminar el cobro."),
+    };
+  }
+}
+
+export async function actualizarFechaAcreditacionVariablePago(
+  input: ActualizarFechaAcreditacionVariablePagoInput
+): Promise<ServiceResult<void>> {
+  try {
+    await prisma.finAnaCosFinaPagoCat.update({
+      where: { id: input.pagoId },
+      data: { fechaAcreditacionVariable: input.fechaAcreditacionVariable },
+      select: { id: true },
+    });
+    return { success: true, data: undefined };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: mapDbError(error, "No se pudo actualizar la forma de pago."),
     };
   }
 }

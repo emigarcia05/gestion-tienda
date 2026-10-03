@@ -7,11 +7,13 @@ import type { ActionResult } from "@/lib/types";
 import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 import {
   actualizarCobroPorSucursalSchema,
+  actualizarFechaAcreditacionVariablePagoSchema,
   crearCobroPorSucursalSchema,
   eliminarCobroPorSucursalSchema,
 } from "@/lib/validations/cobrosPorSucursal";
 import {
   actualizarCobroPorSucursal,
+  actualizarFechaAcreditacionVariablePago,
   crearCobroPorSucursal,
   eliminarCobroPorSucursal,
   listarVistaCobrosPorSucursal,
@@ -91,4 +93,25 @@ export async function eliminarCobroPorSucursalAction(
 
   revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
   return { ok: true, data: res.data };
+}
+
+export async function actualizarFechaAcreditacionVariablePagoAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+
+  const parsed = actualizarFechaAcreditacionVariablePagoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const res = await actualizarFechaAcreditacionVariablePago(parsed.data);
+  if (!res.success) {
+    return { ok: false, error: res.error };
+  }
+
+  revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  revalidatePath(VTAS_COBROS_ROUTES.cxFinCobros);
+  return { ok: true, data: undefined };
 }
