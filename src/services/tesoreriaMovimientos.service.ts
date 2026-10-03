@@ -536,6 +536,8 @@ export type CobroSnapshotParaTesoreria = {
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string | null;
+  /** Si la forma tiene acreditación variable, este día es `fecha_acreditacion`. */
+  fechaAcreditacionIso?: string;
   montoCents: number;
 };
 
@@ -628,7 +630,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
 
     const pago = await db.finAnaCosFinaPagoCat.findFirst({
       where: { nombre: pagoNombre },
-      select: { id: true, nombre: true },
+      select: { id: true, nombre: true, fechaAcreditacionVariable: true },
     });
     if (!pago) {
       return {
@@ -745,10 +747,24 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       };
     }
 
-    const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
-      args.fechaIso,
-      costos[0]?.diasAcreditacion
-    );
+    let fechaRegistro: Date;
+    let fechaAcreditacion: Date;
+    if (pago.fechaAcreditacionVariable) {
+      const iso = cobro.fechaAcreditacionIso?.trim() ?? "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        return {
+          success: false,
+          error: `Ingresá la fecha de acreditación de «${pagoNombre}».`,
+        };
+      }
+      fechaRegistro = fechaNegocio(args.fechaIso);
+      fechaAcreditacion = fechaNegocio(iso);
+    } else {
+      ({ fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
+        args.fechaIso,
+        costos[0]?.diasAcreditacion
+      ));
+    }
     const costoPct = decimalPctToNumber(costos[0]?.costoFinanciero);
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
 
