@@ -466,7 +466,7 @@ export async function listarStockMovimientosPorSucursalCodigo(
 
   return rows.map((row) => {
     const item =
-      row.prodTienda.descripcionTienda.trim() || row.prodTienda.codTienda;
+      row.prodTienda.descripcionTienda?.trim() || row.prodTienda.codTienda;
     return {
       id: row.id,
       fechaIso: row.createdAt.toISOString(),
