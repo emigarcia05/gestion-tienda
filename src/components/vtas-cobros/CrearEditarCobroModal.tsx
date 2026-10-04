@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import {
@@ -59,6 +60,7 @@ export default function CrearEditarCobroModal({
   const [entidadId, setEntidadId] = useState("");
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
+  const [discriminaIva, setDiscriminaIva] = useState(false);
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -72,6 +74,7 @@ export default function CrearEditarCobroModal({
       setEntidadId(fila.entidadId ?? "");
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
+      setDiscriminaIva(fila.discriminaIva);
       setObservacion(fila.observacion);
       return;
     }
@@ -79,6 +82,7 @@ export default function CrearEditarCobroModal({
     setEntidadId("");
     setSucursalId("");
     setCajaDestinoId("");
+    setDiscriminaIva(false);
     setObservacion("");
   }, [open, esEditar, fila]);
 
@@ -132,6 +136,7 @@ export default function CrearEditarCobroModal({
         ? await actualizarCobroPorSucursalAction({
             id: fila.id,
             cajaDestinoId,
+            discriminaIva,
             observacion,
           })
         : await crearCobroPorSucursalAction({
@@ -139,6 +144,7 @@ export default function CrearEditarCobroModal({
             entidadId: muestraEntidad ? entidadId : null,
             sucursalId,
             cajaDestinoId,
+            discriminaIva,
             observacion,
           });
       if (!res.ok) {
@@ -291,6 +297,13 @@ export default function CrearEditarCobroModal({
               </SelectContent>
             </Select>
           </div>
+
+          <ModalSiNoChoice
+            label="DISCRIMINA IVA"
+            value={discriminaIva}
+            onChange={setDiscriminaIva}
+            disabled={saving}
+          />
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>OBSERVACIÓN</ModalMicroLabel>

@@ -1435,6 +1435,11 @@ model CobrosPorSucursal {
   sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   cajaDestinoId String?  @map("caja_destino_id")
   cajaDestino   CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  /**
+   * TRUE → Cx Fin al acreditar = CX TOTAL S/ IVA.
+   * FALSE → Cx Fin al acreditar = CX TOTAL C/ IVA.
+   */
+  discriminaIva Boolean  @default(false) @map("discrimina_iva")
   /** Texto libre de la fila. */
   observacion   String   @default("") @map("observacion") @db.Text
   createdAt     DateTime @default(now()) @map("created_at")

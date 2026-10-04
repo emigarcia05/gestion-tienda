@@ -114,7 +114,7 @@ export function TablaFlujoDeFondo({
                     {fmtMontoAr(montoVencimientoPorDia[fila.isoYmd] ?? 0)}
                   </TableCell>
                   <TableCell className={cn(TD_NUM, CELL_MIN)}>
-                    {fmtMontoAr(fila.cajaDisponible)}
+                    {fmtMontoAr(fila.ingresosDelDia)}
                   </TableCell>
                   <TableCell
                     className={cn(

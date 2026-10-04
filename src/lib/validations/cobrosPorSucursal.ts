@@ -6,6 +6,7 @@ export const crearCobroPorSucursalSchema = z.object({
   entidadId: prismaCuidOrUuidSchema.nullable().optional(),
   sucursalId: prismaCuidOrUuidSchema,
   cajaDestinoId: prismaCuidOrUuidSchema,
+  discriminaIva: z.boolean(),
   observacion: z.string().max(2000).default(""),
 });
 
@@ -14,6 +15,7 @@ export type CrearCobroPorSucursalInput = z.infer<typeof crearCobroPorSucursalSch
 export const actualizarCobroPorSucursalSchema = z.object({
   id: prismaCuidOrUuidSchema,
   cajaDestinoId: prismaCuidOrUuidSchema,
+  discriminaIva: z.boolean(),
   observacion: z.string().max(2000).default(""),
 });
 

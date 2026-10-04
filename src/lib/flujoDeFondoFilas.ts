@@ -1,9 +1,11 @@
 /**
  * Cálculo de filas para **Flujo De Fondo** (`/finanzas/venc-por-fecha`).
  *
- * - Fila 1: **SALDO** = vencimientos acumulados (previos + del día) − **CAJA DISPONIBLE**.
- * - Filas 2+: **CAJA** fija según fila 1 (si saldo₁ > caja₁ → 0; si no → caja₁ − saldo₁).
- * - Filas 2+: **SALDO** = saldo anterior + vencimiento del día − caja.
+ * - **INGRESOS** = suma de `monto_acreditado` de movimientos INGRESO con
+ *   `fecha_acreditacion` ese día (misma fuente que el modal VER).
+ * - Fila 1: **SALDO** = vencimientos acumulados (previos + del día) − caja disponible − ingresos del día.
+ * - Filas 2+: **CAJA** interna según fila 1 (si saldo₁ > caja₁ → 0; si no → caja₁ − saldo₁).
+ * - Filas 2+: **SALDO** = saldo anterior + vencimiento del día − caja − ingresos del día.
  */
 
 export interface FlujoDeFondoFilaEntrada {
@@ -14,7 +16,10 @@ export interface FlujoDeFondoFilaEntrada {
 export interface FilaFlujoDeFondoCalculada {
   isoYmd: string;
   vencimientoDelDia: number;
+  /** Liquidez arrastrada (no se muestra; entra en SALDO). */
   cajaDisponible: number;
+  /** Suma a acreditar ese día (`fecha_acreditacion`). Columna INGRESOS. */
+  ingresosDelDia: number;
   saldo: number;
 }
 
@@ -58,6 +63,7 @@ export function calcularFilasFlujoDeFondo(
         isoYmd: fila.isoYmd,
         vencimientoDelDia: fila.vencimientoDelDia,
         cajaDisponible,
+        ingresosDelDia: ingresosDia,
         saldo,
       };
     }
@@ -69,6 +75,7 @@ export function calcularFilasFlujoDeFondo(
       isoYmd: fila.isoYmd,
       vencimientoDelDia: fila.vencimientoDelDia,
       cajaDisponible,
+      ingresosDelDia: ingresosDia,
       saldo,
     };
   });

@@ -56,6 +56,8 @@ export type CobrosPorSucursalFila = {
   sucursalNombre: string;
   cajaDestinoId: string | null;
   cajaEtiqueta: string;
+  /** TRUE = acreditar con CX TOTAL S/ IVA; FALSE = CX TOTAL C/ IVA. */
+  discriminaIva: boolean;
   observacion: string;
 };
 
@@ -223,6 +225,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           entidadId: true,
           sucursalId: true,
           cajaDestinoId: true,
+          discriminaIva: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
           cajaDestino: {
@@ -266,6 +269,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       sucursalNombre: d.sucursal.nombre.toLocaleUpperCase("es-AR"),
       cajaDestinoId: d.cajaDestinoId,
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
+      discriminaIva: d.discriminaIva,
       observacion: d.observacion,
     }))
     .sort(sortFilas);
@@ -361,6 +365,7 @@ export async function crearCobroPorSucursal(
         entidadId,
         sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
+        discriminaIva: input.discriminaIva,
         observacion,
       },
       select: { id: true },
@@ -378,6 +383,7 @@ export async function crearCobroPorSucursal(
         sucursalNombre: textoEtiqueta(sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
+        discriminaIva: input.discriminaIva,
         observacion,
       },
     };
@@ -420,6 +426,7 @@ export async function actualizarCobroPorSucursal(
       where: { id: existente.id },
       data: {
         cajaDestinoId: cajaRes.data.id,
+        discriminaIva: input.discriminaIva,
         observacion,
       },
     });
@@ -438,6 +445,7 @@ export async function actualizarCobroPorSucursal(
         sucursalNombre: textoEtiqueta(existente.sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
+        discriminaIva: input.discriminaIva,
         observacion,
       },
     };

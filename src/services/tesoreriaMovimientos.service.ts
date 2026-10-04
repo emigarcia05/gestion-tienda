@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type CategoriaMovimientoTesoreria, type SentidoMovimientoTesoreria, type TipoCajaTesoreria } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
+import {
+  cxTotalConIvaFinAnaCosFina,
+  cxTotalSinIvaFinAnaCosFina,
+} from "@/lib/finAnaCosFina";
 import { esCobroNotaCreditoNombre } from "@/lib/factura";
 import {
   addDaysToIsoYmdArgentina,
@@ -50,7 +54,7 @@ function fechasRegistroYAcreditacion(
 }
 
 /**
- * Neto que impacta caja: bruto × (1 − % costo financiero), redondeado a pesos.
+ * Neto que impacta caja: bruto × (1 − % costo), redondeado a pesos.
  * % fuera de 0…100 se acota. Sin costo (null/0) → igual al bruto.
  */
 export function montoAcreditadoDesdeCostoFinanciero(
@@ -68,6 +72,83 @@ function decimalPctToNumber(value: Prisma.Decimal | number | null | undefined): 
   if (value == null) return 0;
   if (typeof value === "number") return value;
   return Number(value.toString());
+}
+
+const CX_FIN_ACREDITACION_SELECT = {
+  id: true,
+  diasAcreditacion: true,
+  arancel: true,
+  costoFinanciero: true,
+  impCheque: true,
+} as const;
+
+type CxFinAcreditacion = {
+  arancel: Prisma.Decimal | number;
+  costoFinanciero: Prisma.Decimal | number;
+  impCheque: boolean;
+};
+
+/**
+ * % que se descuenta al acreditar según `cobros_vinc_cajas.discrimina_iva`:
+ * TRUE → CX TOTAL S/ IVA; FALSE → CX TOTAL C/ IVA.
+ */
+export function pctCostoAcreditacionDesdeCxFin(
+  cx: CxFinAcreditacion | null | undefined,
+  discriminaIva = false
+): number {
+  if (!cx) return 0;
+  const arancel = decimalPctToNumber(cx.arancel);
+  const costo = decimalPctToNumber(cx.costoFinanciero);
+  return discriminaIva
+    ? cxTotalSinIvaFinAnaCosFina(cx.impCheque, arancel, costo)
+    : cxTotalConIvaFinAnaCosFina(cx.impCheque, arancel, costo);
+}
+
+function claveVinculoCaja(
+  pagoId: string | null | undefined,
+  entidadId: string | null | undefined,
+  sucursalId: string
+): string {
+  return `${pagoId ?? ""}|${entidadId ?? ""}|${sucursalId}`;
+}
+
+async function mapaDiscriminaIvaPorVinculo(
+  triples: Array<{
+    pagoId: string | null;
+    entidadId: string | null;
+    sucursalId: string;
+  }>,
+  db: DbClient = prisma
+): Promise<Map<string, boolean>> {
+  const unicos = new Map<string, { pagoId: string; entidadId: string | null; sucursalId: string }>();
+  for (const t of triples) {
+    if (!t.pagoId) continue;
+    const key = claveVinculoCaja(t.pagoId, t.entidadId, t.sucursalId);
+    if (!unicos.has(key)) {
+      unicos.set(key, { pagoId: t.pagoId, entidadId: t.entidadId, sucursalId: t.sucursalId });
+    }
+  }
+  const out = new Map<string, boolean>();
+  if (unicos.size === 0) return out;
+  const rows = await db.cobrosPorSucursal.findMany({
+    where: {
+      OR: [...unicos.values()].map((t) => ({
+        pagoId: t.pagoId,
+        entidadId: t.entidadId,
+        sucursalId: t.sucursalId,
+      })),
+    },
+    select: {
+      pagoId: true,
+      entidadId: true,
+      sucursalId: true,
+      discriminaIva: true,
+    },
+  });
+  for (const row of rows) {
+    out.set(claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId), row.discriminaIva);
+  }
+  return out;
 }
 
 function sentidoDeCategoria(
@@ -217,10 +298,21 @@ export async function crearMovimientoTesoreria(
   if (cobro.data.cxFinId) {
     const cx = await prisma.finAnaCosFina.findUnique({
       where: { id: cobro.data.cxFinId },
-      select: { diasAcreditacion: true, costoFinanciero: true },
+      select: CX_FIN_ACREDITACION_SELECT,
     });
     diasAcreditacion = cx?.diasAcreditacion ?? null;
-    costoFinancieroPct = decimalPctToNumber(cx?.costoFinanciero);
+    const mapaIva = await mapaDiscriminaIvaPorVinculo([
+      {
+        pagoId: cobro.data.pagoId,
+        entidadId: cobro.data.entidadId,
+        sucursalId: input.sucursalId,
+      },
+    ]);
+    const discriminaIva =
+      mapaIva.get(
+        claveVinculoCaja(cobro.data.pagoId, cobro.data.entidadId, input.sucursalId)
+      ) ?? false;
+    costoFinancieroPct = pctCostoAcreditacionDesdeCxFin(cx, discriminaIva);
   }
   const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
     input.fecha,
@@ -381,11 +473,12 @@ export type TesoreriaMovimientoFila = {
   usuarioNombre: string;
   /** Bruto del movimiento (cobro = lo pagado por el cliente). */
   monto: number;
-  /** Neto que impacta caja (tras costo financiero en cobros). */
+  /** Neto que impacta caja (tras CX TOTAL S/IVA o C/IVA según discrimina IVA). */
   montoAcreditado: number;
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string;
+  /** % aplicado al acreditar según `cobros_vinc_cajas.discrimina_iva`. */
   costoFinanciero: number | null;
   comprobanteId: string | null;
   clienteNombre: string;
@@ -437,6 +530,9 @@ export async function listarMovimientosTesoreria(): Promise<
       monto: true,
       montoAcreditado: true,
       cajaId: true,
+      sucursalId: true,
+      pagoId: true,
+      entidadId: true,
       sucursal: { select: { nombre: true } },
       personal: { select: { nombrePersonal: true } },
       caja: {
@@ -450,7 +546,7 @@ export async function listarMovimientosTesoreria(): Promise<
       pago: { select: { nombre: true } },
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
-      cxFin: { select: { costoFinanciero: true } },
+      cxFin: { select: CX_FIN_ACREDITACION_SELECT },
       comprobante: {
         select: {
           id: true,
@@ -461,6 +557,14 @@ export async function listarMovimientosTesoreria(): Promise<
       },
     },
   });
+
+  const mapaIva = await mapaDiscriminaIvaPorVinculo(
+    rows.map((row) => ({
+      pagoId: row.pagoId,
+      entidadId: row.entidadId,
+      sucursalId: row.sucursalId,
+    }))
+  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -487,10 +591,12 @@ export async function listarMovimientosTesoreria(): Promise<
     cuotaEtiqueta: row.cuota?.cuotas?.trim()
       ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
       : "",
-    costoFinanciero:
-      row.cxFin?.costoFinanciero != null
-        ? decimalPctToNumber(row.cxFin.costoFinanciero)
-        : null,
+    costoFinanciero: row.cxFin
+      ? pctCostoAcreditacionDesdeCxFin(
+          row.cxFin,
+          mapaIva.get(claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId)) ?? false
+        )
+      : null,
     comprobanteId: row.comprobante?.id ?? null,
     clienteNombre: row.comprobante?.receptorNombre?.trim()
       ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
@@ -513,6 +619,9 @@ export async function obtenerMovimientoTesoreriaPorId(
       monto: true,
       montoAcreditado: true,
       cajaId: true,
+      sucursalId: true,
+      pagoId: true,
+      entidadId: true,
       sucursal: { select: { nombre: true } },
       personal: { select: { nombrePersonal: true } },
       caja: {
@@ -526,7 +635,7 @@ export async function obtenerMovimientoTesoreriaPorId(
       pago: { select: { nombre: true } },
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
-      cxFin: { select: { costoFinanciero: true } },
+      cxFin: { select: CX_FIN_ACREDITACION_SELECT },
       comprobante: {
         select: {
           id: true,
@@ -538,6 +647,10 @@ export async function obtenerMovimientoTesoreriaPorId(
     },
   });
   if (!row) return { success: false, error: "Movimiento inexistente." };
+
+  const mapaIvaDetalle = await mapaDiscriminaIvaPorVinculo([
+    { pagoId: row.pagoId, entidadId: row.entidadId, sucursalId: row.sucursalId },
+  ]);
 
   return {
     success: true,
@@ -566,10 +679,14 @@ export async function obtenerMovimientoTesoreriaPorId(
       cuotaEtiqueta: row.cuota?.cuotas?.trim()
         ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
         : "",
-      costoFinanciero:
-        row.cxFin?.costoFinanciero != null
-          ? decimalPctToNumber(row.cxFin.costoFinanciero)
-          : null,
+      costoFinanciero: row.cxFin
+        ? pctCostoAcreditacionDesdeCxFin(
+            row.cxFin,
+            mapaIvaDetalle.get(
+              claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId)
+            ) ?? false
+          )
+        : null,
       comprobanteId: row.comprobante?.id ?? null,
       clienteNombre: row.comprobante?.receptorNombre?.trim()
         ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
@@ -895,7 +1012,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
         sucursalId: sucursal.id,
         entidadId,
       },
-      select: { cajaDestinoId: true },
+      select: { cajaDestinoId: true, discriminaIva: true },
     });
     if (!vinculoCaja) {
       return {
@@ -916,7 +1033,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
         terminalId: entidadId,
         cuotaId,
       },
-      select: { id: true, diasAcreditacion: true, costoFinanciero: true },
+      select: CX_FIN_ACREDITACION_SELECT,
     });
     if (costos.length > 1) {
       return {
@@ -943,7 +1060,10 @@ export async function prepararMovimientosCobroDesdeSnapshots(
         costos[0]?.diasAcreditacion
       ));
     }
-    const costoPct = decimalPctToNumber(costos[0]?.costoFinanciero);
+    const costoPct = pctCostoAcreditacionDesdeCxFin(
+      costos[0],
+      vinculoCaja.discriminaIva
+    );
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
 
     out.push({
