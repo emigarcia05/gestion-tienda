@@ -247,7 +247,7 @@ export async function listarCajasTesoreria(): Promise<CajaTesoreriaItem[]> {
   });
 }
 
-/** Cajas con un `tipo_caja` dado (p. ej. **BANCO** como destino de acreditación de cheques). */
+/** Cajas con un `tipo_caja` dado (p. ej. **BANCO**). */
 export async function listarCajasTesoreriaPorTipoCaja(
   tipoCaja: TipoCajaTesoreria
 ): Promise<CajaTesoreriaItem[]> {

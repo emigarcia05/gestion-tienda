@@ -395,7 +395,7 @@ model GlobalPersonal {
 /**
  * Catálogo de titulares de tesorería (`nombre` único en MAYÚSCULAS).
  * Referenciado por `ptos_vtas.titular`.
- * Aún no sustituye `tesoreria_cajas.titular` ni `tesoreria_cheques.tenedor` (siguen TEXT).
+ * Aún no sustituye `tesoreria_cajas.titular` (sigue TEXT).
  */
 model TesoreriaTitular {
   id        String   @id @default(cuid())

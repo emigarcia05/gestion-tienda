@@ -115,7 +115,7 @@ function mapRow(row: {
   };
 }
 
-/** Nombres de `personal` con `titular_financiero = true` (tesorería / tenedor). */
+/** Nombres de `personal` con `titular_financiero = true` (tesorería). */
 export async function listNombresTitularesFinancieros(): Promise<string[]> {
   const rows = await prisma.globalPersonal.findMany({
     where: { titularFinanciero: true },
@@ -262,19 +262,13 @@ export async function eliminarUsuarioPersonal(
     }
 
     const nombre = existente.nombrePersonal;
-    const [cajasTitular, chequesTenedor] = await Promise.all([
-      prisma.cajaTesoreria.count({
-        where: { titular: { equals: nombre, mode: "insensitive" } },
-      }),
-      prisma.finTesoreriaCheque.count({
-        where: { tenedor: { equals: nombre, mode: "insensitive" } },
-      }),
-    ]);
-    if (cajasTitular > 0 || chequesTenedor > 0) {
+    const cajasTitular = await prisma.cajaTesoreria.count({
+      where: { titular: { equals: nombre, mode: "insensitive" } },
+    });
+    if (cajasTitular > 0) {
       return {
         success: false,
-        error:
-          "No se puede eliminar: el usuario figura como titular o tenedor en tesorería.",
+        error: "No se puede eliminar: el usuario figura como titular en tesorería.",
       };
     }
 

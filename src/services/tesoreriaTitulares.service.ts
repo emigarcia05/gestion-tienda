@@ -89,18 +89,15 @@ export async function eliminarTesoreriaTitular(id: string): Promise<ServiceResul
   }
 
   const nombre = existing.nombre;
-  const [nPto, nCaja, nCheque] = await Promise.all([
+  const [nPto, nCaja] = await Promise.all([
     prisma.globalPtoVta.count({
       where: { titular: nombre },
     }),
     prisma.cajaTesoreria.count({
       where: { titular: { equals: nombre, mode: "insensitive" } },
     }),
-    prisma.finTesoreriaCheque.count({
-      where: { tenedor: { equals: nombre, mode: "insensitive" } },
-    }),
   ]);
-  if (nPto > 0 || nCaja > 0 || nCheque > 0) {
+  if (nPto > 0 || nCaja > 0) {
     return {
       success: false,
       error: "No se puede eliminar: el titular figura en un punto de venta o tesorería.",
