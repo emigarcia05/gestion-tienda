@@ -62,7 +62,7 @@ export async function listarHistorialTransfDepositosPorProducto(
 async function sucursalDePersonal(
   personalId: number
 ): Promise<ServiceResult<SucursalCodigoTransf>> {
-  const row = await prisma.personal.findUnique({
+  const row = await prisma.globalPersonal.findUnique({
     where: { idPersonal: personalId },
     select: { sucursalPorDefecto: true },
   });
