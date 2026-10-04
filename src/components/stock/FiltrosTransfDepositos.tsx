@@ -217,9 +217,7 @@ export default function FiltrosTransfDepositos({
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={origenActual !== null && !parActual.origenBloqueado}
-              onLimpiar={
-                parActual.origenBloqueado ? undefined : () => handleOrigen("")
-              }
+              onLimpiar={() => handleOrigen("")}
             >
               <Select
                 value={origenActual ?? ""}
@@ -251,9 +249,7 @@ export default function FiltrosTransfDepositos({
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={destinoActual !== null && !parActual.destinoBloqueado}
-              onLimpiar={
-                parActual.destinoBloqueado ? undefined : () => handleDestino("")
-              }
+              onLimpiar={() => handleDestino("")}
             >
               <Select
                 value={destinoActual ?? ""}
