@@ -161,9 +161,42 @@ async function persistirStockMovimientosEn(
   };
 }
 
+async function persistirStockMovimientosStandalone(
+  input: RegistrarStockMovimientosInput
+): Promise<ServiceResult<RegistrarStockMovimientosResult>> {
+  const validado = validarLineasStock(input);
+  if (!validado.success) return validado;
+  const comprobante = await prisma.stockComprobante.create({
+    data: {
+      tipo: input.comprobanteTipo,
+      sucursalId: input.sucursalId,
+      sucursalDestinoId: input.sucursalDestinoId ?? null,
+      personalId: input.personalId ?? null,
+      comprobanteVtaId: input.comprobanteVtaId ?? null,
+      movimientos: {
+        createMany: {
+          data: input.lineas.map((l) => ({
+            tipoMovimiento: l.tipoMovimiento,
+            categoriaMovimiento: l.categoriaMovimiento,
+            codItem: l.codItem.trim(),
+            sucursalId: l.sucursalId,
+            cantidad: redondearCantidadUnDecimal(l.cantidad),
+          })),
+        },
+      },
+    },
+    select: { id: true },
+  });
+  return {
+    success: true,
+    data: { comprobanteId: comprobante.id, movimientos: input.lineas.length },
+  };
+}
+
 /**
  * Crea el comprobante justificante y las líneas del ledger.
  * `cantidad` positiva; el signo lo da `tipoMovimiento`.
+ * Sin `db`: un solo `create` anidado (el pooler Neon no sostiene `$transaction` interactiva).
  */
 export async function registrarStockMovimientos(
   input: RegistrarStockMovimientosInput,
@@ -171,7 +204,7 @@ export async function registrarStockMovimientos(
 ): Promise<ServiceResult<RegistrarStockMovimientosResult>> {
   try {
     if (db) return persistirStockMovimientosEn(db, input);
-    return await prisma.$transaction((tx) => persistirStockMovimientosEn(tx, input));
+    return persistirStockMovimientosStandalone(input);
   } catch (e) {
     console.error("[registrarStockMovimientos]", e);
     return { success: false, error: "Error al registrar movimientos de stock." };

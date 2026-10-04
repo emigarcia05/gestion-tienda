@@ -2,7 +2,6 @@
 
 import { requireStockAcceso } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
-import { GP_INTERNAL, GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import type { ActionResult } from "@/lib/types";
 import {
   confirmarAjusteControlStockSchema,
@@ -14,7 +13,6 @@ import {
   type RegistrarStockMovimientosResult,
   type StockMovimientoFila,
 } from "@/services/stockMovimientos.service";
-import { revalidatePath } from "next/cache";
 
 export type { StockMovimientoFila };
 
@@ -44,11 +42,5 @@ export async function confirmarAjusteControlStockAction(
   const parsed = confirmarAjusteControlStockSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
   const res = await confirmarAjusteControlStock(parsed.data);
-  if (res.success) {
-    revalidatePath(GP_ROUTES.ayudaVendedor.controlStock);
-    revalidatePath(GP_INTERNAL.ayudaVendedor.controlStock);
-    revalidatePath(GP_ROUTES.ayudaVendedor.movimientosStock);
-    revalidatePath(GP_INTERNAL.ayudaVendedor.movimientosStock);
-  }
   return fromServiceResult(res);
 }
