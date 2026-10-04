@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import AppModal from "@/components/shared/AppModal";
 import { cn } from "@/lib/utils";
-import { fmtCelda, fmtNumero } from "@/lib/format";
+import { fmtCantidad, fmtCelda } from "@/lib/format";
 import {
   redondearPromVtaUnDecimal,
   sucursalPedidoAFabricaTieneDeposito,
@@ -55,7 +55,7 @@ function fmtPromVtaUnDecimal(n: number | null | undefined): string {
 /**
  * Detalle por sucursal de un ítem Pedido A Fáb.
  * `promedio`: **SUCURSALES** + **PROM. VTA POR DÍA**.
- * `stock`: **SUCURSALES** con `id_deposito` + **UN. ACT.** (`prod_tienda_stock.stock_real`).
+ * `stock`: **SUCURSALES** (cada una es depósito) + **UN. ACT.** (`stock_movimientos`).
  * Ambos con fila **TOTAL**.
  */
 export default function DetalleSucursalesPedidoAFabricaModal({
@@ -162,7 +162,7 @@ export default function DetalleSucursalesPedidoAFabricaModal({
                       )}
                     >
                       {esStock
-                        ? fmtNumero(f.stockActual)
+                        ? fmtCantidad(f.stockActual)
                         : fmtPromVtaUnDecimal(f.promVtaPorDia)}
                     </TableCell>
                   </TableRow>
@@ -181,7 +181,7 @@ export default function DetalleSucursalesPedidoAFabricaModal({
                       )}
                     >
                       {esStock
-                        ? fmtCelda(fmtNumero(total.stockActual))
+                        ? fmtCelda(fmtCantidad(total.stockActual))
                         : fmtCelda(fmtPromVtaUnDecimal(total.promVtaPorDia))}
                     </TableCell>
                   </TableRow>

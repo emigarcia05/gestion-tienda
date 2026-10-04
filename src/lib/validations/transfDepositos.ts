@@ -1,5 +1,10 @@
 import { z } from "zod";
 import {
+  cantidadUnDecimalPositivaSchema,
+  esBorradorCantidadUnDecimal,
+  formatCantidadInputValor,
+} from "@/lib/cantidadUnDecimal";
+import {
   globalSucursalIdSchema,
   listaPreciosCodTiendaSchema,
 } from "@/lib/validations/common";
@@ -18,7 +23,7 @@ export const registrarTransferenciasDepositosSchema = z
       .array(
         z.object({
           codTienda: listaPreciosCodTiendaSchema,
-          cantidad: z.coerce.number().int().positive().max(1_000_000),
+          cantidad: z.coerce.number().pipe(cantidadUnDecimalPositivaSchema),
         })
       )
       .min(1)
@@ -31,7 +36,12 @@ export const registrarTransferenciasDepositosSchema = z
 
 /** Ítem del borrador de grilla (localStorage) hasta Generar Transf. */
 export const itemBorradorTransfDepositosSchema = z.object({
-  cantidad: z.coerce.number().int().positive().max(1_000_000),
+  cantidad: z
+    .union([z.string(), z.number()])
+    .transform((v) =>
+      typeof v === "number" ? formatCantidadInputValor(v) : v.trim()
+    )
+    .refine((s) => s !== "" && esBorradorCantidadUnDecimal(s), "Cantidad inválida."),
   descripcion: z.string().max(500).optional().default(""),
 });
 

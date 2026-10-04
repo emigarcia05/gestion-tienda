@@ -5,6 +5,7 @@ import {
   esCobroNotaCreditoNombre,
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
+import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import {
   idPersonalSchema,
@@ -137,7 +138,7 @@ export const cuentaCorrientePublicaComprobanteSchema = z.object({
 const facturaLineaEmitirSchema = z.object({
   codTienda: z.string().trim().min(1, "Falta el código de tienda.").max(200),
   descripcion: z.string().trim().min(1, "Falta la descripción.").max(500),
-  cantidad: z.number().positive("La cantidad debe ser mayor a 0.").max(1_000_000),
+  cantidad: cantidadUnDecimalPositivaSchema,
   pxLista: z.number().nonnegative("El precio no puede ser negativo.").max(1_000_000_000),
   descuentoPct: z.number().min(0).max(100),
   comentario: z.string().trim().max(2000).optional().default(""),

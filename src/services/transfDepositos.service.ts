@@ -1,10 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
-import {
-  SUCURSAL_LABEL_TRANSF,
-  TRANSF_DEPOSITOS_VENTANA_DUPLICADO_DIAS,
-  TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS,
-} from "@/lib/transfDepositosControl";
 
 export type SucursalCodigoTransf = "guaymallen" | "maipu";
 
@@ -22,35 +17,9 @@ export type HistorialTransfDepositosItem = {
 export type HistorialTransfDepositosSeccion = {
   origenCodigo: SucursalCodigoTransf;
   destinoCodigo: SucursalCodigoTransf;
-  /** Ej. `GUAYMALLÉN → MAIPÚ`. */
   titulo: string;
   items: HistorialTransfDepositosItem[];
 };
-
-function desdeVentanaDuplicado(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - TRANSF_DEPOSITOS_VENTANA_DUPLICADO_DIAS);
-  return d;
-}
-
-function desdeVentanaHistorial(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS);
-  return d;
-}
-
-function esSucursalCodigoTransf(
-  codigo: string
-): codigo is SucursalCodigoTransf {
-  return codigo === "guaymallen" || codigo === "maipu";
-}
-
-function labelSucursal(codigo: string): string {
-  if (esSucursalCodigoTransf(codigo)) {
-    return SUCURSAL_LABEL_TRANSF[codigo];
-  }
-  return codigo.toUpperCase();
-}
 
 async function idsSucursalesPorCodigo(
   origen: SucursalCodigoTransf,
@@ -74,97 +43,25 @@ async function idsSucursalesPorCodigo(
   };
 }
 
-/**
- * Controles recientes del par origen→destino (ventana anti-duplicado),
- * para pintar advertencias en la grilla.
- */
+/** `stock_trasn_depositos` eliminada: no hay controles recientes persistidos. */
 export async function listarControlesRecientesTransfDepositos(
-  origen: SucursalCodigoTransf,
-  destino: SucursalCodigoTransf,
-  codTiendas: string[]
+  _origen: SucursalCodigoTransf,
+  _destino: SucursalCodigoTransf,
+  _codTiendas: string[]
 ): Promise<ControlTransfDepositosReciente[]> {
-  if (origen === destino || codTiendas.length === 0) return [];
-  const sucursales = await idsSucursalesPorCodigo(origen, destino);
-  if (!sucursales.success) return [];
-  const desde = desdeVentanaDuplicado();
-  const rows = await prisma.stockTrasnDeposito.findMany({
-    where: {
-      sucOrigen: sucursales.data.sucOrigen,
-      sucDestino: sucursales.data.sucDestino,
-      codTienda: { in: codTiendas },
-      createdAt: { gte: desde },
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      codTienda: true,
-      cant: true,
-      createdAt: true,
-    },
-  });
-  return rows.map((r) => ({
-    codTienda: r.codTienda,
-    cantidad: r.cant,
-    createdAtIso: r.createdAt.toISOString(),
-  }));
+  return [];
 }
 
-/**
- * Historial de transferencias de un producto (cualquier par origen→destino)
- * en la ventana de historial, agrupado por sección.
- */
+/** `stock_trasn_depositos` eliminada: historial vacío. */
 export async function listarHistorialTransfDepositosPorProducto(
-  codTienda: string
+  _codTienda: string
 ): Promise<HistorialTransfDepositosSeccion[]> {
-  const desde = desdeVentanaHistorial();
-  const rows = await prisma.stockTrasnDeposito.findMany({
-    where: {
-      codTienda,
-      createdAt: { gte: desde },
-    },
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      cant: true,
-      createdAt: true,
-      sucursalOrigen: { select: { codigo: true } },
-      sucursalDestino: { select: { codigo: true } },
-    },
-  });
-
-  const porPar = new Map<string, HistorialTransfDepositosSeccion>();
-  for (const r of rows) {
-    const origenCodigo = r.sucursalOrigen.codigo;
-    const destinoCodigo = r.sucursalDestino.codigo;
-    if (
-      !esSucursalCodigoTransf(origenCodigo) ||
-      !esSucursalCodigoTransf(destinoCodigo)
-    ) {
-      continue;
-    }
-    const key = `${origenCodigo}|${destinoCodigo}`;
-    let seccion = porPar.get(key);
-    if (!seccion) {
-      seccion = {
-        origenCodigo,
-        destinoCodigo,
-        titulo: `${labelSucursal(origenCodigo)} → ${labelSucursal(destinoCodigo)}`,
-        items: [],
-      };
-      porPar.set(key, seccion);
-    }
-    seccion.items.push({
-      createdAtIso: r.createdAt.toISOString(),
-      cantidad: r.cant,
-    });
-  }
-
-  return Array.from(porPar.values()).sort((a, b) =>
-    a.titulo.localeCompare(b.titulo, "es")
-  );
+  return [];
 }
 
 /**
- * Reemplaza el lote abierto del par origen→destino en `stock_trasn_depositos`
- * (delete + create). Re-Generar Transf. no duplica filas.
+ * Valida origen≠destino. Cada sucursal es depósito.
+ * El ledger `stock_movimientos` se escribe al confirmar Transferido (próximo cableado con ítems).
  */
 export async function registrarTransferenciasDepositos(input: {
   origen: SucursalCodigoTransf;
@@ -178,29 +75,13 @@ export async function registrarTransferenciasDepositos(input: {
     if (input.items.length === 0) {
       return { success: false, error: "No hay cantidades para registrar." };
     }
-
     const sucursales = await idsSucursalesPorCodigo(input.origen, input.destino);
-    if (!sucursales.success) {
-      return sucursales;
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.stockTrasnDeposito.deleteMany({
-        where: {
-          sucOrigen: sucursales.data.sucOrigen,
-          sucDestino: sucursales.data.sucDestino,
-        },
-      });
-      await tx.stockTrasnDeposito.createMany({
-        data: input.items.map((it) => ({
-          codTienda: it.codTienda,
-          cant: it.cantidad,
-          sucOrigen: sucursales.data.sucOrigen,
-          sucDestino: sucursales.data.sucDestino,
-        })),
-      });
-    });
-
+    if (!sucursales.success) return sucursales;
+    const ok = await validarParSucursales(
+      sucursales.data.sucOrigen,
+      sucursales.data.sucDestino
+    );
+    if (!ok.success) return ok;
     return { success: true, data: { creados: input.items.length } };
   } catch (e) {
     console.error("[registrarTransferenciasDepositos]", e);
@@ -214,7 +95,7 @@ export type SucursalTransfDepositoOption = {
   id: string;
   codigo: string;
   nombre: string;
-  /** `sucursales.id_deposito` no nulo. */
+  /** Cada sucursal es depósito. Siempre `true`. */
   tieneDeposito: boolean;
 };
 
@@ -224,20 +105,23 @@ export type LoteAbiertoTransfDepositoItem = {
   cantidad: number;
 };
 
-/** Sucursales de `sucursales` para selectores origen/destino. */
 export async function listarSucursalesTransfDepositos(): Promise<
   SucursalTransfDepositoOption[]
 > {
   try {
     const rows = await prisma.sucursal.findMany({
-      select: { id: true, codigo: true, nombre: true, idDeposito: true },
+      select: {
+        id: true,
+        codigo: true,
+        nombre: true,
+      },
       orderBy: { nombre: "asc" },
     });
     return rows.map((r) => ({
       id: r.id,
       codigo: r.codigo,
       nombre: r.nombre,
-      tieneDeposito: r.idDeposito != null,
+      tieneDeposito: true,
     }));
   } catch (e) {
     console.error("[listarSucursalesTransfDepositos]", e);
@@ -254,107 +138,34 @@ async function validarParSucursales(
   }
   const rows = await prisma.sucursal.findMany({
     where: { id: { in: [sucOrigenId, sucDestinoId] } },
-    select: { id: true, idDeposito: true },
+    select: { id: true },
   });
   if (rows.length !== 2) {
     return { success: false, error: "Sucursal origen o destino no encontrada." };
   }
-  const destino = rows.find((r) => r.id === sucDestinoId);
-  if (!destino || destino.idDeposito == null) {
-    return {
-      success: false,
-      error: "La sucursal destino no tiene depósito.",
-    };
-  }
   return { success: true, data: undefined };
 }
 
-/**
- * Lote abierto del par origen→destino por código de sucursal (grilla / hidratar borrador).
- */
 export async function listarLoteAbiertoTransfDepositosPorCodigos(
-  origen: SucursalCodigoTransf,
-  destino: SucursalCodigoTransf
+  _origen: SucursalCodigoTransf,
+  _destino: SucursalCodigoTransf
 ): Promise<LoteAbiertoTransfDepositoItem[]> {
-  if (origen === destino) return [];
-  const sucursales = await idsSucursalesPorCodigo(origen, destino);
-  if (!sucursales.success) return [];
-  return listarLoteAbiertoTransfDepositos({
-    sucOrigenId: sucursales.data.sucOrigen,
-    sucDestinoId: sucursales.data.sucDestino,
-  });
+  return [];
 }
 
-/**
- * Ítems del lote abierto de `stock_trasn_depositos` para un par origen→destino,
- * agrupados por `cod_tienda` (suma `cant`).
- */
-export async function listarLoteAbiertoTransfDepositos(input: {
+export async function listarLoteAbiertoTransfDepositos(_input: {
   sucOrigenId: string;
   sucDestinoId: string;
 }): Promise<LoteAbiertoTransfDepositoItem[]> {
-  const ok = await validarParSucursales(input.sucOrigenId, input.sucDestinoId);
-  if (!ok.success) return [];
-  try {
-    const rows = await prisma.stockTrasnDeposito.findMany({
-        where: {
-        sucOrigen: input.sucOrigenId,
-        sucDestino: input.sucDestinoId,
-      },
-      select: {
-        cant: true,
-        prodTienda: {
-          select: { codTienda: true, descripcionTienda: true },
-        },
-      },
-    });
-    const porCodigo = new Map<string, LoteAbiertoTransfDepositoItem>();
-    for (const r of rows) {
-      const prev = porCodigo.get(r.prodTienda.codTienda);
-      if (prev) {
-        prev.cantidad += r.cant;
-        continue;
-      }
-      porCodigo.set(r.prodTienda.codTienda, {
-        codTienda: r.prodTienda.codTienda,
-        descripcionTienda: r.prodTienda.descripcionTienda ?? "",
-        cantidad: r.cant,
-      });
-    }
-    return Array.from(porCodigo.values()).sort((a, b) =>
-      a.descripcionTienda.localeCompare(b.descripcionTienda, "es")
-    );
-  } catch (e) {
-    console.error("[listarLoteAbiertoTransfDepositos]", e);
-    return [];
-  }
+  return [];
 }
 
-/**
- * Marca el lote como transferido: borra las filas del par origen→destino.
- */
+/** `stock_trasn_depositos` eliminada: no hay lote que borrar. */
 export async function marcarTransferidoTransfDepositos(input: {
   sucOrigenId: string;
   sucDestinoId: string;
 }): Promise<ServiceResult<{ borrados: number }>> {
-  try {
-    const ok = await validarParSucursales(input.sucOrigenId, input.sucDestinoId);
-    if (!ok.success) return ok;
-    const result = await prisma.stockTrasnDeposito.deleteMany({
-      where: {
-        sucOrigen: input.sucOrigenId,
-        sucDestino: input.sucDestinoId,
-      },
-    });
-    if (result.count === 0) {
-      return { success: false, error: "No hay transferencias para marcar." };
-    }
-    return { success: true, data: { borrados: result.count } };
-  } catch (e) {
-    console.error("[marcarTransferidoTransfDepositos]", e);
-    const message =
-      e instanceof Error ? e.message : "Error al marcar transferido.";
-    return { success: false, error: message };
-  }
+  const ok = await validarParSucursales(input.sucOrigenId, input.sucDestinoId);
+  if (!ok.success) return ok;
+  return { success: true, data: { borrados: 0 } };
 }
-

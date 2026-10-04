@@ -12,6 +12,12 @@ export function fmtNumero(n: number | null | undefined): string {
   return Math.round(n).toLocaleString("es-AR", OPCIONES_ENTERO);
 }
 
+/**
+ * Cantidad / stock: entero si no hay fracción; si no, un decimal (`0,5`).
+ * No usar `fmtNumero` (redondea y oculta 0,5).
+ */
+export { fmtCantidad } from "@/lib/cantidadUnDecimal";
+
 /** Valor para celda: si está vacío o es nulo, devuelve "" (vacío); si no, String(val). */
 export function fmtCelda<T>(val: T | null | undefined): string {
   if (val === null || val === undefined) return "";

@@ -6,29 +6,26 @@ import { prisma } from "@/lib/prisma";
 import { filtroTexto } from "@/lib/busqueda";
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
-import { requireStockAcceso } from "@/lib/actionGates";
 import type { ActionResult } from "@/lib/types";
 import { z } from "zod";
 import { PAGE_SIZE } from "@/lib/pagination";
-import {
-  getControlStockParamsSchema,
-  registrarControlStockExportacionSchema,
-} from "@/lib/validations/stock";
+import { getControlStockParamsSchema } from "@/lib/validations/stock";
 import {
   listarHistorialTransfDepositosProductoSchema,
   parSucursalesTransfDepositosSchema,
   registrarTransferenciasDepositosSchema,
 } from "@/lib/validations/transfDepositos";
 import { GP_INTERNAL, GP_ROUTES } from "@/lib/gestionProductosRoutes";
+import { whereProdTiendaStockeable } from "@/services/prodTiendaStock.service";
 import {
-  getIdDepositoPorSucursalCodigo,
-  whereProdTiendaStockeable,
-} from "@/services/prodTiendaStock.service";
+  buildMapSaldoStockPorSucursal,
+  obtenerSucursalIdPorCodigo,
+} from "@/services/stockMovimientos.service";
 
 export type Sucursal = "guaymallen" | "maipu";
 
 export interface ItemStock {
-  /** `cod_tienda` (`prod_tienda`); clave estable para tabla y export Excel. */
+  /** `cod_tienda` (`prod_tienda`); clave estable para tabla. */
   id:              string;
   codItem:         string;
   descripcion:     string;
@@ -68,7 +65,7 @@ const emptyControlStock: ControlStockData = {
  * Datos para Control Stock desde prod_tienda.
  * Filtros: MARCA → marca, RUBRO → rubro, SUB-RUBRO → sub_rubro.
  * Opciones de cada desplegable según docs/FILTROS_DINAMICOS.md (valores que existen con los demás filtros).
- * STOCK = `prod_tienda_stock.stock_real` del depósito DUX de la sucursal (Maipú / Guaymallén).
+ * STOCK: saldo de `stock_movimientos` (ingresos − egresos) por sucursal.
  * Requiere permiso PERMISOS.stock.acceso.
  */
 export async function getControlStock(
@@ -94,30 +91,19 @@ export async function getControlStock(
     q = "",
     marca = "",
     rubro = "",
-    soloNegativo = false,
+    soloNegativo: _soloNegativo = false,
     orden = "",
     pagina: paginaNum = 1,
   } = parsedParams.data;
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
-  const idDepositoSucursal = getIdDepositoPorSucursalCodigo(sucursal);
 
   function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdTiendaWhereInput[] {
     const parts: Prisma.ProdTiendaWhereInput[] = [whereProdTiendaStockeable()];
     if (textFilter.AND?.length) parts.push(textFilter);
     if (exclude !== "marca" && marca) parts.push({ marca });
     if (exclude !== "rubro" && rubro) parts.push({ rubro });
-    if (soloNegativo) {
-      parts.push({
-        stocks: {
-          some: {
-            idDeposito: idDepositoSucursal,
-            stockReal: { lt: 0 },
-          },
-        },
-      });
-    }
     return parts;
   }
 
@@ -148,11 +134,12 @@ export async function getControlStock(
             : { descripcionTienda: "asc" },
         skip,
         take: PAGE_SIZE,
-        include: {
-          stocks: {
-            where: { idDeposito: idDepositoSucursal },
-            select: { stockReal: true },
-          },
+        select: {
+          codTienda: true,
+          descripcionTienda: true,
+          marca: true,
+          rubro: true,
+          ultimaExportacionExcel: true,
         },
       }),
       prisma.prodTienda.count({ where: whereItems }),
@@ -170,13 +157,21 @@ export async function getControlStock(
       }),
     ]);
 
+    const sucursalId = await obtenerSucursalIdPorCodigo(sucursal);
+    const saldos = sucursalId
+      ? await buildMapSaldoStockPorSucursal(
+          rows.map((r) => r.codTienda),
+          sucursalId
+        )
+      : new Map<string, number>();
+
     const items: ItemStock[] = rows.map((r) => ({
       id: r.codTienda,
       codItem: r.codTienda,
       descripcion: r.descripcionTienda ?? "",
       marca: r.marca,
       rubro: r.rubro,
-      stock: r.stocks[0]?.stockReal ?? 0,
+      stock: saldos.get(r.codTienda) ?? 0,
       ultimaExportacionExcel: r.ultimaExportacionExcel?.toISOString() ?? null,
     }));
 
@@ -422,7 +417,7 @@ export async function listarHistorialTransfDepositosProductoAction(
 }
 
 /**
- * Persiste cantidades de la grilla en `stock_trasn_depositos` (reemplaza el lote del par).
+ * Valida origen/destino. Cada sucursal es depósito. No escribe ledger aquí.
  */
 export async function registrarTransferenciasDepositosAction(
   raw: unknown
@@ -497,7 +492,7 @@ export async function listarLoteAbiertoTransfDepositosAction(
 }
 
 /**
- * Borra el lote origen→destino de `stock_trasn_depositos` (marcado Transferido).
+ * Marca Transferido. El lote vive en `localStorage` hasta el cableado de `stock_movimientos`.
  */
 export async function marcarTransferidoTransfDepositosAction(
   raw: unknown
@@ -519,30 +514,5 @@ export async function marcarTransferidoTransfDepositosAction(
   }
   revalidatePath(GP_ROUTES.ayudaVendedor.transfDepositos);
   revalidatePath(GP_INTERNAL.ayudaVendedor.transfDepositos);
-  return { ok: true, data: result.data };
-}
-
-/**
- * Exportar Excel: ÚLT. CONTROL + stock local del depósito de la sucursal.
- * No escribe DUX. Flujo vendedor (`stock.acceso`).
- */
-export async function registrarExportacionExcelStock(
-  raw: unknown
-): Promise<ActionResult<{ stockActualizados: number }>> {
-  const gate = await requireStockAcceso();
-  if (gate) return gate;
-  const parsed = registrarControlStockExportacionSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: "Datos inválidos." };
-  }
-  const { registrarControlStockExportacion } = await import(
-    "@/services/prodTiendaStock.service"
-  );
-  const result = await registrarControlStockExportacion(parsed.data);
-  if (!result.success) {
-    return { ok: false, error: result.error };
-  }
-  revalidatePath(GP_ROUTES.ayudaVendedor.controlStock);
-  revalidatePath(GP_INTERNAL.ayudaVendedor.controlStock);
   return { ok: true, data: result.data };
 }

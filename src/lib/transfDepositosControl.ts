@@ -2,7 +2,7 @@
  * Ventana (días) compartida: historial del modal y aviso de transferencia duplicada.
  * Mismo `cod_tienda` + origen + destino + cantidad dentro de esta ventana → advertencia.
  * Borrador de grilla: `localStorage` por par origen→destino hasta **Transferido**.
- * Si el local está vacío, la grilla se hidrata desde el lote abierto de `stock_trasn_depositos`.
+ * Si el local está vacío, la grilla no se hidrata desde BD (`stock_trasn_depositos` eliminada).
  */
 
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
@@ -24,13 +24,13 @@ export type LoteAbiertoParaBorradorTransf = {
   descripcion: string;
 };
 
-/** Convierte el lote abierto de `stock_trasn_depositos` al shape del borrador de grilla. */
+/** Convierte un lote (si hubiera) al shape del borrador de grilla. */
 export function borradorDesdeLoteAbiertoTransfDepositos(
   loteAbierto: LoteAbiertoParaBorradorTransf[]
 ): BorradorTransfDepositos {
   const out: BorradorTransfDepositos = {};
   for (const p of loteAbierto) {
-    if (!Number.isInteger(p.cantidad) || p.cantidad <= 0) continue;
+    if (!Number.isFinite(p.cantidad) || p.cantidad <= 0) continue;
     const parsed = parseEntradaBorrador(p.codTienda, {
       cantidad: p.cantidad,
       descripcion: p.descripcion,
@@ -194,7 +194,7 @@ function normalizarBorradorParaGuardar(
 
 /**
  * Borrador de Cód. / Cant. de la grilla para un par origen→destino.
- * Vive hasta **Transferido**. No es el ledger (`stock_trasn_depositos`).
+ * Vive hasta **Transferido**. No hay ledger en BD.
  */
 export function leerBorradorTransfDepositos(
   origen: SucursalTransfDepositos | null,

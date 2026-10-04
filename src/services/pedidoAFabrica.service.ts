@@ -9,23 +9,25 @@ import {
   calcularPromVtaDiariaDesdeTotal,
   periodosUltimosDosMesesCompletos,
 } from "@/lib/pedidoAFabricaPromVta";
-import {
-  buildMapStockPorDeposito,
-} from "@/services/prodTiendaStock.service";
 import { bultoProdTiendaValido } from "@/services/tiendaBultos.service";
 import { buildMapCantAPedirAFabricaPorProveedor } from "@/services/pedidosEnvio.service";
+import { getIdDepositoPorSucursalCodigo } from "@/services/prodTiendaStock.service";
+import {
+  buildMapSaldoStockItemsSucursales,
+  claveSaldoStock,
+} from "@/services/stockMovimientos.service";
 import type { ReposicionFormaPedidoFabrica } from "@/lib/validations/reposicion";
 
 export type SucursalPedidoAFabrica = {
   id: string;
   codigo: string;
   nombre: string;
-  /** `sucursales.id_deposito`. `null` = sin depósito (no entra en STOCK / UN. ACT.). */
+  /** ID DUX de depósito (recepción). Cada sucursal es depósito. */
   idDeposito: number | null;
 };
 
 export type DatosSucursalProductoPedidoAFabrica = {
-  /** `stock_real` de `prod_tienda_stock` del depósito (`id_deposito`); `null` sin vínculo o sin depósito. */
+  /** Saldo `stock_movimientos`; `null` sin vínculo. */
   stockActual: number | null;
   /**
    * Promedio diario de venta (1 decimal): suma `est_por_prod` de los 2 meses previos / 48
@@ -93,16 +95,25 @@ const VACIO: ProductosPedidoAFabricaResult = {
 
 type CampoFiltroTienda = "marca" | "rubro" | "subRubro";
 
-/** Sucursales con `genera_est = true` (PROM. VTA. / modal). STOCK usa las que tienen `id_deposito`. */
+/** Sucursales con `genera_est = true` (PROM. VTA. / STOCK). Cada sucursal es depósito. */
 export async function listarSucursalesParaPedidoAFabrica(): Promise<
   SucursalPedidoAFabrica[]
 > {
   const rows = await prisma.sucursal.findMany({
     where: { generaEst: true },
-    select: { id: true, codigo: true, nombre: true, idDeposito: true },
+    select: {
+      id: true,
+      codigo: true,
+      nombre: true,
+    },
     orderBy: { nombre: "asc" },
   });
-  return rows;
+  return rows.map((r) => ({
+    id: r.id,
+    codigo: r.codigo,
+    nombre: r.nombre,
+    idDeposito: getIdDepositoPorSucursalCodigo(r.codigo),
+  }));
 }
 
 function emptyPorSucursal(
@@ -250,8 +261,7 @@ async function opcionesCampoTienda(
  * Descripción: vinculada → `descripcion_tienda`; si no → `descripcion_proveedor`.
  * BULTO: vinculado → `prod_tienda.bulto`; si no → vacío.
  * Solo filas `habilitado = true`. Filtros opcionales: marca / rubro / sub_rubro (tienda) + q + **PROD. VINCULADO** + **PEDIDO** (CANT. PED. persistida > 0).
- * Por cada sucursal `genera_est`: **PROM. VTA.** STOCK / UN. ACT. solo si `id_deposito` ≠ null
- * (`prod_tienda_stock.stock_real` de ese depósito).
+ * Por cada sucursal `genera_est`: **PROM. VTA.** y STOCK / UN. ACT. del ledger `stock_movimientos`.
  */
 export async function listarProductosPorProveedorFabrica(
   proveedorId: string,
@@ -322,25 +332,16 @@ export async function listarProductosPorProveedorFabrica(
     ),
   ];
 
-  const stockMapsByDeposito = new Map<number, Map<string, number>>();
-  const idsDeposito = [
-    ...new Set(
-      sucursales
-        .map((s) => s.idDeposito)
-        .filter((id): id is number => id != null)
+  const [promMap, saldos] = await Promise.all([
+    buildMapPromVtaDiaria(
+      codTiendas,
+      sucursales.map((s) => s.id)
     ),
-  ];
-  await Promise.all(
-    idsDeposito.map(async (idDeposito) => {
-      const map = await buildMapStockPorDeposito(codTiendas, idDeposito);
-      stockMapsByDeposito.set(idDeposito, map);
-    })
-  );
-
-  const promMap = await buildMapPromVtaDiaria(
-    codTiendas,
-    sucursales.map((s) => s.id)
-  );
+    buildMapSaldoStockItemsSucursales(
+      codTiendas,
+      sucursales.map((s) => s.id)
+    ),
+  ]);
 
   const productos: ProductoPedidoAFabricaItem[] = filas.map((f) => {
     const vinculado = f.prodTienda != null;
@@ -355,9 +356,7 @@ export async function listarProductosPorProveedorFabrica(
     if (codTienda) {
       for (const s of sucursales) {
         const stockActual =
-          s.idDeposito != null
-            ? (stockMapsByDeposito.get(s.idDeposito)?.get(codTienda) ?? 0)
-            : null;
+          saldos.get(claveSaldoStock(codTienda, s.id)) ?? 0;
         const key = `${codTienda}\0${s.id}`;
         const promVta = promMap.has(key) ? (promMap.get(key) as number) : 0;
         porSucursal[s.id] = { stockActual, promVta };

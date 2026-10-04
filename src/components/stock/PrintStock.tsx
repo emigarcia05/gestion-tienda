@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ItemStock } from "@/actions/stock";
+import { fmtCantidad } from "@/lib/format";
 import { formatFechaHoraCompletaArgentina } from "@/lib/fechaArgentina";
 
 interface Props {
@@ -17,7 +18,7 @@ export default function PrintStock({ items, sucursal, onClose }: Props) {
     const fecha = formatFechaHoraCompletaArgentina(new Date());
 
     const filas = items.map((item) => {
-      const stock = item.stock % 1 === 0 ? item.stock.toFixed(0) : item.stock.toFixed(2);
+      const stock = fmtCantidad(item.stock);
       return `
         <tr>
           <td class="cod">${item.codItem}</td>

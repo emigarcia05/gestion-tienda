@@ -31,7 +31,8 @@ import {
   type Sucursal,
   type SucursalTransfDepositoOptionDto,
 } from "@/actions/stock";
-import { fmtNumero } from "@/lib/format";
+import { formatCantidadInputValor } from "@/lib/cantidadUnDecimal";
+import { fmtCantidad } from "@/lib/format";
 import { enfocarDuxTransferenciaDepositosTab } from "@/lib/transfDepositosControl";
 import {
   TablaControlItemCelda,
@@ -72,7 +73,7 @@ async function copiarDatoTransf(texto: string, toastTitle: string): Promise<void
 
 /**
  * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** (sucursal del usuario)
- * y **SUC. DESTINO** (`sucursales` distintas, con `deposito` no vacío);
+ * y **SUC. DESTINO** (`sucursales` distintas; cada sucursal es depósito);
  * al abrir, si la página ya tiene destino, precarga el lote abierto en la tabla
  * (reabrir el modal sin haber pulsado Transferido muestra los mismos ítems);
  * al elegir destino abre (o enfoca) transferencia de depósitos en DUX;
@@ -454,7 +455,7 @@ export default function GenerarTransfDepositosModal({
                       <TableCell className="celda-datos w-[16%]">
                         <div className="flex items-center justify-center gap-1.5">
                           <span className="tabular-nums">
-                            {fmtNumero(item.cantidad)}
+                            {fmtCantidad(item.cantidad)}
                           </span>
                           <Button
                             type="button"
@@ -462,7 +463,7 @@ export default function GenerarTransfDepositosModal({
                             size="icon"
                             onClick={() =>
                               void copiarDatoTransf(
-                                String(Math.round(item.cantidad)),
+                                formatCantidadInputValor(item.cantidad),
                                 "Cant. Copiada"
                               )
                             }

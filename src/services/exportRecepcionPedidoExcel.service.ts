@@ -284,7 +284,12 @@ export async function prepararRecepcionCompraDatos(
       select: {
         total: true,
         proveedor: { select: { idProveedorDux: true, prefijo: true, iva: true } },
-        sucursal: { select: { codigo: true, idDux: true, idDeposito: true } },
+        sucursal: {
+          select: {
+            codigo: true,
+            idDux: true,
+          },
+        },
         items: { select: { codTienda: true, cantRecibida: true } },
       },
     });
@@ -385,9 +390,7 @@ export async function prepararRecepcionCompraDatos(
     const compRes = await reservarSiguienteComprobanteRecepcion(tipoComprobante);
     if (!compRes.success) return compRes;
 
-    const idDeposito =
-      pedido.sucursal.idDeposito ??
-      getIdDepositoPorSucursalCodigo(pedido.sucursal.codigo);
+    const idDeposito = getIdDepositoPorSucursalCodigo(pedido.sucursal.codigo);
     const idEmpresa = getDuxIdEmpresaCompras();
 
     return {

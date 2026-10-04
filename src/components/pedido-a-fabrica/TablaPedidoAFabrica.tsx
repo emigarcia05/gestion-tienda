@@ -17,7 +17,7 @@ import DetalleSucursalesPedidoAFabricaModal, {
   type DetalleSucursalesPedidoAFabricaVariante,
 } from "@/components/pedido-a-fabrica/DetalleSucursalesPedidoAFabricaModal";
 import { cn } from "@/lib/utils";
-import { fmtNumero } from "@/lib/format";
+import { fmtCantidad, fmtNumero } from "@/lib/format";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -96,7 +96,7 @@ const PCT_INFO = 3;
 
 const COL_COUNT = 7;
 
-/** Suma STOCK de sucursales con depósito y PROM. VTA. de todas (`genera_est`). */
+/** Suma STOCK de sucursales `genera_est` (cada una es depósito) y PROM. VTA. */
 export function totalPorSucursalesPedidoAFabrica(
   producto: ProductoPedidoAFabricaItem,
   sucursales: SucursalPedidoAFabrica[]
@@ -357,7 +357,7 @@ export default function TablaPedidoAFabrica({
                         )}
                       >
                         <span className="inline-block min-w-[2.75rem] text-right tabular-nums">
-                          {fmtNumero(stockUnidades)}
+                          {fmtCantidad(stockUnidades)}
                         </span>
                         <Button
                           type="button"

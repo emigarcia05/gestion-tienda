@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
+import {
+  buildMapSaldoStockItemsSucursales,
+  claveSaldoStock,
+} from "@/services/stockMovimientos.service";
 import type { ServiceResult } from "@/types";
 
 export interface ProductoFacturaStockSucursal {
@@ -15,11 +19,11 @@ export interface ProductoFacturaBusquedaItem {
   /** Precio lista **1 - GENERAL**; `0` si no hay fila. */
   pxLista: number;
   /**
-   * Stock de la sucursal del usuario (si se informó `sucursalCodigo` con depósito);
-   * si no, suma de stocks de sucursales con depósito.
+   * Stock de la sucursal del usuario (si se informó `sucursalCodigo`);
+   * si no, suma de stocks de todas las sucursales.
    */
   stock: number;
-  /** Detalle por sucursal con `id_deposito` (modal lupa). */
+  /** Detalle por sucursal (cada sucursal es depósito). */
   stockPorSucursal: ProductoFacturaStockSucursal[];
 }
 
@@ -64,20 +68,16 @@ export async function buscarProductosParaFactura(params: {
   const sucursalCodigo = params.sucursalCodigo?.trim().toLowerCase() || null;
 
   try {
-    const [listas, sucursalesConDeposito] = await Promise.all([
+    const [listas, sucursales] = await Promise.all([
       prisma.prodTiendaListaPrecio.findMany({
         select: { idLista: true, nombreLista: true },
       }),
       prisma.sucursal.findMany({
-        where: { idDeposito: { not: null } },
-        select: { codigo: true, nombre: true, idDeposito: true },
+        select: { id: true, codigo: true, nombre: true },
         orderBy: { nombre: "asc" },
       }),
     ]);
     const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
-    const depositos = sucursalesConDeposito
-      .map((s) => s.idDeposito)
-      .filter((id): id is number => id != null);
 
     const and: Prisma.ProdTiendaWhereInput[] = [
       { descripcionTienda: { not: null } },
@@ -108,61 +108,30 @@ export async function buscarProductosParaFactura(params: {
 
     const codigos = rows.map((r) => r.codTienda);
     const pxPorCod = new Map<string, number>();
-    const stockPorCodDeposito = new Map<string, number>();
 
-    if (codigos.length > 0) {
-      const jobs: Promise<void>[] = [];
-
-      if (idListaGeneral != null) {
-        jobs.push(
-          prisma.prodTiendaPrecio
-            .findMany({
-              where: { idLista: idListaGeneral, codTienda: { in: codigos } },
-              select: { codTienda: true, precio: true },
-            })
-            .then((precios) => {
-              for (const p of precios) {
-                const n = Number(p.precio);
-                pxPorCod.set(p.codTienda, Number.isFinite(n) ? n : 0);
-              }
-            })
-        );
+    if (codigos.length > 0 && idListaGeneral != null) {
+      const precios = await prisma.prodTiendaPrecio.findMany({
+        where: { idLista: idListaGeneral, codTienda: { in: codigos } },
+        select: { codTienda: true, precio: true },
+      });
+      for (const p of precios) {
+        const n = Number(p.precio);
+        pxPorCod.set(p.codTienda, Number.isFinite(n) ? n : 0);
       }
-
-      if (depositos.length > 0) {
-        jobs.push(
-          prisma.prodTiendaStock
-            .findMany({
-              where: {
-                codTienda: { in: codigos },
-                idDeposito: { in: depositos },
-              },
-              select: { codTienda: true, idDeposito: true, stockReal: true },
-            })
-            .then((stocks) => {
-              for (const s of stocks) {
-                stockPorCodDeposito.set(
-                  `${s.codTienda}:${s.idDeposito}`,
-                  s.stockReal
-                );
-              }
-            })
-        );
-      }
-
-      await Promise.all(jobs);
     }
+
+    const saldos = await buildMapSaldoStockItemsSucursales(
+      codigos,
+      sucursales.map((s) => s.id)
+    );
 
     const items: ProductoFacturaBusquedaItem[] = rows.map((r) => {
       const stockPorSucursal: ProductoFacturaStockSucursal[] =
-        sucursalesConDeposito.map((s) => {
-          const idDep = s.idDeposito!;
-          return {
-            codigo: s.codigo,
-            nombre: s.nombre,
-            stock: stockPorCodDeposito.get(`${r.codTienda}:${idDep}`) ?? 0,
-          };
-        });
+        sucursales.map((s) => ({
+          codigo: s.codigo,
+          nombre: s.nombre,
+          stock: saldos.get(claveSaldoStock(r.codTienda, s.id)) ?? 0,
+        }));
 
       const stockUsuario =
         sucursalCodigo != null

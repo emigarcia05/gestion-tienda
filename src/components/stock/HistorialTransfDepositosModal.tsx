@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { listarHistorialTransfDepositosProductoAction } from "@/actions/stock";
 import type { HistorialTransfDepositosSeccionDto } from "@/actions/stock";
+import { fmtCantidad } from "@/lib/format";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS } from "@/lib/transfDepositosControl";
 
@@ -122,7 +123,7 @@ export default function HistorialTransfDepositosModal({
                         {formatDdMmHhMmArgentina(new Date(item.createdAtIso))}
                       </TableCell>
                       <TableCell className="celda-datos text-center tabular-nums">
-                        {item.cantidad.toLocaleString("es-AR")}
+                        {fmtCantidad(item.cantidad)}
                       </TableCell>
                     </TableRow>
                   ))}

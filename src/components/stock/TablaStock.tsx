@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Check } from "lucide-react";
 import {
   Table,
@@ -15,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ControlStockData, Sucursal } from "@/actions/stock";
-import { registrarExportacionExcelStock } from "@/actions/stock";
 import PrintStock from "./PrintStock";
 import {
   TableEmptyState,
@@ -28,35 +25,14 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import { esBorradorCantidadUnDecimal, parseCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
+import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import {
-  formatDdMmHhMmArgentina,
-  formatDdMmYyHhMmNombreArchivoArgentina,
-} from "@/lib/fechaArgentina";
-import {
-  filasConVariacionStockParaExportar,
   formatStockInputValor,
   getVariacionStock,
-  idsControlStockParaPersistir,
   itemControladoEnSesion,
-  type FilaExportStockVariacion,
   type ItemStockControlMeta,
 } from "@/lib/controlStockSesion";
-
-function exportarStockExcel(filas: FilaExportStockVariacion[]) {
-  import("xlsx").then((XLSX) => {
-    const hojaFilas = filas.map((f) => ({
-      CODIGO: f.codItem,
-      "TIPO MOVIMIENTO": "AJUSTE",
-      "CANTIDAD DISPONIBLE": f.cantidad,
-    }));
-    const hoja = XLSX.utils.json_to_sheet(hojaFilas);
-    const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, hoja, "Ajuste stock");
-    hoja["!cols"] = [{ wch: 14 }, { wch: 18 }, { wch: 22 }];
-    const nombre = `Ajuste Stock ${formatDdMmYyHhMmNombreArchivoArgentina(new Date())}.xls`;
-    XLSX.writeFile(libro, nombre, { bookType: "xls" });
-  });
-}
 
 function fmtFecha(d: Date | string | null): string {
   if (!d) return "";
@@ -65,7 +41,6 @@ function fmtFecha(d: Date | string | null): string {
 
 export interface TablaStockHandle {
   openPrint: () => void;
-  triggerExport: () => void;
 }
 
 interface Props {
@@ -95,7 +70,6 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
   },
   ref
 ) {
-  const router = useRouter();
   const [imprimiendo, setImprimiendo] = useState(false);
   const [ultimosControles, setUltimosControles] = useState<Record<string, Date>>(() => {
     const m: Record<string, Date> = {};
@@ -160,6 +134,7 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
   }
 
   function handleCambioStock(id: string, value: string) {
+    if (!esBorradorCantidadUnDecimal(value)) return;
     setStocksEditados((prev) => ({ ...prev, [id]: value }));
     const meta = itemMetaRef.current[id];
     if (meta && getVariacionStock(meta.stock, value)) {
@@ -169,10 +144,13 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
 
   function ajustarStockUnidad(id: string, stockBase: number, delta: -1 | 1) {
     const raw = stocksEditadosRef.current[id];
-    const parsed = raw !== undefined && raw !== "" ? Number(raw) : stockBase;
-    const base = Number.isFinite(parsed) ? parsed : stockBase;
-    const next = base + delta;
-    const valor = Number.isInteger(next) ? next.toFixed(0) : String(next);
+    const parsed =
+      raw !== undefined && raw !== ""
+        ? parseCantidadUnDecimal(raw, { min: 0 })
+        : stockBase;
+    const base = parsed ?? stockBase;
+    const next = Math.max(0, base + delta);
+    const valor = formatStockInputValor(next);
     setStocksEditados((prev) => ({ ...prev, [id]: valor }));
     const meta = itemMetaRef.current[id];
     if (meta && getVariacionStock(meta.stock, valor)) {
@@ -223,80 +201,6 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
 
   useImperativeHandle(ref, () => ({
     openPrint: () => handleImprimirRef.current(),
-    triggerExport: () => {
-      if (!sucursalActual) {
-        toast.error("Elegí sucursal.");
-        return;
-      }
-      const filasExport = filasConVariacionStockParaExportar(
-        stocksEditadosRef.current,
-        itemMetaRef.current
-      );
-      const idsPersistir = idsControlStockParaPersistir(
-        stocksEditadosRef.current,
-        itemMetaRef.current,
-        confirmadosSesionRef.current
-      );
-      if (idsPersistir.length === 0) {
-        toast.error("No hay ítems controlados para registrar.");
-        return;
-      }
-      if (filasExport.length > 0) {
-        exportarStockExcel(filasExport);
-      }
-      const ahora = new Date();
-      registrarExportacionExcelStock({
-        sucursal: sucursalActual,
-        idsControl: idsPersistir,
-        ajustes: filasExport.map((f) => ({
-          codTienda: f.id,
-          cantidad: f.cantidad,
-        })),
-      }).then((res) => {
-        if (res.ok) {
-          setUltimosControles((prev) => {
-            const next = { ...prev };
-            for (const id of idsPersistir) next[id] = ahora;
-            return next;
-          });
-          setConfirmadosSesion((prev) => {
-            const next = { ...prev };
-            for (const id of idsPersistir) delete next[id];
-            return next;
-          });
-          for (const f of filasExport) {
-            const prev = itemMetaRef.current[f.id];
-            if (prev) {
-              itemMetaRef.current[f.id] = {
-                ...prev,
-                stock: Math.round(f.cantidad),
-              };
-            }
-          }
-          setStocksEditados((prev) => {
-            const next = { ...prev };
-            for (const f of filasExport) {
-              next[f.id] = formatStockInputValor(Math.round(f.cantidad));
-            }
-            return next;
-          });
-          if (filasExport.length === 0) {
-            toast.success("Control registrado (sin ajustes en Excel).");
-          } else {
-            const label =
-              SUCURSALES.find((s) => s.value === sucursalActual)?.label ??
-              sucursalActual;
-            const n = res.data.stockActualizados;
-            toast.success(
-              `Stock de ${label} actualizado (${n} ítem${n !== 1 ? "s" : ""}).`
-            );
-          }
-          router.refresh();
-        } else {
-          toast.error(res.error ?? "Error al registrar control.");
-        }
-      });
-    },
   }));
 
   const sucursalSeleccionada = sucursalActual !== null;
@@ -379,7 +283,8 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
                           -
                         </Button>
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           value={stocksEditados[item.id] ?? ""}
                           onChange={(e) => handleCambioStock(item.id, e.target.value)}
                           className="h-6 w-14 self-center text-center text-sm font-normal"
@@ -413,7 +318,7 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
                           aria-pressed={confirmado}
                           title={
                             tieneVariacion
-                              ? "Con variación de stock usá Exportar Excel o igualá el valor al stock original"
+                              ? "Igualá el valor al stock original para confirmar sin variación"
                               : undefined
                           }
                           onClick={() => toggleConfirmacionControl(item.id, item.stock)}

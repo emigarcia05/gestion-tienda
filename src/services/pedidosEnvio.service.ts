@@ -119,7 +119,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
       return {
         ok: false,
         error:
-          "Este producto no es stockeable (DUX: ctd_disponible nulo en algún depósito); no se configura reposición por stock.",
+          "Este producto no es stockeable (ctd_disponible nulo en algún depósito); no se configura reposición por stock.",
       };
     }
     const codT = codTienda.trim();

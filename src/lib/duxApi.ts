@@ -24,37 +24,6 @@ export type PrecioListaDux = {
   precio: number;
 };
 
-export type StockDepositoDux = {
-  idDeposito: number;
-  nombre: string;
-  stockReal: number;
-  /** `null` = DUX no informó `ctd_disponible` en ese depósito. */
-  ctdDisponible: number | null;
-};
-
-export const ID_STOCK_GUAYMALLEN = 4565;
-export const ID_STOCK_MAIPU = 16923;
-
-/** Depósito DUX Guaymallén. Override: `DUX_ID_STOCK_GUAYMALLEN`. Debe coincidir con `sucursales.id_deposito` de `guaymallen`. */
-export function getIdDepositoGuaymallen(): number {
-  const raw = process.env.DUX_ID_STOCK_GUAYMALLEN;
-  if (raw != null && raw !== "") {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
-  }
-  return ID_STOCK_GUAYMALLEN;
-}
-
-/** Depósito DUX Maipú. Override: `DUX_ID_STOCK_MAIPU`. Debe coincidir con `sucursales.id_deposito` de `maipu`. */
-export function getIdDepositoMaipu(): number {
-  const raw = process.env.DUX_ID_STOCK_MAIPU;
-  if (raw != null && raw !== "") {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
-  }
-  return ID_STOCK_MAIPU;
-}
-
 export interface ItemDux {
   codItem:         string;
   descripcion:     string;
@@ -69,13 +38,6 @@ export interface ItemDux {
   precioMayorista: number;
   /** Todas las listas del ítem en DUX (`precios[]`). */
   precios:         PrecioListaDux[];
-  /** Todos los depósitos del ítem en DUX (`stock[]`). Origen de verdad para persistencia. */
-  stocks:          StockDepositoDux[];
-  /** Derivados de `stocks` (Maipú / Guaymallén) para compatibilidad en tipos cliente. */
-  stockGuaymallen: number;
-  stockMaipu:      number;
-  /** true solo si DUX informa `ctd_disponible` no nulo en Guaymallén y en Maipú. */
-  stockeable:      boolean;
   habilitado:      boolean;
 }
 
@@ -96,7 +58,6 @@ interface ItemDuxRaw {
   costo?: unknown;
   porc_iva?: unknown;
   precios?: Array<{ id: number; nombre?: string; precio?: unknown }>;
-  stock?: Array<{ id: number; stock_real?: unknown; ctd_disponible?: unknown }>;
   habilitado?: string;
 }
 
@@ -104,45 +65,12 @@ function isItemDuxRaw(val: unknown): val is ItemDuxRaw {
   return val !== null && typeof val === "object";
 }
 
-function parseStocksDesdeRaw(raw: ItemDuxRaw): StockDepositoDux[] {
-  const stocks: StockDepositoDux[] = [];
-  if (!Array.isArray(raw.stock)) return stocks;
-  for (const s of raw.stock) {
-    if (s == null || typeof s !== "object") continue;
-    const entry = s as { id?: unknown; stock_real?: unknown; ctd_disponible?: unknown };
-    const idDeposito = Number(entry.id);
-    if (!Number.isFinite(idDeposito)) continue;
-    const ctdRaw = entry.ctd_disponible;
-    stocks.push({
-      idDeposito,
-      nombre: `DEPOSITO ${idDeposito}`,
-      stockReal: Math.round(parseNum(entry.stock_real)),
-      ctdDisponible: ctdRaw != null ? parseNum(ctdRaw) : null,
-    });
-  }
-  return stocks;
-}
-
-function stockRealFromStocks(stocks: StockDepositoDux[], idDeposito: number): number {
-  return stocks.find((s) => s.idDeposito === idDeposito)?.stockReal ?? 0;
-}
-
-/** Regla stockeable: `ctd_disponible` informado en Guaymallén y Maipú. */
-export function computeStockeableDesdeStocks(stocks: StockDepositoDux[]): boolean {
-  return (
-    stocks.some((s) => s.idDeposito === getIdDepositoGuaymallen() && s.ctdDisponible != null) &&
-    stocks.some((s) => s.idDeposito === getIdDepositoMaipu() && s.ctdDisponible != null)
-  );
-}
-
 export function mapItem(raw: unknown): ItemDux {
   if (!isItemDuxRaw(raw)) {
     return {
       codItem: "", descripcion: "", rubro: null, subRubro: null, marca: null,
       proveedorDux: null, codigoExterno: null, costo: 0, porcIva: 0,
-      precioLista: 0, precioMayorista: 0, precios: [], stocks: [],
-      stockGuaymallen: 0, stockMaipu: 0,
-      stockeable: false,
+      precioLista: 0, precioMayorista: 0, precios: [],
       habilitado: false,
     };
   }
@@ -160,8 +88,6 @@ export function mapItem(raw: unknown): ItemDux {
     }
   }
   const idListaPrincipal = getIdPrecioListaPrincipal();
-  const stocks = parseStocksDesdeRaw(raw);
-  const stockeable = computeStockeableDesdeStocks(stocks);
   return {
     codItem:         String(raw.cod_item ?? ""),
     descripcion:     String(raw.item ?? ""),
@@ -175,10 +101,6 @@ export function mapItem(raw: unknown): ItemDux {
     precioLista:     precioMap[idListaPrincipal]     ?? 0,
     precioMayorista: precioMap[ID_PRECIO_MAYORISTA] ?? 0,
     precios,
-    stocks,
-    stockGuaymallen: stockRealFromStocks(stocks, getIdDepositoGuaymallen()),
-    stockMaipu: stockRealFromStocks(stocks, getIdDepositoMaipu()),
-    stockeable,
     habilitado:      raw.habilitado === "S",
   };
 }
@@ -198,7 +120,7 @@ const RETRY_429_BASE_MS = 10000;
 /**
  * Timeout por intento HTTP a DUX (headers + body JSON). Configurable con `DUX_FETCH_TIMEOUT_MS`.
  * No cubre las esperas de reintento 429 (esas ocurren entre intentos).
- * Default 30 s: páginas de 50 ítems con stocks/precios pueden ser pesadas.
+ * Default 30 s: páginas de 50 ítems con precios pueden ser pesadas.
  */
 const FETCH_TIMEOUT_MS = Math.max(
   5_000,

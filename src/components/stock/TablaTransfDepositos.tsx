@@ -36,6 +36,11 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import {
+  esBorradorCantidadUnDecimal,
+  fmtCantidad,
+  parseCantidadUnDecimal,
+} from "@/lib/cantidadUnDecimal";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import {
   type BorradorTransfDepositos,
@@ -93,10 +98,11 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
         Object.entries(borrador)
           .map(([codTienda, item]) => ({
             codTienda,
-            cantidad: Number.parseInt(item.cantidad, 10),
+            cantidad: parseCantidadUnDecimal(item.cantidad),
           }))
           .filter(
-            (item) => Number.isInteger(item.cantidad) && item.cantidad > 0
+            (item): item is ItemCantidadTransfTabla =>
+              item.cantidad != null && item.cantidad > 0
           ),
       clearCantidades: () => {
         borrarBorradorTransfDepositos(origen, destino);
@@ -165,8 +171,8 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
     const extras: ItemTransfDepositos[] = Object.entries(borrador)
       .filter(([id, item]) => {
         if (idsEnPagina.has(id)) return false;
-        const n = Number.parseInt(item.cantidad, 10);
-        return Number.isInteger(n) && n > 0;
+        const n = parseCantidadUnDecimal(item.cantidad);
+        return n != null && n > 0;
       })
       .map(([id, item]) => ({
         id,
@@ -180,7 +186,8 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   }, [borrador, data.items, idsEnPagina]);
 
   function handleCantidad(id: string, raw: string, descripcion: string) {
-    const limpio = raw.replace(/[^\d]/g, "");
+    const limpio = raw.trim();
+    if (limpio !== "" && !esBorradorCantidadUnDecimal(limpio)) return;
     setBorrador((prev) => {
       const next = { ...prev };
       if (limpio === "") {
@@ -267,9 +274,9 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
           {filas.map((item) => {
             const cantidad = borrador[item.id]?.cantidad ?? "";
             const tieneCantidad = cantidad !== "";
-            const cantidadNum = Number(cantidad);
+            const cantidadNum = parseCantidadUnDecimal(cantidad);
             const dup =
-              tieneCantidad && Number.isFinite(cantidadNum)
+              cantidadNum != null
                 ? controlesPorClave.get(`${item.id}|${cantidadNum}`)
                 : undefined;
 
@@ -282,7 +289,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                   <div className="flex w-full items-center justify-center">
                     <Input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={cantidad}
                       onChange={(e) =>
                         handleCantidad(item.id, e.target.value, item.descripcion)
@@ -310,7 +317,11 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                   </div>
                 </TableCell>
                 <TableCell className="celda-datos text-center tabular-nums">
-                  {!destinoSeleccionado || !tieneCantidad ? "—" : cantidad}
+                  {!destinoSeleccionado || !tieneCantidad
+                    ? "—"
+                    : cantidadNum != null
+                      ? fmtCantidad(cantidadNum)
+                      : cantidad}
                 </TableCell>
                 <TableCell className="celda-datos celda-datos--accion-relleno-fila">
                   <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

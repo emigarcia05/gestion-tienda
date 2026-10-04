@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fmtNumero } from "@/lib/format";
+import { fmtCantidad } from "@/lib/format";
 import {
   TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS,
   TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS,
@@ -53,7 +53,7 @@ export default function FacturaProductoStockCelda({
             />
           </span>
         ) : (
-          fmtNumero(item.stock)
+          fmtCantidad(item.stock)
         )}
       </span>
       <Button

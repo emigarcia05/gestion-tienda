@@ -35,6 +35,11 @@ import {
   type FacturaDescuentoEstado,
   type FacturaLineaLocal,
 } from "@/lib/factura";
+import {
+  esBorradorCantidadUnDecimal,
+  formatCantidadInputValor,
+  parseCantidadUnDecimal,
+} from "@/lib/cantidadUnDecimal";
 import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -73,11 +78,7 @@ function nuevaKeyLinea(): string {
 }
 
 function parseCantidadDraft(raw: string): number | null {
-  const t = raw.trim();
-  if (t === "") return null;
-  const n = Number(t.replace(",", "."));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.trunc(n);
+  return parseCantidadUnDecimal(raw);
 }
 
 /** Anchos de columnas del remito (suma 100 %). */
@@ -133,6 +134,9 @@ export default function FacturaCrearLineasBlock({
     useState<ProductoFacturaBusquedaItem | null>(null);
   const [busquedaAvanzadaOpen, setBusquedaAvanzadaOpen] = useState(false);
   const [stockDesdeAvanzada, setStockDesdeAvanzada] = useState(false);
+  const [cantidadDrafts, setCantidadDrafts] = useState<Record<string, string>>(
+    {}
+  );
   const cantidadInputRefs = useRef(new Map<string, HTMLInputElement>());
   const pendingFocusCantidadKeyRef = useRef<string | null>(null);
   /** Si el alta fue al final de la grilla, bajar el scroll tras el paint. */
@@ -275,11 +279,27 @@ export default function FacturaCrearLineasBlock({
   }
 
   function actualizarCantidad(key: string, raw: string) {
+    if (!esBorradorCantidadUnDecimal(raw)) return;
+    setCantidadDrafts((prev) => ({ ...prev, [key]: raw }));
     const cant = parseCantidadDraft(raw);
     if (cant == null) return;
     setLineas((prev) =>
       prev.map((l) => (l.key === key ? { ...l, cantidad: cant } : l))
     );
+  }
+
+  function confirmarCantidadDraft(key: string, cantidadActual: number) {
+    const draft = cantidadDrafts[key];
+    const cant = draft != null ? parseCantidadDraft(draft) : cantidadActual;
+    const next = cant ?? cantidadActual;
+    setLineas((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, cantidad: next } : l))
+    );
+    setCantidadDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
   }
 
   function eliminarLinea(key: string) {
@@ -556,18 +576,20 @@ export default function FacturaCrearLineasBlock({
                           else cantidadInputRefs.current.delete(linea.key);
                         }}
                         type="text"
-                        inputMode="numeric"
+                        inputMode="decimal"
                         className="h-8 w-full min-w-0 text-center tabular-nums"
-                        value={String(linea.cantidad)}
+                        value={
+                          cantidadDrafts[linea.key] ??
+                          formatCantidadInputValor(linea.cantidad)
+                        }
                         aria-label={`Cantidad de ${linea.descripcion}`}
                         onFocus={(e) => e.currentTarget.select()}
-                        onChange={(e) => {
-                          const digits = e.target.value
-                            .replace(/\D/g, "")
-                            .slice(0, 6);
-                          if (digits === "") return;
-                          actualizarCantidad(linea.key, digits);
-                        }}
+                        onChange={(e) =>
+                          actualizarCantidad(linea.key, e.target.value)
+                        }
+                        onBlur={() =>
+                          confirmarCantidadDraft(linea.key, linea.cantidad)
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();

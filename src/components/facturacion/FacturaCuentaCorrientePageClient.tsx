@@ -77,7 +77,7 @@ import {
   formatHhMmArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
-import { fmtCelda, fmtNumero, fmtPrecio } from "@/lib/format";
+import { fmtCantidad, fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -1116,7 +1116,7 @@ export default function FacturaCuentaCorrientePageClient({
                       {fmtCelda(item.descripcion)}
                     </TableCell>
                     <TableCell className="celda-datos text-center tabular-nums">
-                      {fmtNumero(item.cantidad)}
+                      {fmtCantidad(item.cantidad)}
                     </TableCell>
                   </TableRow>
                 ))
@@ -1165,7 +1165,7 @@ export default function FacturaCuentaCorrientePageClient({
                       {fmtCelda(item.descripcion)}
                     </TableCell>
                     <TableCell className="celda-datos text-center tabular-nums">
-                      {fmtNumero(item.cantidad)}
+                      {fmtCantidad(item.cantidad)}
                     </TableCell>
                   </TableRow>
                 ))

@@ -32,13 +32,6 @@ export const TABLAS_HUERFANOS_PROD_TIENDA: TablaHuerfanoProdTiendaConfig[] = [
     incluirPorDefecto: true,
   },
   {
-    tabla: "prod_tienda_stock",
-    columna: "cod_tienda",
-    accion: "delete",
-    descripcion: "Stock por depósito DUX",
-    incluirPorDefecto: true,
-  },
-  {
     tabla: "prod_precios_competencia",
     columna: "cod_tienda",
     accion: "delete",

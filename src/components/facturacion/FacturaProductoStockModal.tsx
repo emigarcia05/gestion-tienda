@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import { fmtNumero } from "@/lib/format";
+import { fmtCantidad } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 
@@ -72,7 +72,7 @@ export default function FacturaProductoStockModal({
                   {activa.nombre.toLocaleUpperCase("es")}
                 </span>
                 <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
-                  {fmtNumero(activa.stock)}
+                  {fmtCantidad(activa.stock)}
                 </span>
               </div>
             </section>
@@ -105,7 +105,7 @@ export default function FacturaProductoStockModal({
                           {f.nombre.toLocaleUpperCase("es")}
                         </TableCell>
                         <TableCell className="celda-datos text-right tabular-nums">
-                          {fmtNumero(f.stock)}
+                          {fmtCantidad(f.stock)}
                         </TableCell>
                       </TableRow>
                     ))

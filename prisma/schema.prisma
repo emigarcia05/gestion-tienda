@@ -41,6 +41,36 @@ enum CategoriaMovimientoTesoreria {
   TRANSFERENCIA_ENTRE_CAJAS
 }
 
+/** Signo del movimiento de stock. `cantidad` siempre positiva. */
+enum StockMovimientoTipo {
+  INGRESO @map("ingreso")
+  EGRESO  @map("egreso")
+
+  @@map("stock_movimiento_tipo")
+}
+
+enum StockMovimientoCategoria {
+  VENTA               @map("venta")
+  NOTA_CREDITO        @map("nota_credito")
+  AJUSTE_STOCK        @map("ajuste_stock")
+  TRANSF_DEPO_INGRESO @map("transf_depo_ingreso")
+  TRANSF_DEPO_EGRESO  @map("transf_depo_egreso")
+  COMPRA              @map("compra")
+
+  @@map("stock_movimiento_categoria")
+}
+
+/** Comprobante que justifica uno o más `stock_movimientos`. */
+enum StockComprobanteTipo {
+  VENTA                          @map("venta")
+  NOTA_CREDITO                   @map("nota_credito")
+  COMPRA                         @map("compra")
+  AJUSTE_STOCK                   @map("ajuste_stock")
+  TRANSFERENCIA_ENTRE_DEPOSITOS  @map("transferencia_entre_depositos")
+
+  @@map("stock_comprobante_tipo")
+}
+
 /**
  * Política de IVA por proveedor (`global_proveedores.iva`).
  * - SIEMPRE  : el proveedor siempre factura con IVA.
@@ -202,7 +232,8 @@ model ProdPrecioDescEspecialReglaProducto {
   @@map("prod_precios_desc_especial_regla_producto")
 }
 
-// Comprobantes de compra sincronizados desde API DUX `/compras`.
+// Comprobantes de compra (`fin_compras_comprobante`). Tabla y UI se conservan.
+// El GET DUX `/compras` y su sync están deshabilitados (se reutilizará más adelante).
 // `id_proveedor` almacena el mismo valor que `global_proveedores.id_proveedor_dux` (FK).
 model ComprobanteProveedor {
   id                 String   @id @default(cuid())
@@ -233,29 +264,12 @@ model ComprobanteProveedor {
   @@map("fin_compras_comprobante")
 }
 
-/** Catálogo de depósitos DUX (`stock[].id` en API). Sync desde `stock[]` de cada ítem. */
-model GlobalDeposito {
-  idDeposito  Int      @id @map("id_deposito")
-  nombre      String
-  activa      Boolean  @default(true)
-  ultimaSync  DateTime @default(now()) @map("ultima_sync")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  sucursal          Sucursal?
-  stocksPorProducto ProdTiendaStock[]
-
-  @@map("global_depositos")
-}
-
 // Sucursales: código estable (guaymallen, maipu), nombre, whatsapp (emisor), id DUX y flag de habilitación para pedidos.
+// Cada sucursal es también depósito de stock (`stock_movimientos.sucursal`).
 model Sucursal {
   id             String   @id @default(cuid())
   codigo         String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
   nombre         String
-  /** Depósito DUX de esta sucursal (1 sucursal → 1 depósito). Null = sin depósito (p. ej. corporativo). */
-  idDeposito     Int?     @unique(map: "sucursales_id_deposito_key") @map("id_deposito")
-  depositoCatalogo GlobalDeposito? @relation(fields: [idDeposito], references: [idDeposito], onDelete: Restrict)
   whatsapp       String?  @map("whatsapp")
   pedido         Boolean  @default(true) @map("pedido")
   /**
@@ -273,7 +287,7 @@ model Sucursal {
   generaBalance  Boolean  @default(false) @map("genera_balance")
   /**
    * Si la sucursal aparece en Estadísticas Productos · Carga de Datos
-   * (columnas de la grilla periodo × sucursal). Independiente de `id_deposito`
+   * (columnas de la grilla periodo × sucursal). Independiente de stock / depósitos
    * y de `genera_balance`. Default `false` (opt-in); se gestiona por seed / UPDATE en DB.
    */
   generaEst      Boolean  @default(false) @map("genera_est")
@@ -290,12 +304,13 @@ model Sucursal {
   estPorProd          EstPorProd[]
   personalSucursalPorDefecto GlobalPersonal[] @relation("PersonalSucursalPorDefecto")
   enviosFinal                EnviosFinal[]
-  stockTrasnDepositosOrigen  StockTrasnDeposito[] @relation("StockTrasnDepositoOrigen")
-  stockTrasnDepositosDestino StockTrasnDeposito[] @relation("StockTrasnDepositoDestino")
   ptoVtasAsociados           GlobalPtoVtaSucursal[]
   cajasTesoreria            CajaTesoreria[]
   cobrosPorSucursal         CobrosPorSucursal[]
   movimientosTesoreria      TesoreriaMovimiento[]
+  stockMovimientos          StockMovimiento[]
+  stockComprobantes         StockComprobante[] @relation("StockComprobanteSucursal")
+  stockComprobantesDestino  StockComprobante[] @relation("StockComprobanteSucursalDestino")
 
   @@map("sucursales")
 }
@@ -1058,23 +1073,6 @@ model ProdTiendaPrecioEdicion {
   @@map("prod_tienda_precios_edicion")
 }
 
-/** Stock por producto × depósito DUX (`stock[]` del ítem en API). Origen de verdad multi-depósito. */
-model ProdTiendaStock {
-  codTienda      String   @map("cod_tienda")
-  idDeposito     Int      @map("id_deposito")
-  stockReal      Int      @default(0) @map("stock_real")
-  /** `null` = DUX no informó `ctd_disponible` en ese depósito (regla stockeable: ambos depósitos principales informados). */
-  ctdDisponible  Decimal? @map("ctd_disponible") @db.Decimal(14, 4)
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  prodTienda ProdTienda      @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
-  deposito   GlobalDeposito  @relation(fields: [idDeposito], references: [idDeposito], onDelete: Restrict)
-
-  @@id([codTienda, idDeposito])
-  @@index([idDeposito], map: "prod_tienda_stock_id_deposito_idx")
-  @@map("prod_tienda_stock")
-}
-
 // Alimentada solo por API externa (tabla prod_tienda). Frontend solo lectura; no usar create/update/delete desde UI.
 model ProdTienda {
   codTienda       String   @id @map("cod_tienda") // clave de negocio estable (PK); sync upsert por cod_tienda
@@ -1107,9 +1105,8 @@ model ProdTienda {
   preciosCompetencia      ProdPrecioCompetencia[]
   preciosLista            ProdTiendaPrecio[]
   preciosListaEdicion     ProdTiendaPrecioEdicion[]
-  stocks                  ProdTiendaStock[]
   estPorProd              EstPorProd[]
-  stockTrasnDepositos      StockTrasnDeposito[]
+  stockMovimientos        StockMovimiento[]
 
   @@index([competenciaIdPxListaGeneral], map: "prod_tienda_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_tienda_descripcion_tienda_idx")
@@ -1120,26 +1117,49 @@ model ProdTienda {
 }
 
 /**
- * Transferencias entre depósitos (Trans. Depósitos).
- * Nombre de tabla pedido: `stock_trasn_depositos`.
- * `cod_tienda` → `prod_tienda`; `suc_origen` / `suc_destino` → `sucursales.id`.
- * No mueve stock DUX. Historial / anti-duplicado: 14 días.
+ * Comprobante que justifica movimientos de stock (`stock_comprobantes`).
+ * Tipos: venta, nota_credito, compra, ajuste_stock, transferencia_entre_depositos.
+ * En transferencia, `sucursal` = origen y `sucursal_destino` = destino.
  */
-model StockTrasnDeposito {
-  id         String   @id @default(cuid())
-  codTienda  String   @map("cod_tienda")
-  cant       Int
-  sucOrigen  String   @map("suc_origen")
-  sucDestino String   @map("suc_destino")
-  createdAt  DateTime @default(now()) @map("created_at")
+model StockComprobante {
+  id                String               @id @default(cuid())
+  tipo              StockComprobanteTipo
+  sucursalId        String               @map("sucursal")
+  sucursalDestinoId String?              @map("sucursal_destino")
+  createdAt         DateTime             @default(now()) @map("created_at")
 
-  prodTienda      ProdTienda @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
-  sucursalOrigen  Sucursal   @relation("StockTrasnDepositoOrigen", fields: [sucOrigen], references: [id], onDelete: Restrict)
-  sucursalDestino Sucursal   @relation("StockTrasnDepositoDestino", fields: [sucDestino], references: [id], onDelete: Restrict)
+  sucursal        Sucursal          @relation("StockComprobanteSucursal", fields: [sucursalId], references: [id], onDelete: Restrict)
+  sucursalDestino Sucursal?         @relation("StockComprobanteSucursalDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
+  movimientos     StockMovimiento[]
 
-  @@index([codTienda, createdAt], map: "stock_trasn_depositos_tienda_fecha_idx")
-  @@index([sucOrigen, sucDestino, createdAt], map: "stock_trasn_depositos_par_fecha_idx")
-  @@map("stock_trasn_depositos")
+  @@index([sucursalId], map: "stock_comprobantes_sucursal_idx")
+  @@map("stock_comprobantes")
+}
+
+/**
+ * Ledger de stock (`stock_movimientos`).
+ * `cantidad` siempre positiva; el signo lo da `tipo_movimiento`.
+ * Cada sucursal es depósito. `comprobante_relacionado` → `stock_comprobantes`.
+ */
+model StockMovimiento {
+  id                       String                   @id @default(cuid())
+  tipoMovimiento           StockMovimientoTipo      @map("tipo_movimiento")
+  categoriaMovimiento      StockMovimientoCategoria @map("categoria_movimiento")
+  codItem                  String                   @map("cod_item")
+  sucursalId               String                   @map("sucursal")
+  /** Positiva. Hasta 1 decimal (el front muestra entero si no hay fracción). */
+  cantidad                 Decimal                  @db.Decimal(12, 1)
+  comprobanteRelacionadoId String                   @map("comprobante_relacionado")
+  createdAt                DateTime                 @default(now()) @map("created_at")
+
+  prodTienda  ProdTienda       @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
+  sucursal    Sucursal         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  comprobante StockComprobante @relation(fields: [comprobanteRelacionadoId], references: [id], onDelete: Restrict)
+
+  @@index([codItem, sucursalId], map: "stock_movimientos_item_sucursal_idx")
+  @@index([comprobanteRelacionadoId], map: "stock_movimientos_comprobante_idx")
+  @@index([sucursalId, createdAt], map: "stock_movimientos_sucursal_fecha_idx")
+  @@map("stock_movimientos")
 }
 
 /// Competidores externos (nombre + URLs del sitio para búsqueda de precios).
@@ -2060,7 +2080,8 @@ model ComprobanteVtaItem {
   orden         Int
   codTienda     String  @map("cod_tienda")
   descripcion   String
-  cantidad      Decimal @db.Decimal(12, 4)
+  /** Hasta 1 decimal. El front muestra entero si no hay fracción. */
+  cantidad      Decimal @db.Decimal(12, 1)
   px            Decimal @db.Decimal(14, 2)
   descuentoPct  Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
   alicuotaIva   Decimal @map("alicuota_iva") @db.Decimal(5, 2)

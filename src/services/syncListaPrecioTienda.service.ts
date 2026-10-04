@@ -79,43 +79,10 @@ function itemDuxToProdTiendaRecord(item: ItemDux) {
     descripcionTienda: item.descripcion ?? null,
     costoCompra: Number(item.costo) || 0,
     precios: item.precios,
-    stocks: item.stocks,
   };
 }
 
 type RecordProdTienda = ReturnType<typeof itemDuxToProdTiendaRecord>;
-
-async function upsertDepositosCatalogoEnTransaccion(
-  tx: Prisma.TransactionClient,
-  items: RecordProdTienda[],
-  idDepositosVistos: Set<number>
-): Promise<void> {
-  const now = new Date();
-  const unicos = new Map<number, string>();
-  for (const row of items) {
-    for (const st of row.stocks) {
-      if (!Number.isFinite(st.idDeposito)) continue;
-      unicos.set(st.idDeposito, st.nombre);
-    }
-  }
-  for (const [idDeposito, nombre] of unicos) {
-    idDepositosVistos.add(idDeposito);
-    await tx.globalDeposito.upsert({
-      where: { idDeposito },
-      create: {
-        idDeposito,
-        nombre,
-        activa: true,
-        ultimaSync: now,
-      },
-      update: {
-        nombre,
-        activa: true,
-        ultimaSync: now,
-      },
-    });
-  }
-}
 
 async function upsertListasCatalogoEnTransaccion(
   tx: Prisma.TransactionClient,
@@ -136,48 +103,6 @@ async function upsertListasCatalogoEnTransaccion(
       create: { idLista, nombreLista },
       update: { nombreLista },
     });
-  }
-}
-
-async function syncStocksEnTransaccion(
-  tx: Prisma.TransactionClient,
-  items: RecordProdTienda[]
-): Promise<void> {
-  for (const row of items) {
-    const idsEnItem = new Set<number>();
-    for (const st of row.stocks) {
-      if (!Number.isFinite(st.idDeposito)) continue;
-      idsEnItem.add(st.idDeposito);
-      await tx.prodTiendaStock.upsert({
-        where: {
-          codTienda_idDeposito: { codTienda: row.codTienda, idDeposito: st.idDeposito },
-        },
-        create: {
-          codTienda: row.codTienda,
-          idDeposito: st.idDeposito,
-          stockReal: st.stockReal,
-          ctdDisponible:
-            st.ctdDisponible != null ? new Prisma.Decimal(st.ctdDisponible) : null,
-        },
-        update: {
-          stockReal: st.stockReal,
-          ctdDisponible:
-            st.ctdDisponible != null ? new Prisma.Decimal(st.ctdDisponible) : null,
-        },
-      });
-    }
-    if (idsEnItem.size > 0) {
-      await tx.prodTiendaStock.deleteMany({
-        where: {
-          codTienda: row.codTienda,
-          idDeposito: { notIn: [...idsEnItem] },
-        },
-      });
-    } else {
-      await tx.prodTiendaStock.deleteMany({
-        where: { codTienda: row.codTienda },
-      });
-    }
   }
 }
 
@@ -271,19 +196,6 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
         );
 }
 
-async function persistStockChunk(
-  chunk: RecordProdTienda[],
-  idDepositosVistos: Set<number>
-): Promise<void> {
-  await prisma.$transaction(
-    async (tx) => {
-      await upsertDepositosCatalogoEnTransaccion(tx, chunk, idDepositosVistos);
-      await syncStocksEnTransaccion(tx, chunk);
-    },
-    { timeout: TRANSACTION_TIMEOUT_MS }
-  );
-}
-
 async function persistPreciosChunk(
   chunk: RecordProdTienda[],
   idListasVistas: Set<number>
@@ -326,7 +238,7 @@ function catalogoDuxSyncEstaCompleto(processed: number, total: number): boolean 
 }
 
 /**
- * Limpieza de catálogo (ausentes, huérfanos, listas, depósitos) y `last_completed_at`
+ * Limpieza de catálogo (ausentes, huérfanos, listas) y `last_completed_at`
  * solo con sync **completa y sin errores**. Ej. 1980/2156 → no se borra nada.
  */
 export function syncDuxPermiteLimpiezaCatalogo(
@@ -387,7 +299,6 @@ async function persistRecordBatch(
   items: RecordProdTienda[],
   meta: SyncDuxWorkerMeta
 ): Promise<SyncDuxWorkerMeta> {
-  const depSet = new Set(meta.depositosVistos);
   const lisSet = new Set(meta.listasVistas);
 
   for (let i = 0; i < items.length; i += CHUNK_PERSIST_SIZE) {
@@ -398,13 +309,12 @@ async function persistRecordBatch(
     if (chunk.length === 0) continue;
 
     await persistProdTiendaChunk(chunk);
-    await persistStockChunk(chunk, depSet);
     await persistPreciosChunk(chunk, lisSet);
   }
 
   return {
     ...meta,
-    depositosVistos: [...depSet],
+    depositosVistos: [],
     listasVistas: [...lisSet],
   };
 }
@@ -477,20 +387,6 @@ async function finalizeSyncWorker(
       const msg = e instanceof Error ? e.message : String(e);
       errores.push(`Eliminar listas DUX en desuso: ${msg}`);
       console.error("Error eliminando listas DUX en desuso:", msg);
-    }
-  }
-
-  const depositosVistos = worker.meta.depositosVistos;
-  if (permiteLimpieza && depositosVistos.length > 0) {
-    try {
-      await prisma.globalDeposito.updateMany({
-        where: { idDeposito: { notIn: depositosVistos } },
-        data: { activa: false },
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      errores.push(`Marcar depósitos DUX inactivos: ${msg}`);
-      console.error("Error marcando depósitos DUX inactivos:", msg);
     }
   }
 

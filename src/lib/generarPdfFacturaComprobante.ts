@@ -19,7 +19,7 @@ import {
   type FacturaTipo,
 } from "@/lib/factura";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
-import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { fmtCantidad, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import {
   formatoCuitPdf,
   type FacturaComprobantePdfEmisor,
@@ -210,7 +210,7 @@ export function generarPdfFacturaComprobante(
         align: "center",
       });
       x += col.pxDesc;
-      doc.text(String(linea.cantidad), x + col.cant / 2, ty, { align: "center" });
+      doc.text(fmtCantidad(linea.cantidad), x + col.cant / 2, ty, { align: "center" });
       x += col.cant;
       doc.text(`$${fmtPrecio(total)}`, x + col.total / 2, ty, {
         align: "center",

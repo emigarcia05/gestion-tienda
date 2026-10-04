@@ -24,7 +24,7 @@ import {
   totalLineaConDescuento,
 } from "@/lib/factura";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
-import { fmtCelda, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { fmtCantidad, fmtCelda, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 
 import type { ActionResult } from "@/lib/types";
@@ -173,7 +173,7 @@ export default function FacturaComprobanteDetalleModal({
                             </span>
                           </TableCell>
                           <TableCell className="celda-datos text-center tabular-nums">
-                            {linea.cantidad.toLocaleString("es-AR")}
+                            {fmtCantidad(linea.cantidad)}
                           </TableCell>
                           <TableCell className="celda-datos text-right tabular-nums">
                             ${fmtPrecio(linea.pxLista)}

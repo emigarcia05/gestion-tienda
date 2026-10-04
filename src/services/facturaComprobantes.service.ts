@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
 import {
   arcaCertificadosConfigurados,
@@ -866,7 +867,8 @@ function calcularLineas(
     const linea = lineasLocales[i];
     const pct = porcentajeDescuentoLinea(linea, pctGlobal);
     const pxDesc = pxConDescuento(raw.pxLista, pct);
-    const importe = roundArs2(raw.cantidad * pxDesc);
+    const cantidad = redondearCantidadUnDecimal(raw.cantidad);
+    const importe = roundArs2(cantidad * pxDesc);
     const alicuota =
       letra === "C" ? 0 : (raw.alicuotaIva ?? ARCA_ALICUOTA_IVA_DEFAULT);
     const ivaId = ivaIdDesdeAlicuota(alicuota);
@@ -877,7 +879,7 @@ function calcularLineas(
       orden: i + 1,
       codTienda: raw.codTienda,
       descripcion: raw.descripcion.toLocaleUpperCase("es-AR"),
-      cantidad: raw.cantidad,
+      cantidad,
       px: roundArs2(raw.pxLista),
       descuentoPct: roundArs2(pct),
       alicuotaIva: alicuota,
@@ -2120,13 +2122,13 @@ export async function registrarPagoCuentaCorriente(
           ],
           tx
         );
-        await tx.comprobanteVta.update({
+      await tx.comprobanteVta.update({
           where: { id: fila.id },
-          data: {
-            impCobrado: siguienteImpCobrado,
-            diasVencimiento: siguienteSaldo <= 0 ? null : row.diasVencimiento,
-          },
-        });
+        data: {
+          impCobrado: siguienteImpCobrado,
+          diasVencimiento: siguienteSaldo <= 0 ? null : row.diasVencimiento,
+        },
+      });
       }
       if (restantePesos > 0) {
         await persistirMovimientosCobroEnTx(
