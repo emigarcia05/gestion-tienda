@@ -475,10 +475,15 @@ model TesoreriaMovimiento {
   monto                Int
   /**
    * Importe que impacta el saldo de caja (entero ≥ 0).
-   * En cobros: `monto` × (1 − `cobros_cx_fin.costo_financiero` %), redondeado.
+   * En cobros: `monto` × (1 − `costo_financiero` persistido %), redondeado.
    * En el resto de categorías: igual a `monto`.
    */
   montoAcreditado      Int                           @map("monto_acreditado")
+  /**
+   * % de Cx Fin del contrato al registrar el cobro (snapshot).
+   * No se recalcula si cambia `cobros_cx_fin`. Null en no-cobro o filas viejas.
+   */
+  costoFinanciero      Decimal?                      @map("costo_financiero") @db.Decimal(5, 2)
   /** Día en que se registró el movimiento (calendario Argentina). */
   fechaRegistro        DateTime                      @map("fecha_registro") @db.Date
   /**

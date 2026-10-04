@@ -187,8 +187,6 @@ export default function FacturaGenerarComprobanteModal({
     () => (fechaAcreditacionIso !== "" ? fechaAcreditacionIso : dateToIsoYmdArgentina(new Date())),
     [fechaAcreditacionIso]
   );
-  const etiquetaMontoForma =
-    !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
 
   const resetFormularioCobro = useCallback((pendiente: number) => {
     setPagoId("");
@@ -536,17 +534,15 @@ export default function FacturaGenerarComprobanteModal({
                     </label>
                   ) : null}
 
-                  <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
-                    {etiquetaMontoForma ? (
-                      <ModalMicroLabel>{etiquetaMontoForma}</ModalMicroLabel>
-                    ) : null}
+                  <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    <ModalMicroLabel>MONTO</ModalMicroLabel>
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
                       disabled={ocupado}
                       aria-label="Monto a pagar"
                     />
-                  </div>
+                  </label>
                   {pagoSel?.fechaAcreditacionVariable ? (
                     <label className="flex w-[10.5rem] shrink-0 flex-col gap-1">
                       <ModalMicroLabel>FECHA ACREDITACIÓN</ModalMicroLabel>

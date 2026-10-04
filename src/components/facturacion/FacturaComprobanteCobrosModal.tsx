@@ -113,8 +113,6 @@ export default function FacturaComprobanteCobrosModal({
   const muestraCuotas =
     cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
-  const etiquetaMontoForma =
-    !muestraCuotas && pagoSel != null ? pagoSel.nombre : null;
   const historialNc = useMemo(() => {
     const asign = (vistaNc?.asignaciones ?? []).map((fila) => ({
       kind: "asig" as const,
@@ -606,17 +604,15 @@ export default function FacturaComprobanteCobrosModal({
                       </Select>
                     </label>
                   ) : null}
-                  <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
-                    {etiquetaMontoForma ? (
-                      <ModalMicroLabel>{etiquetaMontoForma}</ModalMicroLabel>
-                    ) : null}
+                  <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    <ModalMicroLabel>MONTO</ModalMicroLabel>
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
                       disabled={guardando}
                       aria-label="Monto a devolver"
                     />
-                  </div>
+                  </label>
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"
@@ -815,17 +811,15 @@ export default function FacturaComprobanteCobrosModal({
                       </Select>
                     </label>
                   ) : null}
-                  <div className="flex w-[8.5rem] shrink-0 flex-col gap-1">
-                    {etiquetaMontoForma ? (
-                      <ModalMicroLabel>{etiquetaMontoForma}</ModalMicroLabel>
-                    ) : null}
+                  <label className="flex w-[8.5rem] shrink-0 flex-col gap-1">
+                    <ModalMicroLabel>MONTO</ModalMicroLabel>
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
                       disabled={guardando}
                       aria-label="Monto a pagar"
                     />
-                  </div>
+                  </label>
                   <Button
                     type="button"
                     className="h-9 shrink-0 gap-2"

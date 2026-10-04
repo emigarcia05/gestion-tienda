@@ -332,6 +332,10 @@ export async function crearMovimientoTesoreria(
       catMovimiento: input.catMovimiento,
       monto: input.monto,
       montoAcreditado,
+      costoFinanciero:
+        input.catMovimiento === "COBRO" || input.catMovimiento === "NOTA_CREDITO"
+          ? costoFinancieroPct
+          : null,
       fechaRegistro,
       fechaAcreditacion,
       observacion: input.observacion.trim(),
@@ -473,12 +477,12 @@ export type TesoreriaMovimientoFila = {
   usuarioNombre: string;
   /** Bruto del movimiento (cobro = lo pagado por el cliente). */
   monto: number;
-  /** Neto que impacta caja (tras CX TOTAL S/IVA o C/IVA según discrimina IVA). */
+  /** Neto que impacta caja (tras el % persistido al registrar). */
   montoAcreditado: number;
   pagoNombre: string;
   entidadNombre: string;
   cuotaEtiqueta: string;
-  /** % aplicado al acreditar según `cobros_vinc_cajas.discrimina_iva`. */
+  /** % de contrato persistido en el movimiento. No sigue la matriz. */
   costoFinanciero: number | null;
   comprobanteId: string | null;
   clienteNombre: string;
@@ -529,10 +533,8 @@ export async function listarMovimientosTesoreria(): Promise<
       catMovimiento: true,
       monto: true,
       montoAcreditado: true,
+      costoFinanciero: true,
       cajaId: true,
-      sucursalId: true,
-      pagoId: true,
-      entidadId: true,
       sucursal: { select: { nombre: true } },
       personal: { select: { nombrePersonal: true } },
       caja: {
@@ -546,7 +548,6 @@ export async function listarMovimientosTesoreria(): Promise<
       pago: { select: { nombre: true } },
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
-      cxFin: { select: CX_FIN_ACREDITACION_SELECT },
       comprobante: {
         select: {
           id: true,
@@ -557,14 +558,6 @@ export async function listarMovimientosTesoreria(): Promise<
       },
     },
   });
-
-  const mapaIva = await mapaDiscriminaIvaPorVinculo(
-    rows.map((row) => ({
-      pagoId: row.pagoId,
-      entidadId: row.entidadId,
-      sucursalId: row.sucursalId,
-    }))
-  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -591,12 +584,8 @@ export async function listarMovimientosTesoreria(): Promise<
     cuotaEtiqueta: row.cuota?.cuotas?.trim()
       ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
       : "",
-    costoFinanciero: row.cxFin
-      ? pctCostoAcreditacionDesdeCxFin(
-          row.cxFin,
-          mapaIva.get(claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId)) ?? false
-        )
-      : null,
+    costoFinanciero:
+      row.costoFinanciero != null ? decimalPctToNumber(row.costoFinanciero) : null,
     comprobanteId: row.comprobante?.id ?? null,
     clienteNombre: row.comprobante?.receptorNombre?.trim()
       ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
@@ -618,10 +607,8 @@ export async function obtenerMovimientoTesoreriaPorId(
       catMovimiento: true,
       monto: true,
       montoAcreditado: true,
+      costoFinanciero: true,
       cajaId: true,
-      sucursalId: true,
-      pagoId: true,
-      entidadId: true,
       sucursal: { select: { nombre: true } },
       personal: { select: { nombrePersonal: true } },
       caja: {
@@ -635,7 +622,6 @@ export async function obtenerMovimientoTesoreriaPorId(
       pago: { select: { nombre: true } },
       entidad: { select: { nombre: true } },
       cuota: { select: { cuotas: true } },
-      cxFin: { select: CX_FIN_ACREDITACION_SELECT },
       comprobante: {
         select: {
           id: true,
@@ -647,10 +633,6 @@ export async function obtenerMovimientoTesoreriaPorId(
     },
   });
   if (!row) return { success: false, error: "Movimiento inexistente." };
-
-  const mapaIvaDetalle = await mapaDiscriminaIvaPorVinculo([
-    { pagoId: row.pagoId, entidadId: row.entidadId, sucursalId: row.sucursalId },
-  ]);
 
   return {
     success: true,
@@ -679,14 +661,8 @@ export async function obtenerMovimientoTesoreriaPorId(
       cuotaEtiqueta: row.cuota?.cuotas?.trim()
         ? row.cuota.cuotas.toLocaleUpperCase("es-AR")
         : "",
-      costoFinanciero: row.cxFin
-        ? pctCostoAcreditacionDesdeCxFin(
-            row.cxFin,
-            mapaIvaDetalle.get(
-              claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId)
-            ) ?? false
-          )
-        : null,
+      costoFinanciero:
+        row.costoFinanciero != null ? decimalPctToNumber(row.costoFinanciero) : null,
       comprobanteId: row.comprobante?.id ?? null,
       clienteNombre: row.comprobante?.receptorNombre?.trim()
         ? row.comprobante.receptorNombre.toLocaleUpperCase("es-AR")
@@ -842,6 +818,8 @@ export type MovimientoCobroFacturaData = {
   catMovimiento: CategoriaMovimientoTesoreria;
   monto: number;
   montoAcreditado: number;
+  /** Snapshot del % de contrato al registrar. */
+  costoFinanciero: number;
   fechaRegistro: Date;
   fechaAcreditacion: Date;
   observacion: string;
@@ -1072,6 +1050,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       catMovimiento: "COBRO",
       monto,
       montoAcreditado,
+      costoFinanciero: costoPct,
       fechaRegistro,
       fechaAcreditacion,
       observacion: observacionBase,

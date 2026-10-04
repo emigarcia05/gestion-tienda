@@ -51,12 +51,10 @@ import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.se
 const DESC_INPUT_CLASS =
   "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
 
-const PIE_METRICA_CLASS =
-  "flex h-full w-[8.5rem] shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden leading-none text-center";
 const PIE_ETIQUETA_CLASS =
-  "w-full truncate text-center text-xs font-semibold tracking-wide text-muted-foreground";
+  "w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground";
 const PIE_VALOR_CLASS =
-  "w-full truncate text-center text-sm font-semibold tabular-nums text-foreground";
+  "celda-destacado w-full text-sm font-medium tabular-nums leading-tight";
 
 function pctToNorm(pct: number): string {
   if (pct <= 0) return "";
@@ -634,30 +632,29 @@ export default function FacturaCrearLineasBlock({
 
         <div
           className={cn(
-            "flex min-w-0 flex-1 items-center justify-center gap-1 px-2 py-1.5",
-            "bg-muted/40"
+            "pie-pagina flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-1.5"
           )}
           aria-label="Resumen de totales"
         >
-          <div className={PIE_METRICA_CLASS}>
+          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>CANT. ITEMS</span>
             <span className={PIE_VALOR_CLASS}>{fmtNumero(resumen.totalItem)}</span>
           </div>
-          <div className={PIE_METRICA_CLASS}>
+          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>TOTAL S/ DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalLista)}`}</span>
           </div>
-          <div className={PIE_METRICA_CLASS}>
+          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>DESC. PROMEDIO</span>
             <span className={PIE_VALOR_CLASS}>
               {fmtPorcentajeTabla(resumen.descPctPromedio)}
             </span>
           </div>
-          <div className={PIE_METRICA_CLASS}>
+          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.descPesos)}`}</span>
           </div>
-          <div className={PIE_METRICA_CLASS}>
+          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>TOTAL C/ DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalConDesc)}`}</span>
           </div>

@@ -2269,6 +2269,7 @@ export async function asignarClienteCobroComoCobro(
               catMovimiento: anticipo.catMovimiento,
               monto: tomar,
               montoAcreditado: acredTomar,
+              costoFinanciero: anticipo.costoFinanciero,
               fechaRegistro: anticipo.fechaRegistro,
               fechaAcreditacion: anticipo.fechaAcreditacion,
               observacion: anticipo.observacion,
