@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Select,
@@ -20,9 +20,13 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import { parTransfConSucursalUsuario } from "@/lib/transfDepositosControl";
 import { cn } from "@/lib/utils";
 import type { Sucursal, TransfDepositosData } from "@/actions/stock";
-import { leerSucursalPreferida } from "@/lib/sucursalPreferida";
+import {
+  EVENTO_USUARIO_SESION,
+  leerUsuarioSesion,
+} from "@/lib/usuarioSesion";
 
 const SUCURSALES: { value: Sucursal; label: string }[] = [
   { value: "guaymallen", label: "GUAYMALLÉN" },
@@ -41,7 +45,8 @@ interface Props {
 
 /**
  * Filtros de **Trans. Depósitos**:
- * 1) **SUCURSAL ORIGEN** / **SUCURSAL DESTINO**
+ * 1) **SUCURSAL ORIGEN** / **SUCURSAL DESTINO** (una punta = sucursal del usuario;
+ *    la otra se fija y no se edita)
  * 2) **MARCA** / **RUBRO** + búsqueda (sin desplegable SUCURSAL)
  */
 export default function FiltrosTransfDepositos({
@@ -55,6 +60,7 @@ export default function FiltrosTransfDepositos({
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const [sucursalUsuario, setSucursalUsuario] = useState<Sucursal | null>(null);
 
   const {
     q,
@@ -67,6 +73,18 @@ export default function FiltrosTransfDepositos({
     debounceMs: 700,
     onDebouncedSearch: (value) => navigate({ q: value }),
   });
+
+  const syncUsuario = useCallback(() => {
+    setSucursalUsuario(leerUsuarioSesion()?.sucursalPorDefecto ?? null);
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      syncUsuario();
+    });
+    window.addEventListener(EVENTO_USUARIO_SESION, syncUsuario);
+    return () => window.removeEventListener(EVENTO_USUARIO_SESION, syncUsuario);
+  }, [syncUsuario]);
 
   function buildParams(updates: {
     origen?: Sucursal | null;
@@ -104,35 +122,36 @@ export default function FiltrosTransfDepositos({
     router.push(query ? `${pathname}?${query}` : pathname);
   }
 
+  function navegarPar(
+    origen: Sucursal | null,
+    destino: Sucursal | null,
+    extras?: { marca?: string; rubro?: string; q?: string }
+  ) {
+    const par = sucursalUsuario
+      ? parTransfConSucursalUsuario(origen, destino, sucursalUsuario)
+      : { origen, destino };
+    navigate({
+      origen: par.origen,
+      destino: par.destino,
+      ...extras,
+    });
+  }
+
   function handleOrigen(value: string) {
     if (!value) {
-      navigate({
-        origen: null,
-        marca: "",
-        rubro: "",
-        q: "",
-      });
+      navegarPar(null, destinoActual, { marca: "", rubro: "", q: "" });
       setQ("");
       return;
     }
-    const nuevoOrigen = value as Sucursal;
-    navigate({
-      origen: nuevoOrigen,
-      /** Origen y destino siempre distintos. */
-      destino: destinoActual === nuevoOrigen ? null : destinoActual,
-      marca: "",
-      rubro: "",
-    });
+    navegarPar(value as Sucursal, destinoActual, { marca: "", rubro: "" });
   }
 
   function handleDestino(value: string) {
     if (!value) {
-      navigate({ destino: null });
+      navegarPar(origenActual, null);
       return;
     }
-    const nuevoDestino = value as Sucursal;
-    if (nuevoDestino === origenActual) return;
-    navigate({ destino: nuevoDestino });
+    navegarPar(origenActual, value as Sucursal);
   }
 
   function handleMarca(value: string) {
@@ -152,21 +171,35 @@ export default function FiltrosTransfDepositos({
   }
 
   const origenSeleccionado = origenActual !== null;
+  const parActual = sucursalUsuario
+    ? parTransfConSucursalUsuario(origenActual, destinoActual, sucursalUsuario)
+    : {
+        origen: origenActual,
+        destino: destinoActual,
+        origenBloqueado: false,
+        destinoBloqueado: false,
+      };
 
   useEffect(() => {
-    if (origenActual) return;
-    const preferida = leerSucursalPreferida();
-    if (!preferida) return;
-    const p = new URLSearchParams();
-    p.set("origen", preferida);
-    if (destinoActual && destinoActual !== preferida) {
-      p.set("destino", destinoActual);
+    if (!sucursalUsuario) return;
+    const par = parTransfConSucursalUsuario(
+      origenActual,
+      destinoActual,
+      sucursalUsuario
+    );
+    if (par.origen === origenActual && par.destino === destinoActual) {
+      return;
     }
+    const p = new URLSearchParams();
+    if (par.origen) p.set("origen", par.origen);
+    if (par.destino) p.set("destino", par.destino);
     if (q) p.set("q", q);
     if (marcaActual) p.set("marca", marcaActual);
     if (rubroActual) p.set("rubro", rubroActual);
-    router.replace(`${pathname}?${p.toString()}`);
+    const query = p.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
   }, [
+    sucursalUsuario,
     origenActual,
     destinoActual,
     q,
@@ -183,12 +216,15 @@ export default function FiltrosTransfDepositos({
           <FilaFiltrosDesplegables>
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={origenActual !== null}
-              onLimpiar={() => handleOrigen("")}
+              activo={origenActual !== null && !parActual.origenBloqueado}
+              onLimpiar={
+                parActual.origenBloqueado ? undefined : () => handleOrigen("")
+              }
             >
               <Select
                 value={origenActual ?? ""}
                 onValueChange={(v) => handleOrigen(v)}
+                disabled={parActual.origenBloqueado}
               >
                 <SelectTrigger
                   id="filtro-transf-origen"
@@ -214,12 +250,15 @@ export default function FiltrosTransfDepositos({
             </FiltroIndividualContainer>
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={destinoActual !== null}
-              onLimpiar={() => handleDestino("")}
+              activo={destinoActual !== null && !parActual.destinoBloqueado}
+              onLimpiar={
+                parActual.destinoBloqueado ? undefined : () => handleDestino("")
+              }
             >
               <Select
                 value={destinoActual ?? ""}
                 onValueChange={(v) => handleDestino(v)}
+                disabled={parActual.destinoBloqueado}
               >
                 <SelectTrigger
                   id="filtro-transf-destino"

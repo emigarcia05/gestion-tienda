@@ -15,7 +15,11 @@ import { Button } from "@/components/ui/button";
 import { registrarTransferenciasDepositosAction } from "@/actions/stock";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PAGE_SIZE } from "@/lib/pagination";
-import { enfocarDuxTransferenciaDepositosTab } from "@/lib/transfDepositosControl";
+import {
+  enfocarDuxTransferenciaDepositosTab,
+  parTransfIncluyeSucursalUsuario,
+} from "@/lib/transfDepositosControl";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import type { Sucursal, TransfDepositosData } from "@/actions/stock";
 
 interface Props {
@@ -31,7 +35,8 @@ interface Props {
 }
 
 /**
- * Pantalla **Stock · Trans. Depósitos**: origen/destino → marca/rubro/búsqueda;
+ * Pantalla **Stock · Trans. Depósitos**: origen/destino (una punta = sucursal
+ * del usuario; la otra se fija) → marca/rubro/búsqueda;
  * grilla DESCRIPCIÓN / {origen} / → / {destino} / ACCIONES;
  * header **Generar Transf.** persiste cantidades de la grilla (si hay) y abre
  * el modal del lote abierto origen→destino. El borrador de la grilla se conserva
@@ -82,6 +87,11 @@ export default function TransfDepositosPageClient({
   );
 
   function generarTransf() {
+    const usuario = leerUsuarioSesion();
+    if (!usuario) {
+      toast.error("Elegí un usuario.");
+      return;
+    }
     if (!origen) {
       toast.error("Elegí sucursal origen.");
       return;
@@ -98,8 +108,19 @@ export default function TransfDepositosPageClient({
       toast.error("Elegí origen y destino distintos.");
       return;
     }
+    if (
+      !parTransfIncluyeSucursalUsuario(
+        origen,
+        destino,
+        usuario.sucursalPorDefecto
+      )
+    ) {
+      toast.error("Origen o destino debe ser tu sucursal.");
+      return;
+    }
     startTransition(async () => {
       const res = await registrarTransferenciasDepositosAction({
+        personalId: usuario.idPersonal,
         origen,
         destino,
         items,

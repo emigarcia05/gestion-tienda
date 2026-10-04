@@ -33,7 +33,12 @@ import {
 } from "@/actions/stock";
 import { formatCantidadInputValor } from "@/lib/cantidadUnDecimal";
 import { fmtCantidad } from "@/lib/format";
-import { enfocarDuxTransferenciaDepositosTab } from "@/lib/transfDepositosControl";
+import { parseSucursalPreferida } from "@/lib/sucursalPreferida";
+import {
+  enfocarDuxTransferenciaDepositosTab,
+  parTransfConSucursalUsuario,
+} from "@/lib/transfDepositosControl";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import {
   TablaControlItemCelda,
   TablaControlItemHead,
@@ -47,7 +52,7 @@ import { cn } from "@/lib/utils";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Código de sucursal del usuario (origen de las filas). */
+  /** Código de sucursal origen de la página. */
   origenCodigo: Sucursal | null;
   /** Destino de la página (si hay): precarga el lote abierto en la tabla. */
   destinoCodigo: Sucursal | null;
@@ -72,8 +77,8 @@ async function copiarDatoTransf(texto: string, toastTitle: string): Promise<void
 }
 
 /**
- * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** (sucursal del usuario)
- * y **SUC. DESTINO** (`sucursales` distintas; cada sucursal es depósito);
+ * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** y **SUC. DESTINO**
+ * (una punta = sucursal del usuario; la otra se fija y no se edita; cada sucursal es depósito);
  * al abrir, si la página ya tiene destino, precarga el lote abierto en la tabla
  * (reabrir el modal sin haber pulsado Transferido muestra los mismos ítems);
  * al elegir destino abre (o enfoca) transferencia de depósitos en DUX;
@@ -101,6 +106,15 @@ export default function GenerarTransfDepositosModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [sucursalUsuario, setSucursalUsuario] = useState<Sucursal | null>(null);
+  const [usuarioListo, setUsuarioListo] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setSucursalUsuario(leerUsuarioSesion()?.sucursalPorDefecto ?? null);
+      setUsuarioListo(true);
+    });
+  }, []);
 
   const origenes = useMemo(() => {
     return sucursales.filter(
@@ -114,9 +128,52 @@ export default function GenerarTransfDepositosModal({
     [sucursales, sucOrigenId]
   );
 
+  const origenCodigoSel = parseSucursalPreferida(
+    sucursales.find((s) => s.id === sucOrigenId)?.codigo ?? null
+  );
+  const destinoCodigoSel = parseSucursalPreferida(
+    sucursales.find((s) => s.id === sucDestinoId)?.codigo ?? null
+  );
+  const parLocks = sucursalUsuario
+    ? parTransfConSucursalUsuario(
+        origenCodigoSel,
+        destinoCodigoSel,
+        sucursalUsuario
+      )
+    : { origenBloqueado: false, destinoBloqueado: false };
+
+  const idsDesdeCodigos = useCallback(
+    (
+      lista: SucursalTransfDepositoOptionDto[],
+      origenCod: Sucursal | null,
+      destinoCod: Sucursal | null
+    ): { origenId: string | null; destinoId: string | null } => {
+      const par = sucursalUsuario
+        ? parTransfConSucursalUsuario(origenCod, destinoCod, sucursalUsuario)
+        : { origen: origenCod, destino: destinoCod };
+      return {
+        origenId: par.origen
+          ? lista.find((s) => s.codigo === par.origen)?.id ?? null
+          : null,
+        destinoId: par.destino
+          ? lista.find((s) => s.codigo === par.destino)?.id ?? null
+          : null,
+      };
+    },
+    [sucursalUsuario]
+  );
+
   const cargarItems = useCallback(
     async (origenId: string, destinoId: string) => {
+      const personalId = leerUsuarioSesion()?.idPersonal;
+      if (personalId == null) {
+        setError("Elegí un usuario.");
+        setItems([]);
+        setOkPorCodTienda({});
+        return;
+      }
       const res = await listarLoteAbiertoTransfDepositosAction({
+        personalId,
         sucOrigenId: origenId,
         sucDestinoId: destinoId,
       });
@@ -134,7 +191,7 @@ export default function GenerarTransfDepositosModal({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !usuarioListo) return;
     let cancelled = false;
 
     queueMicrotask(() => {
@@ -155,28 +212,17 @@ export default function GenerarTransfDepositosModal({
         return;
       }
       setSucursales(res.data);
-      const origen = origenCodigo
-        ? res.data.find((s) => s.codigo === origenCodigo)
-        : undefined;
-      if (!origen) {
+      const ids = idsDesdeCodigos(res.data, origenCodigo, destinoCodigo);
+      if (!ids.origenId) {
         setLoading(false);
         setError("Sucursal origen no encontrada.");
         return;
       }
-      setSucOrigenId(origen.id);
+      setSucOrigenId(ids.origenId);
 
-      const destino =
-        destinoCodigo && destinoCodigo !== origenCodigo
-          ? res.data.find(
-              (s) =>
-                s.codigo === destinoCodigo &&
-                s.tieneDeposito &&
-                s.id !== origen.id
-            )
-          : undefined;
-      if (destino) {
-        setSucDestinoId(destino.id);
-        await cargarItems(origen.id, destino.id);
+      if (ids.destinoId) {
+        setSucDestinoId(ids.destinoId);
+        await cargarItems(ids.origenId, ids.destinoId);
       }
       if (!cancelled) setLoading(false);
     })();
@@ -184,21 +230,18 @@ export default function GenerarTransfDepositosModal({
     return () => {
       cancelled = true;
     };
-  }, [open, origenCodigo, destinoCodigo, cargarItems]);
+  }, [open, usuarioListo, origenCodigo, destinoCodigo, cargarItems, idsDesdeCodigos]);
 
-  function handleOrigenChange(value: string) {
-    const next = value === "none" ? null : value;
-    setSucOrigenId(next);
-    setSucDestinoId(null);
-    setItems([]);
-    setOkPorCodTienda({});
-    setError(null);
-  }
-
-  function handleDestinoChange(value: string) {
-    const next = value === "none" ? null : value;
-    setSucDestinoId(next);
-    if (!sucOrigenId || !next) {
+  function aplicarParYCargar(
+    origenCod: Sucursal | null,
+    destinoCod: Sucursal | null
+  ) {
+    const ids = idsDesdeCodigos(sucursales, origenCod, destinoCod);
+    const origenId = ids.origenId;
+    const destinoId = ids.destinoId;
+    setSucOrigenId(origenId);
+    setSucDestinoId(destinoId);
+    if (!origenId || !destinoId) {
       setItems([]);
       setOkPorCodTienda({});
       setError(null);
@@ -207,9 +250,25 @@ export default function GenerarTransfDepositosModal({
     enfocarDuxTransferenciaDepositosTab();
     setLoading(true);
     startTransition(async () => {
-      await cargarItems(sucOrigenId, next);
+      await cargarItems(origenId, destinoId);
       setLoading(false);
     });
+  }
+
+  function handleOrigenChange(value: string) {
+    const next =
+      value === "none" ? null : parseSucursalPreferida(
+        sucursales.find((s) => s.id === value)?.codigo ?? null
+      );
+    aplicarParYCargar(next, destinoCodigoSel);
+  }
+
+  function handleDestinoChange(value: string) {
+    const next =
+      value === "none" ? null : parseSucursalPreferida(
+        sucursales.find((s) => s.id === value)?.codigo ?? null
+      );
+    aplicarParYCargar(origenCodigoSel, next);
   }
 
   async function handleOkItem(codTienda: string) {
@@ -246,7 +305,13 @@ export default function GenerarTransfDepositosModal({
       return;
     }
     startTransition(async () => {
+      const personalId = leerUsuarioSesion()?.idPersonal;
+      if (personalId == null) {
+        toast.error("Elegí un usuario.");
+        return;
+      }
       const res = await marcarTransferidoTransfDepositosAction({
+        personalId,
         sucOrigenId,
         sucDestinoId,
       });
@@ -305,7 +370,7 @@ export default function GenerarTransfDepositosModal({
               <Select
                 value={sucOrigenId ?? "none"}
                 onValueChange={handleOrigenChange}
-                disabled={isPending}
+                disabled={isPending || parLocks.origenBloqueado}
               >
                 <SelectTrigger
                   id="filtro-transf-origen-modal"
@@ -334,7 +399,7 @@ export default function GenerarTransfDepositosModal({
               <Select
                 value={sucDestinoId ?? "none"}
                 onValueChange={handleDestinoChange}
-                disabled={!sucOrigenId || isPending}
+                disabled={!sucOrigenId || isPending || parLocks.destinoBloqueado}
               >
                 <SelectTrigger
                   id="filtro-transf-destino-modal"

@@ -8,6 +8,7 @@ import {
   globalSucursalIdSchema,
   listaPreciosCodTiendaSchema,
 } from "@/lib/validations/common";
+import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 const sucursalCodigoSchema = z.enum(["guaymallen", "maipu"]);
 
@@ -17,6 +18,7 @@ export const listarHistorialTransfDepositosProductoSchema = z.object({
 
 export const registrarTransferenciasDepositosSchema = z
   .object({
+    personalId: idPersonalSchema,
     origen: sucursalCodigoSchema,
     destino: sucursalCodigoSchema,
     items: z
@@ -47,6 +49,7 @@ export const itemBorradorTransfDepositosSchema = z.object({
 
 export const parSucursalesTransfDepositosSchema = z
   .object({
+    personalId: idPersonalSchema,
     sucOrigenId: globalSucursalIdSchema,
     sucDestinoId: globalSucursalIdSchema,
   })

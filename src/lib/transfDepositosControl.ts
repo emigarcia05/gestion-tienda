@@ -11,6 +11,58 @@ import { itemBorradorTransfDepositosSchema } from "@/lib/validations/transfDepos
 
 export type SucursalTransfDepositos = "guaymallen" | "maipu";
 
+export type ParTransfConSucursalUsuario = {
+  origen: SucursalTransfDepositos | null;
+  destino: SucursalTransfDepositos | null;
+  origenBloqueado: boolean;
+  destinoBloqueado: boolean;
+};
+
+/**
+ * Una punta del par debe ser la sucursal del usuario.
+ * Si origen es otra sucursal → destino = usuario (bloqueado).
+ * Si destino es otra sucursal → origen = usuario (bloqueado).
+ */
+export function parTransfConSucursalUsuario(
+  origen: SucursalTransfDepositos | null,
+  destino: SucursalTransfDepositos | null,
+  sucursalUsuario: SucursalTransfDepositos
+): ParTransfConSucursalUsuario {
+  if (origen != null && origen !== sucursalUsuario) {
+    return {
+      origen,
+      destino: sucursalUsuario,
+      origenBloqueado: false,
+      destinoBloqueado: true,
+    };
+  }
+  if (destino != null && destino !== sucursalUsuario) {
+    return {
+      origen: sucursalUsuario,
+      destino,
+      origenBloqueado: true,
+      destinoBloqueado: false,
+    };
+  }
+  const origenResuelto = origen ?? sucursalUsuario;
+  const destinoResuelto =
+    destino != null && destino !== origenResuelto ? destino : null;
+  return {
+    origen: origenResuelto,
+    destino: destinoResuelto,
+    origenBloqueado: false,
+    destinoBloqueado: false,
+  };
+}
+
+export function parTransfIncluyeSucursalUsuario(
+  origen: SucursalTransfDepositos,
+  destino: SucursalTransfDepositos,
+  sucursalUsuario: SucursalTransfDepositos
+): boolean {
+  return origen === sucursalUsuario || destino === sucursalUsuario;
+}
+
 export type ItemBorradorTransfDepositos = {
   cantidad: string;
   descripcion: string;

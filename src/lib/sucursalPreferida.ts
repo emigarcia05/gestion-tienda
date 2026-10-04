@@ -1,6 +1,6 @@
 /**
  * Sucursal preferida de la sesión de navegador (slidenav).
- * Default de filtros (p. ej. Trans. Depósitos); el usuario puede cambiarla después.
+ * Default de filtros; en Trans. Depósitos una punta del par queda fija en la sucursal del usuario.
  */
 
 export type SucursalPreferida = "guaymallen" | "maipu";
