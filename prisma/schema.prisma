@@ -402,6 +402,7 @@ model GlobalPersonal {
   sucursalDefault Sucursal? @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
   comprobantesVtas ComprobanteVta[]
   movimientosTesoreria TesoreriaMovimiento[]
+  stockComprobantes StockComprobante[]
 
   @@index([sucursalPorDefecto], map: "personal_sucursal_por_defecto_idx")
   @@map("personal")
@@ -1126,13 +1127,21 @@ model StockComprobante {
   tipo              StockComprobanteTipo
   sucursalId        String               @map("sucursal")
   sucursalDestinoId String?              @map("sucursal_destino")
+  /** Usuario de pestaña que registró el comprobante (`personal.id_personal`). */
+  personalId        Int?                 @map("personal_id")
+  /** Venta / NC que originó el movimiento (`vtas_comprobantes`). */
+  comprobanteVtaId  String?              @map("comprobante_vta_id")
   createdAt         DateTime             @default(now()) @map("created_at")
 
   sucursal        Sucursal          @relation("StockComprobanteSucursal", fields: [sucursalId], references: [id], onDelete: Restrict)
   sucursalDestino Sucursal?         @relation("StockComprobanteSucursalDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
+  personal        GlobalPersonal?   @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  comprobanteVta  ComprobanteVta?   @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
   movimientos     StockMovimiento[]
 
+  @@unique([comprobanteVtaId], map: "stock_comprobantes_comprobante_vta_key")
   @@index([sucursalId], map: "stock_comprobantes_sucursal_idx")
+  @@index([personalId], map: "stock_comprobantes_personal_idx")
   @@map("stock_comprobantes")
 }
 
@@ -1956,11 +1965,12 @@ model SyncDuxStatus {
 // ─── Facturación / ventas (comprobantes) ───────────────────────────────────
 
 /**
- * Cabecera de comprobantes de venta (`comprobantes_vtas`).
+ * Cabecera de comprobantes de venta (`vtas_comprobantes`).
  * Receptor fiscal: **snapshot** en la fila (`receptor_*`) + FK opcional `cliente_id` → `clientes`.
  * Proyecto: FK opcional `proyecto_id` → `clientes_proyectos` (solo si hay dato; exige `cliente_id`).
  * CAE solo si `tipo_comprobante` es fiscal (`factura_fiscal` / `nota_credito_fiscal`).
- * `efecto_stock`: salida | ingreso | ninguno (según tipo; movimiento aún aparte).
+ * `efecto_stock`: salida | ingreso | ninguno (según tipo).
+ * Venta / NC autorizada escribe `stock_comprobantes` + `stock_movimientos` y pone `stock_aplicado`.
  */
 model ComprobanteVta {
   id        String @id @default(cuid())
@@ -2044,17 +2054,18 @@ model ComprobanteVta {
   movimientosCobro TesoreriaMovimiento[] @relation("MovimientoComprobante")
   /** Imputaciones de esta NC como cobro de ventas. */
   movimientosComoNotaCredito TesoreriaMovimiento[] @relation("MovimientoNotaCredito")
+  stockComprobantes StockComprobante[]
 
-  @@index([tipoComprobante, fecha], map: "comprobantes_vtas_tipo_fecha_idx")
-  @@index([ptoVtaId], map: "comprobantes_vtas_pto_vta_idx")
-  @@index([cae], map: "comprobantes_vtas_cae_idx")
-  @@index([clienteId], map: "comprobantes_vtas_cliente_id_idx")
-  @@index([proyectoId], map: "comprobantes_vtas_proyecto_id_idx")
-  @@index([receptorCondicionIva], map: "comprobantes_vtas_receptor_iva_idx")
-  @@index([emisorCondicionIva], map: "comprobantes_vtas_emisor_iva_idx")
-  @@index([efectoStock, stockAplicado], map: "comprobantes_vtas_efecto_stock_idx")
-  @@index([personalId], map: "comprobantes_vtas_personal_id_idx")
-  @@map("comprobantes_vtas")
+  @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")
+  @@index([ptoVtaId], map: "vtas_comprobantes_pto_vta_idx")
+  @@index([cae], map: "vtas_comprobantes_cae_idx")
+  @@index([clienteId], map: "vtas_comprobantes_cliente_id_idx")
+  @@index([proyectoId], map: "vtas_comprobantes_proyecto_id_idx")
+  @@index([receptorCondicionIva], map: "vtas_comprobantes_receptor_iva_idx")
+  @@index([emisorCondicionIva], map: "vtas_comprobantes_emisor_iva_idx")
+  @@index([efectoStock, stockAplicado], map: "vtas_comprobantes_efecto_stock_idx")
+  @@index([personalId], map: "vtas_comprobantes_personal_id_idx")
+  @@map("vtas_comprobantes")
 }
 
 /** Cobro de cuenta corriente del cliente (pago completo; imputaciones en `tesoreria_movimientos`). */
@@ -2091,8 +2102,8 @@ model ComprobanteVtaItem {
 
   comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
 
-  @@index([comprobanteId], map: "comprobantes_vtas_items_comp_idx")
-  @@map("comprobantes_vtas_items")
+  @@index([comprobanteId], map: "vtas_comprobantes_items_comp_idx")
+  @@map("vtas_comprobantes_items")
 }
 
 /** Historial de llamadas ARCA. `payload` es el JSON fiscal (sin token ni certificado). */
@@ -2109,8 +2120,8 @@ model ComprobanteVtaHistorialArca {
 
   comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
 
-  @@index([comprobanteId], map: "comprobantes_vtas_historial_arca_comp_idx")
-  @@map("comprobantes_vtas_historial_arca")
+  @@index([comprobanteId], map: "vtas_comprobantes_historial_arca_comp_idx")
+  @@map("vtas_comprobantes_historial_arca")
 }
 
 /** Ticket WSAA cacheado (token+sign). Nunca exponer al cliente. */

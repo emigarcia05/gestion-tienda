@@ -1,6 +1,6 @@
 /**
  * Constantes del módulo Factura (área Facturación).
- * Persistencia en `comprobantes_vtas`; fiscal vía WSAA + WSFEv1.
+ * Persistencia en `vtas_comprobantes`; fiscal vía WSAA + WSFEv1.
  */
 
 import {
@@ -358,8 +358,8 @@ export function efectoStockPorTipo(tipo: FacturaTipo): FacturaEfectoStock {
     case "factura_fiscal":
       return "salida";
     case "nota_credito_no_fiscal":
-      return "ingreso";
     case "nota_credito_fiscal":
+      return "ingreso";
     case "presupuesto":
       return "ninguno";
   }

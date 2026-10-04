@@ -3,7 +3,12 @@ import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
 import {
   globalSucursalIdSchema,
   listaPreciosCodTiendaSchema,
+  prismaCuidSchema,
 } from "@/lib/validations/common";
+import {
+  idPersonalSchema,
+  sucursalPorDefectoSchema,
+} from "@/lib/validations/globalPersonal";
 
 export const stockMovimientoTipoSchema = z.enum(["INGRESO", "EGRESO"]);
 
@@ -32,11 +37,29 @@ export const lineaStockMovimientoSchema = z.object({
   cantidad: cantidadUnDecimalPositivaSchema,
 });
 
+export const listarStockMovimientosSucursalSchema = z.object({
+  sucursalCodigo: sucursalPorDefectoSchema,
+});
+
+export const lineaAjusteControlStockSchema = z.object({
+  codItem: listaPreciosCodTiendaSchema,
+  cantidad: cantidadUnDecimalPositivaSchema,
+  tipoMovimiento: stockMovimientoTipoSchema,
+});
+
+export const confirmarAjusteControlStockSchema = z.object({
+  sucursalCodigo: sucursalPorDefectoSchema,
+  personalId: idPersonalSchema,
+  lineas: z.array(lineaAjusteControlStockSchema).min(1).max(2000),
+});
+
 export const registrarStockMovimientosSchema = z
   .object({
     comprobanteTipo: stockComprobanteTipoSchema,
     sucursalId: globalSucursalIdSchema,
     sucursalDestinoId: globalSucursalIdSchema.optional(),
+    personalId: idPersonalSchema.optional(),
+    comprobanteVtaId: prismaCuidSchema.optional(),
     lineas: z.array(lineaStockMovimientoSchema).min(1).max(2000),
   })
   .superRefine((v, ctx) => {

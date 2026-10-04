@@ -1,29 +1,21 @@
 "use client";
 
 import { Printer } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import type { TablaStockHandle } from "./TablaStock";
 
 interface Props {
   tableRef: React.RefObject<TablaStockHandle | null>;
+  disabled?: boolean;
 }
 
-export default function ImprimirStockButton({ tableRef }: Props) {
+export default function ImprimirStockButton({ tableRef, disabled }: Props) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="default"
-          size="default"
-          className="btn-primario-gestion gap-2 shrink-0"
-          onClick={() => tableRef.current?.openPrint()}
-        >
-          <Printer className="h-4 w-4" />
-          Imprimir
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Imprimir listado de stock</TooltipContent>
-    </Tooltip>
+    <ToolbarActionButton
+      label="Imprimir"
+      icon={<Printer />}
+      disabled={disabled}
+      onClick={() => tableRef.current?.openPrint()}
+    />
   );
 }

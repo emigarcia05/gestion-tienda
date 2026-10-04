@@ -1,7 +1,8 @@
-import type {
-  StockComprobanteTipo,
-  StockMovimientoCategoria,
-  StockMovimientoTipo,
+import {
+  type Prisma,
+  type StockComprobanteTipo,
+  type StockMovimientoCategoria,
+  type StockMovimientoTipo,
 } from "@prisma/client";
 import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
@@ -19,8 +20,42 @@ export type RegistrarStockMovimientosInput = {
   comprobanteTipo: StockComprobanteTipo;
   sucursalId: string;
   sucursalDestinoId?: string;
+  personalId?: number;
+  comprobanteVtaId?: string;
   lineas: LineaStockMovimientoInput[];
 };
+
+export type StockMovimientoFila = {
+  id: string;
+  fechaIso: string;
+  fechaMs: number;
+  tipoMovimiento: StockMovimientoTipo;
+  tipoEtiqueta: string;
+  categoriaMovimiento: StockMovimientoCategoria;
+  categoriaEtiqueta: string;
+  usuarioNombre: string;
+  item: string;
+  cantidad: number;
+};
+
+const TIPO_ETIQUETA: Record<StockMovimientoTipo, string> = {
+  INGRESO: "INGRESO",
+  EGRESO: "EGRESO",
+};
+
+const CATEGORIA_ETIQUETA: Record<StockMovimientoCategoria, string> = {
+  VENTA: "VENTA",
+  NOTA_CREDITO: "NOTA DE CRÉDITO",
+  AJUSTE_STOCK: "AJUSTE STOCK",
+  TRANSF_DEPO_INGRESO: "TRANSF. DEPÓSITO INGRESO",
+  TRANSF_DEPO_EGRESO: "TRANSF. DEPÓSITO EGRESO",
+  COMPRA: "COMPRA",
+};
+
+const LISTADO_MOVIMIENTOS_MAX = 2000;
+
+/** Ventas/NC anteriores no escriben ledger (sin backfill). */
+const STOCK_VTA_DESDE = new Date("2026-10-04T00:00:00.000Z");
 
 export type RegistrarStockMovimientosResult = {
   comprobanteId: string;
@@ -65,68 +100,275 @@ export async function obtenerSucursalIdPorCodigo(
   return row?.id ?? null;
 }
 
+function validarLineasStock(
+  input: RegistrarStockMovimientosInput
+): ServiceResult<void> {
+  if (input.lineas.length === 0) {
+    return { success: false, error: "No hay líneas de stock." };
+  }
+  const categoriasOk = CATEGORIA_POR_COMPROBANTE[input.comprobanteTipo];
+  for (const linea of input.lineas) {
+    if (!categoriasOk.has(linea.categoriaMovimiento)) {
+      return {
+        success: false,
+        error: "La categoría no corresponde al tipo de comprobante.",
+      };
+    }
+    const tipoFijo = TIPO_FIJO_POR_CATEGORIA[linea.categoriaMovimiento];
+    if (tipoFijo && linea.tipoMovimiento !== tipoFijo) {
+      return {
+        success: false,
+        error: "El tipo de movimiento no corresponde a la categoría.",
+      };
+    }
+    const cant = redondearCantidadUnDecimal(linea.cantidad);
+    if (cant <= 0) {
+      return { success: false, error: "La cantidad debe ser mayor a 0." };
+    }
+  }
+  return { success: true, data: undefined };
+}
+
+async function persistirStockMovimientosEn(
+  db: Prisma.TransactionClient,
+  input: RegistrarStockMovimientosInput
+): Promise<ServiceResult<RegistrarStockMovimientosResult>> {
+  const validado = validarLineasStock(input);
+  if (!validado.success) return validado;
+  const comprobante = await db.stockComprobante.create({
+    data: {
+      tipo: input.comprobanteTipo,
+      sucursalId: input.sucursalId,
+      sucursalDestinoId: input.sucursalDestinoId ?? null,
+      personalId: input.personalId ?? null,
+      comprobanteVtaId: input.comprobanteVtaId ?? null,
+    },
+    select: { id: true },
+  });
+  await db.stockMovimiento.createMany({
+    data: input.lineas.map((l) => ({
+      tipoMovimiento: l.tipoMovimiento,
+      categoriaMovimiento: l.categoriaMovimiento,
+      codItem: l.codItem.trim(),
+      sucursalId: l.sucursalId,
+      cantidad: redondearCantidadUnDecimal(l.cantidad),
+      comprobanteRelacionadoId: comprobante.id,
+    })),
+  });
+  return {
+    success: true,
+    data: { comprobanteId: comprobante.id, movimientos: input.lineas.length },
+  };
+}
+
 /**
  * Crea el comprobante justificante y las líneas del ledger.
  * `cantidad` positiva; el signo lo da `tipoMovimiento`.
  */
 export async function registrarStockMovimientos(
-  input: RegistrarStockMovimientosInput
+  input: RegistrarStockMovimientosInput,
+  db?: Prisma.TransactionClient
 ): Promise<ServiceResult<RegistrarStockMovimientosResult>> {
   try {
-    if (input.lineas.length === 0) {
-      return { success: false, error: "No hay líneas de stock." };
-    }
-    const categoriasOk = CATEGORIA_POR_COMPROBANTE[input.comprobanteTipo];
-    for (const linea of input.lineas) {
-      if (!categoriasOk.has(linea.categoriaMovimiento)) {
-        return {
-          success: false,
-          error: "La categoría no corresponde al tipo de comprobante.",
-        };
-      }
-      const tipoFijo = TIPO_FIJO_POR_CATEGORIA[linea.categoriaMovimiento];
-      if (tipoFijo && linea.tipoMovimiento !== tipoFijo) {
-        return {
-          success: false,
-          error: "El tipo de movimiento no corresponde a la categoría.",
-        };
-      }
-      const cant = redondearCantidadUnDecimal(linea.cantidad);
-      if (cant <= 0) {
-        return { success: false, error: "La cantidad debe ser mayor a 0." };
-      }
-    }
-
-    const created = await prisma.$transaction(async (tx) => {
-      const comprobante = await tx.stockComprobante.create({
-        data: {
-          tipo: input.comprobanteTipo,
-          sucursalId: input.sucursalId,
-          sucursalDestinoId: input.sucursalDestinoId ?? null,
-        },
-        select: { id: true },
-      });
-      await tx.stockMovimiento.createMany({
-        data: input.lineas.map((l) => ({
-          tipoMovimiento: l.tipoMovimiento,
-          categoriaMovimiento: l.categoriaMovimiento,
-          codItem: l.codItem.trim(),
-          sucursalId: l.sucursalId,
-          cantidad: redondearCantidadUnDecimal(l.cantidad),
-          comprobanteRelacionadoId: comprobante.id,
-        })),
-      });
-      return comprobante.id;
-    });
-
-    return {
-      success: true,
-      data: { comprobanteId: created, movimientos: input.lineas.length },
-    };
+    if (db) return persistirStockMovimientosEn(db, input);
+    return await prisma.$transaction((tx) => persistirStockMovimientosEn(tx, input));
   } catch (e) {
     console.error("[registrarStockMovimientos]", e);
     return { success: false, error: "Error al registrar movimientos de stock." };
   }
+}
+
+export type ConfirmarAjusteControlStockInput = {
+  sucursalCodigo: string;
+  personalId: number;
+  lineas: Array<{
+    codItem: string;
+    cantidad: number;
+    tipoMovimiento: StockMovimientoTipo;
+  }>;
+};
+
+/** Ajuste de Control Stock: un comprobante `AJUSTE_STOCK` + líneas INGRESO/EGRESO. */
+export async function confirmarAjusteControlStock(
+  input: ConfirmarAjusteControlStockInput
+): Promise<ServiceResult<RegistrarStockMovimientosResult>> {
+  const sucursalId = await obtenerSucursalIdPorCodigo(input.sucursalCodigo);
+  if (!sucursalId) {
+    return { success: false, error: "La sucursal del usuario no existe." };
+  }
+  return registrarStockMovimientos({
+    comprobanteTipo: "AJUSTE_STOCK",
+    sucursalId,
+    personalId: input.personalId,
+    lineas: input.lineas.map((linea) => ({
+      tipoMovimiento: linea.tipoMovimiento,
+      categoriaMovimiento: "AJUSTE_STOCK",
+      codItem: linea.codItem,
+      sucursalId,
+      cantidad: linea.cantidad,
+    })),
+  });
+}
+
+function ledgerDesdeTipoComprobanteVta(
+  tipoComprobante: string
+): {
+  comprobanteTipo: StockComprobanteTipo;
+  tipoMovimiento: StockMovimientoTipo;
+  categoriaMovimiento: StockMovimientoCategoria;
+} | null {
+  if (tipoComprobante === "factura_fiscal" || tipoComprobante === "factura_no_fiscal") {
+    return {
+      comprobanteTipo: "VENTA",
+      tipoMovimiento: "EGRESO",
+      categoriaMovimiento: "VENTA",
+    };
+  }
+  if (
+    tipoComprobante === "nota_credito_fiscal" ||
+    tipoComprobante === "nota_credito_no_fiscal"
+  ) {
+    return {
+      comprobanteTipo: "NOTA_CREDITO",
+      tipoMovimiento: "INGRESO",
+      categoriaMovimiento: "NOTA_CREDITO",
+    };
+  }
+  return null;
+}
+
+async function marcarStockAplicado(
+  db: Prisma.TransactionClient,
+  comprobanteId: string
+): Promise<void> {
+  await db.comprobanteVta.update({
+    where: { id: comprobanteId },
+    data: { stockAplicado: true },
+  });
+}
+
+/**
+ * Idempotente: venta/NC autorizada → ledger + `stock_aplicado`.
+ * Presupuesto y tipos sin efecto no escriben movimientos.
+ */
+export async function aplicarStockDesdeComprobanteVta(
+  comprobanteId: string,
+  db?: Prisma.TransactionClient
+): Promise<ServiceResult<{ movimientos: number }>> {
+  const run = async (tx: Prisma.TransactionClient) => {
+    const row = await tx.comprobanteVta.findUnique({
+      where: { id: comprobanteId },
+      select: {
+        id: true,
+        tipoComprobante: true,
+        estado: true,
+        stockAplicado: true,
+        personalId: true,
+        createdAt: true,
+        personal: { select: { sucursalPorDefecto: true } },
+        items: { select: { codTienda: true, cantidad: true } },
+      },
+    });
+    if (!row) return { success: false as const, error: "El comprobante no existe." };
+    if (row.stockAplicado) return { success: true as const, data: { movimientos: 0 } };
+    if (row.estado !== "autorizado") {
+      return { success: true as const, data: { movimientos: 0 } };
+    }
+    if (row.createdAt < STOCK_VTA_DESDE) {
+      return { success: true as const, data: { movimientos: 0 } };
+    }
+
+    const ledger = ledgerDesdeTipoComprobanteVta(row.tipoComprobante);
+    if (!ledger) {
+      return { success: true as const, data: { movimientos: 0 } };
+    }
+
+    const ya = await tx.stockComprobante.findFirst({
+      where: { comprobanteVtaId: row.id },
+      select: { id: true },
+    });
+    if (ya) {
+      await marcarStockAplicado(tx, row.id);
+      return { success: true as const, data: { movimientos: 0 } };
+    }
+
+    const sucursalCodigo = row.personal?.sucursalPorDefecto?.trim() ?? "";
+    if (!sucursalCodigo) {
+      return {
+        success: false as const,
+        error: "El usuario del comprobante no tiene sucursal para aplicar stock.",
+      };
+    }
+    const sucursalId = await obtenerSucursalIdPorCodigo(sucursalCodigo);
+    if (!sucursalId) {
+      return {
+        success: false as const,
+        error: "La sucursal del usuario no existe.",
+      };
+    }
+
+    const lineas = row.items
+      .map((item) => ({
+        tipoMovimiento: ledger.tipoMovimiento,
+        categoriaMovimiento: ledger.categoriaMovimiento,
+        codItem: item.codTienda.trim(),
+        sucursalId,
+        cantidad: redondearCantidadUnDecimal(cantidadDesdePrisma(item.cantidad)),
+      }))
+      .filter((l) => l.codItem.length > 0 && l.cantidad > 0);
+
+    if (lineas.length === 0) {
+      await marcarStockAplicado(tx, row.id);
+      return { success: true as const, data: { movimientos: 0 } };
+    }
+
+    const reg = await persistirStockMovimientosEn(tx, {
+      comprobanteTipo: ledger.comprobanteTipo,
+      sucursalId,
+      personalId: row.personalId ?? undefined,
+      comprobanteVtaId: row.id,
+      lineas,
+    });
+    if (!reg.success) return reg;
+    await marcarStockAplicado(tx, row.id);
+    return { success: true as const, data: { movimientos: reg.data.movimientos } };
+  };
+
+  try {
+    if (db) return run(db);
+    return await prisma.$transaction((tx) => run(tx));
+  } catch (e) {
+    console.error("[aplicarStockDesdeComprobanteVta]", e);
+    return { success: false, error: "No se pudo registrar el stock del comprobante." };
+  }
+}
+
+/** Borra el header y las líneas del ledger de esa venta/NC (p. ej. al eliminar un no fiscal). */
+export async function revertirStockDeComprobanteVta(
+  comprobanteVtaId: string,
+  db?: Prisma.TransactionClient
+): Promise<void> {
+  const run = async (tx: Prisma.TransactionClient) => {
+    const headers = await tx.stockComprobante.findMany({
+      where: { comprobanteVtaId },
+      select: { id: true },
+    });
+    for (const header of headers) {
+      await tx.stockMovimiento.deleteMany({
+        where: { comprobanteRelacionadoId: header.id },
+      });
+      await tx.stockComprobante.delete({ where: { id: header.id } });
+    }
+    await tx.comprobanteVta.updateMany({
+      where: { id: comprobanteVtaId },
+      data: { stockAplicado: false },
+    });
+  };
+  if (db) {
+    await run(db);
+    return;
+  }
+  await prisma.$transaction((tx) => run(tx));
 }
 
 /** Saldo = ingresos − egresos de `cod_item` en la sucursal. */
@@ -194,4 +436,48 @@ export async function buildMapSaldoStockItemsSucursales(
     );
   }
   return map;
+}
+
+/** Ledger de la sucursal (código `guaymallen` | `maipu`), más recientes primero. */
+export async function listarStockMovimientosPorSucursalCodigo(
+  sucursalCodigo: string
+): Promise<StockMovimientoFila[]> {
+  const sucursalId = await obtenerSucursalIdPorCodigo(sucursalCodigo);
+  if (!sucursalId) return [];
+
+  const rows = await prisma.stockMovimiento.findMany({
+    where: { sucursalId },
+    orderBy: { createdAt: "desc" },
+    take: LISTADO_MOVIMIENTOS_MAX,
+    select: {
+      id: true,
+      tipoMovimiento: true,
+      categoriaMovimiento: true,
+      cantidad: true,
+      createdAt: true,
+      prodTienda: { select: { descripcionTienda: true, codTienda: true } },
+      comprobante: {
+        select: {
+          personal: { select: { nombrePersonal: true } },
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => {
+    const item =
+      row.prodTienda.descripcionTienda.trim() || row.prodTienda.codTienda;
+    return {
+      id: row.id,
+      fechaIso: row.createdAt.toISOString(),
+      fechaMs: row.createdAt.getTime(),
+      tipoMovimiento: row.tipoMovimiento,
+      tipoEtiqueta: TIPO_ETIQUETA[row.tipoMovimiento],
+      categoriaMovimiento: row.categoriaMovimiento,
+      categoriaEtiqueta: CATEGORIA_ETIQUETA[row.categoriaMovimiento],
+      usuarioNombre: row.comprobante.personal?.nombrePersonal.trim() ?? "",
+      item,
+      cantidad: cantidadDesdePrisma(row.cantidad),
+    };
+  });
 }

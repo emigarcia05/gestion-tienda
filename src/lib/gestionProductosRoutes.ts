@@ -30,6 +30,8 @@ export const GP_ROUTES = {
     controlStock: `${GP}/ayuda-vendedor/control-stock`,
     /** Submódulo **Trans. Depósitos** bajo el módulo sidebar **STOCK**. */
     transfDepositos: `${GP}/ayuda-vendedor/transf-depositos`,
+    /** Submódulo **Movimientos** bajo el módulo sidebar **STOCK**. */
+    movimientosStock: `${GP}/ayuda-vendedor/movimientos-stock`,
   },
   analisisPrecios: {
     listaProveedores: {
@@ -76,6 +78,7 @@ export const GP_INTERNAL = {
     calcLitros: "/tienda/litros",
     controlStock: "/stock",
     transfDepositos: "/transf-depositos",
+    movimientosStock: "/stock/movimientos",
   },
   analisisPrecios: {
     listaProveedores: {
@@ -142,6 +145,9 @@ const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
   ],
   [GP_ROUTES.ayudaVendedor.transfDepositos]: [
     "/transf-depositos",
+  ],
+  [GP_ROUTES.ayudaVendedor.movimientosStock]: [
+    "/stock/movimientos",
   ],
   [GP_ROUTES.analisisPrecios.listaProveedores.listaPrecios]: [
     "/gestion-productos/proveedores/lista-precios",
@@ -219,9 +225,11 @@ const CALCULAR_LTS_PREFIXES = [
 const CONTROL_STOCK_PREFIXES = [
   GP_ROUTES.ayudaVendedor.controlStock,
   GP_ROUTES.ayudaVendedor.transfDepositos,
+  GP_ROUTES.ayudaVendedor.movimientosStock,
   "/gestion-productos/tienda/control-stock",
   "/stock",
   "/transf-depositos",
+  "/stock/movimientos",
 ] as const;
 
 const ANALISIS_PRECIOS_PREFIXES = [
@@ -294,6 +302,14 @@ export function isGpRouteActive(pathname: string, canonicalHref: string): boolea
     const aliases = GP_ROUTE_ALIASES[canonicalHref] ?? [];
     return aliases.some(
       (alias) => pathname === alias || pathname.startsWith(`${alias}/`)
+    );
+  }
+
+  if (canonicalHref === GP_ROUTES.ayudaVendedor.movimientosStock) {
+    const aliases = GP_ROUTE_ALIASES[canonicalHref] ?? [];
+    return (
+      pathname === canonicalHref ||
+      aliases.some((alias) => pathname === alias || pathname.startsWith(`${alias}/`))
     );
   }
 
@@ -406,6 +422,7 @@ export const REVALIDATE_AYUDA_VENDEDOR_CALC = gpRevalidatePaths([
   GP_ROUTES.ayudaVendedor.pxVenta.pxTintometrico,
   GP_ROUTES.ayudaVendedor.controlStock,
   GP_ROUTES.ayudaVendedor.transfDepositos,
+  GP_ROUTES.ayudaVendedor.movimientosStock,
 ]);
 
 export const REVALIDATE_ENVIOS = gpRevalidatePaths([

@@ -1,8 +1,13 @@
 "use client";
 
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Check } from "lucide-react";
+import { toast } from "sonner";
+import { confirmarAjusteControlStockAction } from "@/actions/stockMovimientos";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import TablaStock from "@/components/stock/TablaStock";
 import FiltrosStock from "@/components/stock/FiltrosStock";
 import ImprimirStockButton from "@/components/stock/ImprimirStockButton";
@@ -10,6 +15,19 @@ import type { ControlStockData, Sucursal } from "@/actions/stock";
 import type { TablaStockHandle } from "./TablaStock";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import { PAGE_SIZE } from "@/lib/pagination";
+import { sucursalPreferidaLabel } from "@/lib/sucursalPreferida";
+import {
+  EVENTO_USUARIO_SESION,
+  leerUsuarioSesion,
+} from "@/lib/usuarioSesion";
+
+const CONTROL_STOCK_VACIO: ControlStockData = {
+  items: [],
+  total: 0,
+  totalPaginas: 0,
+  marcas: [],
+  rubros: [],
+};
 
 interface Props {
   data: ControlStockData;
@@ -42,31 +60,127 @@ export default function StockPageWithActions({
   paginaNum,
   paramsPagina,
 }: Props) {
+  const pathname = usePathname();
+  const router = useRouter();
   const tableRef = useRef<TablaStockHandle>(null);
   const [totalFiltrados, setTotalFiltrados] = useState<number>(data.items.length);
-  const tieneSucursal = sucursalValida !== null;
+  const [sucursalUsuario, setSucursalUsuario] = useState<Sucursal | null>(null);
+  const [usuarioListo, setUsuarioListo] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+
+  const syncUsuario = useCallback(() => {
+    const usuario = leerUsuarioSesion();
+    setSucursalUsuario(usuario?.sucursalPorDefecto ?? null);
+    setUsuarioListo(true);
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      syncUsuario();
+    });
+    window.addEventListener(EVENTO_USUARIO_SESION, syncUsuario);
+    return () => window.removeEventListener(EVENTO_USUARIO_SESION, syncUsuario);
+  }, [syncUsuario]);
+
+  useEffect(() => {
+    if (!usuarioListo) return;
+    if (!sucursalUsuario) {
+      if (sucursalValida) {
+        router.replace(pathname);
+      }
+      return;
+    }
+    if (sucursalValida === sucursalUsuario) return;
+    const p = new URLSearchParams();
+    p.set("sucursal", sucursalUsuario);
+    if (q) p.set("q", q);
+    if (marca) p.set("marca", marca);
+    if (rubro) p.set("rubro", rubro);
+    if (soloNegativo) p.set("soloNegativo", "true");
+    if (orden) p.set("orden", orden);
+    if (paginaNum > 1) p.set("pagina", String(paginaNum));
+    router.replace(`${pathname}?${p.toString()}`);
+  }, [
+    usuarioListo,
+    sucursalUsuario,
+    sucursalValida,
+    q,
+    marca,
+    rubro,
+    soloNegativo,
+    orden,
+    paginaNum,
+    pathname,
+    router,
+  ]);
+
+  const sucursalVisible =
+    usuarioListo && sucursalUsuario && sucursalValida === sucursalUsuario
+      ? sucursalUsuario
+      : null;
+  const tieneSucursal = sucursalVisible !== null;
   const tieneItems = data.items.length > 0;
 
+  async function handleConfirmarAjuste() {
+    const usuario = leerUsuarioSesion();
+    if (!usuario || !sucursalVisible) {
+      toast.error("Seleccioná un usuario en el slidenav.");
+      return;
+    }
+    const lineas = tableRef.current?.getAjustesPendientes() ?? [];
+    if (lineas.length === 0) {
+      toast.error("No hay ajustes para confirmar.");
+      return;
+    }
+    setConfirmando(true);
+    const res = await confirmarAjusteControlStockAction({
+      sucursalCodigo: sucursalVisible,
+      personalId: usuario.idPersonal,
+      lineas,
+    });
+    setConfirmando(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    tableRef.current?.marcarAjustesConfirmados();
+    toast.success(
+      res.data.movimientos === 1
+        ? "Se confirmó 1 ajuste de stock."
+        : `Se confirmaron ${res.data.movimientos} ajustes de stock.`
+    );
+    router.refresh();
+  }
+
   const actions = (
-    <div className="flex w-full items-center justify-end gap-2">
-      <div className="flex items-center justify-end gap-2">
-        {tieneSucursal && tieneItems && sucursalValida ? (
-          <ImprimirStockButton tableRef={tableRef} />
-        ) : null}
-      </div>
-    </div>
+    <>
+      <ToolbarActionButton
+        label="Confirmar Ajuste"
+        icon={<Check />}
+        loading={confirmando}
+        loadingLabel="Confirmando…"
+        disabled={!tieneSucursal}
+        onClick={() => {
+          void handleConfirmarAjuste();
+        }}
+      />
+      <ImprimirStockButton
+        tableRef={tableRef}
+        disabled={!tieneSucursal || !tieneItems}
+      />
+    </>
   );
 
   const filters = (
     <FiltrosStock
-      data={data}
-      sucursalActual={sucursalValida}
+      data={tieneSucursal ? data : CONTROL_STOCK_VACIO}
+      sucursalActual={sucursalVisible}
       qActual={q}
       marcaActual={marca}
       rubroActual={rubro}
       soloNegativoActual={soloNegativo}
       ordenActual={orden}
-      totalItems={totalFiltrados}
+      totalItems={tieneSucursal ? totalFiltrados : 0}
     />
   );
 
@@ -82,8 +196,11 @@ export default function StockPageWithActions({
           <div className="contenedor-tabla-gestion no-scroll-x flex-1 min-h-0">
             <TablaStock
               ref={tableRef}
-              data={data}
-              sucursalActual={sucursalValida}
+              data={tieneSucursal ? data : CONTROL_STOCK_VACIO}
+              sucursalActual={sucursalVisible}
+              sucursalLabel={
+                sucursalVisible ? sucursalPreferidaLabel(sucursalVisible) : ""
+              }
               qActual={q}
               marcaActual={marca}
               rubroActual={rubro}
@@ -108,4 +225,3 @@ export default function StockPageWithActions({
     </>
   );
 }
-

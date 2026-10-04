@@ -117,6 +117,10 @@ import {
   siguienteOrdenCobroComprobante,
   sumarImpCobradoDesdeMovimientos,
 } from "@/services/cobrosComprobante.service";
+import {
+  aplicarStockDesdeComprobanteVta,
+  revertirStockDeComprobanteVta,
+} from "@/services/stockMovimientos.service";
 
 /** Error de negocio al impactar cobros en tesorería (rollback de la misma tx). */
 class TesoreriaCobroFacturaError extends Error {
@@ -124,6 +128,47 @@ class TesoreriaCobroFacturaError extends Error {
     super(serviceError);
     this.name = "TesoreriaCobroFacturaError";
   }
+}
+
+/** Error de negocio al registrar stock (rollback de la misma tx). */
+class StockFacturaError extends Error {
+  constructor(readonly serviceError: string) {
+    super(serviceError);
+    this.name = "StockFacturaError";
+  }
+}
+
+async function persistirStockDeComprobanteEnTx(
+  comprobanteId: string,
+  tx: Prisma.TransactionClient
+): Promise<void> {
+  const stock = await aplicarStockDesdeComprobanteVta(comprobanteId, tx);
+  if (!stock.success) {
+    throw new StockFacturaError(stock.error);
+  }
+}
+
+async function asegurarStockTrasAutorizar(
+  emitido: ServiceResult<FacturaEmitirResultado>
+): Promise<ServiceResult<FacturaEmitirResultado>> {
+  if (!emitido.success) return emitido;
+  if (emitido.data.estado !== "autorizado") return emitido;
+  const stock = await aplicarStockDesdeComprobanteVta(emitido.data.id);
+  if (!stock.success) {
+    return {
+      success: false,
+      error: `El comprobante se emitió, pero no se registró el stock: ${stock.error}`,
+    };
+  }
+  return emitido;
+}
+
+async function finalizarEmisionAutorizada(
+  emitido: ServiceResult<FacturaEmitirResultado>,
+  originalId: string | null
+): Promise<ServiceResult<FacturaEmitirResultado>> {
+  const imputado = await imputarNcEmitidaAlOriginal(emitido, originalId);
+  return asegurarStockTrasAutorizar(imputado);
 }
 
 async function persistirMovimientosCobroEnTx(
@@ -689,6 +734,7 @@ export async function eliminarComprobanteNoFiscal(
       if (esFacturaTipoNotaCredito(tipo)) {
         await revertirImputacionesNotaCredito(tx, id);
       }
+      await revertirStockDeComprobanteVta(id, tx);
       await tx.comprobanteVta.updateMany({
         where: { cbteAsocId: id },
         data: { cbteAsocId: null },
@@ -1320,12 +1366,13 @@ export async function emitirFacturaComprobante(
           }),
           tx
         );
+        await persistirStockDeComprobanteEnTx(header.id, tx);
         return header;
       });
       const emitido = { success: true as const, data: emitirResultadoDesdeRow(created) };
-      return imputarNcEmitidaAlOriginal(emitido, original?.id ?? null);
+      return finalizarEmisionAutorizada(emitido, original?.id ?? null);
     } catch (e) {
-      if (e instanceof TesoreriaCobroFacturaError) {
+      if (e instanceof TesoreriaCobroFacturaError || e instanceof StockFacturaError) {
         return { success: false, error: e.serviceError };
       }
       console.error("[facturaComprobantes][emitirInterno]", e);
@@ -1455,7 +1502,7 @@ async function emitirFiscal(args: {
   });
   if (existente?.cae) {
     const emitido = { success: true as const, data: emitirResultadoDesdeRow(existente) };
-    return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
+    return finalizarEmisionAutorizada(emitido, args.original?.id ?? null);
   }
   if (existente && !existente.cae) {
     const consultado = await wsfeCompConsultar(auth, ptoNro, args.cbteTipo, cbteNro);
@@ -1473,7 +1520,7 @@ async function emitirFiscal(args: {
         },
       });
       const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
-      return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
+      return finalizarEmisionAutorizada(emitido, args.original?.id ?? null);
     }
   }
 
@@ -1628,7 +1675,7 @@ async function emitirFiscal(args: {
         }),
       });
       const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
-      return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
+      return finalizarEmisionAutorizada(emitido, args.original?.id ?? null);
     }
     await prisma.comprobanteVta.update({
       where: { id: createdId },
@@ -1674,7 +1721,7 @@ async function emitirFiscal(args: {
     };
   }
   const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };
-  return imputarNcEmitidaAlOriginal(emitido, args.original?.id ?? null);
+  return finalizarEmisionAutorizada(emitido, args.original?.id ?? null);
 }
 
 export async function emitirNotaCreditoDesdeComprobante(
@@ -1742,7 +1789,10 @@ export async function consultarFacturaComprobanteArca(
     return { success: false, error: "Ese comprobante no es fiscal ARCA." };
   }
   if (row.cae) {
-    return { success: true, data: emitirResultadoDesdeRow(row) };
+    return asegurarStockTrasAutorizar({
+      success: true,
+      data: emitirResultadoDesdeRow(row),
+    });
   }
   const authRes = await obtenerAuthWsfe({
     ptoVenta: row.ptoVenta,
@@ -1774,7 +1824,10 @@ export async function consultarFacturaComprobanteArca(
     resultado: consultado.data.resultado,
     errores: null,
   });
-  return { success: true, data: emitirResultadoDesdeRow(updated) };
+  return asegurarStockTrasAutorizar({
+    success: true,
+    data: emitirResultadoDesdeRow(updated),
+  });
 }
 
 export async function guardarDiasVencimientoComprobante(

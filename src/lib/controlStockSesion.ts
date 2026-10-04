@@ -5,11 +5,17 @@ import {
   redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
 
-export type ItemStockControlMeta = { codItem: string; stock: number };
-
 export function formatStockInputValor(stock: number): string {
   return formatCantidadInputValor(stock);
 }
+
+export type AjusteControlStockLinea = {
+  codItem: string;
+  cantidad: number;
+  tipoMovimiento: "INGRESO" | "EGRESO";
+};
+
+export type StockControlBase = { codItem: string; stock: number };
 
 export function getVariacionStock(
   stockOriginal: number,
@@ -26,13 +32,24 @@ export function getVariacionStock(
   };
 }
 
-export function itemControladoEnSesion(
-  id: string,
+/** Líneas de ajuste: diferencia entre el valor editado y el saldo base. */
+export function lineasAjusteDesdeEdicion(
   stocksEditados: Record<string, string>,
-  meta: ItemStockControlMeta | undefined,
-  confirmado: boolean
-): boolean {
-  if (!meta) return false;
-  if (confirmado) return true;
-  return !!getVariacionStock(meta.stock, stocksEditados[id]);
+  bases: Record<string, StockControlBase>
+): AjusteControlStockLinea[] {
+  const lineas: AjusteControlStockLinea[] = [];
+  for (const [id, raw] of Object.entries(stocksEditados)) {
+    const base = bases[id];
+    if (!base) continue;
+    const stockEditado = parseCantidadUnDecimal(raw, { min: 0 });
+    if (stockEditado == null) continue;
+    const delta = redondearCantidadUnDecimal(stockEditado - base.stock);
+    if (delta === 0) continue;
+    lineas.push({
+      codItem: base.codItem,
+      cantidad: Math.abs(delta),
+      tipoMovimiento: delta > 0 ? "INGRESO" : "EGRESO",
+    });
+  }
+  return lineas;
 }

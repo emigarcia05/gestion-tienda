@@ -21,12 +21,6 @@ import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { cn } from "@/lib/utils";
 import type { ControlStockData, Sucursal } from "@/actions/stock";
-import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
-
-const SUCURSALES: { value: Sucursal; label: string }[] = [
-  { value: "guaymallen", label: "GUAYMALLÉN" },
-  { value: "maipu", label: "MAIPÚ" },
-];
 
 interface Props {
   data: ControlStockData;
@@ -64,19 +58,7 @@ export default function FiltrosStock({
     onDebouncedSearch: (value) => navigate({ q: value }),
   });
 
-  useAplicarSucursalPreferidaSiVacia(sucursalActual, (preferida) => {
-    const p = new URLSearchParams();
-    p.set("sucursal", preferida);
-    if (q) p.set("q", q);
-    if (marcaActual) p.set("marca", marcaActual);
-    if (rubroActual) p.set("rubro", rubroActual);
-    if (soloNegativoActual) p.set("soloNegativo", "true");
-    if (ordenActual) p.set("orden", ordenActual);
-    router.replace(`${pathname}?${p.toString()}`);
-  });
-
   function buildParams(updates: {
-    sucursal?: Sucursal | null;
     q?: string;
     marca?: string;
     rubro?: string;
@@ -84,8 +66,6 @@ export default function FiltrosStock({
     orden?: string;
   }): URLSearchParams {
     const p = new URLSearchParams();
-    const sucursal =
-      updates.sucursal !== undefined ? updates.sucursal : sucursalActual;
     const qVal = updates.q !== undefined ? updates.q : q;
     const marcaVal = updates.marca !== undefined ? updates.marca : marcaActual;
     const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
@@ -95,7 +75,7 @@ export default function FiltrosStock({
         : soloNegativoActual;
     const ordenVal = updates.orden !== undefined ? updates.orden : ordenActual;
 
-    if (sucursal) p.set("sucursal", sucursal);
+    if (sucursalActual) p.set("sucursal", sucursalActual);
     if (qVal) p.set("q", qVal);
     if (marcaVal) p.set("marca", marcaVal);
     if (rubroVal) p.set("rubro", rubroVal);
@@ -105,7 +85,6 @@ export default function FiltrosStock({
   }
 
   function navigate(updates: {
-    sucursal?: Sucursal | null;
     q?: string;
     marca?: string;
     rubro?: string;
@@ -115,18 +94,6 @@ export default function FiltrosStock({
     const p = buildParams(updates);
     const query = p.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
-  }
-
-  function handleSucursal(value: string) {
-    if (!value) {
-      router.push(pathname);
-      return;
-    }
-    navigate({
-      sucursal: value as Sucursal,
-      marca: "",
-      rubro: "",
-    });
   }
 
   function handleMarca(value: string) {
@@ -152,42 +119,12 @@ export default function FiltrosStock({
     }
   }
 
-  const sucursalValue = sucursalActual ?? undefined;
   const sucursalSeleccionada = sucursalActual !== null;
 
   return (
     <FilterBar className="filtros-contenedor-tienda bg-card">
       <FilterRowSelection>
-        <FilaFiltrosDesplegables>
-          <FiltroIndividualContainer
-            className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={sucursalActual !== null}
-            onLimpiar={() => handleSucursal("")}
-          >
-            <Select
-              value={sucursalValue}
-              onValueChange={(v) => handleSucursal(v)}
-            >
-              <SelectTrigger
-                id="filtro-stock-sucursal"
-                className="input-filtro-unificado"
-              >
-                <SelectValue placeholder="SUCURSAL" />
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                side="bottom"
-                align="start"
-                className="select-content-filtro"
-              >
-                {SUCURSALES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FiltroIndividualContainer>
+        <FilaFiltrosDesplegables columnas={4}>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(marcaActual)}

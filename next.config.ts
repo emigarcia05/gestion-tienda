@@ -66,6 +66,7 @@ function canonicalGestionProductosRewrites(): { source: string; destination: str
     { source: R.envios.conductor, destination: I.envios.conductor },
     { source: R.ayudaVendedor.controlStock, destination: I.ayudaVendedor.controlStock },
     { source: R.ayudaVendedor.transfDepositos, destination: I.ayudaVendedor.transfDepositos },
+    { source: R.ayudaVendedor.movimientosStock, destination: I.ayudaVendedor.movimientosStock },
     {
       source: R.analisisPrecios.listaProveedores.listaPrecios,
       destination: I.analisisPrecios.listaProveedores.listaPrecios,
