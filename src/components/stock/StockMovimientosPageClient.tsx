@@ -21,6 +21,7 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
+import FiltroRangoFechasCalendarioModal from "@/components/shared/FiltroRangoFechasCalendarioModal";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import StockComprobanteDetalleModal from "@/components/stock/StockComprobanteDetalleModal";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,12 @@ import {
 } from "@/components/ui/table";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import { fmtCantidad, fmtCelda } from "@/lib/format";
-import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
+import {
+  addDaysToIsoYmdArgentina,
+  dateToIsoYmdArgentina,
+  formatDdMmHhMmArgentina,
+  formatIsoYmdDdMmYyyyArgentina,
+} from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -65,12 +71,33 @@ const CATEGORIAS_MOVIMIENTO = [
   "COMPRA",
 ] as const;
 
+const PERIODO_HOY = "hoy";
+const PERIODO_RANGO = "rango";
+
+type PeriodoFiltro = "hoy" | "ayer" | "mes" | "rango" | "todos";
+
+function esPeriodoFiltroPreset(
+  value: string
+): value is Exclude<PeriodoFiltro, "rango"> {
+  return (
+    value === "hoy" ||
+    value === "ayer" ||
+    value === "mes" ||
+    value === "todos"
+  );
+}
+
 export default function StockMovimientosPageClient() {
   const [filas, setFilas] = useState<StockMovimientoFila[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tieneUsuario, setTieneUsuario] = useState(false);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
+  const [rangoDesde, setRangoDesde] = useState("");
+  const [rangoHasta, setRangoHasta] = useState("");
+  const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroContraparte, setFiltroContraparte] = useState("");
   const [comprobanteVtaIdVer, setComprobanteVtaIdVer] = useState<string | null>(
     null
   );
@@ -117,11 +144,60 @@ export default function StockMovimientosPageClient() {
     return () => window.removeEventListener(EVENTO_USUARIO_SESION, onUsuario);
   }, [cargar]);
 
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+  const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
+
+  const opcionesContraparte = useMemo(() => {
+    const set = new Set<string>();
+    for (const fila of filas) {
+      if (filtroTipo && fila.tipoEtiqueta !== filtroTipo) continue;
+      if (filtroCategoria && fila.categoriaEtiqueta !== filtroCategoria) continue;
+      const fechaYmd = dateToIsoYmdArgentina(new Date(fila.fechaMs));
+      if (periodo === "hoy" && fechaYmd !== hoyIso) continue;
+      if (periodo === "ayer" && fechaYmd !== ayerIso) continue;
+      if (periodo === "mes" && fechaYmd.slice(0, 7) !== hoyIso.slice(0, 7)) {
+        continue;
+      }
+      if (periodo === "rango") {
+        if (!rangoDesde || !rangoHasta) continue;
+        if (fechaYmd < rangoDesde || fechaYmd > rangoHasta) continue;
+      }
+      const nombre = fila.contraparteNombre.trim();
+      if (nombre) set.add(nombre);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [
+    filas,
+    filtroTipo,
+    filtroCategoria,
+    periodo,
+    rangoDesde,
+    rangoHasta,
+    hoyIso,
+    ayerIso,
+  ]);
+
   const filasFiltradas = useMemo(
     () =>
       filas.filter((fila) => {
+        const fechaYmd = dateToIsoYmdArgentina(new Date(fila.fechaMs));
+        if (periodo === "hoy" && fechaYmd !== hoyIso) return false;
+        if (periodo === "ayer" && fechaYmd !== ayerIso) return false;
+        if (periodo === "mes" && fechaYmd.slice(0, 7) !== hoyIso.slice(0, 7)) {
+          return false;
+        }
+        if (periodo === "rango") {
+          if (!rangoDesde || !rangoHasta) return false;
+          if (fechaYmd < rangoDesde || fechaYmd > rangoHasta) return false;
+        }
         if (filtroTipo && fila.tipoEtiqueta !== filtroTipo) return false;
         if (filtroCategoria && fila.categoriaEtiqueta !== filtroCategoria) {
+          return false;
+        }
+        if (
+          filtroContraparte &&
+          fila.contraparteNombre.trim() !== filtroContraparte
+        ) {
           return false;
         }
         if (
@@ -136,12 +212,42 @@ export default function StockMovimientosPageClient() {
         }
         return true;
       }),
-    [filas, filtroTipo, filtroCategoria, q]
+    [
+      filas,
+      periodo,
+      rangoDesde,
+      rangoHasta,
+      filtroTipo,
+      filtroCategoria,
+      filtroContraparte,
+      q,
+      hoyIso,
+      ayerIso,
+    ]
   );
 
+  function onPeriodoChange(value: string) {
+    if (value === PERIODO_RANGO) {
+      setRangoModalOpen(true);
+      return;
+    }
+    if (!esPeriodoFiltroPreset(value)) return;
+    setRangoDesde("");
+    setRangoHasta("");
+    setPeriodo(value);
+  }
+
+  function limpiarPeriodo() {
+    setPeriodo(PERIODO_HOY);
+    setRangoDesde("");
+    setRangoHasta("");
+  }
+
   function limpiarFiltros() {
+    limpiarPeriodo();
     setFiltroTipo("");
     setFiltroCategoria("");
+    setFiltroContraparte("");
     setQ("");
   }
 
@@ -155,7 +261,13 @@ export default function StockMovimientosPageClient() {
     setStockComprobanteIdVer(fila.stockComprobanteId);
   }
 
-  const hayFiltros = Boolean(filtroTipo || filtroCategoria || q.trim());
+  const hayFiltros = Boolean(
+    periodo !== PERIODO_HOY ||
+      filtroTipo ||
+      filtroCategoria ||
+      filtroContraparte ||
+      q.trim()
+  );
 
   return (
     <ClassicFilteredTableLayout
@@ -164,6 +276,42 @@ export default function StockMovimientosPageClient() {
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
           <FilaFiltrosDesplegables columnas={4}>
+            <FiltroIndividualContainer
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={periodo !== PERIODO_HOY}
+              onLimpiar={limpiarPeriodo}
+            >
+              <Select value={periodo} onValueChange={onPeriodoChange}>
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  {periodo === PERIODO_RANGO && rangoDesde && rangoHasta ? (
+                    <span data-slot="select-value" className="truncate">
+                      {`${formatIsoYmdDdMmYyyyArgentina(rangoDesde)} - ${formatIsoYmdDdMmYyyyArgentina(rangoHasta)}`}
+                    </span>
+                  ) : (
+                    <SelectValue placeholder="FECHA" />
+                  )}
+                </SelectTrigger>
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  <SelectItem value="hoy">HOY</SelectItem>
+                  <SelectItem value="ayer">AYER</SelectItem>
+                  <SelectItem value="mes">ESTE MES</SelectItem>
+                  <SelectItem
+                    value={PERIODO_RANGO}
+                    onPointerDown={() => {
+                      queueMicrotask(() => setRangoModalOpen(true));
+                    }}
+                  >
+                    RANGO PERSONALIZADO
+                  </SelectItem>
+                  <SelectItem value="todos">TODO</SelectItem>
+                </SelectContent>
+              </Select>
+            </FiltroIndividualContainer>
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={Boolean(filtroTipo)}
@@ -215,6 +363,32 @@ export default function StockMovimientosPageClient() {
                   {CATEGORIAS_MOVIMIENTO.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FiltroIndividualContainer>
+            <FiltroIndividualContainer
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={Boolean(filtroContraparte)}
+              onLimpiar={() => setFiltroContraparte("")}
+            >
+              <Select
+                value={filtroContraparte || undefined}
+                onValueChange={setFiltroContraparte}
+              >
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectValue placeholder="CLIENTES/PROVEEDORES" />
+                </SelectTrigger>
+                <SelectContent
+                  className="select-content-filtro"
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                >
+                  {opcionesContraparte.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -325,6 +499,18 @@ export default function StockMovimientosPageClient() {
         </div>
       )}
 
+      <FiltroRangoFechasCalendarioModal
+        open={rangoModalOpen}
+        onOpenChange={setRangoModalOpen}
+        fechaDesde={rangoDesde}
+        fechaHasta={rangoHasta}
+        onAplicarRango={(desde, hasta) => {
+          setRangoDesde(desde);
+          setRangoHasta(hasta);
+          setPeriodo(PERIODO_RANGO);
+        }}
+        onLimpiar={limpiarPeriodo}
+      />
       <FacturaComprobanteDetalleModal
         open={Boolean(comprobanteVtaIdVer)}
         onOpenChange={(open) => {
