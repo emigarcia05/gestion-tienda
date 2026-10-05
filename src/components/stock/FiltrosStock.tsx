@@ -114,7 +114,7 @@ export default function FiltrosStock({
   return (
     <FilterBar className="filtros-contenedor-tienda bg-card">
       <FilterRowSelection>
-        <FilaFiltrosDesplegables columnas={3}>
+        <FilaFiltrosDesplegables columnas={4}>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(marcaActual)}
