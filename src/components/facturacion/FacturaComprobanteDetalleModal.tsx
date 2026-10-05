@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { obtenerFacturaComprobantePdfAction } from "@/actions/factura";
 import AppModal from "@/components/shared/AppModal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -26,7 +25,6 @@ import {
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtCantidad, fmtCelda, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
-
 import type { ActionResult } from "@/lib/types";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
 
@@ -34,6 +32,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   comprobanteId: string | null;
+  /** Override (p. ej. cuenta corriente pública). Default: GET `/api/facturacion/comprobantes/[id]/detalle`. */
   obtenerPdf?: (input: {
     id: string;
   }) => Promise<ActionResult<FacturaComprobantePdfDatos>>;
@@ -46,11 +45,46 @@ function tituloDetalle(datos: FacturaComprobantePdfInput | null): string {
   return letra ? `${base} ${letra}` : base;
 }
 
+async function obtenerDetalleViaApi(input: {
+  id: string;
+}): Promise<ActionResult<FacturaComprobantePdfDatos>> {
+  const response = await fetch(
+    `/api/facturacion/comprobantes/${encodeURIComponent(input.id)}/detalle`,
+    { method: "GET", credentials: "same-origin", cache: "no-store" }
+  );
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (
+    payload !== null &&
+    typeof payload === "object" &&
+    "ok" in payload &&
+    (payload as { ok: unknown }).ok === true &&
+    "data" in payload
+  ) {
+    return {
+      ok: true,
+      data: (payload as { data: FacturaComprobantePdfDatos }).data,
+    };
+  }
+  const error =
+    payload !== null &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof (payload as { error: unknown }).error === "string"
+      ? (payload as { error: string }).error
+      : "No se pudo leer el comprobante.";
+  return { ok: false, error };
+}
+
 export default function FacturaComprobanteDetalleModal({
   open,
   onOpenChange,
   comprobanteId,
-  obtenerPdf = obtenerFacturaComprobantePdfAction,
+  obtenerPdf = obtenerDetalleViaApi,
 }: Props) {
   const [datos, setDatos] = useState<FacturaComprobantePdfInput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,18 +106,38 @@ export default function FacturaComprobanteDetalleModal({
         setLoading(true);
       });
     }
-    void obtenerPdfRef.current({ id: comprobanteId }).then((res) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (!res.ok) {
-        toast.error(res.error);
+    void (async () => {
+      try {
+        const res = await obtenerPdfRef.current({ id: comprobanteId });
+        if (cancelled) return;
+        if (!res.ok) {
+          toast.error(res.error);
+          setDatos(null);
+          datosComprobanteIdRef.current = null;
+          return;
+        }
+        datosComprobanteIdRef.current = comprobanteId;
+        setDatos(res.data);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[FacturaComprobanteDetalleModal]", e);
         setDatos(null);
         datosComprobanteIdRef.current = null;
-        return;
+        const raw =
+          e instanceof Error && e.message.trim() ? e.message.trim() : "";
+        const opaco =
+          /Server Components render|digest property|omitted in production/i.test(
+            raw
+          );
+        toast.error(
+          opaco || !raw
+            ? "No se pudo leer el comprobante. Recargá la página."
+            : raw.slice(0, 200)
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      datosComprobanteIdRef.current = comprobanteId;
-      setDatos(res.data);
-    });
+    })();
     return () => {
       cancelled = true;
     };

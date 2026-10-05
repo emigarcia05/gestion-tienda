@@ -32,8 +32,6 @@ export interface ItemStock {
   marca:           string | null;
   rubro:           string | null;
   stock:           number;
-  /** ISO 8601 (serializable RSC → cliente). */
-  ultimaExportacionExcel: string | null;
 }
 
 export interface ControlStockData {
@@ -49,7 +47,6 @@ export interface GetControlStockParams {
   marca?: string;
   rubro?: string;
   soloNegativo?: boolean;
-  orden?: string;
   pagina?: number;
 }
 
@@ -92,7 +89,6 @@ export async function getControlStock(
     marca = "",
     rubro = "",
     soloNegativo: _soloNegativo = false,
-    orden = "",
     pagina: paginaNum = 1,
   } = parsedParams.data;
   const skip = (paginaNum - 1) * PAGE_SIZE;
@@ -125,13 +121,7 @@ export async function getControlStock(
     const [rows, total, marcasDistinct, rubrosDistinct] = await Promise.all([
       prisma.prodTienda.findMany({
         where: whereItems,
-        orderBy:
-          orden === "segunTiempoControl"
-            ? [
-                { ultimaExportacionExcel: { sort: "asc", nulls: "first" } },
-                { descripcionTienda: "asc" },
-              ]
-            : { descripcionTienda: "asc" },
+        orderBy: { descripcionTienda: "asc" },
         skip,
         take: PAGE_SIZE,
         select: {
@@ -139,7 +129,6 @@ export async function getControlStock(
           descripcionTienda: true,
           marca: true,
           rubro: true,
-          ultimaExportacionExcel: true,
         },
       }),
       prisma.prodTienda.count({ where: whereItems }),
@@ -172,7 +161,6 @@ export async function getControlStock(
       marca: r.marca,
       rubro: r.rubro,
       stock: saldos.get(r.codTienda) ?? 0,
-      ultimaExportacionExcel: r.ultimaExportacionExcel?.toISOString() ?? null,
     }));
 
     const totalPaginas = total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE);

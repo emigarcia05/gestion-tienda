@@ -62,6 +62,16 @@ export function fmtCantidad(n: number | null | undefined): string {
   });
 }
 
+/** CANT. de ledger: `cantidad` positiva; `+` ingreso, `-` egreso. */
+export function fmtCantidadMovimiento(
+  cantidad: number,
+  tipoMovimiento: "INGRESO" | "EGRESO"
+): string {
+  const n = fmtCantidad(cantidad);
+  if (n === "") return "";
+  return `${tipoMovimiento === "EGRESO" ? "-" : "+"}${n}`;
+}
+
 /** Valor de input: `5` o `0,5`. */
 export function formatCantidadInputValor(n: number): string {
   return fmtCantidad(n);

@@ -38,7 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import { fmtCantidad, fmtCelda } from "@/lib/format";
+import { fmtCantidadMovimiento, fmtCelda } from "@/lib/format";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -527,7 +527,7 @@ export default function StockMovimientosPageClient() {
                       {fmtCelda(fila.item)}
                     </TableCell>
                     <TableCell className="celda-datos text-right tabular-nums">
-                      {fmtCantidad(fila.cantidad)}
+                      {fmtCantidadMovimiento(fila.cantidad, fila.tipoMovimiento)}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
                       <Button

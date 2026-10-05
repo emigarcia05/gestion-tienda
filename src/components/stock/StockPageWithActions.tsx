@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
-import { confirmarAjusteControlStockAction } from "@/actions/stockMovimientos";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import TablaStock from "@/components/stock/TablaStock";
@@ -20,6 +19,7 @@ import {
   EVENTO_USUARIO_SESION,
   leerUsuarioSesion,
 } from "@/lib/usuarioSesion";
+import type { RegistrarStockMovimientosResult } from "@/services/stockMovimientos.service";
 
 const CONTROL_STOCK_VACIO: ControlStockData = {
   items: [],
@@ -42,7 +42,6 @@ interface Props {
   marca: string;
   rubro: string;
   soloNegativo: boolean;
-  orden: string;
   paginaNum: number;
   paramsPagina: Record<string, string>;
 }
@@ -56,7 +55,6 @@ export default function StockPageWithActions({
   marca,
   rubro,
   soloNegativo,
-  orden,
   paginaNum,
   paramsPagina,
 }: Props) {
@@ -97,7 +95,6 @@ export default function StockPageWithActions({
     if (marca) p.set("marca", marca);
     if (rubro) p.set("rubro", rubro);
     if (soloNegativo) p.set("soloNegativo", "true");
-    if (orden) p.set("orden", orden);
     if (paginaNum > 1) p.set("pagina", String(paginaNum));
     router.replace(`${pathname}?${p.toString()}`);
   }, [
@@ -108,7 +105,6 @@ export default function StockPageWithActions({
     marca,
     rubro,
     soloNegativo,
-    orden,
     paginaNum,
     pathname,
     router,
@@ -133,23 +129,55 @@ export default function StockPageWithActions({
       return;
     }
     setConfirmando(true);
-    const res = await confirmarAjusteControlStockAction({
-      sucursalCodigo: sucursalVisible,
-      personalId: usuario.idPersonal,
-      lineas,
-    });
-    setConfirmando(false);
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
+    try {
+      const response = await fetch("/api/stock/ajustes", {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sucursalCodigo: sucursalVisible,
+          personalId: usuario.idPersonal,
+          lineas,
+        }),
+      });
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      const okPayload =
+        payload !== null &&
+        typeof payload === "object" &&
+        "ok" in payload &&
+        (payload as { ok: unknown }).ok === true &&
+        "data" in payload;
+      if (!response.ok || !okPayload) {
+        const errMsg =
+          payload !== null &&
+          typeof payload === "object" &&
+          "error" in payload &&
+          typeof (payload as { error: unknown }).error === "string"
+            ? (payload as { error: string }).error
+            : "No se pudo confirmar el ajuste.";
+        toast.error(errMsg);
+        return;
+      }
+      const data = (payload as { data: RegistrarStockMovimientosResult }).data;
+      tableRef.current?.marcarAjustesConfirmados();
+      toast.success(
+        data.movimientos === 1
+          ? "Se confirmó 1 ajuste de stock."
+          : `Se confirmaron ${data.movimientos} ajustes de stock.`
+      );
+      router.refresh();
+    } catch (e) {
+      console.error("[StockPageWithActions.confirmarAjuste]", e);
+      toast.error("No se pudo confirmar el ajuste. Recargá la página.");
+    } finally {
+      setConfirmando(false);
     }
-    tableRef.current?.marcarAjustesConfirmados();
-    toast.success(
-      res.data.movimientos === 1
-        ? "Se confirmó 1 ajuste de stock."
-        : `Se confirmaron ${res.data.movimientos} ajustes de stock.`
-    );
-    router.refresh();
   }
 
   const actions = (
@@ -179,7 +207,6 @@ export default function StockPageWithActions({
       marcaActual={marca}
       rubroActual={rubro}
       soloNegativoActual={soloNegativo}
-      ordenActual={orden}
       totalItems={tieneSucursal ? totalFiltrados : 0}
     />
   );

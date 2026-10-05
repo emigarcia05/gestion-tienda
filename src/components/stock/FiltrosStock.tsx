@@ -29,7 +29,6 @@ interface Props {
   marcaActual: string;
   rubroActual: string;
   soloNegativoActual: boolean;
-  ordenActual: string;
   totalItems: number;
 }
 
@@ -40,7 +39,6 @@ export default function FiltrosStock({
   marcaActual,
   rubroActual,
   soloNegativoActual,
-  ordenActual,
   totalItems,
 }: Props) {
   const pathname = usePathname();
@@ -63,7 +61,6 @@ export default function FiltrosStock({
     marca?: string;
     rubro?: string;
     soloNegativo?: boolean;
-    orden?: string;
   }): URLSearchParams {
     const p = new URLSearchParams();
     const qVal = updates.q !== undefined ? updates.q : q;
@@ -73,14 +70,12 @@ export default function FiltrosStock({
       updates.soloNegativo !== undefined
         ? updates.soloNegativo
         : soloNegativoActual;
-    const ordenVal = updates.orden !== undefined ? updates.orden : ordenActual;
 
     if (sucursalActual) p.set("sucursal", sucursalActual);
     if (qVal) p.set("q", qVal);
     if (marcaVal) p.set("marca", marcaVal);
     if (rubroVal) p.set("rubro", rubroVal);
     if (soloVal) p.set("soloNegativo", "true");
-    if (ordenVal) p.set("orden", ordenVal);
     return p;
   }
 
@@ -89,7 +84,6 @@ export default function FiltrosStock({
     marca?: string;
     rubro?: string;
     soloNegativo?: boolean;
-    orden?: string;
   }) {
     const p = buildParams(updates);
     const query = p.toString();
@@ -106,10 +100,6 @@ export default function FiltrosStock({
     navigate({ soloNegativo: value === "negativo" });
   }
 
-  function handleOrden(value: string) {
-    navigate({ orden: value });
-  }
-
   function limpiarFiltros() {
     setQ("");
     if (sucursalActual) {
@@ -124,7 +114,7 @@ export default function FiltrosStock({
   return (
     <FilterBar className="filtros-contenedor-tienda bg-card">
       <FilterRowSelection>
-        <FilaFiltrosDesplegables columnas={4}>
+        <FilaFiltrosDesplegables columnas={3}>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(marcaActual)}
@@ -208,34 +198,6 @@ export default function FiltrosStock({
                 className="select-content-filtro"
               >
                 <SelectItem value="negativo">STOCK NEGATIVO</SelectItem>
-              </SelectContent>
-            </Select>
-          </FiltroIndividualContainer>
-          <FiltroIndividualContainer
-            className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={ordenActual === "segunTiempoControl"}
-            onLimpiar={() => handleOrden("")}
-          >
-            <Select
-              value={ordenActual || ""}
-              onValueChange={(v) => handleOrden(v)}
-              disabled={!sucursalSeleccionada}
-            >
-              <SelectTrigger
-                id="filtro-stock-orden"
-                className="input-filtro-unificado"
-              >
-                <SelectValue placeholder="ORDEN" />
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                side="bottom"
-                align="start"
-                className="select-content-filtro"
-              >
-                <SelectItem value="segunTiempoControl">
-                  SEGUN TIEMPO CONTROL
-                </SelectItem>
               </SelectContent>
             </Select>
           </FiltroIndividualContainer>

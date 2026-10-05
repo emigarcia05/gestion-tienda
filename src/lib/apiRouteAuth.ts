@@ -111,6 +111,24 @@ export async function guardStockAcceso(): Promise<NextResponse | null> {
   return null;
 }
 
+/**
+ * Detalle PDF de comprobante de venta (preview desde Facturación o STOCK · Movimientos).
+ * Vendedor necesita leer el comprobante vinculado al ledger sin exigir solo facturación.
+ */
+export async function guardFacturacionOStockLectura(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (
+    puede(rol, PERMISOS.facturacion.acceso) ||
+    puede(rol, PERMISOS.stock.acceso)
+  ) {
+    return null;
+  }
+  return NextResponse.json(
+    { ok: false, error: "Sin permisos para ver el comprobante." },
+    { status: 403 }
+  );
+}
+
 /** Consulta constancia ARCA (CUIT → nombre / cond. IVA): Envíos o Facturación. */
 export async function guardClientesMutacion(): Promise<NextResponse | null> {
   const rol = await getRol();

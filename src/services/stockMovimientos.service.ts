@@ -55,6 +55,7 @@ const COMPROBANTE_TIPO_ETIQUETA: Record<StockComprobanteTipo, string> = {
 
 export type StockComprobanteDetalleLinea = {
   id: string;
+  tipoMovimiento: StockMovimientoTipo;
   tipoEtiqueta: string;
   categoriaEtiqueta: string;
   item: string;
@@ -646,6 +647,7 @@ export async function obtenerStockComprobanteDetalle(
         comprobanteVtaId: row.comprobanteVtaId,
         lineas: row.movimientos.map((m) => ({
           id: m.id,
+          tipoMovimiento: m.tipoMovimiento,
           tipoEtiqueta: TIPO_ETIQUETA[m.tipoMovimiento],
           categoriaEtiqueta: CATEGORIA_ETIQUETA[m.categoriaMovimiento],
           item:

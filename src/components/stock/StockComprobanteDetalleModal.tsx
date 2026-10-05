@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  obtenerStockComprobanteDetalleAction,
-  type StockComprobanteDetalle,
-} from "@/actions/stockMovimientos";
+import type { StockComprobanteDetalle } from "@/actions/stockMovimientos";
 import AppModal from "@/components/shared/AppModal";
 import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
 import { Button } from "@/components/ui/button";
@@ -28,6 +25,41 @@ type Props = {
   stockComprobanteId: string | null;
 };
 
+async function obtenerDetalleViaApi(
+  stockComprobanteId: string
+): Promise<{ ok: true; data: StockComprobanteDetalle } | { ok: false; error: string }> {
+  const response = await fetch(
+    `/api/stock/comprobantes/${encodeURIComponent(stockComprobanteId)}`,
+    { method: "GET", credentials: "same-origin", cache: "no-store" }
+  );
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (
+    payload !== null &&
+    typeof payload === "object" &&
+    "ok" in payload &&
+    (payload as { ok: unknown }).ok === true &&
+    "data" in payload
+  ) {
+    return {
+      ok: true,
+      data: (payload as { data: StockComprobanteDetalle }).data,
+    };
+  }
+  const error =
+    payload !== null &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof (payload as { error: unknown }).error === "string"
+      ? (payload as { error: string }).error
+      : "No se pudo cargar el comprobante de stock.";
+  return { ok: false, error };
+}
+
 export default function StockComprobanteDetalleModal({
   open,
   onOpenChange,
@@ -44,18 +76,25 @@ export default function StockComprobanteDetalleModal({
       setDatos(null);
       setLoading(true);
     });
-    void obtenerStockComprobanteDetalleAction({ stockComprobanteId }).then(
-      (res) => {
+    void (async () => {
+      try {
+        const res = await obtenerDetalleViaApi(stockComprobanteId);
         if (cancelled) return;
-        setLoading(false);
         if (!res.ok) {
           toast.error(res.error);
           setDatos(null);
           return;
         }
         setDatos(res.data);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[StockComprobanteDetalleModal]", e);
+        setDatos(null);
+        toast.error("No se pudo cargar el comprobante de stock. Recargá la página.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    );
+    })();
     return () => {
       cancelled = true;
     };

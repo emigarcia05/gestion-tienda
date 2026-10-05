@@ -1089,6 +1089,7 @@ model ProdTienda {
   costoCompraCodExt String? @map("costo_compra_cod_ext")
   costoCompra     Decimal  @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
   lastSync        DateTime @default(now()) @map("last_sync")
+  /** Legacy export Excel de Control Stock (ya no se lee ni escribe). */
   ultimaExportacionExcel DateTime? @map("ultima_exportacion_excel")
   /// Producto propio TiendaColor: no admite vínculos con `prod_precios_provee`; el sync DUX no modifica este flag.
   esProductoPropio Boolean @default(false) @map("es_producto_propio")

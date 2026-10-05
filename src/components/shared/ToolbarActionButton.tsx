@@ -81,8 +81,8 @@ export interface ToolbarActionButtonProps
  * // Variante secundaria
  * <ToolbarActionButton
  *   variant="secondary"
- *   label="Exportar Stock"
- *   icon={<Download />}
+ *   label="Imprimir"
+ *   icon={<Printer />}
  * />
  */
 export default function ToolbarActionButton({
