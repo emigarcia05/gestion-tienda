@@ -41,6 +41,10 @@ export const listarStockMovimientosSucursalSchema = z.object({
   sucursalCodigo: sucursalPorDefectoSchema,
 });
 
+export const obtenerStockComprobanteDetalleSchema = z.object({
+  stockComprobanteId: prismaCuidSchema,
+});
+
 export const lineaAjusteControlStockSchema = z.object({
   codItem: listaPreciosCodTiendaSchema,
   cantidad: cantidadUnDecimalPositivaSchema,

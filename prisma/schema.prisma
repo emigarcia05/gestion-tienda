@@ -383,16 +383,16 @@ model PtoVentasCodArca {
 }
 
 /**
- * Catálogo de personal DUX para recepción de compras (`id_personal` en POST v2/compras)
- * y administración de usuarios (sucursal por defecto, módulos y titular financiero).
- * Tabla SQL `personal` (ex `global_personal`). PK `id_personal` (serial, no lo carga el usuario).
+ * Catálogo de usuarios (ex `personal` / `global_personal`) para recepción DUX
+ * (`id_personal` en POST v2/compras) y administración (sucursal, módulos, titular).
+ * Tabla SQL `usuarios`. PK `id_personal` (serial, no lo carga el usuario).
  * Vínculo DUX: `id_dux` (opcional, unique).
  */
 model GlobalPersonal {
   idPersonal         Int      @id @default(autoincrement()) @map("id_personal")
   nombrePersonal     String   @map("nombre_personal")
   /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
-  idDux              String?  @unique(map: "personal_id_dux_key") @map("id_dux")
+  idDux              String?  @unique(map: "usuarios_id_dux_key") @map("id_dux")
   /** Código de `sucursales` (guaymallen | maipu). */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
   /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | area-finanzas (0..n). `facturacion` ya no es área. */
@@ -403,9 +403,10 @@ model GlobalPersonal {
   comprobantesVtas ComprobanteVta[]
   movimientosTesoreria TesoreriaMovimiento[]
   stockComprobantes StockComprobante[]
+  stockMovimientos  StockMovimiento[]
 
-  @@index([sucursalPorDefecto], map: "personal_sucursal_por_defecto_idx")
-  @@map("personal")
+  @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
+  @@map("usuarios")
 }
 
 /**
@@ -1127,7 +1128,7 @@ model StockComprobante {
   tipo              StockComprobanteTipo
   sucursalId        String               @map("sucursal")
   sucursalDestinoId String?              @map("sucursal_destino")
-  /** Usuario de pestaña que registró el comprobante (`personal.id_personal`). */
+  /** Usuario de pestaña que registró el comprobante (`usuarios.id_personal`). */
   personalId        Int?                 @map("personal_id")
   /** Venta / NC que originó el movimiento (`vtas_comprobantes`). */
   comprobanteVtaId  String?              @map("comprobante_vta_id")
@@ -1149,6 +1150,7 @@ model StockComprobante {
  * Ledger de stock (`stock_movimientos`).
  * `cantidad` siempre positiva; el signo lo da `tipo_movimiento`.
  * Cada sucursal es depósito. `comprobante_relacionado` → `stock_comprobantes`.
+ * `usuario_id` → `usuarios.id_personal` (quién registró la línea).
  */
 model StockMovimiento {
   id                       String                   @id @default(cuid())
@@ -1159,15 +1161,19 @@ model StockMovimiento {
   /** Positiva. Hasta 1 decimal (el front muestra entero si no hay fracción). */
   cantidad                 Decimal                  @db.Decimal(12, 1)
   comprobanteRelacionadoId String                   @map("comprobante_relacionado")
+  /** Usuario de pestaña que registró el movimiento (`usuarios.id_personal`). */
+  usuarioId                Int?                     @map("usuario_id")
   createdAt                DateTime                 @default(now()) @map("created_at")
 
   prodTienda  ProdTienda       @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
   sucursal    Sucursal         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   comprobante StockComprobante @relation(fields: [comprobanteRelacionadoId], references: [id], onDelete: Restrict)
+  usuario     GlobalPersonal?  @relation(fields: [usuarioId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([codItem, sucursalId], map: "stock_movimientos_item_sucursal_idx")
   @@index([comprobanteRelacionadoId], map: "stock_movimientos_comprobante_idx")
   @@index([sucursalId, createdAt], map: "stock_movimientos_sucursal_fecha_idx")
+  @@index([usuarioId], map: "stock_movimientos_usuario_idx")
   @@map("stock_movimientos")
 }
 
@@ -2034,7 +2040,7 @@ model ComprobanteVta {
   diasVencimiento Int? @map("dias_vencimiento")
   /** Suma cobrada al emitir. Saldo = `imp_total` − `imp_cobrado`. */
   impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
-  /** Usuario de pestaña que generó el comprobante (`personal.id_personal`). */
+  /** Usuario de pestaña que generó el comprobante (`usuarios.id_personal`). */
   personalId Int? @map("personal_id")
 
   createdAt DateTime @default(now()) @map("created_at")

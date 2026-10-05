@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   listarStockMovimientosSucursalAction,
   type StockMovimientoFila,
 } from "@/actions/stockMovimientos";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
   FILTER_INLINE_ACTION_SLOT_CLASS,
@@ -20,6 +22,8 @@ import FilterBar, {
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
+import StockComprobanteDetalleModal from "@/components/stock/StockComprobanteDetalleModal";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -40,6 +44,10 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import { fmtCantidad, fmtCelda } from "@/lib/format";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import {
   EVENTO_USUARIO_SESION,
@@ -63,6 +71,12 @@ export default function StockMovimientosPageClient() {
   const [tieneUsuario, setTieneUsuario] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [comprobanteVtaIdVer, setComprobanteVtaIdVer] = useState<string | null>(
+    null
+  );
+  const [stockComprobanteIdVer, setStockComprobanteIdVer] = useState<
+    string | null
+  >(null);
 
   const { q, setQ, ref, handleQChange, isDebouncing } = useFiltrosConBusqueda({
     qActual: "",
@@ -112,7 +126,11 @@ export default function StockMovimientosPageClient() {
         }
         if (
           q.trim() &&
-          !matchByMultiTerm([fila.item], q, { numericAsContains: true })
+          !matchByMultiTerm(
+            [fila.item, fila.contraparteNombre, fila.usuarioNombre],
+            q,
+            { numericAsContains: true }
+          )
         ) {
           return false;
         }
@@ -125,6 +143,16 @@ export default function StockMovimientosPageClient() {
     setFiltroTipo("");
     setFiltroCategoria("");
     setQ("");
+  }
+
+  function abrirPreview(fila: StockMovimientoFila) {
+    if (fila.comprobanteVtaId) {
+      setStockComprobanteIdVer(null);
+      setComprobanteVtaIdVer(fila.comprobanteVtaId);
+      return;
+    }
+    setComprobanteVtaIdVer(null);
+    setStockComprobanteIdVer(fila.stockComprobanteId);
   }
 
   const hayFiltros = Boolean(filtroTipo || filtroCategoria || q.trim());
@@ -229,27 +257,29 @@ export default function StockMovimientosPageClient() {
         <div className="contenedor-tabla-gestion">
           <Table variant="compact">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[12%]" />
-              <col className="w-[20%]" />
-              <col className="w-[16%]" />
-              <col className="w-[30%]" />
-              <col className="w-[8%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[45%]" />
+              <col className="w-[5%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>FECHA</TableHead>
-                <TableHead>TIPO</TableHead>
                 <TableHead>CATEGORÍA</TableHead>
                 <TableHead>USUARIO</TableHead>
+                <TableHead>CLIENTE/PROVEEDOR</TableHead>
                 <TableHead>ITEM</TableHead>
                 <TableHead className="text-right">CANT.</TableHead>
+                <TableHead className="text-center">ACCIONES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filasFiltradas.length === 0 ? (
                 <EmptyTableRow
-                  colSpan={6}
+                  colSpan={7}
                   message={
                     cargando ? "Cargando movimientos." : "Sin resultados"
                   }
@@ -261,19 +291,31 @@ export default function StockMovimientosPageClient() {
                       {formatDdMmHhMmArgentina(new Date(fila.fechaMs))}
                     </TableCell>
                     <TableCell className="celda-datos">
-                      {fmtCelda(fila.tipoEtiqueta)}
-                    </TableCell>
-                    <TableCell className="celda-datos">
                       {fmtCelda(fila.categoriaEtiqueta)}
                     </TableCell>
                     <TableCell className="celda-datos">
                       {fmtCelda(fila.usuarioNombre)}
                     </TableCell>
                     <TableCell className="celda-datos min-w-0">
+                      {fmtCelda(fila.contraparteNombre)}
+                    </TableCell>
+                    <TableCell className="celda-datos min-w-0">
                       {fmtCelda(fila.item)}
                     </TableCell>
                     <TableCell className="celda-datos text-right tabular-nums">
                       {fmtCantidad(fila.cantidad)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        aria-label="Ver comprobante"
+                        onClick={() => abrirPreview(fila)}
+                      >
+                        <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -282,6 +324,21 @@ export default function StockMovimientosPageClient() {
           </Table>
         </div>
       )}
+
+      <FacturaComprobanteDetalleModal
+        open={Boolean(comprobanteVtaIdVer)}
+        onOpenChange={(open) => {
+          if (!open) setComprobanteVtaIdVer(null);
+        }}
+        comprobanteId={comprobanteVtaIdVer}
+      />
+      <StockComprobanteDetalleModal
+        open={Boolean(stockComprobanteIdVer)}
+        onOpenChange={(open) => {
+          if (!open) setStockComprobanteIdVer(null);
+        }}
+        stockComprobanteId={stockComprobanteIdVer}
+      />
     </ClassicFilteredTableLayout>
   );
 }

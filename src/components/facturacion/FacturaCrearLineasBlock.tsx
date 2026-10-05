@@ -361,22 +361,36 @@ export default function FacturaCrearLineasBlock({
       ref={wrapRef}
       className="relative flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
     >
-      <div className="relative z-30 shrink-0">
-        <div className="flex items-start gap-2">
-          <Button
-            type="button"
-            variant="default"
-            size="icon"
-            className="size-9 shrink-0"
-            title="Búsqueda avanzada"
-            aria-label="Búsqueda avanzada"
-            onClick={() => {
-              setAbierto(false);
-              setBusquedaAvanzadaOpen(true);
-            }}
-          >
-            <Search className="h-4 w-4 shrink-0" aria-hidden />
-          </Button>
+      <div className="flex shrink-0 items-start gap-2">
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="h-9 shrink-0 gap-1 px-2.5 text-xs"
+          disabled={lineas.length === 0}
+          title="Aplicar descuento"
+          aria-label="Aplicar descuento"
+          onClick={() => setDescuentoModalOpen(true)}
+        >
+          <Percent className="h-3 w-3 shrink-0" aria-hidden />
+          Desc.
+        </Button>
+        <div className="relative z-30 min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              className="size-9 shrink-0"
+              title="Búsqueda avanzada"
+              aria-label="Búsqueda avanzada"
+              onClick={() => {
+                setAbierto(false);
+                setBusquedaAvanzadaOpen(true);
+              }}
+            >
+              <Search className="h-4 w-4 shrink-0" aria-hidden />
+            </Button>
 
           <div className="filtro-individual-container relative min-w-0 flex-1">
             <Input
@@ -461,6 +475,7 @@ export default function FacturaCrearLineasBlock({
                 <Trash2 className="h-4 w-4" />
               </Button>
             ) : null}
+          </div>
           </div>
         </div>
       </div>
@@ -630,35 +645,11 @@ export default function FacturaCrearLineasBlock({
 
       <div
         className={cn(
-          "flex min-h-12 shrink-0 items-center overflow-hidden rounded-md border border-primary bg-card"
+          "pie-pagina flex min-h-12 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-md px-2 py-1.5"
         )}
+        aria-label="Resumen de totales"
       >
-        <div
-          className="flex shrink-0 items-center justify-center px-2 py-1.5"
-          aria-label="Zona de descuentos"
-        >
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="h-8 gap-1 px-2.5 text-xs"
-            disabled={lineas.length === 0}
-            title="Aplicar descuento"
-            aria-label="Aplicar descuento"
-            onClick={() => setDescuentoModalOpen(true)}
-          >
-            <Percent className="h-3 w-3 shrink-0" aria-hidden />
-            Desc.
-          </Button>
-        </div>
-
-        <div
-          className={cn(
-            "pie-pagina flex min-w-0 flex-1 items-center justify-center gap-2 px-2 py-1.5"
-          )}
-          aria-label="Resumen de totales"
-        >
-          <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+        <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
             <span className={PIE_ETIQUETA_CLASS}>CANT. ITEMS</span>
             <span className={PIE_VALOR_CLASS}>{fmtNumero(resumen.totalItem)}</span>
           </div>
@@ -680,7 +671,6 @@ export default function FacturaCrearLineasBlock({
             <span className={PIE_ETIQUETA_CLASS}>TOTAL C/ DESC.</span>
             <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalConDesc)}`}</span>
           </div>
-        </div>
       </div>
 
       {abierto && puedeBuscar ? (

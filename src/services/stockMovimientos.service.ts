@@ -34,8 +34,45 @@ export type StockMovimientoFila = {
   categoriaMovimiento: StockMovimientoCategoria;
   categoriaEtiqueta: string;
   usuarioNombre: string;
+  /** Cliente (venta/NC), proveedor (compra) o par de sucursales (transf.). */
+  contraparteNombre: string;
   item: string;
   cantidad: number;
+  /** Header `stock_comprobantes.id`. */
+  stockComprobanteId: string;
+  stockComprobanteTipo: StockComprobanteTipo;
+  /** Si hay venta/NC vinculada, abre el detalle de factura. */
+  comprobanteVtaId: string | null;
+};
+
+const COMPROBANTE_TIPO_ETIQUETA: Record<StockComprobanteTipo, string> = {
+  VENTA: "VENTA",
+  NOTA_CREDITO: "NOTA DE CRÉDITO",
+  COMPRA: "COMPRA",
+  AJUSTE_STOCK: "AJUSTE STOCK",
+  TRANSFERENCIA_ENTRE_DEPOSITOS: "TRANSFERENCIA ENTRE DEPÓSITOS",
+};
+
+export type StockComprobanteDetalleLinea = {
+  id: string;
+  tipoEtiqueta: string;
+  categoriaEtiqueta: string;
+  item: string;
+  cantidad: number;
+  sucursalCodigo: string;
+};
+
+export type StockComprobanteDetalle = {
+  id: string;
+  tipo: StockComprobanteTipo;
+  tipoEtiqueta: string;
+  fechaIso: string;
+  fechaMs: number;
+  usuarioNombre: string;
+  sucursalOrigen: string;
+  sucursalDestino: string;
+  comprobanteVtaId: string | null;
+  lineas: StockComprobanteDetalleLinea[];
 };
 
 const TIPO_ETIQUETA: Record<StockMovimientoTipo, string> = {
@@ -153,6 +190,7 @@ async function persistirStockMovimientosEn(
       sucursalId: l.sucursalId,
       cantidad: redondearCantidadUnDecimal(l.cantidad),
       comprobanteRelacionadoId: comprobante.id,
+      usuarioId: input.personalId ?? null,
     })),
   });
   return {
@@ -181,6 +219,7 @@ async function persistirStockMovimientosStandalone(
             codItem: l.codItem.trim(),
             sucursalId: l.sucursalId,
             cantidad: redondearCantidadUnDecimal(l.cantidad),
+            usuarioId: input.personalId ?? null,
           })),
         },
       },
@@ -488,10 +527,18 @@ export async function listarStockMovimientosPorSucursalCodigo(
       categoriaMovimiento: true,
       cantidad: true,
       createdAt: true,
+      comprobanteRelacionadoId: true,
       prodTienda: { select: { descripcionTienda: true, codTienda: true } },
+      usuario: { select: { nombrePersonal: true } },
       comprobante: {
         select: {
+          id: true,
+          tipo: true,
+          comprobanteVtaId: true,
           personal: { select: { nombrePersonal: true } },
+          sucursal: { select: { codigo: true, nombre: true } },
+          sucursalDestino: { select: { codigo: true, nombre: true } },
+          comprobanteVta: { select: { receptorNombre: true } },
         },
       },
     },
@@ -500,6 +547,11 @@ export async function listarStockMovimientosPorSucursalCodigo(
   return rows.map((row) => {
     const item =
       row.prodTienda.descripcionTienda?.trim() || row.prodTienda.codTienda;
+    const usuarioNombre =
+      row.usuario?.nombrePersonal.trim() ||
+      row.comprobante.personal?.nombrePersonal.trim() ||
+      "";
+    const contraparteNombre = contraparteDesdeComprobante(row.comprobante);
     return {
       id: row.id,
       fechaIso: row.createdAt.toISOString(),
@@ -508,9 +560,106 @@ export async function listarStockMovimientosPorSucursalCodigo(
       tipoEtiqueta: TIPO_ETIQUETA[row.tipoMovimiento],
       categoriaMovimiento: row.categoriaMovimiento,
       categoriaEtiqueta: CATEGORIA_ETIQUETA[row.categoriaMovimiento],
-      usuarioNombre: row.comprobante.personal?.nombrePersonal.trim() ?? "",
+      usuarioNombre,
+      contraparteNombre,
       item,
       cantidad: cantidadDesdePrisma(row.cantidad),
+      stockComprobanteId: row.comprobante.id,
+      stockComprobanteTipo: row.comprobante.tipo,
+      comprobanteVtaId: row.comprobante.comprobanteVtaId,
     };
   });
+}
+
+function etiquetaSucursal(s: {
+  codigo: string;
+  nombre: string | null;
+} | null): string {
+  if (!s) return "";
+  return (s.nombre?.trim() || s.codigo.trim()).toUpperCase();
+}
+
+function contraparteDesdeComprobante(comprobante: {
+  tipo: StockComprobanteTipo;
+  comprobanteVta: { receptorNombre: string } | null;
+  sucursal: { codigo: string; nombre: string | null };
+  sucursalDestino: { codigo: string; nombre: string | null } | null;
+}): string {
+  if (
+    comprobante.tipo === "VENTA" ||
+    comprobante.tipo === "NOTA_CREDITO"
+  ) {
+    return comprobante.comprobanteVta?.receptorNombre.trim() ?? "";
+  }
+  if (comprobante.tipo === "TRANSFERENCIA_ENTRE_DEPOSITOS") {
+    const origen = etiquetaSucursal(comprobante.sucursal);
+    const destino = etiquetaSucursal(comprobante.sucursalDestino);
+    if (origen && destino) return `${origen} → ${destino}`;
+    return origen || destino;
+  }
+  return "";
+}
+
+/** Detalle del justificante de stock (ajuste, transferencia, compra, o fallback). */
+export async function obtenerStockComprobanteDetalle(
+  stockComprobanteId: string
+): Promise<ServiceResult<StockComprobanteDetalle>> {
+  const id = stockComprobanteId.trim();
+  if (!id) {
+    return { success: false, error: "Comprobante de stock inválido." };
+  }
+  try {
+    const row = await prisma.stockComprobante.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        tipo: true,
+        createdAt: true,
+        comprobanteVtaId: true,
+        personal: { select: { nombrePersonal: true } },
+        sucursal: { select: { codigo: true, nombre: true } },
+        sucursalDestino: { select: { codigo: true, nombre: true } },
+        movimientos: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            tipoMovimiento: true,
+            categoriaMovimiento: true,
+            cantidad: true,
+            prodTienda: { select: { descripcionTienda: true, codTienda: true } },
+            sucursal: { select: { codigo: true } },
+          },
+        },
+      },
+    });
+    if (!row) {
+      return { success: false, error: "El comprobante de stock no existe." };
+    }
+    return {
+      success: true,
+      data: {
+        id: row.id,
+        tipo: row.tipo,
+        tipoEtiqueta: COMPROBANTE_TIPO_ETIQUETA[row.tipo],
+        fechaIso: row.createdAt.toISOString(),
+        fechaMs: row.createdAt.getTime(),
+        usuarioNombre: row.personal?.nombrePersonal.trim() ?? "",
+        sucursalOrigen: etiquetaSucursal(row.sucursal),
+        sucursalDestino: etiquetaSucursal(row.sucursalDestino),
+        comprobanteVtaId: row.comprobanteVtaId,
+        lineas: row.movimientos.map((m) => ({
+          id: m.id,
+          tipoEtiqueta: TIPO_ETIQUETA[m.tipoMovimiento],
+          categoriaEtiqueta: CATEGORIA_ETIQUETA[m.categoriaMovimiento],
+          item:
+            m.prodTienda.descripcionTienda?.trim() || m.prodTienda.codTienda,
+          cantidad: cantidadDesdePrisma(m.cantidad),
+          sucursalCodigo: m.sucursal.codigo.trim().toUpperCase(),
+        })),
+      },
+    };
+  } catch (e) {
+    console.error("[obtenerStockComprobanteDetalle]", e);
+    return { success: false, error: "No se pudo cargar el comprobante de stock." };
+  }
 }

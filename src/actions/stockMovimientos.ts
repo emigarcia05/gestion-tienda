@@ -6,15 +6,18 @@ import type { ActionResult } from "@/lib/types";
 import {
   confirmarAjusteControlStockSchema,
   listarStockMovimientosSucursalSchema,
+  obtenerStockComprobanteDetalleSchema,
 } from "@/lib/validations/stockMovimientos";
 import {
   confirmarAjusteControlStock,
   listarStockMovimientosPorSucursalCodigo,
+  obtenerStockComprobanteDetalle,
   type RegistrarStockMovimientosResult,
+  type StockComprobanteDetalle,
   type StockMovimientoFila,
 } from "@/services/stockMovimientos.service";
 
-export type { StockMovimientoFila };
+export type { StockComprobanteDetalle, StockMovimientoFila };
 
 export async function listarStockMovimientosSucursalAction(
   raw: unknown
@@ -32,6 +35,17 @@ export async function listarStockMovimientosSucursalAction(
     console.error("[listarStockMovimientosSucursalAction]", e);
     return { ok: false, error: "No se pudieron cargar los movimientos." };
   }
+}
+
+export async function obtenerStockComprobanteDetalleAction(
+  raw: unknown
+): Promise<ActionResult<StockComprobanteDetalle>> {
+  const gate = await requireStockAcceso();
+  if (gate) return gate;
+  const parsed = obtenerStockComprobanteDetalleSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  const res = await obtenerStockComprobanteDetalle(parsed.data.stockComprobanteId);
+  return fromServiceResult(res);
 }
 
 export async function confirmarAjusteControlStockAction(
