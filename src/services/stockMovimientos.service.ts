@@ -84,8 +84,7 @@ const CATEGORIA_ETIQUETA: Record<StockMovimientoCategoria, string> = {
   VENTA: "VENTA",
   NOTA_CREDITO: "NOTA DE CRÉDITO",
   AJUSTE_STOCK: "AJUSTE STOCK",
-  TRANSF_DEPO_INGRESO: "TRANSF. DEPÓSITO INGRESO",
-  TRANSF_DEPO_EGRESO: "TRANSF. DEPÓSITO EGRESO",
+  TRANSF_INTERNA: "TRANS. INTERNA",
   COMPRA: "COMPRA",
 };
 
@@ -107,10 +106,7 @@ const CATEGORIA_POR_COMPROBANTE: Record<
   NOTA_CREDITO: new Set(["NOTA_CREDITO"]),
   COMPRA: new Set(["COMPRA"]),
   AJUSTE_STOCK: new Set(["AJUSTE_STOCK"]),
-  TRANSFERENCIA_ENTRE_DEPOSITOS: new Set([
-    "TRANSF_DEPO_INGRESO",
-    "TRANSF_DEPO_EGRESO",
-  ]),
+  TRANSFERENCIA_ENTRE_DEPOSITOS: new Set(["TRANSF_INTERNA"]),
 };
 
 const TIPO_FIJO_POR_CATEGORIA: Partial<
@@ -119,8 +115,7 @@ const TIPO_FIJO_POR_CATEGORIA: Partial<
   VENTA: "EGRESO",
   NOTA_CREDITO: "INGRESO",
   COMPRA: "INGRESO",
-  TRANSF_DEPO_INGRESO: "INGRESO",
-  TRANSF_DEPO_EGRESO: "EGRESO",
+  // TRANSF_INTERNA y AJUSTE_STOCK: ingreso o egreso según la línea
 };
 
 export function claveSaldoStock(codItem: string, sucursalId: string): string {
@@ -517,38 +512,95 @@ export async function listarStockMovimientosPorSucursalCodigo(
   const sucursalId = await obtenerSucursalIdPorCodigo(sucursalCodigo);
   if (!sucursalId) return [];
 
-  const rows = await prisma.stockMovimiento.findMany({
-    where: { sucursalId },
-    orderBy: { createdAt: "desc" },
-    take: LISTADO_MOVIMIENTOS_MAX,
-    select: {
-      id: true,
-      tipoMovimiento: true,
-      categoriaMovimiento: true,
-      cantidad: true,
-      createdAt: true,
-      comprobanteRelacionadoId: true,
-      prodTienda: { select: { descripcionTienda: true, codTienda: true } },
-      usuario: { select: { nombrePersonal: true } },
-      comprobante: {
-        select: {
-          id: true,
-          tipo: true,
-          comprobanteVtaId: true,
-          personal: { select: { nombrePersonal: true } },
-          sucursal: { select: { codigo: true, nombre: true } },
-          sucursalDestino: { select: { codigo: true, nombre: true } },
-          comprobanteVta: { select: { receptorNombre: true } },
-        },
+  const selectBase = {
+    id: true,
+    tipoMovimiento: true,
+    categoriaMovimiento: true,
+    cantidad: true,
+    createdAt: true,
+    comprobanteRelacionadoId: true,
+    prodTienda: { select: { descripcionTienda: true, codTienda: true } },
+    comprobante: {
+      select: {
+        id: true,
+        tipo: true,
+        comprobanteVtaId: true,
+        personalId: true,
+        personal: { select: { nombrePersonal: true } },
+        sucursal: { select: { codigo: true, nombre: true } },
+        sucursalDestino: { select: { codigo: true, nombre: true } },
+        comprobanteVta: { select: { receptorNombre: true } },
       },
     },
-  });
+  } as const;
+
+  type RowListado = {
+    id: string;
+    tipoMovimiento: StockMovimientoTipo;
+    categoriaMovimiento: StockMovimientoCategoria;
+    cantidad: Parameters<typeof cantidadDesdePrisma>[0];
+    createdAt: Date;
+    usuarioId?: number | null;
+    prodTienda: { descripcionTienda: string | null; codTienda: string };
+    comprobante: {
+      id: string;
+      tipo: StockComprobanteTipo;
+      comprobanteVtaId: string | null;
+      personalId: number | null;
+      personal: { nombrePersonal: string } | null;
+      sucursal: { codigo: string; nombre: string };
+      sucursalDestino: { codigo: string; nombre: string } | null;
+      comprobanteVta: { receptorNombre: string } | null;
+    };
+  };
+
+  let rows: RowListado[];
+  try {
+    rows = await prisma.stockMovimiento.findMany({
+      where: { sucursalId },
+      orderBy: { createdAt: "desc" },
+      take: LISTADO_MOVIMIENTOS_MAX,
+      select: { ...selectBase, usuarioId: true },
+    });
+  } catch (e) {
+    // Si la migración `usuario_id` aún no corrió, no tumbar el listado.
+    console.error("[listarStockMovimientosPorSucursalCodigo] retry sin usuarioId", e);
+    rows = await prisma.stockMovimiento.findMany({
+      where: { sucursalId },
+      orderBy: { createdAt: "desc" },
+      take: LISTADO_MOVIMIENTOS_MAX,
+      select: selectBase,
+    });
+  }
+
+  const usuarioIds = [
+    ...new Set(
+      rows
+        .map((r) => r.usuarioId ?? r.comprobante.personalId)
+        .filter((id): id is number => id != null && Number.isFinite(id))
+    ),
+  ];
+  const nombresPorId = new Map<number, string>();
+  if (usuarioIds.length > 0) {
+    try {
+      const personas = await prisma.globalPersonal.findMany({
+        where: { idPersonal: { in: usuarioIds } },
+        select: { idPersonal: true, nombrePersonal: true },
+      });
+      for (const p of personas) {
+        nombresPorId.set(p.idPersonal, p.nombrePersonal.trim());
+      }
+    } catch (e) {
+      console.error("[listarStockMovimientosPorSucursalCodigo] nombres usuario", e);
+    }
+  }
 
   return rows.map((row) => {
     const item =
       row.prodTienda.descripcionTienda?.trim() || row.prodTienda.codTienda;
+    const idUsuario = row.usuarioId ?? row.comprobante.personalId;
     const usuarioNombre =
-      row.usuario?.nombrePersonal.trim() ||
+      (idUsuario != null ? nombresPorId.get(idUsuario) : undefined) ||
       row.comprobante.personal?.nombrePersonal.trim() ||
       "";
     const contraparteNombre = contraparteDesdeComprobante(row.comprobante);

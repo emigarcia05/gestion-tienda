@@ -16,8 +16,7 @@ export const stockMovimientoCategoriaSchema = z.enum([
   "VENTA",
   "NOTA_CREDITO",
   "AJUSTE_STOCK",
-  "TRANSF_DEPO_INGRESO",
-  "TRANSF_DEPO_EGRESO",
+  "TRANSF_INTERNA",
   "COMPRA",
 ]);
 

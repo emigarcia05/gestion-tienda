@@ -33,7 +33,11 @@ export async function listarStockMovimientosSucursalAction(
     return { ok: true, data: filas };
   } catch (e) {
     console.error("[listarStockMovimientosSucursalAction]", e);
-    return { ok: false, error: "No se pudieron cargar los movimientos." };
+    const msg =
+      e instanceof Error && /does not exist|P2021|P2022/i.test(e.message)
+        ? e.message.slice(0, 240)
+        : "No se pudieron cargar los movimientos.";
+    return { ok: false, error: msg };
   }
 }
 

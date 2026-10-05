@@ -50,12 +50,12 @@ enum StockMovimientoTipo {
 }
 
 enum StockMovimientoCategoria {
-  VENTA               @map("venta")
-  NOTA_CREDITO        @map("nota_credito")
-  AJUSTE_STOCK        @map("ajuste_stock")
-  TRANSF_DEPO_INGRESO @map("transf_depo_ingreso")
-  TRANSF_DEPO_EGRESO  @map("transf_depo_egreso")
-  COMPRA              @map("compra")
+  VENTA          @map("venta")
+  NOTA_CREDITO   @map("nota_credito")
+  AJUSTE_STOCK   @map("ajuste_stock")
+  /** Transferencia entre sucursales/depósitos. Signo en `tipo_movimiento`. */
+  TRANSF_INTERNA @map("transf_interna")
+  COMPRA         @map("compra")
 
   @@map("stock_movimiento_categoria")
 }

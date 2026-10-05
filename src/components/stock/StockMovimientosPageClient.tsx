@@ -66,12 +66,10 @@ const CATEGORIAS_MOVIMIENTO = [
   "VENTA",
   "NOTA DE CRÉDITO",
   "AJUSTE STOCK",
-  "TRANSF. DEPÓSITO INGRESO",
-  "TRANSF. DEPÓSITO EGRESO",
+  "TRANS. INTERNA",
   "COMPRA",
 ] as const;
 
-const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
 
 type PeriodoFiltro = "hoy" | "ayer" | "mes" | "rango" | "todos";
@@ -91,7 +89,7 @@ export default function StockMovimientosPageClient() {
   const [filas, setFilas] = useState<StockMovimientoFila[]>([]);
   const [cargando, setCargando] = useState(true);
   const [tieneUsuario, setTieneUsuario] = useState(false);
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>(PERIODO_HOY);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>("todos");
   const [rangoDesde, setRangoDesde] = useState("");
   const [rangoHasta, setRangoHasta] = useState("");
   const [rangoModalOpen, setRangoModalOpen] = useState(false);
@@ -238,7 +236,7 @@ export default function StockMovimientosPageClient() {
   }
 
   function limpiarPeriodo() {
-    setPeriodo(PERIODO_HOY);
+    setPeriodo("todos");
     setRangoDesde("");
     setRangoHasta("");
   }
@@ -262,7 +260,7 @@ export default function StockMovimientosPageClient() {
   }
 
   const hayFiltros = Boolean(
-    periodo !== PERIODO_HOY ||
+    periodo !== "todos" ||
       filtroTipo ||
       filtroCategoria ||
       filtroContraparte ||
@@ -278,7 +276,7 @@ export default function StockMovimientosPageClient() {
           <FilaFiltrosDesplegables columnas={4}>
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={periodo !== PERIODO_HOY}
+              activo={periodo !== "todos"}
               onLimpiar={limpiarPeriodo}
             >
               <Select value={periodo} onValueChange={onPeriodoChange}>
