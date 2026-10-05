@@ -105,7 +105,7 @@ export type TablaTransfDepositosHandle = {
  * DESCRIPCIÓN · CANT. (−/+) · SUC. ORIGEN · SUC. DESTINO · ACCIONES
  * (Trash2, Check historial, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
- * hasta **Generar Transferencia** (crea `stock_transferencias` PENDIENTE).
+ * hasta **Generar Transferencia** (crea `stock_transferencias` EMITIDO_PENDIENTE).
  * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(

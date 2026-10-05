@@ -58,16 +58,30 @@ export const crearStockTransferenciaSchema = z
 
 export const aceptarStockTransferenciaSchema = z.object({
   personalId: idPersonalSchema,
-  /** Ítems omitidos se confirman con la cantidad enviada. */
   items: z
     .array(
       z.object({
-        itemId: prismaCuidSchema,
+        itemId: prismaCuidSchema.optional(),
+        codItem: listaPreciosCodTiendaSchema,
         cantidadConfirmada: cantidadUnDecimalNoNegativaSchema,
       })
     )
+    .min(1, "No hay ítems para aceptar.")
     .max(2000)
-    .default([]),
+    .superRefine((items, ctx) => {
+      const vistos = new Set<string>();
+      for (const item of items) {
+        if (vistos.has(item.codItem)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Ítem repetido: ${item.codItem}.`,
+            path: ["items"],
+          });
+          return;
+        }
+        vistos.add(item.codItem);
+      }
+    }),
 });
 
 export const resolverStockTransferenciaSchema = z.object({

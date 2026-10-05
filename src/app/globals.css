@@ -462,6 +462,12 @@
   .celda-datos.celda-datos--accion-relleno-fila {
     padding: 0 !important;
   }
+  /** Texto largo que tiene que verse entero: la fila crece y el contenido hace salto de línea. */
+  .celda-datos.celda-datos--crece {
+    height: auto !important;
+    max-height: none !important;
+    white-space: normal !important;
+  }
   .celda-datos.celda-mono {
     font-family: var(--font-mono);
   }

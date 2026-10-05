@@ -79,7 +79,9 @@ export async function listarNotificacionesSucursal(
           leida: n.leidaAt !== null,
           transferenciaId: n.transferenciaId,
           accionable:
-            n.tipo === "TRANSF_PENDIENTE" && n.transferencia?.estado === "PENDIENTE",
+            n.tipo === "TRANSF_PENDIENTE" &&
+            (n.transferencia?.estado === "EMITIDO_PENDIENTE" ||
+              n.transferencia?.estado === "RECTIFICADO_PENDIENTE"),
         })),
       },
     };

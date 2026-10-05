@@ -3,7 +3,7 @@ import { jsonDesdeServicio, jsonErrorInterno, parseJsonBody } from "@/lib/apiRou
 import { crearStockTransferenciaSchema } from "@/lib/validations/stockTransferencias";
 import { crearStockTransferencia } from "@/services/stockTransferencias.service";
 
-/** Crea una transferencia PENDIENTE (sin ledger) y notifica a la otra sucursal. */
+/** Crea una transferencia EMITIDO_PENDIENTE (sin ledger) y notifica a la otra sucursal. */
 export async function POST(req: Request) {
   try {
     const denied = await guardStockAcceso();

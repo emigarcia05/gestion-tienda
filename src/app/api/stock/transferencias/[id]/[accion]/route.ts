@@ -13,7 +13,7 @@ import {
 } from "@/services/stockTransferencias.service";
 
 /**
- * `aceptar` (escribe ledger) · `rechazar` · `cancelar` (sin ledger).
+ * `aceptar` (ACEPTADA + ledger, o RECTIFICADO_PENDIENTE sin ledger) · `rechazar` · `cancelar`.
  * Quién puede cada acción lo valida el servicio con la sucursal del `personalId`.
  */
 export async function POST(

@@ -27,7 +27,8 @@ const CAMBIO_DIALOG_MS = 450;
 /**
  * Botón **NOTIFICACIONES** del header (`PageSectionHeader`), centrado.
  * Destinatario = sucursal del usuario de pestaña. Polling 60 s + al cambiar de ruta
- * + `EVENTO_NOTIFICACIONES_REFRESCAR`. Sin usuario o sin permiso (403) no se muestra.
+ * + `EVENTO_NOTIFICACIONES_REFRESCAR`. Sin usuario, sin permiso (403) o sin
+ * notificaciones en el listado, el botón no se muestra.
  * Lista y detalle de transferencia no se apilan: se abre uno a la vez.
  */
 export default function NotificacionesHeaderButton() {
@@ -77,30 +78,35 @@ export default function NotificacionesHeaderButton() {
 
   const noLeidas = data?.noLeidas ?? 0;
   const sinAvisos = noLeidas === 0;
+  const hayParaMostrar = (data?.items.length ?? 0) > 0;
+  const dialogAbierto = listaOpen || transferenciaId != null;
+  if (!hayParaMostrar && !dialogAbierto) return null;
 
   return (
     <>
-      <Button
-        type="button"
-        variant="default"
-        className={cn(
-          HEADER_ACCIONES_TRIGGER_CLASS,
-          "gap-2",
-          sinAvisos && HEADER_NOTIFICACIONES_TRIGGER_VACIO_CLASS
-        )}
-        onClick={() => setListaOpen(true)}
-        aria-label={
-          noLeidas > 0 ? `Notificaciones: ${noLeidas} sin leer` : "Notificaciones"
-        }
-      >
-        <Bell className="size-4" aria-hidden />
-        NOTIFICACIONES
-        {noLeidas > 0 ? (
-          <Badge variant="destructive" className="min-w-5 px-1.5 tabular-nums">
-            {noLeidas > 99 ? "99+" : noLeidas}
-          </Badge>
-        ) : null}
-      </Button>
+      {hayParaMostrar ? (
+        <Button
+          type="button"
+          variant="default"
+          className={cn(
+            HEADER_ACCIONES_TRIGGER_CLASS,
+            "gap-2",
+            sinAvisos && HEADER_NOTIFICACIONES_TRIGGER_VACIO_CLASS
+          )}
+          onClick={() => setListaOpen(true)}
+          aria-label={
+            noLeidas > 0 ? `Notificaciones: ${noLeidas} sin leer` : "Notificaciones"
+          }
+        >
+          <Bell className="size-4" aria-hidden />
+          NOTIFICACIONES
+          {noLeidas > 0 ? (
+            <Badge variant="destructive" className="min-w-5 px-1.5 tabular-nums">
+              {noLeidas > 99 ? "99+" : noLeidas}
+            </Badge>
+          ) : null}
+        </Button>
+      ) : null}
 
       <NotificacionesModal
         open={listaOpen}

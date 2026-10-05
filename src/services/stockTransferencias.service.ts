@@ -1,5 +1,5 @@
 import { Prisma, type StockTransferenciaEstado } from "@prisma/client";
-import { cantidadDesdePrisma, fmtCantidad, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
+import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
 import type {
   AceptarStockTransferenciaInput,
@@ -23,9 +23,9 @@ export type StockTransferenciaDetalle = {
   origenNombre: string;
   destinoCodigo: string;
   destinoNombre: string;
-  /** Sucursal que debe aceptar / rechazar. */
+  /** Sucursal que debe aceptar ahora. */
   confirmaCodigo: string;
-  /** Sucursal del usuario creador (puede cancelar mientras está pendiente). */
+  /** Sucursal de quien emitió (puede cancelar mientras está abierta). */
   creadoraCodigo: string;
   creadaPorNombre: string;
   resueltaPorNombre: string | null;
@@ -36,7 +36,17 @@ export type StockTransferenciaDetalle = {
   items: StockTransferenciaItemDto[];
 };
 
-const ERROR_YA_RESUELTA = "La transferencia ya no está pendiente.";
+const ERROR_YA_RESUELTA = "La transferencia ya no está pendiente de aceptación.";
+
+export type AceptarStockTransferenciaResult =
+  | { resultado: "aceptada"; comprobanteId: string; movimientos: number }
+  | { resultado: "rectificada"; confirmaNombre: string };
+
+function estaAbierta(
+  estado: StockTransferenciaEstado
+): estado is "EMITIDO_PENDIENTE" | "RECTIFICADO_PENDIENTE" {
+  return estado === "EMITIDO_PENDIENTE" || estado === "RECTIFICADO_PENDIENTE";
+}
 
 type SucursalRef = { id: string; codigo: string; nombre: string };
 
@@ -44,7 +54,7 @@ const transferenciaInclude = {
   sucursalOrigen: { select: { id: true, codigo: true, nombre: true } },
   sucursalDestino: { select: { id: true, codigo: true, nombre: true } },
   sucursalConfirma: { select: { id: true, codigo: true, nombre: true } },
-  creadaPor: { select: { nombrePersonal: true } },
+  creadaPor: { select: { nombrePersonal: true, sucursalPorDefecto: true } },
   resueltaPor: { select: { nombrePersonal: true } },
   items: {
     orderBy: { codItem: "asc" },
@@ -63,9 +73,19 @@ type TransferenciaConRelaciones = Prisma.StockTransferenciaGetPayload<{
 }>;
 
 function sucursalCreadora(t: TransferenciaConRelaciones): SucursalRef {
+  const codigo = t.creadaPor.sucursalPorDefecto;
+  if (codigo === t.sucursalOrigen.codigo) return t.sucursalOrigen;
+  if (codigo === t.sucursalDestino.codigo) return t.sucursalDestino;
   return t.sucursalConfirma.id === t.sucursalOrigen.id
     ? t.sucursalDestino
     : t.sucursalOrigen;
+}
+
+function sucursalOpuesta(
+  t: TransferenciaConRelaciones,
+  sucursalId: string
+): SucursalRef {
+  return sucursalId === t.sucursalOrigen.id ? t.sucursalDestino : t.sucursalOrigen;
 }
 
 function aDetalle(t: TransferenciaConRelaciones): StockTransferenciaDetalle {
@@ -119,8 +139,8 @@ function textoItems(n: number): string {
 }
 
 /**
- * Crea una transferencia **PENDIENTE** (sin ledger). El creador debe ser de una punta;
- * la otra punta recibe la notificación `TRANSF_PENDIENTE`.
+ * Crea una transferencia **EMITIDO_PENDIENTE** (sin ledger). El creador debe ser
+ * de una punta; la otra recibe `TRANSF_PENDIENTE`.
  */
 export async function crearStockTransferencia(
   input: CrearStockTransferenciaInput
@@ -176,8 +196,8 @@ export async function crearStockTransferencia(
           create: {
             tipo: "TRANSF_PENDIENTE",
             sucursalId: confirma.id,
-            titulo: "Transferencia pendiente",
-            mensaje: `${usuario.nombrePersonal} (${creadora.nombre}) generó una transferencia ${origen.nombre} → ${destino.nombre} de ${textoItems(input.items.length)}. Revisala y aceptala para registrar el stock.`,
+            titulo: "Transferencia emitida",
+            mensaje: `${usuario.nombrePersonal} (${creadora.nombre}) emitió una transferencia ${origen.nombre} → ${destino.nombre} de ${textoItems(input.items.length)}. Revisala y aceptala. El stock se registra cuando ambos acepten.`,
           },
         },
       },
@@ -204,18 +224,18 @@ export async function obtenerStockTransferenciaDetalle(
 }
 
 /**
- * La punta `sucursal_confirma` acepta: un solo write anidado (comprobante +
- * EGRESO origen / INGRESO destino + cantidades confirmadas + notificaciones).
- * `where estado = PENDIENTE` evita doble aceptación.
+ * Si las cantidades coinciden con lo propuesto → **ACEPTADA** + ledger.
+ * Si hay cambios (editar, 0 o ítems nuevos) → **RECTIFICADO_PENDIENTE**
+ * y avisa a la otra punta. Sin ledger hasta **ACEPTADA**.
  */
 export async function aceptarStockTransferencia(
   id: string,
   input: AceptarStockTransferenciaInput
-): Promise<ServiceResult<{ comprobanteId: string; movimientos: number }>> {
+): Promise<ServiceResult<AceptarStockTransferenciaResult>> {
   try {
     const t = await cargarTransferencia(id);
     if (!t) return { success: false, error: "Transferencia no encontrada." };
-    if (t.estado !== "PENDIENTE") return { success: false, error: ERROR_YA_RESUELTA };
+    if (!estaAbierta(t.estado)) return { success: false, error: ERROR_YA_RESUELTA };
 
     const usuario = await prisma.globalPersonal.findUnique({
       where: { idPersonal: input.personalId },
@@ -228,38 +248,113 @@ export async function aceptarStockTransferencia(
       };
     }
 
-    const confirmadas = new Map(input.items.map((i) => [i.itemId, i.cantidadConfirmada]));
-    for (const itemId of confirmadas.keys()) {
-      if (!t.items.some((i) => i.id === itemId)) {
-        return { success: false, error: "Ítem de transferencia inválido." };
+    const porId = new Map(t.items.map((i) => [i.id, i]));
+    const porCod = new Map(t.items.map((i) => [i.codItem, i]));
+    const usados = new Set<string>();
+    const existentes: Array<{
+      id: string;
+      codItem: string;
+      propuesta: number;
+      conf: number;
+    }> = [];
+    const nuevos: Array<{ codItem: string; conf: number }> = [];
+
+    for (const row of input.items) {
+      const existente =
+        (row.itemId ? porId.get(row.itemId) : undefined) ?? porCod.get(row.codItem);
+      const conf = redondearCantidadUnDecimal(row.cantidadConfirmada);
+      if (existente) {
+        if (usados.has(existente.id)) {
+          return { success: false, error: `Ítem repetido: ${existente.codItem}.` };
+        }
+        usados.add(existente.id);
+        const enviada = cantidadDesdePrisma(existente.cantidad);
+        const propuesta =
+          existente.cantidadConfirmada == null
+            ? enviada
+            : cantidadDesdePrisma(existente.cantidadConfirmada);
+        existentes.push({
+          id: existente.id,
+          codItem: existente.codItem,
+          propuesta,
+          conf,
+        });
+      } else {
+        nuevos.push({ codItem: row.codItem.trim(), conf });
       }
     }
-    const resueltos = t.items.map((i) => {
-      const enviada = cantidadDesdePrisma(i.cantidad);
-      const conf = redondearCantidadUnDecimal(confirmadas.get(i.id) ?? enviada);
-      return { id: i.id, codItem: i.codItem, enviada, conf };
-    });
-    const excedido = resueltos.find((r) => r.conf > r.enviada);
-    if (excedido) {
+
+    if (usados.size !== t.items.length) {
       return {
         success: false,
-        error: `La cantidad confirmada de ${excedido.codItem} supera la enviada (${fmtCantidad(excedido.enviada)}).`,
-      };
-    }
-    const conMovimiento = resueltos.filter((r) => r.conf > 0);
-    if (conMovimiento.length === 0) {
-      return {
-        success: false,
-        error: "Todas las cantidades están en 0: rechazá la transferencia.",
+        error: "Faltan ítems de la transferencia emitida.",
       };
     }
 
-    const creadora = sucursalCreadora(t);
-    const ajustada = resueltos.some((r) => r.conf !== r.enviada);
+    if (nuevos.length > 0) {
+      const existentesCat = await prisma.prodTienda.count({
+        where: { codTienda: { in: nuevos.map((n) => n.codItem) } },
+      });
+      if (existentesCat !== nuevos.length) {
+        return { success: false, error: "Hay ítems agregados que no existen en el catálogo." };
+      }
+    }
+
+    const hayCambio =
+      nuevos.length > 0 || existentes.some((r) => r.conf !== r.propuesta);
     const ahora = new Date();
 
+    if (hayCambio) {
+      const proximaConfirma = sucursalOpuesta(t, t.sucursalConfirma.id);
+      await prisma.stockTransferencia.update({
+        where: { id, estado: t.estado },
+        data: {
+          estado: "RECTIFICADO_PENDIENTE",
+          sucursalConfirmaId: proximaConfirma.id,
+          items: {
+            update: existentes.map((r) => ({
+              where: { id: r.id },
+              data: { cantidadConfirmada: r.conf },
+            })),
+            createMany:
+              nuevos.length > 0
+                ? {
+                    data: nuevos.map((n) => ({
+                      codItem: n.codItem,
+                      cantidad: 0,
+                      cantidadConfirmada: n.conf,
+                    })),
+                  }
+                : undefined,
+          },
+          notificaciones: {
+            updateMany: {
+              where: { leidaAt: null },
+              data: { leidaAt: ahora, leidaPorId: input.personalId },
+            },
+            create: {
+              tipo: "TRANSF_PENDIENTE",
+              sucursalId: proximaConfirma.id,
+              titulo: "Transferencia rectificada",
+              mensaje: `${usuario.nombrePersonal} (${t.sucursalConfirma.nombre}) rectificó la transferencia ${t.sucursalOrigen.nombre} → ${t.sucursalDestino.nombre}. Revisá las cantidades y aceptala. El stock se registra cuando ambos acepten.`,
+            },
+          },
+        },
+        select: { id: true },
+      });
+      return {
+        success: true,
+        data: { resultado: "rectificada", confirmaNombre: proximaConfirma.nombre },
+      };
+    }
+
+    const conMovimiento = [
+      ...existentes.filter((r) => r.conf > 0),
+      ...nuevos.filter((n) => n.conf > 0),
+    ];
+
     const actualizada = await prisma.stockTransferencia.update({
-      where: { id, estado: "PENDIENTE" },
+      where: { id, estado: t.estado },
       data: {
         estado: "ACEPTADA",
         resueltaPor: { connect: { idPersonal: input.personalId } },
@@ -270,32 +365,35 @@ export async function aceptarStockTransferencia(
             sucursal: { connect: { id: t.sucursalOrigen.id } },
             sucursalDestino: { connect: { id: t.sucursalDestino.id } },
             personal: { connect: { idPersonal: t.creadaPorId } },
-            movimientos: {
-              createMany: {
-                data: conMovimiento.flatMap((r) => [
-                  {
-                    tipoMovimiento: "EGRESO" as const,
-                    categoriaMovimiento: "TRANSF_INTERNA" as const,
-                    codItem: r.codItem,
-                    sucursalId: t.sucursalOrigen.id,
-                    cantidad: r.conf,
-                    usuarioId: input.personalId,
-                  },
-                  {
-                    tipoMovimiento: "INGRESO" as const,
-                    categoriaMovimiento: "TRANSF_INTERNA" as const,
-                    codItem: r.codItem,
-                    sucursalId: t.sucursalDestino.id,
-                    cantidad: r.conf,
-                    usuarioId: input.personalId,
-                  },
-                ]),
-              },
-            },
+            movimientos:
+              conMovimiento.length > 0
+                ? {
+                    createMany: {
+                      data: conMovimiento.flatMap((r) => [
+                        {
+                          tipoMovimiento: "EGRESO" as const,
+                          categoriaMovimiento: "TRANSF_INTERNA" as const,
+                          codItem: r.codItem,
+                          sucursalId: t.sucursalOrigen.id,
+                          cantidad: r.conf,
+                          usuarioId: input.personalId,
+                        },
+                        {
+                          tipoMovimiento: "INGRESO" as const,
+                          categoriaMovimiento: "TRANSF_INTERNA" as const,
+                          codItem: r.codItem,
+                          sucursalId: t.sucursalDestino.id,
+                          cantidad: r.conf,
+                          usuarioId: input.personalId,
+                        },
+                      ]),
+                    },
+                  }
+                : undefined,
           },
         },
         items: {
-          update: resueltos.map((r) => ({
+          update: existentes.map((r) => ({
             where: { id: r.id },
             data: { cantidadConfirmada: r.conf },
           })),
@@ -307,9 +405,9 @@ export async function aceptarStockTransferencia(
           },
           create: {
             tipo: "TRANSF_ACEPTADA",
-            sucursalId: creadora.id,
+            sucursalId: sucursalOpuesta(t, t.sucursalConfirma.id).id,
             titulo: "Transferencia aceptada",
-            mensaje: `${usuario.nombrePersonal} (${t.sucursalConfirma.nombre}) aceptó la transferencia ${t.sucursalOrigen.nombre} → ${t.sucursalDestino.nombre}${ajustada ? " con cantidades ajustadas" : ""}. El stock quedó registrado.`,
+            mensaje: `${usuario.nombrePersonal} (${t.sucursalConfirma.nombre}) aceptó la transferencia ${t.sucursalOrigen.nombre} → ${t.sucursalDestino.nombre}. El stock quedó registrado.`,
           },
         },
       },
@@ -319,6 +417,7 @@ export async function aceptarStockTransferencia(
     return {
       success: true,
       data: {
+        resultado: "aceptada",
         comprobanteId: actualizada.comprobanteId ?? "",
         movimientos: conMovimiento.length * 2,
       },
@@ -338,7 +437,7 @@ async function cerrarSinMovimiento(
   try {
     const t = await cargarTransferencia(id);
     if (!t) return { success: false, error: "Transferencia no encontrada." };
-    if (t.estado !== "PENDIENTE") return { success: false, error: ERROR_YA_RESUELTA };
+    if (!estaAbierta(t.estado)) return { success: false, error: ERROR_YA_RESUELTA };
 
     const creadora = sucursalCreadora(t);
     const autorizada = accion === "RECHAZADA" ? t.sucursalConfirma : creadora;
@@ -362,7 +461,7 @@ async function cerrarSinMovimiento(
     const motivo = input.motivo ? ` Motivo: ${input.motivo}` : "";
 
     await prisma.stockTransferencia.update({
-      where: { id, estado: "PENDIENTE" },
+      where: { id, estado: t.estado },
       data: {
         estado: accion,
         motivo: input.motivo ?? null,
@@ -391,7 +490,7 @@ async function cerrarSinMovimiento(
   }
 }
 
-/** La punta que confirma rechaza: sin ledger; avisa a la creadora. */
+/** La punta que confirma rechaza: sin ledger. */
 export function rechazarStockTransferencia(
   id: string,
   input: ResolverStockTransferenciaInput
@@ -399,7 +498,7 @@ export function rechazarStockTransferencia(
   return cerrarSinMovimiento(id, input, "RECHAZADA");
 }
 
-/** La punta creadora cancela mientras está pendiente: sin ledger; avisa a la otra. */
+/** Quien emitió cancela mientras está abierta: sin ledger. */
 export function cancelarStockTransferencia(
   id: string,
   input: ResolverStockTransferenciaInput

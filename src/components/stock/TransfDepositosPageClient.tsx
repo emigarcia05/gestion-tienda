@@ -36,8 +36,8 @@ interface Props {
 
 /**
  * Pantalla **Stock · Trans. Depósitos**.
- * **Generar Transferencia** crea `stock_transferencias` PENDIENTE y notifica
- * a la otra sucursal. Sin DUX ni Excel.
+ * **Generar Transferencia** crea `stock_transferencias` EMITIDO_PENDIENTE y
+ * notifica a la otra sucursal. Sin DUX ni Excel.
  */
 export default function TransfDepositosPageClient({
   data,

@@ -67,8 +67,8 @@ export default function NotificacionesModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
-        size="lg"
-        className="max-h-[85vh]"
+        size="xl"
+        className="h-[90vh] max-w-[min(96rem,calc(100%-2rem))]"
         title="Notificaciones"
         actions={
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -106,12 +106,12 @@ export default function NotificacionesModal({
                     </TableCell>
                     <TableCell
                       className={cn(
-                        "celda-datos min-w-0 text-left",
+                        "celda-datos celda-datos--crece min-w-0 text-left",
                         n.leida ? "text-muted-foreground" : "font-semibold"
                       )}
                     >
                       <div className="flex min-w-0 flex-col gap-0.5">
-                        <span>{fmtCelda(n.mensaje)}</span>
+                        <span className="whitespace-normal break-words">{fmtCelda(n.mensaje)}</span>
                         <span className="text-xs font-medium text-muted-foreground tabular-nums">
                           {formatDdMmHhMmArgentina(new Date(n.createdAtIso))}
                         </span>

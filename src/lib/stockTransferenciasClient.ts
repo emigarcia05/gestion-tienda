@@ -1,7 +1,10 @@
 import { fetchApiJson } from "@/lib/apiFetchJson";
 import type { SucursalTransf } from "@/lib/transfDepositosTypes";
 import type { NotificacionesSucursal } from "@/services/notificaciones.service";
-import type { StockTransferenciaDetalle } from "@/services/stockTransferencias.service";
+import type {
+  AceptarStockTransferenciaResult,
+  StockTransferenciaDetalle,
+} from "@/services/stockTransferencias.service";
 
 /** Evento de ventana: refrescar NOTIFICACIONES tras crear / resolver una transferencia. */
 export const EVENTO_NOTIFICACIONES_REFRESCAR = "main-app-notificaciones-refrescar";
@@ -32,10 +35,10 @@ export function aceptarTransferenciaApi(
   id: string,
   body: {
     personalId: number;
-    items: Array<{ itemId: string; cantidadConfirmada: number }>;
+    items: Array<{ itemId?: string; codItem: string; cantidadConfirmada: number }>;
   }
 ) {
-  return fetchApiJson<{ comprobanteId: string; movimientos: number }>(
+  return fetchApiJson<AceptarStockTransferenciaResult>(
     `/api/stock/transferencias/${encodeURIComponent(id)}/aceptar`,
     { method: "POST", body }
   );

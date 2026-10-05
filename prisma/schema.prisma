@@ -72,10 +72,13 @@ enum StockComprobanteTipo {
 }
 
 enum StockTransferenciaEstado {
-  PENDIENTE @map("pendiente")
-  ACEPTADA  @map("aceptada")
-  RECHAZADA @map("rechazada")
-  CANCELADA @map("cancelada")
+  /** Emitida: la otra sucursal debe aceptar. */
+  EMITIDO_PENDIENTE     @map("emitido_pendiente")
+  /** La sucursal que revisa cambió cantidades / ítems: la otra debe aceptar. */
+  RECTIFICADO_PENDIENTE @map("rectificado_pendiente")
+  ACEPTADA              @map("aceptada")
+  RECHAZADA             @map("rechazada")
+  CANCELADA             @map("cancelada")
 
   @@map("stock_transferencia_estado")
 }
@@ -1207,18 +1210,16 @@ model StockMovimiento {
 }
 
 /**
- * Transferencia entre sucursales con doble confirmación (`stock_transferencias`).
- * La crea un usuario de una punta (cuenta como su confirmación); la otra punta
- * (`sucursal_confirma`) acepta / rechaza. Solo al **aceptar** se escribe el ledger
- * (`comprobante_id` → `stock_comprobantes` TRANSFERENCIA_ENTRE_DEPOSITOS).
+ * Transferencia entre sucursales. Estados: emitido pendiente → (rectificado
+ * pendiente) → aceptada. El ledger se escribe solo en **aceptada**.
  */
 model StockTransferencia {
   id                 String                   @id @default(cuid())
   sucursalOrigenId   String                   @map("sucursal_origen")
   sucursalDestinoId  String                   @map("sucursal_destino")
-  /** Punta que debe aceptar (la que no es del usuario creador). */
+  /** Punta que debe aceptar ahora. */
   sucursalConfirmaId String                   @map("sucursal_confirma")
-  estado             StockTransferenciaEstado @default(PENDIENTE)
+  estado             StockTransferenciaEstado @default(EMITIDO_PENDIENTE)
   creadaPorId        Int                      @map("creada_por")
   resueltaPorId      Int?                     @map("resuelta_por")
   /** Motivo de rechazo o cancelación (opcional). */
@@ -1241,7 +1242,7 @@ model StockTransferencia {
   @@map("stock_transferencias")
 }
 
-/** Ítems de `stock_transferencias`. `cantidad_confirmada` la fija quien acepta (≤ `cantidad`). */
+/** Ítems de `stock_transferencias`. `cantidad` = enviada (0 si la agregó quien revisa). */
 model StockTransferenciaItem {
   id                 String   @id @default(cuid())
   transferenciaId    String   @map("transferencia_id")

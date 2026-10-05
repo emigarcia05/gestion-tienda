@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  EmptyTableRow,
   Table,
   TableBody,
   TableCell,
@@ -16,11 +16,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import AppModal from "@/components/shared/AppModal";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import {
+  TablaControlItemCelda,
+  TablaControlItemHead,
+} from "@/components/shared/TablaControlItem";
+import AgregarProductosModal from "@/components/pedidos/AgregarProductosModal";
 import {
   esBorradorCantidadUnDecimal,
   fmtCantidad,
+  formatCantidadInputValor,
   parseCantidadUnDecimal,
+  redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import {
@@ -29,9 +37,14 @@ import {
   obtenerTransferenciaApi,
   pedirRefrescoNotificaciones,
 } from "@/lib/stockTransferenciasClient";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import type { UsuarioSesion } from "@/lib/usuarioSesion";
-import type { StockTransferenciaDetalle } from "@/services/stockTransferencias.service";
 import { cn } from "@/lib/utils";
+import type { StockTransferenciaDetalle } from "@/services/stockTransferencias.service";
 
 interface Props {
   open: boolean;
@@ -42,16 +55,58 @@ interface Props {
 }
 
 const ESTADO_ETIQUETA: Record<StockTransferenciaDetalle["estado"], string> = {
-  PENDIENTE: "PENDIENTE",
-  ACEPTADA: "ACEPTADA",
-  RECHAZADA: "RECHAZADA",
-  CANCELADA: "CANCELADA",
+  EMITIDO_PENDIENTE: "Emitido, Pendiente De Aceptación",
+  RECTIFICADO_PENDIENTE: "Rectificado, Pendiente De Aceptación",
+  ACEPTADA: "Aceptado",
+  RECHAZADA: "Rechazada",
+  CANCELADA: "Cancelada",
 };
 
+const GRID_RESUMEN = "grid min-w-0 w-full grid-cols-[85fr_15fr] items-center gap-0";
+const inputBorderClassName = "border-[#0072bb] focus-visible:ring-[#0072bb]";
+
+type FilaRevision = {
+  key: string;
+  itemId?: string;
+  codItem: string;
+  descripcion: string;
+  enviada: number;
+  propuesta: number;
+  recibida: number | null;
+  verificado: boolean;
+  esNuevo: boolean;
+};
+
+function estaAbierta(
+  estado: StockTransferenciaDetalle["estado"]
+): estado is "EMITIDO_PENDIENTE" | "RECTIFICADO_PENDIENTE" {
+  return estado === "EMITIDO_PENDIENTE" || estado === "RECTIFICADO_PENDIENTE";
+}
+
+function filasDesdeDetalle(
+  detalle: StockTransferenciaDetalle,
+  modoRevision: boolean
+): FilaRevision[] {
+  return detalle.items.map((item) => {
+    const propuesta = item.cantidadConfirmada ?? item.cantidad;
+    return {
+      key: item.id,
+      itemId: item.id,
+      codItem: item.codItem,
+      descripcion: item.descripcion,
+      enviada: item.cantidad,
+      propuesta,
+      recibida: modoRevision ? null : propuesta,
+      verificado: !modoRevision && detalle.estado === "ACEPTADA",
+      esNuevo: false,
+    };
+  });
+}
+
 /**
- * Detalle de `stock_transferencias`. Sucursal que confirma (pendiente): edita
- * **CANT. RECIBIDA** (≤ enviada) y **Aceptar** (registra el stock) o **Rechazar**.
- * Sucursal creadora (pendiente): **Cancelar Transf.** Motivo opcional al rechazar / cancelar.
+ * Revisión de transferencia: mismo layout que Recepción Pedido.
+ * OK confirma la propuesta; lápiz edita CANT. REC.; cesto = 0 (o saca un ítem
+ * agregado); **Agregar Producto** suma lo que no declaró la otra sucursal.
  */
 export default function StockTransferenciaModal({
   open,
@@ -62,10 +117,16 @@ export default function StockTransferenciaModal({
 }: Props) {
   const [detalle, setDetalle] = useState<StockTransferenciaDetalle | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recibidas, setRecibidas] = useState<Record<string, string>>({});
+  const [filas, setFilas] = useState<FilaRevision[]>([]);
+  const [busqueda, setBusqueda] = useState("");
+  const [agregarOpen, setAgregarOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
   const [cierre, setCierre] = useState<"rechazar" | "cancelar" | null>(null);
   const [motivo, setMotivo] = useState("");
   const [isPending, startTransition] = useTransition();
+  const editingInputRef = useRef<HTMLInputElement>(null);
+  const busquedaRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +134,11 @@ export default function StockTransferenciaModal({
     queueMicrotask(() => {
       setDetalle(null);
       setError(null);
+      setFilas([]);
+      setBusqueda("");
+      setAgregarOpen(false);
+      setEditingKey(null);
+      setEditingValue("");
       setCierre(null);
       setMotivo("");
     });
@@ -83,22 +149,34 @@ export default function StockTransferenciaModal({
         setError(res.error);
         return;
       }
+      const modoRevision =
+        estaAbierta(res.data.estado) &&
+        usuario.sucursalPorDefecto === res.data.confirmaCodigo;
       setDetalle(res.data);
-      setRecibidas(
-        Object.fromEntries(
-          res.data.items.map((i) => [i.id, fmtCantidad(i.cantidadConfirmada ?? i.cantidad)])
-        )
-      );
+      setFilas(filasDesdeDetalle(res.data, modoRevision));
     })();
     return () => {
       cancelado = true;
     };
-  }, [open, transferenciaId]);
+  }, [open, transferenciaId, usuario.sucursalPorDefecto]);
 
-  const pendiente = detalle?.estado === "PENDIENTE";
-  const puedeConfirmar = pendiente && usuario.sucursalPorDefecto === detalle?.confirmaCodigo;
-  const puedeCancelar = pendiente && usuario.sucursalPorDefecto === detalle?.creadoraCodigo;
-  const mostrarRecibida = puedeConfirmar || detalle?.estado === "ACEPTADA";
+  const abierta = detalle != null && estaAbierta(detalle.estado);
+  const puedeConfirmar = abierta && usuario.sucursalPorDefecto === detalle.confirmaCodigo;
+  const puedeCancelar = abierta && usuario.sucursalPorDefecto === detalle.creadoraCodigo;
+  const bloqueadoPorEdicion = editingKey != null;
+  const tablaEditable = puedeConfirmar && cierre == null && !isPending;
+
+  const filasFiltradas = useMemo(() => {
+    const q = busqueda.trim().toLocaleLowerCase("es");
+    if (!q) return filas;
+    return filas.filter((f) => {
+      const desc = f.descripcion.toLocaleLowerCase("es");
+      const cod = f.codItem.toLocaleLowerCase("es");
+      return desc.includes(q) || cod.includes(q);
+    });
+  }, [busqueda, filas]);
+
+  const todasVerificadas = filas.length > 0 && filas.every((f) => f.verificado);
 
   function terminar(mensaje: string, descripcion?: string) {
     toast.success(mensaje, descripcion ? { description: descripcion } : undefined);
@@ -107,22 +185,71 @@ export default function StockTransferenciaModal({
     onOpenChange(false);
   }
 
-  function aceptar() {
-    if (!detalle) return;
-    const items: Array<{ itemId: string; cantidadConfirmada: number }> = [];
-    for (const item of detalle.items) {
-      const raw = recibidas[item.id] ?? "";
-      const n = raw.trim() === "" ? 0 : parseCantidadUnDecimal(raw);
-      if (n == null || n < 0) {
-        toast.error(`Cantidad inválida en ${item.codItem}.`);
-        return;
-      }
-      if (n > item.cantidad) {
-        toast.error(`${item.codItem}: la recibida supera la enviada (${fmtCantidad(item.cantidad)}).`);
-        return;
-      }
-      items.push({ itemId: item.id, cantidadConfirmada: n });
+  function handleOpenChange(next: boolean) {
+    if (!next && bloqueadoPorEdicion) {
+      toast.info("Confirmá la cantidad con el ícono de verificación antes de continuar.");
+      return;
     }
+    onOpenChange(next);
+  }
+
+  function actualizarFila(key: string, patch: Partial<FilaRevision>) {
+    setFilas((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  }
+
+  function onClickOk(fila: FilaRevision) {
+    actualizarFila(fila.key, {
+      recibida: fila.propuesta,
+      verificado: true,
+    });
+  }
+
+  function onClickEditar(fila: FilaRevision) {
+    setEditingKey(fila.key);
+    setEditingValue(formatCantidadInputValor(fila.recibida ?? fila.propuesta));
+    queueMicrotask(() => editingInputRef.current?.focus());
+  }
+
+  function ajustarEditingValue(delta: number) {
+    const actual = parseCantidadUnDecimal(editingValue, { min: 0 }) ?? 0;
+    const next = redondearCantidadUnDecimal(Math.max(0, actual + delta));
+    setEditingValue(formatCantidadInputValor(next));
+  }
+
+  function confirmarEdicion(fila: FilaRevision) {
+    const n = parseCantidadUnDecimal(editingValue, { min: 0 });
+    if (n == null) {
+      toast.error("Cantidad inválida. Usá un entero o un decimal (0,5).");
+      return;
+    }
+    actualizarFila(fila.key, { recibida: n, verificado: true });
+    setEditingKey(null);
+    setEditingValue("");
+  }
+
+  function onClickCesto(fila: FilaRevision) {
+    if (fila.esNuevo) {
+      setFilas((prev) => prev.filter((f) => f.key !== fila.key));
+      if (editingKey === fila.key) {
+        setEditingKey(null);
+        setEditingValue("");
+      }
+      return;
+    }
+    actualizarFila(fila.key, { recibida: 0, verificado: true });
+    if (editingKey === fila.key) {
+      setEditingKey(null);
+      setEditingValue("");
+    }
+  }
+
+  function aceptar() {
+    if (!detalle || !todasVerificadas || bloqueadoPorEdicion) return;
+    const items = filas.map((f) => ({
+      itemId: f.itemId,
+      codItem: f.codItem,
+      cantidadConfirmada: f.recibida ?? 0,
+    }));
     startTransition(async () => {
       const res = await aceptarTransferenciaApi(detalle.id, {
         personalId: usuario.idPersonal,
@@ -132,7 +259,19 @@ export default function StockTransferenciaModal({
         toast.error(res.error);
         return;
       }
-      terminar("Transferencia aceptada.", `Se registraron ${res.data.movimientos} movimientos de stock.`);
+      if (res.data.resultado === "rectificada") {
+        terminar(
+          "Transferencia rectificada.",
+          `Queda pendiente de aceptación en ${res.data.confirmaNombre}. El stock se registra cuando ambos acepten.`
+        );
+        return;
+      }
+      terminar(
+        "Transferencia aceptada.",
+        res.data.movimientos > 0
+          ? `Se registraron ${res.data.movimientos} movimientos de stock.`
+          : "Ambas sucursales aceptaron. No hubo cantidades para mover."
+      );
     });
   }
 
@@ -156,8 +295,8 @@ export default function StockTransferenciaModal({
       <Button
         type="button"
         variant="outline"
-        onClick={() => (cierre ? setCierre(null) : onOpenChange(false))}
-        disabled={isPending}
+        onClick={() => (cierre ? setCierre(null) : handleOpenChange(false))}
+        disabled={isPending || (!cierre && bloqueadoPorEdicion)}
       >
         {cierre ? "Volver" : "Cerrar"}
       </Button>
@@ -167,7 +306,11 @@ export default function StockTransferenciaModal({
         </Button>
       ) : null}
       {!cierre && puedeCancelar ? (
-        <Button type="button" onClick={() => setCierre("cancelar")} disabled={isPending}>
+        <Button
+          type="button"
+          onClick={() => setCierre("cancelar")}
+          disabled={isPending || bloqueadoPorEdicion}
+        >
           Cancelar Transf.
         </Button>
       ) : null}
@@ -177,12 +320,17 @@ export default function StockTransferenciaModal({
             type="button"
             variant="outline"
             onClick={() => setCierre("rechazar")}
-            disabled={isPending}
+            disabled={isPending || bloqueadoPorEdicion}
           >
             Rechazar
           </Button>
-          <Button type="button" onClick={aceptar} disabled={isPending}>
-            Aceptar
+          <Button
+            type="button"
+            onClick={aceptar}
+            disabled={isPending || bloqueadoPorEdicion || !todasVerificadas}
+            className="disabled:cursor-not-allowed"
+          >
+            Aceptar Transferencia
           </Button>
         </>
       ) : null}
@@ -190,144 +338,379 @@ export default function StockTransferenciaModal({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppModal
-        size="xl"
-        className="h-[85vh] max-h-[85vh]"
-        title="Transferencia entre sucursales"
-        scrollBody={false}
-        bodyClassName="flex min-h-0 flex-1 flex-col gap-4"
-        actions={acciones}
-      >
-        {error ? (
-          <p className="py-6 text-center text-sm text-destructive">{error}</p>
-        ) : null}
-        {!error && !detalle ? (
-          <p className="py-6 text-center text-sm text-foreground">Cargando…</p>
-        ) : null}
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <AppModal
+          title={detalle ? ESTADO_ETIQUETA[detalle.estado] : "Transferencia entre sucursales"}
+          scrollBody={false}
+          size="xl"
+          className="max-w-[66rem] h-[95vh] max-h-[95vh]"
+          bodyShellClassName="p-0"
+          padding="sm"
+          headerClassName="pt-3 pb-3"
+          footerClassName="py-3"
+          bodyClassName="py-2.5"
+          actions={acciones}
+        >
+          {error ? (
+            <p className="py-6 text-center text-sm text-destructive">{error}</p>
+          ) : null}
+          {!error && !detalle ? (
+            <p className="py-6 text-center text-sm text-foreground">Cargando…</p>
+          ) : null}
 
-        {detalle ? (
-          <>
-            <div className="flex shrink-0 flex-col gap-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3">
-                <div className="flex flex-col items-center gap-1">
-                  <ModalMicroLabel align="center">SUC. ORIGEN</ModalMicroLabel>
-                  <span className="text-sm font-semibold uppercase">{detalle.origenNombre}</span>
+          {detalle ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-0">
+              <section aria-labelledby="transf-revision-resumen-title" className="shrink-0">
+                <h2 id="transf-revision-resumen-title" className="sr-only">
+                  Resumen de la transferencia
+                </h2>
+                <div className="min-w-0 bg-transparent pt-0 pb-1.5">
+                  <div className={cn(GRID_RESUMEN, "w-full")}>
+                    <div className="flex min-h-0 min-w-0 flex-col justify-center gap-0.5 py-0 text-left">
+                      <p className="text-sm font-semibold leading-snug text-foreground">
+                        {detalle.origenNombre} → {detalle.destinoNombre}
+                      </p>
+                      <p className="text-xs leading-snug text-muted-foreground">
+                        <span className="tabular-nums">
+                          {detalle.creadaPorNombre}
+                          {" · "}
+                          {formatDdMmHhMmArgentina(new Date(detalle.createdAtIso))}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex min-h-0 min-w-0 w-full flex-col justify-center gap-0.5 py-0 text-left">
+                      <ModalMicroLabel>DESTINO</ModalMicroLabel>
+                      <p className="text-sm font-semibold leading-snug text-foreground">
+                        {detalle.destinoNombre}
+                      </p>
+                    </div>
+                  </div>
+                  {detalle.motivo ? (
+                    <p className="pt-1.5 text-sm">
+                      <strong>Motivo:</strong> {detalle.motivo}
+                    </p>
+                  ) : null}
+                  {cierre ? (
+                    <div className="flex flex-col gap-1 pt-2">
+                      <ModalMicroLabel>
+                        {cierre === "rechazar" ? "MOTIVO DEL RECHAZO" : "MOTIVO DE LA CANCELACIÓN"}{" "}
+                        (OPCIONAL)
+                      </ModalMicroLabel>
+                      <Input
+                        value={motivo}
+                        onChange={(e) => setMotivo(e.target.value)}
+                        maxLength={500}
+                        autoFocus
+                      />
+                    </div>
+                  ) : null}
                 </div>
-                <ArrowRight className="mb-0.5 size-5 shrink-0 text-primary" aria-hidden />
-                <div className="flex flex-col items-center gap-1">
-                  <ModalMicroLabel align="center">SUC. DESTINO</ModalMicroLabel>
-                  <span className="text-sm font-semibold uppercase">{detalle.destinoNombre}</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
-                <Badge variant={pendiente ? "destructive" : "secondary"}>
-                  {ESTADO_ETIQUETA[detalle.estado]}
-                </Badge>
-                <span>
-                  <strong>Generada por:</strong> {detalle.creadaPorNombre} ·{" "}
-                  <span className="tabular-nums">
-                    {formatDdMmHhMmArgentina(new Date(detalle.createdAtIso))}
-                  </span>
-                </span>
-                {detalle.resueltaPorNombre && detalle.resueltaAtIso ? (
-                  <span>
-                    <strong>Resuelta por:</strong> {detalle.resueltaPorNombre} ·{" "}
-                    <span className="tabular-nums">
-                      {formatDdMmHhMmArgentina(new Date(detalle.resueltaAtIso))}
-                    </span>
-                  </span>
-                ) : null}
-              </div>
-              {detalle.motivo ? (
-                <p className="text-center text-sm">
-                  <strong>Motivo:</strong> {detalle.motivo}
-                </p>
-              ) : null}
-              {puedeConfirmar && !cierre ? (
-                <p className="text-center text-sm text-foreground">
-                  Verificá lo recibido. Si llegó menos, corregí <strong>CANT. RECIBIDA</strong>.
-                  El stock se registra al aceptar.
-                </p>
-              ) : null}
-              {cierre ? (
-                <div className="flex flex-col gap-1">
-                  <ModalMicroLabel>
-                    {cierre === "rechazar" ? "MOTIVO DEL RECHAZO" : "MOTIVO DE LA CANCELACIÓN"} (OPCIONAL)
-                  </ModalMicroLabel>
-                  <Input
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    maxLength={500}
-                    autoFocus
-                  />
-                </div>
-              ) : null}
-            </div>
+              </section>
 
-            <div className="contenedor-tabla-gestion no-scroll-x min-h-0 flex-1" style={{ height: "auto" }}>
-              <Table variant="compact" scrollX={false}>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[16%]">COD. TIENDA</TableHead>
-                    <TableHead>DESCRIPCIÓN</TableHead>
-                    <TableHead className="w-[14%] text-center">CANT. ENVIADA</TableHead>
-                    {mostrarRecibida ? (
-                      <TableHead className="w-[14%] text-center">CANT. RECIBIDA</TableHead>
-                    ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detalle.items.map((item) => {
-                    const raw = recibidas[item.id] ?? "";
-                    const n = parseCantidadUnDecimal(raw);
-                    const difiere = n != null && n !== item.cantidad;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="celda-datos tabular-nums">{item.codItem}</TableCell>
-                        <TableCell className="celda-datos min-w-0 truncate" title={item.descripcion}>
-                          {item.descripcion}
-                        </TableCell>
-                        <TableCell className="celda-datos text-center tabular-nums">
-                          {fmtCantidad(item.cantidad)}
-                        </TableCell>
-                        {mostrarRecibida ? (
-                          <TableCell className="celda-datos text-center tabular-nums">
-                            {puedeConfirmar ? (
-                              <div className="flex justify-center">
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={raw}
-                                  disabled={isPending || cierre !== null}
-                                  onChange={(e) => {
-                                    const v = e.target.value.trim();
-                                    if (v !== "" && !esBorradorCantidadUnDecimal(v)) return;
-                                    setRecibidas((prev) => ({ ...prev, [item.id]: v }));
-                                  }}
-                                  className={cn(
-                                    "h-6 w-16 text-center text-sm tabular-nums",
-                                    difiere && "text-destructive"
-                                  )}
-                                  aria-label={`Cantidad recibida de ${item.codItem}`}
+              <div className="grid min-h-0 w-full flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-x-3 gap-y-0 overflow-hidden">
+                <section
+                  aria-labelledby="transf-agregar-producto-titulo"
+                  className={cn(
+                    "min-w-0 bg-transparent flex shrink-0 flex-col gap-0 pb-2 pt-0",
+                    !tablaEditable && "pointer-events-none cursor-not-allowed opacity-50"
+                  )}
+                  inert={!tablaEditable || bloqueadoPorEdicion ? true : undefined}
+                >
+                  <span id="transf-agregar-producto-titulo" className="sr-only">
+                    AGREGAR PRODUCTO A LA TRANSFERENCIA
+                  </span>
+                  <div className="flex w-full min-w-0 flex-row items-center justify-between gap-x-10 pt-1 pb-0">
+                    <div className="flex min-w-0 max-w-[36rem] flex-1 items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <FiltroBusquedaInput
+                          id="transf-agregar-producto-filtro"
+                          placeholder="BUSCAR POR DESCRIPCIÓN..."
+                          value={busqueda}
+                          onChange={setBusqueda}
+                          isDebouncing={false}
+                          inputRef={busquedaRef}
+                          className="h-10 min-h-10"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={() => setAgregarOpen(true)}
+                      disabled={!tablaEditable}
+                      className="h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Agregar Producto
+                    </Button>
+                  </div>
+                </section>
+
+                <section
+                  aria-label="Ítems de la transferencia"
+                  className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden"
+                >
+                  <div className="min-w-0 bg-transparent flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div
+                      className="contenedor-tabla-gestion no-scroll-x flex min-h-0 flex-1 flex-col overflow-hidden"
+                      style={{ height: "auto" }}
+                    >
+                      <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto no-scrollbar">
+                        <div
+                          className={cn(
+                            cierre != null && "pointer-events-none cursor-not-allowed opacity-50"
+                          )}
+                        >
+                          <Table variant="compact" className="tabla-recepcion-pedido" scrollX={false}>
+                            <TableHeader inert={editingKey ? true : undefined}>
+                              <TableRow>
+                                <TablaControlItemHead />
+                                <TableHead className="w-[50%]">DESCRIPCIÓN</TableHead>
+                                <TableHead className="w-[10%]">CANT. ENV.</TableHead>
+                                <TableHead className="w-[20%]">CANT. REC.</TableHead>
+                                <TableHead className="w-[15%] tabla-bloque-secundario-head-divider">
+                                  ACCIONES
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filasFiltradas.length === 0 ? (
+                                <EmptyTableRow
+                                  colSpan={5}
+                                  message={
+                                    busqueda.trim()
+                                      ? "SIN ÍTEMS PARA LA DESCRIPCIÓN BUSCADA."
+                                      : "SIN ÍTEMS."
+                                  }
                                 />
-                              </div>
-                            ) : (
-                              <span className={cn(difiere && "text-destructive")}>
-                                {fmtCantidad(item.cantidadConfirmada)}
-                              </span>
-                            )}
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                              ) : (
+                                filasFiltradas.map((fila) => {
+                                  const isEditing = editingKey === fila.key;
+                                  const cantRecCelda =
+                                    tablaEditable && !fila.verificado && !isEditing
+                                      ? ""
+                                      : fila.recibida != null
+                                        ? fmtCantidad(fila.recibida)
+                                        : "";
+                                  return (
+                                    <TableRow
+                                      key={fila.key}
+                                      inert={
+                                        editingKey != null && !isEditing ? true : undefined
+                                      }
+                                      className={cn(
+                                        "transition-colors duration-100",
+                                        fila.verificado
+                                          ? "recepcion-fila-verificada cursor-not-allowed"
+                                          : "recepcion-fila-activa"
+                                      )}
+                                    >
+                                      <TablaControlItemCelda
+                                        verificado={fila.verificado}
+                                        ocultarPlaceholder={!tablaEditable}
+                                        placeholderTitle="Verificá con OK, Editar o Cesto en la columna ACCIONES."
+                                      />
+                                      <TableCell
+                                        className={cn(
+                                          "celda-datos min-w-0 truncate w-[50%]",
+                                          fila.verificado && "font-medium text-foreground"
+                                        )}
+                                        title={`${fila.codItem} — ${fila.descripcion}`}
+                                      >
+                                        {fila.descripcion}
+                                      </TableCell>
+                                      <TableCell
+                                        className={cn(
+                                          "celda-datos tabular-nums w-[10%]",
+                                          fila.verificado && "text-foreground"
+                                        )}
+                                      >
+                                        {fmtCantidad(fila.enviada)}
+                                      </TableCell>
+                                      <TableCell
+                                        className={cn(
+                                          "celda-datos tabular-nums w-[20%]",
+                                          fila.verificado && !isEditing && "text-foreground"
+                                        )}
+                                      >
+                                        {!tablaEditable ? (
+                                          cantRecCelda
+                                        ) : isEditing ? (
+                                          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => ajustarEditingValue(-1)}
+                                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                              aria-label="Disminuir"
+                                              title="Disminuir"
+                                            >
+                                              <span className="text-sm leading-none">-</span>
+                                            </Button>
+                                            <Input
+                                              ref={editingInputRef}
+                                              type="text"
+                                              inputMode="decimal"
+                                              value={editingValue}
+                                              onChange={(e) => {
+                                                const v = e.target.value.trim();
+                                                if (v !== "" && !esBorradorCantidadUnDecimal(v)) {
+                                                  return;
+                                                }
+                                                setEditingValue(v);
+                                              }}
+                                              onBlur={() => {
+                                                toast.info(
+                                                  "Confirmá la cantidad con el ícono de verificación."
+                                                );
+                                                queueMicrotask(() => {
+                                                  editingInputRef.current?.focus();
+                                                });
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                  e.preventDefault();
+                                                  confirmarEdicion(fila);
+                                                }
+                                              }}
+                                              className={cn(
+                                                "h-8 w-[3.5rem] min-w-[3.5rem] self-center text-center",
+                                                inputBorderClassName
+                                              )}
+                                              aria-label={`Cantidad recibida de ${fila.codItem}`}
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => ajustarEditingValue(1)}
+                                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                              aria-label="Aumentar"
+                                              title="Aumentar"
+                                            >
+                                              <span className="text-sm leading-none">+</span>
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => confirmarEdicion(fila)}
+                                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                              aria-label="Confirmar Edición"
+                                              title="Confirmar Edición"
+                                            >
+                                              <Check
+                                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                                aria-hidden
+                                              />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          cantRecCelda
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="celda-datos w-[15%] tabla-bloque-secundario-cell-divider">
+                                        <div
+                                          className={cn(
+                                            TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                                            fila.verificado && "cursor-auto"
+                                          )}
+                                        >
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => onClickOk(fila)}
+                                            disabled={!tablaEditable || fila.verificado}
+                                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                            aria-label="OK"
+                                            title="OK"
+                                            data-ok-button={fila.key}
+                                          >
+                                            <Check
+                                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                                              aria-hidden
+                                            />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => onClickEditar(fila)}
+                                            disabled={!tablaEditable}
+                                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                            aria-label="Editar"
+                                            title="Editar"
+                                          >
+                                            <Pencil
+                                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                                              aria-hidden
+                                            />
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => onClickCesto(fila)}
+                                            disabled={!tablaEditable}
+                                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                            aria-label="Cesto De Basura"
+                                            title="Cesto De Basura"
+                                          >
+                                            <Trash2
+                                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                                              aria-hidden
+                                            />
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
-          </>
-        ) : null}
-      </AppModal>
-    </Dialog>
+          ) : null}
+        </AppModal>
+      </Dialog>
+
+      <AgregarProductosModal
+        open={agregarOpen}
+        onOpenChange={setAgregarOpen}
+        initialBusqueda={busqueda}
+        onAgregar={(row, cantRecibida) => {
+          if (filas.some((f) => f.codItem === row.codTienda)) {
+            toast.error("Ese ítem ya está en la transferencia.");
+            return;
+          }
+          const cant = redondearCantidadUnDecimal(Math.max(0, cantRecibida));
+          setFilas((prev) => [
+            ...prev,
+            {
+              key: `nuevo:${row.codTienda}`,
+              codItem: row.codTienda,
+              descripcion: row.descripcionTienda,
+              enviada: 0,
+              propuesta: cant,
+              recibida: cant,
+              verificado: true,
+              esNuevo: true,
+            },
+          ]);
+        }}
+      />
+    </>
   );
 }
