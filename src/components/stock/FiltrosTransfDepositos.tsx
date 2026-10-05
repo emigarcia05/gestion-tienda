@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,7 @@ import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { parTransfConSucursalUsuario } from "@/lib/transfDepositosControl";
 import { cn } from "@/lib/utils";
-import type { Sucursal, TransfDepositosData } from "@/actions/stock";
+import type { SucursalTransf as Sucursal, TransfDepositosData } from "@/lib/transfDepositosTypes";
 import {
   EVENTO_USUARIO_SESION,
   leerUsuarioSesion,
@@ -45,7 +46,7 @@ interface Props {
 
 /**
  * Filtros de **Trans. Depósitos**:
- * 1) **SUCURSAL ORIGEN** / **SUCURSAL DESTINO** (una punta = sucursal del usuario;
+ * 1) **SUC. ORIGEN** → **SUC. DESTINO** (centrados; una punta = sucursal del usuario;
  *    la otra se fija y no se edita)
  * 2) **MARCA** / **RUBRO** + búsqueda (sin desplegable SUCURSAL)
  */
@@ -212,8 +213,11 @@ export default function FiltrosTransfDepositos({
   return (
     <div className="filtros-doble-bloque-compacto">
       <FilterBar className="filtros-contenedor-tienda bg-card">
-        <FilterRowSelection>
-          <FilaFiltrosDesplegables>
+        <FilterRowSelection className="justify-center">
+          <div
+            className="mx-auto grid w-full max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3"
+            aria-label="Sucursal origen hacia sucursal destino"
+          >
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={origenActual !== null && !parActual.origenBloqueado}
@@ -226,9 +230,9 @@ export default function FiltrosTransfDepositos({
               >
                 <SelectTrigger
                   id="filtro-transf-origen"
-                  className="input-filtro-unificado"
+                  className="input-filtro-unificado w-full"
                 >
-                  <SelectValue placeholder="SUCURSAL ORIGEN" />
+                  <SelectValue placeholder="SUC. ORIGEN" />
                 </SelectTrigger>
                 <SelectContent
                   position="popper"
@@ -246,6 +250,10 @@ export default function FiltrosTransfDepositos({
                 </SelectContent>
               </Select>
             </FiltroIndividualContainer>
+            <ArrowRight
+              className="h-5 w-5 shrink-0 text-primary"
+              aria-hidden
+            />
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={destinoActual !== null && !parActual.destinoBloqueado}
@@ -258,9 +266,9 @@ export default function FiltrosTransfDepositos({
               >
                 <SelectTrigger
                   id="filtro-transf-destino"
-                  className="input-filtro-unificado"
+                  className="input-filtro-unificado w-full"
                 >
-                  <SelectValue placeholder="SUCURSAL DESTINO" />
+                  <SelectValue placeholder="SUC. DESTINO" />
                 </SelectTrigger>
                 <SelectContent
                   position="popper"
@@ -278,7 +286,7 @@ export default function FiltrosTransfDepositos({
                 </SelectContent>
               </Select>
             </FiltroIndividualContainer>
-          </FilaFiltrosDesplegables>
+          </div>
         </FilterRowSelection>
       </FilterBar>
 

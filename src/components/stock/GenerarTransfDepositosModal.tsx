@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Check, Copy } from "lucide-react";
+import { ArrowRight, Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -23,21 +23,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
-import {
-  listarLoteAbiertoTransfDepositosAction,
-  listarSucursalesTransfDepositosAction,
-  marcarTransferidoTransfDepositosAction,
-  type LoteAbiertoTransfDepositoItemDto,
-  type Sucursal,
-  type SucursalTransfDepositoOptionDto,
-} from "@/actions/stock";
-import { formatCantidadInputValor } from "@/lib/cantidadUnDecimal";
+import { parseCantidadUnDecimal, formatCantidadInputValor } from "@/lib/cantidadUnDecimal";
 import { fmtCantidad } from "@/lib/format";
 import { parseSucursalPreferida } from "@/lib/sucursalPreferida";
 import {
+  borrarBorradorTransfDepositos,
   enfocarDuxTransferenciaDepositosTab,
+  leerBorradorTransfDepositos,
   parTransfConSucursalUsuario,
 } from "@/lib/transfDepositosControl";
+import {
+  SUCURSALES_TRANSF_DEPOSITOS_UI,
+  type LoteAbiertoTransfDepositoItemDto,
+  type SucursalTransf as Sucursal,
+  type SucursalTransfDepositoOptionDto,
+} from "@/lib/transfDepositosTypes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import {
   TablaControlItemCelda,
@@ -165,26 +165,27 @@ export default function GenerarTransfDepositosModal({
 
   const cargarItems = useCallback(
     async (origenId: string, destinoId: string) => {
-      const personalId = leerUsuarioSesion()?.idPersonal;
-      if (personalId == null) {
-        setError("Elegí un usuario.");
+      const origenCod = parseSucursalPreferida(origenId);
+      const destinoCod = parseSucursalPreferida(destinoId);
+      if (!origenCod || !destinoCod) {
+        setError("Sucursal origen o destino inválida.");
         setItems([]);
         setOkPorCodTienda({});
         return;
       }
-      const res = await listarLoteAbiertoTransfDepositosAction({
-        personalId,
-        sucOrigenId: origenId,
-        sucDestinoId: destinoId,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        setItems([]);
-        setOkPorCodTienda({});
-        return;
+      const borrador = leerBorradorTransfDepositos(origenCod, destinoCod);
+      const lote: LoteAbiertoTransfDepositoItemDto[] = [];
+      for (const [codTienda, item] of Object.entries(borrador)) {
+        const cantidad = parseCantidadUnDecimal(item.cantidad, { min: 0.1 });
+        if (cantidad == null || cantidad <= 0) continue;
+        lote.push({
+          codTienda,
+          descripcionTienda: item.descripcion,
+          cantidad,
+        });
       }
       setError(null);
-      setItems(res.data);
+      setItems(lote);
       setOkPorCodTienda({});
     },
     []
@@ -203,16 +204,14 @@ export default function GenerarTransfDepositosModal({
       setSucDestinoId(null);
     });
 
-    (async () => {
-      const res = await listarSucursalesTransfDepositosAction();
+    void (async () => {
       if (cancelled) return;
-      if (!res.ok) {
-        setLoading(false);
-        setError(res.error);
-        return;
-      }
-      setSucursales(res.data);
-      const ids = idsDesdeCodigos(res.data, origenCodigo, destinoCodigo);
+      setSucursales(SUCURSALES_TRANSF_DEPOSITOS_UI);
+      const ids = idsDesdeCodigos(
+        SUCURSALES_TRANSF_DEPOSITOS_UI,
+        origenCodigo,
+        destinoCodigo
+      );
       if (!ids.origenId) {
         setLoading(false);
         setError("Sucursal origen no encontrada.");
@@ -304,23 +303,16 @@ export default function GenerarTransfDepositosModal({
     ) {
       return;
     }
-    startTransition(async () => {
-      const personalId = leerUsuarioSesion()?.idPersonal;
-      if (personalId == null) {
-        toast.error("Elegí un usuario.");
-        return;
-      }
-      const res = await marcarTransferidoTransfDepositosAction({
-        personalId,
-        sucOrigenId,
-        sucDestinoId,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
+    const origenCod = parseSucursalPreferida(sucOrigenId);
+    const destinoCod = parseSucursalPreferida(sucDestinoId);
+    if (!origenCod || !destinoCod) {
+      toast.error("Sucursal origen o destino inválida.");
+      return;
+    }
+    startTransition(() => {
+      borrarBorradorTransfDepositos(origenCod, destinoCod);
       toast.success(
-        `${res.data.borrados} transferencia${res.data.borrados !== 1 ? "s" : ""} marcada${res.data.borrados !== 1 ? "s" : ""} como transferida${res.data.borrados !== 1 ? "s" : ""}.`
+        `${items.length} transferencia${items.length !== 1 ? "s" : ""} marcada${items.length !== 1 ? "s" : ""} como transferida${items.length !== 1 ? "s" : ""}.`
       );
       setItems([]);
       setOkPorCodTienda({});
@@ -364,7 +356,7 @@ export default function GenerarTransfDepositosModal({
         }
       >
         <div className="flex shrink-0 flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3">
             <div className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel align="center">SUC. ORIGEN</ModalMicroLabel>
               <Select
@@ -394,6 +386,10 @@ export default function GenerarTransfDepositosModal({
                 </SelectContent>
               </Select>
             </div>
+            <ArrowRight
+              className="mb-2 h-5 w-5 shrink-0 text-primary"
+              aria-hidden
+            />
             <div className="flex min-w-0 flex-col gap-1">
               <ModalMicroLabel align="center">SUC. DESTINO</ModalMicroLabel>
               <Select

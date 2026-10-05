@@ -20,9 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   ItemTransfDepositos,
-  Sucursal,
+  SucursalTransf as Sucursal,
   TransfDepositosData,
-} from "@/actions/stock";
+} from "@/lib/transfDepositosTypes";
 import HistorialTransfDepositosModal from "@/components/stock/HistorialTransfDepositosModal";
 import {
   TableEmptyState,

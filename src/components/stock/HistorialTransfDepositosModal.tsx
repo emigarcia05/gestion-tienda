@@ -12,11 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listarHistorialTransfDepositosProductoAction } from "@/actions/stock";
-import type { HistorialTransfDepositosSeccionDto } from "@/actions/stock";
 import { fmtCantidad } from "@/lib/format";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS } from "@/lib/transfDepositosControl";
+import type { HistorialTransfDepositosSeccionDto } from "@/lib/transfDepositosTypes";
 
 interface Props {
   open: boolean;
@@ -26,8 +25,7 @@ interface Props {
 }
 
 /**
- * Modal CONTROL: transferencias del producto en los últimos 14 días,
- * una sección por par origen → destino.
+ * Modal CONTROL: historial de transferencias (vacío hasta el nuevo backend).
  */
 export default function HistorialTransfDepositosModal({
   open,
@@ -39,28 +37,14 @@ export default function HistorialTransfDepositosModal({
     []
   );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !codTienda) return;
-    let cancelled = false;
     queueMicrotask(() => {
       setLoading(true);
-      setError(null);
       setSecciones([]);
-    });
-    listarHistorialTransfDepositosProductoAction({ codTienda }).then((res) => {
-      if (cancelled) return;
       setLoading(false);
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      setSecciones(res.data);
     });
-    return () => {
-      cancelled = true;
-    };
   }, [open, codTienda]);
 
   return (
@@ -81,56 +65,44 @@ export default function HistorialTransfDepositosModal({
         >
           {descripcion}
         </p>
-        <p className="text-xs font-medium text-foreground text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Últimos {TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS} días
         </p>
-
         {loading ? (
           <p className="text-sm text-foreground py-6 text-center">Cargando…</p>
-        ) : null}
-
-        {!loading && error ? (
-          <p className="text-sm text-destructive py-6 text-center">{error}</p>
-        ) : null}
-
-        {!loading && !error && secciones.length === 0 ? (
+        ) : secciones.length === 0 ? (
           <p className="text-sm text-foreground py-6 text-center">
-            Sin transferencias en los últimos{" "}
-            {TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS} días.
+            Sin transferencias en el período.
           </p>
-        ) : null}
-
-        {!loading &&
-          !error &&
+        ) : (
           secciones.map((sec) => (
-            <section key={sec.titulo} className="space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-foreground text-center">
-                {sec.titulo}
-              </h3>
-              <Table variant="compact">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[60%]">FECHA</TableHead>
-                    <TableHead className="w-[40%] text-center">
-                      CANTIDAD
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sec.items.map((item) => (
-                    <TableRow key={`${item.createdAtIso}-${item.cantidad}`}>
-                      <TableCell className="celda-datos">
-                        {formatDdMmHhMmArgentina(new Date(item.createdAtIso))}
-                      </TableCell>
-                      <TableCell className="celda-datos text-center tabular-nums">
-                        {fmtCantidad(item.cantidad)}
-                      </TableCell>
+            <div key={`${sec.origenCodigo}-${sec.destinoCodigo}`} className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">{sec.titulo}</p>
+              <div className="contenedor-tabla-gestion">
+                <Table variant="compact">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>FECHA</TableHead>
+                      <TableHead className="text-right">CANT.</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </section>
-          ))}
+                  </TableHeader>
+                  <TableBody>
+                    {sec.items.map((item, idx) => (
+                      <TableRow key={`${item.createdAtIso}-${idx}`}>
+                        <TableCell className="celda-datos tabular-nums">
+                          {formatDdMmHhMmArgentina(new Date(item.createdAtIso))}
+                        </TableCell>
+                        <TableCell className="celda-datos text-right tabular-nums">
+                          {fmtCantidad(item.cantidad)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ))
+        )}
       </AppModal>
     </Dialog>
   );

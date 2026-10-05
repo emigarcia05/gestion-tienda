@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -12,20 +12,22 @@ import TablaTransfDepositos, {
 import GenerarTransfDepositosModal from "@/components/stock/GenerarTransfDepositosModal";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import { Button } from "@/components/ui/button";
-import { registrarTransferenciasDepositosAction } from "@/actions/stock";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PAGE_SIZE } from "@/lib/pagination";
 import {
   enfocarDuxTransferenciaDepositosTab,
   parTransfIncluyeSucursalUsuario,
 } from "@/lib/transfDepositosControl";
+import type {
+  SucursalTransf,
+  TransfDepositosData,
+} from "@/lib/transfDepositosTypes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
-import type { Sucursal, TransfDepositosData } from "@/actions/stock";
 
 interface Props {
   data: TransfDepositosData;
-  origen: Sucursal | null;
-  destino: Sucursal | null;
+  origen: SucursalTransf | null;
+  destino: SucursalTransf | null;
   q: string;
   marca: string;
   rubro: string;
@@ -35,12 +37,8 @@ interface Props {
 }
 
 /**
- * Pantalla **Stock · Trans. Depósitos**: origen/destino (una punta = sucursal
- * del usuario; la otra se fija) → marca/rubro/búsqueda;
- * grilla DESCRIPCIÓN / {origen} / → / {destino} / ACCIONES;
- * header **Generar Transf.** persiste cantidades de la grilla (si hay) y abre
- * el modal del lote abierto origen→destino. El borrador de la grilla se conserva
- * en `localStorage` por par origen→destino hasta **Transferido**.
+ * Pantalla **Stock · Trans. Depósitos** (solo UI).
+ * Borrador de grilla en `localStorage`; sin persistencia de ledger todavía.
  */
 export default function TransfDepositosPageClient({
   data,
@@ -58,7 +56,6 @@ export default function TransfDepositosPageClient({
   const tieneOrigen = origen !== null;
   const tablaRef = useRef<TablaTransfDepositosHandle>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
   if (abrirGenerar && !modalOpen) {
     setModalOpen(true);
@@ -99,11 +96,6 @@ export default function TransfDepositosPageClient({
     if (destino) {
       enfocarDuxTransferenciaDepositosTab();
     }
-    const items = tablaRef.current?.getItemsConCantidad() ?? [];
-    if (items.length === 0) {
-      setModalOpen(true);
-      return;
-    }
     if (!destino) {
       toast.error("Elegí origen y destino distintos.");
       return;
@@ -118,19 +110,7 @@ export default function TransfDepositosPageClient({
       toast.error("Origen o destino debe ser tu sucursal.");
       return;
     }
-    startTransition(async () => {
-      const res = await registrarTransferenciasDepositosAction({
-        personalId: usuario.idPersonal,
-        origen,
-        destino,
-        items,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setModalOpen(true);
-    });
+    setModalOpen(true);
   }
 
   return (
@@ -139,12 +119,7 @@ export default function TransfDepositosPageClient({
       subtitle="Trans. Depósitos"
       filters={filters}
       actions={
-        <Button
-          type="button"
-          className="h-10 px-4"
-          onClick={generarTransf}
-          disabled={isPending}
-        >
+        <Button type="button" className="h-10 px-4" onClick={generarTransf}>
           <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />
           Generar Transf.
         </Button>
@@ -180,7 +155,6 @@ export default function TransfDepositosPageClient({
         destinoCodigo={destino}
         onTransferido={() => {
           tablaRef.current?.clearCantidades();
-          router.refresh();
         }}
       />
     </ClassicFilteredTableLayout>
