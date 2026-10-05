@@ -7,7 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ArrowRight, AlertTriangle, Check, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -39,7 +39,9 @@ import {
 import {
   esBorradorCantidadUnDecimal,
   fmtCantidad,
+  formatCantidadInputValor,
   parseCantidadUnDecimal,
+  redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import {
@@ -53,16 +55,33 @@ import {
   leerBorradorTransfDepositos,
 } from "@/lib/transfDepositosControl";
 
-/** DESCRIPCIÓN · stock origen · origen · flecha · destino · stock destino · ACCIONES. */
-const PCT_DESC = 46;
-const PCT_STOCK = 8;
-const PCT_ORIGEN = 10;
-const PCT_FLECHA = 3;
-const PCT_DESTINO = 10;
-const PCT_ACCIONES = 15;
+/** DESCRIPCIÓN · CANT. (− input +) · SUC. ORIGEN · SUC. DESTINO · ACCIONES. */
+const PCT_DESC = 42;
+const PCT_CANT = 18;
+const PCT_SUC = 15;
+const PCT_ACCIONES = 10;
 
-function fmtStock(valor: number | null): string {
-  return valor == null ? "—" : fmtCantidad(valor);
+function CeldaStockTransf({
+  actual,
+  delta,
+}: {
+  actual: number | null;
+  /** Negativo en origen, positivo en destino; `null` = sin cantidad. */
+  delta: number | null;
+}) {
+  if (actual == null) return "";
+  const textoActual = fmtCantidad(actual);
+  if (delta == null) return textoActual;
+  const luego = redondearCantidadUnDecimal(actual + delta);
+  return (
+    <span className="tabular-nums">
+      {textoActual}
+      <span className="text-muted-foreground"> → </span>
+      <span className={cn(luego < 0 && "text-destructive")}>
+        {fmtCantidad(luego)}
+      </span>
+    </span>
+  );
 }
 
 interface Props {
@@ -83,7 +102,8 @@ export type TablaTransfDepositosHandle = {
 
 /**
  * Grilla **Trans. Depósitos**:
- * DESCRIPCIÓN · {origen} · → · {destino} · ACCIONES (Trash2, Check historial, AlertTriangle).
+ * DESCRIPCIÓN · CANT. (−/+) · SUC. ORIGEN · SUC. DESTINO · ACCIONES
+ * (Trash2, Check historial, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
  * hasta **Confirmar Transf.** (crea `stock_transferencias` PENDIENTE).
  * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
@@ -210,6 +230,29 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
     });
   }
 
+  function ajustarCantidadUnidad(
+    id: string,
+    descripcion: string,
+    delta: -1 | 1
+  ) {
+    if (!destinoSeleccionado) return;
+    const raw = borrador[id]?.cantidad ?? "";
+    const parsed =
+      raw === "" ? null : parseCantidadUnDecimal(raw, { min: 0 });
+    let nextN: number | null;
+    if (parsed == null) {
+      nextN = delta > 0 ? 1 : null;
+    } else {
+      const candidato = redondearCantidadUnDecimal(parsed + delta);
+      nextN = candidato <= 0 ? null : candidato;
+    }
+    handleCantidad(
+      id,
+      nextN == null ? "" : formatCantidadInputValor(nextN),
+      descripcion
+    );
+  }
+
   function limpiarFila(id: string) {
     setBorrador((prev) => {
       const next = { ...prev };
@@ -235,28 +278,17 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
       <Table variant="compact">
         <colgroup>
           <col style={{ width: `${PCT_DESC}%` }} />
-          <col style={{ width: `${PCT_STOCK}%` }} />
-          <col style={{ width: `${PCT_ORIGEN}%` }} />
-          <col style={{ width: `${PCT_FLECHA}%` }} />
-          <col style={{ width: `${PCT_DESTINO}%` }} />
-          <col style={{ width: `${PCT_STOCK}%` }} />
+          <col style={{ width: `${PCT_CANT}%` }} />
+          <col style={{ width: `${PCT_SUC}%` }} />
+          <col style={{ width: `${PCT_SUC}%` }} />
           <col style={{ width: `${PCT_ACCIONES}%` }} />
         </colgroup>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="min-w-0 align-middle">DESCRIPCIÓN</TableHead>
-            <TableHead className="text-center align-middle">STOCK</TableHead>
-            <TableHead className="text-center align-middle">
-              {origenLabel}
-            </TableHead>
-            <TableHead
-              className="text-center align-middle"
-              aria-label="Transferir hacia"
-            />
-            <TableHead className="text-center align-middle">
-              {destinoLabel}
-            </TableHead>
-            <TableHead className="text-center align-middle">STOCK</TableHead>
+            <TableHead className="text-center align-middle">CANT.</TableHead>
+            <TableHead className="text-center align-middle">SUC. ORIGEN</TableHead>
+            <TableHead className="text-center align-middle">SUC. DESTINO</TableHead>
             <TableHead className="text-center align-middle">ACCIONES</TableHead>
           </TableRow>
         </TableHeader>
@@ -264,7 +296,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
           {filas.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={5}
                 className={cn(
                   tableEmptyStateContainerVariants({
                     placement: "tableCellTall",
@@ -290,22 +322,18 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
               cantidadNum != null
                 ? controlesPorClave.get(`${item.id}|${cantidadNum}`)
                 : undefined;
+            const deltaOrigen =
+              destinoSeleccionado && cantidadNum != null ? -cantidadNum : null;
+            const deltaDestino =
+              destinoSeleccionado && cantidadNum != null ? cantidadNum : null;
 
             return (
               <TableRow key={item.id}>
                 <TableCell className="celda-datos min-w-0 overflow-hidden">
                   {item.descripcion}
                 </TableCell>
-                <TableCell
-                  className={cn(
-                    "celda-datos text-center tabular-nums",
-                    item.stockOrigen != null && item.stockOrigen < 0 && "text-destructive"
-                  )}
-                >
-                  {fmtStock(item.stockOrigen)}
-                </TableCell>
                 <TableCell className="celda-datos text-center">
-                  <div className="flex w-full items-center justify-center">
+                  <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -317,38 +345,59 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                       aria-label={`Cantidad a transferir desde ${origenLabel}`}
                       disabled={!destinoSeleccionado}
                     />
-                  </div>
-                </TableCell>
-                <TableCell className="celda-datos text-center">
-                  <div className="flex w-full items-center justify-center text-muted-foreground">
-                    <span
-                      className={cn(
-                        "inline-flex size-4 shrink-0 items-center justify-center",
-                        !tieneCantidad && "invisible"
-                      )}
-                      aria-hidden={!tieneCantidad}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      aria-label="Disminuir cantidad"
+                      disabled={!destinoSeleccionado}
+                      onClick={() =>
+                        ajustarCantidadUnidad(item.id, item.descripcion, -1)
+                      }
                     >
-                      <ArrowRight
-                        className={TABLE_ROW_ACTION_ICON_CLASS}
-                        aria-hidden
-                      />
-                    </span>
+                      -
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      aria-label="Aumentar cantidad"
+                      disabled={!destinoSeleccionado}
+                      onClick={() =>
+                        ajustarCantidadUnidad(item.id, item.descripcion, 1)
+                      }
+                    >
+                      +
+                    </Button>
                   </div>
-                </TableCell>
-                <TableCell className="celda-datos text-center tabular-nums">
-                  {!destinoSeleccionado || !tieneCantidad
-                    ? "—"
-                    : cantidadNum != null
-                      ? fmtCantidad(cantidadNum)
-                      : cantidad}
                 </TableCell>
                 <TableCell
                   className={cn(
                     "celda-datos text-center tabular-nums",
-                    item.stockDestino != null && item.stockDestino < 0 && "text-destructive"
+                    item.stockOrigen != null &&
+                      item.stockOrigen < 0 &&
+                      "text-destructive"
                   )}
                 >
-                  {fmtStock(item.stockDestino)}
+                  <CeldaStockTransf
+                    actual={item.stockOrigen}
+                    delta={deltaOrigen}
+                  />
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    "celda-datos text-center tabular-nums",
+                    item.stockDestino != null &&
+                      item.stockDestino < 0 &&
+                      "text-destructive"
+                  )}
+                >
+                  <CeldaStockTransf
+                    actual={item.stockDestino}
+                    delta={deltaDestino}
+                  />
                 </TableCell>
                 <TableCell className="celda-datos celda-datos--accion-relleno-fila">
                   <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

@@ -95,6 +95,10 @@ export const HEADER_ACCIONES_MENU_OPEN_CLASS = "z-[90]";
 
 export const HEADER_ACCIONES_TRIGGER_CLASS = "header-acciones-trigger";
 
+/** NOTIFICACIONES sin ítems: fondo `--sidebar` (igual que el header). */
+export const HEADER_NOTIFICACIONES_TRIGGER_VACIO_CLASS =
+  "header-notificaciones-trigger--vacio";
+
 export const HEADER_ACCIONES_PANEL_CLASS = [
   "header-acciones-panel pointer-events-none invisible absolute right-0 top-full z-[90] pt-1",
   "opacity-0",

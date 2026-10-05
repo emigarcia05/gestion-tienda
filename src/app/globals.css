@@ -2270,7 +2270,8 @@ button.tabla-row-btn-filled-brand {
 }
 
 /* Header: un solo botón ACCIONES; las acciones de la ventana viven en el menú hover. */
-header .section-header-actions .header-acciones-trigger {
+header .section-header-actions .header-acciones-trigger,
+header .section-header-notificaciones .header-acciones-trigger {
   height: 2.5rem !important;
   min-height: 2.5rem !important;
   padding: 0 1rem !important;
@@ -2289,9 +2290,20 @@ header .section-header-actions .header-acciones-trigger {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
-header .section-header-actions .header-acciones-trigger:hover:not(:disabled) {
+header .section-header-actions .header-acciones-trigger:hover:not(:disabled),
+header .section-header-notificaciones .header-acciones-trigger:hover:not(:disabled) {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   filter: brightness(0.9);
+}
+header .section-header-notificaciones .header-acciones-trigger.header-notificaciones-trigger--vacio {
+  background-color: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+  box-shadow: none !important;
+}
+header .section-header-notificaciones .header-acciones-trigger.header-notificaciones-trigger--vacio:hover:not(:disabled) {
+  background-color: var(--sidebar-accent) !important;
+  filter: none;
+  box-shadow: none !important;
 }
 header .section-header-actions .header-acciones-list button {
   height: 2.25rem !important;
