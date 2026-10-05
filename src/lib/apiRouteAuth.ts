@@ -102,6 +102,15 @@ export async function guardFacturacionLectura(): Promise<NextResponse | null> {
   return null;
 }
 
+/** Stock / Movimientos / Trans. Depósitos (lectura HTTP). */
+export async function guardStockAcceso(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.stock.acceso)) {
+    return NextResponse.json({ ok: false, error: "Sin acceso." }, { status: 403 });
+  }
+  return null;
+}
+
 /** Consulta constancia ARCA (CUIT → nombre / cond. IVA): Envíos o Facturación. */
 export async function guardClientesMutacion(): Promise<NextResponse | null> {
   const rol = await getRol();

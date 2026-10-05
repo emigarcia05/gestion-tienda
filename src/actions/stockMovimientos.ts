@@ -5,12 +5,10 @@ import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
   confirmarAjusteControlStockSchema,
-  listarStockMovimientosSucursalSchema,
   obtenerStockComprobanteDetalleSchema,
 } from "@/lib/validations/stockMovimientos";
 import {
   confirmarAjusteControlStock,
-  listarStockMovimientosPorSucursalCodigo,
   obtenerStockComprobanteDetalle,
   type RegistrarStockMovimientosResult,
   type StockComprobanteDetalle,
@@ -19,46 +17,45 @@ import {
 
 export type { StockComprobanteDetalle, StockMovimientoFila };
 
-export async function listarStockMovimientosSucursalAction(
-  raw: unknown
-): Promise<ActionResult<StockMovimientoFila[]>> {
-  const gate = await requireStockAcceso();
-  if (gate) return gate;
-  const parsed = listarStockMovimientosSucursalSchema.safeParse(raw);
-  if (!parsed.success) return zodFail(parsed.error);
+/**
+ * Evita que excepciones no atrapadas lleguen al cliente como
+ * "An error occurred in the Server Components render… digest…".
+ */
+async function ejecutarActionSegura<T>(
+  scope: string,
+  fn: () => Promise<ActionResult<T>>
+): Promise<ActionResult<T>> {
   try {
-    const filas = await listarStockMovimientosPorSucursalCodigo(
-      parsed.data.sucursalCodigo
-    );
-    return { ok: true, data: filas };
+    return await fn();
   } catch (e) {
-    console.error("[listarStockMovimientosSucursalAction]", e);
-    const msg =
-      e instanceof Error && /does not exist|P2021|P2022/i.test(e.message)
-        ? e.message.slice(0, 240)
-        : "No se pudieron cargar los movimientos.";
-    return { ok: false, error: msg };
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[stockMovimientos][action][${scope}]`, msg);
+    return { ok: false, error: "Error inesperado al procesar la solicitud." };
   }
 }
 
 export async function obtenerStockComprobanteDetalleAction(
   raw: unknown
 ): Promise<ActionResult<StockComprobanteDetalle>> {
-  const gate = await requireStockAcceso();
-  if (gate) return gate;
-  const parsed = obtenerStockComprobanteDetalleSchema.safeParse(raw);
-  if (!parsed.success) return zodFail(parsed.error);
-  const res = await obtenerStockComprobanteDetalle(parsed.data.stockComprobanteId);
-  return fromServiceResult(res);
+  return ejecutarActionSegura("obtenerStockComprobanteDetalle", async () => {
+    const gate = await requireStockAcceso();
+    if (gate) return gate;
+    const parsed = obtenerStockComprobanteDetalleSchema.safeParse(raw);
+    if (!parsed.success) return zodFail(parsed.error);
+    return fromServiceResult(
+      await obtenerStockComprobanteDetalle(parsed.data.stockComprobanteId)
+    );
+  });
 }
 
 export async function confirmarAjusteControlStockAction(
   raw: unknown
 ): Promise<ActionResult<RegistrarStockMovimientosResult>> {
-  const gate = await requireStockAcceso();
-  if (gate) return gate;
-  const parsed = confirmarAjusteControlStockSchema.safeParse(raw);
-  if (!parsed.success) return zodFail(parsed.error);
-  const res = await confirmarAjusteControlStock(parsed.data);
-  return fromServiceResult(res);
+  return ejecutarActionSegura("confirmarAjusteControlStock", async () => {
+    const gate = await requireStockAcceso();
+    if (gate) return gate;
+    const parsed = confirmarAjusteControlStockSchema.safeParse(raw);
+    if (!parsed.success) return zodFail(parsed.error);
+    return fromServiceResult(await confirmarAjusteControlStock(parsed.data));
+  });
 }

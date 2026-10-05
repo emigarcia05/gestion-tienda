@@ -522,14 +522,13 @@ export async function listarStockMovimientosPorSucursalCodigo(
       categoriaMovimiento: true,
       cantidad: true,
       createdAt: true,
-      usuarioId: true,
+      usuario: { select: { nombrePersonal: true } },
       prodTienda: { select: { descripcionTienda: true, codTienda: true } },
       comprobante: {
         select: {
           id: true,
           tipo: true,
           comprobanteVtaId: true,
-          personalId: true,
           personal: { select: { nombrePersonal: true } },
           sucursal: { select: { codigo: true, nombre: true } },
           sucursalDestino: { select: { codigo: true, nombre: true } },
@@ -543,7 +542,9 @@ export async function listarStockMovimientosPorSucursalCodigo(
     const item =
       row.prodTienda.descripcionTienda?.trim() || row.prodTienda.codTienda;
     const usuarioNombre =
-      row.comprobante.personal?.nombrePersonal.trim() || "";
+      row.usuario?.nombrePersonal.trim() ||
+      row.comprobante.personal?.nombrePersonal.trim() ||
+      "";
     const contraparteNombre = contraparteDesdeComprobante(row.comprobante);
     const categoriaEtiqueta =
       CATEGORIA_ETIQUETA[row.categoriaMovimiento] ??

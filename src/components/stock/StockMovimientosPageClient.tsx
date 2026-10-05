@@ -3,10 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Eye } from "lucide-react";
 import { toast } from "sonner";
-import {
-  listarStockMovimientosSucursalAction,
-  type StockMovimientoFila,
-} from "@/actions/stockMovimientos";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FilterBar, {
   FILTER_COUNT_CLASS,
@@ -59,6 +55,7 @@ import {
   EVENTO_USUARIO_SESION,
   leerUsuarioSesion,
 } from "@/lib/usuarioSesion";
+import type { StockMovimientoFila } from "@/services/stockMovimientos.service";
 
 const TIPOS_MOVIMIENTO = ["INGRESO", "EGRESO"] as const;
 
@@ -126,22 +123,54 @@ export default function StockMovimientosPageClient() {
       toast.error("La carga de movimientos tardó demasiado. Recargá la página.");
     }, 20000);
     try {
-      const res = await listarStockMovimientosSucursalAction({
-        sucursalCodigo: usuario.sucursalPorDefecto,
+      const url = new URL("/api/stock/movimientos", window.location.origin);
+      url.searchParams.set("sucursalCodigo", usuario.sucursalPorDefecto);
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
       });
-      if (!res.ok) {
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+      const okPayload =
+        payload !== null &&
+        typeof payload === "object" &&
+        "ok" in payload &&
+        (payload as { ok: unknown }).ok === true &&
+        "data" in payload &&
+        Array.isArray((payload as { data: unknown }).data);
+      if (!response.ok || !okPayload) {
         setFilas([]);
-        toast.error(res.error);
+        const errMsg =
+          payload !== null &&
+          typeof payload === "object" &&
+          "ok" in payload &&
+          (payload as { ok: unknown }).ok === false &&
+          "error" in payload &&
+          typeof (payload as { error: unknown }).error === "string"
+            ? (payload as { error: string }).error
+            : "No se pudieron cargar los movimientos.";
+        toast.error(errMsg);
         return;
       }
-      setFilas(res.data);
+      setFilas((payload as { data: StockMovimientoFila[] }).data);
     } catch (e) {
       console.error("[StockMovimientosPageClient.cargar]", e);
       setFilas([]);
+      const raw =
+        e instanceof Error && e.message.trim() ? e.message.trim() : "";
+      const opaco =
+        /Server Components render|digest property|omitted in production/i.test(
+          raw
+        );
       toast.error(
-        e instanceof Error && e.message.trim()
-          ? e.message.slice(0, 200)
-          : "No se pudieron cargar los movimientos."
+        opaco || !raw
+          ? "No se pudieron cargar los movimientos. Recargá la página."
+          : raw.slice(0, 200)
       );
     } finally {
       terminado = true;
