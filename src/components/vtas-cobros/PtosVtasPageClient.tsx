@@ -6,7 +6,6 @@ import { ListOrdered, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarGlobalPtoVtaAction } from "@/actions/globalPtoVtas";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FilterRowSearch,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
@@ -45,8 +44,6 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-import { cn } from "@/lib/utils";
-
 type Props = {
   ptoVtas: GlobalPtoVtaItem[];
   sucursales: GlobalPtoVtaSucursalOption[];
@@ -178,10 +175,6 @@ export default function PtosVtasPageClient({
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} PTO. VTA.
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         }

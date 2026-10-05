@@ -16,13 +16,11 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { parTransfConSucursalUsuario } from "@/lib/transfDepositosControl";
-import { cn } from "@/lib/utils";
 import type { SucursalTransf as Sucursal, TransfDepositosData } from "@/lib/transfDepositosTypes";
 import {
   EVENTO_USUARIO_SESION,
@@ -41,7 +39,6 @@ interface Props {
   qActual: string;
   marcaActual: string;
   rubroActual: string;
-  totalItems: number;
 }
 
 /**
@@ -57,7 +54,6 @@ export default function FiltrosTransfDepositos({
   qActual,
   marcaActual,
   rubroActual,
-  totalItems,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -368,10 +364,6 @@ export default function FiltrosTransfDepositos({
             />
           </FilterRowSearch>
           <LimpiarFiltrosButton onClick={limpiarFiltros} />
-          <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-            {totalItems.toLocaleString("es-AR")} ÍTEM
-            {totalItems !== 1 ? "S" : ""}
-          </span>
         </div>
       </FilterBar>
     </div>

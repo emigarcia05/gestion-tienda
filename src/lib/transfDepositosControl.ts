@@ -1,7 +1,7 @@
 /**
  * Ventana (días) compartida: historial del modal y aviso de transferencia duplicada.
  * Mismo `cod_tienda` + origen + destino + cantidad dentro de esta ventana → advertencia.
- * Borrador de grilla: `localStorage` por par origen→destino hasta **Confirmar Transf.**
+ * Borrador de grilla: `localStorage` por par origen→destino hasta **Generar Transferencia**.
  * Si el local está vacío, la grilla no se hidrata desde BD (`stock_trasn_depositos` eliminada).
  */
 
@@ -109,72 +109,18 @@ export const SUCURSAL_LABEL_TRANSF: Record<"guaymallen" | "maipu", string> = {
   maipu: "MAIPÚ",
 };
 
-/** Transferencia de depósitos en DUX. */
-export const DUX_TRANSFERENCIA_DEPOSITOS_URL =
-  "https://erp.duxsoftware.com.ar/pages/deposito/transferenciaDep.faces";
-
-/** Nombre de ventana: reusa la misma pestaña (no `_blank`). Sin `noopener` para poder enfocarla. */
-export const DUX_TRANSFERENCIA_DEPOSITOS_WINDOW_NAME =
-  "dux-transferencia-depositos";
-
-let duxTransferenciaDepositosWin: Window | null = null;
-
-function esPestañaEnBlanco(win: Window): boolean {
-  try {
-    const href = win.location.href;
-    return href === "about:blank" || href === "";
-  } catch {
-    return false;
-  }
-}
-
-/** Abre (o reusa) transferencia de depósitos en DUX. Llamar en el gesto de elegir SUC. DESTINO. */
-export function abrirDuxTransferenciaDepositosTab(): void {
-  if (typeof window === "undefined") return;
-  duxTransferenciaDepositosWin = window.open(
-    DUX_TRANSFERENCIA_DEPOSITOS_URL,
-    DUX_TRANSFERENCIA_DEPOSITOS_WINDOW_NAME
-  );
-}
-
 /**
- * Trae al frente la pestaña DUX ya abierta. No pasa la URL: no recarga el formulario.
- * Si el usuario la cerró, vuelve a abrir DUX.
- */
-export function enfocarDuxTransferenciaDepositosTab(): void {
-  if (typeof window === "undefined") return;
-
-  if (duxTransferenciaDepositosWin && !duxTransferenciaDepositosWin.closed) {
-    duxTransferenciaDepositosWin.focus();
-    return;
-  }
-
-  const win = window.open("", DUX_TRANSFERENCIA_DEPOSITOS_WINDOW_NAME);
-  if (!win || win.closed) {
-    abrirDuxTransferenciaDepositosTab();
-    return;
-  }
-
-  if (esPestañaEnBlanco(win)) {
-    win.location.href = DUX_TRANSFERENCIA_DEPOSITOS_URL;
-  }
-  duxTransferenciaDepositosWin = win;
-  win.focus();
-}
-
-/** Query para abrir `GenerarTransfDepositosModal` al entrar a Trans. Depósitos. */
-export const QUERY_ABRIR_GENERAR_TRANSF = "generar";
-
-/**
- * URL canónica de Trans. Depósitos con el modal **Generar Transf.** abierto.
+ * URL canónica de Trans. Depósitos (opcionalmente con origen).
  */
 export function hrefAbrirGenerarTransfDepositos(
   origen?: "guaymallen" | "maipu" | null
 ): string {
   const p = new URLSearchParams();
   if (origen) p.set("origen", origen);
-  p.set(QUERY_ABRIR_GENERAR_TRANSF, "1");
-  return `${GP_ROUTES.ayudaVendedor.transfDepositos}?${p.toString()}`;
+  const query = p.toString();
+  return query
+    ? `${GP_ROUTES.ayudaVendedor.transfDepositos}?${query}`
+    : GP_ROUTES.ayudaVendedor.transfDepositos;
 }
 
 export function claveStorageBorradorTransfDepositos(
@@ -246,7 +192,7 @@ function normalizarBorradorParaGuardar(
 
 /**
  * Borrador de Cód. / Cant. de la grilla para un par origen→destino.
- * Vive hasta **Confirmar Transf.** (ahí pasa a `stock_transferencias`).
+ * Vive hasta **Generar Transferencia** (ahí pasa a `stock_transferencias`).
  */
 export function leerBorradorTransfDepositos(
   origen: SucursalTransfDepositos | null,

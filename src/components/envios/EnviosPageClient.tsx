@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEnvioWizardModal from "@/components/envios/CrearEnvioWizardModal";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
@@ -305,10 +304,6 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} ENVÍO
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         }

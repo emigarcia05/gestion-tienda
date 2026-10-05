@@ -14,13 +14,10 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { cn } from "@/lib/utils";
-
 const FOCUS_KEY = "filtros-tienda-focus";
 
 type ProveedorFiltro = { id: string; nombre: string; prefijo: string };
@@ -31,7 +28,6 @@ interface Props {
   /** Solo si `modoFiltroTercero` = `subRubro` (p. ej. Px Listas). */
   subRubros?: string[];
   proveedores: ProveedorFiltro[];
-  totalItems: number;
   qActual: string;
   marcaActual: string;
   rubroActual: string;
@@ -50,7 +46,6 @@ export default function FiltrosTienda({
   rubros,
   subRubros = [],
   proveedores,
-  totalItems,
   qActual,
   marcaActual,
   rubroActual,
@@ -339,9 +334,6 @@ export default function FiltrosTienda({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalItems.toLocaleString()} ITEM{totalItems !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

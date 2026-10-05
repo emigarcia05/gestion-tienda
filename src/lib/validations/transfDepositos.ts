@@ -4,7 +4,7 @@ import {
   formatCantidadInputValor,
 } from "@/lib/cantidadUnDecimal";
 
-/** Ítem del borrador de grilla (localStorage) hasta Confirmar Transf. */
+/** Ítem del borrador de grilla (localStorage) hasta Generar Transferencia. */
 export const itemBorradorTransfDepositosSchema = z.object({
   cantidad: z
     .union([z.string(), z.number()])

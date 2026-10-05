@@ -105,7 +105,7 @@ export type TablaTransfDepositosHandle = {
  * DESCRIPCIÓN · CANT. (−/+) · SUC. ORIGEN · SUC. DESTINO · ACCIONES
  * (Trash2, Check historial, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
- * hasta **Confirmar Transf.** (crea `stock_transferencias` PENDIENTE).
+ * hasta **Generar Transferencia** (crea `stock_transferencias` PENDIENTE).
  * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
@@ -174,7 +174,6 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   const origenSeleccionado = origen !== null;
   const destinoSeleccionado = destino !== null;
   const origenLabel = origen ? SUCURSAL_LABEL_TRANSF[origen] : "—";
-  const destinoLabel = destino ? SUCURSAL_LABEL_TRANSF[destino] : "—";
 
   const controlesPorClave = useMemo(() => {
     const map = new Map<string, { cantidad: number; createdAtIso: string }>();
@@ -287,8 +286,12 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
           <TableRow className="hover:bg-transparent">
             <TableHead className="min-w-0 align-middle">DESCRIPCIÓN</TableHead>
             <TableHead className="text-center align-middle">CANT.</TableHead>
-            <TableHead className="text-center align-middle">SUC. ORIGEN</TableHead>
-            <TableHead className="text-center align-middle">SUC. DESTINO</TableHead>
+            <TableHead className="text-center align-middle">
+              {origen ? SUCURSAL_LABEL_TRANSF[origen] : "SUC. ORIGEN"}
+            </TableHead>
+            <TableHead className="text-center align-middle">
+              {destino ? SUCURSAL_LABEL_TRANSF[destino] : "SUC. DESTINO"}
+            </TableHead>
             <TableHead className="text-center align-middle">ACCIONES</TableHead>
           </TableRow>
         </TableHeader>

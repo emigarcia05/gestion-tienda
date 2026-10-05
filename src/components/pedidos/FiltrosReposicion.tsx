@@ -15,12 +15,10 @@ import FilterBar, {
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
   SELECT_TRIGGER_FILTER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { cn } from "@/lib/utils";
 import type { ReposicionData, SucursalReposicion } from "@/actions/reposicion";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 
@@ -33,7 +31,6 @@ interface Props {
   marcaActual: string;
   rubroActual: string;
   configuradoActual: "" | "si";
-  totalItems: number;
   proveedorActual: string;
   sucursales: SucursalFiltroOption[];
 }
@@ -45,7 +42,6 @@ export default function FiltrosReposicion({
   marcaActual,
   rubroActual,
   configuradoActual,
-  totalItems,
   proveedorActual,
   sucursales,
 }: Props) {
@@ -329,10 +325,6 @@ export default function FiltrosReposicion({
           </FilterRowSearch>
           <LimpiarFiltrosButton onClick={limpiarFiltros} />
         </div>
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalItems.toLocaleString("es-AR")} ÍTEM
-          {totalItems !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

@@ -8,7 +8,6 @@ import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTable
 import CrearEditarMktColorMarcaModal from "@/components/marketing/CrearEditarMktColorMarcaModal";
 import ExportarMktSeccionesGoogleSheetsButton from "@/components/shared/ExportarMktSeccionesGoogleSheetsButton";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FilterRowSearch,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
@@ -34,8 +33,6 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-import { cn } from "@/lib/utils";
-
 interface Props {
   items: MktColorMarcaItem[];
   esEditor: boolean;
@@ -155,10 +152,6 @@ export default function MarketingColoresMarcaPageClient({ items, esEditor }: Pro
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         }

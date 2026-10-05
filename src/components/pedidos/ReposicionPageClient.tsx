@@ -41,8 +41,6 @@ export default function ReposicionPageClient({
 }: Props) {
   const tieneSucursal = sucursalValida !== null;
   const proveedorActual = proveedor;
-  const totalFiltrados = tieneSucursal ? data.total : 0;
-
   const filters = (
     <FiltrosReposicion
       data={data}
@@ -51,7 +49,6 @@ export default function ReposicionPageClient({
       marcaActual={marca}
       rubroActual={rubro}
       configuradoActual={configurado}
-      totalItems={totalFiltrados}
       proveedorActual={proveedorActual}
       sucursales={sucursales}
     />

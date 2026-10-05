@@ -47,7 +47,6 @@ interface Props {
   marcaActual: string;
   rubroActual: string;
   soloNegativoActual: boolean;
-  onFiltradosCountChange?: (count: number) => void;
 }
 
 const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
@@ -59,7 +58,6 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
     marcaActual: _marcaActual,
     rubroActual: _rubroActual,
     soloNegativoActual: _soloNegativoActual,
-    onFiltradosCountChange,
   },
   ref
 ) {
@@ -143,10 +141,6 @@ const TablaStock = forwardRef<TablaStockHandle, Props>(function TablaStock(
   }
 
   const items = data.items;
-
-  useEffect(() => {
-    if (onFiltradosCountChange) onFiltradosCountChange(items.length);
-  }, [items.length, onFiltradosCountChange]);
 
   const handleImprimir = useCallback(async () => {
     setImprimiendo(true);

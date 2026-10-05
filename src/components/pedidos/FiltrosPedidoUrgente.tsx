@@ -15,11 +15,9 @@ import FilterBar, {
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
   SELECT_TRIGGER_FILTER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
-import { cn } from "@/lib/utils";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 
@@ -41,7 +39,6 @@ interface Props {
   pedido: FiltroPedidoValor;
   proveedores: Proveedor[];
   sucursales: SucursalFiltroOption[];
-  totalProductos: number;
 }
 
 export default function FiltrosPedidoUrgente({
@@ -51,7 +48,6 @@ export default function FiltrosPedidoUrgente({
   pedido,
   proveedores,
   sucursales,
-  totalProductos,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -211,10 +207,6 @@ export default function FiltrosPedidoUrgente({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalProductos.toLocaleString()} PRODUCTO
-          {totalProductos !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

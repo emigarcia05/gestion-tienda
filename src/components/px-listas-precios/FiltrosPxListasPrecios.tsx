@@ -14,14 +14,11 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
-import { cn } from "@/lib/utils";
-
 const FOCUS_KEY = "filtros-px-listas-precios-focus";
 
 interface Props {
@@ -29,7 +26,6 @@ interface Props {
   rubros: string[];
   subRubros: string[];
   opcionesPxVinculado: OpcionFiltroPxVinculado[];
-  totalItems: number;
   qActual: string;
   marcaActual: string;
   rubroActual: string;
@@ -43,7 +39,6 @@ export default function FiltrosPxListasPrecios({
   rubros,
   subRubros,
   opcionesPxVinculado,
-  totalItems,
   qActual,
   marcaActual,
   rubroActual,
@@ -295,10 +290,6 @@ export default function FiltrosPxListasPrecios({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalItems.toLocaleString("es-AR")} PRODUCTO
-          {totalItems !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

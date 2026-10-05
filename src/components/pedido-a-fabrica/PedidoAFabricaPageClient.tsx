@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useEffect, useRef, useState, startTransition } from "react";
 import { CalendarDays, Info } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FilterBar, {
@@ -8,7 +8,6 @@ import FilterBar, {
   FilterRowSearch,
   FilterRowSelection,
   FiltroIndividualContainer,
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   INPUT_FILTER_CLASS,
   LimpiarFiltrosButton,
@@ -40,16 +39,10 @@ import type {
 } from "@/services/pedidoAFabrica.service";
 import type { ReposicionFormaPedidoFabrica } from "@/lib/validations/reposicion";
 import TablaPedidoAFabrica, {
-  totalPorSucursalesPedidoAFabrica,
   type FiltroSiNoPedidoAFabrica,
 } from "@/components/pedido-a-fabrica/TablaPedidoAFabrica";
 import InfoPromedioPedidoAFabricaModal from "@/components/pedido-a-fabrica/InfoPromedioPedidoAFabricaModal";
 import GenerarPedidoToolbarButton from "@/components/pedidos/GenerarPedidoToolbarButton";
-import {
-  calcularDiasProvisionHastaLlegadaPedidoAFabrica,
-  calcularStockAFechaLlegadaPedidoAFabrica,
-  esStockQuebradoPedidoAFabrica,
-} from "@/lib/pedidoAFabricaPromVta";
 import type { SucursalPedido } from "@/lib/pedidos";
 import { toast } from "sonner";
 
@@ -117,7 +110,6 @@ export default function PedidoAFabricaPageClient({
   const [sucursales, setSucursales] =
     useState<SucursalPedidoAFabrica[]>(sucursalesPedido);
   const [productos, setProductos] = useState<ProductoPedidoAFabricaItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(0);
   const [marcas, setMarcas] = useState<string[]>([]);
   const [rubros, setRubros] = useState<string[]>([]);
@@ -178,42 +170,6 @@ export default function PedidoAFabricaPageClient({
       : null;
   const isoPickerFechaPedido =
     fechaPedidoIsoParseada || dateToIsoYmdArgentina(new Date());
-
-  const productosVisibles = useMemo(() => {
-    if (!prodVinculado && !stockQuebrado) return productos;
-    return productos.filter((p) => {
-      const vinculado = p.codTienda != null;
-      if (prodVinculado === "si" && !vinculado) return false;
-      if (prodVinculado === "no" && vinculado) return false;
-      if (!stockQuebrado) return true;
-      const total = totalPorSucursalesPedidoAFabrica(p, sucursales);
-      const diasProvisionHastaLlegada =
-        calcularDiasProvisionHastaLlegadaPedidoAFabrica(
-          fechaPedidoIsoParseada,
-          tiempoEntregaEnDias
-        );
-      const stockHasta = calcularStockAFechaLlegadaPedidoAFabrica(
-        total.stockActual,
-        total.promVta,
-        diasProvisionHastaLlegada
-      );
-      const quebrado = esStockQuebradoPedidoAFabrica(stockHasta, total.stockActual);
-      if (stockQuebrado === "si" && !quebrado) return false;
-      if (stockQuebrado === "no" && quebrado) return false;
-      return true;
-    });
-  }, [
-    productos,
-    sucursales,
-    fechaPedidoIsoParseada,
-    tiempoEntregaEnDias,
-    prodVinculado,
-    stockQuebrado,
-  ]);
-
-  const contadorProductos = stockQuebradoActivo
-    ? productosVisibles.length
-    : total;
 
   function resetFiltrosCatalogo() {
     setMarca(FILTRO_TODOS);
@@ -391,7 +347,6 @@ export default function PedidoAFabricaPageClient({
           res.sucursales.length > 0 ? res.sucursales : sucursalesPedido
         );
         setProductos(res.productos);
-        setTotal(res.total);
         setTotalPaginas(res.totalPaginas);
         setMarcas(res.marcas);
         setRubros(res.rubros);
@@ -807,10 +762,6 @@ export default function PedidoAFabricaPageClient({
                   />
                 </FilterRowSearch>
                 <LimpiarFiltrosButton onClick={limpiarFiltrosCatalogo} />
-                <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                  {contadorProductos.toLocaleString("es-AR")} PRODUCTO
-                  {contadorProductos === 1 ? "" : "S"}
-                </span>
               </div>
             </FilterBar>
           </div>

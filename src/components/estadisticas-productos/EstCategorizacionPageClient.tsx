@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Beaker, Paintbrush, Palette, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
@@ -437,10 +436,6 @@ export default function EstCategorizacionPageClient({
               />
             </FilterRowSearch>
             <LimpiarFiltrosButton onClick={limpiarFiltros} />
-            <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-              {filasFiltradas.length.toLocaleString("es-AR")} PRODUCTO
-              {filasFiltradas.length === 1 ? "" : "S"}
-            </span>
           </div>
         </FilterBar>
       }

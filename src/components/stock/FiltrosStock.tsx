@@ -14,12 +14,10 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { cn } from "@/lib/utils";
 import type { ControlStockData, Sucursal } from "@/actions/stock";
 
 interface Props {
@@ -29,7 +27,6 @@ interface Props {
   marcaActual: string;
   rubroActual: string;
   soloNegativoActual: boolean;
-  totalItems: number;
 }
 
 export default function FiltrosStock({
@@ -39,7 +36,6 @@ export default function FiltrosStock({
   marcaActual,
   rubroActual,
   soloNegativoActual,
-  totalItems,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -216,10 +212,6 @@ export default function FiltrosStock({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalItems.toLocaleString("es-AR")} ÍTEM
-          {totalItems !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

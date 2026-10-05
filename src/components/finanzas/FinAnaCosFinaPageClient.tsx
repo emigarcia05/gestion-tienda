@@ -10,7 +10,6 @@ import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPag
 import GestionarCuotasFinAnaCosFinaModal from "@/components/finanzas/GestionarCuotasFinAnaCosFinaModal";
 import CalculoCxTotalFinAnaCosFinaModal from "@/components/finanzas/CalculoCxTotalFinAnaCosFinaModal";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -280,10 +279,6 @@ export default function FinAnaCosFinaPageClient({
                 </FilaFiltrosDesplegables>
               </div>
               <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "shrink-0 gap-2")}>
-                <span className={FILTER_COUNT_CLASS}>
-                  {filasFiltradas.length.toLocaleString("es-AR")} COMBINACIÓN
-                  {filasFiltradas.length === 1 ? "" : "ES"}
-                </span>
                 <LimpiarFiltrosButton onClick={limpiarFiltros} />
               </div>
             </FilterRowSelection>

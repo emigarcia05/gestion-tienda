@@ -8,7 +8,6 @@ import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import EditarUsuarioModal from "@/components/usuarios/EditarUsuarioModal";
 import EliminarUsuarioModal from "@/components/usuarios/EliminarUsuarioModal";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FilterRowSearch,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
@@ -36,8 +35,6 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-import { cn } from "@/lib/utils";
-
 interface Props {
   items: GlobalPersonalItem[];
   esEditor: boolean;
@@ -112,10 +109,6 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} USUARIO
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         }

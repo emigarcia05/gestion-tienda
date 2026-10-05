@@ -6,7 +6,6 @@ import { ChevronDown, ChevronUp, Paintbrush, Pencil, Plus, Trash2 } from "lucide
 import { toast } from "sonner";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FilterRowSearch,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
@@ -179,10 +178,6 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {itemsFiltrados.length.toLocaleString("es-AR")} CLIENTE
-                {itemsFiltrados.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         }

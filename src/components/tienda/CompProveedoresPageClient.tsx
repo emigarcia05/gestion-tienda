@@ -57,7 +57,6 @@ export default function CompProveedoresPageClient({
       rubros={rubros.map((r) => r.rubro)}
       proveedores={proveedores}
       proveedoresCxCompra={proveedoresCxCompra}
-      totalItems={total}
       qActual={q}
       marcaActual={marca}
       rubroActual={rubro}

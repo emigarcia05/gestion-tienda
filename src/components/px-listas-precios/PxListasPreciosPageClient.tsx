@@ -82,7 +82,6 @@ export default function PxListasPreciosPageClient({
             rubros={rubros.map((r) => r.rubro)}
             subRubros={subRubros.map((s) => s.subRubro)}
             opcionesPxVinculado={opcionesPxVinculado}
-            totalItems={total}
             qActual={q}
             marcaActual={marca}
             rubroActual={rubro}

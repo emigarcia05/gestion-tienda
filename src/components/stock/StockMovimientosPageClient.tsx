@@ -5,7 +5,6 @@ import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -454,10 +453,6 @@ export default function StockMovimientosPageClient() {
               />
             </FilterRowSearch>
             <FilterRowSelection className={FILTER_INLINE_ACTION_SLOT_CLASS}>
-              <span className={FILTER_COUNT_CLASS}>
-                {filasFiltradas.length}{" "}
-                {filasFiltradas.length === 1 ? "MOVIMIENTO" : "MOVIMIENTOS"}
-              </span>
               {hayFiltros ? (
                 <LimpiarFiltrosButton onClick={limpiarFiltros} />
               ) : null}

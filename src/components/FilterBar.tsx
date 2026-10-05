@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * FILTROS — Estilo madre reutilizable.
  * Para nuevos módulos: usar FilterBar > FilterRowSelection (con FILTER_SELECT_WRAPPER_CLASS
  * en cada Select) + fila con FilterRowSearch (INPUT_FILTER_CLASS) y LimpiarFiltrosButton.
- * Contador: FILTER_COUNT_CLASS. Colores y tipografía heredan de este archivo.
+ * Colores y tipografía heredan de este archivo.
  */
 export default function FilterBar({
   children,
@@ -142,10 +142,6 @@ export const SELECT_TRIGGER_FILTER_CLASS = "input-filtro-unificado";
  * Se usa dentro de `FilaFiltrosDesplegables` para conservar una sola línea.
  */
 export const FILTER_INLINE_ACTION_SLOT_CLASS = "min-w-0 flex items-center justify-end";
-
-/** Clase para el indicador de cantidad de elementos filtrados (color primario del tema). Reutilizable en todos los filtros. */
-export const FILTER_COUNT_CLASS =
-  "text-sm text-primary tabular-nums shrink-0 font-semibold filtro-count-label";
 
 /** Trigger estándar para rango de fechas por calendario. */
 export const FILTER_DATE_RANGE_TRIGGER_CLASS =

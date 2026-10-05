@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -327,10 +326,6 @@ export default function FinBalVtasPageClient({
                 </FiltroIndividualContainer>
 
                 <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "col-span-2 gap-2")}>
-                  <span className={FILTER_COUNT_CLASS}>
-                    {periodosFiltrados.length.toLocaleString("es-AR")} PERIODO
-                    {periodosFiltrados.length === 1 ? "" : "S"}
-                  </span>
                   <LimpiarFiltrosButton onClick={limpiarFiltros} />
                 </div>
               </FilaFiltrosDesplegables>

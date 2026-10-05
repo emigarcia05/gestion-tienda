@@ -9,8 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
-  FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
@@ -846,12 +844,6 @@ export default function EstVtasPageClient({
                   </div>
                 </FiltroIndividualContainer>
 
-                <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "gap-2")}>
-                  <span className={FILTER_COUNT_CLASS}>
-                    {filasFiltradas.length.toLocaleString("es-AR")} PRODUCTO
-                    {filasFiltradas.length === 1 ? "" : "S"}
-                  </span>
-                </div>
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
           </FilterBar>
@@ -969,10 +961,6 @@ export default function EstVtasPageClient({
                 />
               </FilterRowSearch>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {filasFiltradas.length.toLocaleString("es-AR")} PRODUCTO
-                {filasFiltradas.length === 1 ? "" : "S"}
-              </span>
             </div>
           </FilterBar>
         </div>

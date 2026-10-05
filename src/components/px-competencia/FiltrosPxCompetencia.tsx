@@ -14,7 +14,6 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
@@ -23,14 +22,11 @@ import {
   OPCIONES_FILTRO_PX_PROMEDIO_COMPETENCIA,
   type FiltroPxPromedioCompetencia,
 } from "@/lib/pxCompetenciaFiltros";
-import { cn } from "@/lib/utils";
-
 const FOCUS_KEY = "filtros-px-competencia-focus";
 
 interface Props {
   marcas: string[];
   rubros: string[];
-  totalItems: number;
   qActual: string;
   marcaActual: string;
   rubroActual: string;
@@ -40,7 +36,6 @@ interface Props {
 export default function FiltrosPxCompetencia({
   marcas,
   rubros,
-  totalItems,
   qActual,
   marcaActual,
   rubroActual,
@@ -201,9 +196,6 @@ export default function FiltrosPxCompetencia({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {totalItems.toLocaleString("es-AR")} ÍTEM{totalItems !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

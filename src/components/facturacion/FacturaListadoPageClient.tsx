@@ -11,7 +11,6 @@ import {
 } from "@/actions/factura";
 import { listarCatalogoWizardEnvioAction } from "@/actions/envios";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FilaFiltrosDesplegables,
   FilterRowSearch,
@@ -739,10 +738,6 @@ export default function FacturaListadoPageClient({
             </FilterRowSearch>
               )}
             <LimpiarFiltrosButton onClick={limpiarFiltros} />
-            <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-              {itemsFiltrados.length.toLocaleString("es-AR")} REGISTRO
-              {itemsFiltrados.length === 1 ? "" : "S"}
-            </span>
           </div>
         </FilterBar>
       }

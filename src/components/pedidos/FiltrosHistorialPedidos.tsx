@@ -15,14 +15,11 @@ import FilterBar, {
   FilterRowSelection,
   FilterRowSearch,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { cn } from "@/lib/utils";
-
 const SUCURSALES = [
   { value: "guaymallen", label: "GUAYMALLÉN" },
   { value: "maipu", label: "MAIPÚ" },
@@ -42,7 +39,6 @@ interface Props {
   sucursalCodigo: string;
   estado: EstadoFiltroPedido;
   q: string;
-  total: number;
 }
 
 export default function FiltrosHistorialPedidos({
@@ -51,7 +47,6 @@ export default function FiltrosHistorialPedidos({
   sucursalCodigo,
   estado,
   q,
-  total,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -212,9 +207,6 @@ export default function FiltrosHistorialPedidos({
           />
         </FilterRowSearch>
         <LimpiarFiltrosButton onClick={limpiarFiltros} />
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {total.toLocaleString("es-AR")} PEDIDO{total === 1 ? "" : "S"}
-        </span>
       </div>
     </FilterBar>
   );

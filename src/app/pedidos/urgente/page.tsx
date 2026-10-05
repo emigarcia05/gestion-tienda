@@ -80,7 +80,6 @@ export default async function PedidoUrgentePage({ searchParams }: Props) {
       pedido={pedidoValida}
       proveedores={proveedores}
       sucursales={sucursalesDisponibles}
-      totalProductos={total}
     />
   );
 

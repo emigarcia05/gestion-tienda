@@ -716,13 +716,6 @@
     bottom: 0.65rem;
     z-index: 10;
   }
-  .seccion-filtros .filtro-count-label {
-    margin-right: 3.15rem;
-    max-width: calc(100% - 3.15rem);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   /* Tacho individual por filtro activo (a la derecha del control). */
   .filtro-individual-container {

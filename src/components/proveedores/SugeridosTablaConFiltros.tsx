@@ -14,7 +14,6 @@ import FilterBar, {
   FilterRowSearch,
   FilaFiltrosDesplegables,
   FILTER_SELECT_WRAPPER_CLASS,
-  FILTER_COUNT_CLASS,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
@@ -237,10 +236,6 @@ export default function SugeridosTablaConFiltros({
             />
           </FilterRowSearch>
           <LimpiarFiltrosButton onClick={limpiarFiltros} />
-          <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-            {filteredFilas.length.toLocaleString()} PRODUCTO
-            {filteredFilas.length !== 1 ? "S" : ""}
-          </span>
         </div>
       </FilterBar>
 

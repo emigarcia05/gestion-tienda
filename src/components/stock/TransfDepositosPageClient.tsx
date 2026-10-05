@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRef, useTransition } from "react";
 import { ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -9,15 +8,15 @@ import FiltrosTransfDepositos from "@/components/stock/FiltrosTransfDepositos";
 import TablaTransfDepositos, {
   type TablaTransfDepositosHandle,
 } from "@/components/stock/TablaTransfDepositos";
-import GenerarTransfDepositosModal from "@/components/stock/GenerarTransfDepositosModal";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import { Button } from "@/components/ui/button";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PAGE_SIZE } from "@/lib/pagination";
 import {
-  enfocarDuxTransferenciaDepositosTab,
-  parTransfIncluyeSucursalUsuario,
-} from "@/lib/transfDepositosControl";
+  crearTransferenciaApi,
+  pedirRefrescoNotificaciones,
+} from "@/lib/stockTransferenciasClient";
+import { parTransfIncluyeSucursalUsuario } from "@/lib/transfDepositosControl";
 import type {
   SucursalTransf,
   TransfDepositosData,
@@ -32,13 +31,13 @@ interface Props {
   marca: string;
   rubro: string;
   paginaNum: number;
-  abrirGenerar?: boolean;
   paramsPagina: Record<string, string>;
 }
 
 /**
- * Pantalla **Stock · Trans. Depósitos** (solo UI).
- * Borrador de grilla en `localStorage`; sin persistencia de ledger todavía.
+ * Pantalla **Stock · Trans. Depósitos**.
+ * **Generar Transferencia** crea `stock_transferencias` PENDIENTE y notifica
+ * a la otra sucursal. Sin DUX ni Excel.
  */
 export default function TransfDepositosPageClient({
   data,
@@ -48,28 +47,11 @@ export default function TransfDepositosPageClient({
   marca,
   rubro,
   paginaNum,
-  abrirGenerar = false,
   paramsPagina,
 }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
   const tieneOrigen = origen !== null;
   const tablaRef = useRef<TablaTransfDepositosHandle>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  if (abrirGenerar && !modalOpen) {
-    setModalOpen(true);
-  }
-
-  useEffect(() => {
-    if (!abrirGenerar) return;
-    const p = new URLSearchParams();
-    for (const [clave, valor] of Object.entries(paramsPagina)) {
-      if (valor) p.set(clave, valor);
-    }
-    const query = p.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
-  }, [abrirGenerar, paramsPagina, pathname, router]);
+  const [isPending, startTransition] = useTransition();
 
   const filters = (
     <FiltrosTransfDepositos
@@ -79,11 +61,10 @@ export default function TransfDepositosPageClient({
       qActual={q}
       marcaActual={marca}
       rubroActual={rubro}
-      totalItems={data.total}
     />
   );
 
-  function generarTransf() {
+  function generarTransferencia() {
     const usuario = leerUsuarioSesion();
     if (!usuario) {
       toast.error("Elegí un usuario.");
@@ -92,9 +73,6 @@ export default function TransfDepositosPageClient({
     if (!origen) {
       toast.error("Elegí sucursal origen.");
       return;
-    }
-    if (destino) {
-      enfocarDuxTransferenciaDepositosTab();
     }
     if (!destino) {
       toast.error("Elegí origen y destino distintos.");
@@ -110,7 +88,31 @@ export default function TransfDepositosPageClient({
       toast.error("Origen o destino debe ser tu sucursal.");
       return;
     }
-    setModalOpen(true);
+    const items = tablaRef.current?.getItemsConCantidad() ?? [];
+    if (items.length === 0) {
+      toast.error("Cargá al menos una cantidad.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await crearTransferenciaApi({
+        origenCodigo: origen,
+        destinoCodigo: destino,
+        personalId: usuario.idPersonal,
+        items: items.map((item) => ({
+          codItem: item.codTienda,
+          cantidad: item.cantidad,
+        })),
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      tablaRef.current?.clearCantidades();
+      pedirRefrescoNotificaciones();
+      toast.success("Transferencia enviada.", {
+        description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.`,
+      });
+    });
   }
 
   return (
@@ -119,9 +121,14 @@ export default function TransfDepositosPageClient({
       subtitle="Trans. Depósitos"
       filters={filters}
       actions={
-        <Button type="button" className="h-10 px-4" onClick={generarTransf}>
+        <Button
+          type="button"
+          className="h-10 px-4"
+          onClick={generarTransferencia}
+          disabled={isPending}
+        >
           <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />
-          Generar Transf.
+          Generar Transferencia
         </Button>
       }
     >
@@ -147,16 +154,6 @@ export default function TransfDepositosPageClient({
           </div>
         )}
       </div>
-
-      <GenerarTransfDepositosModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        origenCodigo={origen}
-        destinoCodigo={destino}
-        onTransferido={() => {
-          tablaRef.current?.clearCantidades();
-        }}
-      />
     </ClassicFilteredTableLayout>
   );
 }

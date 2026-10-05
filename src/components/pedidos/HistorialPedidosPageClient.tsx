@@ -159,7 +159,6 @@ export default function HistorialPedidosPageClient({
           sucursalCodigo={sucursalCodigo}
           estado={estado}
           q={q}
-          total={total}
         />
       }>
       <div className="flex h-full min-h-0 flex-col gap-0">

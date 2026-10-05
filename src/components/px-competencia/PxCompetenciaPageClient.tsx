@@ -96,7 +96,6 @@ export default function PxCompetenciaPageClient({
       <FiltrosPxCompetencia
         marcas={marcas.map((m) => m.marca)}
         rubros={rubros.map((r) => r.rubro)}
-        totalItems={total}
         qActual={q}
         marcaActual={marca}
         rubroActual={rubro}

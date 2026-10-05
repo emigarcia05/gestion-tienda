@@ -15,7 +15,6 @@ import {
   obtenerFacturaComprobantePdfPublicoAction,
 } from "@/actions/cuentaCorrientePublica";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FilaFiltrosDesplegables,
   FilterRowSearch,
@@ -290,13 +289,6 @@ export default function FacturaCuentaCorrientePageClient({
     clienteId != null && clienteSeleccionado != null
       ? clienteSeleccionado.saldoCuentaCorriente
       : null;
-  const filasVisibles = esVistaClientesSaldo
-    ? clientesConSaldoFiltrados.length
-    : esVistaProductos
-      ? totalesItemVista
-        ? totalesPorItem.length
-        : productosFiltrados.length
-      : movimientosFiltrados.length;
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -873,18 +865,6 @@ export default function FacturaCuentaCorrientePageClient({
               </div>
               </div>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />
-              <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-                {filasVisibles.toLocaleString("es-AR")}{" "}
-                {esVistaClientesSaldo
-                  ? filasVisibles === 1
-                    ? "CLIENTE"
-                    : "CLIENTES"
-                  : esVistaProductos
-                  ? filasVisibles === 1
-                    ? "PRODUCTO"
-                    : "PRODUCTOS"
-                  : `MOVIMIENTO${filasVisibles === 1 ? "" : "S"}`}
-              </span>
             </div>
           </FilterBar>
           <FilterBar className="filtros-contenedor-tienda bg-card">

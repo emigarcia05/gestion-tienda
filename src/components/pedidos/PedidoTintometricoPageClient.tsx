@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FilterBar, {
-  FILTER_COUNT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   FilaFiltrosDesplegables,
   FilterRowSearch,
@@ -267,9 +266,6 @@ export default function PedidoTintometricoPageClient({
             inputRef={searchRef}
           />
         </FilterRowSearch>
-        <span className={cn(FILTER_COUNT_CLASS, "ml-auto")}>
-          {itemsFiltrados.length.toLocaleString("es-AR")} PRODUCTO{itemsFiltrados.length !== 1 ? "S" : ""}
-        </span>
       </div>
     </FilterBar>
   );

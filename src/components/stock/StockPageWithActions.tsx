@@ -61,7 +61,6 @@ export default function StockPageWithActions({
   const pathname = usePathname();
   const router = useRouter();
   const tableRef = useRef<TablaStockHandle>(null);
-  const [totalFiltrados, setTotalFiltrados] = useState<number>(data.items.length);
   const [sucursalUsuario, setSucursalUsuario] = useState<Sucursal | null>(null);
   const [usuarioListo, setUsuarioListo] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -207,7 +206,6 @@ export default function StockPageWithActions({
       marcaActual={marca}
       rubroActual={rubro}
       soloNegativoActual={soloNegativo}
-      totalItems={tieneSucursal ? totalFiltrados : 0}
     />
   );
 
@@ -232,7 +230,6 @@ export default function StockPageWithActions({
               marcaActual={marca}
               rubroActual={rubro}
               soloNegativoActual={soloNegativo}
-              onFiltradosCountChange={setTotalFiltrados}
             />
           </div>
           {tieneSucursal && data.totalPaginas > 1 && (

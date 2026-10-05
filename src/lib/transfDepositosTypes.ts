@@ -49,13 +49,6 @@ export type TransfDepositosData = {
   loteAbierto: LoteAbiertoTransfDepositoItemDto[];
 };
 
-export type SucursalTransfDepositoOptionDto = {
-  id: string;
-  codigo: string;
-  nombre: string;
-  tieneDeposito: boolean;
-};
-
 /** Catálogo vacío (sin origen o error de lectura). */
 export const TRANSF_DEPOSITOS_DATA_VACIO: TransfDepositosData = {
   items: [],
@@ -66,19 +59,3 @@ export const TRANSF_DEPOSITOS_DATA_VACIO: TransfDepositosData = {
   controlesRecientes: [],
   loteAbierto: [],
 };
-
-/** Sucursales de UI (id = código) sin Prisma. */
-export const SUCURSALES_TRANSF_DEPOSITOS_UI: SucursalTransfDepositoOptionDto[] = [
-  {
-    id: "guaymallen",
-    codigo: "guaymallen",
-    nombre: "Guaymallén",
-    tieneDeposito: true,
-  },
-  {
-    id: "maipu",
-    codigo: "maipu",
-    nombre: "Maipú",
-    tieneDeposito: true,
-  },
-];
