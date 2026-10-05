@@ -512,106 +512,50 @@ export async function listarStockMovimientosPorSucursalCodigo(
   const sucursalId = await obtenerSucursalIdPorCodigo(sucursalCodigo);
   if (!sucursalId) return [];
 
-  const selectBase = {
-    id: true,
-    tipoMovimiento: true,
-    categoriaMovimiento: true,
-    cantidad: true,
-    createdAt: true,
-    comprobanteRelacionadoId: true,
-    prodTienda: { select: { descripcionTienda: true, codTienda: true } },
-    comprobante: {
-      select: {
-        id: true,
-        tipo: true,
-        comprobanteVtaId: true,
-        personalId: true,
-        personal: { select: { nombrePersonal: true } },
-        sucursal: { select: { codigo: true, nombre: true } },
-        sucursalDestino: { select: { codigo: true, nombre: true } },
-        comprobanteVta: { select: { receptorNombre: true } },
+  const rows = await prisma.stockMovimiento.findMany({
+    where: { sucursalId },
+    orderBy: { createdAt: "desc" },
+    take: LISTADO_MOVIMIENTOS_MAX,
+    select: {
+      id: true,
+      tipoMovimiento: true,
+      categoriaMovimiento: true,
+      cantidad: true,
+      createdAt: true,
+      usuarioId: true,
+      prodTienda: { select: { descripcionTienda: true, codTienda: true } },
+      comprobante: {
+        select: {
+          id: true,
+          tipo: true,
+          comprobanteVtaId: true,
+          personalId: true,
+          personal: { select: { nombrePersonal: true } },
+          sucursal: { select: { codigo: true, nombre: true } },
+          sucursalDestino: { select: { codigo: true, nombre: true } },
+          comprobanteVta: { select: { receptorNombre: true } },
+        },
       },
     },
-  } as const;
-
-  type RowListado = {
-    id: string;
-    tipoMovimiento: StockMovimientoTipo;
-    categoriaMovimiento: StockMovimientoCategoria;
-    cantidad: Parameters<typeof cantidadDesdePrisma>[0];
-    createdAt: Date;
-    usuarioId?: number | null;
-    prodTienda: { descripcionTienda: string | null; codTienda: string };
-    comprobante: {
-      id: string;
-      tipo: StockComprobanteTipo;
-      comprobanteVtaId: string | null;
-      personalId: number | null;
-      personal: { nombrePersonal: string } | null;
-      sucursal: { codigo: string; nombre: string };
-      sucursalDestino: { codigo: string; nombre: string } | null;
-      comprobanteVta: { receptorNombre: string } | null;
-    };
-  };
-
-  let rows: RowListado[];
-  try {
-    rows = await prisma.stockMovimiento.findMany({
-      where: { sucursalId },
-      orderBy: { createdAt: "desc" },
-      take: LISTADO_MOVIMIENTOS_MAX,
-      select: { ...selectBase, usuarioId: true },
-    });
-  } catch (e) {
-    // Si la migración `usuario_id` aún no corrió, no tumbar el listado.
-    console.error("[listarStockMovimientosPorSucursalCodigo] retry sin usuarioId", e);
-    rows = await prisma.stockMovimiento.findMany({
-      where: { sucursalId },
-      orderBy: { createdAt: "desc" },
-      take: LISTADO_MOVIMIENTOS_MAX,
-      select: selectBase,
-    });
-  }
-
-  const usuarioIds = [
-    ...new Set(
-      rows
-        .map((r) => r.usuarioId ?? r.comprobante.personalId)
-        .filter((id): id is number => id != null && Number.isFinite(id))
-    ),
-  ];
-  const nombresPorId = new Map<number, string>();
-  if (usuarioIds.length > 0) {
-    try {
-      const personas = await prisma.globalPersonal.findMany({
-        where: { idPersonal: { in: usuarioIds } },
-        select: { idPersonal: true, nombrePersonal: true },
-      });
-      for (const p of personas) {
-        nombresPorId.set(p.idPersonal, p.nombrePersonal.trim());
-      }
-    } catch (e) {
-      console.error("[listarStockMovimientosPorSucursalCodigo] nombres usuario", e);
-    }
-  }
+  });
 
   return rows.map((row) => {
     const item =
       row.prodTienda.descripcionTienda?.trim() || row.prodTienda.codTienda;
-    const idUsuario = row.usuarioId ?? row.comprobante.personalId;
     const usuarioNombre =
-      (idUsuario != null ? nombresPorId.get(idUsuario) : undefined) ||
-      row.comprobante.personal?.nombrePersonal.trim() ||
-      "";
+      row.comprobante.personal?.nombrePersonal.trim() || "";
     const contraparteNombre = contraparteDesdeComprobante(row.comprobante);
+    const categoriaEtiqueta =
+      CATEGORIA_ETIQUETA[row.categoriaMovimiento] ??
+      String(row.categoriaMovimiento);
     return {
       id: row.id,
       fechaIso: row.createdAt.toISOString(),
       fechaMs: row.createdAt.getTime(),
       tipoMovimiento: row.tipoMovimiento,
-      tipoEtiqueta: TIPO_ETIQUETA[row.tipoMovimiento],
+      tipoEtiqueta: TIPO_ETIQUETA[row.tipoMovimiento] ?? String(row.tipoMovimiento),
       categoriaMovimiento: row.categoriaMovimiento,
-      categoriaEtiqueta: CATEGORIA_ETIQUETA[row.categoriaMovimiento],
+      categoriaEtiqueta,
       usuarioNombre,
       contraparteNombre,
       item,

@@ -119,16 +119,35 @@ export default function StockMovimientosPageClient() {
     }
     setTieneUsuario(true);
     setCargando(true);
-    const res = await listarStockMovimientosSucursalAction({
-      sucursalCodigo: usuario.sucursalPorDefecto,
-    });
-    setCargando(false);
-    if (!res.ok) {
+    let terminado = false;
+    const watchdog = window.setTimeout(() => {
+      if (terminado) return;
+      setCargando(false);
+      toast.error("La carga de movimientos tardó demasiado. Recargá la página.");
+    }, 20000);
+    try {
+      const res = await listarStockMovimientosSucursalAction({
+        sucursalCodigo: usuario.sucursalPorDefecto,
+      });
+      if (!res.ok) {
+        setFilas([]);
+        toast.error(res.error);
+        return;
+      }
+      setFilas(res.data);
+    } catch (e) {
+      console.error("[StockMovimientosPageClient.cargar]", e);
       setFilas([]);
-      toast.error(res.error);
-      return;
+      toast.error(
+        e instanceof Error && e.message.trim()
+          ? e.message.slice(0, 200)
+          : "No se pudieron cargar los movimientos."
+      );
+    } finally {
+      terminado = true;
+      window.clearTimeout(watchdog);
+      setCargando(false);
     }
-    setFilas(res.data);
   }, []);
 
   useEffect(() => {
@@ -418,12 +437,16 @@ export default function StockMovimientosPageClient() {
         </FilterBar>
       }
     >
-      {!tieneUsuario && !cargando ? (
+      {!tieneUsuario ? (
         <TableEmptyState
           placement="blockedPanel"
           textSize="sm"
           maxWidth="full"
-          message="Seleccioná un usuario en el slidenav para ver los movimientos de su sucursal."
+          message={
+            cargando
+              ? "Cargando…"
+              : "Seleccioná un usuario en el slidenav para ver los movimientos de su sucursal."
+          }
         />
       ) : (
         <div className="contenedor-tabla-gestion">
