@@ -192,7 +192,6 @@ export default function PedidoAFabricaPageClient({
     setProveedorId("");
     setPagina(1);
     setProductos([]);
-    setTotal(0);
     setTotalPaginas(0);
     setSucursales(sucursalesPedido);
     setMarcas([]);
@@ -314,7 +313,6 @@ export default function PedidoAFabricaPageClient({
     if (!proveedorId) {
       queueMicrotask(() => {
         setProductos([]);
-        setTotal(0);
         setTotalPaginas(0);
         setLoading(false);
         setSucursales(sucursalesPedido);
