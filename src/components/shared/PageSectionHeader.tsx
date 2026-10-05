@@ -40,7 +40,7 @@ export type PageSectionHeaderProps = {
  * Usar vía `SectionHeader` o `ClassicPageHeader` para no romper APIs existentes.
  *
  * `actions` se envuelve en `HeaderAccionesMenu`: un botón **ACCIONES** y lista al hover.
- * A su izquierda, siempre, **NOTIFICACIONES** (`NotificacionesHeaderButton`; se oculta sin usuario / permiso).
+ * Orden del header: **módulo** (ancho fijo) | **ACCIONES** | **NOTIFICACIONES** (a la derecha).
  * Jerarquía visual: **MÓDULO** (h1 MAYÚSCULAS) → **SUBMÓDULO 1** (MAYÚSCULAS negrita)
  * - **Submódulo 2** (Title Case negrita).
  */
@@ -61,8 +61,8 @@ export default function PageSectionHeader({
       className={cn(pageSectionHeaderRootVariants({ tone }), className)}
       role="banner"
     >
-      <div className="section-header__inner flex flex-nowrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="section-header__inner flex flex-nowrap items-center gap-4">
+        <div className="section-header__modulo flex items-center gap-3">
           <div className="section-header__bar" aria-hidden />
           <div className="min-w-0 flex flex-col gap-0.5">
             <h1 className="section-header__titulo">{title}</h1>
@@ -84,9 +84,11 @@ export default function PageSectionHeader({
             )}
           </div>
         </div>
-        <div className="section-header-actions flex shrink-0 items-center justify-end gap-2">
+        <div className="section-header-actions shrink-0">
+          {actions != null ? <HeaderAccionesMenu>{actions}</HeaderAccionesMenu> : null}
+        </div>
+        <div className="section-header-notificaciones ml-auto shrink-0">
           <NotificacionesHeaderButton />
-          {actions != null && <HeaderAccionesMenu>{actions}</HeaderAccionesMenu>}
         </div>
       </div>
       <Separator className="section-header-divider" />

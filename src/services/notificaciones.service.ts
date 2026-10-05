@@ -5,6 +5,8 @@ import type { ServiceResult } from "@/types";
 export type NotificacionDto = {
   id: string;
   tipo: NotificacionTipo;
+  /** Módulo de la app al que pertenece el aviso (columna MÓDULO). */
+  moduloEtiqueta: string;
   titulo: string;
   mensaje: string;
   createdAtIso: string;
@@ -13,6 +15,16 @@ export type NotificacionDto = {
   /** Requiere acción (aceptar / rechazar) de esta sucursal. */
   accionable: boolean;
 };
+
+function moduloEtiquetaDesdeTipo(tipo: NotificacionTipo): string {
+  switch (tipo) {
+    case "TRANSF_PENDIENTE":
+    case "TRANSF_ACEPTADA":
+    case "TRANSF_RECHAZADA":
+    case "TRANSF_CANCELADA":
+      return "TRANS. DEPÓSITOS";
+  }
+}
 
 export type NotificacionesSucursal = {
   noLeidas: number;
@@ -60,6 +72,7 @@ export async function listarNotificacionesSucursal(
         items: rows.map((n) => ({
           id: n.id,
           tipo: n.tipo,
+          moduloEtiqueta: moduloEtiquetaDesdeTipo(n.tipo),
           titulo: n.titulo,
           mensaje: n.mensaje,
           createdAtIso: n.createdAt.toISOString(),

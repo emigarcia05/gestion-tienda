@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightLeft, Check, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import AppModal from "@/components/shared/AppModal";
+import {
+  EmptyTableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
+import { fmtCelda } from "@/lib/format";
 import { marcarNotificacionLeidaApi } from "@/lib/stockTransferenciasClient";
 import type { UsuarioSesion } from "@/lib/usuarioSesion";
 import type {
@@ -26,8 +34,7 @@ interface Props {
 }
 
 /**
- * Lista de notificaciones de la sucursal (no leídas primero).
- * Pendientes de acción → **Revisar** (abre la transferencia); informativas → **Ver** + marcar leída.
+ * Lista de notificaciones: **MÓDULO** | **DESCRIPCIÓN** | **ACCEDER**.
  */
 export default function NotificacionesModal({
   open,
@@ -69,80 +76,68 @@ export default function NotificacionesModal({
           </Button>
         }
       >
-        {items.length === 0 ? (
-          <p className="py-6 text-center text-sm text-foreground">
-            No hay notificaciones.
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {items.map((n) => (
-              <li
-                key={n.id}
-                className={cn(
-                  "flex items-start gap-3 py-3",
-                  n.leida && "text-muted-foreground"
-                )}
-              >
-                <ArrowRightLeft
-                  className={cn(
-                    "mt-0.5 size-4 shrink-0",
-                    n.leida ? "text-muted-foreground" : "text-primary"
-                  )}
-                  aria-hidden
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span
+        <div className="contenedor-tabla-gestion">
+          <Table variant="compact">
+            <colgroup>
+              <col className="w-[22%]" />
+              <col className="w-[58%]" />
+              <col className="w-[20%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead>MÓDULO</TableHead>
+                <TableHead>DESCRIPCIÓN</TableHead>
+                <TableHead className="text-center">ACCEDER</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length === 0 ? (
+                <EmptyTableRow colSpan={3} message="No hay notificaciones." />
+              ) : (
+                items.map((n) => (
+                  <TableRow key={n.id}>
+                    <TableCell
                       className={cn(
-                        "text-sm",
-                        n.leida ? "font-medium" : "font-semibold text-foreground"
+                        "celda-datos text-left font-semibold uppercase",
+                        n.leida && "text-muted-foreground"
                       )}
                     >
-                      {n.titulo}
-                    </span>
-                    {n.accionable ? <Badge variant="destructive">Pendiente</Badge> : null}
-                  </div>
-                  <p className="text-sm">{n.mensaje}</p>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {formatDdMmHhMmArgentina(new Date(n.createdAtIso))}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {n.transferenciaId ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={n.accionable ? "default" : "outline"}
-                      onClick={() => abrir(n)}
+                      {fmtCelda(n.moduloEtiqueta)}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "celda-datos min-w-0 text-left",
+                        n.leida ? "text-muted-foreground" : "font-semibold"
+                      )}
                     >
-                      {n.accionable ? (
-                        "Revisar"
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <span>{fmtCelda(n.mensaje)}</span>
+                        <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                          {formatDdMmHhMmArgentina(new Date(n.createdAtIso))}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      {n.transferenciaId ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="default"
+                          disabled={marcando === n.id}
+                          onClick={() => abrir(n)}
+                        >
+                          Acceder
+                        </Button>
                       ) : (
-                        <>
-                          <Eye className="size-4" aria-hidden />
-                          Ver
-                        </>
+                        ""
                       )}
-                    </Button>
-                  ) : null}
-                  {!n.leida && !n.accionable ? (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      disabled={marcando === n.id}
-                      onClick={() => void marcarLeida(n)}
-                      aria-label="Marcar como leída"
-                      title="Marcar como leída"
-                    >
-                      <Check className="size-4" aria-hidden />
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </AppModal>
     </Dialog>
   );
