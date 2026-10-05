@@ -82,3 +82,9 @@ export const cantidadUnDecimalPositivaSchema = z
   .gt(0, "La cantidad debe ser mayor a 0.")
   .max(CANTIDAD_UN_DECIMAL_MAX)
   .refine(esMultiploDeUnDecimo, "La cantidad admite como máximo un decimal.");
+
+export const cantidadUnDecimalNoNegativaSchema = z
+  .number()
+  .min(0, "La cantidad no puede ser negativa.")
+  .max(CANTIDAD_UN_DECIMAL_MAX)
+  .refine(esMultiploDeUnDecimo, "La cantidad admite como máximo un decimal.");

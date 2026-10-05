@@ -71,6 +71,25 @@ enum StockComprobanteTipo {
   @@map("stock_comprobante_tipo")
 }
 
+enum StockTransferenciaEstado {
+  PENDIENTE @map("pendiente")
+  ACEPTADA  @map("aceptada")
+  RECHAZADA @map("rechazada")
+  CANCELADA @map("cancelada")
+
+  @@map("stock_transferencia_estado")
+}
+
+enum NotificacionTipo {
+  /** Requiere acción: aceptar / rechazar la transferencia. */
+  TRANSF_PENDIENTE @map("transf_pendiente")
+  TRANSF_ACEPTADA  @map("transf_aceptada")
+  TRANSF_RECHAZADA @map("transf_rechazada")
+  TRANSF_CANCELADA @map("transf_cancelada")
+
+  @@map("notificacion_tipo")
+}
+
 /**
  * Política de IVA por proveedor (`global_proveedores.iva`).
  * - SIEMPRE  : el proveedor siempre factura con IVA.
@@ -311,6 +330,10 @@ model Sucursal {
   stockMovimientos          StockMovimiento[]
   stockComprobantes         StockComprobante[] @relation("StockComprobanteSucursal")
   stockComprobantesDestino  StockComprobante[] @relation("StockComprobanteSucursalDestino")
+  stockTransferenciasOrigen   StockTransferencia[] @relation("StockTransferenciaOrigen")
+  stockTransferenciasDestino  StockTransferencia[] @relation("StockTransferenciaDestino")
+  stockTransferenciasConfirma StockTransferencia[] @relation("StockTransferenciaConfirma")
+  notificaciones              Notificacion[]
 
   @@map("sucursales")
 }
@@ -404,6 +427,9 @@ model GlobalPersonal {
   movimientosTesoreria TesoreriaMovimiento[]
   stockComprobantes StockComprobante[]
   stockMovimientos  StockMovimiento[]
+  stockTransferenciasCreadas  StockTransferencia[] @relation("StockTransferenciaCreadaPor")
+  stockTransferenciasResueltas StockTransferencia[] @relation("StockTransferenciaResueltaPor")
+  notificacionesLeidas        Notificacion[]
 
   @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
   @@map("usuarios")
@@ -1110,6 +1136,7 @@ model ProdTienda {
   preciosListaEdicion     ProdTiendaPrecioEdicion[]
   estPorProd              EstPorProd[]
   stockMovimientos        StockMovimiento[]
+  stockTransferenciaItems StockTransferenciaItem[]
 
   @@index([competenciaIdPxListaGeneral], map: "prod_tienda_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_tienda_descripcion_tienda_idx")
@@ -1140,6 +1167,7 @@ model StockComprobante {
   personal        GlobalPersonal?   @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   comprobanteVta  ComprobanteVta?   @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
   movimientos     StockMovimiento[]
+  transferencia   StockTransferencia?
 
   @@unique([comprobanteVtaId], map: "stock_comprobantes_comprobante_vta_key")
   @@index([sucursalId], map: "stock_comprobantes_sucursal_idx")
@@ -1176,6 +1204,81 @@ model StockMovimiento {
   @@index([sucursalId, createdAt], map: "stock_movimientos_sucursal_fecha_idx")
   @@index([usuarioId], map: "stock_movimientos_usuario_idx")
   @@map("stock_movimientos")
+}
+
+/**
+ * Transferencia entre sucursales con doble confirmación (`stock_transferencias`).
+ * La crea un usuario de una punta (cuenta como su confirmación); la otra punta
+ * (`sucursal_confirma`) acepta / rechaza. Solo al **aceptar** se escribe el ledger
+ * (`comprobante_id` → `stock_comprobantes` TRANSFERENCIA_ENTRE_DEPOSITOS).
+ */
+model StockTransferencia {
+  id                 String                   @id @default(cuid())
+  sucursalOrigenId   String                   @map("sucursal_origen")
+  sucursalDestinoId  String                   @map("sucursal_destino")
+  /** Punta que debe aceptar (la que no es del usuario creador). */
+  sucursalConfirmaId String                   @map("sucursal_confirma")
+  estado             StockTransferenciaEstado @default(PENDIENTE)
+  creadaPorId        Int                      @map("creada_por")
+  resueltaPorId      Int?                     @map("resuelta_por")
+  /** Motivo de rechazo o cancelación (opcional). */
+  motivo             String?
+  comprobanteId      String?                  @unique(map: "stock_transferencias_comprobante_key") @map("comprobante_id")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  resueltaAt         DateTime?                @map("resuelta_at")
+
+  sucursalOrigen   Sucursal          @relation("StockTransferenciaOrigen", fields: [sucursalOrigenId], references: [id], onDelete: Restrict)
+  sucursalDestino  Sucursal          @relation("StockTransferenciaDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
+  sucursalConfirma Sucursal          @relation("StockTransferenciaConfirma", fields: [sucursalConfirmaId], references: [id], onDelete: Restrict)
+  creadaPor        GlobalPersonal    @relation("StockTransferenciaCreadaPor", fields: [creadaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  resueltaPor      GlobalPersonal?   @relation("StockTransferenciaResueltaPor", fields: [resueltaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  comprobante      StockComprobante? @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  items            StockTransferenciaItem[]
+  notificaciones   Notificacion[]
+
+  @@index([sucursalConfirmaId, estado], map: "stock_transferencias_confirma_estado_idx")
+  @@index([estado, createdAt], map: "stock_transferencias_estado_fecha_idx")
+  @@map("stock_transferencias")
+}
+
+/** Ítems de `stock_transferencias`. `cantidad_confirmada` la fija quien acepta (≤ `cantidad`). */
+model StockTransferenciaItem {
+  id                 String   @id @default(cuid())
+  transferenciaId    String   @map("transferencia_id")
+  codItem            String   @map("cod_item")
+  cantidad           Decimal  @db.Decimal(12, 1)
+  cantidadConfirmada Decimal? @map("cantidad_confirmada") @db.Decimal(12, 1)
+
+  transferencia StockTransferencia @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+  prodTienda    ProdTienda         @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
+
+  @@unique([transferenciaId, codItem], map: "stock_transferencias_items_transf_item_key")
+  @@map("stock_transferencias_items")
+}
+
+/**
+ * Notificaciones por sucursal (`notificaciones`): destinatarios = usuarios con
+ * `sucursal_por_defecto` = `sucursal`. Lectura compartida por sucursal (`leida_at`).
+ * Referencias opcionales por módulo (hoy `transferencia_id`).
+ */
+model Notificacion {
+  id              String           @id @default(cuid())
+  tipo            NotificacionTipo
+  sucursalId      String           @map("sucursal")
+  titulo          String
+  mensaje         String
+  transferenciaId String?          @map("transferencia_id")
+  leidaAt         DateTime?        @map("leida_at")
+  leidaPorId      Int?             @map("leida_por")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  sucursal      Sucursal            @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  transferencia StockTransferencia? @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+  leidaPor      GlobalPersonal?     @relation(fields: [leidaPorId], references: [idPersonal], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([sucursalId, leidaAt, createdAt], map: "notificaciones_sucursal_leida_fecha_idx")
+  @@index([transferenciaId], map: "notificaciones_transferencia_idx")
+  @@map("notificaciones")
 }
 
 /// Competidores externos (nombre + URLs del sitio para búsqueda de precios).

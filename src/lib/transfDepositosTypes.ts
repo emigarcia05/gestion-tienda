@@ -1,4 +1,4 @@
-/** Tipos UI de Trans. Depósitos (sin backend hasta el próximo cableado). */
+/** Tipos de Trans. Depósitos (catálogo + saldos vía `transfDepositos.service`). */
 
 export type SucursalTransf = "guaymallen" | "maipu";
 
@@ -9,6 +9,10 @@ export type ItemTransfDepositos = {
   descripcion: string;
   marca: string | null;
   rubro: string | null;
+  /** Saldo ledger en origen; `null` si no aplica (sin sucursal / fila de borrador). */
+  stockOrigen: number | null;
+  /** Saldo ledger en destino; `null` sin destino elegido. */
+  stockDestino: number | null;
 };
 
 export type ControlTransfDepositosRecienteDto = {
@@ -52,7 +56,7 @@ export type SucursalTransfDepositoOptionDto = {
   tieneDeposito: boolean;
 };
 
-/** Catálogo vacío hasta el nuevo backend. */
+/** Catálogo vacío (sin origen o error de lectura). */
 export const TRANSF_DEPOSITOS_DATA_VACIO: TransfDepositosData = {
   items: [],
   total: 0,

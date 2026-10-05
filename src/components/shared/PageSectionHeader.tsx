@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Separator } from "@/components/ui/separator";
 import { cva, type VariantProps } from "class-variance-authority";
 import HeaderAccionesMenu from "@/components/shared/HeaderAccionesMenu";
+import NotificacionesHeaderButton from "@/components/shared/NotificacionesHeaderButton";
 import { cn } from "@/lib/utils";
 
 const pageSectionHeaderRootVariants = cva("section-header shrink-0 w-full", {
@@ -39,6 +40,7 @@ export type PageSectionHeaderProps = {
  * Usar vía `SectionHeader` o `ClassicPageHeader` para no romper APIs existentes.
  *
  * `actions` se envuelve en `HeaderAccionesMenu`: un botón **ACCIONES** y lista al hover.
+ * A su izquierda, siempre, **NOTIFICACIONES** (`NotificacionesHeaderButton`; se oculta sin usuario / permiso).
  * Jerarquía visual: **MÓDULO** (h1 MAYÚSCULAS) → **SUBMÓDULO 1** (MAYÚSCULAS negrita)
  * - **Submódulo 2** (Title Case negrita).
  */
@@ -82,11 +84,10 @@ export default function PageSectionHeader({
             )}
           </div>
         </div>
-        {actions != null && (
-          <div className="section-header-actions flex shrink-0 items-center justify-end">
-            <HeaderAccionesMenu>{actions}</HeaderAccionesMenu>
-          </div>
-        )}
+        <div className="section-header-actions flex shrink-0 items-center justify-end gap-2">
+          <NotificacionesHeaderButton />
+          {actions != null && <HeaderAccionesMenu>{actions}</HeaderAccionesMenu>}
+        </div>
       </div>
       <Separator className="section-header-divider" />
     </header>

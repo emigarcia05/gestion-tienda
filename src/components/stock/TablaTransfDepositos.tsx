@@ -53,12 +53,17 @@ import {
   leerBorradorTransfDepositos,
 } from "@/lib/transfDepositosControl";
 
-/** DESCRIPCIÓN · origen · flecha · destino · ACCIONES (borrar / historial / aviso). */
-const PCT_DESC = 60;
+/** DESCRIPCIÓN · stock origen · origen · flecha · destino · stock destino · ACCIONES. */
+const PCT_DESC = 46;
+const PCT_STOCK = 8;
 const PCT_ORIGEN = 10;
 const PCT_FLECHA = 3;
 const PCT_DESTINO = 10;
-const PCT_ACCIONES = 17;
+const PCT_ACCIONES = 15;
+
+function fmtStock(valor: number | null): string {
+  return valor == null ? "—" : fmtCantidad(valor);
+}
 
 interface Props {
   data: TransfDepositosData;
@@ -80,8 +85,8 @@ export type TablaTransfDepositosHandle = {
  * Grilla **Trans. Depósitos**:
  * DESCRIPCIÓN · {origen} · → · {destino} · ACCIONES (Trash2, Check historial, AlertTriangle).
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
- * hasta **Transferido**. Si el borrador local está vacío, se hidrata desde
- * lote abierto de `stock_trasn_depositos` (Generar Transf. hecho, Transferido no).
+ * hasta **Confirmar Transf.** (crea `stock_transferencias` PENDIENTE).
+ * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   function TablaTransfDepositos({ data, origen, destino }, ref) {
@@ -180,6 +185,8 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
         descripcion: item.descripcion.trim() || id,
         marca: null,
         rubro: null,
+        stockOrigen: null,
+        stockDestino: null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id, "es"));
     return [...extras, ...data.items];
@@ -228,14 +235,17 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
       <Table variant="compact">
         <colgroup>
           <col style={{ width: `${PCT_DESC}%` }} />
+          <col style={{ width: `${PCT_STOCK}%` }} />
           <col style={{ width: `${PCT_ORIGEN}%` }} />
           <col style={{ width: `${PCT_FLECHA}%` }} />
           <col style={{ width: `${PCT_DESTINO}%` }} />
+          <col style={{ width: `${PCT_STOCK}%` }} />
           <col style={{ width: `${PCT_ACCIONES}%` }} />
         </colgroup>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="min-w-0 align-middle">DESCRIPCIÓN</TableHead>
+            <TableHead className="text-center align-middle">STOCK</TableHead>
             <TableHead className="text-center align-middle">
               {origenLabel}
             </TableHead>
@@ -246,6 +256,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
             <TableHead className="text-center align-middle">
               {destinoLabel}
             </TableHead>
+            <TableHead className="text-center align-middle">STOCK</TableHead>
             <TableHead className="text-center align-middle">ACCIONES</TableHead>
           </TableRow>
         </TableHeader>
@@ -253,7 +264,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
           {filas.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={7}
                 className={cn(
                   tableEmptyStateContainerVariants({
                     placement: "tableCellTall",
@@ -284,6 +295,14 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
               <TableRow key={item.id}>
                 <TableCell className="celda-datos min-w-0 overflow-hidden">
                   {item.descripcion}
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    "celda-datos text-center tabular-nums",
+                    item.stockOrigen != null && item.stockOrigen < 0 && "text-destructive"
+                  )}
+                >
+                  {fmtStock(item.stockOrigen)}
                 </TableCell>
                 <TableCell className="celda-datos text-center">
                   <div className="flex w-full items-center justify-center">
@@ -322,6 +341,14 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                     : cantidadNum != null
                       ? fmtCantidad(cantidadNum)
                       : cantidad}
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    "celda-datos text-center tabular-nums",
+                    item.stockDestino != null && item.stockDestino < 0 && "text-destructive"
+                  )}
+                >
+                  {fmtStock(item.stockDestino)}
                 </TableCell>
                 <TableCell className="celda-datos celda-datos--accion-relleno-fila">
                   <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

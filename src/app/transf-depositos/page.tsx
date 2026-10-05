@@ -7,6 +7,7 @@ import {
   TRANSF_DEPOSITOS_DATA_VACIO,
   type SucursalTransf,
 } from "@/lib/transfDepositosTypes";
+import { listarCatalogoTransfDepositos } from "@/services/transfDepositos.service";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,8 @@ function parseSucursal(raw: string | undefined): SucursalTransf | null {
 }
 
 /**
- * Shell UI de Trans. Depósitos. Sin backend de catálogo/lote todavía:
- * datos vacíos; la grilla vive en `localStorage` hasta el nuevo cableado.
+ * Trans. Depósitos: catálogo + saldo ledger origen/destino (servicio).
+ * Cantidades a transferir viven en `localStorage` (sin lote/historial en BD).
  */
 export default async function TransfDepositosPage({ searchParams }: Props) {
   const rol = await getRol();
@@ -54,9 +55,20 @@ export default async function TransfDepositosPage({ searchParams }: Props) {
       : null;
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
 
+  const data = origenValido
+    ? await listarCatalogoTransfDepositos({
+        origen: origenValido,
+        destino: destinoValido,
+        q,
+        marca,
+        rubro,
+        pagina: paginaNum,
+      })
+    : TRANSF_DEPOSITOS_DATA_VACIO;
+
   return (
     <TransfDepositosPageClient
-      data={TRANSF_DEPOSITOS_DATA_VACIO}
+      data={data}
       origen={origenValido}
       destino={destinoValido}
       q={q}

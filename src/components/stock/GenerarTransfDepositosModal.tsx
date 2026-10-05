@@ -40,6 +40,10 @@ import {
 } from "@/lib/transfDepositosTypes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import {
+  crearTransferenciaApi,
+  pedirRefrescoNotificaciones,
+} from "@/lib/stockTransferenciasClient";
+import {
   TablaControlItemCelda,
   TablaControlItemHead,
 } from "@/components/shared/TablaControlItem";
@@ -80,11 +84,12 @@ async function copiarDatoTransf(texto: string, toastTitle: string): Promise<void
  * Modal **Generar Transf.**: dos selectores **SUC. ORIGEN** y **SUC. DESTINO**
  * (una punta = sucursal del usuario; la otra se fija y no se edita; cada sucursal es depósito);
  * al abrir, si la página ya tiene destino, precarga el lote abierto en la tabla
- * (reabrir el modal sin haber pulsado Transferido muestra los mismos ítems);
+ * (reabrir el modal sin haber pulsado Confirmar Transf. muestra los mismos ítems);
  * al elegir destino abre (o enfoca) transferencia de depósitos en DUX;
  * tabla Control de ítem / COD. TIENDA (**OK** a la izquierda del código) / DESCRIPCIÓN / CANTIDAD (copiar a la derecha);
  * cada copiar (y OK) enfoca la pestaña DUX ya abierta sin recargar;
- * checklist local hasta **Transferido**, que borra el lote.
+ * checklist local hasta **Confirmar Transf.**: crea `stock_transferencias` PENDIENTE
+ * (sin ledger; la otra sucursal acepta desde NOTIFICACIONES) y borra el borrador.
  * Cabecera del modal (selectores) y `thead` fijos; scroll solo en `.contenedor-tabla-gestion`.
  */
 export default function GenerarTransfDepositosModal({
@@ -309,11 +314,30 @@ export default function GenerarTransfDepositosModal({
       toast.error("Sucursal origen o destino inválida.");
       return;
     }
-    startTransition(() => {
+    const usuario = leerUsuarioSesion();
+    if (!usuario) {
+      toast.error("Elegí un usuario.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await crearTransferenciaApi({
+        origenCodigo: origenCod,
+        destinoCodigo: destinoCod,
+        personalId: usuario.idPersonal,
+        items: items.map((item) => ({
+          codItem: item.codTienda,
+          cantidad: item.cantidad,
+        })),
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       borrarBorradorTransfDepositos(origenCod, destinoCod);
-      toast.success(
-        `${items.length} transferencia${items.length !== 1 ? "s" : ""} marcada${items.length !== 1 ? "s" : ""} como transferida${items.length !== 1 ? "s" : ""}.`
-      );
+      toast.success("Transferencia enviada.", {
+        description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte. El stock se registra al aceptarla.`,
+      });
+      pedirRefrescoNotificaciones();
       setItems([]);
       setOkPorCodTienda({});
       onTransferido?.();
@@ -346,11 +370,11 @@ export default function GenerarTransfDepositosModal({
               className="disabled:cursor-not-allowed"
               title={
                 puedeMarcar
-                  ? "Borrar el lote de esta transferencia"
+                  ? "Enviar la transferencia para que la otra sucursal la acepte"
                   : "Marcá todos los ítems con OK"
               }
             >
-              Transferido
+              Confirmar Transf.
             </Button>
           </>
         }
