@@ -12,7 +12,10 @@ import {
   isoYmdFromPrismaDateOnly,
 } from "@/lib/fechaArgentina";
 import { fechaFacturaIsoSchema } from "@/lib/validations/pedidosMutaciones";
-import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
+import {
+  NUMERO_COMPROBANTE_COMPRA_REGEX,
+  TIPO_COMP_COMPRA,
+} from "@/lib/numeroComprobanteCompra";
 import { cantidadDesdePrisma } from "@/lib/cantidadUnDecimal";
 import {
   reservarCorrelativoCompra,
@@ -99,6 +102,7 @@ function normalizarTokensBusquedaHistorial(q: string | undefined): string[] {
   return raw.split(/\s+/).filter(Boolean).slice(0, HISTORIAL_Q_MAX_TOKENS);
 }
 
+/** Valor persistido en `prod_ped_historial.estado`; en UI `ABIERTO` se muestra como **EMITIDO**. */
 export type PedidoHistoriaEstado = "ABIERTO" | "RECEPCIONADO";
 
 function normalizarEstadoPedidoHistoria(
@@ -165,12 +169,7 @@ export interface PedidoHistoriaComprobanteCompra {
   saldo: number;
 }
 
-/** `tipo_comp` de `fin_compras_comprobante` que escribe la recepción / NC. */
-export const TIPO_COMP_COMPRA = {
-  FISCAL: "FACTURA",
-  NO_FISCAL: "COMPROBANTE_COMPRA",
-  NOTA_CREDITO: "NOTA_CREDITO",
-} as const;
+export { TIPO_COMP_COMPRA };
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -668,6 +667,8 @@ async function sincronizarStockRecepcionPedido(params: {
     "estado" | "registradoAt" | "fechaRecepcion" | "total"
   >;
   comprobanteCompra?: Prisma.ComprobanteProveedorUncheckedCreateWithoutPedidoHistoriaInput;
+  /** Corrección: comprobante anterior (sin monto aplicado) que se borra antes de crear el nuevo. */
+  reemplazarComprobanteId?: string;
 }): Promise<ServiceResult<void>> {
   const { pedidoHistoriaId: id, personalId } = params;
   const pedido = await prisma.pedidoHistoria.findUnique({
@@ -720,20 +721,32 @@ async function sincronizarStockRecepcionPedido(params: {
   if (ingresos.length > 0) comprobantes.push(comprobante("COMPRA", ingresos));
   if (egresos.length > 0) comprobantes.push(comprobante("AJUSTE_STOCK", egresos));
 
+  const actualizarPedido = prisma.pedidoHistoria.update({
+    where: { id, updatedAt: pedido.updatedAt },
+    data: {
+      ...params.data,
+      updatedAt: new Date(),
+      ...(comprobantes.length > 0
+        ? { stockComprobantes: { create: comprobantes } }
+        : {}),
+      ...(params.comprobanteCompra
+        ? { comprobantesProveedor: { create: params.comprobanteCompra } }
+        : {}),
+    },
+  });
+
   try {
-    await prisma.pedidoHistoria.update({
-      where: { id, updatedAt: pedido.updatedAt },
-      data: {
-        ...params.data,
-        updatedAt: new Date(),
-        ...(comprobantes.length > 0
-          ? { stockComprobantes: { create: comprobantes } }
-          : {}),
-        ...(params.comprobanteCompra
-          ? { comprobantesProveedor: { create: params.comprobanteCompra } }
-          : {}),
-      },
-    });
+    if (params.reemplazarComprobanteId) {
+      // Batch atómico y ordenado: el borrado va antes para liberar el unique natural si el N° no cambia.
+      await prisma.$transaction([
+        prisma.comprobanteProveedor.delete({
+          where: { id: params.reemplazarComprobanteId, montoAplicado: 0 },
+        }),
+        actualizarPedido,
+      ]);
+    } else {
+      await actualizarPedido;
+    }
     return { success: true, data: undefined };
   } catch (e) {
     const err = errorEscrituraPedido(e);
@@ -912,6 +925,8 @@ export async function guardarRecepcionPedidoHistoria(params: {
 /**
  * Marca RECEPCIONADO, ingresa al stock lo recibido y crea el comprobante de compra
  * (`fin_compras_comprobante`, saldo = TOTAL PEDIDO) en el mismo `update`.
+ * En la corrección de un pedido ya RECEPCIONADO, borra el comprobante anterior y crea uno nuevo
+ * (rechazado si ya tiene pagos o NC aplicadas).
  */
 export async function marcarPedidoHistoriaRegistrado(params: {
   pedidoHistoriaId: string;
@@ -939,44 +954,40 @@ export async function marcarPedidoHistoriaRegistrado(params: {
     const pedido = await prisma.pedidoHistoria.findUnique({
       where: { id },
       select: {
+        estado: true,
         proveedor: { select: { iva: true, idProveedorDux: true } },
         sucursal: { select: { idDux: true } },
         comprobantesProveedor: {
           where: { tipoComp: { not: TIPO_COMP_COMPRA.NOTA_CREDITO } },
-          select: { id: true },
+          select: { id: true, montoAplicado: true },
           take: 1,
         },
       },
     });
     if (!pedido) return { success: false, error: "Pedido no encontrado." };
 
-    let comprobanteCompra:
-      | Prisma.ComprobanteProveedorUncheckedCreateWithoutPedidoHistoriaInput
-      | undefined;
-    if (pedido.comprobantesProveedor.length === 0) {
-      const errIva = validarFiscalSegunIva(pedido.proveedor.iva, params.fiscal);
-      if (errIva) return { success: false, error: errIva };
-      const idProveedorDux = pedido.proveedor.idProveedorDux?.trim();
-      const idSucursalDux = pedido.sucursal.idDux?.trim();
-      if (!idProveedorDux) {
-        return { success: false, error: "El proveedor no tiene ID DUX: no se puede crear el comprobante." };
-      }
-      if (!idSucursalDux) {
-        return { success: false, error: "La sucursal no tiene ID DUX: no se puede crear el comprobante." };
-      }
-      const numero = (params.numeroComprobante ?? "").trim();
-      if (!NUMERO_COMPROBANTE_COMPRA_REGEX.test(numero)) {
-        return { success: false, error: "N° de comprobante inválido (formato 0000-00000000)." };
-      }
-      comprobanteCompra = {
-        idSucursalEmpresa: idSucursalDux,
-        tipoComp: params.fiscal ? TIPO_COMP_COMPRA.FISCAL : TIPO_COMP_COMPRA.NO_FISCAL,
-        comprobante: numero,
-        fechaComp: dateFromIsoYmd(fechaParsed.data),
-        idProveedor: idProveedorDux,
-        total: new Prisma.Decimal(totalPedido.toFixed(2)),
-        montoAplicado: new Prisma.Decimal(0),
+    const anterior = pedido.comprobantesProveedor[0];
+    if (anterior && Number(anterior.montoAplicado) > 0) {
+      return {
+        success: false,
+        error:
+          "El comprobante de compra ya tiene pagos o notas de crédito aplicadas: no se puede reemplazar.",
       };
+    }
+
+    const errIva = validarFiscalSegunIva(pedido.proveedor.iva, params.fiscal);
+    if (errIva) return { success: false, error: errIva };
+    const idProveedorDux = pedido.proveedor.idProveedorDux?.trim();
+    const idSucursalDux = pedido.sucursal.idDux?.trim();
+    if (!idProveedorDux) {
+      return { success: false, error: "El proveedor no tiene ID DUX: no se puede crear el comprobante." };
+    }
+    if (!idSucursalDux) {
+      return { success: false, error: "La sucursal no tiene ID DUX: no se puede crear el comprobante." };
+    }
+    const numero = (params.numeroComprobante ?? "").trim();
+    if (!NUMERO_COMPROBANTE_COMPRA_REGEX.test(numero)) {
+      return { success: false, error: "N° de comprobante inválido (formato 0000-00000000)." };
     }
 
     return await sincronizarStockRecepcionPedido({
@@ -984,11 +995,20 @@ export async function marcarPedidoHistoriaRegistrado(params: {
       personalId,
       data: {
         estado: "RECEPCIONADO",
-        registradoAt: new Date(),
+        ...(pedido.estado === "RECEPCIONADO" ? {} : { registradoAt: new Date() }),
         fechaRecepcion: dateFromIsoYmd(fechaParsed.data),
         total: new Prisma.Decimal(totalPedido.toFixed(2)),
       },
-      comprobanteCompra,
+      comprobanteCompra: {
+        idSucursalEmpresa: idSucursalDux,
+        tipoComp: params.fiscal ? TIPO_COMP_COMPRA.FISCAL : TIPO_COMP_COMPRA.NO_FISCAL,
+        comprobante: numero,
+        fechaComp: dateFromIsoYmd(fechaParsed.data),
+        idProveedor: idProveedorDux,
+        total: new Prisma.Decimal(totalPedido.toFixed(2)),
+        montoAplicado: new Prisma.Decimal(0),
+      },
+      reemplazarComprobanteId: anterior?.id,
     });
   } catch (e) {
     logServiceError("marcarPedidoHistoriaRegistrado", e);

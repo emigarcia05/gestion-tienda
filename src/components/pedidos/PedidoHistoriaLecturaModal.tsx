@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ import { Download, Loader2 } from "lucide-react";
 import { ICON_WARNING_INTERACTIVE_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
+import { TIPO_COMP_COMPRA } from "@/lib/numeroComprobanteCompra";
 
 function deltaCantidades(it: PedidoHistoriaItemDetalle): number {
   return (it.cantRecibida ?? 0) - it.cantPedida;
@@ -45,10 +47,22 @@ function toDate(value: string | Date | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function fmtPesos(n: number): string {
+  return `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtFechaIso(iso: string | null): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-");
+  return y && m && d ? `${d}/${m}/${y}` : iso;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedidoHistoriaId: string | null;
+  /** `compra`: vista desde **Compras** (título «Ver Compra»). */
+  variante?: "pedido" | "compra";
   /** Si el pedido está en estado ABIERTO y hay callback, se muestra junto a Cerrar. */
   onIrARecepcion?: () => void;
   onDescargarPdf?: () => Promise<void> | void;
@@ -59,6 +73,7 @@ export default function PedidoHistoriaLecturaModal({
   open,
   onOpenChange,
   pedidoHistoriaId,
+  variante = "pedido",
   onIrARecepcion,
   onDescargarPdf,
   descargandoPdf = false,
@@ -120,7 +135,7 @@ export default function PedidoHistoriaLecturaModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
-        title="Ver Pedido"
+        title={variante === "compra" ? "Ver Compra" : "Ver Pedido"}
         size="xl"
         scrollBody={false}
         padding="default"
@@ -134,12 +149,12 @@ export default function PedidoHistoriaLecturaModal({
                 Recepción de Compra
               </Button>
             ) : null}
-            {detalle ? (
+            {detalle && onDescargarPdf ? (
               <Button
                 type="button"
                 variant="default"
                 onClick={() => {
-                  void onDescargarPdf?.();
+                  void onDescargarPdf();
                 }}
                 disabled={descargandoPdf}
               >
@@ -164,7 +179,7 @@ export default function PedidoHistoriaLecturaModal({
                   className="w-fit shrink-0"
                   variant={esRecibido ? "secondary" : "default"}
                 >
-                  {esRecibido ? "Recepcionado" : "Sin Recepción"}
+                  {esRecibido ? "Recepcionado" : "Emitido"}
                 </Badge>
                 <p className="min-w-0 flex-1 text-base font-semibold leading-snug break-words text-foreground">
                   {detalle.proveedorNombre?.trim() ?? ""}
@@ -185,6 +200,30 @@ export default function PedidoHistoriaLecturaModal({
                   </span>
                 ) : null}
               </p>
+              {detalle.comprobanteCompra ? (
+                <dl className="mt-1 grid grid-cols-3 gap-x-4 gap-y-1 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm sm:grid-cols-6">
+                  {[
+                    ["N° COMPROBANTE", detalle.comprobanteCompra.numero],
+                    [
+                      "FISCAL",
+                      detalle.comprobanteCompra.tipoComp === TIPO_COMP_COMPRA.FISCAL ? "SI" : "NO",
+                    ],
+                    ["FECHA FACTURA", fmtFechaIso(detalle.fechaRecepcionIso)],
+                    ["TOTAL", fmtPesos(detalle.comprobanteCompra.total)],
+                    ["APLICADO", fmtPesos(detalle.comprobanteCompra.montoAplicado)],
+                    ["SALDO", fmtPesos(detalle.comprobanteCompra.saldo)],
+                  ].map(([label, valor]) => (
+                    <div key={label} className="min-w-0">
+                      <dt>
+                        <ModalMicroLabel>{label}</ModalMicroLabel>
+                      </dt>
+                      <dd className="truncate tabular-nums text-foreground" title={valor}>
+                        {valor}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
             </div>
 
             <div className="contenedor-tabla-gestion no-scroll-x no-scrollbar relative min-h-0 min-w-0 flex-1">

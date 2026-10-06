@@ -32,6 +32,11 @@ import {
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import NumeroComprobanteBloquesInput from "@/components/shared/NumeroComprobanteBloquesInput";
 import {
+  COMPROBANTE_COMPRA_NRO_DIGITOS,
+  COMPROBANTE_COMPRA_PV_DIGITOS,
+  NUMERO_COMPROBANTE_COMPRA_REGEX,
+  TIPO_COMP_COMPRA,
+  digitosBloqueComprobante,
   formatearNumeroComprobanteCompra,
   numeroComprobanteCompraCompleto,
 } from "@/lib/numeroComprobanteCompra";
@@ -197,8 +202,8 @@ export default function PedidoHistoriaDetalleModal({
   const bloqueadoPorEstado = estado === "RECEPCIONADO" && !esNotaCredito;
   const locked = bloqueadoPorEstado && !modoCorreccionRecepcionado;
   const comprobanteCompra = detalle?.comprobanteCompra ?? null;
-  /** Primera confirmación de recepción o NC: se elige fiscal y N° del comprobante. */
-  const pideComprobante = esNotaCredito || (!bloqueadoPorEstado && !comprobanteCompra);
+  /** Recepción (primera o corrección, que reemplaza el comprobante) o NC: se elige fiscal y N°. */
+  const pideComprobante = esNotaCredito || !locked;
   const fiscalEditable = detalle?.proveedorIva === "PREGUNTA";
   /** Recepción sin comprobante aún: FISCAL → N° (dos bloques) → FECHA FACTURA en la cabecera. */
   const pideComprobanteRecepcion = pideComprobante && !esNotaCredito;
@@ -528,6 +533,12 @@ export default function PedidoHistoriaDetalleModal({
         return;
       }
 
+      if (modoCorreccionRecepcionado) {
+        setModoCorreccionRecepcionado(false);
+        await cargarDetalle(pedidoHistoriaId);
+        toast.success("Corrección guardada. Se generó un nuevo comprobante de compra.");
+        return;
+      }
       toast.success("Pedido recepcionado. Stock registrado.");
       onOpenChange(false);
     } catch {
@@ -535,6 +546,29 @@ export default function PedidoHistoriaDetalleModal({
     } finally {
       setGuardando(null);
     }
+  }
+
+  /** La corrección reemplaza el comprobante: se precarga el anterior y se bloquea si ya tiene pagos / NC. */
+  function iniciarCorreccion() {
+    if (comprobanteCompra && comprobanteCompra.montoAplicado > 0) {
+      toast.error(
+        "El comprobante de compra ya tiene pagos o notas de crédito aplicadas: no se puede corregir."
+      );
+      return;
+    }
+    if (comprobanteCompra) {
+      setFiscal(comprobanteCompra.tipoComp === TIPO_COMP_COMPRA.FISCAL);
+      if (NUMERO_COMPROBANTE_COMPRA_REGEX.test(comprobanteCompra.numero)) {
+        const [pv, nro] = comprobanteCompra.numero.split("-");
+        setComprobantePv(
+          digitosBloqueComprobante(pv ?? "", COMPROBANTE_COMPRA_PV_DIGITOS)
+        );
+        setComprobanteNro(
+          digitosBloqueComprobante(nro ?? "", COMPROBANTE_COMPRA_NRO_DIGITOS)
+        );
+      }
+    }
+    setModoCorreccionRecepcionado(true);
   }
 
   async function generarNotaCredito() {
@@ -646,52 +680,23 @@ export default function PedidoHistoriaDetalleModal({
                     !puedeConfirmarRecepcion || bloquearNavegacionModalPorEdicionCantidad
                   }
                 >
-                  {esNotaCredito ? "Generar Nota de Crédito" : "Confirmar Recepción"}
+                  {esNotaCredito
+                    ? "Generar Nota de Crédito"
+                    : modoCorreccionRecepcionado
+                      ? "Guardar Corrección"
+                      : "Confirmar Recepción"}
                 </Button>
               ) : (
-                <>
-                  {!modoCorreccionRecepcionado ? (
-                    <Button
-                      type="button"
-                      className="disabled:cursor-not-allowed"
-                      disabled={
-                        guardando != null ||
-                        loading ||
-                        bloquearNavegacionModalPorEdicionCantidad
-                      }
-                      onClick={() => {
-                        setModoCorreccionRecepcionado(true);
-                      }}
-                    >
-                      Corregir Recepcion
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      className="disabled:cursor-not-allowed"
-                      disabled={
-                        guardando != null ||
-                        loading ||
-                        bloquearNavegacionModalPorEdicionCantidad
-                      }
-                      onClick={async () => {
-                        const personalId = personalIdSesion();
-                        if (personalId == null) return;
-                        setGuardando("correccion");
-                        try {
-                          const guardadoOk = await persistirRecepcionActual(personalId);
-                          if (!guardadoOk) return;
-                          setModoCorreccionRecepcionado(false);
-                          toast.success("Correccion de recepcion guardada.");
-                        } finally {
-                          setGuardando(null);
-                        }
-                      }}
-                    >
-                      Guardar Correccion
-                    </Button>
-                  )}
-                </>
+                <Button
+                  type="button"
+                  className="disabled:cursor-not-allowed"
+                  disabled={
+                    guardando != null || loading || bloquearNavegacionModalPorEdicionCantidad
+                  }
+                  onClick={iniciarCorreccion}
+                >
+                  Corregir Recepcion
+                </Button>
               )}
             </>
           }

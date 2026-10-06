@@ -183,7 +183,7 @@ export default function FiltrosHistorialPedidos({
                 align="start"
                 className="select-content-filtro"
               >
-                <SelectItem value="ABIERTO">ABIERTO</SelectItem>
+                <SelectItem value="ABIERTO">EMITIDO</SelectItem>
                 <SelectItem value="RECEPCIONADO">RECEPCIONADO</SelectItem>
                 <SelectItem value="ALL">TODOS</SelectItem>
               </SelectContent>

@@ -1,3 +1,10 @@
+/** `tipo_comp` de `fin_compras_comprobante` que escribe la recepción / NC. */
+export const TIPO_COMP_COMPRA = {
+  FISCAL: "FACTURA",
+  NO_FISCAL: "COMPROBANTE_COMPRA",
+  NOTA_CREDITO: "NOTA_CREDITO",
+} as const;
+
 /** N° de comprobante de compra cargado a mano: `PPPP-NNNNNNNN` (punto de venta - número). */
 export const COMPROBANTE_COMPRA_PV_DIGITOS = 4;
 export const COMPROBANTE_COMPRA_NRO_DIGITOS = 8;

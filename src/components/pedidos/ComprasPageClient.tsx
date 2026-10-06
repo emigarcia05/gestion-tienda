@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Undo2 } from "lucide-react";
+import { Eye, Undo2 } from "lucide-react";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
@@ -27,6 +27,7 @@ import {
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { CompraRecepcionadaFila } from "@/services/compras.service";
 import PedidoHistoriaDetalleModal from "@/components/pedidos/PedidoHistoriaDetalleModal";
+import PedidoHistoriaLecturaModal from "@/components/pedidos/PedidoHistoriaLecturaModal";
 import FiltrosCompras from "@/components/pedidos/FiltrosCompras";
 
 interface Props {
@@ -41,7 +42,7 @@ interface Props {
   q: string;
 }
 
-const COL_WIDTHS_PCT = [10, 22, 13, 17, 8, 11, 11, 8] as const;
+const COL_WIDTHS_PCT = [10, 20, 12, 16, 7, 11, 11, 13] as const;
 
 function fmtPesos(n: number): string {
   return `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -65,6 +66,7 @@ export default function ComprasPageClient({
 }: Props) {
   const router = useRouter();
   const [notaCreditoPedidoId, setNotaCreditoPedidoId] = useState<string | null>(null);
+  const [verPedidoId, setVerPedidoId] = useState<string | null>(null);
   const showingEmpty = items.length === 0;
 
   return (
@@ -156,6 +158,22 @@ export default function ComprasPageClient({
                               <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "gap-2")}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      disabled={!it.pedidoHistoriaId}
+                                      onClick={() => setVerPedidoId(it.pedidoHistoriaId)}
+                                      aria-label="Ver Compra"
+                                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                    >
+                                      <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Ver Compra</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <span className="inline-flex">
                                       <Button
                                         type="button"
@@ -211,6 +229,14 @@ export default function ComprasPageClient({
             }
           }}
           pedidoHistoriaId={notaCreditoPedidoId}
+        />
+        <PedidoHistoriaLecturaModal
+          variante="compra"
+          open={verPedidoId != null}
+          onOpenChange={(v) => {
+            if (!v) setVerPedidoId(null);
+          }}
+          pedidoHistoriaId={verPedidoId}
         />
       </div>
     </ClassicFilteredTableLayout>
