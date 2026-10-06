@@ -13,7 +13,7 @@ function esPayloadApi(v: unknown): v is { ok: boolean; data?: unknown; error?: u
  */
 export async function fetchApiJson<T>(
   url: string,
-  init?: { method?: "GET" | "POST"; body?: unknown }
+  init?: { method?: "GET" | "POST" | "PUT"; body?: unknown }
 ): Promise<ApiFetchResult<T>> {
   try {
     const response = await fetch(url, {

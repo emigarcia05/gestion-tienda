@@ -3,83 +3,18 @@ import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import TransfDepositosPageClient from "@/components/stock/TransfDepositosPageClient";
-import {
-  TRANSF_DEPOSITOS_DATA_VACIO,
-  type SucursalTransf,
-} from "@/lib/transfDepositosTypes";
-import { listarCatalogoTransfDepositos } from "@/services/transfDepositos.service";
 
 export const dynamic = "force-dynamic";
 
-interface Props {
-  searchParams: Promise<{
-    origen?: string;
-    destino?: string;
-    q?: string;
-    marca?: string;
-    rubro?: string;
-    pagina?: string;
-  }>;
-}
-
-function parseSucursal(raw: string | undefined): SucursalTransf | null {
-  return raw === "guaymallen" || raw === "maipu" ? raw : null;
-}
-
 /**
- * Trans. Depósitos: catálogo + saldo ledger origen/destino (servicio).
- * Cantidades a transferir viven en `localStorage` (sin lote/historial en BD).
+ * Trans. Depósitos: historial de `stock_transferencias` de la sucursal del usuario.
+ * El catálogo vive en el modal **Crear Transferencia**.
  */
-export default async function TransfDepositosPage({ searchParams }: Props) {
+export default async function TransfDepositosPage() {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.stock.acceso)) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const {
-    origen,
-    destino,
-    q = "",
-    marca = "",
-    rubro = "",
-    pagina = "1",
-  } = await searchParams;
-
-  const origenValido = parseSucursal(origen);
-  const destinoParseado = parseSucursal(destino);
-  const destinoValido =
-    destinoParseado !== null && destinoParseado !== origenValido
-      ? destinoParseado
-      : null;
-  const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
-
-  const data = origenValido
-    ? await listarCatalogoTransfDepositos({
-        origen: origenValido,
-        destino: destinoValido,
-        q,
-        marca,
-        rubro,
-        pagina: paginaNum,
-      })
-    : TRANSF_DEPOSITOS_DATA_VACIO;
-
-  return (
-    <TransfDepositosPageClient
-      data={data}
-      origen={origenValido}
-      destino={destinoValido}
-      q={q}
-      marca={marca}
-      rubro={rubro}
-      paginaNum={paginaNum}
-      paramsPagina={{
-        origen: origenValido ?? "",
-        destino: destinoValido ?? "",
-        q,
-        marca,
-        rubro,
-      }}
-    />
-  );
+  return <TransfDepositosPageClient />;
 }

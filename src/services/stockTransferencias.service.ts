@@ -1,7 +1,10 @@
 import { Prisma, type StockTransferenciaEstado } from "@prisma/client";
 import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
-import { fmtNumeroTransferenciaInterna } from "@/lib/stockTransferenciaNumero";
+import {
+  etiquetaEstadoTransferencia,
+  fmtNumeroTransferenciaInterna,
+} from "@/lib/stockTransferenciaNumero";
 import type {
   AceptarStockTransferenciaInput,
   CrearStockTransferenciaInput,
@@ -532,5 +535,143 @@ export async function cancelarStockTransferencia(
     if (esNoEncontrado(e)) return { success: false, error: ERROR_YA_RESUELTA };
     console.error("[cancelarStockTransferencia]", e);
     return { success: false, error: "No se pudo eliminar la transferencia." };
+  }
+}
+
+export type StockTransferenciaHistorialFila = {
+  id: string;
+  numeroEtiqueta: string;
+  estado: StockTransferenciaEstado;
+  estadoEtiqueta: string;
+  origenCodigo: string;
+  origenNombre: string;
+  destinoCodigo: string;
+  destinoNombre: string;
+  confirmaCodigo: string;
+  creadoraCodigo: string;
+  createdAtIso: string;
+};
+
+/**
+ * Historial de transferencias donde la sucursal es origen o destino.
+ */
+export async function listarStockTransferenciasPorSucursal(
+  sucursalCodigo: string
+): Promise<ServiceResult<StockTransferenciaHistorialFila[]>> {
+  try {
+    const sucursal = await prisma.sucursal.findUnique({
+      where: { codigo: sucursalCodigo },
+      select: { id: true },
+    });
+    if (!sucursal) return { success: true, data: [] };
+
+    const rows = await prisma.stockTransferencia.findMany({
+      where: {
+        OR: [{ sucursalOrigenId: sucursal.id }, { sucursalDestinoId: sucursal.id }],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        id: true,
+        numero: true,
+        version: true,
+        estado: true,
+        createdAt: true,
+        sucursalOrigen: { select: { codigo: true, nombre: true } },
+        sucursalDestino: { select: { codigo: true, nombre: true } },
+        sucursalConfirma: { select: { codigo: true } },
+        creadaPor: { select: { sucursalPorDefecto: true } },
+      },
+    });
+
+    return {
+      success: true,
+      data: rows.map((t) => {
+        const creadoraCodigo =
+          t.creadaPor.sucursalPorDefecto === t.sucursalOrigen.codigo ||
+          t.creadaPor.sucursalPorDefecto === t.sucursalDestino.codigo
+            ? t.creadaPor.sucursalPorDefecto
+            : t.sucursalConfirma.codigo === t.sucursalOrigen.codigo
+              ? t.sucursalDestino.codigo
+              : t.sucursalOrigen.codigo;
+        return {
+          id: t.id,
+          numeroEtiqueta: fmtNumeroTransferenciaInterna(t.numero, t.version),
+          estado: t.estado,
+          estadoEtiqueta: etiquetaEstadoTransferencia(t.estado, t.version),
+          origenCodigo: t.sucursalOrigen.codigo,
+          origenNombre: t.sucursalOrigen.nombre,
+          destinoCodigo: t.sucursalDestino.codigo,
+          destinoNombre: t.sucursalDestino.nombre,
+          confirmaCodigo: t.sucursalConfirma.codigo,
+          creadoraCodigo,
+          createdAtIso: t.createdAt.toISOString(),
+        };
+      }),
+    };
+  } catch (e) {
+    console.error("[listarStockTransferenciasPorSucursal]", e);
+    return { success: false, error: "No se pudieron cargar las transferencias." };
+  }
+}
+
+/**
+ * El emisor de una versión abierta puede reemplazar los ítems (mismas puntas).
+ */
+export async function actualizarStockTransferencia(
+  id: string,
+  input: CrearStockTransferenciaInput
+): Promise<ServiceResult<{ id: string; numero: string }>> {
+  try {
+    const t = await cargarTransferencia(id);
+    if (!t) return { success: false, error: "Transferencia no encontrada." };
+    if (!estaAbierta(t.estado)) return { success: false, error: ERROR_YA_RESUELTA };
+
+    const codigoUsuario = await sucursalDeUsuario(input.personalId);
+    const creadora = sucursalCreadora(t);
+    if (codigoUsuario !== creadora.codigo) {
+      return {
+        success: false,
+        error: `Solo un usuario de ${creadora.nombre} puede editarla.`,
+      };
+    }
+    if (
+      input.origenCodigo !== t.sucursalOrigen.codigo ||
+      input.destinoCodigo !== t.sucursalDestino.codigo
+    ) {
+      return { success: false, error: "No se puede cambiar origen o destino." };
+    }
+
+    const codigos = input.items.map((i) => i.codItem.trim());
+    const existentes = await prisma.prodTienda.count({
+      where: { codTienda: { in: codigos } },
+    });
+    if (existentes !== codigos.length) {
+      return { success: false, error: "Hay ítems que no existen en el catálogo." };
+    }
+
+    await prisma.stockTransferencia.update({
+      where: { id, estado: t.estado },
+      data: {
+        items: {
+          deleteMany: {},
+          createMany: {
+            data: input.items.map((i) => ({
+              codItem: i.codItem.trim(),
+              cantidad: redondearCantidadUnDecimal(i.cantidad),
+            })),
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return {
+      success: true,
+      data: { id, numero: fmtNumeroTransferenciaInterna(t.numero, t.version) },
+    };
+  } catch (e) {
+    if (esNoEncontrado(e)) return { success: false, error: ERROR_YA_RESUELTA };
+    console.error("[actualizarStockTransferencia]", e);
+    return { success: false, error: "No se pudo editar la transferencia." };
   }
 }

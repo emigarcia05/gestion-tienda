@@ -1,7 +1,7 @@
 /**
  * Ventana (días) compartida: historial del modal y aviso de transferencia duplicada.
  * Mismo `cod_tienda` + origen + destino + cantidad dentro de esta ventana → advertencia.
- * Borrador de grilla: `localStorage` por par origen→destino hasta **Generar Transferencia**.
+ * Borrador de grilla: `localStorage` por par origen→destino hasta **Crear Transferencia**.
  * Si el local está vacío, la grilla no se hidrata desde BD (`stock_trasn_depositos` eliminada).
  */
 
@@ -189,7 +189,7 @@ function normalizarBorradorParaGuardar(
 
 /**
  * Borrador de Cód. / Cant. de la grilla para un par origen→destino.
- * Vive hasta **Generar Transferencia** (ahí pasa a `stock_transferencias`).
+ * Vive hasta **Crear Transferencia** (ahí pasa a `stock_transferencias`).
  */
 export function leerBorradorTransfDepositos(
   origen: SucursalTransfDepositos | null,

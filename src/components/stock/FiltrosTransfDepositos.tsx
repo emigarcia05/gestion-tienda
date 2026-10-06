@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import {
@@ -32,6 +32,14 @@ const SUCURSALES: { value: Sucursal; label: string }[] = [
   { value: "maipu", label: "MAIPÚ" },
 ];
 
+export type FiltrosTransfDepositosCambio = {
+  origen: Sucursal | null;
+  destino: Sucursal | null;
+  q: string;
+  marca: string;
+  rubro: string;
+};
+
 interface Props {
   data: TransfDepositosData;
   origenActual: Sucursal | null;
@@ -39,6 +47,10 @@ interface Props {
   qActual: string;
   marcaActual: string;
   rubroActual: string;
+  /** Si está, no navega por URL (modal Crear Transferencia). */
+  onCambiar?: (next: FiltrosTransfDepositosCambio) => void;
+  /** Editar: origen/destino de la versión no se cambian. */
+  parFijo?: boolean;
 }
 
 /**
@@ -54,10 +66,17 @@ export default function FiltrosTransfDepositos({
   qActual,
   marcaActual,
   rubroActual,
+  onCambiar,
+  parFijo = false,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [sucursalUsuario, setSucursalUsuario] = useState<Sucursal | null>(null);
+  const onCambiarRef = useRef(onCambiar);
+
+  useEffect(() => {
+    onCambiarRef.current = onCambiar;
+  }, [onCambiar]);
 
   const {
     q,
@@ -114,6 +133,24 @@ export default function FiltrosTransfDepositos({
     marca?: string;
     rubro?: string;
   }) {
+    if (onCambiar) {
+      const origen = updates.origen !== undefined ? updates.origen : origenActual;
+      const destino = updates.destino !== undefined ? updates.destino : destinoActual;
+      const qVal = updates.q !== undefined ? updates.q : q;
+      const marcaVal = updates.marca !== undefined ? updates.marca : marcaActual;
+      const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
+      const par = sucursalUsuario
+        ? parTransfConSucursalUsuario(origen, destino, sucursalUsuario)
+        : { origen, destino };
+      onCambiar({
+        origen: par.origen,
+        destino: par.destino,
+        q: qVal,
+        marca: marcaVal,
+        rubro: rubroVal,
+      });
+      return;
+    }
     const p = buildParams(updates);
     const query = p.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
@@ -160,11 +197,7 @@ export default function FiltrosTransfDepositos({
 
   function limpiarFiltros() {
     setQ("");
-    const p = new URLSearchParams();
-    if (origenActual) p.set("origen", origenActual);
-    if (destinoActual) p.set("destino", destinoActual);
-    const query = p.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
+    navigate({ q: "", marca: "", rubro: "" });
   }
 
   const origenSeleccionado = origenActual !== null;
@@ -178,13 +211,23 @@ export default function FiltrosTransfDepositos({
       };
 
   useEffect(() => {
-    if (!sucursalUsuario) return;
+    if (!sucursalUsuario || parFijo) return;
     const par = parTransfConSucursalUsuario(
       origenActual,
       destinoActual,
       sucursalUsuario
     );
     if (par.origen === origenActual && par.destino === destinoActual) {
+      return;
+    }
+    if (onCambiarRef.current) {
+      onCambiarRef.current({
+        origen: par.origen,
+        destino: par.destino,
+        q,
+        marca: marcaActual,
+        rubro: rubroActual,
+      });
       return;
     }
     const p = new URLSearchParams();
@@ -204,6 +247,7 @@ export default function FiltrosTransfDepositos({
     rubroActual,
     pathname,
     router,
+    parFijo,
   ]);
 
   return (
@@ -216,13 +260,13 @@ export default function FiltrosTransfDepositos({
           >
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={origenActual !== null && !parActual.origenBloqueado}
+              activo={origenActual !== null && !parActual.origenBloqueado && !parFijo}
               onLimpiar={() => handleOrigen("")}
             >
               <Select
                 value={origenActual ?? ""}
                 onValueChange={(v) => handleOrigen(v)}
-                disabled={parActual.origenBloqueado}
+                disabled={parActual.origenBloqueado || parFijo}
               >
                 <SelectTrigger
                   id="filtro-transf-origen"
@@ -252,13 +296,13 @@ export default function FiltrosTransfDepositos({
             />
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
-              activo={destinoActual !== null && !parActual.destinoBloqueado}
+              activo={destinoActual !== null && !parActual.destinoBloqueado && !parFijo}
               onLimpiar={() => handleDestino("")}
             >
               <Select
                 value={destinoActual ?? ""}
                 onValueChange={(v) => handleDestino(v)}
-                disabled={parActual.destinoBloqueado}
+                disabled={parActual.destinoBloqueado || parFijo}
               >
                 <SelectTrigger
                   id="filtro-transf-destino"

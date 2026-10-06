@@ -52,6 +52,8 @@ interface Props {
   transferenciaId: string;
   usuario: UsuarioSesion;
   onResuelta?: () => void;
+  /** Historial **Ver**: sin aceptar, eliminar ni agregar. */
+  soloLectura?: boolean;
 }
 
 const TITULO_EMISION = "TRANSFERENCIA INTERNA STOCK";
@@ -108,6 +110,7 @@ export default function StockTransferenciaModal({
   transferenciaId,
   usuario,
   onResuelta,
+  soloLectura = false,
 }: Props) {
   const [detalle, setDetalle] = useState<StockTransferenciaDetalle | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +149,7 @@ export default function StockTransferenciaModal({
         return;
       }
       const modoRevision =
+        !soloLectura &&
         estaAbierta(res.data.estado) &&
         usuario.sucursalPorDefecto === res.data.confirmaCodigo;
       setDetalle(res.data);
@@ -154,11 +158,13 @@ export default function StockTransferenciaModal({
     return () => {
       cancelado = true;
     };
-  }, [open, transferenciaId, usuario.sucursalPorDefecto]);
+  }, [open, transferenciaId, usuario.sucursalPorDefecto, soloLectura]);
 
   const abierta = detalle != null && estaAbierta(detalle.estado);
-  const puedeConfirmar = abierta && usuario.sucursalPorDefecto === detalle.confirmaCodigo;
-  const puedeCancelar = abierta && usuario.sucursalPorDefecto === detalle.creadoraCodigo;
+  const puedeConfirmar =
+    !soloLectura && abierta && usuario.sucursalPorDefecto === detalle.confirmaCodigo;
+  const puedeCancelar =
+    !soloLectura && abierta && usuario.sucursalPorDefecto === detalle.creadoraCodigo;
   const bloqueadoPorEdicion = editingKey != null;
   const tablaEditable = puedeConfirmar && !cierre && !isPending;
 
@@ -417,9 +423,15 @@ export default function StockTransferenciaModal({
                   aria-labelledby="transf-agregar-producto-titulo"
                   className={cn(
                     "min-w-0 bg-transparent flex shrink-0 flex-col gap-0 pb-2 pt-0",
-                    !tablaEditable && "pointer-events-none cursor-not-allowed opacity-50"
+                    !tablaEditable &&
+                      !soloLectura &&
+                      "pointer-events-none cursor-not-allowed opacity-50"
                   )}
-                  inert={!tablaEditable || bloqueadoPorEdicion ? true : undefined}
+                  inert={
+                    !soloLectura && (!tablaEditable || bloqueadoPorEdicion)
+                      ? true
+                      : undefined
+                  }
                 >
                   <span id="transf-agregar-producto-titulo" className="sr-only">
                     AGREGAR PRODUCTO A LA TRANSFERENCIA
@@ -438,16 +450,18 @@ export default function StockTransferenciaModal({
                         />
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="default"
-                      onClick={() => setAgregarOpen(true)}
-                      disabled={!tablaEditable}
-                      className="h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Agregar Producto
-                    </Button>
+                    {!soloLectura ? (
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => setAgregarOpen(true)}
+                        disabled={!tablaEditable}
+                        className="h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Agregar Producto
+                      </Button>
+                    ) : null}
                   </div>
                 </section>
 

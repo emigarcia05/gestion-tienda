@@ -87,6 +87,10 @@ interface Props {
   data: TransfDepositosData;
   origen: Sucursal | null;
   destino: Sucursal | null;
+  /** Default true: crea/edita con localStorage. False al editar una versión persistida. */
+  persistirBorrador?: boolean;
+  /** Hidrata cantidades (editar) y gana al localStorage. */
+  cantidadesIniciales?: BorradorTransfDepositos;
 }
 
 export type ItemCantidadTransfTabla = {
@@ -104,11 +108,13 @@ export type TablaTransfDepositosHandle = {
  * DESCRIPCIÓN · CANT. (−/+) · SUC. ORIGEN · SUC. DESTINO · ACCIONES
  * (Trash2, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
- * hasta **Generar Transferencia** (crea `stock_transferencias` EMITIDO_PENDIENTE).
- * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
+ * hasta **Crear Transferencia**. `data.loteAbierto` hidrata si el local está vacío.
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
-  function TablaTransfDepositos({ data, origen, destino }, ref) {
+  function TablaTransfDepositos(
+    { data, origen, destino, persistirBorrador = true, cantidadesIniciales },
+    ref
+  ) {
   const [borrador, setBorrador] = useState<BorradorTransfDepositos>({});
 
   useImperativeHandle(
@@ -125,15 +131,25 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
               item.cantidad != null && item.cantidad > 0
           ),
       clearCantidades: () => {
-        borrarBorradorTransfDepositos(origen, destino);
+        if (persistirBorrador) {
+          borrarBorradorTransfDepositos(origen, destino);
+        }
         setBorrador({});
       },
     }),
-    [borrador, origen, destino]
+    [borrador, origen, destino, persistirBorrador]
   );
 
   useEffect(() => {
     queueMicrotask(() => {
+      if (cantidadesIniciales) {
+        setBorrador(cantidadesIniciales);
+        return;
+      }
+      if (!persistirBorrador) {
+        setBorrador({});
+        return;
+      }
       const local = leerBorradorTransfDepositos(origen, destino);
       if (Object.keys(local).length > 0) {
         setBorrador(local);
@@ -151,9 +167,10 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
         guardarBorradorTransfDepositos(origen, destino, desdeLoteAbierto);
       }
     });
-  }, [origen, destino, data.loteAbierto]);
+  }, [origen, destino, data.loteAbierto, persistirBorrador, cantidadesIniciales]);
 
   useEffect(() => {
+    if (!persistirBorrador) return;
     if (!origen || !destino || origen === destino) return;
     const clave = claveStorageBorradorTransfDepositos(origen, destino);
     function onStorage(e: StorageEvent) {
@@ -164,7 +181,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [origen, destino]);
+  }, [origen, destino, persistirBorrador]);
 
   const origenSeleccionado = origen !== null;
   const destinoSeleccionado = destino !== null;
@@ -219,7 +236,9 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
           descripcion: descripcion || prev[id]?.descripcion || "",
         };
       }
-      guardarBorradorTransfDepositos(origen, destino, next);
+      if (persistirBorrador) {
+        guardarBorradorTransfDepositos(origen, destino, next);
+      }
       return next;
     });
   }
@@ -251,7 +270,9 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
     setBorrador((prev) => {
       const next = { ...prev };
       delete next[id];
-      guardarBorradorTransfDepositos(origen, destino, next);
+      if (persistirBorrador) {
+        guardarBorradorTransfDepositos(origen, destino, next);
+      }
       return next;
     });
   }
