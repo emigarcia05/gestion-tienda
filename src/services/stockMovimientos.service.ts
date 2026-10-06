@@ -51,6 +51,7 @@ const COMPROBANTE_TIPO_ETIQUETA: Record<StockComprobanteTipo, string> = {
   COMPRA: "COMPRA",
   AJUSTE_STOCK: "AJUSTE STOCK",
   TRANSFERENCIA_ENTRE_DEPOSITOS: "TRANSFERENCIA ENTRE DEPÓSITOS",
+  NOTA_CREDITO_COMPRA: "NOTA DE CRÉDITO COMPRA",
 };
 
 export type StockComprobanteDetalleLinea = {
@@ -87,6 +88,7 @@ const CATEGORIA_ETIQUETA: Record<StockMovimientoCategoria, string> = {
   AJUSTE_STOCK: "AJUSTE STOCK",
   TRANSF_INTERNA: "TRANS. INTERNA",
   COMPRA: "COMPRA",
+  NOTA_CREDITO_COMPRA: "NC COMPRA",
 };
 
 const LISTADO_MOVIMIENTOS_MAX = 2000;
@@ -108,6 +110,7 @@ const CATEGORIA_POR_COMPROBANTE: Record<
   COMPRA: new Set(["COMPRA"]),
   AJUSTE_STOCK: new Set(["AJUSTE_STOCK"]),
   TRANSFERENCIA_ENTRE_DEPOSITOS: new Set(["TRANSF_INTERNA"]),
+  NOTA_CREDITO_COMPRA: new Set(["NOTA_CREDITO_COMPRA"]),
 };
 
 const TIPO_FIJO_POR_CATEGORIA: Partial<
@@ -116,6 +119,7 @@ const TIPO_FIJO_POR_CATEGORIA: Partial<
   VENTA: "EGRESO",
   NOTA_CREDITO: "INGRESO",
   COMPRA: "INGRESO",
+  NOTA_CREDITO_COMPRA: "EGRESO",
   // TRANSF_INTERNA y AJUSTE_STOCK: ingreso o egreso según la línea
 };
 
@@ -534,6 +538,7 @@ export async function listarStockMovimientosPorSucursalCodigo(
           sucursal: { select: { codigo: true, nombre: true } },
           sucursalDestino: { select: { codigo: true, nombre: true } },
           comprobanteVta: { select: { receptorNombre: true } },
+          proveedor: { select: { nombre: true } },
         },
       },
     },
@@ -582,7 +587,9 @@ function contraparteDesdeComprobante(comprobante: {
   comprobanteVta: { receptorNombre: string } | null;
   sucursal: { codigo: string; nombre: string | null };
   sucursalDestino: { codigo: string; nombre: string | null } | null;
+  proveedor: { nombre: string } | null;
 }): string {
+  if (comprobante.proveedor) return comprobante.proveedor.nombre.trim();
   if (
     comprobante.tipo === "VENTA" ||
     comprobante.tipo === "NOTA_CREDITO"

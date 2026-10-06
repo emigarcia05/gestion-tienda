@@ -56,6 +56,8 @@ enum StockMovimientoCategoria {
   /** Transferencia entre sucursales/depósitos. Signo en `tipo_movimiento`. */
   TRANSF_INTERNA @map("transf_interna")
   COMPRA         @map("compra")
+  /** Devolución al proveedor (NC de compra). Siempre EGRESO. */
+  NOTA_CREDITO_COMPRA @map("nota_credito_compra")
 
   @@map("stock_movimiento_categoria")
 }
@@ -67,6 +69,7 @@ enum StockComprobanteTipo {
   COMPRA                         @map("compra")
   AJUSTE_STOCK                   @map("ajuste_stock")
   TRANSFERENCIA_ENTRE_DEPOSITOS  @map("transferencia_entre_depositos")
+  NOTA_CREDITO_COMPRA            @map("nota_credito_compra")
 
   @@map("stock_comprobante_tipo")
 }
@@ -153,6 +156,7 @@ model Proveedor {
 
   listaPrecios         ListaPrecioProveedor[]
   pedidosHistoria     PedidoHistoria[]
+  stockComprobantes   StockComprobante[]
   comprobantesProveedor ComprobanteProveedor[]
   finBalGastoFinal   FinBalGastoFinal[]
   competenciasPrecios ProdCompetencia[]
@@ -275,14 +279,23 @@ model ComprobanteProveedor {
   plazoPago3Dias      Int?     @map("plazo_pago_3_dias")
   plazoPago4Dias      Int?     @map("plazo_pago_4_dias")
   controlado         Boolean  @default(false)
+  /** Recepción de pedido que generó el comprobante (o la NC); NULL si el pedido se purgó. */
+  pedidoHistoriaId   String?  @map("pedido_historia_id")
+  /** En `NOTA_CREDITO`: comprobante de compra al que se aplicó (`monto_aplicado` += total NC). */
+  comprobanteAsocId  String?  @map("comprobante_asoc_id")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  proveedor Proveedor @relation(fields: [idProveedor], references: [idProveedorDux], onDelete: Restrict)
+  proveedor       Proveedor              @relation(fields: [idProveedor], references: [idProveedorDux], onDelete: Restrict)
+  pedidoHistoria  PedidoHistoria?        @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
+  comprobanteAsoc ComprobanteProveedor?  @relation("ComprobanteProveedorNotaCredito", fields: [comprobanteAsocId], references: [id], onDelete: Restrict)
+  notasCredito    ComprobanteProveedor[] @relation("ComprobanteProveedorNotaCredito")
 
   @@unique([idSucursalEmpresa, tipoComp, comprobante, fechaComp, idProveedor], map: "fin_compras_comprobante_natural_ux")
   @@index([fechaComp])
   @@index([idProveedor])
+  @@index([pedidoHistoriaId], map: "fin_compras_comprobante_pedido_historia_idx")
+  @@index([comprobanteAsocId], map: "fin_compras_comprobante_comprobante_asoc_idx")
   @@map("fin_compras_comprobante")
 }
 
@@ -1163,18 +1176,26 @@ model StockComprobante {
   personalId        Int?                 @map("personal_id")
   /** Venta / NC que originó el movimiento (`vtas_comprobantes`). */
   comprobanteVtaId  String?              @map("comprobante_vta_id")
+  /** Recepción de pedido que originó la compra; NULL si el pedido se purgó. */
+  pedidoHistoriaId  String?              @map("pedido_historia_id")
+  /** Proveedor de la compra (contraparte en Movimientos; sobrevive a la purga del pedido). */
+  proveedorId       String?              @map("proveedor_id")
   createdAt         DateTime             @default(now()) @map("created_at")
 
   sucursal        Sucursal          @relation("StockComprobanteSucursal", fields: [sucursalId], references: [id], onDelete: Restrict)
   sucursalDestino Sucursal?         @relation("StockComprobanteSucursalDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
   personal        GlobalPersonal?   @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
   comprobanteVta  ComprobanteVta?   @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
+  pedidoHistoria  PedidoHistoria?   @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
+  proveedor       Proveedor?        @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   movimientos     StockMovimiento[]
   transferencia   StockTransferencia?
 
   @@unique([comprobanteVtaId], map: "stock_comprobantes_comprobante_vta_key")
   @@index([sucursalId], map: "stock_comprobantes_sucursal_idx")
   @@index([personalId], map: "stock_comprobantes_personal_idx")
+  @@index([pedidoHistoriaId], map: "stock_comprobantes_pedido_historia_idx")
+  @@index([proveedorId], map: "stock_comprobantes_proveedor_idx")
   @@map("stock_comprobantes")
 }
 
@@ -1394,13 +1415,17 @@ model PedidoHistoria {
   /**
    * Fecha de recepción / factura (calendario AR, `YYYY-MM-DD`).
    * Es la FECHA FACTURA del modal de recepción; se persiste al marcar RECEPCIONADO.
-   * Distinto de `registrado_at` (instante en que se registró en DUX).
+   * Distinto de `registrado_at` (instante en que se marcó RECEPCIONADO).
    */
   fechaRecepcion DateTime? @db.Date @map("fecha_recepcion")
   total         Decimal? @db.Decimal(14, 2) @map("total") // TOTAL PEDIDO de recepción; admite negativo (NC / devolución).
   proveedorId   String   @map("proveedor_id")
   sucursalId    String   @map("sucursal_id")
   items         PedidoHistoriaItem[]
+  /** Ingresos de stock de la recepción, ajustes por corrección y egresos por NC. */
+  stockComprobantes StockComprobante[]
+  /** Comprobante de compra de la recepción + NC aplicadas (`fin_compras_comprobante`). */
+  comprobantesProveedor ComprobanteProveedor[]
   proveedor     Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
   sucursal      Sucursal  @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -1416,7 +1441,7 @@ model PedidoHistoriaItem {
 
   pedidoHistoriaId String @map("pedido_historia_id")
   /**
-   * Código DUX (`prod_tienda.cod_tienda`) para POST de recepción.
+   * `prod_tienda.cod_tienda` que recibe el ingreso de stock en la recepción.
    * Sin vínculo / match: fallback `1503` (PRODUCTO VARIO). Varias líneas pueden
    * compartir el mismo código; la identidad de la fila es `cod_ext`.
    */

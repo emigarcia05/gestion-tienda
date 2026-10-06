@@ -31,14 +31,11 @@ import PedidoHistoriaBorrarConfirmModal from "@/components/pedidos/PedidoHistori
 import FiltrosHistorialPedidos, {
   type EstadoFiltroPedido,
 } from "@/components/pedidos/FiltrosHistorialPedidos";
-import { Eye, FileText, PackageCheck, Trash2 } from "lucide-react";
+import { Eye, FileMinus, PackageCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { descargarPdfBase64 } from "@/lib/descargarPdfBase64";
 import { descargarPdfPedidoHistoriaAction } from "@/actions/pedidosHistoria";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
-import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
-import GenerarNotaCreditoModal from "@/components/pedidos/GenerarNotaCreditoModal";
-
 type PedidoHistoriaResumenClient = Omit<PedidoHistoriaResumen, "generadoAt" | "registradoAt"> & {
   generadoAt: string;
   registradoAt: string | null;
@@ -78,15 +75,10 @@ export default function HistorialPedidosPageClient({
   const [recepcionId, setRecepcionId] = useState<string | null>(null);
   const [lecturaOpen, setLecturaOpen] = useState(false);
   const [lecturaId, setLecturaId] = useState<string | null>(null);
+  const [notaCreditoId, setNotaCreditoId] = useState<string | null>(null);
   const [borrarOpen, setBorrarOpen] = useState(false);
   const [borrarId, setBorrarId] = useState<string | null>(null);
   const [descargandoPdfId, setDescargandoPdfId] = useState<string | null>(null);
-  const [notaCreditoOpen, setNotaCreditoOpen] = useState(false);
-  const [pedidoNcElegidoId, setPedidoNcElegidoId] = useState<string | null>(null);
-  const [notaCreditoAsistenteOpen, setNotaCreditoAsistenteOpen] = useState(false);
-  const [notaCreditoAsistenteId, setNotaCreditoAsistenteId] = useState<string | null>(
-    null
-  );
 
   const showingEmpty = items.length === 0;
   const COL_WIDTHS_PCT = [18, 28, 18, 14, 22] as const;
@@ -143,15 +135,6 @@ export default function HistorialPedidosPageClient({
     <ClassicFilteredTableLayout
       title={title}
       subtitle={subtitle}
-      actions={
-        <ToolbarActionButton
-          type="button"
-          label="Generar Nota Crédito"
-          icon={<FileText aria-hidden />}
-          className="h-10 px-4"
-          onClick={() => setNotaCreditoOpen(true)}
-        />
-      }
       filters={
         <FiltrosHistorialPedidos
           proveedores={proveedores}
@@ -237,6 +220,34 @@ export default function HistorialPedidosPageClient({
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={it.estado !== "RECEPCIONADO"}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setNotaCreditoId(it.id);
+                                        }}
+                                        aria-label="Nota de Crédito"
+                                        className={cn(
+                                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                                          "disabled:cursor-not-allowed"
+                                        )}
+                                      >
+                                        <FileMinus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    {it.estado === "RECEPCIONADO"
+                                      ? "Nota de Crédito"
+                                      : "Nota de Crédito (solo pedidos recepcionados)"}
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -313,13 +324,15 @@ export default function HistorialPedidosPageClient({
           pedidoHistoriaId={recepcionId}
         />
         <PedidoHistoriaDetalleModal
-          open={notaCreditoAsistenteOpen}
-          onOpenChange={(v) => {
-            setNotaCreditoAsistenteOpen(v);
-            if (!v) setNotaCreditoAsistenteId(null);
-          }}
-          pedidoHistoriaId={notaCreditoAsistenteId}
           variante="nota-credito"
+          open={notaCreditoId != null}
+          onOpenChange={(v) => {
+            if (!v) {
+              setNotaCreditoId(null);
+              router.refresh();
+            }
+          }}
+          pedidoHistoriaId={notaCreditoId}
         />
         <PedidoHistoriaLecturaModal
           open={lecturaOpen}
@@ -339,24 +352,6 @@ export default function HistorialPedidosPageClient({
             if (!v) setBorrarId(null);
           }}
           pedidoHistoriaId={borrarId}
-        />
-        <GenerarNotaCreditoModal
-          open={notaCreditoOpen}
-          onOpenChange={(v) => {
-            setNotaCreditoOpen(v);
-            if (!v) setPedidoNcElegidoId(null);
-          }}
-          pedidoElegidoId={pedidoNcElegidoId}
-          onVerPedido={(id) => {
-            setLecturaId(id);
-            setLecturaOpen(true);
-          }}
-          onElegirPedido={(id) => {
-            setPedidoNcElegidoId(id);
-            setNotaCreditoAsistenteId(id);
-            setNotaCreditoAsistenteOpen(true);
-            setNotaCreditoOpen(false);
-          }}
         />
       </div>
     </ClassicFilteredTableLayout>

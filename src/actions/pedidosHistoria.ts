@@ -10,8 +10,8 @@ import { generarPdfPedido } from "@/lib/generarPdfPedido";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { SUCURSAL_LABEL_PEDIDO, type SucursalPedido } from "@/lib/pedidos";
 import * as pedidosHistoriaService from "@/services/pedidosHistoria.service";
-import * as notaCreditoNumeroService from "@/services/notaCreditoNumero.service";
-import { fechaFacturaIsoSchema } from "@/services/exportRecepcionPedidoExcel.service";
+import { fechaFacturaIsoSchema } from "@/lib/validations/pedidosMutaciones";
+import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 /**
  * Wrapper de seguridad para Server Actions del módulo:
@@ -33,6 +33,8 @@ async function ejecutarActionSegura<T>(
   }
 }
 
+const numeroComprobanteSchema = z.string().trim().max(50, "N° de comprobante demasiado largo.").optional();
+
 const marcarRegistradoSchema = z.object({
   pedidoHistoriaId: prismaCuidSchema,
   totalPedido: z.coerce
@@ -40,6 +42,26 @@ const marcarRegistradoSchema = z.object({
     .finite()
     .refine((n) => n !== 0, "Total inválido."),
   fechaRecepcionIso: fechaFacturaIsoSchema,
+  personalId: idPersonalSchema,
+  fiscal: z.boolean(),
+  numeroComprobante: numeroComprobanteSchema,
+});
+
+const notaCreditoCompraSchema = z.object({
+  pedidoHistoriaId: prismaCuidSchema,
+  personalId: idPersonalSchema,
+  fiscal: z.boolean(),
+  numeroComprobante: numeroComprobanteSchema,
+  fechaIso: fechaFacturaIsoSchema,
+  total: z.coerce.number().finite().positive("El total debe ser mayor a 0."),
+  items: z
+    .array(
+      z.object({
+        codTienda: z.string().trim().min(1, "Cod. tienda inválido."),
+        cantidad: z.coerce.number().int().min(0).max(1_000_000),
+      })
+    )
+    .max(500),
 });
 
 const guardarRecepcionSchema = z.object({
@@ -60,6 +82,7 @@ const guardarRecepcionSchema = z.object({
     )
     .min(1, "Debe existir al menos un ítem."),
   fechaRecepcionIso: fechaFacturaIsoSchema.optional(),
+  personalId: idPersonalSchema,
 });
 
 const eliminarPedidoHistoriaSchema = z.object({
@@ -129,11 +152,36 @@ export async function marcarPedidoHistoriaRegistradoAction(
       pedidoHistoriaId: parsed.data.pedidoHistoriaId,
       totalPedido: parsed.data.totalPedido,
       fechaRecepcionIso: parsed.data.fechaRecepcionIso,
+      personalId: parsed.data.personalId,
+      fiscal: parsed.data.fiscal,
+      numeroComprobante: parsed.data.numeroComprobante,
     });
     if (!res.success) return { ok: false, error: res.error };
 
     revalidatePath("/pedidos/historial");
     return { ok: true, data: undefined };
+  });
+}
+
+export async function registrarNotaCreditoCompraPedidoAction(
+  params: unknown
+): Promise<ActionResult<{ numero: string; saldo: number }>> {
+  return ejecutarActionSegura("registrarNotaCreditoCompraPedido", async () => {
+    const rol = await getRol();
+    if (!puede(rol, PERMISOS.pedidos.acceso)) {
+      return { ok: false, error: "Sin permisos para pedidos." };
+    }
+
+    const parsed = notaCreditoCompraSchema.safeParse(params);
+    if (!parsed.success) {
+      return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    }
+
+    const res = await pedidosHistoriaService.registrarNotaCreditoCompraPedido(parsed.data);
+    if (!res.success) return { ok: false, error: res.error };
+
+    revalidatePath("/pedidos/historial");
+    return { ok: true, data: res.data };
   });
 }
 
@@ -153,6 +201,7 @@ export async function guardarRecepcionPedidoHistoriaAction(
       pedidoHistoriaId: parsed.data.pedidoHistoriaId,
       items: parsed.data.items,
       fechaRecepcionIso: parsed.data.fechaRecepcionIso,
+      personalId: parsed.data.personalId,
     });
     if (!res.success) return { ok: false, error: res.error };
 
@@ -180,56 +229,5 @@ export async function eliminarPedidoHistoriaAction(
 
     revalidatePath("/pedidos/historial");
     return { ok: true, data: undefined };
-  });
-}
-
-export async function listarPedidosHistoriaRecepcionadosParaNotaCreditoAction(): Promise<
-  ActionResult<pedidosHistoriaService.PedidoHistoriaRecepcionadoNc[]>
-> {
-  return ejecutarActionSegura(
-    "listarPedidosHistoriaRecepcionadosParaNotaCredito",
-    async () => {
-      const rol = await getRol();
-      if (!puede(rol, PERMISOS.pedidos.acceso)) {
-        return { ok: false, error: "Sin permisos para pedidos." };
-      }
-
-      const res =
-        await pedidosHistoriaService.listarPedidosHistoriaRecepcionadosParaNotaCredito();
-      if (!res.success) return { ok: false, error: res.error };
-      return { ok: true, data: res.data };
-    }
-  );
-}
-
-export async function obtenerSiguienteNumeroNotaCreditoAction(): Promise<
-  ActionResult<{ numero: string }>
-> {
-  return ejecutarActionSegura("obtenerSiguienteNumeroNotaCredito", async () => {
-    const rol = await getRol();
-    if (!puede(rol, PERMISOS.pedidos.acceso)) {
-      return { ok: false, error: "Sin permisos para pedidos." };
-    }
-
-    const res = await notaCreditoNumeroService.obtenerSiguienteNumeroNotaCredito();
-    if (!res.success) return { ok: false, error: res.error };
-    return { ok: true, data: res.data };
-  });
-}
-
-export async function reservarSiguienteNumeroNotaCreditoAction(): Promise<
-  ActionResult<{ numero: string }>
-> {
-  return ejecutarActionSegura("reservarSiguienteNumeroNotaCredito", async () => {
-    const rol = await getRol();
-    if (!puede(rol, PERMISOS.pedidos.acceso)) {
-      return { ok: false, error: "Sin permisos para pedidos." };
-    }
-
-    const res = await notaCreditoNumeroService.reservarSiguienteNumeroNotaCredito();
-    if (!res.success) return { ok: false, error: res.error };
-
-    revalidatePath("/pedidos/historial");
-    return { ok: true, data: res.data };
   });
 }

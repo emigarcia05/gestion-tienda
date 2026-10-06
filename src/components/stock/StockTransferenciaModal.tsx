@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ import {
   parseCantidadUnDecimal,
   redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
-import { formatInstanteDdMmYyyyHhMmArgentina } from "@/lib/fechaArgentina";
+import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import {
   aceptarTransferenciaApi,
   eliminarTransferenciaApi,
@@ -72,6 +72,51 @@ type FilaRevision = {
   verificado: boolean;
   esNuevo: boolean;
 };
+
+function metaSucursalResumen(
+  detalle: StockTransferenciaDetalle,
+  codigo: string
+): { rol: "EMITIÓ" | "ACEPTÓ"; nombre: string; iso: string | null } {
+  if (codigo === detalle.creadoraCodigo) {
+    return {
+      rol: "EMITIÓ",
+      nombre: detalle.creadaPorNombre.trim(),
+      iso: detalle.createdAtIso,
+    };
+  }
+  const aceptada = detalle.estado === "ACEPTADA";
+  return {
+    rol: "ACEPTÓ",
+    nombre: aceptada ? (detalle.resueltaPorNombre?.trim() ?? "") : "",
+    iso: aceptada ? detalle.resueltaAtIso : null,
+  };
+}
+
+function ColumnaResumenSucursal({
+  detalle,
+  codigo,
+  nombreSucursal,
+}: {
+  detalle: StockTransferenciaDetalle;
+  codigo: string;
+  nombreSucursal: string;
+}) {
+  const meta = metaSucursalResumen(detalle, codigo);
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
+      <p className="text-sm font-semibold uppercase leading-snug text-foreground">
+        {nombreSucursal}
+      </p>
+      <p className="text-xs font-semibold uppercase leading-snug text-foreground">
+        {meta.rol}
+      </p>
+      <p className="text-sm leading-snug text-foreground">{meta.nombre}</p>
+      <p className="text-sm tabular-nums leading-snug text-foreground">
+        {meta.iso ? formatInstanteDdMmYyHhMmArgentina(new Date(meta.iso)) : ""}
+      </p>
+    </div>
+  );
+}
 
 function estaAbierta(
   estado: StockTransferenciaDetalle["estado"]
@@ -372,16 +417,27 @@ export default function StockTransferenciaModal({
                   Resumen de la transferencia
                 </h2>
                 <div className="min-w-0 bg-transparent pt-0 pb-1.5">
-                  <div className="flex w-full flex-col items-center gap-0.5 py-0 text-center">
-                    <p className="text-sm font-semibold uppercase leading-snug text-foreground">
-                      N° {detalle.numeroEtiqueta}
-                    </p>
-                    <p className="text-sm font-semibold uppercase leading-snug text-foreground">
-                      {detalle.origenNombre} → {detalle.destinoNombre}
-                    </p>
-                    <p className="text-sm tabular-nums leading-snug text-foreground">
-                      {formatInstanteDdMmYyyyHhMmArgentina(new Date(detalle.createdAtIso))}
-                    </p>
+                  <p className="pb-1.5 text-center text-sm font-semibold uppercase leading-snug text-foreground">
+                    N° {detalle.numeroEtiqueta}
+                  </p>
+                  <div className="mx-auto grid w-full max-w-2xl grid-cols-[1fr_auto_1fr] items-start gap-3">
+                    <ColumnaResumenSucursal
+                      detalle={detalle}
+                      codigo={detalle.origenCodigo}
+                      nombreSucursal={detalle.origenNombre}
+                    />
+                    <div className="flex h-6 items-center justify-center text-primary">
+                      <ArrowRight
+                        className={TABLE_ROW_ACTION_ICON_CLASS}
+                        aria-hidden
+                      />
+                      <span className="sr-only">hacia</span>
+                    </div>
+                    <ColumnaResumenSucursal
+                      detalle={detalle}
+                      codigo={detalle.destinoCodigo}
+                      nombreSucursal={detalle.destinoNombre}
+                    />
                   </div>
                   {detalle.comentario ? (
                     <p className="pt-1.5 text-center text-sm">
@@ -556,18 +612,6 @@ export default function StockTransferenciaModal({
                                           cantRecCelda
                                         ) : isEditing ? (
                                           <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="icon"
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => ajustarEditingValue(-1)}
-                                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                              aria-label="Disminuir"
-                                              title="Disminuir"
-                                            >
-                                              <span className="text-sm leading-none">-</span>
-                                            </Button>
                                             <Input
                                               ref={editingInputRef}
                                               type="text"
@@ -600,6 +644,18 @@ export default function StockTransferenciaModal({
                                               )}
                                               aria-label={`Cantidad recibida de ${fila.codItem}`}
                                             />
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => ajustarEditingValue(-1)}
+                                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                              aria-label="Disminuir"
+                                              title="Disminuir"
+                                            >
+                                              <span className="text-sm leading-none">-</span>
+                                            </Button>
                                             <Button
                                               type="button"
                                               variant="ghost"

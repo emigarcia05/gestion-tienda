@@ -27,19 +27,15 @@ import type { ProductoTiendaRowBusqueda } from "@/services/productosTienda.servi
 import {
   guardarRecepcionPedidoHistoriaAction,
   marcarPedidoHistoriaRegistradoAction,
+  registrarNotaCreditoCompraPedidoAction,
 } from "@/actions/pedidosHistoria";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { fetchPedidoHistoriaDetalle } from "@/lib/fetchPedidoHistoriaDetalle";
-import { abrirDuxNotaCreditoTab } from "@/lib/notaCreditoDux";
-import { registrarRecepcionCompraDuxAction } from "@/actions/registrarRecepcionCompraDux";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import AgregarProductosModal from "@/components/pedidos/AgregarProductosModal";
-import ConfirmarComprobanteFiscalModal from "@/components/pedidos/ConfirmarComprobanteFiscalModal";
-import GenerarNotaCreditoDuxModal, {
-  type NotaCreditoDuxItem,
-} from "@/components/pedidos/GenerarNotaCreditoDuxModal";
 import MontoArInput from "@/components/shared/MontoArInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { cn } from "@/lib/utils";
-import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -91,11 +87,12 @@ function toDate(value: string | Date | null | undefined): Date | null {
 
 function buildChecklistConfirmadoInicial(
   items: PedidoHistoriaDetalle["items"],
-  estado: PedidoHistoriaEstado
+  estado: PedidoHistoriaEstado,
+  esNotaCredito: boolean
 ): Record<string, boolean> {
   // En pedidos ya recepcionados, partimos con todos los ítems marcados como revisados
   // para que el flujo de corrección solo requiera tocar lo que cambió.
-  if (estado === "RECEPCIONADO") {
+  if (estado === "RECEPCIONADO" && !esNotaCredito) {
     return Object.fromEntries(items.map((item) => [item.id, true]));
   }
   return {};
@@ -125,15 +122,29 @@ function totalPedidoMontoValido(norm: string): boolean {
   return Number.isFinite(n) && n !== 0;
 }
 
+/**
+ * NC: CANT. PED. pasa a ser lo recibido (tope a devolver) y CANT. REC. arranca vacía
+ * para cargar lo devuelto con el mismo checklist de la recepción.
+ */
+function itemsParaNotaCredito(
+  items: PedidoHistoriaDetalle["items"]
+): PedidoHistoriaDetalle["items"] {
+  return items
+    .filter((it) => (it.cantRecibida ?? 0) > 0)
+    .map((it) => ({ ...it, cantPedida: it.cantRecibida ?? 0, cantRecibida: null }));
+}
+
+function fmtPesos(n: number): string {
+  return `$ ${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export type PedidoHistoriaDetalleVariante = "recepcion" | "nota-credito";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedidoHistoriaId: string | null;
-  /**
-   * `nota-credito`: mismo layout que recepción, título **Nota Crédito**.
-   * Borrador local: no persiste ni POST DUX sobre el pedido origen.
-   */
-  variante?: "recepcion" | "nota-credito";
+  variante?: PedidoHistoriaDetalleVariante;
 }
 
 export default function PedidoHistoriaDetalleModal({
@@ -142,6 +153,7 @@ export default function PedidoHistoriaDetalleModal({
   pedidoHistoriaId,
   variante = "recepcion",
 }: Props) {
+  const esNotaCredito = variante === "nota-credito";
   const [detalle, setDetalle] = useState<PedidoHistoriaDetalle | null>(null);
   const [loading, setLoading] = useState(false);
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -162,40 +174,19 @@ export default function PedidoHistoriaDetalleModal({
   );
   /** Modo de corrección en pedidos RECEPCIONADO (edición local de UI). */
   const [modoCorreccionRecepcionado, setModoCorreccionRecepcionado] = useState(false);
-  /**
-   * Modal "¿La compra genera comprobante fiscal?" — solo se abre cuando
-   * `proveedor.iva === PREGUNTA` antes de cualquier disparador del export.
-   * El resolver de la promesa activa se guarda en `decisionFiscalResolverRef`;
-   * si el modal se cierra sin elegir (ESC/overlay) la operación se cancela.
-   */
-  type DecisionFiscalResult = boolean | "cancelado";
-  const [confirmarFiscalOpen, setConfirmarFiscalOpen] = useState(false);
-  const decisionFiscalResolverRef = useRef<
-    ((value: DecisionFiscalResult) => void) | null
-  >(null);
-  /** Modal de éxito tras POST DUX + marcado RECEPCIONADO. */
-  const [recepcionDuxExitoOpen, setRecepcionDuxExitoOpen] = useState(false);
-  const [recepcionDuxExitoData, setRecepcionDuxExitoData] = useState<{
-    nroComprobante: string;
-    idCompra: number | null;
-  } | null>(null);
-  const [generarNcDuxOpen, setGenerarNcDuxOpen] = useState(false);
-  const [itemsGenerarNcDux, setItemsGenerarNcDux] = useState<NotaCreditoDuxItem[]>(
-    []
-  );
-  const [totalGenerarNcDux, setTotalGenerarNcDux] = useState(0);
-  const [proveedorGenerarNcDux, setProveedorGenerarNcDux] = useState("");
-  const [fechaGenerarNcDux, setFechaGenerarNcDux] = useState("");
-
+  const [fiscal, setFiscal] = useState(false);
+  const [numeroComprobante, setNumeroComprobante] = useState("");
   const fechaInputRef = useRef<HTMLInputElement>(null);
   const busquedaAgregarRef = useRef<HTMLInputElement>(null);
   const cantRecEditingInputRef = useRef<HTMLInputElement>(null);
 
-  const esNotaCredito = variante === "nota-credito";
   const estado: PedidoHistoriaEstado | null = detalle ? detalle.estado : null;
-  const bloqueadoPorEstado = estado === "RECEPCIONADO";
-  const locked =
-    !esNotaCredito && bloqueadoPorEstado && !modoCorreccionRecepcionado;
+  const bloqueadoPorEstado = estado === "RECEPCIONADO" && !esNotaCredito;
+  const locked = bloqueadoPorEstado && !modoCorreccionRecepcionado;
+  const comprobanteCompra = detalle?.comprobanteCompra ?? null;
+  /** Primera confirmación de recepción o NC: se elige fiscal y N° del comprobante. */
+  const pideComprobante = esNotaCredito || (!bloqueadoPorEstado && !comprobanteCompra);
+  const fiscalEditable = detalle?.proveedorIva === "PREGUNTA";
   const busy = guardando != null || loading;
 
   const generadoAtStr = useMemo(() => {
@@ -215,25 +206,16 @@ export default function PedidoHistoriaDetalleModal({
       setErrorMsg(userLine);
       return null;
     }
-    const detalleNormalizado = res.data;
-    const detalleParaUi: PedidoHistoriaDetalle = esNotaCredito
-      ? {
-          ...detalleNormalizado,
-          items: detalleNormalizado.items.map((it) => ({
-            ...it,
-            cantRecibida: null,
-          })),
-          total: null,
-          fechaRecepcionIso: null,
-        }
-      : detalleNormalizado;
+    const detalleParaUi = esNotaCredito
+      ? { ...res.data, items: itemsParaNotaCredito(res.data.items) }
+      : res.data;
     setDetalle(detalleParaUi);
-    const checklistInicial = esNotaCredito
-      ? {}
-      : buildChecklistConfirmadoInicial(
-          detalleParaUi.items,
-          detalleParaUi.estado
-        );
+    setFiscal(detalleParaUi.proveedorIva === "SIEMPRE");
+    const checklistInicial = buildChecklistConfirmadoInicial(
+      detalleParaUi.items,
+      detalleParaUi.estado,
+      esNotaCredito
+    );
     setCheckListConfirmedByItem((prev) => {
       if (!options?.preserveChecklist) return checklistInicial;
       const merged = { ...checklistInicial };
@@ -243,7 +225,11 @@ export default function PedidoHistoriaDetalleModal({
       return merged;
     });
     if (esNotaCredito) {
-      setErrorMsg(null);
+      setErrorMsg(
+        res.data.comprobanteCompra
+          ? null
+          : "El pedido no tiene comprobante de compra (se recepcionó antes de esta función)."
+      );
       return detalleParaUi;
     }
     if (res.data.total != null && Number.isFinite(res.data.total) && res.data.total !== 0) {
@@ -275,20 +261,8 @@ export default function PedidoHistoriaDetalleModal({
       setFechaRecepcion("");
       setCheckListConfirmedByItem({});
       setModoCorreccionRecepcionado(false);
-      // Si el modal de detalle se reabre con una promesa de decisión fiscal viva,
-      // la cancelamos para evitar resolvers colgados entre aperturas.
-      if (decisionFiscalResolverRef.current) {
-        decisionFiscalResolverRef.current("cancelado");
-        decisionFiscalResolverRef.current = null;
-      }
-      setConfirmarFiscalOpen(false);
-      setRecepcionDuxExitoOpen(false);
-      setRecepcionDuxExitoData(null);
-      setGenerarNcDuxOpen(false);
-      setItemsGenerarNcDux([]);
-      setTotalGenerarNcDux(0);
-      setProveedorGenerarNcDux("");
-      setFechaGenerarNcDux("");
+      setFiscal(false);
+      setNumeroComprobante("");
     });
 
     void (async () => {
@@ -470,75 +444,50 @@ export default function PedidoHistoriaDetalleModal({
     itemsOrdenados.every((it) => checkListConfirmedByItem[it.id] === true);
   const tablaYAltaHabilitados = !locked && !loading && fechaFacturaOk;
   const totalPedidoInputHabilitado = tablaYAltaHabilitados && checklistCompleto;
-  const puedeRegistrarEnDux =
+  const comprobanteOk = !pideComprobante || !fiscal || numeroComprobante.trim() !== "";
+  const totalNum = Number(totalPedido);
+  const totalOk = esNotaCredito
+    ? totalPedidoMontoValido(totalPedido) &&
+      totalNum > 0 &&
+      comprobanteCompra != null &&
+      totalNum <= comprobanteCompra.saldo
+    : totalPedidoMontoValido(totalPedido);
+  const puedeConfirmarRecepcion =
     Boolean(pedidoHistoriaId) &&
     !locked &&
     !busy &&
+    !errorMsg &&
     fechaFacturaOk &&
     checklistCompleto &&
-    totalPedidoMontoValido(totalPedido);
+    totalOk &&
+    comprobanteOk;
 
-  /**
-   * Abre el modal "¿La compra genera comprobante fiscal?" si el proveedor
-   * tiene `iva = PREGUNTA`. Devuelve:
-   * - `boolean` (SI / NO) cuando se preguntó al operador.
-   * - `undefined` cuando `iva` es SIEMPRE/NUNCA (la regla del enum prevalece).
-   * - `"cancelado"` si el operador cerró el modal sin elegir.
-   */
-  async function pedirDecisionFiscalSiAplica(): Promise<
-    boolean | undefined | "cancelado"
-  > {
-    const iva = detalle?.proveedorIva;
-    if (iva == null) return undefined;
-    if (iva === "SIEMPRE" || iva === "NUNCA") return undefined;
-    return await new Promise<DecisionFiscalResult>((resolve) => {
-      decisionFiscalResolverRef.current = resolve;
-      setConfirmarFiscalOpen(true);
-    });
-  }
-
-  function onSeleccionarDecisionFiscal(decision: boolean) {
-    decisionFiscalResolverRef.current?.(decision);
-    decisionFiscalResolverRef.current = null;
-    setConfirmarFiscalOpen(false);
-  }
-
-  function onOpenChangeConfirmarFiscal(next: boolean) {
-    if (!next) {
-      decisionFiscalResolverRef.current?.("cancelado");
-      decisionFiscalResolverRef.current = null;
+  function personalIdSesion(): number | null {
+    const usuario = leerUsuarioSesion();
+    if (!usuario) {
+      toast.error("Seleccioná un usuario en el slidenav.");
+      return null;
     }
-    setConfirmarFiscalOpen(next);
+    return usuario.idPersonal;
   }
 
-  async function registrarRecepcionEnDux(params: {
-    idPersonal: number;
-    decisionFiscal: boolean | undefined;
-  }) {
-    if (!pedidoHistoriaId || guardando === "post") return;
+  async function confirmarRecepcion() {
+    if (!pedidoHistoriaId || !puedeConfirmarRecepcion || guardando) return;
+    const personalId = personalIdSesion();
+    if (personalId == null) return;
 
     setGuardando("post");
     try {
-      const guardadoOk = await persistirRecepcionActual();
+      const guardadoOk = await persistirRecepcionActual(personalId);
       if (!guardadoOk) return;
-
-      const res = await registrarRecepcionCompraDuxAction({
-        pedidoHistoriaId,
-        fechaFacturaIso: fechaRecepcion,
-        totalPedidoIngreso: Number(totalPedido),
-        decisionFiscal: params.decisionFiscal,
-        idPersonal: params.idPersonal,
-      });
-      if (!res.ok) {
-        const line = res.error ?? "Error al registrar la compra en DUX.";
-        toast.error(line);
-        return;
-      }
 
       const marcar = await marcarPedidoHistoriaRegistradoAction({
         pedidoHistoriaId,
         totalPedido: Number(totalPedido),
         fechaRecepcionIso: fechaRecepcion,
+        personalId,
+        fiscal,
+        numeroComprobante: fiscal ? numeroComprobante.trim() : undefined,
       });
       if (!marcar.ok) {
         const line =
@@ -547,30 +496,55 @@ export default function PedidoHistoriaDetalleModal({
         return;
       }
 
-      setRecepcionDuxExitoData({
-        nroComprobante: res.data.nroComprobante,
-        idCompra: res.data.idCompra,
-      });
-      setRecepcionDuxExitoOpen(true);
+      toast.success("Pedido recepcionado. Stock registrado.");
+      onOpenChange(false);
     } catch {
-      toast.error("Error inesperado al registrar la compra en DUX.");
+      toast.error("Error inesperado al confirmar la recepción.");
     } finally {
       setGuardando(null);
     }
   }
 
-  function cerrarFlujoRecepcionDuxExitosa() {
-    setRecepcionDuxExitoOpen(false);
-    setRecepcionDuxExitoData(null);
-    handleModalOpenChange(false);
+  async function generarNotaCredito() {
+    if (!pedidoHistoriaId || !detalle || !puedeConfirmarRecepcion || guardando) return;
+    const personalId = personalIdSesion();
+    if (personalId == null) return;
+
+    setGuardando("nota-credito");
+    try {
+      const res = await registrarNotaCreditoCompraPedidoAction({
+        pedidoHistoriaId,
+        personalId,
+        fiscal,
+        numeroComprobante: fiscal ? numeroComprobante.trim() : undefined,
+        fechaIso: fechaRecepcion,
+        total: totalNum,
+        items: detalle.items.map((it) => ({
+          codTienda: it.codTienda,
+          cantidad: Math.max(0, it.cantRecibida ?? 0),
+        })),
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "Error al registrar la nota de crédito.");
+        return;
+      }
+      toast.success(
+        `Nota de crédito ${res.data.numero} registrada. Saldo a pagar: ${fmtPesos(res.data.saldo)}.`
+      );
+      onOpenChange(false);
+    } catch {
+      toast.error("Error inesperado al registrar la nota de crédito.");
+    } finally {
+      setGuardando(null);
+    }
   }
 
-  async function persistirRecepcionActual(): Promise<boolean> {
-    if (esNotaCredito) return true;
+  async function persistirRecepcionActual(personalId: number): Promise<boolean> {
     if (!pedidoHistoriaId || !detalle) return false;
     try {
       const res = await guardarRecepcionPedidoHistoriaAction({
         pedidoHistoriaId,
+        personalId,
         items: detalle.items.map((item) => ({
           id: item.id.startsWith("tmp-") ? undefined : item.id,
           codTienda: item.codTienda,
@@ -610,7 +584,7 @@ export default function PedidoHistoriaDetalleModal({
     <>
       <Dialog open={open} onOpenChange={handleModalOpenChange}>
         <AppModal
-          title={esNotaCredito ? "Nota Crédito" : "Recepcion Pedido"}
+          title={esNotaCredito ? "Nota de Crédito" : "Recepcion Pedido"}
           scrollBody={false}
           size="xl"
           className="max-w-[66rem] h-[95vh] max-h-[95vh]"
@@ -633,54 +607,14 @@ export default function PedidoHistoriaDetalleModal({
                 <Button
                   type="button"
                   className="disabled:cursor-not-allowed"
-                  onClick={async () => {
-                    if (!pedidoHistoriaId) return;
-                    if (!puedeRegistrarEnDux) return;
-                    if (locked) return;
-                    if (guardando) return;
-
-                    if (esNotaCredito) {
-                      const itemsNc: NotaCreditoDuxItem[] = itemsOrdenados
-                        .filter(
-                          (it) =>
-                            it.cantRecibida != null && it.cantRecibida !== 0
-                        )
-                        .map((it) => ({
-                          id: it.id,
-                          codTienda: it.codTienda,
-                          descripcionTienda: it.descripcionTienda,
-                          cant: it.cantRecibida ?? 0,
-                        }));
-                      abrirDuxNotaCreditoTab();
-                      setItemsGenerarNcDux(itemsNc);
-                      setTotalGenerarNcDux(Number(totalPedido));
-                      setProveedorGenerarNcDux(detalle?.proveedorNombre ?? "");
-                      setFechaGenerarNcDux(fechaRecepcion);
-                      setGenerarNcDuxOpen(true);
-                      return;
-                    }
-
-                    const usuario = leerUsuarioSesion();
-                    if (!usuario) {
-                      toast.error(
-                        "Elegí un usuario en el slidenav antes de registrar en DUX."
-                      );
-                      return;
-                    }
-
-                    const decision = await pedirDecisionFiscalSiAplica();
-                    if (decision === "cancelado") return;
-                    await registrarRecepcionEnDux({
-                      idPersonal: usuario.idPersonal,
-                      decisionFiscal:
-                        typeof decision === "boolean" ? decision : undefined,
-                    });
-                  }}
+                  onClick={() =>
+                    void (esNotaCredito ? generarNotaCredito() : confirmarRecepcion())
+                  }
                   disabled={
-                    !puedeRegistrarEnDux || bloquearNavegacionModalPorEdicionCantidad
+                    !puedeConfirmarRecepcion || bloquearNavegacionModalPorEdicionCantidad
                   }
                 >
-                  {esNotaCredito ? "Generar Nota Crédito" : "Registrar En Dux"}
+                  {esNotaCredito ? "Generar Nota de Crédito" : "Confirmar Recepción"}
                 </Button>
               ) : (
                 <>
@@ -709,10 +643,17 @@ export default function PedidoHistoriaDetalleModal({
                         bloquearNavegacionModalPorEdicionCantidad
                       }
                       onClick={async () => {
-                        const guardadoOk = await persistirRecepcionActual();
-                        if (!guardadoOk) return;
-                        setModoCorreccionRecepcionado(false);
-                        toast.success("Correccion de recepcion guardada.");
+                        const personalId = personalIdSesion();
+                        if (personalId == null) return;
+                        setGuardando("correccion");
+                        try {
+                          const guardadoOk = await persistirRecepcionActual(personalId);
+                          if (!guardadoOk) return;
+                          setModoCorreccionRecepcionado(false);
+                          toast.success("Correccion de recepcion guardada.");
+                        } finally {
+                          setGuardando(null);
+                        }
                       }}
                     >
                       Guardar Correccion
@@ -730,7 +671,7 @@ export default function PedidoHistoriaDetalleModal({
             inert={bloquearNavegacionModalPorEdicionCantidad ? true : undefined}
           >
             <h2 id="pedido-historia-resumen-title" className="sr-only">
-              {esNotaCredito ? "Resumen de la nota de crédito" : "Resumen del pedido"}
+              Resumen del pedido
             </h2>
             <div
               className={cn(
@@ -754,6 +695,13 @@ export default function PedidoHistoriaDetalleModal({
                       {generadoAtStr || "—"}
                     </span>
                   </p>
+                  {comprobanteCompra ? (
+                    <p className="text-xs leading-snug text-muted-foreground tabular-nums">
+                      {`Comprobante N° ${comprobanteCompra.numero} · Total ${fmtPesos(
+                        comprobanteCompra.total
+                      )} · Saldo a pagar ${fmtPesos(comprobanteCompra.saldo)}`}
+                    </p>
+                  ) : null}
                 </div>
                 <label
                   className={cn(
@@ -761,14 +709,14 @@ export default function PedidoHistoriaDetalleModal({
                     locked || loading ? "cursor-default" : "cursor-pointer"
                   )}
                 >
-                  <ModalMicroLabel>FECHA FACTURA</ModalMicroLabel>
+                  <ModalMicroLabel>{esNotaCredito ? "FECHA NC" : "FECHA FACTURA"}</ModalMicroLabel>
                   <Input
                     ref={fechaInputRef}
                     type="date"
                     value={fechaRecepcion}
                     onChange={(e) => setFechaRecepcion(e.target.value)}
                     disabled={locked || loading}
-                    aria-label="FECHA FACTURA"
+                    aria-label={esNotaCredito ? "FECHA NC" : "FECHA FACTURA"}
                     className={cn(
                       "h-9 w-full min-w-0 tabular-nums text-left",
                       inputBorderClassName,
@@ -801,9 +749,7 @@ export default function PedidoHistoriaDetalleModal({
                 id="pedido-historia-agregar-recepcion-titulo"
                 className="sr-only"
               >
-                {esNotaCredito
-                  ? "AGREGAR PRODUCTO A LA NOTA DE CRÉDITO"
-                  : "AGREGAR PRODUCTO A LA RECEPCIÓN"}
+                AGREGAR PRODUCTO A LA RECEPCIÓN
               </span>
               <div className="flex w-full min-w-0 flex-row items-center justify-between gap-x-10 pt-1 pb-0">
                 <div className="flex min-w-0 max-w-[36rem] flex-1 items-center gap-2">
@@ -823,7 +769,9 @@ export default function PedidoHistoriaDetalleModal({
                   type="button"
                   variant="default"
                   onClick={() => setAgregarProductosOpen(true)}
-                  disabled={locked || loading || !fechaFacturaOk || guardando != null}
+                  disabled={
+                    esNotaCredito || locked || loading || !fechaFacturaOk || guardando != null
+                  }
                   className={cn(
                     "h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
                   )}
@@ -861,8 +809,12 @@ export default function PedidoHistoriaDetalleModal({
                   <TableRow>
                     <TablaControlItemHead />
                     <TableHead className="w-[50%]">DESCRIPCIÓN</TableHead>
-                    <TableHead className="w-[10%]">CANT. PED.</TableHead>
-                    <TableHead className="w-[20%]">CANT. REC.</TableHead>
+                    <TableHead className="w-[10%]">
+                      {esNotaCredito ? "CANT. REC." : "CANT. PED."}
+                    </TableHead>
+                    <TableHead className="w-[20%]">
+                      {esNotaCredito ? "CANT. DEV." : "CANT. REC."}
+                    </TableHead>
                     <TableHead className="w-[15%] tabla-bloque-secundario-head-divider">
                       ACCIONES
                     </TableHead>
@@ -901,7 +853,7 @@ export default function PedidoHistoriaDetalleModal({
                       const checkListConfirmed = checkListConfirmedByItem[item.id] === true;
                       /** En estado ABIERTO, la columna solo muestra valor tras confirmar checklist (OK / cesto / check edición). */
                       const cantRecibidaCeldaLectura =
-                        estado === "ABIERTO" && !checkListConfirmed
+                        (estado === "ABIERTO" || esNotaCredito) && !checkListConfirmed
                           ? ""
                           : cantRecibidaVisible;
 
@@ -954,19 +906,6 @@ export default function PedidoHistoriaDetalleModal({
                               cantRecibidaVisible
                             ) : isEditing ? (
                               <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => ajustarEditingValue(-1)}
-                                  disabled={locked || busy || !fechaFacturaOk}
-                                  className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                  aria-label="Disminuir"
-                                  title="Disminuir"
-                                >
-                                  <span className="text-sm leading-none">-</span>
-                                </Button>
                                 <Input
                                   ref={cantRecEditingInputRef}
                                   type="text"
@@ -1010,6 +949,19 @@ export default function PedidoHistoriaDetalleModal({
                                     inputBorderClassName
                                   )}
                                 />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => ajustarEditingValue(-1)}
+                                  disabled={locked || busy || !fechaFacturaOk}
+                                  className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                  aria-label="Disminuir"
+                                  title="Disminuir"
+                                >
+                                  <span className="text-sm leading-none">-</span>
+                                </Button>
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -1113,15 +1065,42 @@ export default function PedidoHistoriaDetalleModal({
                         : undefined
                     }
                   >
+                    {pideComprobante ? (
+                      <div className="celda-datos col-start-2 col-span-2 flex min-w-0 items-center gap-3 border-b-0">
+                        <ModalSiNoChoice
+                          label="FISCAL"
+                          value={fiscal}
+                          onChange={setFiscal}
+                          disabled={!fiscalEditable || locked || loading}
+                          className="shrink-0 py-1.5"
+                        />
+                        {fiscal ? (
+                          <Input
+                            type="text"
+                            value={numeroComprobante}
+                            onChange={(e) => setNumeroComprobante(e.target.value)}
+                            maxLength={50}
+                            placeholder={esNotaCredito ? "N° NOTA DE CRÉDITO" : "N° FACTURA"}
+                            aria-label={esNotaCredito ? "N° Nota de Crédito" : "N° Factura"}
+                            disabled={locked || loading}
+                            className={cn("h-9 min-w-0 flex-1 tabular-nums", inputBorderClassName)}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            N° correlativo automático
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="celda-datos col-start-4 flex items-center justify-end border-b-0 text-right">
                       <span className="text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-                        TOTAL PEDIDO
+                        {esNotaCredito ? "TOTAL NC" : "TOTAL PEDIDO"}
                       </span>
                     </div>
                     <div className="celda-datos celda-datos--flush-left celda-datos--flush-right col-start-5 flex min-w-0 items-center justify-start gap-0 border-b-0">
                       <MontoArInput
                         variant="totalPedido"
-                        allowNegative
+                        allowNegative={!esNotaCredito}
                         disabled={locked || loading || !totalPedidoInputHabilitado}
                         valueNormalized={totalPedido}
                         onValueNormalizedChange={setTotalPedido}
@@ -1129,7 +1108,7 @@ export default function PedidoHistoriaDetalleModal({
                           "w-full",
                           inputBorderClassName
                         )}
-                        aria-label="Total Pedido"
+                        aria-label={esNotaCredito ? "Total Nota de Crédito" : "Total Pedido"}
                       />
                     </div>
                   </section>
@@ -1141,18 +1120,6 @@ export default function PedidoHistoriaDetalleModal({
         </AppModal>
       </Dialog>
 
-      <GenerarNotaCreditoDuxModal
-        open={generarNcDuxOpen}
-        onOpenChange={setGenerarNcDuxOpen}
-        items={itemsGenerarNcDux}
-        totalNc={totalGenerarNcDux}
-        proveedorNombre={proveedorGenerarNcDux}
-        fechaFacturaIso={fechaGenerarNcDux}
-        onNotaGenerada={() => {
-          setGenerarNcDuxOpen(false);
-          handleModalOpenChange(false);
-        }}
-      />
       <AgregarProductosModal
         open={agregarProductosOpen}
         onOpenChange={setAgregarProductosOpen}
@@ -1161,45 +1128,6 @@ export default function PedidoHistoriaDetalleModal({
           await agregarNuevaFila(row, cantRecibida);
         }}
       />
-      <ConfirmarComprobanteFiscalModal
-        open={confirmarFiscalOpen}
-        onOpenChange={onOpenChangeConfirmarFiscal}
-        onSeleccionar={onSeleccionarDecisionFiscal}
-        pending={guardando != null}
-      />
-      <Dialog
-        open={recepcionDuxExitoOpen}
-        onOpenChange={(next) => {
-          if (!next) return;
-        }}
-      >
-        <AppModal
-          title="Pedido Recepcionado"
-          size="sm"
-          actions={
-            <Button type="button" onClick={cerrarFlujoRecepcionDuxExitosa}>
-              Aceptar
-            </Button>
-          }
-        >
-          <p className="text-sm text-foreground">
-            El pedido fue recepcionado correctamente en DUX.
-          </p>
-          {recepcionDuxExitoData ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Comprobante{" "}
-              <span className="font-medium">{recepcionDuxExitoData.nroComprobante}</span>
-              {recepcionDuxExitoData.idCompra != null ? (
-                <>
-                  {" "}
-                  · id compra{" "}
-                  <span className="font-medium">{recepcionDuxExitoData.idCompra}</span>
-                </>
-              ) : null}
-            </p>
-          ) : null}
-        </AppModal>
-      </Dialog>
     </>
   );
 }

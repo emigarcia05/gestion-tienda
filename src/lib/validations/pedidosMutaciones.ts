@@ -10,6 +10,11 @@ import {
 } from "@/lib/validations/pedidosLectura";
 import { reposicionFormaPedidoFabricaSchema } from "@/lib/validations/reposicion";
 
+/** FECHA FACTURA de Recepción Pedido (`YYYY-MM-DD`). */
+export const fechaFacturaIsoSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida. Formato esperado: YYYY-MM-DD");
+
 /** Proveedor del flujo Generar Pedido / envío (`Proveedor.id` = CUID). */
 export const proveedorIdPedidoSchema = prismaCuidSchema;
 
