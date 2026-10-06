@@ -207,7 +207,9 @@ export default function TransfDepositosPageClient() {
   }
 
   function abrirEditar(fila: StockTransferenciaHistorialFila) {
-    if (!esSucursalTransf(fila.origenCodigo) || !esSucursalTransf(fila.destinoCodigo)) {
+    const origen = fila.origenCodigo;
+    const destino = fila.destinoCodigo;
+    if (!esSucursalTransf(origen) || !esSucursalTransf(destino)) {
       toast.error("Sucursal de la transferencia no reconocida.");
       return;
     }
@@ -227,8 +229,8 @@ export default function TransfDepositosPageClient() {
       }
       setEditar({
         id: fila.id,
-        origen: fila.origenCodigo,
-        destino: fila.destinoCodigo,
+        origen,
+        destino,
         cantidades,
       });
     });
