@@ -30,6 +30,11 @@ import {
   registrarNotaCreditoCompraPedidoAction,
 } from "@/actions/pedidosHistoria";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
+import NumeroComprobanteBloquesInput from "@/components/shared/NumeroComprobanteBloquesInput";
+import {
+  formatearNumeroComprobanteCompra,
+  numeroComprobanteCompraCompleto,
+} from "@/lib/numeroComprobanteCompra";
 import { fetchPedidoHistoriaDetalle } from "@/lib/fetchPedidoHistoriaDetalle";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import AgregarProductosModal from "@/components/pedidos/AgregarProductosModal";
@@ -106,6 +111,10 @@ const inputBorderClassName = "border-[#0072bb] focus-visible:ring-[#0072bb]";
 const GRID_CAPAS_SUP_PEDIDO_HISTORIA =
   "grid min-w-0 w-full grid-cols-[85fr_15fr] items-center gap-0";
 
+/** Recepción sin comprobante: datos | FISCAL | N° COMPROBANTE | FECHA FACTURA. */
+const GRID_CAPAS_SUP_RECEPCION_COMPROBANTE =
+  "grid min-w-0 w-full grid-cols-[44fr_13fr_28fr_15fr] items-center gap-3";
+
 /** Misma proporción que columnas de la tabla de ítems (check | desc | cant.p. | cant.r. | acciones). */
 const GRID_PEDIDO_HISTORIA_TABLA_COLS =
   "grid w-full grid-cols-[5fr_50fr_10fr_20fr_15fr]";
@@ -176,7 +185,11 @@ export default function PedidoHistoriaDetalleModal({
   const [modoCorreccionRecepcionado, setModoCorreccionRecepcionado] = useState(false);
   const [fiscal, setFiscal] = useState(false);
   const [numeroComprobante, setNumeroComprobante] = useState("");
+  /** Recepción: N° `PPPP-NNNNNNNN` en dígitos sin ceros a la izquierda por bloque. */
+  const [comprobantePv, setComprobantePv] = useState("");
+  const [comprobanteNro, setComprobanteNro] = useState("");
   const fechaInputRef = useRef<HTMLInputElement>(null);
+  const comprobantePvRef = useRef<HTMLInputElement>(null);
   const busquedaAgregarRef = useRef<HTMLInputElement>(null);
   const cantRecEditingInputRef = useRef<HTMLInputElement>(null);
 
@@ -187,6 +200,8 @@ export default function PedidoHistoriaDetalleModal({
   /** Primera confirmación de recepción o NC: se elige fiscal y N° del comprobante. */
   const pideComprobante = esNotaCredito || (!bloqueadoPorEstado && !comprobanteCompra);
   const fiscalEditable = detalle?.proveedorIva === "PREGUNTA";
+  /** Recepción sin comprobante aún: FISCAL → N° (dos bloques) → FECHA FACTURA en la cabecera. */
+  const pideComprobanteRecepcion = pideComprobante && !esNotaCredito;
   const busy = guardando != null || loading;
 
   const generadoAtStr = useMemo(() => {
@@ -263,6 +278,8 @@ export default function PedidoHistoriaDetalleModal({
       setModoCorreccionRecepcionado(false);
       setFiscal(false);
       setNumeroComprobante("");
+      setComprobantePv("");
+      setComprobanteNro("");
     });
 
     void (async () => {
@@ -280,9 +297,20 @@ export default function PedidoHistoriaDetalleModal({
   useEffect(() => {
     if (!open || locked || loading) return;
     queueMicrotask(() => {
-      fechaInputRef.current?.focus();
+      (pideComprobanteRecepcion ? comprobantePvRef : fechaInputRef).current?.focus();
     });
-  }, [open, pedidoHistoriaId, locked, loading]);
+  }, [open, pedidoHistoriaId, locked, loading, pideComprobanteRecepcion]);
+
+  function irAFechaFactura() {
+    const el = fechaInputRef.current;
+    if (!el) return;
+    el.focus();
+    try {
+      el.showPicker();
+    } catch {
+      /* showPicker no disponible o sin gesto de usuario: queda el foco. */
+    }
+  }
 
   useEffect(() => {
     if (!editingItemId) return;
@@ -444,7 +472,11 @@ export default function PedidoHistoriaDetalleModal({
     itemsOrdenados.every((it) => checkListConfirmedByItem[it.id] === true);
   const tablaYAltaHabilitados = !locked && !loading && fechaFacturaOk;
   const totalPedidoInputHabilitado = tablaYAltaHabilitados && checklistCompleto;
-  const comprobanteOk = !pideComprobante || !fiscal || numeroComprobante.trim() !== "";
+  const comprobanteOk = !pideComprobante
+    ? true
+    : esNotaCredito
+      ? !fiscal || numeroComprobante.trim() !== ""
+      : numeroComprobanteCompraCompleto(comprobantePv, comprobanteNro);
   const totalNum = Number(totalPedido);
   const totalOk = esNotaCredito
     ? totalPedidoMontoValido(totalPedido) &&
@@ -487,7 +519,7 @@ export default function PedidoHistoriaDetalleModal({
         fechaRecepcionIso: fechaRecepcion,
         personalId,
         fiscal,
-        numeroComprobante: fiscal ? numeroComprobante.trim() : undefined,
+        numeroComprobante: formatearNumeroComprobanteCompra(comprobantePv, comprobanteNro),
       });
       if (!marcar.ok) {
         const line =
@@ -679,7 +711,14 @@ export default function PedidoHistoriaDetalleModal({
                 "pt-0 pb-1.5"
               )}
             >
-              <div className={cn(GRID_CAPAS_SUP_PEDIDO_HISTORIA, "w-full")}>
+              <div
+                className={cn(
+                  pideComprobanteRecepcion
+                    ? GRID_CAPAS_SUP_RECEPCION_COMPROBANTE
+                    : GRID_CAPAS_SUP_PEDIDO_HISTORIA,
+                  "w-full"
+                )}
+              >
                 <div
                   className={cn(
                     "flex min-h-0 min-w-0 flex-col justify-center gap-0.5 py-0 text-left"
@@ -703,6 +742,30 @@ export default function PedidoHistoriaDetalleModal({
                     </p>
                   ) : null}
                 </div>
+                {pideComprobanteRecepcion ? (
+                  <>
+                    <ModalSiNoChoice
+                      label="FISCAL"
+                      value={fiscal}
+                      onChange={setFiscal}
+                      disabled={!fiscalEditable || loading}
+                      className="py-1.5"
+                    />
+                    <div className="flex min-w-0 flex-col justify-center gap-0.5">
+                      <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
+                      <NumeroComprobanteBloquesInput
+                        puntoVenta={comprobantePv}
+                        numero={comprobanteNro}
+                        onPuntoVentaChange={setComprobantePv}
+                        onNumeroChange={setComprobanteNro}
+                        onCompletar={irAFechaFactura}
+                        disabled={loading}
+                        puntoVentaRef={comprobantePvRef}
+                        inputClassName={inputBorderClassName}
+                      />
+                    </div>
+                  </>
+                ) : null}
                 <label
                   className={cn(
                     "flex min-h-0 min-w-0 w-full flex-col justify-center gap-0.5 py-0 text-left",
@@ -1065,7 +1128,7 @@ export default function PedidoHistoriaDetalleModal({
                         : undefined
                     }
                   >
-                    {pideComprobante ? (
+                    {pideComprobante && esNotaCredito ? (
                       <div className="celda-datos col-start-2 col-span-2 flex min-w-0 items-center gap-3 border-b-0">
                         <ModalSiNoChoice
                           label="FISCAL"

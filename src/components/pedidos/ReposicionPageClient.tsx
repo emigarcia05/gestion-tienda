@@ -58,7 +58,7 @@ export default function ReposicionPageClient({
     <>
       <PosicionIvaComparacionAutoRefresh initialToken={ivaComparacionRevisionToken} />
       <ClassicFilteredTableLayout
-        title="Mercadería"
+        title="Compras"
         subtitle="Cant. Pedida"
         subtitleSecondary="Reposición"
       actions={

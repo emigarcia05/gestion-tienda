@@ -82,7 +82,7 @@ export default function HistorialPedidosPageClient({
   const showingEmpty = items.length === 0;
   const COL_WIDTHS_PCT = [18, 28, 18, 14, 22] as const;
 
-  const title = "Mercadería";
+  const title = "Compras";
   const subtitle = "Recepción de Compra";
 
   function openRecepcion(id: string) {

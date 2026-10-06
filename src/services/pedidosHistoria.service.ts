@@ -12,6 +12,7 @@ import {
   isoYmdFromPrismaDateOnly,
 } from "@/lib/fechaArgentina";
 import { fechaFacturaIsoSchema } from "@/lib/validations/pedidosMutaciones";
+import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
 import { cantidadDesdePrisma } from "@/lib/cantidadUnDecimal";
 import {
   reservarCorrelativoCompra,
@@ -918,7 +919,8 @@ export async function marcarPedidoHistoriaRegistrado(params: {
   fechaRecepcionIso: string;
   personalId: number;
   fiscal: boolean;
-  numeroComprobante?: string;
+  /** Cargado a mano por el usuario: `0000-00000000`. */
+  numeroComprobante: string;
 }): Promise<ServiceResult<void>> {
   const { pedidoHistoriaId, totalPedido, fechaRecepcionIso, personalId } = params;
   const id = pedidoHistoriaId.trim();
@@ -962,16 +964,14 @@ export async function marcarPedidoHistoriaRegistrado(params: {
       if (!idSucursalDux) {
         return { success: false, error: "La sucursal no tiene ID DUX: no se puede crear el comprobante." };
       }
-      const numero = await resolverNumeroComprobante(
-        params.fiscal,
-        params.numeroComprobante,
-        "COMPROBANTE_COMPRA"
-      );
-      if (!numero.success) return numero;
+      const numero = (params.numeroComprobante ?? "").trim();
+      if (!NUMERO_COMPROBANTE_COMPRA_REGEX.test(numero)) {
+        return { success: false, error: "N° de comprobante inválido (formato 0000-00000000)." };
+      }
       comprobanteCompra = {
         idSucursalEmpresa: idSucursalDux,
         tipoComp: params.fiscal ? TIPO_COMP_COMPRA.FISCAL : TIPO_COMP_COMPRA.NO_FISCAL,
-        comprobante: numero.data,
+        comprobante: numero,
         fechaComp: dateFromIsoYmd(fechaParsed.data),
         idProveedor: idProveedorDux,
         total: new Prisma.Decimal(totalPedido.toFixed(2)),

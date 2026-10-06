@@ -158,7 +158,7 @@ const MODULES: NavModule[] = [
   },
   {
     id: "pedidos",
-    label: "MERCADERÍA",
+    label: "COMPRAS",
     icon: <ClipboardList className={iconClass} />,
     submodules: [
       {

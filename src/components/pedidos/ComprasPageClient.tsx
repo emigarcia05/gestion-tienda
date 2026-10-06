@@ -69,7 +69,7 @@ export default function ComprasPageClient({
 
   return (
     <ClassicFilteredTableLayout
-      title="Mercadería"
+      title="Compras"
       subtitle="Compras"
       filters={
         <FiltrosCompras

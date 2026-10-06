@@ -11,6 +11,7 @@ import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { SUCURSAL_LABEL_PEDIDO, type SucursalPedido } from "@/lib/pedidos";
 import * as pedidosHistoriaService from "@/services/pedidosHistoria.service";
 import { fechaFacturaIsoSchema } from "@/lib/validations/pedidosMutaciones";
+import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
 import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 /**
@@ -44,7 +45,10 @@ const marcarRegistradoSchema = z.object({
   fechaRecepcionIso: fechaFacturaIsoSchema,
   personalId: idPersonalSchema,
   fiscal: z.boolean(),
-  numeroComprobante: numeroComprobanteSchema,
+  numeroComprobante: z
+    .string()
+    .trim()
+    .regex(NUMERO_COMPROBANTE_COMPRA_REGEX, "N° de comprobante inválido (formato 0000-00000000)."),
 });
 
 const notaCreditoCompraSchema = z.object({

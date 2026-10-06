@@ -272,7 +272,7 @@ export default function PedidoTintometricoPageClient({
 
   return (
     <ClassicFilteredTableLayout
-      title="Mercadería"
+      title="Compras"
       subtitle="Cant. Pedida"
       subtitleSecondary="Tintométrico"
       actions={
