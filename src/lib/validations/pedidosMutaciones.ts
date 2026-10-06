@@ -10,7 +10,7 @@ import {
 } from "@/lib/validations/pedidosLectura";
 import { reposicionFormaPedidoFabricaSchema } from "@/lib/validations/reposicion";
 
-/** FECHA FACTURA de Recepción Pedido (`YYYY-MM-DD`). */
+/** FECHA FACTURA de Recepción de Compra (`YYYY-MM-DD`). */
 export const fechaFacturaIsoSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida. Formato esperado: YYYY-MM-DD");

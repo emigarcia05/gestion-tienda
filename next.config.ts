@@ -59,6 +59,7 @@ function canonicalGestionProductosRewrites(): { source: string; destination: str
     { source: R.pedidoMercaderia.confPedido.tintometrico, destination: I.pedidoMercaderia.confPedido.tintometrico },
     { source: R.pedidoMercaderia.confPedido.reposicion, destination: I.pedidoMercaderia.confPedido.reposicion },
     { source: R.pedidoMercaderia.recepcionPedido, destination: I.pedidoMercaderia.recepcionPedido },
+    { source: R.pedidoMercaderia.compras, destination: I.pedidoMercaderia.compras },
     { source: R.ayudaVendedor.pxVenta.pxVtaSugerido, destination: I.ayudaVendedor.pxVenta.pxVtaSugerido },
     { source: R.ayudaVendedor.pxVenta.pxTintometrico, destination: I.ayudaVendedor.pxVenta.pxTintometrico },
     { source: R.ayudaVendedor.calcLitros, destination: I.ayudaVendedor.calcLitros },
@@ -233,6 +234,11 @@ const nextConfig: NextConfig = {
       {
         source: "/pedidos/generar",
         destination: R.pedidoMercaderia.recepcionPedido,
+        permanent: true,
+      },
+      {
+        source: "/pedidos/compras",
+        destination: R.pedidoMercaderia.compras,
         permanent: true,
       },
       {

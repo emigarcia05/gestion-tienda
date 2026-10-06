@@ -584,7 +584,7 @@ export default function PedidoHistoriaDetalleModal({
     <>
       <Dialog open={open} onOpenChange={handleModalOpenChange}>
         <AppModal
-          title={esNotaCredito ? "Nota de Crédito" : "Recepcion Pedido"}
+          title={esNotaCredito ? "Nota de Crédito" : "Recepción de Compra"}
           scrollBody={false}
           size="xl"
           className="max-w-[66rem] h-[95vh] max-h-[95vh]"

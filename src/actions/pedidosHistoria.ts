@@ -159,6 +159,7 @@ export async function marcarPedidoHistoriaRegistradoAction(
     if (!res.success) return { ok: false, error: res.error };
 
     revalidatePath("/pedidos/historial");
+    revalidatePath("/pedidos/compras");
     return { ok: true, data: undefined };
   });
 }
@@ -181,6 +182,7 @@ export async function registrarNotaCreditoCompraPedidoAction(
     if (!res.success) return { ok: false, error: res.error };
 
     revalidatePath("/pedidos/historial");
+    revalidatePath("/pedidos/compras");
     return { ok: true, data: res.data };
   });
 }

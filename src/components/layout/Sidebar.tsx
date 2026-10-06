@@ -33,6 +33,7 @@ import {
   ScrollText,
   Users,
   Wallet,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
@@ -187,8 +188,14 @@ const MODULES: NavModule[] = [
       },
       {
         href: GP_ROUTES.pedidoMercaderia.recepcionPedido,
-        label: "Recepción Pedido",
+        label: "Recepción de Compra",
         icon: <PackageCheck className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.pedidos.acceso,
+      },
+      {
+        href: GP_ROUTES.pedidoMercaderia.compras,
+        label: "Compras",
+        icon: <ShoppingCart className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
       },
     ],

@@ -72,6 +72,8 @@ async function purgarPedidosHistoriaExpirados(
   const limiteNoFabrica = fechaHaceDias(DIAS_RETENCION_PEDIDOS_NO_FABRICA);
   await db.pedidoHistoria.deleteMany({
     where: {
+      // Con comprobante de compra el pedido es la fuente de **Compras** / NC: no se purga.
+      comprobantesProveedor: { none: {} },
       OR: [
         {
           proveedor: { esFabrica: true },
@@ -1272,7 +1274,18 @@ export async function eliminarPedidoHistoria(params: {
   try {
     await purgarPedidosHistoriaExpirados(prisma);
 
-    await prisma.pedidoHistoria.delete({ where: { id } });
+    const borrado = await prisma.pedidoHistoria.deleteMany({
+      where: { id, comprobantesProveedor: { none: {} } },
+    });
+    if (borrado.count === 0) {
+      const existe = await prisma.pedidoHistoria.findUnique({ where: { id }, select: { id: true } });
+      return {
+        success: false,
+        error: existe
+          ? "El pedido ya tiene comprobante de compra (ver Compras); no se puede borrar."
+          : "Pedido no encontrado.",
+      };
+    }
     return { success: true, data: undefined };
   } catch (e) {
     logServiceError("eliminarPedidoHistoria", e);

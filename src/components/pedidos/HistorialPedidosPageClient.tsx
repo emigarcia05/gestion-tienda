@@ -31,7 +31,7 @@ import PedidoHistoriaBorrarConfirmModal from "@/components/pedidos/PedidoHistori
 import FiltrosHistorialPedidos, {
   type EstadoFiltroPedido,
 } from "@/components/pedidos/FiltrosHistorialPedidos";
-import { Eye, FileMinus, PackageCheck, Trash2 } from "lucide-react";
+import { Eye, PackageCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { descargarPdfBase64 } from "@/lib/descargarPdfBase64";
 import { descargarPdfPedidoHistoriaAction } from "@/actions/pedidosHistoria";
@@ -75,7 +75,6 @@ export default function HistorialPedidosPageClient({
   const [recepcionId, setRecepcionId] = useState<string | null>(null);
   const [lecturaOpen, setLecturaOpen] = useState(false);
   const [lecturaId, setLecturaId] = useState<string | null>(null);
-  const [notaCreditoId, setNotaCreditoId] = useState<string | null>(null);
   const [borrarOpen, setBorrarOpen] = useState(false);
   const [borrarId, setBorrarId] = useState<string | null>(null);
   const [descargandoPdfId, setDescargandoPdfId] = useState<string | null>(null);
@@ -84,7 +83,7 @@ export default function HistorialPedidosPageClient({
   const COL_WIDTHS_PCT = [18, 28, 18, 14, 22] as const;
 
   const title = "Mercadería";
-  const subtitle = "Recepción Pedido";
+  const subtitle = "Recepción de Compra";
 
   function openRecepcion(id: string) {
     setRecepcionId(id);
@@ -220,34 +219,6 @@ export default function HistorialPedidosPageClient({
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="inline-flex">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={it.estado !== "RECEPCIONADO"}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setNotaCreditoId(it.id);
-                                        }}
-                                        aria-label="Nota de Crédito"
-                                        className={cn(
-                                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                                          "disabled:cursor-not-allowed"
-                                        )}
-                                      >
-                                        <FileMinus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                                      </Button>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">
-                                    {it.estado === "RECEPCIONADO"
-                                      ? "Nota de Crédito"
-                                      : "Nota de Crédito (solo pedidos recepcionados)"}
-                                  </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -322,17 +293,6 @@ export default function HistorialPedidosPageClient({
             }
           }}
           pedidoHistoriaId={recepcionId}
-        />
-        <PedidoHistoriaDetalleModal
-          variante="nota-credito"
-          open={notaCreditoId != null}
-          onOpenChange={(v) => {
-            if (!v) {
-              setNotaCreditoId(null);
-              router.refresh();
-            }
-          }}
-          pedidoHistoriaId={notaCreditoId}
         />
         <PedidoHistoriaLecturaModal
           open={lecturaOpen}

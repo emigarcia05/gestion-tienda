@@ -131,7 +131,7 @@ export default function PedidoHistoriaLecturaModal({
             </Button>
             {detalle && !esRecibido && onIrARecepcion ? (
               <Button type="button" variant="default" onClick={() => onIrARecepcion()}>
-                Recepcion Pedido
+                Recepción de Compra
               </Button>
             ) : null}
             {detalle ? (

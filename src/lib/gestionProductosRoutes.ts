@@ -18,7 +18,10 @@ export const GP_ROUTES = {
       tintometrico: `${GP}/pedido-mercaderia/conf-pedido/tintometrico`,
       reposicion: `${GP}/pedido-mercaderia/conf-pedido/reposicion`,
     },
+    /** Submódulo **Recepción de Compra** (slug histórico `recepcion-pedido`). */
     recepcionPedido: `${GP}/pedido-mercaderia/recepcion-pedido`,
+    /** Submódulo **Compras**: comprobantes recepcionados + nota de crédito. */
+    compras: `${GP}/pedido-mercaderia/compras`,
   },
   ayudaVendedor: {
     pxVenta: {
@@ -69,6 +72,7 @@ export const GP_INTERNAL = {
       reposicion: "/pedidos/reposicion",
     },
     recepcionPedido: "/pedidos/historial",
+    compras: "/pedidos/compras",
   },
   ayudaVendedor: {
     pxVenta: {
@@ -129,6 +133,7 @@ const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
     "/gestion-productos/pedidos/historial",
     "/pedidos/historial",
   ],
+  [GP_ROUTES.pedidoMercaderia.compras]: ["/pedidos/compras"],
   [GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido]: [
     "/gestion-productos/proveedores/sugeridos",
     "/proveedores/sugeridos",
@@ -201,6 +206,7 @@ const PEDIDO_MERCADERIA_PREFIXES = [
   GP_ROUTES.pedidoMercaderia.generarPedido,
   `${GP}/pedido-mercaderia/conf-pedido`,
   GP_ROUTES.pedidoMercaderia.recepcionPedido,
+  GP_ROUTES.pedidoMercaderia.compras,
   "/gestion-productos/pedidos",
   "/pedidos",
 ] as const;
@@ -403,6 +409,7 @@ export const REVALIDATE_PEDIDOS_MERCADERIA = gpRevalidatePaths([
   GP_ROUTES.pedidoMercaderia.confPedido.tintometrico,
   GP_ROUTES.pedidoMercaderia.confPedido.reposicion,
   GP_ROUTES.pedidoMercaderia.recepcionPedido,
+  GP_ROUTES.pedidoMercaderia.compras,
 ]);
 
 export const REVALIDATE_CX_COMPRA = gpRevalidatePaths([
