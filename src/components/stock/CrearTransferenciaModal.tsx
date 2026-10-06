@@ -154,27 +154,30 @@ export default function CrearTransferenciaModal({
       })),
     };
     startTransition(async () => {
-      const res =
-        modo === "editar" && transferenciaId
-          ? await actualizarTransferenciaApi(transferenciaId, payload)
-          : await crearTransferenciaApi(payload);
+      if (modo === "editar" && transferenciaId) {
+        const res = await actualizarTransferenciaApi(transferenciaId, payload);
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        pedirRefrescoNotificaciones();
+        onGuardada?.();
+        onOpenChange(false);
+        toast.success(`Transferencia N° ${res.data.numero} actualizada.`);
+        return;
+      }
+
+      const res = await crearTransferenciaApi(payload);
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
-      if (modo === "crear") {
-        tablaRef.current?.clearCantidades();
-      }
+      tablaRef.current?.clearCantidades();
       pedirRefrescoNotificaciones();
       onGuardada?.();
       onOpenChange(false);
-      if (modo === "editar") {
-        toast.success(`Transferencia N° ${res.data.numero} actualizada.`);
-        return;
-      }
-      const creada = res.data as { numero: string; confirmaNombre: string };
-      toast.success(`Transferencia N° ${creada.numero} enviada.`, {
-        description: `Queda pendiente hasta que ${creada.confirmaNombre} la acepte.`,
+      toast.success(`Transferencia N° ${res.data.numero} enviada.`, {
+        description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.`,
       });
     });
   }
