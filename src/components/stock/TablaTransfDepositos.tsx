@@ -7,7 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { AlertTriangle, Check, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -23,7 +23,6 @@ import type {
   SucursalTransf as Sucursal,
   TransfDepositosData,
 } from "@/lib/transfDepositosTypes";
-import HistorialTransfDepositosModal from "@/components/stock/HistorialTransfDepositosModal";
 import {
   TableEmptyState,
   tableEmptyStateContainerVariants,
@@ -103,7 +102,7 @@ export type TablaTransfDepositosHandle = {
 /**
  * Grilla **Trans. Depósitos**:
  * DESCRIPCIÓN · CANT. (−/+) · SUC. ORIGEN · SUC. DESTINO · ACCIONES
- * (Trash2, Check historial, AlertTriangle). Con cantidad: stock `actual → luego`.
+ * (Trash2, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
  * hasta **Generar Transferencia** (crea `stock_transferencias` EMITIDO_PENDIENTE).
  * `data.loteAbierto` (hoy siempre vacío) hidrata si el borrador local está vacío.
@@ -111,10 +110,6 @@ export type TablaTransfDepositosHandle = {
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   function TablaTransfDepositos({ data, origen, destino }, ref) {
   const [borrador, setBorrador] = useState<BorradorTransfDepositos>({});
-  const [historial, setHistorial] = useState<{
-    codTienda: string;
-    descripcion: string;
-  } | null>(null);
 
   useImperativeHandle(
     ref,
@@ -273,8 +268,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   }
 
   return (
-    <>
-      <Table variant="compact">
+    <Table variant="compact">
         <colgroup>
           <col style={{ width: `${PCT_DESC}%` }} />
           <col style={{ width: `${PCT_CANT}%` }} />
@@ -419,25 +413,6 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                         aria-hidden
                       />
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                      aria-label="Ver historial de transferencias"
-                      title="Ver historial"
-                      onClick={() =>
-                        setHistorial({
-                          codTienda: item.id,
-                          descripcion: item.descripcion,
-                        })
-                      }
-                    >
-                      <Check
-                        className={TABLE_ROW_ACTION_ICON_CLASS}
-                        aria-hidden
-                      />
-                    </Button>
                     <span
                       className={cn(
                         ICON_WARNING_INTERACTIVE_CLASS,
@@ -464,19 +439,7 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
             );
           })}
         </TableBody>
-      </Table>
-
-      {historial ? (
-        <HistorialTransfDepositosModal
-          open={historial !== null}
-          onOpenChange={(open) => {
-            if (!open) setHistorial(null);
-          }}
-          codTienda={historial.codTienda}
-          descripcion={historial.descripcion}
-        />
-      ) : null}
-    </>
+    </Table>
   );
 });
 

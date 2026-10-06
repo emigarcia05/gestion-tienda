@@ -98,11 +98,8 @@ export const STORAGE_BORRADOR_TRANSF_DEPOSITOS_PREFIX =
 
 const MAX_ITEMS_BORRADOR_TRANSF_DEPOSITOS = 500;
 
-export const TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS = 14;
-
-/** Alias: misma ventana que el historial (14 días). */
-export const TRANSF_DEPOSITOS_VENTANA_DUPLICADO_DIAS =
-  TRANSF_DEPOSITOS_VENTANA_HISTORIAL_DIAS;
+/** Ventana del aviso de duplicado en la grilla (triángulo). */
+export const TRANSF_DEPOSITOS_VENTANA_DUPLICADO_DIAS = 14;
 
 export const SUCURSAL_LABEL_TRANSF: Record<"guaymallen" | "maipu", string> = {
   guaymallen: "GUAYMALLÉN",

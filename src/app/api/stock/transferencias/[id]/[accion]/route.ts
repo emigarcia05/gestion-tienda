@@ -9,12 +9,11 @@ import {
 import {
   aceptarStockTransferencia,
   cancelarStockTransferencia,
-  rechazarStockTransferencia,
 } from "@/services/stockTransferencias.service";
 
 /**
- * `aceptar` (ACEPTADA + ledger, o RECTIFICADO_PENDIENTE sin ledger) · `rechazar` · `cancelar`.
- * Quién puede cada acción lo valida el servicio con la sucursal del `personalId`.
+ * `aceptar` (ledger de ítems coincidentes + versión nueva si hay rectificación)
+ * · `cancelar` (el emisor de esta versión la elimina). No hay rechazo.
  */
 export async function POST(
   req: Request,
@@ -37,14 +36,10 @@ export async function POST(
       if ("response" in parsed) return parsed.response;
       return jsonDesdeServicio(await aceptarStockTransferencia(parsedId.data, parsed.data));
     }
-    if (accion === "rechazar" || accion === "cancelar") {
+    if (accion === "cancelar") {
       const parsed = await parseJsonBody(req, resolverStockTransferenciaSchema);
       if ("response" in parsed) return parsed.response;
-      const res =
-        accion === "rechazar"
-          ? await rechazarStockTransferencia(parsedId.data, parsed.data)
-          : await cancelarStockTransferencia(parsedId.data, parsed.data);
-      return jsonDesdeServicio(res);
+      return jsonDesdeServicio(await cancelarStockTransferencia(parsedId.data, parsed.data));
     }
     return NextResponse.json(
       { ok: false as const, error: "Acción inválida." },

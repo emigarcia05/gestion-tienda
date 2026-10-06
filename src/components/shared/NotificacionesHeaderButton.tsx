@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import NotificacionesModal from "@/components/shared/NotificacionesModal";
 import StockTransferenciaModal from "@/components/stock/StockTransferenciaModal";
-import { HEADER_ACCIONES_TRIGGER_CLASS, HEADER_NOTIFICACIONES_TRIGGER_VACIO_CLASS } from "@/lib/ui-classes";
+import { HEADER_ACCIONES_TRIGGER_CLASS } from "@/lib/ui-classes";
 import {
   EVENTO_NOTIFICACIONES_REFRESCAR,
   listarNotificacionesApi,
@@ -28,7 +28,7 @@ const CAMBIO_DIALOG_MS = 450;
  * Botón **NOTIFICACIONES** del header (`PageSectionHeader`), centrado.
  * Destinatario = sucursal del usuario de pestaña. Polling 60 s + al cambiar de ruta
  * + `EVENTO_NOTIFICACIONES_REFRESCAR`. Sin usuario, sin permiso (403) o sin
- * notificaciones en el listado, el botón no se muestra.
+ * notificaciones sin leer, el botón no se muestra.
  * Lista y detalle de transferencia no se apilan: se abre uno a la vez.
  */
 export default function NotificacionesHeaderButton() {
@@ -77,8 +77,7 @@ export default function NotificacionesHeaderButton() {
   if (!usuario || !visible) return null;
 
   const noLeidas = data?.noLeidas ?? 0;
-  const sinAvisos = noLeidas === 0;
-  const hayParaMostrar = (data?.items.length ?? 0) > 0;
+  const hayParaMostrar = noLeidas > 0;
   const dialogAbierto = listaOpen || transferenciaId != null;
   if (!hayParaMostrar && !dialogAbierto) return null;
 
@@ -88,11 +87,7 @@ export default function NotificacionesHeaderButton() {
         <Button
           type="button"
           variant="default"
-          className={cn(
-            HEADER_ACCIONES_TRIGGER_CLASS,
-            "gap-2",
-            sinAvisos && HEADER_NOTIFICACIONES_TRIGGER_VACIO_CLASS
-          )}
+          className={cn(HEADER_ACCIONES_TRIGGER_CLASS, "gap-2")}
           onClick={() => setListaOpen(true)}
           aria-label={
             noLeidas > 0 ? `Notificaciones: ${noLeidas} sin leer` : "Notificaciones"

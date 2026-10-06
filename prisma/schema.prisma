@@ -1210,11 +1210,16 @@ model StockMovimiento {
 }
 
 /**
- * Transferencia entre sucursales. Estados: emitido pendiente → (rectificado
- * pendiente) → aceptada. El ledger se escribe solo en **aceptada**.
+ * Transferencia entre sucursales. Familia `numero` + `version` (N° 0001,
+ * 0001-2, …). Los ítems coincidentes registran ledger; los rectificados
+ * abren la versión siguiente emitida por quien rectifica.
  */
 model StockTransferencia {
   id                 String                   @id @default(cuid())
+  /** Número de familia (1 → N° 0001). */
+  numero             Int
+  /** 1 = emisión; ≥ 2 = rectificación (N° 0001-2). */
+  version            Int                      @default(1)
   sucursalOrigenId   String                   @map("sucursal_origen")
   sucursalDestinoId  String                   @map("sucursal_destino")
   /** Punta que debe aceptar ahora. */
@@ -1222,8 +1227,10 @@ model StockTransferencia {
   estado             StockTransferenciaEstado @default(EMITIDO_PENDIENTE)
   creadaPorId        Int                      @map("creada_por")
   resueltaPorId      Int?                     @map("resuelta_por")
-  /** Motivo de rechazo o cancelación (opcional). */
+  /** Motivo al eliminar (opcional). */
   motivo             String?
+  /** Comentario de quien emitió esta versión (rectificación). */
+  comentario         String?
   comprobanteId      String?                  @unique(map: "stock_transferencias_comprobante_key") @map("comprobante_id")
   createdAt          DateTime                 @default(now()) @map("created_at")
   resueltaAt         DateTime?                @map("resuelta_at")
@@ -1237,12 +1244,13 @@ model StockTransferencia {
   items            StockTransferenciaItem[]
   notificaciones   Notificacion[]
 
+  @@unique([numero, version], map: "stock_transferencias_numero_version_key")
   @@index([sucursalConfirmaId, estado], map: "stock_transferencias_confirma_estado_idx")
   @@index([estado, createdAt], map: "stock_transferencias_estado_fecha_idx")
   @@map("stock_transferencias")
 }
 
-/** Ítems de `stock_transferencias`. `cantidad` = enviada (0 si la agregó quien revisa). */
+/** Ítems de `stock_transferencias`. `cantidad` = propuesta de esta versión. */
 model StockTransferenciaItem {
   id                 String   @id @default(cuid())
   transferenciaId    String   @map("transferencia_id")

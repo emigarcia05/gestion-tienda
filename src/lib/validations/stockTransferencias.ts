@@ -19,6 +19,13 @@ const motivoSchema = z
   .optional()
   .transform((v) => (v ? v : undefined));
 
+const comentarioSchema = z
+  .string()
+  .trim()
+  .max(500, "El comentario es demasiado largo.")
+  .optional()
+  .transform((v) => (v ? v : undefined));
+
 export const crearStockTransferenciaSchema = z
   .object({
     origenCodigo: sucursalPorDefectoSchema,
@@ -58,6 +65,7 @@ export const crearStockTransferenciaSchema = z
 
 export const aceptarStockTransferenciaSchema = z.object({
   personalId: idPersonalSchema,
+  comentario: comentarioSchema,
   items: z
     .array(
       z.object({

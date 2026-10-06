@@ -27,18 +27,6 @@ export type LoteAbiertoTransfDepositoItemDto = {
   cantidad: number;
 };
 
-export type HistorialTransfDepositosItemDto = {
-  createdAtIso: string;
-  cantidad: number;
-};
-
-export type HistorialTransfDepositosSeccionDto = {
-  origenCodigo: SucursalTransf;
-  destinoCodigo: SucursalTransf;
-  titulo: string;
-  items: HistorialTransfDepositosItemDto[];
-};
-
 export type TransfDepositosData = {
   items: ItemTransfDepositos[];
   total: number;

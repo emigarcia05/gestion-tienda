@@ -109,7 +109,7 @@ export default function TransfDepositosPageClient({
       }
       tablaRef.current?.clearCantidades();
       pedirRefrescoNotificaciones();
-      toast.success("Transferencia enviada.", {
+      toast.success(`Transferencia N° ${res.data.numero} enviada.`, {
         description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.`,
       });
     });

@@ -12,7 +12,7 @@ export type NotificacionDto = {
   createdAtIso: string;
   leida: boolean;
   transferenciaId: string | null;
-  /** Requiere acción (aceptar / rechazar) de esta sucursal. */
+  /** Requiere acción (aceptar / rectificar / eliminar) de esta sucursal. */
   accionable: boolean;
 };
 

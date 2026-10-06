@@ -30,10 +30,10 @@ import {
   parseCantidadUnDecimal,
   redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
-import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
+import { formatInstanteDdMmYyyyHhMmArgentina } from "@/lib/fechaArgentina";
 import {
   aceptarTransferenciaApi,
-  cerrarTransferenciaApi,
+  eliminarTransferenciaApi,
   obtenerTransferenciaApi,
   pedirRefrescoNotificaciones,
 } from "@/lib/stockTransferenciasClient";
@@ -54,15 +54,9 @@ interface Props {
   onResuelta?: () => void;
 }
 
-const ESTADO_ETIQUETA: Record<StockTransferenciaDetalle["estado"], string> = {
-  EMITIDO_PENDIENTE: "Emitido, Pendiente De Aceptación",
-  RECTIFICADO_PENDIENTE: "Rectificado, Pendiente De Aceptación",
-  ACEPTADA: "Aceptado",
-  RECHAZADA: "Rechazada",
-  CANCELADA: "Cancelada",
-};
+const TITULO_EMISION = "TRANSFERENCIA INTERNA STOCK";
+const TITULO_RECTIFICACION = "RECTIFICACION PENDIENTE DE ACEPTACION";
 
-const GRID_RESUMEN = "grid min-w-0 w-full grid-cols-[85fr_15fr] items-center gap-0";
 const inputBorderClassName = "border-[#0072bb] focus-visible:ring-[#0072bb]";
 
 type FilaRevision = {
@@ -122,8 +116,9 @@ export default function StockTransferenciaModal({
   const [agregarOpen, setAgregarOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
-  const [cierre, setCierre] = useState<"rechazar" | "cancelar" | null>(null);
+  const [cierre, setCierre] = useState(false);
   const [motivo, setMotivo] = useState("");
+  const [comentario, setComentario] = useState("");
   const [isPending, startTransition] = useTransition();
   const editingInputRef = useRef<HTMLInputElement>(null);
   const busquedaRef = useRef<HTMLInputElement>(null);
@@ -139,8 +134,9 @@ export default function StockTransferenciaModal({
       setAgregarOpen(false);
       setEditingKey(null);
       setEditingValue("");
-      setCierre(null);
+      setCierre(false);
       setMotivo("");
+      setComentario("");
     });
     void (async () => {
       const res = await obtenerTransferenciaApi(transferenciaId);
@@ -164,7 +160,7 @@ export default function StockTransferenciaModal({
   const puedeConfirmar = abierta && usuario.sucursalPorDefecto === detalle.confirmaCodigo;
   const puedeCancelar = abierta && usuario.sucursalPorDefecto === detalle.creadoraCodigo;
   const bloqueadoPorEdicion = editingKey != null;
-  const tablaEditable = puedeConfirmar && cierre == null && !isPending;
+  const tablaEditable = puedeConfirmar && !cierre && !isPending;
 
   const filasFiltradas = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase("es");
@@ -177,6 +173,15 @@ export default function StockTransferenciaModal({
   }, [busqueda, filas]);
 
   const todasVerificadas = filas.length > 0 && filas.every((f) => f.verificado);
+  const hayRectificacion = filas.some(
+    (f) => f.esNuevo || (f.verificado && f.recibida != null && f.recibida !== f.propuesta)
+  );
+
+  const tituloModal = detalle
+    ? detalle.version >= 2 && estaAbierta(detalle.estado)
+      ? TITULO_RECTIFICACION
+      : TITULO_EMISION
+    : TITULO_EMISION;
 
   function terminar(mensaje: string, descripcion?: string) {
     toast.success(mensaje, descripcion ? { description: descripcion } : undefined);
@@ -254,31 +259,36 @@ export default function StockTransferenciaModal({
       const res = await aceptarTransferenciaApi(detalle.id, {
         personalId: usuario.idPersonal,
         items,
+        comentario: hayRectificacion ? comentario.trim() || undefined : undefined,
       });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       if (res.data.resultado === "rectificada") {
+        const stockTxt =
+          res.data.movimientos > 0
+            ? ` Se registró el stock de los ítems coincidentes.`
+            : "";
         terminar(
-          "Transferencia rectificada.",
-          `Queda pendiente de aceptación en ${res.data.confirmaNombre}. El stock se registra cuando ambos acepten.`
+          `Rectificación N° ${res.data.numeroSiguiente ?? res.data.numero}.`,
+          `Queda pendiente de aceptación en ${res.data.confirmaNombre}.${stockTxt}`
         );
         return;
       }
       terminar(
-        "Transferencia aceptada.",
+        `Transferencia N° ${res.data.numero} aceptada.`,
         res.data.movimientos > 0
           ? `Se registraron ${res.data.movimientos} movimientos de stock.`
-          : "Ambas sucursales aceptaron. No hubo cantidades para mover."
+          : "No hubo cantidades para mover."
       );
     });
   }
 
-  function confirmarCierre() {
-    if (!detalle || !cierre) return;
+  function confirmarEliminar() {
+    if (!detalle) return;
     startTransition(async () => {
-      const res = await cerrarTransferenciaApi(detalle.id, cierre, {
+      const res = await eliminarTransferenciaApi(detalle.id, {
         personalId: usuario.idPersonal,
         motivo: motivo.trim() || undefined,
       });
@@ -286,7 +296,7 @@ export default function StockTransferenciaModal({
         toast.error(res.error);
         return;
       }
-      terminar(cierre === "rechazar" ? "Transferencia rechazada." : "Transferencia cancelada.");
+      terminar(`Transferencia N° ${detalle.numeroEtiqueta} eliminada.`);
     });
   }
 
@@ -295,44 +305,34 @@ export default function StockTransferenciaModal({
       <Button
         type="button"
         variant="outline"
-        onClick={() => (cierre ? setCierre(null) : handleOpenChange(false))}
+        onClick={() => (cierre ? setCierre(false) : handleOpenChange(false))}
         disabled={isPending || (!cierre && bloqueadoPorEdicion)}
       >
         {cierre ? "Volver" : "Cerrar"}
       </Button>
       {cierre ? (
-        <Button type="button" onClick={confirmarCierre} disabled={isPending}>
-          {cierre === "rechazar" ? "Confirmar Rechazo" : "Confirmar Cancelación"}
+        <Button type="button" onClick={confirmarEliminar} disabled={isPending}>
+          Confirmar Eliminación
         </Button>
       ) : null}
       {!cierre && puedeCancelar ? (
         <Button
           type="button"
-          onClick={() => setCierre("cancelar")}
+          onClick={() => setCierre(true)}
           disabled={isPending || bloqueadoPorEdicion}
         >
-          Cancelar Transf.
+          Eliminar Transf.
         </Button>
       ) : null}
       {!cierre && puedeConfirmar ? (
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setCierre("rechazar")}
-            disabled={isPending || bloqueadoPorEdicion}
-          >
-            Rechazar
-          </Button>
-          <Button
-            type="button"
-            onClick={aceptar}
-            disabled={isPending || bloqueadoPorEdicion || !todasVerificadas}
-            className="disabled:cursor-not-allowed"
-          >
-            Aceptar Transferencia
-          </Button>
-        </>
+        <Button
+          type="button"
+          onClick={aceptar}
+          disabled={isPending || bloqueadoPorEdicion || !todasVerificadas}
+          className="disabled:cursor-not-allowed"
+        >
+          Aceptar Transferencia
+        </Button>
       ) : null}
     </>
   );
@@ -341,7 +341,7 @@ export default function StockTransferenciaModal({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <AppModal
-          title={detalle ? ESTADO_ETIQUETA[detalle.estado] : "Transferencia entre sucursales"}
+          title={tituloModal}
           scrollBody={false}
           size="xl"
           className="max-w-[66rem] h-[95vh] max-h-[95vh]"
@@ -366,42 +366,46 @@ export default function StockTransferenciaModal({
                   Resumen de la transferencia
                 </h2>
                 <div className="min-w-0 bg-transparent pt-0 pb-1.5">
-                  <div className={cn(GRID_RESUMEN, "w-full")}>
-                    <div className="flex min-h-0 min-w-0 flex-col justify-center gap-0.5 py-0 text-left">
-                      <p className="text-sm font-semibold leading-snug text-foreground">
-                        {detalle.origenNombre} → {detalle.destinoNombre}
-                      </p>
-                      <p className="text-xs leading-snug text-muted-foreground">
-                        <span className="tabular-nums">
-                          {detalle.creadaPorNombre}
-                          {" · "}
-                          {formatDdMmHhMmArgentina(new Date(detalle.createdAtIso))}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex min-h-0 min-w-0 w-full flex-col justify-center gap-0.5 py-0 text-left">
-                      <ModalMicroLabel>DESTINO</ModalMicroLabel>
-                      <p className="text-sm font-semibold leading-snug text-foreground">
-                        {detalle.destinoNombre}
-                      </p>
-                    </div>
+                  <div className="flex w-full flex-col items-center gap-0.5 py-0 text-center">
+                    <p className="text-sm font-semibold uppercase leading-snug text-foreground">
+                      N° {detalle.numeroEtiqueta}
+                    </p>
+                    <p className="text-sm font-semibold uppercase leading-snug text-foreground">
+                      {detalle.origenNombre} → {detalle.destinoNombre}
+                    </p>
+                    <p className="text-sm tabular-nums leading-snug text-foreground">
+                      {formatInstanteDdMmYyyyHhMmArgentina(new Date(detalle.createdAtIso))}
+                    </p>
                   </div>
+                  {detalle.comentario ? (
+                    <p className="pt-1.5 text-center text-sm">
+                      <strong>Comentario:</strong> {detalle.comentario}
+                    </p>
+                  ) : null}
                   {detalle.motivo ? (
-                    <p className="pt-1.5 text-sm">
+                    <p className="pt-1.5 text-center text-sm">
                       <strong>Motivo:</strong> {detalle.motivo}
                     </p>
                   ) : null}
                   {cierre ? (
                     <div className="flex flex-col gap-1 pt-2">
-                      <ModalMicroLabel>
-                        {cierre === "rechazar" ? "MOTIVO DEL RECHAZO" : "MOTIVO DE LA CANCELACIÓN"}{" "}
-                        (OPCIONAL)
-                      </ModalMicroLabel>
+                      <ModalMicroLabel>MOTIVO DE LA ELIMINACIÓN (OPCIONAL)</ModalMicroLabel>
                       <Input
                         value={motivo}
                         onChange={(e) => setMotivo(e.target.value)}
                         maxLength={500}
                         autoFocus
+                      />
+                    </div>
+                  ) : null}
+                  {tablaEditable && hayRectificacion ? (
+                    <div className="flex flex-col gap-1 pt-2">
+                      <ModalMicroLabel>COMENTARIO DE LA RECTIFICACIÓN (OPCIONAL)</ModalMicroLabel>
+                      <Input
+                        value={comentario}
+                        onChange={(e) => setComentario(e.target.value)}
+                        maxLength={500}
+                        aria-label="Comentario de la rectificación"
                       />
                     </div>
                   ) : null}
@@ -459,7 +463,7 @@ export default function StockTransferenciaModal({
                       <div className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto no-scrollbar">
                         <div
                           className={cn(
-                            cierre != null && "pointer-events-none cursor-not-allowed opacity-50"
+                            cierre && "pointer-events-none cursor-not-allowed opacity-50"
                           )}
                         >
                           <Table variant="compact" className="tabla-recepcion-pedido" scrollX={false}>

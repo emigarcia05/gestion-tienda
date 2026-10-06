@@ -19,10 +19,10 @@ export function crearTransferenciaApi(body: {
   personalId: number;
   items: Array<{ codItem: string; cantidad: number }>;
 }) {
-  return fetchApiJson<{ id: string; confirmaNombre: string }>("/api/stock/transferencias", {
-    method: "POST",
-    body,
-  });
+  return fetchApiJson<{ id: string; confirmaNombre: string; numero: string }>(
+    "/api/stock/transferencias",
+    { method: "POST", body }
+  );
 }
 
 export function obtenerTransferenciaApi(id: string) {
@@ -36,6 +36,7 @@ export function aceptarTransferenciaApi(
   body: {
     personalId: number;
     items: Array<{ itemId?: string; codItem: string; cantidadConfirmada: number }>;
+    comentario?: string;
   }
 ) {
   return fetchApiJson<AceptarStockTransferenciaResult>(
@@ -44,13 +45,12 @@ export function aceptarTransferenciaApi(
   );
 }
 
-export function cerrarTransferenciaApi(
+export function eliminarTransferenciaApi(
   id: string,
-  accion: "rechazar" | "cancelar",
   body: { personalId: number; motivo?: string }
 ) {
   return fetchApiJson<void>(
-    `/api/stock/transferencias/${encodeURIComponent(id)}/${accion}`,
+    `/api/stock/transferencias/${encodeURIComponent(id)}/cancelar`,
     { method: "POST", body }
   );
 }

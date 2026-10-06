@@ -278,6 +278,19 @@ export function formatIsoYmdGuionHhMmArgentina(
   return `${formatIsoYmdDdMmYyyyArgentina(isoYmd)} - ${formatHhMmArgentina(instante)}`;
 }
 
+/** Instante en zona AR: `dd/mm/aaaa hh:mm`. */
+export function formatInstanteDdMmYyyyHhMmArgentina(d: Date): string {
+  const m = toPartMap(d, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${m.day}/${m.month}/${m.year} ${m.hour}:${m.minute}`;
+}
+
 /** Instante en zona AR: `dd/mm/aa hh:mm` (modal cobros de factura). */
 export function formatInstanteDdMmYyHhMmArgentina(d: Date): string {
   const m = toPartMap(d, {
