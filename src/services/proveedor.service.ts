@@ -104,7 +104,7 @@ export interface ProveedorListItem {
   iva: IvaProveedor;
   /** Cantidad de ítems en prod_precios_provee. */
   cantProductos: number;
-  /** Cantidad de ítems de `prod_precios_provee` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_precios_tienda`). */
+  /** Cantidad de ítems de `prod_precios_provee` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_propios`). */
   cantVinculados: number;
 }
 
@@ -128,7 +128,7 @@ async function generarCodigoUnicoDisponible(): Promise<string> {
 }
 
 /**
- * Lista de proveedores desde la base de datos con conteos en prod_precios_provee y prod_precios_tienda.
+ * Lista de proveedores desde la base de datos con conteos en prod_precios_provee y prod_propios.
  *
  * Devuelve TODOS los proveedores (sin filtrar por `proveedorMercaderia`).
  * Este método alimenta vistas transversales (Px Sugeridos, Lista Px Proveedores,

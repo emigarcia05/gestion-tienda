@@ -5,7 +5,7 @@ export type AccionLimpiezaHuerfanoProdTienda = "delete" | "null";
 export type TablaHuerfanoProdTiendaConfig = {
   /** Nombre SQL de la tabla. */
   tabla: string;
-  /** Columna que referencia `prod_tienda.cod_tienda`. */
+  /** Columna que referencia `prod_propios.cod_tienda`. */
   columna: string;
   accion: AccionLimpiezaHuerfanoProdTienda;
   /** Clausula SQL extra (sin `AND` inicial), p. ej. `tipo_de_pedido = 'REPOSICION'`. */
@@ -15,17 +15,17 @@ export type TablaHuerfanoProdTiendaConfig = {
   incluirPorDefecto: boolean;
 };
 
-/** Tablas hijas / referencias a `prod_tienda.cod_tienda` que deben quedar sin huérfanos tras sync DUX. */
+/** Tablas hijas / referencias a `prod_propios.cod_tienda` que deben quedar sin huérfanos tras sync DUX. */
 export const TABLAS_HUERFANOS_PROD_TIENDA: TablaHuerfanoProdTiendaConfig[] = [
   {
-    tabla: "prod_tienda_precios",
+    tabla: "prod_propios_listas_precios",
     columna: "cod_tienda",
     accion: "delete",
     descripcion: "Precios DUX por lista",
     incluirPorDefecto: true,
   },
   {
-    tabla: "prod_tienda_precios_edicion",
+    tabla: "prod_propios_listas_precios_edicion",
     columna: "cod_tienda",
     accion: "delete",
     descripcion: "Precio staging Px Listas (MARG. MAN. → precio)",
@@ -74,7 +74,7 @@ export type ResultadoLimpiezaTablaHuerfanoProdTienda = {
 function buildWhereHuerfano(cfg: TablaHuerfanoProdTiendaConfig): string {
   const extra = cfg.condicionExtra ? ` AND (${cfg.condicionExtra})` : "";
   return `NOT EXISTS (
-    SELECT 1 FROM prod_tienda t WHERE t.cod_tienda = h.${cfg.columna}
+    SELECT 1 FROM prod_propios t WHERE t.cod_tienda = h.${cfg.columna}
   )${extra}`;
 }
 
@@ -98,11 +98,11 @@ async function aplicarLimpiezaTabla(
   );
 }
 
-/** Tamaño de lote al borrar `prod_tienda` ausentes de DUX (Restrict de `est_por_prod`). */
+/** Tamaño de lote al borrar `prod_propios` ausentes de DUX (Restrict de `est_por_prod`). */
 const CHUNK_ELIMINAR_AUSENTES_SYNC = 200;
 
 /**
- * Tras un sync DUX completo: borra `prod_tienda` que no recibieron upsert
+ * Tras un sync DUX completo: borra `prod_propios` que no recibieron upsert
  * (`last_sync` anterior a `startedAt`).
  * Primero elimina `est_por_prod` (FK Restrict); el resto de hijas va en Cascade / SetNull.
  */
@@ -112,7 +112,7 @@ export async function eliminarProdTiendaAusentesEnSyncDux(
   let eliminados = 0;
 
   for (;;) {
-    const lote = await prisma.prodTienda.findMany({
+    const lote = await prisma.prodPropio.findMany({
       where: { lastSync: { lt: startedAt } },
       select: { codTienda: true },
       take: CHUNK_ELIMINAR_AUSENTES_SYNC,
@@ -124,7 +124,7 @@ export async function eliminarProdTiendaAusentesEnSyncDux(
       await tx.estPorProd.deleteMany({
         where: { codTienda: { in: codigos } },
       });
-      return tx.prodTienda.deleteMany({
+      return tx.prodPropio.deleteMany({
         where: { codTienda: { in: codigos } },
       });
     });
@@ -142,7 +142,7 @@ export type LimpiarHuerfanosProdTiendaOpciones = {
 };
 
 /**
- * Elimina o anula referencias a `cod_tienda` que ya no existen en `prod_tienda`
+ * Elimina o anula referencias a `cod_tienda` que ya no existen en `prod_propios`
  * (p. ej. producto dado de baja en la última sync DUX).
  */
 export async function limpiarHuerfanosProdTienda(

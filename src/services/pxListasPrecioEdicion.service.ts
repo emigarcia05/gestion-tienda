@@ -34,7 +34,7 @@ async function obtenerContextoPrecioListaEdicion(
       pxDux: number | null;
     }
 > {
-  const listaExiste = await prisma.prodTiendaListaPrecio.findUnique({
+  const listaExiste = await prisma.prodPropioListaPrecioNombre.findUnique({
     where: { idLista },
     select: { idLista: true },
   });
@@ -42,7 +42,7 @@ async function obtenerContextoPrecioListaEdicion(
     return { ok: false, error: "Lista de precio no encontrada." };
   }
 
-  const producto = await prisma.prodTienda.findUnique({
+  const producto = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: { codTienda: true, costoCompra: true },
   });
@@ -50,7 +50,7 @@ async function obtenerContextoPrecioListaEdicion(
     return { ok: false, error: "Producto tienda no encontrado." };
   }
 
-  const dux = await prisma.prodTiendaPrecio.findUnique({
+  const dux = await prisma.prodPropioListaPrecio.findUnique({
     where: { codTienda_idLista: { codTienda, idLista } },
     select: { precio: true },
   });
@@ -68,7 +68,7 @@ async function eliminarStagingPrecioLista(
   idLista: number,
   pxDux: number | null
 ): Promise<ResultadoPrecioListaEdicion> {
-  await prisma.prodTiendaPrecioEdicion.deleteMany({
+  await prisma.prodPropioListaPrecioEdicion.deleteMany({
     where: { codTienda, idLista },
   });
   return { margenManual: null, pxEdicion: null, pxEfectivo: pxDux };
@@ -80,7 +80,7 @@ async function persistirStagingPrecioLista(
   pxEntero: number
 ): Promise<void> {
   const precioPersistir = new Prisma.Decimal(roundPrecioListaTienda(pxEntero));
-  await prisma.prodTiendaPrecioEdicion.upsert({
+  await prisma.prodPropioListaPrecioEdicion.upsert({
     where: { codTienda_idLista: { codTienda, idLista } },
     create: {
       codTienda,
@@ -94,7 +94,7 @@ async function persistirStagingPrecioLista(
 }
 
 /**
- * Guarda el PX calculado desde el margen en `prod_tienda_precios_edicion` (staging hasta Act. Px).
+ * Guarda el PX calculado desde el margen en `prod_propios_listas_precios_edicion` (staging hasta Act. Px).
  * `margenManual: null` elimina la fila pendiente.
  */
 export async function guardarPrecioListaEdicionDesdeMargen(
@@ -199,7 +199,7 @@ export async function limpiarPreciosEdicionTrasActPx(
 ): Promise<void> {
   if (claves.length === 0) return;
 
-  await prisma.prodTiendaPrecioEdicion.deleteMany({
+  await prisma.prodPropioListaPrecioEdicion.deleteMany({
     where: {
       OR: claves.map((c) => ({
         codTienda: c.codTienda,

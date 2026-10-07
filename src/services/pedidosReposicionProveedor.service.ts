@@ -3,7 +3,7 @@
  * `prod_precios_provee.cod_tienda`) y menor costo comparable según Posición IVA.
  *
  * Desde 2026-05-28 se eliminó el fallback legacy por `cod_ext` (cuando el sync DUX
- * todavía poblaba `prod_precios_tienda.cod_ext`). La única fuente de verdad es el vínculo
+ * todavía poblaba `prod_propios.cod_ext`). La única fuente de verdad es el vínculo
  * manual desde **Vínculos Con Proveedores**.
  */
 

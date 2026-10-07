@@ -10,7 +10,7 @@ export async function buildMapPrecioListaPrincipal(
   const map = new Map<string, number>();
   if (codTiendas.length === 0) return map;
   const idLista = getIdPrecioListaPrincipal();
-  const rows = await prisma.prodTiendaPrecio.findMany({
+  const rows = await prisma.prodPropioListaPrecio.findMany({
     where: { codTienda: { in: codTiendas }, idLista },
     select: { codTienda: true, precio: true },
   });

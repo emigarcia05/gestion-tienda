@@ -39,14 +39,14 @@ export type DatosSucursalProductoPedidoAFabrica = {
 export type ProductoPedidoAFabricaItem = {
   codExt: string;
   /**
-   * Vinculado (`prod_precios_provee.cod_tienda` → `prod_tienda`): `descripcion_tienda`.
+   * Vinculado (`prod_precios_provee.cod_tienda` → `prod_propios`): `descripcion_tienda`.
    * Sin vínculo: `descripcion_proveedor`.
    */
   descripcion: string;
-  /** `prod_precios_provee.cod_tienda` si hay fila en `prod_tienda`; si no, `null`. */
+  /** `prod_precios_provee.cod_tienda` si hay fila en `prod_propios`; si no, `null`. */
   codTienda: string | null;
   /**
-   * Vinculado: unidades de `prod_tienda.bulto` (`null` = sin configurar).
+   * Vinculado: unidades de `prod_propios.bulto` (`null` = sin configurar).
    * Sin vínculo: siempre `null` (celda vacía).
    */
   bulto: number | null;
@@ -60,7 +60,7 @@ export type FiltrosProductosPedidoAFabrica = {
   subRubro?: string;
   q?: string;
   pagina?: number;
-  /** `si` = hay `prod_tienda`; `no` = sin vínculo; omitido = todos. */
+  /** `si` = hay `prod_propios`; `no` = sin vínculo; omitido = todos. */
   prodVinculado?: "si" | "no";
   /** `si` = CANT. PED. persistida > 0; `no` = sin cantidad o 0; omitido = todos. */
   pedido?: "si" | "no";
@@ -71,7 +71,7 @@ export type ProductosPedidoAFabricaResult = {
   productos: ProductoPedidoAFabricaItem[];
   total: number;
   totalPaginas: number;
-  /** Opciones dinámicas (prod_tienda vía vínculo del proveedor). */
+  /** Opciones dinámicas (prod_propios vía vínculo del proveedor). */
   marcas: string[];
   rubros: string[];
   subRubros: string[];
@@ -202,7 +202,7 @@ function buildWhereLista(
     { idProveedor: proveedorId, habilitado: true },
   ];
 
-  const tiendaAnd: Prisma.ProdTiendaWhereInput[] = [];
+  const tiendaAnd: Prisma.ProdPropioWhereInput[] = [];
   const marca = filtros.marca?.trim() ?? "";
   const rubro = filtros.rubro?.trim() ?? "";
   const subRubro = filtros.subRubro?.trim() ?? "";
@@ -257,9 +257,9 @@ async function opcionesCampoTienda(
 
 /**
  * Lista productos de `prod_precios_provee` del proveedor, solo si `es_fabrica = true`.
- * Vínculo con tienda: `prod_precios_provee.cod_tienda` → `prod_tienda.cod_tienda`.
+ * Vínculo con tienda: `prod_precios_provee.cod_tienda` → `prod_propios.cod_tienda`.
  * Descripción: vinculada → `descripcion_tienda`; si no → `descripcion_proveedor`.
- * BULTO: vinculado → `prod_tienda.bulto`; si no → vacío.
+ * BULTO: vinculado → `prod_propios.bulto`; si no → vacío.
  * Solo filas `habilitado = true`. Filtros opcionales: marca / rubro / sub_rubro (tienda) + q + **PROD. VINCULADO** + **PEDIDO** (CANT. PED. persistida > 0).
  * Por cada sucursal `genera_est`: **PROM. VTA.** y STOCK / UN. ACT. del ledger `stock_movimientos`.
  */

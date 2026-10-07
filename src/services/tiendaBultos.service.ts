@@ -16,7 +16,7 @@ export async function buildMapBultosProdTienda(
   codTiendas: string[]
 ): Promise<Map<string, number>> {
   if (codTiendas.length === 0) return new Map();
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: {
       codTienda: { in: codTiendas },
       bulto: { gte: 1 },
@@ -32,7 +32,7 @@ export async function buildMapBultosProdTienda(
 }
 
 /**
- * Persiste `prod_tienda.bulto`. Entero ≥ 1; `null` deja la columna vacía.
+ * Persiste `prod_propios.bulto`. Entero ≥ 1; `null` deja la columna vacía.
  */
 export async function guardarBultoProdTienda(
   codTienda: string,
@@ -43,7 +43,7 @@ export async function guardarBultoProdTienda(
   }
 
   try {
-    const updated = await prisma.prodTienda.updateMany({
+    const updated = await prisma.prodPropio.updateMany({
       where: { codTienda },
       data: { bulto },
     });

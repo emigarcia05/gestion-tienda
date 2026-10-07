@@ -20,8 +20,8 @@ const CAMPOS_BUSQUEDA_COMPARACION = [
 
 const MAX_BUSQUEDA_COMPARACION_DB = 500;
 
-function buildWhereBusquedaProductosTienda(q: string): Prisma.ProdTiendaWhereInput {
-  const andParts: Prisma.ProdTiendaWhereInput[] = [{ compararCompetencia: false }];
+function buildWhereBusquedaProductosTienda(q: string): Prisma.ProdPropioWhereInput {
+  const andParts: Prisma.ProdPropioWhereInput[] = [{ compararCompetencia: false }];
   const tokens = q.trim().split(/\s+/).filter(Boolean);
   if (tokens.length > 0) {
     andParts.push({
@@ -67,7 +67,7 @@ export async function buscarProductosTiendaParaComparacion(params: {
   try {
     if (!hasSearch) {
       const [rows, total] = await Promise.all([
-        prisma.prodTienda.findMany({
+        prisma.prodPropio.findMany({
           where,
           select: {
             codTienda: true,
@@ -78,7 +78,7 @@ export async function buscarProductosTiendaParaComparacion(params: {
           orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
           take,
         }),
-        prisma.prodTienda.count({ where }),
+        prisma.prodPropio.count({ where }),
       ]);
 
       return {
@@ -90,7 +90,7 @@ export async function buscarProductosTiendaParaComparacion(params: {
       };
     }
 
-    const rows = await prisma.prodTienda.findMany({
+    const rows = await prisma.prodPropio.findMany({
       where,
       select: {
         codTienda: true,
@@ -129,7 +129,7 @@ export async function agregarProductoComparacionCompetencia(
   codTienda: string
 ): Promise<ServiceResult<void>> {
   try {
-    const existente = await prisma.prodTienda.findUnique({
+    const existente = await prisma.prodPropio.findUnique({
       where: { codTienda },
       select: { compararCompetencia: true },
     });
@@ -140,7 +140,7 @@ export async function agregarProductoComparacionCompetencia(
       return { success: false, error: "El producto ya está en comparación." };
     }
 
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { compararCompetencia: true },
     });
@@ -157,7 +157,7 @@ export async function quitarProductoComparacionCompetencia(
   codTienda: string
 ): Promise<ServiceResult<void>> {
   try {
-    const existente = await prisma.prodTienda.findUnique({
+    const existente = await prisma.prodPropio.findUnique({
       where: { codTienda },
       select: { compararCompetencia: true },
     });
@@ -168,7 +168,7 @@ export async function quitarProductoComparacionCompetencia(
       return { success: false, error: "El producto no está en comparación." };
     }
 
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { compararCompetencia: false },
     });

@@ -17,7 +17,7 @@ import {
 export type Sucursal = "guaymallen" | "maipu";
 
 export interface ItemStock {
-  /** `cod_tienda` (`prod_tienda`); clave estable para tabla. */
+  /** `cod_tienda` (`prod_propios`); clave estable para tabla. */
   id: string;
   codItem: string;
   descripcion: string;
@@ -51,7 +51,7 @@ const emptyControlStock: ControlStockData = {
 };
 
 /**
- * Datos para Control Stock desde prod_tienda.
+ * Datos para Control Stock desde prod_propios.
  * STOCK: saldo de `stock_movimientos` (ingresos − egresos) por sucursal.
  * Requiere permiso PERMISOS.stock.acceso.
  */
@@ -85,8 +85,8 @@ export async function getControlStock(
 
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
 
-  function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdTiendaWhereInput[] {
-    const parts: Prisma.ProdTiendaWhereInput[] = [whereProdTiendaStockeable()];
+  function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdPropioWhereInput[] {
+    const parts: Prisma.ProdPropioWhereInput[] = [whereProdTiendaStockeable()];
     if (textFilter.AND?.length) parts.push(textFilter);
     if (exclude !== "marca" && marca) parts.push({ marca });
     if (exclude !== "rubro" && rubro) parts.push({ rubro });
@@ -95,21 +95,21 @@ export async function getControlStock(
 
   const toWhereWithNotNull = (
     exclude: "marca" | "rubro"
-  ): Prisma.ProdTiendaWhereInput => {
+  ): Prisma.ProdPropioWhereInput => {
     const parts = baseWhere(exclude);
     const key = exclude;
-    const notNull = { [key]: { not: null } } as Prisma.ProdTiendaWhereInput;
+    const notNull = { [key]: { not: null } } as Prisma.ProdPropioWhereInput;
     return parts.length > 0 ? { AND: [...parts, notNull] } : notNull;
   };
 
-  const whereItems: Prisma.ProdTiendaWhereInput =
+  const whereItems: Prisma.ProdPropioWhereInput =
     baseWhere().length > 0 ? { AND: baseWhere() } : {};
   const whereMarcas = toWhereWithNotNull("marca");
   const whereRubros = toWhereWithNotNull("rubro");
 
   try {
     const [rows, total, marcasDistinct, rubrosDistinct] = await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         where: whereItems,
         orderBy: { descripcionTienda: "asc" },
         skip,
@@ -121,14 +121,14 @@ export async function getControlStock(
           rubro: true,
         },
       }),
-      prisma.prodTienda.count({ where: whereItems }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.count({ where: whereItems }),
+      prisma.prodPropio.findMany({
         select: { marca: true },
         distinct: ["marca"],
         where: whereMarcas,
         orderBy: { marca: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { rubro: true },
         distinct: ["rubro"],
         where: whereRubros,

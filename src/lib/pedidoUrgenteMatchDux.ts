@@ -1,5 +1,5 @@
 /**
- * Match lista de proveedor ↔ `prod_tienda` para Pedido Urgente.
+ * Match lista de proveedor ↔ `prod_propios` para Pedido Urgente.
  * No persiste `cod_tienda`: solo clasifica **Registrados en Dux**.
  */
 

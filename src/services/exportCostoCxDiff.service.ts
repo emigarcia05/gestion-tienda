@@ -28,7 +28,7 @@ function toNum(n: unknown): number {
 }
 
 /**
- * Difieren `prod_tienda.costo_compra` vs `prod_precios_provee.px_compra_final_sin_iva`
+ * Difieren `prod_propios.costo_compra` vs `prod_precios_provee.px_compra_final_sin_iva`
  * (vinculados por `costo_compra_cod_ext` → `cod_ext`).
  */
 export function costosCompraDifieren(costoCompra: number, pxProveedorSinIva: number): boolean {
@@ -92,7 +92,7 @@ const selectItemCostoCxDiff = {
 } as const;
 
 export async function listarItemsCostoCxDiff(): Promise<ItemCostoCxDiff[]> {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: {
       costoCompraCodExt: { not: null },
     },

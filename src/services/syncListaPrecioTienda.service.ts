@@ -1,5 +1,5 @@
 /**
- * Sincronización de prod_tienda desde la API DUX ERP.
+ * Sincronización de prod_propios desde la API DUX ERP.
  * Fase 1: bucle paginado (50 ítems por petición); tras cada página, persistencia en Neon
  *           en paralelo con la espera de rate limit DUX (`DELAY_MS`).
  */
@@ -68,7 +68,7 @@ export interface SyncListaPrecioTiendaResult {
   errores: string[];
 }
 
-/** Mapea ítem DUX a la fila de upsert prod_tienda. `proveedor` queda fuera del sync (§1.4.2). */
+/** Mapea ítem DUX a la fila de upsert prod_propios. `proveedor` queda fuera del sync (§1.4.2). */
 function itemDuxToProdTiendaRecord(item: ItemDux) {
   const codTienda = (item.codItem ?? "").trim() || COD_TIENDA;
   return {
@@ -98,7 +98,7 @@ async function upsertListasCatalogoEnTransaccion(
   }
   for (const [idLista, nombreLista] of unicas) {
     idListasVistas.add(idLista);
-    await tx.prodTiendaListaPrecio.upsert({
+    await tx.prodPropioListaPrecioNombre.upsert({
       where: { idLista },
       create: { idLista, nombreLista },
       update: { nombreLista },
@@ -115,7 +115,7 @@ async function syncListasPreciosEnTransaccion(
     for (const pl of row.precios) {
       if (!Number.isFinite(pl.idLista)) continue;
       idsEnItem.add(pl.idLista);
-      await tx.prodTiendaPrecio.upsert({
+      await tx.prodPropioListaPrecio.upsert({
         where: {
           codTienda_idLista: { codTienda: row.codTienda, idLista: pl.idLista },
         },
@@ -130,14 +130,14 @@ async function syncListasPreciosEnTransaccion(
       });
     }
     if (idsEnItem.size > 0) {
-      await tx.prodTiendaPrecio.deleteMany({
+      await tx.prodPropioListaPrecio.deleteMany({
         where: {
           codTienda: row.codTienda,
           idLista: { notIn: [...idsEnItem] },
         },
       });
     } else {
-      await tx.prodTiendaPrecio.deleteMany({
+      await tx.prodPropioListaPrecio.deleteMany({
         where: { codTienda: row.codTienda },
       });
     }
@@ -167,7 +167,7 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
               const nombreMarca = row.marca?.trim();
               const idMarca = nombreMarca ? mapaMarca.get(nombreMarca) ?? null : null;
               const lastSync = new Date();
-        await tx.prodTienda.upsert({
+        await tx.prodPropio.upsert({
                 where: { codTienda: row.codTienda },
                 create: {
                   codTienda: row.codTienda,
@@ -344,7 +344,7 @@ async function finalizeSyncWorker(
       eliminados = await eliminarProdTiendaAusentesEnSyncDux(worker.startedAt);
       if (eliminados > 0) {
         console.log(
-          `Sync DUX: eliminados ${eliminados} ítem(s) de prod_tienda ausentes en DUX.`
+          `Sync DUX: eliminados ${eliminados} ítem(s) de prod_propios ausentes en DUX.`
         );
       }
     } catch (e) {
@@ -364,23 +364,23 @@ async function finalizeSyncWorker(
       const totalHuerfanos = huerfanos.reduce((s, r) => s + r.aplicados, 0);
       if (totalHuerfanos > 0) {
         console.log(
-          `Limpieza huérfanos prod_tienda: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
+          `Limpieza huérfanos prod_propios: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
         );
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      errores.push(`Limpieza huérfanos prod_tienda: ${msg}`);
-      console.error("Error en limpieza huérfanos prod_tienda:", msg);
+      errores.push(`Limpieza huérfanos prod_propios: ${msg}`);
+      console.error("Error en limpieza huérfanos prod_propios:", msg);
     }
   }
 
   const listasVistas = worker.meta.listasVistas;
   if (permiteLimpieza && listasVistas.length > 0) {
     try {
-      await prisma.prodTiendaPrecio.deleteMany({
+      await prisma.prodPropioListaPrecio.deleteMany({
         where: { idLista: { notIn: listasVistas } },
       });
-      await prisma.prodTiendaListaPrecio.deleteMany({
+      await prisma.prodPropioListaPrecioNombre.deleteMany({
         where: { idLista: { notIn: listasVistas } },
       });
     } catch (e) {
@@ -390,7 +390,7 @@ async function finalizeSyncWorker(
     }
   }
 
-  const countAfter = await prisma.prodTienda.count();
+  const countAfter = await prisma.prodPropio.count();
   const creados = Math.max(0, countAfter - worker.meta.countBefore);
   const actualizados = Math.max(0, worker.processed - creados);
 

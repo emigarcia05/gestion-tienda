@@ -43,7 +43,7 @@ export type SucursalReposicion = "guaymallen" | "maipu";
 export type FormaPedirReposicionOption = ReposicionFormaPedido | "";
 
 export interface ItemReposicion {
-  /** Clave estable de fila tienda (= `prod_precios_tienda.cod_tienda`). El nombre conserva compatibilidad con la UI */
+  /** Clave estable de fila tienda (= `prod_propios.cod_tienda`). El nombre conserva compatibilidad con la UI */
   idListaTienda: string;
   codExt: string;
   codTienda: string;
@@ -61,7 +61,7 @@ export interface ItemReposicion {
   cantPedidaReposicion: number;
   /** Cantidad a pedir recalculada (stock / forma); misma regla que Generar pedido. */
   cantPedir: number;
-  /** Unidades por bulto (`prod_tienda.bulto`). `null` = vacío. */
+  /** Unidades por bulto (`prod_propios.bulto`). `null` = vacío. */
   bulto: number | null;
 }
 
@@ -111,7 +111,7 @@ function proveedorFiltroId(raw: string | undefined): string {
 }
 
 /** Filtro PROVEEDOR: solo si hay id (vínculo habilitado a ese proveedor no fábrica). */
-function whereVinculoProveedor(proveedorId: string): Prisma.ProdTiendaWhereInput | null {
+function whereVinculoProveedor(proveedorId: string): Prisma.ProdPropioWhereInput | null {
   if (!proveedorId) return null;
   return {
     listaPreciosProveedores: {
@@ -127,10 +127,10 @@ function whereVinculoProveedor(proveedorId: string): Prisma.ProdTiendaWhereInput
 function baseWhere(
   params: GetReposicionParams,
   exclude?: "marca" | "rubro" | "subRubro"
-): Prisma.ProdTiendaWhereInput[] {
+): Prisma.ProdPropioWhereInput[] {
   const { q = "", marca = "", rubro = "", subRubro = "" } = params;
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
-  const parts: Prisma.ProdTiendaWhereInput[] = [];
+  const parts: Prisma.ProdPropioWhereInput[] = [];
   if (textFilter.AND?.length) parts.push(textFilter);
   if (exclude !== "marca" && marca) parts.push({ marca });
   if (exclude !== "rubro" && rubro) parts.push({ rubro });
@@ -139,7 +139,7 @@ function baseWhere(
 }
 
 /**
- * Datos para Pedido Reposición: con sucursal, **todos** los ítems de `prod_tienda`
+ * Datos para Pedido Reposición: con sucursal, **todos** los ítems de `prod_propios`
  * (paginados). Marca / rubro / descripción / proveedor son opcionales.
  * Cada ítem incluye la configuración REPOSICION desde `prod_ped_merc`.
  * **CANT. A PEDIR** se recalcula con la misma regla que Generar Pedido / `upsertPedidoMercaderiaReposicionConfig`.
@@ -225,8 +225,8 @@ export async function getReposicionData(
       : [];
 
   const baseParts = baseWhere(paramsNorm);
-  const whereItems: Prisma.ProdTiendaWhereInput = (() => {
-    const parts: Prisma.ProdTiendaWhereInput[] = [...baseParts];
+  const whereItems: Prisma.ProdPropioWhereInput = (() => {
+    const parts: Prisma.ProdPropioWhereInput[] = [...baseParts];
     if (vinculoProveedor) parts.push(vinculoProveedor);
     if (configurado === "si") {
       // Si no hay configurados, devolvemos vacío rápido.
@@ -237,13 +237,13 @@ export async function getReposicionData(
   })();
   const toWhereWithNotNull = (
     exclude: "marca" | "rubro" | "subRubro"
-  ): Prisma.ProdTiendaWhereInput => {
+  ): Prisma.ProdPropioWhereInput => {
     const parts = baseWhere(paramsNorm, exclude);
     const key = exclude;
     const notNull = {
       [key]: { not: null },
-    } as Prisma.ProdTiendaWhereInput;
-    const extra: Prisma.ProdTiendaWhereInput[] = [];
+    } as Prisma.ProdPropioWhereInput;
+    const extra: Prisma.ProdPropioWhereInput[] = [];
     if (vinculoProveedor) extra.push(vinculoProveedor);
     if (configurado === "si") {
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
@@ -258,26 +258,26 @@ export async function getReposicionData(
   try {
   const [rows, total, marcasDistinct, rubrosDistinct, subRubrosDistinct] =
     await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         where: whereItems,
         orderBy: { descripcionTienda: "asc" },
         skip,
         take: PAGE_SIZE,
       }),
-      prisma.prodTienda.count({ where: whereItems }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.count({ where: whereItems }),
+      prisma.prodPropio.findMany({
         select: { marca: true },
         distinct: ["marca"],
         where: whereMarcas,
         orderBy: { marca: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { rubro: true },
         distinct: ["rubro"],
         where: whereRubros,
         orderBy: { rubro: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { subRubro: true },
         distinct: ["subRubro"],
         where: whereSubRubros,
@@ -445,7 +445,7 @@ export async function getProductosReposicionSelector(
   const qNorm = parsedQ.success ? parsedQ.data.q : "";
 
   const textFilter = filtroTexto(qNorm, ["descripcionTienda", "codTienda"]);
-  const whereParts: Prisma.ProdTiendaWhereInput[] = [
+  const whereParts: Prisma.ProdPropioWhereInput[] = [
     {
       listaPreciosProveedores: {
         some: {
@@ -459,9 +459,9 @@ export async function getProductosReposicionSelector(
     },
   ];
   if (textFilter.AND?.length) whereParts.push(textFilter);
-  const where: Prisma.ProdTiendaWhereInput = { AND: whereParts };
+  const where: Prisma.ProdPropioWhereInput = { AND: whereParts };
 
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where,
     orderBy: { descripcionTienda: "asc" },
     take: SELECTOR_LIMIT,
@@ -486,7 +486,7 @@ const upsertReglaSchema = z.object({
 
 /**
  * Crea o actualiza la regla de reposición para (sucursal, cod_tienda),
- * resolviendo proveedor/cod_ext vigentes desde `prod_precios_tienda`.
+ * resolviendo proveedor/cod_ext vigentes desde `prod_propios`.
  * Validación estricta: no guarda nada si falta Forma/Punto/Cant.
  */
 export async function upsertReglaReposicion(raw: unknown): Promise<ActionResult<void>> {

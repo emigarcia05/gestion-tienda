@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
-/** Nombres de marca distintos en `prod_tienda.marca` (trim, sin vacíos, orden alfabético). */
+/** Nombres de marca distintos en `prod_propios.marca` (trim, sin vacíos, orden alfabético). */
 export async function listarNombresMarcaDistinctProdTienda(): Promise<string[]> {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: { marca: { not: null } },
     distinct: ["marca"],
     orderBy: { marca: "asc" },
@@ -20,9 +20,9 @@ export async function listarNombresMarcaDistinctProdTienda(): Promise<string[]> 
   return out;
 }
 
-/** Nombres de rubro distintos en `prod_tienda.rubro` (trim, sin vacíos, orden alfabético). */
+/** Nombres de rubro distintos en `prod_propios.rubro` (trim, sin vacíos, orden alfabético). */
 export async function listarNombresRubroDistinctProdTienda(): Promise<string[]> {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: { rubro: { not: null } },
     distinct: ["rubro"],
     orderBy: { rubro: "asc" },
@@ -40,11 +40,11 @@ export async function listarNombresRubroDistinctProdTienda(): Promise<string[]> 
   return out;
 }
 
-/** Pares rubro + subrubro distintos en `prod_tienda` (trim, sin vacíos). */
+/** Pares rubro + subrubro distintos en `prod_propios` (trim, sin vacíos). */
 export async function listarSubRubrosPorRubroProdTienda(): Promise<
   { rubro: string; subRubro: string }[]
 > {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: {
       rubro: { not: null },
       subRubro: { not: null },
@@ -80,7 +80,7 @@ export async function listarRubrosOpcionesDesdeProdTienda(): Promise<
 }
 
 /**
- * Catálogo de rubros para reglas de descuento: mismos nombres que `prod_tienda.rubro`,
+ * Catálogo de rubros para reglas de descuento: mismos nombres que `prod_propios.rubro`,
  * con `id` de `prod_rubros_lista` (crea fila si falta — FK técnica del motor de reglas).
  */
 export async function listarRubrosCatalogoReglasDesdeProdTienda(): Promise<

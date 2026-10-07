@@ -318,7 +318,7 @@ async function listarCodTiendasComparacionPorTexto(
   const tokens = tokensBusquedaReferenciaCompetencia(q);
   if (tokens.length === 0) return [];
 
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: {
       compararCompetencia: true,
       AND: tokens.map((token) => ({
@@ -363,7 +363,7 @@ async function armarOpcionesReferenciaPorCodTiendas(
       },
     }),
     listarCompetenciasConPxSugeridoPorCodTiendas(codTiendas, competenciaId),
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       where: { codTienda: { in: codTiendas } },
       select: { codTienda: true, descripcionTienda: true },
     }),
@@ -643,7 +643,7 @@ export async function asignarReferenciaCompetenciaPresentacion(
   codTienda: string,
   competenciaId: string
 ): Promise<ReferenciaCompetenciaPresentacion> {
-  const prodTienda = await prisma.prodTienda.findUnique({
+  const prodTienda = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: { compararCompetencia: true },
   });

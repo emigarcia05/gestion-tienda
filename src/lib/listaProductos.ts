@@ -1,4 +1,4 @@
-/** `prod_marcas` en **Gestionar Marcas**; `productos` = filas `prod_tienda` vinculadas. */
+/** `prod_marcas` en **Gestionar Marcas**; `productos` = filas `prod_propios` vinculadas. */
 export type MarcaCatalogoItem = {
   id: string;
   nombre: string;
@@ -6,7 +6,7 @@ export type MarcaCatalogoItem = {
   productos: number;
 };
 
-/** `prod_rubros_lista` en **Gestionar Rubros**; `productos` = filas `prod_tienda` con ese texto. */
+/** `prod_rubros_lista` en **Gestionar Rubros**; `productos` = filas `prod_propios` con ese texto. */
 export type RubroCatalogoItem = {
   id: string;
   nombre: string;

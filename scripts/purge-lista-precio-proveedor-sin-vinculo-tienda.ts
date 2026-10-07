@@ -1,6 +1,6 @@
 /**
  * Elimina filas de `prod_precios_provee` de un proveedor que no tienen vínculo
- * manual con `prod_tienda` (`cod_tienda` IS NULL).
+ * manual con `prod_propios` (`cod_tienda` IS NULL).
  *
  * Uso:
  *   npm run db:purge-lista-precio-sin-vinculo -- --proveedor "EL GARAGE REFINISH CENTER S. A. S."
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     }
 
     const [comoCostoCx, enPedidoUrgente] = await Promise.all([
-      prisma.prodTienda.count({
+      prisma.prodPropio.count({
         where: { costoCompraCodExt: { in: codExts } },
       }),
       prisma.prodPedMerc2.count({
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
 
     if (comoCostoCx > 0) {
       console.log(
-        `⚠ ${comoCostoCx} fila(s) prod_tienda usan estos cod_ext como costo_compra_cod_ext (FK → SET NULL al borrar).`
+        `⚠ ${comoCostoCx} fila(s) prod_propios usan estos cod_ext como costo_compra_cod_ext (FK → SET NULL al borrar).`
       );
     }
     if (enPedidoUrgente > 0) {

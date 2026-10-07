@@ -46,7 +46,7 @@ export async function obtenerIdDepositoPorCodigoSucursal(
 }
 
 /** `prod_tienda_stock` eliminada: no hay filtro stockeable persistido. */
-export function whereProdTiendaStockeable(): Prisma.ProdTiendaWhereInput {
+export function whereProdTiendaStockeable(): Prisma.ProdPropioWhereInput {
   return {};
 }
 

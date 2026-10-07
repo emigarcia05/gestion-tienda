@@ -21,7 +21,9 @@ enum TipoValorTesoreria {
   CHEQUE
 }
 
-/** Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo. */
+/**
+ * Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo.
+ */
 enum SentidoMovimientoTesoreria {
   INGRESO
   EGRESO
@@ -41,7 +43,9 @@ enum CategoriaMovimientoTesoreria {
   TRANSFERENCIA_ENTRE_CAJAS
 }
 
-/** Signo del movimiento de stock. `cantidad` siempre positiva. */
+/**
+ * Signo del movimiento de stock. `cantidad` siempre positiva.
+ */
 enum StockMovimientoTipo {
   INGRESO @map("ingreso")
   EGRESO  @map("egreso")
@@ -50,34 +54,44 @@ enum StockMovimientoTipo {
 }
 
 enum StockMovimientoCategoria {
-  VENTA          @map("venta")
-  NOTA_CREDITO   @map("nota_credito")
-  AJUSTE_STOCK   @map("ajuste_stock")
-  /** Transferencia entre sucursales/depósitos. Signo en `tipo_movimiento`. */
-  TRANSF_INTERNA @map("transf_interna")
-  COMPRA         @map("compra")
-  /** Devolución al proveedor (NC de compra). Siempre EGRESO. */
+  VENTA               @map("venta")
+  NOTA_CREDITO        @map("nota_credito")
+  AJUSTE_STOCK        @map("ajuste_stock")
+  /**
+   * Transferencia entre sucursales/depósitos. Signo en `tipo_movimiento`.
+   */
+  TRANSF_INTERNA      @map("transf_interna")
+  COMPRA              @map("compra")
+  /**
+   * Devolución al proveedor (NC de compra). Siempre EGRESO.
+   */
   NOTA_CREDITO_COMPRA @map("nota_credito_compra")
 
   @@map("stock_movimiento_categoria")
 }
 
-/** Comprobante que justifica uno o más `stock_movimientos`. */
+/**
+ * Comprobante que justifica uno o más `stock_movimientos`.
+ */
 enum StockComprobanteTipo {
-  VENTA                          @map("venta")
-  NOTA_CREDITO                   @map("nota_credito")
-  COMPRA                         @map("compra")
-  AJUSTE_STOCK                   @map("ajuste_stock")
-  TRANSFERENCIA_ENTRE_DEPOSITOS  @map("transferencia_entre_depositos")
-  NOTA_CREDITO_COMPRA            @map("nota_credito_compra")
+  VENTA                         @map("venta")
+  NOTA_CREDITO                  @map("nota_credito")
+  COMPRA                        @map("compra")
+  AJUSTE_STOCK                  @map("ajuste_stock")
+  TRANSFERENCIA_ENTRE_DEPOSITOS @map("transferencia_entre_depositos")
+  NOTA_CREDITO_COMPRA           @map("nota_credito_compra")
 
   @@map("stock_comprobante_tipo")
 }
 
 enum StockTransferenciaEstado {
-  /** Emitida: la otra sucursal debe aceptar. */
+  /**
+   * Emitida: la otra sucursal debe aceptar.
+   */
   EMITIDO_PENDIENTE     @map("emitido_pendiente")
-  /** La sucursal que revisa cambió cantidades / ítems: la otra debe aceptar. */
+  /**
+   * La sucursal que revisa cambió cantidades / ítems: la otra debe aceptar.
+   */
   RECTIFICADO_PENDIENTE @map("rectificado_pendiente")
   ACEPTADA              @map("aceptada")
   RECHAZADA             @map("rechazada")
@@ -87,7 +101,9 @@ enum StockTransferenciaEstado {
 }
 
 enum NotificacionTipo {
-  /** Requiere acción: aceptar / rechazar la transferencia. */
+  /**
+   * Requiere acción: aceptar / rechazar la transferencia.
+   */
   TRANSF_PENDIENTE @map("transf_pendiente")
   TRANSF_ACEPTADA  @map("transf_aceptada")
   TRANSF_RECHAZADA @map("transf_rechazada")
@@ -101,7 +117,7 @@ enum NotificacionTipo {
  * - SIEMPRE  : el proveedor siempre factura con IVA.
  * - NUNCA    : el proveedor nunca factura con IVA.
  * - PREGUNTA : política indefinida; la UI / flujo debe preguntar caso por caso.
- *   Es el default de la columna (no asume política comercial).
+ * Es el default de la columna (no asume política comercial).
  */
 enum IvaProveedor {
   SIEMPRE
@@ -110,29 +126,31 @@ enum IvaProveedor {
 }
 
 model Proveedor {
-  id              String   @id @default(cuid())
-  nombre          String   @unique(map: "global_proveedores_nombre_key")
-  /** Opcional. Si falta, `codigo_unico` se genera al alta (ver `createProveedor`). */
-  prefijo         String?  @unique(map: "global_proveedores_prefijo_ux")
-  codigoUnico     String   @map("codigo_unico")
-  idProveedorDux  String?  @unique(map: "global_proveedores_id_proveedor_dux_key") @map("id_proveedor_dux") // ID único del proveedor en DUX; FK desde fin_compras_comprobante
-  whatsapp        String?  @map("whatsapp") // Número para envío de pedido por WhatsApp (internacional sin +)
-  coeficienteTintometrico Decimal @map("coeficiente_tintometrico") @db.Decimal(12, 6) @default(1)
+  id                      String       @id @default(cuid())
+  nombre                  String       @unique(map: "global_proveedores_nombre_key")
+  /**
+   * Opcional. Si falta, `codigo_unico` se genera al alta (ver `createProveedor`).
+   */
+  prefijo                 String?      @unique(map: "global_proveedores_prefijo_ux")
+  codigoUnico             String       @map("codigo_unico")
+  idProveedorDux          String?      @unique(map: "global_proveedores_id_proveedor_dux_key") @map("id_proveedor_dux") // ID único del proveedor en DUX; FK desde fin_compras_comprobante
+  whatsapp                String?      @map("whatsapp") // Número para envío de pedido por WhatsApp (internacional sin +)
+  coeficienteTintometrico Decimal      @default(1) @map("coeficiente_tintometrico") @db.Decimal(12, 6)
   /**
    * Plan de pago en días desde la fecha del comprobante (hasta 4 cuotas iguales).
    * `plazo_pago_1_dias` es el default operativo (si null → 30 en cálculos).
    * Plazos 2–4 opcionales; deben ser crecientes respecto del anterior.
    * Valores permitidos en app: 30, 60, 90, 120, 150.
    */
-  plazoPago1Dias Int? @map("plazo_pago_1_dias")
-  plazoPago2Dias Int? @map("plazo_pago_2_dias")
-  plazoPago3Dias Int? @map("plazo_pago_3_dias")
-  plazoPago4Dias Int? @map("plazo_pago_4_dias")
+  plazoPago1Dias          Int?         @map("plazo_pago_1_dias")
+  plazoPago2Dias          Int?         @map("plazo_pago_2_dias")
+  plazoPago3Dias          Int?         @map("plazo_pago_3_dias")
+  plazoPago4Dias          Int?         @map("plazo_pago_4_dias")
   /**
    * Tiempo de entrega del proveedor en días enteros (≥ 0).
    * Null = no configurado.
    */
-  tiempoEntregaEnDias Int? @map("tiempo_entrega_en_dias")
+  tiempoEntregaEnDias     Int?         @map("tiempo_entrega_en_dias")
   /**
    * Flag que marca al proveedor como "de mercadería".
    * Solo los TRUE se listan en /gestion-productos/proveedores/lista.
@@ -140,28 +158,28 @@ model Proveedor {
    * al momento de la migración fueron backfilleados a true para preservar el
    * comportamiento previo de la lista.
    */
-  proveedorMercaderia Boolean @default(false) @map("proveedor_mercaderia")
+  proveedorMercaderia     Boolean      @default(false) @map("proveedor_mercaderia")
   /**
    * Indica si el proveedor es fábrica (Pedido A Fábrica).
    * Default DB: false.
    */
-  esFabrica Boolean @default(false) @map("es_fabrica")
+  esFabrica               Boolean      @default(false) @map("es_fabrica")
   /**
    * Política de IVA del proveedor. Default DB `PREGUNTA` (la UI debe pedir
    * decisión al operador caso por caso hasta que se registre la política).
    */
-  iva             IvaProveedor @default(PREGUNTA) @map("iva")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  iva                     IvaProveedor @default(PREGUNTA) @map("iva")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
 
-  listaPrecios         ListaPrecioProveedor[]
-  pedidosHistoria     PedidoHistoria[]
-  stockComprobantes   StockComprobante[]
-  comprobantesProveedor ComprobanteProveedor[]
-  finBalGastoFinal   FinBalGastoFinal[]
-  competenciasPrecios ProdCompetencia[]
-  preciosRex          ProdPrecioRex[]
-  reglasDescuentosListaPrecio ProdPrecioProveeRegla[]
+  listaPrecios                  ListaPrecioProveedor[]
+  pedidosHistoria               PedidoHistoria[]
+  stockComprobantes             StockComprobante[]
+  comprobantesProveedor         ComprobanteProveedor[]
+  finBalGastoFinal              FinBalGastoFinal[]
+  competenciasPrecios           ProdCompetencia[]
+  preciosRex                    ProdPrecioRex[]
+  reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
 
   @@index([proveedorMercaderia], map: "global_proveedores_proveedor_mercaderia_idx")
@@ -169,7 +187,9 @@ model Proveedor {
   @@map("global_proveedores")
 }
 
-/** Cotización USD→ARS única para lista de precios proveedor (singleton: id = `USD`). */
+/**
+ * Cotización USD→ARS única para lista de precios proveedor (singleton: id = `USD`).
+ */
 model GlobalCotizacionUsd {
   id        String   @id
   valor     Decimal  @db.Decimal(14, 4)
@@ -178,7 +198,9 @@ model GlobalCotizacionUsd {
   @@map("global_cotizacion_usd")
 }
 
-/** Campo materializable en `prod_precios_provee` gobernado por reglas de descuento. */
+/**
+ * Campo materializable en `prod_precios_provee` gobernado por reglas de descuento.
+ */
 enum CampoReglaDescuentoListaPrecio {
   dto_proveedor
   dto_marca
@@ -188,32 +210,36 @@ enum CampoReglaDescuentoListaPrecio {
   cx_transporte
 }
 
-/** Catálogo de rubros para condiciones de reglas de descuento en lista de precios proveedor. */
+/**
+ * Catálogo de rubros para condiciones de reglas de descuento en lista de precios proveedor.
+ */
 model ProdRubroLista {
   id        String   @id @default(cuid())
   nombre    String   @unique(map: "prod_rubros_lista_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  reglasDescuentos ProdPrecioProveeRegla[]
+  reglasDescuentos   ProdPrecioProveeRegla[]
   reglasDescEspecial ProdPrecioDescEspecialRegla[]
 
   @@map("prod_rubros_lista")
 }
 
-/** Regla de descuento/cx para materializar columnas dto_* y cx_transporte en prod_precios_provee. */
+/**
+ * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en prod_precios_provee.
+ */
 model ProdPrecioProveeRegla {
-  id          String                        @id @default(cuid())
+  id          String                         @id @default(cuid())
   campo       CampoReglaDescuentoListaPrecio
-  valor       Decimal                       @db.Decimal(5, 2)
-  idProveedor String?                       @map("id_proveedor")
-  idMarca     String?                       @map("id_marca")
-  idRubro     String?                       @map("id_rubro")
-  createdAt   DateTime                      @default(now()) @map("created_at")
-  updatedAt   DateTime                      @updatedAt @map("updated_at")
+  valor       Decimal                        @db.Decimal(5, 2)
+  idProveedor String?                        @map("id_proveedor")
+  idMarca     String?                        @map("id_marca")
+  idRubro     String?                        @map("id_rubro")
+  createdAt   DateTime                       @default(now()) @map("created_at")
+  updatedAt   DateTime                       @updatedAt @map("updated_at")
 
-  proveedor Proveedor?    @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
-  marca     Marca?        @relation(fields: [idMarca], references: [id], onDelete: Cascade)
+  proveedor Proveedor?      @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
+  marca     Marca?          @relation(fields: [idMarca], references: [id], onDelete: Cascade)
   rubro     ProdRubroLista? @relation(fields: [idRubro], references: [id], onDelete: Cascade)
 
   @@index([campo], map: "prod_precios_provee_reglas_campo_idx")
@@ -223,7 +249,9 @@ model ProdPrecioProveeRegla {
   @@map("prod_precios_provee_reglas")
 }
 
-/** Regla de descuento específico por lista de productos (`desc_especial` materializado). */
+/**
+ * Regla de descuento específico por lista de productos (`desc_especial` materializado).
+ */
 model ProdPrecioDescEspecialRegla {
   id          String   @id @default(cuid())
   nombre      String
@@ -234,9 +262,9 @@ model ProdPrecioDescEspecialRegla {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  proveedor Proveedor?      @relation(fields: [idProveedor], references: [id], onDelete: SetNull)
-  marca     Marca?          @relation(fields: [idMarca], references: [id], onDelete: SetNull)
-  rubro     ProdRubroLista? @relation(fields: [idRubro], references: [id], onDelete: SetNull)
+  proveedor Proveedor?                            @relation(fields: [idProveedor], references: [id], onDelete: SetNull)
+  marca     Marca?                                @relation(fields: [idMarca], references: [id], onDelete: SetNull)
+  rubro     ProdRubroLista?                       @relation(fields: [idRubro], references: [id], onDelete: SetNull)
   productos ProdPrecioDescEspecialReglaProducto[]
 
   @@index([idProveedor], map: "pp_desc_esp_regla_id_proveedor_idx")
@@ -262,29 +290,33 @@ model ProdPrecioDescEspecialReglaProducto {
 // El GET DUX `/compras` y su sync están deshabilitados (se reutilizará más adelante).
 // `id_proveedor` almacena el mismo valor que `global_proveedores.id_proveedor_dux` (FK).
 model ComprobanteProveedor {
-  id                 String   @id @default(cuid())
-  idSucursalEmpresa  String   @map("id_sucursal_empresa")
-  tipoComp           String   @map("tipo_comp")
-  comprobante        String
-  fechaComp          DateTime @map("fecha_comp") @db.Date
-  idProveedor        String   @map("id_proveedor")
-  total              Decimal  @map("total") @db.Decimal(14, 2)
-  montoAplicado      Decimal  @map("monto_aplicado") @db.Decimal(14, 2)
+  id                String   @id @default(cuid())
+  idSucursalEmpresa String   @map("id_sucursal_empresa")
+  tipoComp          String   @map("tipo_comp")
+  comprobante       String
+  fechaComp         DateTime @map("fecha_comp") @db.Date
+  idProveedor       String   @map("id_proveedor")
+  total             Decimal  @map("total") @db.Decimal(14, 2)
+  montoAplicado     Decimal  @map("monto_aplicado") @db.Decimal(14, 2)
   /**
    * Override de plan de pago (hasta 4 cuotas). Si `plazo_pago_1_dias` es null → plan del proveedor.
    * Cuotas iguales sobre `total`; `monto_aplicado` se aplica FIFO 1→4.
    */
-  plazoPago1Dias      Int?     @map("plazo_pago_1_dias")
-  plazoPago2Dias      Int?     @map("plazo_pago_2_dias")
-  plazoPago3Dias      Int?     @map("plazo_pago_3_dias")
-  plazoPago4Dias      Int?     @map("plazo_pago_4_dias")
-  controlado         Boolean  @default(false)
-  /** Recepción de pedido que generó el comprobante (o la NC); NULL si el pedido se purgó. */
-  pedidoHistoriaId   String?  @map("pedido_historia_id")
-  /** En `NOTA_CREDITO`: comprobante de compra al que se aplicó (`monto_aplicado` += total NC). */
-  comprobanteAsocId  String?  @map("comprobante_asoc_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  plazoPago1Dias    Int?     @map("plazo_pago_1_dias")
+  plazoPago2Dias    Int?     @map("plazo_pago_2_dias")
+  plazoPago3Dias    Int?     @map("plazo_pago_3_dias")
+  plazoPago4Dias    Int?     @map("plazo_pago_4_dias")
+  controlado        Boolean  @default(false)
+  /**
+   * Recepción de pedido que generó el comprobante (o la NC); NULL si el pedido se purgó.
+   */
+  pedidoHistoriaId  String?  @map("pedido_historia_id")
+  /**
+   * En `NOTA_CREDITO`: comprobante de compra al que se aplicó (`monto_aplicado` += total NC).
+   */
+  comprobanteAsocId String?  @map("comprobante_asoc_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   proveedor       Proveedor              @relation(fields: [idProveedor], references: [idProveedorDux], onDelete: Restrict)
   pedidoHistoria  PedidoHistoria?        @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
@@ -302,11 +334,11 @@ model ComprobanteProveedor {
 // Sucursales: código estable (guaymallen, maipu), nombre, whatsapp (emisor), id DUX y flag de habilitación para pedidos.
 // Cada sucursal es también depósito de stock (`stock_movimientos.sucursal`).
 model Sucursal {
-  id             String   @id @default(cuid())
-  codigo         String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
-  nombre         String
-  whatsapp       String?  @map("whatsapp")
-  pedido         Boolean  @default(true) @map("pedido")
+  id            String   @id @default(cuid())
+  codigo        String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
+  nombre        String
+  whatsapp      String?  @map("whatsapp")
+  pedido        Boolean  @default(true) @map("pedido")
   /**
    * Flag "Centro de costo": indica si la sucursal debe tratarse como centro
    * de imputación de costos en reportes/balance (independiente de `pedido`,
@@ -314,42 +346,44 @@ model Sucursal {
    * `false`; los registros preexistentes se inicializan en `false` (opt-in).
    * El flag se marca directamente en DB / seed (no hay UI de alta de sucursal).
    */
-  centroCosto    Boolean  @default(false) @map("centro_costo")
+  centroCosto   Boolean  @default(false) @map("centro_costo")
   /**
    * Si la sucursal participa en balance / selects de imputación de gastos finales.
    * Independiente de `centro_costo`: una sucursal puede ser centro de costo sin generar balance.
    */
-  generaBalance  Boolean  @default(false) @map("genera_balance")
+  generaBalance Boolean  @default(false) @map("genera_balance")
   /**
    * Si la sucursal aparece en Estadísticas Productos · Carga de Datos
    * (columnas de la grilla periodo × sucursal). Independiente de stock / depósitos
    * y de `genera_balance`. Default `false` (opt-in); se gestiona por seed / UPDATE en DB.
    */
-  generaEst      Boolean  @default(false) @map("genera_est")
-  /** ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo). */
-  idDux          String?  @unique(map: "sucursales_id_dux_key") @map("id_dux")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  generaEst     Boolean  @default(false) @map("genera_est")
+  /**
+   * ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo).
+   */
+  idDux         String?  @unique(map: "sucursales_id_dux_key") @map("id_dux")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  itemsProdPedMerc2    ProdPedMerc2[]
-  pedidosHistoria     PedidoHistoria[]
-  finBalGastoFinal    FinBalGastoFinal[]
-  finBalGastoMensualImputaciones FinBalGastoMensual[] @relation("FinBalGastoMensualImputacionSucursal")
-  finBalVtas          FinBalVtas[]
-  estPorProd          EstPorProd[]
-  personalSucursalPorDefecto GlobalPersonal[] @relation("PersonalSucursalPorDefecto")
-  enviosFinal                EnviosFinal[]
-  ptoVtasAsociados           GlobalPtoVtaSucursal[]
-  cajasTesoreria            CajaTesoreria[]
-  cobrosPorSucursal         CobrosPorSucursal[]
-  movimientosTesoreria      TesoreriaMovimiento[]
-  stockMovimientos          StockMovimiento[]
-  stockComprobantes         StockComprobante[] @relation("StockComprobanteSucursal")
-  stockComprobantesDestino  StockComprobante[] @relation("StockComprobanteSucursalDestino")
-  stockTransferenciasOrigen   StockTransferencia[] @relation("StockTransferenciaOrigen")
-  stockTransferenciasDestino  StockTransferencia[] @relation("StockTransferenciaDestino")
-  stockTransferenciasConfirma StockTransferencia[] @relation("StockTransferenciaConfirma")
-  notificaciones              Notificacion[]
+  itemsProdPedMerc2              ProdPedMerc2[]
+  pedidosHistoria                PedidoHistoria[]
+  finBalGastoFinal               FinBalGastoFinal[]
+  finBalGastoMensualImputaciones FinBalGastoMensual[]   @relation("FinBalGastoMensualImputacionSucursal")
+  finBalVtas                     FinBalVtas[]
+  estPorProd                     EstPorProd[]
+  personalSucursalPorDefecto     GlobalPersonal[]       @relation("PersonalSucursalPorDefecto")
+  enviosFinal                    EnviosFinal[]
+  ptoVtasAsociados               GlobalPtoVtaSucursal[]
+  cajasTesoreria                 CajaTesoreria[]
+  cobrosPorSucursal              CobrosPorSucursal[]
+  movimientosTesoreria           TesoreriaMovimiento[]
+  stockMovimientos               StockMovimiento[]
+  stockComprobantes              StockComprobante[]     @relation("StockComprobanteSucursal")
+  stockComprobantesDestino       StockComprobante[]     @relation("StockComprobanteSucursalDestino")
+  stockTransferenciasOrigen      StockTransferencia[]   @relation("StockTransferenciaOrigen")
+  stockTransferenciasDestino     StockTransferencia[]   @relation("StockTransferenciaDestino")
+  stockTransferenciasConfirma    StockTransferencia[]   @relation("StockTransferenciaConfirma")
+  notificaciones                 Notificacion[]
 
   @@map("sucursales")
 }
@@ -360,28 +394,42 @@ model Sucursal {
  * `suc_asociadas` = filas en `global_pto_vta_sucursales` (N:M con `sucursales` `genera_est = true`).
  */
 model GlobalPtoVta {
-  id                 String    @id @default(cuid())
-  /** N° punto de venta DUX, siempre 5 dígitos (ej. `00002`). */
-  ptoVenta           String    @unique(map: "ptos_vtas_pto_venta_key") @map("pto_venta") @db.Char(5)
-  /** CUIT 11 dígitos sin guiones. */
-  cuit               String?   @map("cuit") @db.VarChar(11)
-  iiBbMultilateral   Boolean   @default(false) @map("ii_bb_multilateral")
-  /** Cuenta IIBB / convenio / `EXENTO`. */
-  iiBb               String?   @map("ii_bb") @db.VarChar(64)
-  /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
-  condicionIva       Int?      @map("condicion_iva")
+  id                 String            @id @default(cuid())
+  /**
+   * N° punto de venta DUX, siempre 5 dígitos (ej. `00002`).
+   */
+  ptoVenta           String            @unique(map: "ptos_vtas_pto_venta_key") @map("pto_venta") @db.Char(5)
+  /**
+   * CUIT 11 dígitos sin guiones.
+   */
+  cuit               String?           @map("cuit") @db.VarChar(11)
+  iiBbMultilateral   Boolean           @default(false) @map("ii_bb_multilateral")
+  /**
+   * Cuenta IIBB / convenio / `EXENTO`.
+   */
+  iiBb               String?           @map("ii_bb") @db.VarChar(64)
+  /**
+   * Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir.
+   */
+  condicionIva       Int?              @map("condicion_iva")
   condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  /** Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade). */
-  titular            String    @map("titular")
-  titularTesoreria   TesoreriaTitular @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
-  domicilioComercial String?   @map("domicilio_comercial") @db.Text
-  inicioActividades  DateTime? @map("inicio_actividades") @db.Date
-  /** Default `1` = Productos. */
-  concepto           String    @default("1") @map("concepto") @db.VarChar(8)
-  /** `activo` | `inactivo` (CHECK SQL). */
-  estado             String    @default("activo") @map("estado") @db.VarChar(16)
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  /**
+   * Nombre de `tesoreria_titulares` (FK Restrict / Update Cascade).
+   */
+  titular            String            @map("titular")
+  titularTesoreria   TesoreriaTitular  @relation(fields: [titular], references: [nombre], onDelete: Restrict, onUpdate: Cascade)
+  domicilioComercial String?           @map("domicilio_comercial") @db.Text
+  inicioActividades  DateTime?         @map("inicio_actividades") @db.Date
+  /**
+   * Default `1` = Productos.
+   */
+  concepto           String            @default("1") @map("concepto") @db.VarChar(8)
+  /**
+   * `activo` | `inactivo` (CHECK SQL).
+   */
+  estado             String            @default("activo") @map("estado") @db.VarChar(16)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
   sucursales       GlobalPtoVtaSucursal[]
   comprobantesVtas ComprobanteVta[]
@@ -391,10 +439,12 @@ model GlobalPtoVta {
   @@map("ptos_vtas")
 }
 
-/** Sucursales asociadas a un punto de venta (`suc_asociadas`). */
+/**
+ * Sucursales asociadas a un punto de venta (`suc_asociadas`).
+ */
 model GlobalPtoVtaSucursal {
-  ptoVtaId   String @map("pto_vta_id")
-  sucursalId String @map("sucursal_id")
+  ptoVtaId   String       @map("pto_vta_id")
+  sucursalId String       @map("sucursal_id")
   ptoVta     GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Cascade)
   sucursal   Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
 
@@ -413,10 +463,10 @@ model PtoVentasCodArca {
   descripcion String  @db.VarChar(100)
   activo      Boolean @default(true)
 
-  ptoVtas                     GlobalPtoVta[]
-  comprobantesVtasReceptor    ComprobanteVta[] @relation("ComprobanteVtaReceptorIva")
-  comprobantesVtasEmisor      ComprobanteVta[] @relation("ComprobanteVtaEmisorIva")
-  clientes                    Cliente[]
+  ptoVtas                  GlobalPtoVta[]
+  comprobantesVtasReceptor ComprobanteVta[] @relation("ComprobanteVtaReceptorIva")
+  comprobantesVtasEmisor   ComprobanteVta[] @relation("ComprobanteVtaEmisorIva")
+  clientes                 Cliente[]
 
   @@map("condicion_iva_cod_arca")
 }
@@ -430,22 +480,28 @@ model PtoVentasCodArca {
 model GlobalPersonal {
   idPersonal         Int      @id @default(autoincrement()) @map("id_personal")
   nombrePersonal     String   @map("nombre_personal")
-  /** ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos. */
+  /**
+   * ID DUX para FKs desde otras tablas. Unique si está informado; varios NULL permitidos.
+   */
   idDux              String?  @unique(map: "usuarios_id_dux_key") @map("id_dux")
-  /** Código de `sucursales` (guaymallen | maipu). */
+  /**
+   * Código de `sucursales` (guaymallen | maipu).
+   */
   sucursalPorDefecto String?  @map("sucursal_por_defecto")
-  /** Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | area-finanzas (0..n). `facturacion` ya no es área. */
+  /**
+   * Áreas MAIN_APP_AREAS: gestion-productos | finanzas | marketing | area-finanzas (0..n). `facturacion` ya no es área.
+   */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
 
-  sucursalDefault Sucursal? @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
-  comprobantesVtas ComprobanteVta[]
-  movimientosTesoreria TesoreriaMovimiento[]
-  stockComprobantes StockComprobante[]
-  stockMovimientos  StockMovimiento[]
-  stockTransferenciasCreadas  StockTransferencia[] @relation("StockTransferenciaCreadaPor")
-  stockTransferenciasResueltas StockTransferencia[] @relation("StockTransferenciaResueltaPor")
-  notificacionesLeidas        Notificacion[]
+  sucursalDefault              Sucursal?             @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
+  comprobantesVtas             ComprobanteVta[]
+  movimientosTesoreria         TesoreriaMovimiento[]
+  stockComprobantes            StockComprobante[]
+  stockMovimientos             StockMovimiento[]
+  stockTransferenciasCreadas   StockTransferencia[]  @relation("StockTransferenciaCreadaPor")
+  stockTransferenciasResueltas StockTransferencia[]  @relation("StockTransferenciaResueltaPor")
+  notificacionesLeidas         Notificacion[]
 
   @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
   @@map("usuarios")
@@ -467,7 +523,9 @@ model TesoreriaTitular {
   @@map("tesoreria_titulares")
 }
 
-/** Catálogo de tipos de caja (`codigo` = literal de enum `TipoCajaTesoreria`; `nombre` para UI). */
+/**
+ * Catálogo de tipos de caja (`codigo` = literal de enum `TipoCajaTesoreria`; `nombre` para UI).
+ */
 model FinTesoreriaTipoCaja {
   id        String   @id @default(cuid())
   codigo    String   @unique(map: "tesoreria_tipo_caja_codigo_key")
@@ -484,27 +542,35 @@ model FinTesoreriaTipoCaja {
 // el SSOT del saldo pasará a ser la suma de `tesoreria_movimientos.monto`
 // con signo según `tipo_movimiento` (INGRESO +, EGRESO −).
 model CajaTesoreria {
-  id               String            @id @default(cuid())
-  /** Null si la caja no usa una entidad de `cobros_entidades`. */
-  entidadId        String?           @map("entidad_id")
-  entidad          FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
-  /** Titular: nombre de `global_personal` con `titular_financiero = true`. */
-  titular          String            @map("titular")
-  /** Null si no se eligió sucursal, o si `tipoCaja = CHEQUE` (CHEQUE nunca tiene sucursal). */
-  sucursalId       String?           @map("sucursal_id")
-  sucursal         Sucursal?         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  tipoCaja         TipoCajaTesoreria @map("tipo_caja")
-  tipoValor        TipoValorTesoreria @map("tipo_valor")
-  /** Supervisión fiscal (TRUE/FALSE). */
-  supervisionFiscal Boolean @default(false) @map("supervision_fiscal")
-  monto            Int               @default(0)
-  ultActualizacion DateTime          @map("ult_actualizacion") @default(now())
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
+  id                String                      @id @default(cuid())
+  /**
+   * Null si la caja no usa una entidad de `cobros_entidades`.
+   */
+  entidadId         String?                     @map("entidad_id")
+  entidad           FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  /**
+   * Titular: nombre de `global_personal` con `titular_financiero = true`.
+   */
+  titular           String                      @map("titular")
+  /**
+   * Null si no se eligió sucursal, o si `tipoCaja = CHEQUE` (CHEQUE nunca tiene sucursal).
+   */
+  sucursalId        String?                     @map("sucursal_id")
+  sucursal          Sucursal?                   @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  tipoCaja          TipoCajaTesoreria           @map("tipo_caja")
+  tipoValor         TipoValorTesoreria          @map("tipo_valor")
+  /**
+   * Supervisión fiscal (TRUE/FALSE).
+   */
+  supervisionFiscal Boolean                     @default(false) @map("supervision_fiscal")
+  monto             Int                         @default(0)
+  ultActualizacion  DateTime                    @default(now()) @map("ult_actualizacion")
+  createdAt         DateTime                    @default(now()) @map("created_at")
+  updatedAt         DateTime                    @updatedAt @map("updated_at")
 
-  cobrosPorSucursalDestino       CobrosPorSucursal[]
-  movimientos                    TesoreriaMovimiento[] @relation("MovimientoCaja")
-  movimientosComoContraparte     TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
+  cobrosPorSucursalDestino   CobrosPorSucursal[]
+  movimientos                TesoreriaMovimiento[] @relation("MovimientoCaja")
+  movimientosComoContraparte TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
@@ -521,12 +587,14 @@ model CajaTesoreria {
  * Cobros de factura: `comprobante_id` apunta a la venta/NC; SSOT (ya no `comprobantes_vtas_cobros`).
  */
 model TesoreriaMovimiento {
-  id                   String                        @id @default(cuid())
-  /** Null solo en imputación de NOTA_CREDITO (sin impacto de caja). */
-  cajaId               String?                       @map("caja_id")
-  caja                 CajaTesoreria?                @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
-  tipoMovimiento       SentidoMovimientoTesoreria    @map("tipo_movimiento")
-  catMovimiento        CategoriaMovimientoTesoreria  @map("cat_movimiento")
+  id                   String                       @id @default(cuid())
+  /**
+   * Null solo en imputación de NOTA_CREDITO (sin impacto de caja).
+   */
+  cajaId               String?                      @map("caja_id")
+  caja                 CajaTesoreria?               @relation("MovimientoCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  tipoMovimiento       SentidoMovimientoTesoreria   @map("tipo_movimiento")
+  catMovimiento        CategoriaMovimientoTesoreria @map("cat_movimiento")
   /**
    * Importe bruto positivo (CHECK `monto > 0` en SQL).
    * En cobros = lo que pagó el cliente (alimenta `imp_cobrado` / UI de factura).
@@ -537,56 +605,82 @@ model TesoreriaMovimiento {
    * En cobros: `monto` × (1 − `costo_financiero` persistido %), redondeado.
    * En el resto de categorías: igual a `monto`.
    */
-  montoAcreditado      Int                           @map("monto_acreditado")
+  montoAcreditado      Int                          @map("monto_acreditado")
   /**
    * % de Cx Fin del contrato al registrar el cobro (snapshot).
    * No se recalcula si cambia `cobros_cx_fin`. Null en no-cobro o filas viejas.
    */
-  costoFinanciero      Decimal?                      @map("costo_financiero") @db.Decimal(5, 2)
-  /** Día en que se registró el movimiento (calendario Argentina). */
-  fechaRegistro        DateTime                      @map("fecha_registro") @db.Date
+  costoFinanciero      Decimal?                     @map("costo_financiero") @db.Decimal(5, 2)
+  /**
+   * Día en que se registró el movimiento (calendario Argentina).
+   */
+  fechaRegistro        DateTime                     @map("fecha_registro") @db.Date
   /**
    * Día en que impacta el saldo de la caja (calendario Argentina).
    * En cobros: `fecha_registro` + `cobros_cx_fin.dias_acreditacion` (0 si null).
    */
-  fechaAcreditacion    DateTime                      @map("fecha_acreditacion") @db.Date
-  observacion          String                        @default("") @map("observacion") @db.Text
-  /** Forma de pago. Obligatoria en COBRO; en NOTA_CREDITO null si es imputación de NC. */
-  pagoId               String?                       @map("pago_id")
-  pago                 FinAnaCosFinaPagoCat?         @relation(fields: [pagoId], references: [id], onDelete: Restrict)
-  /** Entidad de la forma. Null si la forma no tiene entidades, o si la categoría no es cobro. */
-  entidadId            String?                       @map("entidad_id")
-  entidad              FinAnaCosFinaTerminalMarca?   @relation(fields: [entidadId], references: [id], onDelete: Restrict)
-  /** Cuota del par forma+entidad. Null si ese par no tiene cuotas. */
-  cuotaId              String?                       @map("cuota_id")
-  cuota                CobrosCuota?                  @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
-  /** Fila de `cobros_cx_fin` de esa forma × entidad × cuota. Null si no hay fila. */
-  cxFinId              String?                       @map("cx_fin_id")
-  cxFin                FinAnaCosFina?                @relation(fields: [cxFinId], references: [id], onDelete: Restrict)
-  /** Pareja de piernas en TRANSFERENCIA_ENTRE_CAJAS. */
-  transferenciaGrupoId String?                       @map("transferencia_grupo_id")
-  /** La otra caja en una transferencia. */
-  cajaContraparteId    String?                       @map("caja_contraparte_id")
-  cajaContraparte      CajaTesoreria?                @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
-  /** Sucursal del movimiento. Distinta de `tesoreria_cajas.sucursal_id`. */
-  sucursalId           String                        @map("sucursal_id")
-  sucursal             Sucursal                      @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  /** Usuario de pestaña (`personal`) que registró el movimiento. Null en filas previas. */
-  personalId           Int?                          @map("personal_id")
-  personal             GlobalPersonal?               @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
-  /** Comprobante (venta o NC) al que aplica el cobro / imputación / devolución. */
-  comprobanteId        String?                       @map("comprobante_id")
-  comprobante          ComprobanteVta?               @relation("MovimientoComprobante", fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  /** Orden relativo de cobros en ese comprobante. */
+  fechaAcreditacion    DateTime                     @map("fecha_acreditacion") @db.Date
+  observacion          String                       @default("") @map("observacion") @db.Text
+  /**
+   * Forma de pago. Obligatoria en COBRO; en NOTA_CREDITO null si es imputación de NC.
+   */
+  pagoId               String?                      @map("pago_id")
+  pago                 FinAnaCosFinaPagoCat?        @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  /**
+   * Entidad de la forma. Null si la forma no tiene entidades, o si la categoría no es cobro.
+   */
+  entidadId            String?                      @map("entidad_id")
+  entidad              FinAnaCosFinaTerminalMarca?  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  /**
+   * Cuota del par forma+entidad. Null si ese par no tiene cuotas.
+   */
+  cuotaId              String?                      @map("cuota_id")
+  cuota                CobrosCuota?                 @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
+  /**
+   * Fila de `cobros_cx_fin` de esa forma × entidad × cuota. Null si no hay fila.
+   */
+  cxFinId              String?                      @map("cx_fin_id")
+  cxFin                FinAnaCosFina?               @relation(fields: [cxFinId], references: [id], onDelete: Restrict)
+  /**
+   * Pareja de piernas en TRANSFERENCIA_ENTRE_CAJAS.
+   */
+  transferenciaGrupoId String?                      @map("transferencia_grupo_id")
+  /**
+   * La otra caja en una transferencia.
+   */
+  cajaContraparteId    String?                      @map("caja_contraparte_id")
+  cajaContraparte      CajaTesoreria?               @relation("MovimientoCajaContraparte", fields: [cajaContraparteId], references: [id], onDelete: Restrict)
+  /**
+   * Sucursal del movimiento. Distinta de `tesoreria_cajas.sucursal_id`.
+   */
+  sucursalId           String                       @map("sucursal_id")
+  sucursal             Sucursal                     @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  /**
+   * Usuario de pestaña (`personal`) que registró el movimiento. Null en filas previas.
+   */
+  personalId           Int?                         @map("personal_id")
+  personal             GlobalPersonal?              @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * Comprobante (venta o NC) al que aplica el cobro / imputación / devolución.
+   */
+  comprobanteId        String?                      @map("comprobante_id")
+  comprobante          ComprobanteVta?              @relation("MovimientoComprobante", fields: [comprobanteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  /**
+   * Orden relativo de cobros en ese comprobante.
+   */
   orden                Int?
-  /** Pago CC padre cuando el cobro nace de `clientes_cobros`. */
-  clienteCobroId       String?                       @map("cliente_cobro_id")
-  clienteCobro         ClienteCobro?                 @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  /** NC origen cuando `cat_movimiento = NOTA_CREDITO` es imputación a una venta. */
-  notaCreditoId        String?                       @map("nota_credito_id")
-  notaCredito          ComprobanteVta?               @relation("MovimientoNotaCredito", fields: [notaCreditoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  createdAt            DateTime                      @default(now()) @map("created_at")
-  updatedAt            DateTime                      @updatedAt @map("updated_at")
+  /**
+   * Pago CC padre cuando el cobro nace de `clientes_cobros`.
+   */
+  clienteCobroId       String?                      @map("cliente_cobro_id")
+  clienteCobro         ClienteCobro?                @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * NC origen cuando `cat_movimiento = NOTA_CREDITO` es imputación a una venta.
+   */
+  notaCreditoId        String?                      @map("nota_credito_id")
+  notaCredito          ComprobanteVta?              @relation("MovimientoNotaCredito", fields: [notaCreditoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
 
   @@index([cajaId, fechaAcreditacion], map: "tesoreria_movimientos_caja_fecha_acred_idx")
   @@index([tipoMovimiento], map: "tesoreria_movimientos_tipo_movimiento_idx")
@@ -645,8 +739,10 @@ model FinBalGasto {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  rubro FinBalGastoRubro @relation(fields: [rubroId], references: [id], onDelete: Restrict)
-  /** Gasto de balance por proveedor y sucursal (`fin_bal_gasto_final`, N filas por gasto). */
+  rubro               FinBalGastoRubro   @relation(fields: [rubroId], references: [id], onDelete: Restrict)
+  /**
+   * Gasto de balance por proveedor y sucursal (`fin_bal_gasto_final`, N filas por gasto).
+   */
   asignacionesFinales FinBalGastoFinal[]
 
   @@unique([rubroId, nombre], map: "fin_bal_cat_gasto_rubro_nombre_ux")
@@ -664,17 +760,23 @@ model FinBalGasto {
  * Un gasto de catálogo puede tener N filas; la terna gasto + proveedor + sucursal puede repetirse (cada fila tiene `id` propio e imputaciones mensuales independientes).
  */
 model FinBalGastoFinal {
-  id            String   @id @default(cuid())
-  gastoId       String   @map("gasto_id")
-  proveedorId   String   @map("proveedor_id")
-  sucursalId    String?  @map("sucursal_id")
-  gastoMensual  Boolean  @map("gasto_mensual")
-  /** Día del mes (1–28) del devengo en gastos mensuales; `NULL` en eventuales. */
-  diaDevengado  Int?     @map("dia_devengado")
-  /** Plazo de pago (0–30 días) en gastos mensuales; `NULL` en eventuales. */
-  vencimiento   Int?     @map("plazo_pago_dias")
-  /** Texto libre (UI: COMENTARIOS, mayúsculas). */
-  comentarios   String?  @db.Text @map("comentarios")
+  id           String       @id @default(cuid())
+  gastoId      String       @map("gasto_id")
+  proveedorId  String       @map("proveedor_id")
+  sucursalId   String?      @map("sucursal_id")
+  gastoMensual Boolean      @map("gasto_mensual")
+  /**
+   * Día del mes (1–28) del devengo en gastos mensuales; `NULL` en eventuales.
+   */
+  diaDevengado Int?         @map("dia_devengado")
+  /**
+   * Plazo de pago (0–30 días) en gastos mensuales; `NULL` en eventuales.
+   */
+  vencimiento  Int?         @map("plazo_pago_dias")
+  /**
+   * Texto libre (UI: COMENTARIOS, mayúsculas).
+   */
+  comentarios  String?      @map("comentarios") @db.Text
   /**
    * Política de IVA del gasto final. Reusa el enum `IvaProveedor`
    * (compartido con `global_proveedores.iva`). Default DB `PREGUNTA`.
@@ -683,14 +785,16 @@ model FinBalGastoFinal {
    * `iva = NUNCA` (p. ej. una imputación específica sin discriminación
    * fiscal), y viceversa.
    */
-  iva           IvaProveedor @default(PREGUNTA) @map("iva")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  iva          IvaProveedor @default(PREGUNTA) @map("iva")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
-  gasto     FinBalGasto @relation(fields: [gastoId], references: [id], onDelete: Cascade)
-  proveedor Proveedor   @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  sucursal  Sucursal?   @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  /** Una fila por mes/año imputado (unicidad en DB). */
+  gasto     FinBalGasto          @relation(fields: [gastoId], references: [id], onDelete: Cascade)
+  proveedor Proveedor            @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  sucursal  Sucursal?            @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  /**
+   * Una fila por mes/año imputado (unicidad en DB).
+   */
   mensuales FinBalGastoMensual[]
 
   @@index([gastoId])
@@ -706,34 +810,38 @@ model FinBalGastoFinal {
  * Unicidad `(gasto_final_id, mes, anio)` solo si `gastoMensualEnAlta = true` (índice parcial en PostgreSQL).
  */
 model FinBalGastoMensual {
-  id           String   @id @default(cuid())
-  gastoFinalId String   @map("gasto_final_id")
-  /** Mes calendario 1–12. */
-  mes          Int
-  /** Año calendario (columna física `anio`). */
-  anio         Int      @map("anio")
-  monto        Int
-  pagado       Int
+  id                   String   @id @default(cuid())
+  gastoFinalId         String   @map("gasto_final_id")
+  /**
+   * Mes calendario 1–12.
+   */
+  mes                  Int
+  /**
+   * Año calendario (columna física `anio`).
+   */
+  anio                 Int      @map("anio")
+  monto                Int
+  pagado               Int
   /**
    * `true` si la fila proviene de «Cargar mes» (catálogo mensual). En eventuales es `false`
    * y puede haber N filas por el mismo gasto final en el mismo periodo.
    */
-  gastoMensualEnAlta Boolean @default(false) @map("gasto_mensual_en_alta")
+  gastoMensualEnAlta   Boolean  @default(false) @map("gasto_mensual_en_alta")
   /**
    * Sucursal declarada al cargar una imputación (p. ej. gasto eventual sin sucursal en catálogo).
    * Si es NULL, la UI de Balance usa `fin_bal_gasto_final.sucursal_id`.
    */
-  imputacionSucursalId String?   @map("imputacion_sucursal_id")
+  imputacionSucursalId String?  @map("imputacion_sucursal_id")
   /**
    * Si la imputación discrimina IVA en este período (`fin_bal_gasto_final.iva`:
    * SIEMPRE → true, NUNCA → false, PREGUNTA → definido por el usuario al alta).
    */
-  iva          Boolean  @map("iva")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  iva                  Boolean  @map("iva")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  gastoFinal          FinBalGastoFinal @relation(fields: [gastoFinalId], references: [id], onDelete: Cascade)
-  imputacionSucursal  Sucursal?        @relation("FinBalGastoMensualImputacionSucursal", fields: [imputacionSucursalId], references: [id], onDelete: Restrict)
+  gastoFinal         FinBalGastoFinal @relation(fields: [gastoFinalId], references: [id], onDelete: Cascade)
+  imputacionSucursal Sucursal?        @relation("FinBalGastoMensualImputacionSucursal", fields: [imputacionSucursalId], references: [id], onDelete: Restrict)
 
   @@index([anio, mes])
   @@index([imputacionSucursalId])
@@ -747,16 +855,22 @@ model FinBalGastoMensual {
  * `mes` / `anio`: periodo calendario (1–12 / año) al que aplica el monto.
  */
 model FinBalVtas {
-  id          String   @id @default(cuid())
-  sucursalId  String   @map("sucursal_id")
-  /** Mes calendario 1–12. */
-  mes         Int
-  /** Año calendario (columna física `anio`). */
-  anio        Int      @map("anio")
-  /** Monto entero cargado desde la UI (pesos u otra unidad de negocio). */
-  monto       Int
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  sucursalId String   @map("sucursal_id")
+  /**
+   * Mes calendario 1–12.
+   */
+  mes        Int
+  /**
+   * Año calendario (columna física `anio`).
+   */
+  anio       Int      @map("anio")
+  /**
+   * Monto entero cargado desde la UI (pesos u otra unidad de negocio).
+   */
+  monto      Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   sucursal Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
 
@@ -769,23 +883,29 @@ model FinBalVtas {
 /**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
  * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
- * `cod_tienda` referencia `prod_tienda.cod_tienda` (código numérico DUX importado como texto).
+ * `cod_tienda` referencia `prod_propios.cod_tienda` (código numérico DUX importado como texto).
  */
 model EstPorProd {
   id         String   @id @default(cuid())
   sucursalId String   @map("sucursal_id")
-  /** Mes calendario 1–12. */
+  /**
+   * Mes calendario 1–12.
+   */
   mes        Int
-  /** Año calendario (columna física `anio`). */
+  /**
+   * Año calendario (columna física `anio`).
+   */
   anio       Int      @map("anio")
   codTienda  String   @map("cod_tienda")
-  /** Ventas en unidades importadas desde planilla. */
+  /**
+   * Ventas en unidades importadas desde planilla.
+   */
   vtasEnUn   Decimal  @map("vtas_en_un") @db.Decimal(14, 4)
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   sucursal Sucursal   @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  producto ProdTienda @relation(fields: [codTienda], references: [codTienda], onDelete: Restrict)
+  producto ProdPropio @relation(fields: [codTienda], references: [codTienda], onDelete: Restrict)
 
   @@unique([sucursalId, mes, anio, codTienda], map: "est_por_prod_sucursal_periodo_cod_ux")
   @@index([sucursalId])
@@ -797,16 +917,18 @@ model EstPorProd {
 /**
  * Catálogo de nombres de color para estadísticas por producto.
  * El color no viene en columna: se detecta por match (regex) del `nombre`
- * (MAYÚSCULAS) dentro de la descripción del producto en `prod_tienda`.
+ * (MAYÚSCULAS) dentro de la descripción del producto en `prod_propios`.
  */
 model EstPorProdColor {
   id        String   @id @default(cuid())
-  /** Nombre en MAYÚSCULAS (p. ej. BLANCO); único para match en descripciones. */
+  /**
+   * Nombre en MAYÚSCULAS (p. ej. BLANCO); único para match en descripciones.
+   */
   nombre    String   @unique(map: "est_por_prod_colores_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  prodTiendas ProdTienda[]
+  prodTiendas ProdPropio[]
 
   @@map("est_por_prod_colores")
 }
@@ -817,13 +939,15 @@ model EstPorProdColor {
  * `suma` = true si el valor numérico puede agregarse en estadísticas.
  */
 model EstPorProdUnPresentacion {
-  id              String                   @id @default(cuid())
-  /** Texto de unidad en MAYÚSCULAS (único). */
-  unidad          String                   @unique(map: "est_por_prod_un_presentacion_unidad_key")
-  posicionUnidad  EstPorProdPosicionUnidad @map("posicion_unidad")
-  suma            Boolean                  @default(false)
-  createdAt       DateTime                 @default(now()) @map("created_at")
-  updatedAt       DateTime                 @updatedAt @map("updated_at")
+  id             String                   @id @default(cuid())
+  /**
+   * Texto de unidad en MAYÚSCULAS (único).
+   */
+  unidad         String                   @unique(map: "est_por_prod_un_presentacion_unidad_key")
+  posicionUnidad EstPorProdPosicionUnidad @map("posicion_unidad")
+  suma           Boolean                  @default(false)
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
 
   presentacionesComoMedida     EstPorProdPresentacion[] @relation("PresentacionUnidadMedida")
   presentacionesComoConversion EstPorProdPresentacion[] @relation("PresentacionConversionUnidad")
@@ -834,7 +958,9 @@ model EstPorProdUnPresentacion {
 enum EstPorProdPosicionUnidad {
   PREFIJO
   SUFIJO
-  /** Sufijo pegado al número, sin espacio (p. ej. `3''`). */
+  /**
+   * Sufijo pegado al número, sin espacio (p. ej. `3''`).
+   */
   SUFIJO_SIN_ESPACIO
 
   @@map("est_por_prod_posicion_unidad")
@@ -846,20 +972,24 @@ enum EstPorProdPosicionUnidad {
  * valor numérico y conversión opcional a otra unidad.
  */
 model EstPorProdPresentacion {
-  id                             String   @id @default(cuid())
-  /** Fragmento a buscar en la descripción (MAYÚSCULAS), p. ej. «440 CC». */
-  texto                          String   @unique(map: "est_por_prod_presentacion_texto_key")
-  unidadMedidaId                 String   @map("unidad_medida_id")
-  presentacionNumerica           Decimal  @map("presentacion_numerica") @db.Decimal(12, 4)
-  /** Conversión opcional; solo unidades con `suma = true`. */
-  conversionAUnidadId            String?  @map("conversion_a_unidad_id")
-  conversionAUnidadPresentacion  Decimal? @map("conversion_a_unidad_presentacion") @db.Decimal(12, 4)
-  createdAt                      DateTime @default(now()) @map("created_at")
-  updatedAt                      DateTime @updatedAt @map("updated_at")
+  id                            String   @id @default(cuid())
+  /**
+   * Fragmento a buscar en la descripción (MAYÚSCULAS), p. ej. «440 CC».
+   */
+  texto                         String   @unique(map: "est_por_prod_presentacion_texto_key")
+  unidadMedidaId                String   @map("unidad_medida_id")
+  presentacionNumerica          Decimal  @map("presentacion_numerica") @db.Decimal(12, 4)
+  /**
+   * Conversión opcional; solo unidades con `suma = true`.
+   */
+  conversionAUnidadId           String?  @map("conversion_a_unidad_id")
+  conversionAUnidadPresentacion Decimal? @map("conversion_a_unidad_presentacion") @db.Decimal(12, 4)
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
 
-  unidadMedida        EstPorProdUnPresentacion  @relation("PresentacionUnidadMedida", fields: [unidadMedidaId], references: [id], onDelete: Restrict)
-  conversionAUnidad   EstPorProdUnPresentacion? @relation("PresentacionConversionUnidad", fields: [conversionAUnidadId], references: [id], onDelete: Restrict)
-  prodTiendas         ProdTienda[]
+  unidadMedida      EstPorProdUnPresentacion  @relation("PresentacionUnidadMedida", fields: [unidadMedidaId], references: [id], onDelete: Restrict)
+  conversionAUnidad EstPorProdUnPresentacion? @relation("PresentacionConversionUnidad", fields: [conversionAUnidadId], references: [id], onDelete: Restrict)
+  prodTiendas       ProdPropio[]
 
   @@index([unidadMedidaId])
   @@index([conversionAUnidadId])
@@ -873,7 +1003,9 @@ model EstPorProdPresentacion {
  */
 model EstPorProdTerminacion {
   id          String   @id @default(cuid())
-  /** Nombre en MAYÚSCULAS; único para match en descripciones. */
+  /**
+   * Nombre en MAYÚSCULAS; único para match en descripciones.
+   */
   terminacion String   @unique(map: "est_por_prod_terminacion_terminacion_key")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -888,7 +1020,9 @@ model EstPorProdTerminacion {
  */
 model FinBalIvaDebImportLine {
   id                   String   @id @default(cuid())
-  /** Hash estable por fila para no duplicar al reimportar el mismo comprobante. */
+  /**
+   * Hash estable por fila para no duplicar al reimportar el mismo comprobante.
+   */
   dedupeKey            String   @unique(map: "fin_bal_iva_deb_import_dedupe_key_key") @map("dedupe_key") @db.VarChar(64)
   fechaEmision         DateTime @map("fecha_emision") @db.Date
   denominacionReceptor String   @map("denominacion_receptor") @db.VarChar(512)
@@ -932,56 +1066,70 @@ model FinBalPosicionIvaComparacionPedido {
 }
 
 model ListaPrecioProveedor {
-  /** PK lógica: prefijo proveedor + código producto en import (único global). */
-  codExt            String   @id @map("cod_ext")
-  idProveedor       String   @map("id_proveedor")
-  codProdProveedor  String   @map("cod_prod_proveedor")
-  descripcionProveedor String  @map("descripcion_proveedor")
-  pxListaProveedor  Decimal  @map("px_lista_proveedor") @db.Decimal(14, 4)
-  pxDolares         Boolean  @map("px_dolares") @default(false) // mapea switch SÍ/NO del modal importar: true = precio × cotización global USD
-  /** Caché de `global_cotizacion_usd.valor` cuando `px_dolares`; 1 si false. Solo escribe el servicio de cotización / import. */
-  cotizacionDolar   Decimal  @map("cotizacion_dolar") @db.Decimal(14, 4) @default(1)
-  pxVtaSugerido     Decimal? @map("px_vta_sugerido") @db.Decimal(14, 4)
-  marca             String?  // texto marca (proveedor / lista)
-  rubro             String?  @map("rubro")
-  dtoProveedor      Decimal  @map("dto_proveedor") @default(0) @db.Decimal(5, 2) // descuento proveedor (%)
-  dtoMarca          Decimal  @map("dto_marca") @default(0) @db.Decimal(5, 2)
-  dtoRubro          Decimal  @map("dto_rubro") @default(0) @db.Decimal(5, 2)
-  dtoCantidad       Decimal  @map("dto_cantidad") @default(0) @db.Decimal(5, 2)
-  dtoFinanciero     Decimal  @map("dto_financiero") @default(0) @db.Decimal(5, 2)
-  cxTransporte      Decimal  @map("cx_transporte") @default(0) @db.Decimal(5, 2)
-  /** Desc. específico por regla de productos vinculados (`prod_precios_desc_especial_regla`). */
-  descEspecial      Decimal  @map("desc_especial") @default(0) @db.Decimal(5, 2)
-  /** Px promo fijo en moneda del ítem (`px_dolares`: US$ o pesos). Null = Px Final usa dto_*. */
-  pxPromoFijo       Decimal? @map("px_promo_fijo") @db.Decimal(14, 4)
-  pxCompraFinalSinIva Decimal? @map("px_compra_final_sin_iva") @db.Decimal(14, 4) // GENERATED: promo → monto×(cotiz si USD)×(1+cx); si no, lista×(1-dtoTotal/100)×(1+cx)
-  codTiendaVinculo String? @map("cod_tienda") // FK al ítem tienda (`prod_tienda.cod_tienda`; 1 tienda → N proveedores)
-  /** FK opcional → catálogo REX (`prod_precios_rex`). Varios `cod_ext` pueden compartir el mismo REX. */
-  idPrecioRex         String?  @map("id_precio_rex")
-  habilitado         Boolean  @map("habilitado") @default(true) // mapea opción SÍ/NO del modal importar
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  /**
+   * PK lógica: prefijo proveedor + código producto en import (único global).
+   */
+  codExt               String   @id @map("cod_ext")
+  idProveedor          String   @map("id_proveedor")
+  codProdProveedor     String   @map("cod_prod_proveedor")
+  descripcionProveedor String   @map("descripcion_proveedor")
+  pxListaProveedor     Decimal  @map("px_lista_proveedor") @db.Decimal(14, 4)
+  pxDolares            Boolean  @default(false) @map("px_dolares") // mapea switch SÍ/NO del modal importar: true = precio × cotización global USD
+  /**
+   * Caché de `global_cotizacion_usd.valor` cuando `px_dolares`; 1 si false. Solo escribe el servicio de cotización / import.
+   */
+  cotizacionDolar      Decimal  @default(1) @map("cotizacion_dolar") @db.Decimal(14, 4)
+  pxVtaSugerido        Decimal? @map("px_vta_sugerido") @db.Decimal(14, 4)
+  marca                String? // texto marca (proveedor / lista)
+  rubro                String?  @map("rubro")
+  dtoProveedor         Decimal  @default(0) @map("dto_proveedor") @db.Decimal(5, 2) // descuento proveedor (%)
+  dtoMarca             Decimal  @default(0) @map("dto_marca") @db.Decimal(5, 2)
+  dtoRubro             Decimal  @default(0) @map("dto_rubro") @db.Decimal(5, 2)
+  dtoCantidad          Decimal  @default(0) @map("dto_cantidad") @db.Decimal(5, 2)
+  dtoFinanciero        Decimal  @default(0) @map("dto_financiero") @db.Decimal(5, 2)
+  cxTransporte         Decimal  @default(0) @map("cx_transporte") @db.Decimal(5, 2)
+  /**
+   * Desc. específico por regla de productos vinculados (`prod_precios_desc_especial_regla`).
+   */
+  descEspecial         Decimal  @default(0) @map("desc_especial") @db.Decimal(5, 2)
+  /**
+   * Px promo fijo en moneda del ítem (`px_dolares`: US$ o pesos). Null = Px Final usa dto_*.
+   */
+  pxPromoFijo          Decimal? @map("px_promo_fijo") @db.Decimal(14, 4)
+  pxCompraFinalSinIva  Decimal? @map("px_compra_final_sin_iva") @db.Decimal(14, 4) // GENERATED: promo → monto×(cotiz si USD)×(1+cx); si no, lista×(1-dtoTotal/100)×(1+cx)
+  codTiendaVinculo     String?  @map("cod_tienda") // FK al ítem tienda (`prod_propios.cod_tienda`; 1 tienda → N proveedores)
+  /**
+   * FK opcional → catálogo REX (`prod_precios_rex`). Varios `cod_ext` pueden compartir el mismo REX.
+   */
+  idPrecioRex          String?  @map("id_precio_rex")
+  habilitado           Boolean  @default(true) @map("habilitado") // mapea opción SÍ/NO del modal importar
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  proveedor         Proveedor        @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
-  precioRex         ProdPrecioRex?   @relation(fields: [idPrecioRex], references: [id], onDelete: SetNull)
-  prodTienda ProdTienda? @relation(fields: [codTiendaVinculo], references: [codTienda], onDelete: SetNull)
-  itemsComparacion ComparacionItem[]
-  reglaDescEspecial ProdPrecioDescEspecialReglaProducto?
-  /** Ítems tienda que usan esta fila como costo lista en Cx/Px Tienda. */
-  costoListaEnTiendas ProdTienda[] @relation("CostoListaEnTienda")
+  proveedor           Proveedor                            @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
+  precioRex           ProdPrecioRex?                       @relation(fields: [idPrecioRex], references: [id], onDelete: SetNull)
+  prodTienda          ProdPropio?                          @relation(fields: [codTiendaVinculo], references: [codTienda], onDelete: SetNull)
+  itemsComparacion    ComparacionItem[]
+  reglaDescEspecial   ProdPrecioDescEspecialReglaProducto?
+  /**
+   * Ítems tienda que usan esta fila como costo lista en Cx/Px Tienda.
+   */
+  costoListaEnTiendas ProdPropio[]                         @relation("CostoListaEnTienda")
 
   @@unique([idProveedor, codProdProveedor], map: "prod_precios_provee_id_proveedor_cod_prod_prov_key")
   @@index([idPrecioRex], map: "prod_precios_provee_id_precio_rex_idx")
   @@map("prod_precios_provee")
 }
 
-/** Ítem de lista proveedor asignado a una presentación en Comp. Categorías (+ DTO. EXTRA, DIF % REF. MAN.). */
+/**
+ * Ítem de lista proveedor asignado a una presentación en Comp. Categorías (+ DTO. EXTRA, DIF % REF. MAN.).
+ */
 model ComparacionItem {
-  id                         String @id @default(cuid())
-  presentacionId             String @map("presentacion_id")
-  listaPrecioProveedorCodExt String @map("cod_ext_prod_precios_provee")
-  dtoExtra                   Int?   @map("dto_extra") // 0-99, null si está vacío
-  difPxRefManual             Int?   @map("dif_px_ref_manual") // entero con signo % vs px referencia
+  id                         String   @id @default(cuid())
+  presentacionId             String   @map("presentacion_id")
+  listaPrecioProveedorCodExt String   @map("cod_ext_prod_precios_provee")
+  dtoExtra                   Int?     @map("dto_extra") // 0-99, null si está vacío
+  difPxRefManual             Int?     @map("dif_px_ref_manual") // entero con signo % vs px referencia
   createdAt                  DateTime @default(now()) @map("created_at")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
@@ -1012,70 +1160,72 @@ model ComparacionPresentacionRefComp {
 
 // ─── Comparación por categorías (Categoria → Subcategoria → Presentacion) ───
 model CategoriaComparacion {
-  id             String   @id @default(cuid())
-  nombre         String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  nombre    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  subcategorias  SubcategoriaComparacion[]
+  subcategorias SubcategoriaComparacion[]
 
   @@map("prod_comp_categorias")
 }
 
 model SubcategoriaComparacion {
-  id             String   @id @default(cuid())
-  categoriaId    String   @map("categoria_id")
-  nombre         String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  categoriaId String   @map("categoria_id")
+  nombre      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  categoria      CategoriaComparacion  @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  categoria      CategoriaComparacion      @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
   presentaciones PresentacionComparacion[]
 
   @@map("prod_comp_sub_cat")
 }
 
 model PresentacionComparacion {
-  id                   String    @id @default(cuid())
-  subcategoriaId        String    @map("subcategoria_id")
-  nombre               String
-  costoCompraObjetivo   Decimal?   @map("costo_compra_objetivo") @db.Decimal(14, 4)
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  id                  String   @id @default(cuid())
+  subcategoriaId      String   @map("subcategoria_id")
+  nombre              String
+  costoCompraObjetivo Decimal? @map("costo_compra_objetivo") @db.Decimal(14, 4)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  subcategoria  SubcategoriaComparacion @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
-  itemsComparados ComparacionItem[]
+  subcategoria           SubcategoriaComparacion          @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
+  itemsComparados        ComparacionItem[]
   referenciasCompetencia ComparacionPresentacionRefComp[]
 
   @@map("prod_comp_presentaciones")
 }
 
-// Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_tienda.
+// Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_propios.
 model Marca {
-  id     String   @id @default(cuid())
-  nombre String   @unique(map: "prod_marcas_nombre_key")
+  id                     String   @id @default(cuid())
+  nombre                 String   @unique(map: "prod_marcas_nombre_key")
   /// Máscara del código de color tintométrico (`@/lib/tintometricoFormatoCod`): `L` letra, `N` número,
   /// `"…"` texto fijo, espacio / `/` / `-` / `.` literales. Ej.: `LLNN NN/NNN` (YY12 05/132), `"SW"NNNN` (SW2365).
   /// `null` = sin formato (código libre).
-  formatoCodTintometrico String? @map("formato_cod_tintometrico")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  formatoCodTintometrico String?  @map("formato_cod_tintometrico")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  prodTiendas ProdTienda[]
-  reglasDescuentosListaPrecio ProdPrecioProveeRegla[]
+  prodTiendas                   ProdPropio[]
+  reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
 
   @@map("prod_marcas")
 }
 
-/** Catálogo de precios REX por proveedor: descripción + precio lista por ítem. */
+/**
+ * Catálogo de precios REX por proveedor: descripción + precio lista por ítem.
+ */
 model ProdPrecioRex {
   id               String  @id @default(cuid())
   idProveedor      String  @map("id_proveedor")
   descripcion      String  @map("descripcion")
   pxListaProveedor Decimal @map("px_lista_proveedor") @db.Decimal(14, 4)
 
-  proveedor Proveedor @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
+  proveedor             Proveedor              @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
   listaPreciosProveedor ListaPrecioProveedor[]
 
   @@unique([idProveedor, descripcion], map: "prod_precios_rex_id_proveedor_descripcion_ux")
@@ -1083,98 +1233,110 @@ model ProdPrecioRex {
   @@map("prod_precios_rex")
 }
 
-/** Catálogo de listas de precio DUX (`precios[].id` en API). Sync: alta/actualiza nombre; baja listas no vistas. */
-model ProdTiendaListaPrecio {
+/**
+ * Catálogo de listas de precio DUX (`precios[].id` en API). Sync: alta/actualiza nombre; baja listas no vistas.
+ */
+model ProdPropioListaPrecioNombre {
   idLista     Int    @id @map("id_lista")
   nombreLista String @map("nombre_lista")
 
-  preciosPorProducto ProdTiendaPrecio[]
-  preciosEdicion      ProdTiendaPrecioEdicion[]
+  preciosPorProducto ProdPropioListaPrecio[]
+  preciosEdicion     ProdPropioListaPrecioEdicion[]
 
-  @@map("prod_tienda_listas_precios")
+  @@map("prod_propios_listas_precios_nombres")
 }
 
-/** Precio por producto × lista DUX (`precios[]` del ítem en API). Origen de verdad multi-lista. */
-model ProdTiendaPrecio {
-  codTienda  String   @map("cod_tienda")
-  idLista    Int      @map("id_lista")
-  precio     Decimal  @db.Decimal(14, 4)
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  prodTienda ProdTienda            @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
-  lista      ProdTiendaListaPrecio @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
-
-  @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_tienda_precios_id_lista_idx")
-  @@map("prod_tienda_precios")
-}
-
-/** Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_tienda_precios`. */
-model ProdTiendaPrecioEdicion {
+/**
+ * Precio por producto × lista DUX (`precios[]` del ítem en API). Origen de verdad multi-lista.
+ */
+model ProdPropioListaPrecio {
   codTienda String   @map("cod_tienda")
   idLista   Int      @map("id_lista")
   precio    Decimal  @db.Decimal(14, 4)
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  prodTienda ProdTienda            @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
-  lista      ProdTiendaListaPrecio @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
+  prodTienda ProdPropio                  @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
+  lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
 
   @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_tienda_precios_edicion_id_lista_idx")
-  @@map("prod_tienda_precios_edicion")
+  @@index([idLista], map: "prod_propios_listas_precios_id_lista_idx")
+  @@map("prod_propios_listas_precios")
 }
 
-// Alimentada solo por API externa (tabla prod_tienda). Frontend solo lectura; no usar create/update/delete desde UI.
-model ProdTienda {
-  codTienda       String   @id @map("cod_tienda") // clave de negocio estable (PK); sync upsert por cod_tienda
-  rubro           String?
-  subRubro        String?  @map("sub_rubro")
-  marca           String?  // texto tal cual viene de la API DUX (se mantiene para trazabilidad)
-  idMarca         String?  @map("id_marca") // FK a prod_marcas: marca normalizada y vinculada
-  /** Histórico DUX: a partir de 2026-05-28 ya no se sincroniza. La relación tienda ↔ proveedor se infiere de `listaPreciosProveedores` (vínculos manuales). */
-  proveedor       String?
-  descripcionTienda String? @map("descripcion_tienda")
-  /** FK a `prod_precios_provee.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX. */
-  costoCompraCodExt String? @map("costo_compra_cod_ext")
-  costoCompra     Decimal  @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
-  lastSync        DateTime @default(now()) @map("last_sync")
-  /** Legacy export Excel de Control Stock (ya no se lee ni escribe). */
-  ultimaExportacionExcel DateTime? @map("ultima_exportacion_excel")
+/**
+ * Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_propios_listas_precios`.
+ */
+model ProdPropioListaPrecioEdicion {
+  codTienda String   @map("cod_tienda")
+  idLista   Int      @map("id_lista")
+  precio    Decimal  @db.Decimal(14, 4)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  prodTienda ProdPropio                  @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
+  lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
+
+  @@id([codTienda, idLista])
+  @@index([idLista], map: "prod_propios_listas_precios_edicion_id_lista_idx")
+  @@map("prod_propios_listas_precios_edicion")
+}
+
+// Alimentada solo por API externa (tabla prod_propios). Frontend solo lectura; no usar create/update/delete desde UI.
+model ProdPropio {
+  codTienda                   String    @id @map("cod_tienda") // clave de negocio estable (PK); sync upsert por cod_tienda
+  rubro                       String?
+  subRubro                    String?   @map("sub_rubro")
+  marca                       String? // texto tal cual viene de la API DUX (se mantiene para trazabilidad)
+  idMarca                     String?   @map("id_marca") // FK a prod_marcas: marca normalizada y vinculada
+  /**
+   * Histórico DUX: a partir de 2026-05-28 ya no se sincroniza. La relación tienda ↔ proveedor se infiere de `listaPreciosProveedores` (vínculos manuales).
+   */
+  proveedor                   String?
+  descripcionTienda           String?   @map("descripcion_tienda")
+  /**
+   * FK a `prod_precios_provee.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
+   */
+  costoCompraCodExt           String?   @map("costo_compra_cod_ext")
+  costoCompra                 Decimal   @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
+  lastSync                    DateTime  @default(now()) @map("last_sync")
+  /**
+   * Legacy export Excel de Control Stock (ya no se lee ni escribe).
+   */
+  ultimaExportacionExcel      DateTime? @map("ultima_exportacion_excel")
   /// Producto propio TiendaColor: no admite vínculos con `prod_precios_provee`; el sync DUX no modifica este flag.
-  esProductoPropio Boolean @default(false) @map("es_producto_propio")
+  esProductoPropio            Boolean   @default(false) @map("es_producto_propio")
   /// Incluido en Px Competencia (`/gestion-productos/tienda/cx-px-tienda`); el sync DUX no modifica este flag.
-  compararCompetencia Boolean @default(false) @map("comparar_competencia")
+  compararCompetencia         Boolean   @default(false) @map("comparar_competencia")
   /// Competidor de referencia para PX de **1 - GENERAL** (Px Listas). Sync DUX no modifica.
-  competenciaIdPxListaGeneral String? @map("competencia_id_px_lista_general")
+  competenciaIdPxListaGeneral String?   @map("competencia_id_px_lista_general")
   /// Unidades por bulto. `null` = vacío (Cx Compra / Reposición). Entero ≥ 1.
-  /// CHECK SQL `prod_tienda_bulto_positivo`. Sync DUX no escribe esta columna.
-  bulto Int?
+  /// CHECK SQL `prod_propios_bulto_positivo`. Sync DUX no escribe esta columna.
+  bulto                       Int?
   /// Presentación elegida al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
-  idPresentacion String? @map("id_presentacion")
+  idPresentacion              String?   @map("id_presentacion")
   /// Color elegido al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
-  idColor        String? @map("id_color")
+  idColor                     String?   @map("id_color")
 
-  marcaRelation           Marca?   @relation(fields: [idMarca], references: [id], onDelete: SetNull)
-  presentacion            EstPorProdPresentacion? @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
-  color                   EstPorProdColor?        @relation(fields: [idColor], references: [id], onDelete: SetNull)
-  listaPreciosProveedores ListaPrecioProveedor[] // vínculos por prod_precios_provee.cod_tienda → esta PK
-  costoListaProveedor     ListaPrecioProveedor?  @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
-  competenciaPxListaGeneral ProdCompetencia? @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
-  preciosCompetencia      ProdPrecioCompetencia[]
-  preciosLista            ProdTiendaPrecio[]
-  preciosListaEdicion     ProdTiendaPrecioEdicion[]
-  estPorProd              EstPorProd[]
-  stockMovimientos        StockMovimiento[]
-  stockTransferenciaItems StockTransferenciaItem[]
+  marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
+  presentacion              EstPorProdPresentacion?        @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
+  color                     EstPorProdColor?               @relation(fields: [idColor], references: [id], onDelete: SetNull)
+  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por prod_precios_provee.cod_tienda → esta PK
+  costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
+  competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
+  preciosCompetencia        ProdPrecioCompetencia[]
+  preciosLista              ProdPropioListaPrecio[]
+  preciosListaEdicion       ProdPropioListaPrecioEdicion[]
+  estPorProd                EstPorProd[]
+  stockMovimientos          StockMovimiento[]
+  stockTransferenciaItems   StockTransferenciaItem[]
 
-  @@index([competenciaIdPxListaGeneral], map: "prod_tienda_competencia_id_px_lista_general_idx")
-  @@index([descripcionTienda], map: "prod_tienda_descripcion_tienda_idx")
-  @@index([marca], map: "prod_tienda_marca_idx")
-  @@index([rubro], map: "prod_tienda_rubro_idx")
-  @@index([subRubro], map: "prod_tienda_sub_rubro_idx")
-  @@index([idPresentacion], map: "prod_tienda_id_presentacion_idx")
-  @@index([idColor], map: "prod_tienda_id_color_idx")
-  @@map("prod_tienda")
+  @@index([competenciaIdPxListaGeneral], map: "prod_propios_competencia_id_px_lista_general_idx")
+  @@index([descripcionTienda], map: "prod_propios_descripcion_tienda_idx")
+  @@index([marca], map: "prod_propios_marca_idx")
+  @@index([rubro], map: "prod_propios_rubro_idx")
+  @@index([subRubro], map: "prod_propios_sub_rubro_idx")
+  @@index([idPresentacion], map: "prod_propios_id_presentacion_idx")
+  @@index([idColor], map: "prod_propios_id_color_idx")
+  @@map("prod_propios")
 }
 
 /**
@@ -1187,22 +1349,30 @@ model StockComprobante {
   tipo              StockComprobanteTipo
   sucursalId        String               @map("sucursal")
   sucursalDestinoId String?              @map("sucursal_destino")
-  /** Usuario de pestaña que registró el comprobante (`usuarios.id_personal`). */
+  /**
+   * Usuario de pestaña que registró el comprobante (`usuarios.id_personal`).
+   */
   personalId        Int?                 @map("personal_id")
-  /** Venta / NC que originó el movimiento (`vtas_comprobantes`). */
+  /**
+   * Venta / NC que originó el movimiento (`vtas_comprobantes`).
+   */
   comprobanteVtaId  String?              @map("comprobante_vta_id")
-  /** Recepción de pedido que originó la compra; NULL si el pedido se purgó. */
+  /**
+   * Recepción de pedido que originó la compra; NULL si el pedido se purgó.
+   */
   pedidoHistoriaId  String?              @map("pedido_historia_id")
-  /** Proveedor de la compra (contraparte en Movimientos; sobrevive a la purga del pedido). */
+  /**
+   * Proveedor de la compra (contraparte en Movimientos; sobrevive a la purga del pedido).
+   */
   proveedorId       String?              @map("proveedor_id")
   createdAt         DateTime             @default(now()) @map("created_at")
 
-  sucursal        Sucursal          @relation("StockComprobanteSucursal", fields: [sucursalId], references: [id], onDelete: Restrict)
-  sucursalDestino Sucursal?         @relation("StockComprobanteSucursalDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
-  personal        GlobalPersonal?   @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
-  comprobanteVta  ComprobanteVta?   @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
-  pedidoHistoria  PedidoHistoria?   @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
-  proveedor       Proveedor?        @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  sucursal        Sucursal            @relation("StockComprobanteSucursal", fields: [sucursalId], references: [id], onDelete: Restrict)
+  sucursalDestino Sucursal?           @relation("StockComprobanteSucursalDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
+  personal        GlobalPersonal?     @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  comprobanteVta  ComprobanteVta?     @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
+  pedidoHistoria  PedidoHistoria?     @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
+  proveedor       Proveedor?          @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
   movimientos     StockMovimiento[]
   transferencia   StockTransferencia?
 
@@ -1226,14 +1396,18 @@ model StockMovimiento {
   categoriaMovimiento      StockMovimientoCategoria @map("categoria_movimiento")
   codItem                  String                   @map("cod_item")
   sucursalId               String                   @map("sucursal")
-  /** Positiva. Hasta 1 decimal (el front muestra entero si no hay fracción). */
+  /**
+   * Positiva. Hasta 1 decimal (el front muestra entero si no hay fracción).
+   */
   cantidad                 Decimal                  @db.Decimal(12, 1)
   comprobanteRelacionadoId String                   @map("comprobante_relacionado")
-  /** Usuario de pestaña que registró el movimiento (`usuarios.id_personal`). */
+  /**
+   * Usuario de pestaña que registró el movimiento (`usuarios.id_personal`).
+   */
   usuarioId                Int?                     @map("usuario_id")
   createdAt                DateTime                 @default(now()) @map("created_at")
 
-  prodTienda  ProdTienda       @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
+  prodTienda  ProdPropio       @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
   sucursal    Sucursal         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
   comprobante StockComprobante @relation(fields: [comprobanteRelacionadoId], references: [id], onDelete: Restrict)
   usuario     GlobalPersonal?  @relation(fields: [usuarioId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
@@ -1252,31 +1426,41 @@ model StockMovimiento {
  */
 model StockTransferencia {
   id                 String                   @id @default(cuid())
-  /** Número de familia (1 → N° 0001). */
+  /**
+   * Número de familia (1 → N° 0001).
+   */
   numero             Int
-  /** 1 = emisión; ≥ 2 = rectificación (N° 0001-2). */
+  /**
+   * 1 = emisión; ≥ 2 = rectificación (N° 0001-2).
+   */
   version            Int                      @default(1)
   sucursalOrigenId   String                   @map("sucursal_origen")
   sucursalDestinoId  String                   @map("sucursal_destino")
-  /** Punta que debe aceptar ahora. */
+  /**
+   * Punta que debe aceptar ahora.
+   */
   sucursalConfirmaId String                   @map("sucursal_confirma")
   estado             StockTransferenciaEstado @default(EMITIDO_PENDIENTE)
   creadaPorId        Int                      @map("creada_por")
   resueltaPorId      Int?                     @map("resuelta_por")
-  /** Motivo al eliminar (opcional). */
+  /**
+   * Motivo al eliminar (opcional).
+   */
   motivo             String?
-  /** Comentario de quien emitió esta versión (rectificación). */
+  /**
+   * Comentario de quien emitió esta versión (rectificación).
+   */
   comentario         String?
   comprobanteId      String?                  @unique(map: "stock_transferencias_comprobante_key") @map("comprobante_id")
   createdAt          DateTime                 @default(now()) @map("created_at")
   resueltaAt         DateTime?                @map("resuelta_at")
 
-  sucursalOrigen   Sucursal          @relation("StockTransferenciaOrigen", fields: [sucursalOrigenId], references: [id], onDelete: Restrict)
-  sucursalDestino  Sucursal          @relation("StockTransferenciaDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
-  sucursalConfirma Sucursal          @relation("StockTransferenciaConfirma", fields: [sucursalConfirmaId], references: [id], onDelete: Restrict)
-  creadaPor        GlobalPersonal    @relation("StockTransferenciaCreadaPor", fields: [creadaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
-  resueltaPor      GlobalPersonal?   @relation("StockTransferenciaResueltaPor", fields: [resueltaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
-  comprobante      StockComprobante? @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  sucursalOrigen   Sucursal                 @relation("StockTransferenciaOrigen", fields: [sucursalOrigenId], references: [id], onDelete: Restrict)
+  sucursalDestino  Sucursal                 @relation("StockTransferenciaDestino", fields: [sucursalDestinoId], references: [id], onDelete: Restrict)
+  sucursalConfirma Sucursal                 @relation("StockTransferenciaConfirma", fields: [sucursalConfirmaId], references: [id], onDelete: Restrict)
+  creadaPor        GlobalPersonal           @relation("StockTransferenciaCreadaPor", fields: [creadaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  resueltaPor      GlobalPersonal?          @relation("StockTransferenciaResueltaPor", fields: [resueltaPorId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  comprobante      StockComprobante?        @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
   items            StockTransferenciaItem[]
   notificaciones   Notificacion[]
 
@@ -1286,7 +1470,9 @@ model StockTransferencia {
   @@map("stock_transferencias")
 }
 
-/** Ítems de `stock_transferencias`. `cantidad` = propuesta de esta versión. */
+/**
+ * Ítems de `stock_transferencias`. `cantidad` = propuesta de esta versión.
+ */
 model StockTransferenciaItem {
   id                 String   @id @default(cuid())
   transferenciaId    String   @map("transferencia_id")
@@ -1295,7 +1481,7 @@ model StockTransferenciaItem {
   cantidadConfirmada Decimal? @map("cantidad_confirmada") @db.Decimal(12, 1)
 
   transferencia StockTransferencia @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
-  prodTienda    ProdTienda         @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
+  prodTienda    ProdPropio         @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
 
   @@unique([transferenciaId, codItem], map: "stock_transferencias_items_transf_item_key")
   @@map("stock_transferencias_items")
@@ -1328,22 +1514,22 @@ model Notificacion {
 
 /// Competidores externos (nombre + URLs del sitio para búsqueda de precios).
 model ProdCompetencia {
-  id        String   @id @default(cuid())
-  nombre    String   @unique(map: "prod_competencia_nombre_key")
+  id                  String    @id @default(cuid())
+  nombre              String    @unique(map: "prod_competencia_nombre_key")
   /// Sitio principal del competidor (opcional; las fichas van en prod_precios_competencia.url_producto).
-  web       String?
+  web                 String?
   /// Si está definido, el sync puede tomar `px_vta_sugerido` de `prod_precios_provee` (mismo `cod_tienda`) sin scraping.
-  idProveedor String? @map("id_proveedor")
+  idProveedor         String?   @map("id_proveedor")
   /// Última ejecución de relevamiento masivo para este competidor.
   ultimaComparacionAt DateTime? @map("ultima_comparacion_at")
   /// Reglas de extracción por tipo de página (selectores CSS, JSON-LD, regex). Ver `competenciaConfigExtraccion.ts`.
-  configExtraccion Json? @map("config_extraccion")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  configExtraccion    Json?     @map("config_extraccion")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  proveedor Proveedor? @relation(fields: [idProveedor], references: [id], onDelete: SetNull)
-  precios ProdPrecioCompetencia[]
-  tiendasPxListaGeneral ProdTienda[] @relation("PxListaGeneralCompRef")
+  proveedor             Proveedor?              @relation(fields: [idProveedor], references: [id], onDelete: SetNull)
+  precios               ProdPrecioCompetencia[]
+  tiendasPxListaGeneral ProdPropio[]            @relation("PxListaGeneralCompRef")
 
   @@index([idProveedor], map: "prod_competencia_id_proveedor_idx")
   @@map("prod_competencia")
@@ -1354,20 +1540,20 @@ model ProdCompetencia {
  * Estados: SIN_URL | PENDIENTE | OK | SIN_PRECIO | ERROR (ver `competenciaRelevamiento.ts`).
  */
 model ProdPrecioCompetencia {
-  codTienda     String   @map("cod_tienda")
-  competenciaId String   @map("competencia_id")
+  codTienda     String    @map("cod_tienda")
+  competenciaId String    @map("competencia_id")
   /// Ficha del producto en el sitio del competidor (carga manual).
-  urlProducto   String?  @map("url_producto")
+  urlProducto   String?   @map("url_producto")
   /// Slug de regla en `prod_competencia.config_extraccion.reglas` (ej. `ficha`, `listado`).
-  tipoPagina    String?  @map("tipo_pagina")
-  pxCompetencia Decimal? @map("px_competencia") @db.Decimal(14, 4)
-  estado        String   @default("PENDIENTE")
-  errorMensaje  String?  @map("error_mensaje")
+  tipoPagina    String?   @map("tipo_pagina")
+  pxCompetencia Decimal?  @map("px_competencia") @db.Decimal(14, 4)
+  estado        String    @default("PENDIENTE")
+  errorMensaje  String?   @map("error_mensaje")
   relevadoAt    DateTime? @map("relevado_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  prodTienda ProdTienda @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
-  competencia       ProdCompetencia   @relation(fields: [competenciaId], references: [id], onDelete: Cascade)
+  prodTienda              ProdPropio                       @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
+  competencia             ProdCompetencia                  @relation(fields: [competenciaId], references: [id], onDelete: Cascade)
   referenciasPresentacion ComparacionPresentacionRefComp[]
 
   @@id([codTienda, competenciaId])
@@ -1377,16 +1563,16 @@ model ProdPrecioCompetencia {
 
 // Progreso de importación (singleton por id) para que el polling desde la sidebar funcione en serverless.
 model ImportProgress {
-  id               String   @id // ej. "lista-precios"
-  running          Boolean  @default(false)
-  processed        Int      @default(0)
-  total            Int      @default(0)
-  resultCreados    Int?     @map("result_creados")
-  resultActualizados Int?   @map("result_actualizados")
-  resultEliminados Int?     @map("result_eliminados")
-  resultErrores    Json?    @map("result_errores") // string[]
-  error            String?
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                 String   @id // ej. "lista-precios"
+  running            Boolean  @default(false)
+  processed          Int      @default(0)
+  total              Int      @default(0)
+  resultCreados      Int?     @map("result_creados")
+  resultActualizados Int?     @map("result_actualizados")
+  resultEliminados   Int?     @map("result_eliminados")
+  resultErrores      Json?    @map("result_errores") // string[]
+  error              String?
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("import_progress")
 }
@@ -1397,24 +1583,32 @@ model ImportProgress {
  * `reposicion_forma_pedido`: UNIDADES_MAX | POR_BULTO | UNIDADES_FIJAS.
  */
 model ProdPedMerc2 {
-  id                       String  @id @default(uuid())
-  tipoDePedido             String  @map("tipo_de_pedido")
-  sucursalId               String  @map("sucursal_id")
-  urgenteCodExt            String? @map("urgente_cod_ext")
-  urgenteCantPedir         Int     @default(0) @map("urgente_cant_pedir")
-  tintometricoDescripcion  String? @map("tintometrico_descripcion")
-  tintometrioCantPedir     Int     @default(0) @map("tintometrio_cant_pedir")
-  /** `id` de `global_proveedores` para filas tintométricas (texto / cuid). */
-  tintometricoProveedor    String? @map("tintometrico_proveedor")
-  reposicionFormaPedido    String? @map("reposicion_forma_pedido")
-  reposicionPuntoPedido    Int?    @map("reposicion_punto_pedido")
-  reposicionCantConf       Int?    @map("reposicion_cant_conf")
-  /** Cantidad a pedir (reposición); manual vía sobrestock o al persistir la regla. */
+  id                      String  @id @default(uuid())
+  tipoDePedido            String  @map("tipo_de_pedido")
+  sucursalId              String  @map("sucursal_id")
+  urgenteCodExt           String? @map("urgente_cod_ext")
+  urgenteCantPedir        Int     @default(0) @map("urgente_cant_pedir")
+  tintometricoDescripcion String? @map("tintometrico_descripcion")
+  tintometrioCantPedir    Int     @default(0) @map("tintometrio_cant_pedir")
+  /**
+   * `id` de `global_proveedores` para filas tintométricas (texto / cuid).
+   */
+  tintometricoProveedor   String? @map("tintometrico_proveedor")
+  reposicionFormaPedido   String? @map("reposicion_forma_pedido")
+  reposicionPuntoPedido   Int?    @map("reposicion_punto_pedido")
+  reposicionCantConf      Int?    @map("reposicion_cant_conf")
+  /**
+   * Cantidad a pedir (reposición); manual vía sobrestock o al persistir la regla.
+   */
   reposicionCantPedir     Int?    @map("reposicion_cant_pedir")
-  /** Código tienda (`prod_tienda.cod_tienda`) para reglas / filas de tipo REPOSICION. */
-  reposicionCodTienda      String? @map("reposicion_cod_tienda")
-  /** REPOSICION: «No pedir en este pedido» (cant. = 0 sin borrar la regla); vuelve a false al generar el pedido del proveedor o al editar la regla. */
-  reposicionOmitirPedido   Boolean @default(false) @map("reposicion_omitir_pedido")
+  /**
+   * Código tienda (`prod_propios.cod_tienda`) para reglas / filas de tipo REPOSICION.
+   */
+  reposicionCodTienda     String? @map("reposicion_cod_tienda")
+  /**
+   * REPOSICION: «No pedir en este pedido» (cant. = 0 sin borrar la regla); vuelve a false al generar el pedido del proveedor o al editar la regla.
+   */
+  reposicionOmitirPedido  Boolean @default(false) @map("reposicion_omitir_pedido")
 
   sucursal Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
 
@@ -1425,27 +1619,31 @@ model ProdPedMerc2 {
 
 // ─── Historial de pedidos (cabecera + items editables) ────────────────
 model PedidoHistoria {
-  id            String   @id @default(cuid())
-  generadoAt    DateTime @default(now()) @map("generado_at")
-  estado        String   @default("PENDIENTE") @map("estado") // PENDIENTE | RECEPCIONADO
-  registradoAt  DateTime? @map("registrado_at")
+  id                    String                 @id @default(cuid())
+  generadoAt            DateTime               @default(now()) @map("generado_at")
+  estado                String                 @default("PENDIENTE") @map("estado") // PENDIENTE | RECEPCIONADO
+  registradoAt          DateTime?              @map("registrado_at")
   /**
    * Fecha de recepción / factura (calendario AR, `YYYY-MM-DD`).
    * Es la FECHA FACTURA del modal de recepción; se persiste al marcar RECEPCIONADO.
    * Distinto de `registrado_at` (instante en que se marcó RECEPCIONADO).
    */
-  fechaRecepcion DateTime? @db.Date @map("fecha_recepcion")
-  total         Decimal? @db.Decimal(14, 2) @map("total") // TOTAL PEDIDO de recepción; admite negativo (NC / devolución).
-  proveedorId   String   @map("proveedor_id")
-  sucursalId    String   @map("sucursal_id")
-  items         PedidoHistoriaItem[]
-  /** Ingresos de stock de la recepción, ajustes por corrección y egresos por NC. */
-  stockComprobantes StockComprobante[]
-  /** Comprobante de compra de la recepción + NC aplicadas (`fin_compras_comprobante`). */
+  fechaRecepcion        DateTime?              @map("fecha_recepcion") @db.Date
+  total                 Decimal?               @map("total") @db.Decimal(14, 2) // TOTAL PEDIDO de recepción; admite negativo (NC / devolución).
+  proveedorId           String                 @map("proveedor_id")
+  sucursalId            String                 @map("sucursal_id")
+  items                 PedidoHistoriaItem[]
+  /**
+   * Ingresos de stock de la recepción, ajustes por corrección y egresos por NC.
+   */
+  stockComprobantes     StockComprobante[]
+  /**
+   * Comprobante de compra de la recepción + NC aplicadas (`fin_compras_comprobante`).
+   */
   comprobantesProveedor ComprobanteProveedor[]
-  proveedor     Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  sucursal      Sucursal  @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  proveedor             Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  sucursal              Sucursal               @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  updatedAt             DateTime               @updatedAt @map("updated_at")
 
   @@index([sucursalId, generadoAt])
   @@index([generadoAt])
@@ -1458,7 +1656,7 @@ model PedidoHistoriaItem {
 
   pedidoHistoriaId String @map("pedido_historia_id")
   /**
-   * `prod_tienda.cod_tienda` que recibe el ingreso de stock en la recepción.
+   * `prod_propios.cod_tienda` que recibe el ingreso de stock en la recepción.
    * Sin vínculo / match: fallback `1503` (PRODUCTO VARIO). Varias líneas pueden
    * compartir el mismo código; la identidad de la fila es `cod_ext`.
    */
@@ -1468,14 +1666,16 @@ model PedidoHistoriaItem {
    * agregó en recepción). UNIQUE por pedido: no colapsar SKUs distintos en 1503.
    */
   codExt           String @map("cod_ext")
-  /** Descripción del snapshot (lista / fórmula tintométrica / tienda). */
+  /**
+   * Descripción del snapshot (lista / fórmula tintométrica / tienda).
+   */
   descripcion      String @default("") @map("descripcion")
-  cantPedida       Int    @map("cant_pedida") @default(0)
+  cantPedida       Int    @default(0) @map("cant_pedida")
   cantRecibida     Int?   @map("cant_recibida") // Unidades recibidas; admite negativo. `null` = sin confirmar.
 
   pedidoHistoria PedidoHistoria @relation(fields: [pedidoHistoriaId], references: [id], onDelete: Cascade)
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
 
   @@unique([pedidoHistoriaId, codExt])
   @@index([pedidoHistoriaId])
@@ -1484,9 +1684,9 @@ model PedidoHistoriaItem {
 
 /// Filas fijas: `id` 1 Comprobante_Compra, 2 FACTURA (Excel recepción), 3 NOTA_CREDITO (`X-00000-########`).
 model ProdPedUltComp {
-  id               Int    @id
-  tipoComprobante  String @map("tipo_comprobante")
-  ultComprobante   String @map("ult_comprobante")
+  id              Int    @id
+  tipoComprobante String @map("tipo_comprobante")
+  ultComprobante  String @map("ult_comprobante")
 
   @@unique([tipoComprobante], map: "prod_ped_ult_comp_tipo_comprobante_key")
   @@map("prod_ped_ult_comp")
@@ -1494,7 +1694,9 @@ model ProdPedUltComp {
 
 // ─── Análisis M.C. · Costos financieros por marca y forma de pago ───────────────
 
-/** Catálogo unificado de entidades cobros/tesorería (`cobros_entidades`; `nombre` único en MAYÚSCULAS). */
+/**
+ * Catálogo unificado de entidades cobros/tesorería (`cobros_entidades`; `nombre` único en MAYÚSCULAS).
+ */
 model FinAnaCosFinaTerminalMarca {
   id        String   @id @default(cuid())
   nombre    String   @unique(map: "cobros_entidades_nombre_key")
@@ -1502,34 +1704,38 @@ model FinAnaCosFinaTerminalMarca {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cajas    CajaTesoreria[]
-  filas    FinAnaCosFina[]
-  mcConfig FinAnaMcConfig[]
-  formasPago CobrosFormaPagoEntidad[]
-  cuotaVinculos CobrosCuotaVinculo[]
-  cobrosPorSucursal CobrosPorSucursal[]
+  cajas                CajaTesoreria[]
+  filas                FinAnaCosFina[]
+  mcConfig             FinAnaMcConfig[]
+  formasPago           CobrosFormaPagoEntidad[]
+  cuotaVinculos        CobrosCuotaVinculo[]
+  cobrosPorSucursal    CobrosPorSucursal[]
   movimientosTesoreria TesoreriaMovimiento[]
 
   @@index([orden], map: "cobros_entidades_orden_idx")
   @@map("cobros_entidades")
 }
 
-/** Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros). */
+/**
+ * Catálogo de formas de pago (Análisis M.C. / Cx. Fin. Cobros).
+ */
 model FinAnaCosFinaPagoCat {
-  id                   String   @id @default(cuid())
-  nombre               String   @unique(map: "cobros_forma_pago_nombre_key")
-  enCostosFinancieros  Boolean  @default(true) @map("en_costos_financieros")
-  enMargenContribucion Boolean  @default(true) @map("en_margen_contribucion")
-  /** Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`). */
-  fechaAcreditacionVariable Boolean @default(false) @map("fecha_acreditacion_variable")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                        String   @id @default(cuid())
+  nombre                    String   @unique(map: "cobros_forma_pago_nombre_key")
+  enCostosFinancieros       Boolean  @default(true) @map("en_costos_financieros")
+  enMargenContribucion      Boolean  @default(true) @map("en_margen_contribucion")
+  /**
+   * Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`).
+   */
+  fechaAcreditacionVariable Boolean  @default(false) @map("fecha_acreditacion_variable")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
-  filasCostos   FinAnaCosFina[]
-  descuentosFp  FinAnaMcDescuentoFp[]
-  entidades     CobrosFormaPagoEntidad[]
-  cuotaVinculos CobrosCuotaVinculo[]
-  cobrosPorSucursal CobrosPorSucursal[]
+  filasCostos          FinAnaCosFina[]
+  descuentosFp         FinAnaMcDescuentoFp[]
+  entidades            CobrosFormaPagoEntidad[]
+  cuotaVinculos        CobrosCuotaVinculo[]
+  cobrosPorSucursal    CobrosPorSucursal[]
   movimientosTesoreria TesoreriaMovimiento[]
 
   @@map("cobros_forma_pago")
@@ -1543,8 +1749,8 @@ model CobrosFormaPagoEntidad {
   pagoId    String @map("pago_id")
   entidadId String @map("entidad_id")
 
-  pago    FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  entidad FinAnaCosFinaTerminalMarca  @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  pago    FinAnaCosFinaPagoCat       @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  entidad FinAnaCosFinaTerminalMarca @relation(fields: [entidadId], references: [id], onDelete: Restrict)
 
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
@@ -1561,14 +1767,16 @@ model CobrosCuota {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  vinculos    CobrosCuotaVinculo[]
-  filasCostos FinAnaCosFina[]
+  vinculos             CobrosCuotaVinculo[]
+  filasCostos          FinAnaCosFina[]
   movimientosTesoreria TesoreriaMovimiento[]
 
   @@map("cobros_cuotas")
 }
 
-/** Par forma de pago + entidad de una cuota. La entidad tiene que estar en el N:M de esa forma. */
+/**
+ * Par forma de pago + entidad de una cuota. La entidad tiene que estar en el N:M de esa forma.
+ */
 model CobrosCuotaVinculo {
   cuotaId   String @map("cuota_id")
   pagoId    String @map("pago_id")
@@ -1590,20 +1798,20 @@ model CobrosCuotaVinculo {
  * Toda forma de pago acepta cuotas; el vínculo nace en `cobros_cuotas`.
  */
 model FinAnaCosFina {
-  id               String              @id @default(cuid())
-  habilitado       Boolean             @default(true)
-  impCheque        Boolean             @default(false) @map("imp_cheque")
-  terminalId       String?             @map("terminal_id")
+  id               String                      @id @default(cuid())
+  habilitado       Boolean                     @default(true)
+  impCheque        Boolean                     @default(false) @map("imp_cheque")
+  terminalId       String?                     @map("terminal_id")
   terminal         FinAnaCosFinaTerminalMarca? @relation(fields: [terminalId], references: [id], onDelete: Cascade)
-  pagoId           String              @map("pago_id")
-  pago             FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  cuotaId          String?             @map("cuota_id")
-  cuota            CobrosCuota?        @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
-  diasAcreditacion Int?                @map("dias_acreditacion")
-  arancel          Decimal             @default(0) @db.Decimal(5, 2)
-  costoFinanciero  Decimal             @default(0) @map("costo_financiero") @db.Decimal(5, 2)
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  pagoId           String                      @map("pago_id")
+  pago             FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  cuotaId          String?                     @map("cuota_id")
+  cuota            CobrosCuota?                @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
+  diasAcreditacion Int?                        @map("dias_acreditacion")
+  arancel          Decimal                     @default(0) @db.Decimal(5, 2)
+  costoFinanciero  Decimal                     @default(0) @map("costo_financiero") @db.Decimal(5, 2)
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
 
   movimientosTesoreria TesoreriaMovimiento[]
 
@@ -1620,25 +1828,29 @@ model FinAnaCosFina {
  * UNIQUE `(pago_id, entidad_id, sucursal_id)`.
  */
 model CobrosPorSucursal {
-  id            String   @id @default(cuid())
-  pagoId        String   @map("pago_id")
-  pago          FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  /** Null si la forma de pago no tiene entidades vinculadas. */
-  entidadId     String?  @map("entidad_id")
+  id            String                      @id @default(cuid())
+  pagoId        String                      @map("pago_id")
+  pago          FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  /**
+   * Null si la forma de pago no tiene entidades vinculadas.
+   */
+  entidadId     String?                     @map("entidad_id")
   entidad       FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  sucursalId    String   @map("sucursal_id")
-  sucursal      Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  cajaDestinoId String?  @map("caja_destino_id")
-  cajaDestino   CajaTesoreria? @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
+  sucursalId    String                      @map("sucursal_id")
+  sucursal      Sucursal                    @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  cajaDestinoId String?                     @map("caja_destino_id")
+  cajaDestino   CajaTesoreria?              @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
   /**
    * TRUE → Cx Fin al acreditar = CX TOTAL S/ IVA.
    * FALSE → Cx Fin al acreditar = CX TOTAL C/ IVA.
    */
-  discriminaIva Boolean  @default(false) @map("discrimina_iva")
-  /** Texto libre de la fila. */
-  observacion   String   @default("") @map("observacion") @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  discriminaIva Boolean                     @default(false) @map("discrimina_iva")
+  /**
+   * Texto libre de la fila.
+   */
+  observacion   String                      @default("") @map("observacion") @db.Text
+  createdAt     DateTime                    @default(now()) @map("created_at")
+  updatedAt     DateTime                    @updatedAt @map("updated_at")
 
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
@@ -1646,7 +1858,9 @@ model CobrosPorSucursal {
   @@map("cobros_vinc_cajas")
 }
 
-/** Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución. */
+/**
+ * Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución.
+ */
 model FinAnaMcDescuentoFp {
   id           String               @id @default(cuid())
   pagoId       String               @unique @map("pago_id")
@@ -1710,26 +1924,30 @@ model FinAnaMcConfig {
 
 // ─── Marketing · Publicaciones (catálogos + hechos) ────────────────────────
 
-/** Catálogo de redes sociales para publicaciones (`red_social_nombre` único). */
+/**
+ * Catálogo de redes sociales para publicaciones (`red_social_nombre` único).
+ */
 model MktPublicacionRed {
-  id               String   @id @default(cuid())
-  redSocialNombre  String   @unique(map: "mkt_publi_tipo_redes_red_social_nombre_key") @map("red_social_nombre")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  redSocialNombre String   @unique(map: "mkt_publi_tipo_redes_red_social_nombre_key") @map("red_social_nombre")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   publicacionesRedes MktPublicacionRedLink[]
-  ideasDetalleRedes MktPublicacionIdeaDetalleRed[]
-  objetivos MktPublicacionObj[]
+  ideasDetalleRedes  MktPublicacionIdeaDetalleRed[]
+  objetivos          MktPublicacionObj[]
 
   @@map("mkt_publi_tipo_redes")
 }
 
-/** Catálogo de tipos de contenido (`contenido_nombre` único). Independiente de redes. */
+/**
+ * Catálogo de tipos de contenido (`contenido_nombre` único). Independiente de redes.
+ */
 model MktPublicacionContenidoTipo {
-  id               String   @id @default(cuid())
-  contenidoNombre  String   @unique(map: "mkt_publi_tipo_contenido_contenido_nombre_key") @map("contenido_nombre")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(cuid())
+  contenidoNombre String   @unique(map: "mkt_publi_tipo_contenido_contenido_nombre_key") @map("contenido_nombre")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   publicaciones MktPublicacion[]
   objetivos     MktPublicacionObj[]
@@ -1737,24 +1955,36 @@ model MktPublicacionContenidoTipo {
   @@map("mkt_publi_tipo_contenido")
 }
 
-/** Publicación (hecho de marketing). Redes N:M; tipo contenido 1. */
+/**
+ * Publicación (hecho de marketing). Redes N:M; tipo contenido 1.
+ */
 model MktPublicacion {
-  id                String   @id @default(cuid())
-  /** Día del calendario de publicaciones (`YYYY-MM-DD`, sin hora). */
-  fecha             DateTime @map("fecha") @db.Date
-  /** Texto / contenido de la publicación. */
-  publicacion       String   @default("") @map("publicacion") @db.Text
-  /** URL de Google Drive del contenido; vacío ⇒ `contenido_creado = false`. */
-  contenidoUrl      String   @default("") @map("contenido_url") @db.Text
-  /** Derivado: true si `contenido_url` no está vacío. */
-  contenidoCreado   Boolean  @default(false) @map("contenido_creado")
-  tipoContenidoId   String   @map("tipo_contenido_id")
-  tipoContenido     MktPublicacionContenidoTipo @relation(fields: [tipoContenidoId], references: [id], onDelete: Restrict)
-  /** Idea de detalle programada (1:1 opcional; al vincular se marca `usada`). */
-  ideaDetalleId     String?  @unique(map: "mkt_publi_idea_detalle_id_key") @map("idea_detalle_id")
-  ideaDetalle       MktPublicacionIdeaDetalle? @relation(fields: [ideaDetalleId], references: [id], onDelete: Restrict)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id              String                      @id @default(cuid())
+  /**
+   * Día del calendario de publicaciones (`YYYY-MM-DD`, sin hora).
+   */
+  fecha           DateTime                    @map("fecha") @db.Date
+  /**
+   * Texto / contenido de la publicación.
+   */
+  publicacion     String                      @default("") @map("publicacion") @db.Text
+  /**
+   * URL de Google Drive del contenido; vacío ⇒ `contenido_creado = false`.
+   */
+  contenidoUrl    String                      @default("") @map("contenido_url") @db.Text
+  /**
+   * Derivado: true si `contenido_url` no está vacío.
+   */
+  contenidoCreado Boolean                     @default(false) @map("contenido_creado")
+  tipoContenidoId String                      @map("tipo_contenido_id")
+  tipoContenido   MktPublicacionContenidoTipo @relation(fields: [tipoContenidoId], references: [id], onDelete: Restrict)
+  /**
+   * Idea de detalle programada (1:1 opcional; al vincular se marca `usada`).
+   */
+  ideaDetalleId   String?                     @unique(map: "mkt_publi_idea_detalle_id_key") @map("idea_detalle_id")
+  ideaDetalle     MktPublicacionIdeaDetalle?  @relation(fields: [ideaDetalleId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                    @default(now()) @map("created_at")
+  updatedAt       DateTime                    @updatedAt @map("updated_at")
 
   redes MktPublicacionRedLink[]
 
@@ -1763,11 +1993,13 @@ model MktPublicacion {
   @@map("mkt_publi")
 }
 
-/** Redes asociadas a una publicación (N:M; mín. 1). */
+/**
+ * Redes asociadas a una publicación (N:M; mín. 1).
+ */
 model MktPublicacionRedLink {
-  publicacionId String @map("publicacion_id")
-  publicacion   MktPublicacion @relation(fields: [publicacionId], references: [id], onDelete: Cascade)
-  redId         String @map("red_id")
+  publicacionId String            @map("publicacion_id")
+  publicacion   MktPublicacion    @relation(fields: [publicacionId], references: [id], onDelete: Cascade)
+  redId         String            @map("red_id")
   red           MktPublicacionRed @relation(fields: [redId], references: [id], onDelete: Restrict)
 
   @@id([publicacionId, redId])
@@ -1775,7 +2007,9 @@ model MktPublicacionRedLink {
   @@map("mkt_publi_redes")
 }
 
-/** Sección / agrupador de ideas de publicación (`idea_nombre` único). */
+/**
+ * Sección / agrupador de ideas de publicación (`idea_nombre` único).
+ */
 model MktPublicacionIdeaSeccion {
   id          String   @id @default(cuid())
   ideaNombre  String   @unique(map: "mkt_publi_ideas_secciones_idea_nombre_key") @map("idea_nombre")
@@ -1789,16 +2023,20 @@ model MktPublicacionIdeaSeccion {
   @@map("mkt_publi_ideas_secciones")
 }
 
-/** Idea de contenido (título + detalle) dentro de una sección. */
+/**
+ * Idea de contenido (título + detalle) dentro de una sección.
+ */
 model MktPublicacionIdeaDetalle {
-  id         String   @id @default(cuid())
-  seccionId  String   @map("seccion_id")
+  id         String                    @id @default(cuid())
+  seccionId  String                    @map("seccion_id")
   seccion    MktPublicacionIdeaSeccion @relation(fields: [seccionId], references: [id], onDelete: Cascade)
-  tituloIdea String   @map("titulo_idea")
-  /** Texto largo opcional (puede quedar vacío). */
-  detalle    String   @default("") @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  tituloIdea String                    @map("titulo_idea")
+  /**
+   * Texto largo opcional (puede quedar vacío).
+   */
+  detalle    String                    @default("") @db.Text
+  createdAt  DateTime                  @default(now()) @map("created_at")
+  updatedAt  DateTime                  @updatedAt @map("updated_at")
 
   redes       MktPublicacionIdeaDetalleRed[]
   publicacion MktPublicacion?
@@ -1807,25 +2045,31 @@ model MktPublicacionIdeaDetalle {
   @@map("mkt_publi_ideas_detalle")
 }
 
-/** Redes asociadas a un detalle de idea (N:M). */
+/**
+ * Redes asociadas a un detalle de idea (N:M).
+ */
 model MktPublicacionIdeaDetalleRed {
-  ideaDetalleId String @map("idea_detalle_id")
+  ideaDetalleId String                    @map("idea_detalle_id")
   ideaDetalle   MktPublicacionIdeaDetalle @relation(fields: [ideaDetalleId], references: [id], onDelete: Cascade)
-  redId         String @map("red_id")
-  red           MktPublicacionRed @relation(fields: [redId], references: [id], onDelete: Restrict)
+  redId         String                    @map("red_id")
+  red           MktPublicacionRed         @relation(fields: [redId], references: [id], onDelete: Restrict)
 
   @@id([ideaDetalleId, redId])
   @@index([redId], map: "mkt_ideas_detalle_red_red_idx")
   @@map("mkt_publicaciones_ideas_detalle_redes")
 }
 
-/** Periodo de evaluación de un objetivo de publicaciones. */
+/**
+ * Periodo de evaluación de un objetivo de publicaciones.
+ */
 enum MktPubliObjPeriodo {
   SEMANAL
   MENSUAL
 }
 
-/** Eje de conteo de un objetivo (exactamente una FK de destino). */
+/**
+ * Eje de conteo de un objetivo (exactamente una FK de destino).
+ */
 enum MktPubliObjEje {
   RED
   CONTENIDO
@@ -1837,27 +2081,31 @@ enum MktPubliObjEje {
  * Un destino (red / contenido / sección) solo puede tener un objetivo.
  */
 model MktPublicacionObj {
-  id              String            @id @default(cuid())
+  id              String                       @id @default(cuid())
   periodo         MktPubliObjPeriodo
   eje             MktPubliObjEje
-  /** Clave única de destino: `RED:{id}` | `CONTENIDO:{id}` | `SECCION:{id}`. */
-  destinoClave    String            @unique(map: "mkt_publi_obj_destino_clave_key") @map("destino_clave")
+  /**
+   * Clave única de destino: `RED:{id}` | `CONTENIDO:{id}` | `SECCION:{id}`.
+   */
+  destinoClave    String                       @unique(map: "mkt_publi_obj_destino_clave_key") @map("destino_clave")
   cantidad        Int
-  redId           String?           @map("red_id")
-  red             MktPublicacionRed? @relation(fields: [redId], references: [id], onDelete: Restrict)
-  tipoContenidoId String?           @map("tipo_contenido_id")
+  redId           String?                      @map("red_id")
+  red             MktPublicacionRed?           @relation(fields: [redId], references: [id], onDelete: Restrict)
+  tipoContenidoId String?                      @map("tipo_contenido_id")
   tipoContenido   MktPublicacionContenidoTipo? @relation(fields: [tipoContenidoId], references: [id], onDelete: Restrict)
-  seccionId       String?           @map("seccion_id")
-  seccion         MktPublicacionIdeaSeccion? @relation(fields: [seccionId], references: [id], onDelete: Restrict)
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  seccionId       String?                      @map("seccion_id")
+  seccion         MktPublicacionIdeaSeccion?   @relation(fields: [seccionId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
 
   @@index([periodo], map: "mkt_publi_obj_periodo_idx")
   @@index([eje], map: "mkt_publi_obj_eje_idx")
   @@map("mkt_publi_obj")
 }
 
-/** Catálogo de tipos para Base Multimedia. */
+/**
+ * Catálogo de tipos para Base Multimedia.
+ */
 model MktContenidoDriveTipo {
   id        String   @id @default(cuid())
   tipo      String   @unique(map: "mkt_contenido_drive_tipo_tipo_key") @map("tipo")
@@ -1869,16 +2117,18 @@ model MktContenidoDriveTipo {
   @@map("mkt_contenido_drive_tipo")
 }
 
-/** Base multimedia: archivo en Google Drive (nombre + descripción + URL + tipo). */
+/**
+ * Base multimedia: archivo en Google Drive (nombre + descripción + URL + tipo).
+ */
 model MktContenidoUrlDrive {
-  id          String   @id @default(cuid())
-  nombre      String   @map("nombre")
-  descripcion String   @default("") @map("descripcion") @db.Text
-  url         String   @map("url") @db.Text
-  tipoId      String   @map("tipo_id")
+  id          String                @id @default(cuid())
+  nombre      String                @map("nombre")
+  descripcion String                @default("") @map("descripcion") @db.Text
+  url         String                @map("url") @db.Text
+  tipoId      String                @map("tipo_id")
   tipo        MktContenidoDriveTipo @relation(fields: [tipoId], references: [id], onDelete: Restrict)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
 
   @@index([nombre], map: "mkt_contenido_drive_url_nombre_idx")
   @@index([tipoId], map: "mkt_contenido_drive_url_tipo_idx")
@@ -1891,21 +2141,27 @@ model MktContenidoUrlDrive {
  * Tabla SQL: `prod_ia_diseno_promp` (ASCII; sección producto IA_DISEÑO).
  */
 model ProdIaDisenoPromp {
-  id             String   @id @default(cuid())
-  /** Nombre visible del submódulo (único). */
-  submodulo      String   @unique(map: "prod_ia_diseno_promp_submodulo_key") @map("submodulo")
-  /** Texto del prompt a copiar al portapapeles. */
-  promp          String   @map("promp") @db.Text
-  /** URL a abrir en pestaña nueva (ChatGPT u otro destino). */
-  urlRedireccion String   @map("url_redireccion") @db.Text
+  id                   String                 @id @default(cuid())
+  /**
+   * Nombre visible del submódulo (único).
+   */
+  submodulo            String                 @unique(map: "prod_ia_diseno_promp_submodulo_key") @map("submodulo")
+  /**
+   * Texto del prompt a copiar al portapapeles.
+   */
+  promp                String                 @map("promp") @db.Text
+  /**
+   * URL a abrir en pestaña nueva (ChatGPT u otro destino).
+   */
+  urlRedireccion       String                 @map("url_redireccion") @db.Text
   /**
    * Solo Diseñar Colores: plantilla de una fila de superficie.
    * Placeholders: {{SUPERFICIE}} {{COLOR}}. Se repite por cada superficie elegida.
    */
-  plantillaSuperficies String? @map("plantilla_superficies") @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  variables      ProdIaDisenoPrompVar[]
+  plantillaSuperficies String?                @map("plantilla_superficies") @db.Text
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  variables            ProdIaDisenoPrompVar[]
 
   @@map("prod_ia_diseno_promp")
 }
@@ -1915,14 +2171,18 @@ model ProdIaDisenoPromp {
  * → nombre de token en MAYÚSCULA insertable como {{VARIABLE}}.
  */
 model ProdIaDisenoPrompVar {
-  id        String           @id @default(cuid())
-  prompId   String           @map("promp_id")
-  /** Clave de fuente en código (ASISTENTE_IA_VAR_*). */
-  fuente    String           @map("fuente")
-  /** Nombre de variable en el prompt (MAYÚSCULA, sin llaves). */
-  variable  String           @map("variable")
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  id        String            @id @default(cuid())
+  prompId   String            @map("promp_id")
+  /**
+   * Clave de fuente en código (ASISTENTE_IA_VAR_*).
+   */
+  fuente    String            @map("fuente")
+  /**
+   * Nombre de variable en el prompt (MAYÚSCULA, sin llaves).
+   */
+  variable  String            @map("variable")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
   promp     ProdIaDisenoPromp @relation(fields: [prompId], references: [id], onDelete: Cascade)
 
   @@unique([prompId, fuente], map: "prod_ia_diseno_promp_var_promp_fuente_key")
@@ -1938,11 +2198,17 @@ model ProdIaDisenoPrompVar {
  */
 model ProdIaDisenoCatalogo {
   id        String   @id @default(cuid())
-  /** Discriminador del catálogo (mismo valor que `ProdIaDisenoCatalogoKind`). */
+  /**
+   * Discriminador del catálogo (mismo valor que `ProdIaDisenoCatalogoKind`).
+   */
   kind      String   @map("kind")
-  /** Etiqueta en pantalla (MAYÚSCULAS). */
+  /**
+   * Etiqueta en pantalla (MAYÚSCULAS).
+   */
   nombre    String   @map("nombre")
-  /** Texto inyectado al prompt (sentence case). */
+  /**
+   * Texto inyectado al prompt (sentence case).
+   */
   texto     String   @map("texto")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1953,7 +2219,9 @@ model ProdIaDisenoCatalogo {
   @@map("prod_ia_diseno_catalogo")
 }
 
-/** Forma de cobro del envío. `PAGADO` implica `envios_final.pagado = true`. */
+/**
+ * Forma de cobro del envío. `PAGADO` implica `envios_final.pagado = true`.
+ */
 enum EnviosFormaPagado {
   PAGADO
   EFECTIVO
@@ -1970,29 +2238,39 @@ enum EnviosFormaPagado {
  * `pintor_asociado` solo si `es_pintor = FALSE` y apunta a un cliente con `es_pintor = TRUE` (CHECK SQL + servicio).
  */
 model Cliente {
-  id                String      @id @default(cuid())
-  nombreCompleto    String      @map("nombre_completo")
-  cel               String      @map("cel")
-  esPintor          Boolean     @default(false) @map("es_pintor")
-  /** CUIT 11 dígitos sin guiones (opcional). */
-  cuit              String?     @map("cuit") @db.VarChar(11)
-  /** Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir. */
-  condicionIva      Int?        @map("condicion_iva")
-  pintorAsociadoId  String?     @map("pintor_asociado")
-  /** Días de plazo para ventas a cuenta corriente. Default 1. Null = sin configurar. */
-  ctaCorrientePlazo Int? @default(1) @map("cta_corriente_plazo")
-  /** Tope de saldo CC. Null = sin tope. Si el saldo supera este valor no se emiten más facturas. */
+  id                   String   @id @default(cuid())
+  nombreCompleto       String   @map("nombre_completo")
+  cel                  String   @map("cel")
+  esPintor             Boolean  @default(false) @map("es_pintor")
+  /**
+   * CUIT 11 dígitos sin guiones (opcional).
+   */
+  cuit                 String?  @map("cuit") @db.VarChar(11)
+  /**
+   * Código ARCA (`condicion_iva_cod_arca.codigo`). Null = sin definir.
+   */
+  condicionIva         Int?     @map("condicion_iva")
+  pintorAsociadoId     String?  @map("pintor_asociado")
+  /**
+   * Días de plazo para ventas a cuenta corriente. Default 1. Null = sin configurar.
+   */
+  ctaCorrientePlazo    Int?     @default(1) @map("cta_corriente_plazo")
+  /**
+   * Tope de saldo CC. Null = sin tope. Si el saldo supera este valor no se emiten más facturas.
+   */
   ctaCorrienteMontoMax Decimal? @map("cta_corriente_monto_max") @db.Decimal(14, 2)
-  /** Token opaco del visor público `/cc/{token}`. Null = aún no se compartió. */
-  tokenCuentaCorriente String? @unique @map("token_cuenta_corriente") @db.VarChar(64)
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
+  /**
+   * Token opaco del visor público `/cc/{token}`. Null = aún no se compartió.
+   */
+  tokenCuentaCorriente String?  @unique @map("token_cuenta_corriente") @db.VarChar(64)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  pintorAsociado     Cliente?  @relation("ClientePintorAsociado", fields: [pintorAsociadoId], references: [id], onDelete: Restrict)
-  clientesAsociados  Cliente[] @relation("ClientePintorAsociado")
-  condicionIvaArca   PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  enviosComoClienteFinal EnviosFinal[] @relation("EnviosFinalClienteFinal")
-  enviosComoPintor       EnviosFinal[] @relation("EnviosFinalPintor")
+  pintorAsociado         Cliente?          @relation("ClientePintorAsociado", fields: [pintorAsociadoId], references: [id], onDelete: Restrict)
+  clientesAsociados      Cliente[]         @relation("ClientePintorAsociado")
+  condicionIvaArca       PtoVentasCodArca? @relation(fields: [condicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  enviosComoClienteFinal EnviosFinal[]     @relation("EnviosFinalClienteFinal")
+  enviosComoPintor       EnviosFinal[]     @relation("EnviosFinalPintor")
   direcciones            EnviosDireccion[]
   comprobantesVtas       ComprobanteVta[]
   cobros                 ClienteCobro[]
@@ -2005,7 +2283,9 @@ model Cliente {
   @@map("clientes")
 }
 
-/** Departamento (Mendoza) de la dirección de envío. */
+/**
+ * Departamento (Mendoza) de la dirección de envío.
+ */
 enum EnviosDepartamento {
   CIUDAD
   LAS_HERAS
@@ -2015,26 +2295,27 @@ enum EnviosDepartamento {
   LUJAN
 }
 
-/** Proyecto de cliente (`clientes_proyectos`; ex `clientes_direcciones` / `envios_direcciones`).
+/**
+ * Proyecto de cliente (`clientes_proyectos`; ex `clientes_direcciones` / `envios_direcciones`).
  * `nombre_proyecto` en mayúsculas `es-AR`; vacío persiste `PRINCIPAL` (CHECK + default SQL).
  * Textos de domicilio: `calle_nombre` y `distrito` en proper case; `numeracion` y `referencia` con primera mayúscula de la oración.
  * Al persistir hace falta al menos un dato (CHECK SQL + Zod + servicio).
  */
 model EnviosDireccion {
-  id              String              @id @default(cuid())
-  personaId       String              @map("persona_id")
-  nombreProyecto  String              @default("PRINCIPAL") @map("nombre_proyecto")
-  calleNombre     String              @map("calle_nombre")
-  numeracion      String              @map("numeracion")
-  distrito        String              @map("distrito")
-  departamento    EnviosDepartamento? @map("departamento")
-  urlMaps         String?             @map("url_maps") @db.Text
-  referencia      String?             @map("referencia") @db.Text
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
+  id             String              @id @default(cuid())
+  personaId      String              @map("persona_id")
+  nombreProyecto String              @default("PRINCIPAL") @map("nombre_proyecto")
+  calleNombre    String              @map("calle_nombre")
+  numeracion     String              @map("numeracion")
+  distrito       String              @map("distrito")
+  departamento   EnviosDepartamento? @map("departamento")
+  urlMaps        String?             @map("url_maps") @db.Text
+  referencia     String?             @map("referencia") @db.Text
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
 
-  persona Cliente @relation(fields: [personaId], references: [id], onDelete: Restrict)
-  envios  EnviosFinal[]
+  persona          Cliente          @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  envios           EnviosFinal[]
   comprobantesVtas ComprobanteVta[]
 
   @@index([personaId], map: "clientes_proyectos_persona_id_idx")
@@ -2052,27 +2333,27 @@ model EnviosDireccion {
  * `entregado`: el conductor confirma la entrega (sale del listado Conductor).
  */
 model EnviosFinal {
-  id                   String             @id @default(cuid())
-  sucursalId           String             @map("sucursal_id")
-  clienteFinalId       String?            @map("cliente_final_id")
-  pintorId             String?            @map("pintor_id")
-  direccionId          String             @map("direccion_id")
-  fechaEnvio           DateTime           @map("fecha_envio") @db.Date
-  horaDesde            String             @map("hora_desde") @db.VarChar(5)
-  horaHasta            String             @map("hora_hasta") @db.VarChar(5)
-  observacionEnvio     String             @default("") @map("observacion_envio") @db.Text
-  pdfComprobanteNombre String?            @map("pdf_comprobante_nombre")
-  pdfComprobante       Bytes?             @map("pdf_comprobante")
-  pagado               Boolean            @default(false) @map("pagado")
-  formaPagado          EnviosFormaPagado  @map("forma_pagado")
-  entregado            Boolean            @default(false) @map("entregado")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  id                   String            @id @default(cuid())
+  sucursalId           String            @map("sucursal_id")
+  clienteFinalId       String?           @map("cliente_final_id")
+  pintorId             String?           @map("pintor_id")
+  direccionId          String            @map("direccion_id")
+  fechaEnvio           DateTime          @map("fecha_envio") @db.Date
+  horaDesde            String            @map("hora_desde") @db.VarChar(5)
+  horaHasta            String            @map("hora_hasta") @db.VarChar(5)
+  observacionEnvio     String            @default("") @map("observacion_envio") @db.Text
+  pdfComprobanteNombre String?           @map("pdf_comprobante_nombre")
+  pdfComprobante       Bytes?            @map("pdf_comprobante")
+  pagado               Boolean           @default(false) @map("pagado")
+  formaPagado          EnviosFormaPagado @map("forma_pagado")
+  entregado            Boolean           @default(false) @map("entregado")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
 
-  sucursal     Sucursal         @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-  clienteFinal Cliente?         @relation("EnviosFinalClienteFinal", fields: [clienteFinalId], references: [id], onDelete: Restrict)
-  pintor       Cliente?         @relation("EnviosFinalPintor", fields: [pintorId], references: [id], onDelete: Restrict)
-  direccion    EnviosDireccion  @relation(fields: [direccionId], references: [id], onDelete: Restrict)
+  sucursal     Sucursal        @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  clienteFinal Cliente?        @relation("EnviosFinalClienteFinal", fields: [clienteFinalId], references: [id], onDelete: Restrict)
+  pintor       Cliente?        @relation("EnviosFinalPintor", fields: [pintorId], references: [id], onDelete: Restrict)
+  direccion    EnviosDireccion @relation(fields: [direccionId], references: [id], onDelete: Restrict)
 
   @@index([sucursalId], map: "envios_final_sucursal_id_idx")
   @@index([clienteFinalId], map: "envios_final_cliente_final_id_idx")
@@ -2084,7 +2365,9 @@ model EnviosFinal {
   @@map("envios_final")
 }
 
-/** Paleta de colores de marca (nombre + descripción + códigos hex). */
+/**
+ * Paleta de colores de marca (nombre + descripción + códigos hex).
+ */
 model MktColoresMarca {
   id               String   @id @default(cuid())
   nombre           String   @map("nombre")
@@ -2102,25 +2385,31 @@ model MktColoresMarca {
 model SyncDuxStatus {
   id String @id
 
-  running Boolean @default(false)
-  phase String?
-  processed Int @default(0)
-  total Int @default(0)
-  error String?
+  running   Boolean @default(false)
+  phase     String?
+  processed Int     @default(0)
+  total     Int     @default(0)
+  error     String?
 
-  /** Offset paginado DUX para reanudar tras timeout serverless. */
-  fetchOffset Int @default(0) @map("fetch_offset")
-  apiFetchComplete Boolean @default(false) @map("api_fetch_complete")
-  /** Inicio de corrida; limpieza borra `prod_tienda` con `last_sync` anterior. */
-  startedAt DateTime? @map("started_at")
-  /** Acumulados entre pasos: `{ depositosVistos, listasVistas, countBefore }`. */
-  meta Json?
+  /**
+   * Offset paginado DUX para reanudar tras timeout serverless.
+   */
+  fetchOffset      Int       @default(0) @map("fetch_offset")
+  apiFetchComplete Boolean   @default(false) @map("api_fetch_complete")
+  /**
+   * Inicio de corrida; limpieza borra `prod_propios` con `last_sync` anterior.
+   */
+  startedAt        DateTime? @map("started_at")
+  /**
+   * Acumulados entre pasos: `{ depositosVistos, listasVistas, countBefore }`.
+   */
+  meta             Json?
 
   lastCompletedAt DateTime? @map("last_completed_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  @@map("sync_dux_status")
   @@index([updatedAt])
+  @@map("sync_dux_status")
 }
 
 // ─── Facturación / ventas (comprobantes) ───────────────────────────────────
@@ -2134,31 +2423,43 @@ model SyncDuxStatus {
  * Venta / NC autorizada escribe `stock_comprobantes` + `stock_movimientos` y pone `stock_aplicado`.
  */
 model ComprobanteVta {
-  id        String @id @default(cuid())
-  tipoComprobante String @map("tipo_comprobante") @db.VarChar(32)
-  /** Código WSFEv1 `CbteTipo` (1 A, 6 B, 11 C, 3/8/13 NC). Null si no fiscal. */
-  cbteTipo  Int?   @map("cbte_tipo")
-  letra     String? @db.Char(1)
-  ptoVtaId  String @map("pto_vta_id")
-  /** CHAR(5) alineado a `ptos_vtas.pto_venta`. */
-  ptoVenta  String @map("pto_venta") @db.Char(5)
-  cbteNro   Int?   @map("cbte_nro")
-  fecha     DateTime @db.Date
-  concepto  String @default("1") @db.VarChar(8)
-  moneda    String @default("PES") @db.VarChar(8)
-  cotizacion Decimal @default(1) @db.Decimal(14, 6)
+  id              String   @id @default(cuid())
+  tipoComprobante String   @map("tipo_comprobante") @db.VarChar(32)
+  /**
+   * Código WSFEv1 `CbteTipo` (1 A, 6 B, 11 C, 3/8/13 NC). Null si no fiscal.
+   */
+  cbteTipo        Int?     @map("cbte_tipo")
+  letra           String?  @db.Char(1)
+  ptoVtaId        String   @map("pto_vta_id")
+  /**
+   * CHAR(5) alineado a `ptos_vtas.pto_venta`.
+   */
+  ptoVenta        String   @map("pto_venta") @db.Char(5)
+  cbteNro         Int?     @map("cbte_nro")
+  fecha           DateTime @db.Date
+  concepto        String   @default("1") @db.VarChar(8)
+  moneda          String   @default("PES") @db.VarChar(8)
+  cotizacion      Decimal  @default(1) @db.Decimal(14, 6)
 
-  /** Catálogo `clientes` (opcional). El snapshot `receptor_*` sigue siendo la fuente fiscal del comprobante. */
+  /**
+   * Catálogo `clientes` (opcional). El snapshot `receptor_*` sigue siendo la fuente fiscal del comprobante.
+   */
   clienteId            String? @map("cliente_id")
-  /** Catálogo `clientes_proyectos` (opcional). Null si no hay proyecto o es CF sin catálogo. */
+  /**
+   * Catálogo `clientes_proyectos` (opcional). Null si no hay proyecto o es CF sin catálogo.
+   */
   proyectoId           String? @map("proyecto_id")
   receptorNombre       String  @map("receptor_nombre")
   receptorDocTipo      Int?    @map("receptor_doc_tipo")
   receptorDocNro       String? @map("receptor_doc_nro") @db.VarChar(20)
   receptorCondicionIva Int?    @map("receptor_condicion_iva")
-  /** Domicilio del receptor al autorizar (factura A). No se relee del proyecto. */
+  /**
+   * Domicilio del receptor al autorizar (factura A). No se relee del proyecto.
+   */
   receptorDomicilio    String? @map("receptor_domicilio") @db.Text
-  /** Condición IVA del emisor al autorizar (`condicion_iva_cod_arca.codigo`). */
+  /**
+   * Condición IVA del emisor al autorizar (`condicion_iva_cod_arca.codigo`).
+   */
   emisorCondicionIva   Int?    @map("emisor_condicion_iva")
 
   impNeto     Decimal @map("imp_neto") @db.Decimal(14, 2)
@@ -2177,12 +2478,18 @@ model ComprobanteVta {
   observacionesArca String?   @map("observaciones_arca") @db.Text
   ambiente          String    @db.VarChar(8)
   comentarios       String    @default("") @db.Text
-  /** `borrador` | `autorizado` | `rechazado` */
+  /**
+   * `borrador` | `autorizado` | `rechazado`
+   */
   estado            String    @db.VarChar(16)
 
-  /** `salida` | `ingreso` | `ninguno` — efecto stock del tipo. */
+  /**
+   * `salida` | `ingreso` | `ninguno` — efecto stock del tipo.
+   */
   efectoStock   String  @map("efecto_stock") @db.VarChar(16)
-  /** true cuando ya se aplicó el movimiento de stock. */
+  /**
+   * true cuando ya se aplicó el movimiento de stock.
+   */
   stockAplicado Boolean @default(false) @map("stock_aplicado")
 
   cbteAsocId     String? @map("cbte_asoc_id")
@@ -2191,31 +2498,41 @@ model ComprobanteVta {
   cbteAsocNro    Int?    @map("cbte_asoc_nro")
   cbteAsocCae    String? @map("cbte_asoc_cae") @db.VarChar(14)
 
-  /** Días para recordatorio si queda impago o con saldo (`clientes.cta_corriente_plazo`). Null si el cobro cubre el total. */
-  diasVencimiento Int? @map("dias_vencimiento")
-  /** Suma cobrada al emitir. Saldo = `imp_total` − `imp_cobrado`. */
-  impCobrado Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
-  /** Usuario de pestaña que generó el comprobante (`usuarios.id_personal`). */
-  personalId Int? @map("personal_id")
+  /**
+   * Días para recordatorio si queda impago o con saldo (`clientes.cta_corriente_plazo`). Null si el cobro cubre el total.
+   */
+  diasVencimiento Int?    @map("dias_vencimiento")
+  /**
+   * Suma cobrada al emitir. Saldo = `imp_total` − `imp_cobrado`.
+   */
+  impCobrado      Decimal @default(0) @map("imp_cobrado") @db.Decimal(14, 2)
+  /**
+   * Usuario de pestaña que generó el comprobante (`usuarios.id_personal`).
+   */
+  personalId      Int?    @map("personal_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ptoVta GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
-  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  proyecto EnviosDireccion? @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  receptorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  emisorCondicionIvaArca PtoVentasCodArca? @relation("ComprobanteVtaEmisorIva", fields: [emisorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
-  personal GlobalPersonal? @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
-  cbteAsoc     ComprobanteVta?  @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
-  notasCredito ComprobanteVta[] @relation("ComprobanteVtaAsoc")
-  items        ComprobanteVtaItem[]
-  historialArca ComprobanteVtaHistorialArca[]
-  /** Cobros / imputaciones / devoluciones en el ledger. */
-  movimientosCobro TesoreriaMovimiento[] @relation("MovimientoComprobante")
-  /** Imputaciones de esta NC como cobro de ventas. */
-  movimientosComoNotaCredito TesoreriaMovimiento[] @relation("MovimientoNotaCredito")
-  stockComprobantes StockComprobante[]
+  ptoVta                     GlobalPtoVta                  @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict)
+  cliente                    Cliente?                      @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  proyecto                   EnviosDireccion?              @relation(fields: [proyectoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  receptorCondicionIvaArca   PtoVentasCodArca?             @relation("ComprobanteVtaReceptorIva", fields: [receptorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  emisorCondicionIvaArca     PtoVentasCodArca?             @relation("ComprobanteVtaEmisorIva", fields: [emisorCondicionIva], references: [codigo], onDelete: Restrict, onUpdate: Cascade)
+  personal                   GlobalPersonal?               @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  cbteAsoc                   ComprobanteVta?               @relation("ComprobanteVtaAsoc", fields: [cbteAsocId], references: [id], onDelete: Restrict)
+  notasCredito               ComprobanteVta[]              @relation("ComprobanteVtaAsoc")
+  items                      ComprobanteVtaItem[]
+  historialArca              ComprobanteVtaHistorialArca[]
+  /**
+   * Cobros / imputaciones / devoluciones en el ledger.
+   */
+  movimientosCobro           TesoreriaMovimiento[]         @relation("MovimientoComprobante")
+  /**
+   * Imputaciones de esta NC como cobro de ventas.
+   */
+  movimientosComoNotaCredito TesoreriaMovimiento[]         @relation("MovimientoNotaCredito")
+  stockComprobantes          StockComprobante[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")
   @@index([ptoVtaId], map: "vtas_comprobantes_pto_vta_idx")
@@ -2229,7 +2546,9 @@ model ComprobanteVta {
   @@map("vtas_comprobantes")
 }
 
-/** Cobro de cuenta corriente del cliente (pago completo; imputaciones en `tesoreria_movimientos`). */
+/**
+ * Cobro de cuenta corriente del cliente (pago completo; imputaciones en `tesoreria_movimientos`).
+ */
 model ClienteCobro {
   id            String   @id @default(cuid())
   clienteId     String   @map("cliente_id")
@@ -2252,7 +2571,9 @@ model ComprobanteVtaItem {
   orden         Int
   codTienda     String  @map("cod_tienda")
   descripcion   String
-  /** Hasta 1 decimal. El front muestra entero si no hay fracción. */
+  /**
+   * Hasta 1 decimal. El front muestra entero si no hay fracción.
+   */
   cantidad      Decimal @db.Decimal(12, 1)
   px            Decimal @db.Decimal(14, 2)
   descuentoPct  Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
@@ -2267,7 +2588,9 @@ model ComprobanteVtaItem {
   @@map("vtas_comprobantes_items")
 }
 
-/** Historial de llamadas ARCA. `payload` es el JSON fiscal (sin token ni certificado). */
+/**
+ * Historial de llamadas ARCA. `payload` es el JSON fiscal (sin token ni certificado).
+ */
 model ComprobanteVtaHistorialArca {
   id            String   @id @default(cuid())
   comprobanteId String   @map("comprobante_id")
@@ -2275,7 +2598,9 @@ model ComprobanteVtaHistorialArca {
   operacion     String   @db.VarChar(64)
   resultado     String?  @db.VarChar(8)
   errores       String?  @db.Text
-  /** Solicitud y respuesta de negocio. Nunca incluye token, sign ni PEM. */
+  /**
+   * Solicitud y respuesta de negocio. Nunca incluye token, sign ni PEM.
+   */
   payload       String?  @db.Text
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -2285,7 +2610,9 @@ model ComprobanteVtaHistorialArca {
   @@map("vtas_comprobantes_historial_arca")
 }
 
-/** Ticket WSAA cacheado (token+sign). Nunca exponer al cliente. */
+/**
+ * Ticket WSAA cacheado (token+sign). Nunca exponer al cliente.
+ */
 model ArcaWsaaTicket {
   id         String   @id @default(cuid())
   cuit       String   @db.VarChar(11)

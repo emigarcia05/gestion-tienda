@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   listarColoresOpcionesAction,
@@ -24,9 +24,16 @@ const CATALOGOS_VACIOS: CatalogosProductoTienda = {
   colores: [],
 };
 
-/** Catálogos de los modales Agregar / Editar producto (Lista Productos). Se piden cada vez que `open` pasa a true. */
-export function useCatalogosProductoTienda(open: boolean): CatalogosProductoTienda {
+/**
+ * Catálogos de los modales Agregar / Editar producto (Lista Productos). Se piden cada vez que `open`
+ * pasa a true y al llamar `recargar` (p. ej. al cerrar un modal «GESTIONAR…»).
+ */
+export function useCatalogosProductoTienda(
+  open: boolean
+): CatalogosProductoTienda & { recargar: () => void } {
   const [catalogos, setCatalogos] = useState<CatalogosProductoTienda>(CATALOGOS_VACIOS);
+  const [version, setVersion] = useState(0);
+  const recargar = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     if (!open) return;
@@ -51,7 +58,7 @@ export function useCatalogosProductoTienda(open: boolean): CatalogosProductoTien
     return () => {
       activo = false;
     };
-  }, [open]);
+  }, [open, version]);
 
-  return catalogos;
+  return { ...catalogos, recargar };
 }

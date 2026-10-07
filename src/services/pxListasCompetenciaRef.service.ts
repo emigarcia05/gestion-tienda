@@ -71,7 +71,7 @@ export type ResultadoGuardarCompRefPxListas = {
 };
 
 async function resolverIdListaGeneral(): Promise<number | null> {
-  const listas = await prisma.prodTiendaListaPrecio.findMany({
+  const listas = await prisma.prodPropioListaPrecioNombre.findMany({
     select: { idLista: true, nombreLista: true },
     orderBy: [{ idLista: "asc" }],
   });
@@ -239,7 +239,7 @@ export async function asegurarOpcionCompetenciaRefSeleccionada(
 export async function limpiarCompetenciaRefPxListaGeneral(
   codTienda: string
 ): Promise<void> {
-  await prisma.prodTienda.update({
+  await prisma.prodPropio.update({
     where: { codTienda },
     data: { competenciaIdPxListaGeneral: null },
   });
@@ -268,7 +268,7 @@ export async function guardarCompetenciaRefPxListaGeneral(
   codTienda: string,
   competenciaIdRaw: string | null
 ): Promise<ServiceResult<ResultadoGuardarCompRefPxListas>> {
-  const producto = await prisma.prodTienda.findUnique({
+  const producto = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: { codTienda: true },
   });
@@ -321,7 +321,7 @@ export async function guardarCompetenciaRefPxListaGeneral(
     };
   }
 
-  await prisma.prodTienda.update({
+  await prisma.prodPropio.update({
     where: { codTienda },
     data: { competenciaIdPxListaGeneral: competenciaId },
   });
@@ -359,7 +359,7 @@ export async function sincronizarPxGeneralDesdeCompetenciaRef(
   const idGeneral = await resolverIdListaGeneral();
   if (idGeneral == null) return;
 
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: {
       codTienda: { in: codTiendas },
       competenciaIdPxListaGeneral: { not: null },
@@ -372,7 +372,7 @@ export async function sincronizarPxGeneralDesdeCompetenciaRef(
   });
   if (rows.length === 0) return;
 
-  const edicionRows = await prisma.prodTiendaPrecioEdicion.findMany({
+  const edicionRows = await prisma.prodPropioListaPrecioEdicion.findMany({
     where: {
       codTienda: { in: rows.map((r) => r.codTienda) },
       idLista: idGeneral,
@@ -399,7 +399,7 @@ export async function sincronizarPxGeneralDesdeCompetenciaRef(
 
 /** Antes de Act. Px: re-sincroniza todos los productos con FK de competidor. */
 export async function sincronizarTodosPxGeneralDesdeCompetenciaRef(): Promise<void> {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: { competenciaIdPxListaGeneral: { not: null } },
     select: { codTienda: true },
   });

@@ -8,7 +8,7 @@ export const DUX_BASE_URL = "https://erp.duxsoftware.com.ar/WSERP/rest/services/
 export const ID_PRECIO_LISTA      = 56994;
 export const ID_PRECIO_MAYORISTA  = 57160;
 
-/** Lista DUX “principal” (persistida en `prod_tienda_precios`). Override: `DUX_ID_PRECIO_LISTA`. */
+/** Lista DUX “principal” (persistida en `prod_propios_listas_precios`). Override: `DUX_ID_PRECIO_LISTA`. */
 export function getIdPrecioListaPrincipal(): number {
   const raw = process.env.DUX_ID_PRECIO_LISTA;
   if (raw != null && raw !== "") {
@@ -156,7 +156,7 @@ async function consumeBody(res: Response): Promise<void> {
 
 /**
  * Obtiene una página de ítems de la API DUX (limit=50 por restricción de la API).
- * Para sincronización paginada con prod_precios_tienda.
+ * Para sincronización paginada con prod_propios.
  * Ante 429 Too Many Requests: consume el body, respeta Retry-After si viene en la respuesta,
  * y reintenta con backoff exponencial (10s, 20s, 40s, 80s, 160s).
  *

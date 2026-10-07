@@ -36,7 +36,7 @@ export function clavesDesdeGruposExportPxListas(
 }
 
 /**
- * Por cada `nombre_lista`: ítems con PX en `prod_tienda_precios_edicion` (pendientes de Act. Px).
+ * Por cada `nombre_lista`: ítems con PX en `prod_propios_listas_precios_edicion` (pendientes de Act. Px).
  */
 export async function listarExportPxListasMargenPorLista(): Promise<
   ExportPxListaMargenGrupo[]
@@ -44,7 +44,7 @@ export async function listarExportPxListasMargenPorLista(): Promise<
   /** Re-aplica PX de competencia en GENERAL (PORC. UTILIDAD = f(PX, costo)). */
   await sincronizarTodosPxGeneralDesdeCompetenciaRef();
 
-  const listas = await prisma.prodTiendaListaPrecio.findMany({
+  const listas = await prisma.prodPropioListaPrecioNombre.findMany({
     orderBy: [{ idLista: "asc" }],
     select: { idLista: true, nombreLista: true },
   });
@@ -54,12 +54,12 @@ export async function listarExportPxListasMargenPorLista(): Promise<
   const idListas = listas.map((l) => l.idLista);
 
   const [edicionRows, productos] = await Promise.all([
-    prisma.prodTiendaPrecioEdicion.findMany({
+    prisma.prodPropioListaPrecioEdicion.findMany({
       where: { idLista: { in: idListas } },
       select: { codTienda: true, idLista: true, precio: true },
       orderBy: [{ codTienda: "asc" }],
     }),
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { codTienda: true, costoCompra: true },
     }),
   ]);

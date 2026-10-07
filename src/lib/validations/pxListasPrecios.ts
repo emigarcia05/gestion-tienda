@@ -25,7 +25,7 @@ const pxListaEdicionSchema = z
   .positive("El precio debe ser mayor a cero.")
   .max(999_999_999, "Precio demasiado alto.");
 
-/** Guardar margen en UI → persiste PX en `prod_tienda_precios_edicion`. `margenManual: null` elimina staging. */
+/** Guardar margen en UI → persiste PX en `prod_propios_listas_precios_edicion`. `margenManual: null` elimina staging. */
 export const guardarPxListaMargenEdicionSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
   idLista: z.coerce.number().int().positive("Lista inválida."),

@@ -44,8 +44,8 @@ function buildWherePxListas(params: {
   q: string;
   rubro: string;
   marca: string;
-}): Prisma.ProdTiendaWhereInput {
-  const andParts: Prisma.ProdTiendaWhereInput[] = [{ compararCompetencia: true }];
+}): Prisma.ProdPropioWhereInput {
+  const andParts: Prisma.ProdPropioWhereInput[] = [{ compararCompetencia: true }];
   const textFilter = filtroTexto(params.q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
   if (params.rubro) andParts.push({ rubro: params.rubro });
@@ -68,13 +68,13 @@ async function getPxListasPageEmpty(): Promise<{
   competencias: CompetenciaParaCliente[];
 }> {
   const [marcasDistinct, rubrosDistinct, competencias] = await Promise.all([
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { marca: true },
       distinct: ["marca"],
       where: { marca: { not: null }, compararCompetencia: true },
       orderBy: { marca: "asc" },
     }),
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { rubro: true },
       distinct: ["rubro"],
       where: { rubro: { not: null }, compararCompetencia: true },
@@ -93,13 +93,13 @@ async function getPxListasPageEmpty(): Promise<{
 }
 
 async function listarItemsPxListasPostProcesados(
-  where: Prisma.ProdTiendaWhereInput,
+  where: Prisma.ProdPropioWhereInput,
   opts: {
     filtroPxPromedio: FiltroPxPromedioCompetencia;
     paginaNum: number;
   }
 ) {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where,
     select: selectBase,
     orderBy: [{ descripcionTienda: "asc" }],
@@ -146,24 +146,24 @@ export async function getPxCompetenciaPageDataFromDb(params: {
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const postProceso = requierePostProcesoPxCompetencia({ filtroPxPromedio });
 
-  const andPartsOnlyQ: Prisma.ProdTiendaWhereInput[] = [];
+  const andPartsOnlyQ: Prisma.ProdPropioWhereInput[] = [];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andPartsOnlyQ.push(textFilter);
-  const whereMarcas: Prisma.ProdTiendaWhereInput = andPartsOnlyQ.length
+  const whereMarcas: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length
     ? { AND: [...andPartsOnlyQ, { marca: { not: null } }, { compararCompetencia: true }] }
     : { marca: { not: null }, compararCompetencia: true };
-  const whereRubros: Prisma.ProdTiendaWhereInput = andPartsOnlyQ.length
+  const whereRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length
     ? { AND: [...andPartsOnlyQ, { rubro: { not: null } }, { compararCompetencia: true }] }
     : { rubro: { not: null }, compararCompetencia: true };
 
   const [marcasDistinct, rubrosDistinct] = await Promise.all([
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { marca: true },
       distinct: ["marca"],
       where: whereMarcas,
       orderBy: { marca: "asc" },
     }),
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { rubro: true },
       distinct: ["rubro"],
       where: whereRubros,
@@ -192,14 +192,14 @@ export async function getPxCompetenciaPageDataFromDb(params: {
 
   const skip = (paginaNum - 1) * PAGE_SIZE;
   const [rows, total] = await Promise.all([
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       where,
       select: selectBase,
       orderBy: [{ descripcionTienda: "asc" }],
       skip,
       take: PAGE_SIZE,
     }),
-    prisma.prodTienda.count({ where }),
+    prisma.prodPropio.count({ where }),
   ]);
 
   const filas = await filasConPrecioListaPrincipal(rows);

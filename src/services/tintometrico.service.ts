@@ -65,19 +65,19 @@ export type BaseTintometricaCatalogo = {
   idMarca: string;
 };
 
-const WHERE_BASE_TINTOMETRICA: Prisma.ProdTiendaWhereInput = {
+const WHERE_BASE_TINTOMETRICA: Prisma.ProdPropioWhereInput = {
   rubro: { equals: "Tintometrico", mode: "insensitive" },
 };
 
 /**
- * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_tienda` rubro Tintometrico
+ * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_propios` rubro Tintometrico
  * con marca vinculada + marcas presentes en esas bases con su formato de código.
  */
 export async function getCatalogoAgregarTintometrico(): Promise<{
   marcas: MarcaTintometricaCatalogo[];
   bases: BaseTintometricaCatalogo[];
 }> {
-  const rows = await prisma.prodTienda.findMany({
+  const rows = await prisma.prodPropio.findMany({
     where: { ...WHERE_BASE_TINTOMETRICA, idMarca: { not: null } },
     select: { codTienda: true, descripcionTienda: true, idMarca: true },
     orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
@@ -122,7 +122,7 @@ export async function buscarBasesTintometricas(
   take: number
 ): Promise<{ items: BaseTintometricaRow[]; total: number }> {
   const query = (q ?? "").trim();
-  const andParts: Prisma.ProdTiendaWhereInput[] = [
+  const andParts: Prisma.ProdPropioWhereInput[] = [
     { rubro: { equals: "Tintometrico", mode: "insensitive" as const } },
   ];
 
@@ -141,10 +141,10 @@ export async function buscarBasesTintometricas(
     }
   }
 
-  const where: Prisma.ProdTiendaWhereInput = andParts.length ? { AND: andParts } : {};
+  const where: Prisma.ProdPropioWhereInput = andParts.length ? { AND: andParts } : {};
 
   const [rows, total] = await Promise.all([
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       where,
       select: {
         codTienda: true,
@@ -155,7 +155,7 @@ export async function buscarBasesTintometricas(
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take,
     }),
-    prisma.prodTienda.count({ where }),
+    prisma.prodPropio.count({ where }),
   ]);
 
   return {

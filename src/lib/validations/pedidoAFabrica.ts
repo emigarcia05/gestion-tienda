@@ -10,16 +10,16 @@ const filtroOpcionalTexto = z
 export const productosPedidoAFabricaFiltrosSchema = z.object({
   proveedorId: prismaCuidSchema,
   pagina: z.coerce.number().int().min(1).optional().default(1),
-  /** `prod_tienda.marca` vía vínculo `cod_tienda`. */
+  /** `prod_propios.marca` vía vínculo `cod_tienda`. */
   marca: filtroOpcionalTexto,
-  /** `prod_tienda.rubro` vía vínculo. */
+  /** `prod_propios.rubro` vía vínculo. */
   rubro: filtroOpcionalTexto,
-  /** `prod_tienda.sub_rubro` vía vínculo. */
+  /** `prod_propios.sub_rubro` vía vínculo. */
   subRubro: filtroOpcionalTexto,
   /** Buscar en descripcion_tienda (vínculo) o descripcion_proveedor. */
   q: filtroOpcionalTexto,
   /**
-   * SI = hay fila `prod_tienda` vía `cod_tienda`.
+   * SI = hay fila `prod_propios` vía `cod_tienda`.
    * NO = sin vínculo. Ausente = sin filtrar.
    */
   prodVinculado: z.enum(["si", "no"]).optional(),

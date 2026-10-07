@@ -28,7 +28,7 @@ export async function buscarProductosTiendaPorDescripcion(params: {
     const tokens = normalizeTokens(query);
 
     // Si no hay búsqueda, mostramos un subset estable para que el modal sea útil.
-    const whereDescripcion: Prisma.ProdTiendaWhereInput =
+    const whereDescripcion: Prisma.ProdPropioWhereInput =
       tokens.length === 0
         ? {
             AND: [
@@ -51,13 +51,13 @@ export async function buscarProductosTiendaPorDescripcion(params: {
           };
 
     const [rows, total] = await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         where: whereDescripcion,
         select: { codTienda: true, descripcionTienda: true },
         orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
         take,
       }),
-      prisma.prodTienda.count({ where: whereDescripcion }),
+      prisma.prodPropio.count({ where: whereDescripcion }),
     ]);
 
     const items: ProductoTiendaRowBusqueda[] = rows.map((r) => ({

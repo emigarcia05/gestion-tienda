@@ -14,11 +14,11 @@ function upperOrEmpty(value: string | null | undefined): string {
   return (value ?? "").trim().toLocaleUpperCase("es-AR");
 }
 
-/** Listado de `prod_tienda` con color, terminación y presentación derivados de la descripción. */
+/** Listado de `prod_propios` con color, terminación y presentación derivados de la descripción. */
 export async function listarProdTiendaCategorizacion(): Promise<EstCategorizacionItem[]> {
   try {
     const [rows, colores, presentaciones, terminaciones] = await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: {
           codTienda: true,
           descripcionTienda: true,

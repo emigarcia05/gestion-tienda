@@ -421,7 +421,7 @@ export async function getPedidoHistoriaDetalle(params: {
     }
 
     const codTiendaSet = Array.from(new Set(pedido.items.map((i) => i.codTienda)));
-    const descRows = await prisma.prodTienda.findMany({
+    const descRows = await prisma.prodPropio.findMany({
       where: { codTienda: { in: codTiendaSet } },
       select: { codTienda: true, descripcionTienda: true },
       orderBy: [{ codTienda: "asc" }],
@@ -490,7 +490,7 @@ export async function listarPedidosHistoria(params: {
   estado?: PedidoHistoriaEstado | "ALL";
   proveedorId?: string;
   sucursalCodigo?: SucursalPedidoEnvio;
-  /** Palabras que deben aparecer en `descripcion` del snapshot o en `descripcion_tienda` de `prod_tienda`. */
+  /** Palabras que deben aparecer en `descripcion` del snapshot o en `descripcion_tienda` de `prod_propios`. */
   q?: string;
 }): Promise<
   ServiceResult<{
@@ -525,7 +525,7 @@ export async function listarPedidosHistoria(params: {
 
     const tokens = normalizarTokensBusquedaHistorial(params.q);
     if (tokens.length > 0) {
-      const grouped = await prisma.prodTienda.groupBy({
+      const grouped = await prisma.prodPropio.groupBy({
         by: ["codTienda"],
         where: {
           AND: tokens.map((t) => ({
@@ -757,7 +757,7 @@ async function sincronizarStockRecepcionPedido(params: {
 
 async function codTiendaInexistentes(codigos: string[]): Promise<string[]> {
   if (codigos.length === 0) return [];
-  const existentes = await prisma.prodTienda.findMany({
+  const existentes = await prisma.prodPropio.findMany({
     where: { codTienda: { in: codigos } },
     select: { codTienda: true },
   });

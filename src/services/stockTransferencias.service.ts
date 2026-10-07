@@ -219,7 +219,7 @@ export async function crearStockTransferencia(
     const creadora = confirma.id === origen.id ? destino : origen;
 
     const codigos = input.items.map((i) => i.codItem.trim());
-    const existentes = await prisma.prodTienda.count({
+    const existentes = await prisma.prodPropio.count({
       where: { codTienda: { in: codigos } },
     });
     if (existentes !== codigos.length) {
@@ -351,7 +351,7 @@ export async function aceptarStockTransferencia(
       .map((r) => r.codItem)
       .filter((cod) => !porCod.has(cod));
     if (nuevosCodigos.length > 0) {
-      const existentesCat = await prisma.prodTienda.count({
+      const existentesCat = await prisma.prodPropio.count({
         where: { codTienda: { in: nuevosCodigos } },
       });
       if (existentesCat !== nuevosCodigos.length) {
@@ -643,7 +643,7 @@ export async function actualizarStockTransferencia(
     }
 
     const codigos = input.items.map((i) => i.codItem.trim());
-    const existentes = await prisma.prodTienda.count({
+    const existentes = await prisma.prodPropio.count({
       where: { codTienda: { in: codigos } },
     });
     if (existentes !== codigos.length) {

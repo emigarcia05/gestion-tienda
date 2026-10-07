@@ -33,7 +33,7 @@ async function ejecutarPasoSyncListaPrecioTienda() {
   try {
     const before = await getSyncDuxWorkerStateFromDb();
     if (!before.running) {
-      const countBefore = await prisma.prodTienda.count();
+      const countBefore = await prisma.prodPropio.count();
       await startSyncDuxInDb(countBefore);
     }
 
@@ -91,7 +91,7 @@ async function ejecutarPasoSyncListaPrecioTienda() {
     }
     const message = e instanceof Error ? e.message : String(e);
     await setSyncDuxErrorInDb(message);
-    console.error("Error en sync prod_tienda:", message);
+    console.error("Error en sync prod_propios:", message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   } finally {
     syncInProgress = false;

@@ -16,7 +16,7 @@ export type ItemPxCompetenciaTabla = {
   codItem: string;
   descripcion: string;
   costoCompra: number;
-  /** Precio lista principal DUX (`prod_tienda_precios`, id lista principal). Referencia DIF TIENDA vs promedio. */
+  /** Precio lista principal DUX (`prod_propios_listas_precios`, id lista principal). Referencia DIF TIENDA vs promedio. */
   pxListaTienda: number;
   pxPromedio: number | null;
   difPctTiendaVsPromedio: number | null;

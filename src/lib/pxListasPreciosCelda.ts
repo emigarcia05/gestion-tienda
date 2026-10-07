@@ -15,7 +15,7 @@ export function margenDesdePrecioDux(
   return margen == null ? null : roundMargenPxListaPct(margen);
 }
 
-/** Pendiente de Act. Px mientras exista fila en `prod_tienda_precios_edicion`. */
+/** Pendiente de Act. Px mientras exista fila en `prod_propios_listas_precios_edicion`. */
 export function celdaRequiereActualizar(celda: PrecioListaPxListasCelda): boolean {
   return celda.pxEdicion != null;
 }

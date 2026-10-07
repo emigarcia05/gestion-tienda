@@ -1,5 +1,7 @@
 "use client";
 
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -9,7 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
+import { cn } from "@/lib/utils";
 
 /** Sentinel de los Select opcionales (PRESENTACIÓN / COLOR). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
@@ -74,6 +78,8 @@ function SelectCatalogo({
   placeholder,
   opcionVacia,
   disabled,
+  onGestionar,
+  gestionarLabel,
 }: {
   label: string;
   value: string;
@@ -83,23 +89,42 @@ function SelectCatalogo({
   /** Texto de la opción sentinel; sin ella el campo es obligatorio. */
   opcionVacia?: string;
   disabled?: boolean;
+  /** Botón «+» dentro del input (a la izquierda del chevron) que abre el modal «GESTIONAR…». */
+  onGestionar?: () => void;
+  gestionarLabel: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <ModalMicroLabel>{label}</ModalMicroLabel>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {opcionVacia ? <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>{opcionVacia}</SelectItem> : null}
-          {opciones.map((o) => (
-            <SelectItem key={o.id} value={o.id}>
-              {o.nombre}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="relative">
+        <Select value={value} onValueChange={onChange} disabled={disabled}>
+          <SelectTrigger className={cn("w-full", onGestionar && "pr-14")}>
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {opcionVacia ? <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>{opcionVacia}</SelectItem> : null}
+            {opciones.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {onGestionar ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-8 top-1/2 h-6 w-6 -translate-y-1/2 text-primary hover:bg-accent"
+            aria-label={gestionarLabel}
+            title={gestionarLabel}
+            disabled={disabled}
+            onClick={onGestionar}
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -114,12 +139,15 @@ export default function ProductoTiendaCampos({
   catalogos,
   disabled,
   autoFocus,
+  onGestionar,
 }: {
   campos: CamposProductoTiendaForm;
   onChange: (patch: Partial<CamposProductoTiendaForm>) => void;
   catalogos: CatalogosProductoTienda;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** Si viene, RUBRO / MARCA / COLOR / PRESENTACIÓN muestran el botón «+» que abre su «GESTIONAR…». */
+  onGestionar?: (catalogo: CatalogoProductoTienda) => void;
 }) {
   const bultoInvalido = parsearBultoProductoTienda(campos.bulto).invalido;
   return (
@@ -142,6 +170,8 @@ export default function ProductoTiendaCampos({
           opciones={catalogos.rubros}
           placeholder="RUBRO (OBLIGATORIO)"
           disabled={disabled}
+          onGestionar={onGestionar ? () => onGestionar("rubros") : undefined}
+          gestionarLabel="Gestionar rubros"
         />
         <div className="flex min-w-0 flex-col gap-1">
           <ModalMicroLabel>SUB-RUBRO</ModalMicroLabel>
@@ -159,6 +189,8 @@ export default function ProductoTiendaCampos({
           opciones={catalogos.marcas}
           placeholder="MARCA (OBLIGATORIO)"
           disabled={disabled}
+          onGestionar={onGestionar ? () => onGestionar("marcas") : undefined}
+          gestionarLabel="Gestionar marcas"
         />
         <SelectCatalogo
           label="COLOR"
@@ -168,6 +200,8 @@ export default function ProductoTiendaCampos({
           placeholder="COLOR"
           opcionVacia="SIN COLOR"
           disabled={disabled}
+          onGestionar={onGestionar ? () => onGestionar("colores") : undefined}
+          gestionarLabel="Gestionar colores"
         />
         <SelectCatalogo
           label="PRESENTACIÓN"
@@ -177,6 +211,8 @@ export default function ProductoTiendaCampos({
           placeholder="PRESENTACIÓN"
           opcionVacia="SIN PRESENTACIÓN"
           disabled={disabled}
+          onGestionar={onGestionar ? () => onGestionar("presentacion") : undefined}
+          gestionarLabel="Gestionar presentaciones"
         />
         <div className="flex min-w-0 flex-col gap-1">
           <ModalMicroLabel>UN. POR BULTO</ModalMicroLabel>

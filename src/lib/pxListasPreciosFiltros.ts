@@ -1,4 +1,4 @@
-/** Query `actualizar`: ítems con PX pendiente en `prod_tienda_precios_edicion` (hasta Act. Px). */
+/** Query `actualizar`: ítems con PX pendiente en `prod_propios_listas_precios_edicion` (hasta Act. Px). */
 export const FILTRO_ACTUALIZAR_SI = "si" as const;
 export const FILTRO_ACTUALIZAR_NO = "no" as const;
 
@@ -32,7 +32,7 @@ export type FiltrosListadoPxListas = {
   actualizar: string;
 };
 
-/** Sin filtro desplegable ni búsqueda ≥ 3 caracteres no se consulta `prod_tienda`. */
+/** Sin filtro desplegable ni búsqueda ≥ 3 caracteres no se consulta `prod_propios`. */
 export function hayFiltroActivoPxListas(
   params: FiltrosListadoPxListas
 ): boolean {

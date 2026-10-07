@@ -360,7 +360,7 @@ export async function getMarcasDisponiblesListaPrecios(
   return out;
 }
 
-/** Rubros desde `prod_tienda.rubro` (catálogo de tienda). */
+/** Rubros desde `prod_propios.rubro` (catálogo de tienda). */
 export async function getRubrosDisponiblesListaPrecios(
   _proveedorId: string | undefined,
   _marcaNombre: string | undefined,
@@ -384,7 +384,7 @@ export interface ProductoProveedorParaVincular {
   proveedor: { prefijo: string; nombre: string };
   /** Precio final de compra (para usar como costo objetivo al seleccionar desde lista). */
   pxCompraFinalSinIva: number | null;
-  /** Si ya está vinculado a un ítem `prod_precios_tienda`, datos para mostrar bloqueo informativo. */
+  /** Si ya está vinculado a un ítem `prod_propios`, datos para mostrar bloqueo informativo. */
   tiendaVinculada: { codTienda: string; descripcion: string | null } | null;
 }
 
@@ -863,14 +863,14 @@ export interface PedidoUrgenteItem {
    */
   cantReposicion: number;
   /**
-   * true si hay `prod_tienda` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
+   * true si hay `prod_propios` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
    */
   estaVinculadoTienda: boolean;
-  /** `prod_tienda.cod_tienda` del vínculo; "" si no está registrado en tienda. */
+  /** `prod_propios.cod_tienda` del vínculo; "" si no está registrado en tienda. */
   codTienda: string;
   /** Regla REPOSICIÓN (`prod_ped_merc`) del `cod_tienda` en la sucursal; null si no hay. */
   reposicionRegla: PedidoUrgenteReposicionRegla | null;
-  /** `prod_tienda.bulto` (unidades por bulto); null si no hay o no está registrado. */
+  /** `prod_propios.bulto` (unidades por bulto); null si no hay o no está registrado. */
   bultoTienda: number | null;
   /** Stock de la sucursal (Dux) del `cod_tienda`; 0 si no está registrado. */
   stockTienda: number;
@@ -1001,7 +1001,7 @@ async function mercaderiaMapsDesdeMerc2(
   const codTiendasRepo = [...mercaderiaRepoSet];
   const tiendaRows =
     codTiendas.length > 0
-      ? await prisma.prodTienda.findMany({
+      ? await prisma.prodPropio.findMany({
           where: { codTienda: { in: codTiendas } },
           select: {
             codTienda: true,
@@ -1311,7 +1311,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       },
       orderBy: [{ codTiendaVinculo: "asc" }, { codExt: "asc" }],
     }),
-    prisma.prodTienda.findMany({
+    prisma.prodPropio.findMany({
       select: { codTienda: true, descripcionTienda: true, costoCompraCodExt: true },
     }),
   ]);
@@ -1556,7 +1556,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 /**
  * Ítems de lista precios para Pedido Urgente.
  * Con sucursal: todos los `habilitado` de mercadería no fábrica, paginados.
- * La grilla parte **Productos Registrados en Dux** (`prod_tienda` por FK, CX PROD o match de descripción) y **Sin Registrar**.
+ * La grilla parte **Productos Registrados en Dux** (`prod_propios` por FK, CX PROD o match de descripción) y **Sin Registrar**.
  * descripcion = descripcion_tienda si existe; si no, descripcion_proveedor.
  */
 export async function getListaPreciosParaPedidoUrgente(

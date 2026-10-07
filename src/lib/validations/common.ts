@@ -50,7 +50,7 @@ export const listaPreciosCodExtListSchema = z
   .array(listaPreciosCodExtSchema)
   .min(1, "Al menos un código es requerido.");
 
-/** Clave natural `prod_precios_tienda.cod_tienda`. */
+/** Clave natural `prod_propios.cod_tienda`. */
 export const listaPreciosCodTiendaSchema = z
   .string()
   .min(1, "Cód. tienda inválido.")

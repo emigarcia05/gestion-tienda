@@ -34,7 +34,7 @@ async function saldosPorCodigo(
 }
 
 /**
- * Catálogo de **Trans. Depósitos** (`prod_tienda`) con saldo del ledger
+ * Catálogo de **Trans. Depósitos** (`prod_propios`) con saldo del ledger
  * (`stock_movimientos`) en origen y destino para la página actual.
  */
 export async function listarCatalogoTransfDepositos(
@@ -44,25 +44,25 @@ export async function listarCatalogoTransfDepositos(
   const skip = (Math.max(1, pagina) - 1) * PAGE_SIZE;
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
 
-  function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdTiendaWhereInput[] {
-    const parts: Prisma.ProdTiendaWhereInput[] = [whereProdTiendaStockeable()];
+  function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdPropioWhereInput[] {
+    const parts: Prisma.ProdPropioWhereInput[] = [whereProdTiendaStockeable()];
     if (textFilter.AND?.length) parts.push(textFilter);
     if (exclude !== "marca" && marca) parts.push({ marca });
     if (exclude !== "rubro" && rubro) parts.push({ rubro });
     return parts;
   }
 
-  const whereItems: Prisma.ProdTiendaWhereInput = { AND: baseWhere() };
-  const whereMarcas: Prisma.ProdTiendaWhereInput = {
+  const whereItems: Prisma.ProdPropioWhereInput = { AND: baseWhere() };
+  const whereMarcas: Prisma.ProdPropioWhereInput = {
     AND: [...baseWhere("marca"), { marca: { not: null } }],
   };
-  const whereRubros: Prisma.ProdTiendaWhereInput = {
+  const whereRubros: Prisma.ProdPropioWhereInput = {
     AND: [...baseWhere("rubro"), { rubro: { not: null } }],
   };
 
   try {
     const [rows, total, marcasDistinct, rubrosDistinct] = await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         where: whereItems,
         orderBy: { descripcionTienda: "asc" },
         skip,
@@ -74,14 +74,14 @@ export async function listarCatalogoTransfDepositos(
           rubro: true,
         },
       }),
-      prisma.prodTienda.count({ where: whereItems }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.count({ where: whereItems }),
+      prisma.prodPropio.findMany({
         select: { marca: true },
         distinct: ["marca"],
         where: whereMarcas,
         orderBy: { marca: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { rubro: true },
         distinct: ["rubro"],
         where: whereRubros,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -27,6 +27,9 @@ import ProductoTiendaCampos, {
   camposProductoTiendaParaAction,
   type CamposProductoTiendaForm,
 } from "@/components/tienda/ProductoTiendaCampos";
+import GestionarCatalogosProductoTienda, {
+  type CatalogoProductoTienda,
+} from "@/components/tienda/GestionarCatalogosProductoTienda";
 import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
 import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import type { CrearProductoTiendaItemInput } from "@/lib/validations/listaProductos";
@@ -55,6 +58,12 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [items, setItems] = useState<ItemPendiente[]>([]);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
+  const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
+  const { recargar } = catalogos;
+  const cerrarGestion = useCallback(() => {
+    setGestionando(null);
+    recargar();
+  }, [recargar]);
 
   useEffect(() => {
     if (!open) return;
@@ -149,6 +158,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
             catalogos={catalogos}
             disabled={pending}
             autoFocus
+            onGestionar={setGestionando}
           />
           <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>
             <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
@@ -248,6 +258,12 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         marca={marcaNombre}
         rubro={rubroNombre}
         subRubro={campos.subRubro.trim().toLocaleUpperCase("es-AR") || null}
+      />
+      <GestionarCatalogosProductoTienda
+        abierto={gestionando}
+        onClose={cerrarGestion}
+        esEditor
+        onCatalogoChanged={recargar}
       />
     </Dialog>
   );

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
+import { PRODUCTO_TIENDA_GRID_CLASS } from "@/components/tienda/ProductoTiendaCampos";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
@@ -173,39 +174,37 @@ export default function VinculosCostoProductoTienda({
 
   return (
     <div className="flex flex-col gap-3">
-      <ModalSiNoChoice
-        label="PROD. PROPIO"
-        value={esPropio}
-        onChange={cambiarPropio}
-        disabled={!puedeVincular || isPending || cargando}
-      />
+      <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-center")}>
+        <ModalSiNoChoice
+          label="PROD. PROPIO"
+          value={esPropio}
+          onChange={cambiarPropio}
+          disabled={!puedeVincular || isPending || cargando}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full gap-2"
+          disabled={!puedeVincular || esPropio || isPending || cargando}
+          onClick={() => setSelectorAbierto(true)}
+        >
+          <Link2 aria-hidden />
+          Vincular Cx Proveedor
+        </Button>
+      </div>
       {esPropio ? (
         <p className="text-center text-sm text-muted-foreground">
           Producto propio TiendaColor: sin vínculos con proveedores.
         </p>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium uppercase text-foreground">
-              CX COMPRA:{" "}
-              <span className="tabular-nums">{costoCompra != null ? `$${fmtPrecio(costoCompra)}` : "—"}</span>{" "}
-              <span className="text-xs text-muted-foreground">
-                {filaBase ? `(${filaBase.producto.proveedor.prefijo})` : costoPromedio != null ? "(CX. PROM.)" : ""}
-              </span>
-            </p>
-            {puedeVincular ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={isPending || cargando}
-                onClick={() => setSelectorAbierto(true)}
-              >
-                <Link2 aria-hidden />
-                Vincular Proveedor
-              </Button>
-            ) : null}
-          </div>
+          <p className="text-sm font-medium uppercase text-foreground">
+            CX COMPRA:{" "}
+            <span className="tabular-nums">{costoCompra != null ? `$${fmtPrecio(costoCompra)}` : "—"}</span>{" "}
+            <span className="text-xs text-muted-foreground">
+              {filaBase ? `(${filaBase.producto.proveedor.prefijo})` : costoPromedio != null ? "(CX. PROM.)" : ""}
+            </span>
+          </p>
           <Table variant="compact" scrollX={false} className="table-fixed w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FolderTree, Palette, Plus, Ruler, Tags } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
@@ -11,11 +10,9 @@ import ActCxButton from "@/components/tienda/ActCxButton";
 import FiltrosTienda from "@/components/tienda/FiltrosTienda";
 import TablaTienda from "@/components/tienda/TablaTienda";
 import AgregarProductoTiendaModal from "@/components/tienda/AgregarProductoTiendaModal";
-import GestionarMarcasModal from "@/components/tienda/GestionarMarcasModal";
-import GestionarRubrosModal from "@/components/tienda/GestionarRubrosModal";
-import GestionarEstPorProdColoresModal from "@/components/estadisticas-productos/GestionarEstPorProdColoresModal";
-import GestionarEstPorProdPresentacionModal from "@/components/estadisticas-productos/GestionarEstPorProdPresentacionModal";
-import { listarEstPorProdUnPresentacionesAction } from "@/actions/estPorProdUnPresentacion";
+import GestionarCatalogosProductoTienda, {
+  type CatalogoProductoTienda,
+} from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type {
   ItemTiendaParaTabla,
   ProveedorOpcionFiltro,
@@ -24,15 +21,6 @@ import type {
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
-import type { EstPorProdColorItem } from "@/lib/estPorProdColores";
-import type { EstPorProdPresentacionItem } from "@/lib/estPorProdPresentacion";
-import type { EstPorProdUnPresentacionItem } from "@/lib/estPorProdUnPresentacion";
-
-/** Referencias estables: los modales de estadísticas recargan al cambiar `itemsIniciales`. */
-const COLORES_INICIALES: EstPorProdColorItem[] = [];
-const PRESENTACIONES_INICIALES: EstPorProdPresentacionItem[] = [];
-
-type ModalAbierto = "agregar" | "marcas" | "rubros" | "colores" | "presentacion" | null;
 
 export type FiltrosListaProductosUrl = {
   q: string;
@@ -71,48 +59,35 @@ export default function ListaProductosPageClient({
   paginaNum,
 }: Props) {
   const router = useRouter();
-  const [modal, setModal] = useState<ModalAbierto>(null);
-  const [unidades, setUnidades] = useState<EstPorProdUnPresentacionItem[]>([]);
+  const [agregarAbierto, setAgregarAbierto] = useState(false);
+  const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const puedeEditarCxProd = puede(rol, PERMISOS.cxPxTienda.acceso);
-
-  function cerrar(open: boolean) {
-    if (!open) setModal(null);
-  }
-
-  async function abrirPresentacion() {
-    const res = await listarEstPorProdUnPresentacionesAction();
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
-    }
-    setUnidades(res.data);
-    setModal("presentacion");
-  }
+  const cerrarGestion = useCallback(() => setGestionando(null), []);
 
   const refrescar = () => router.refresh();
 
   const actions = (
     <>
       {esEditor ? (
-        <Button type="button" size="sm" onClick={() => setModal("agregar")}>
+        <Button type="button" size="sm" onClick={() => setAgregarAbierto(true)}>
           <Plus className="h-4 w-4" aria-hidden />
           Agregar Item
         </Button>
       ) : null}
       {puedeEditarCxProd ? <ActCxButton /> : null}
-      <Button type="button" size="sm" variant="outline" onClick={() => setModal("marcas")}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("marcas")}>
         <Tags className="h-4 w-4" aria-hidden />
         Gestionar Marcas
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={() => setModal("rubros")}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("rubros")}>
         <FolderTree className="h-4 w-4" aria-hidden />
         Gestionar Rubros
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={() => setModal("colores")}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("colores")}>
         <Palette className="h-4 w-4" aria-hidden />
         Gestionar Colores
       </Button>
-      <Button type="button" size="sm" variant="outline" onClick={() => void abrirPresentacion()}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("presentacion")}>
         <Ruler className="h-4 w-4" aria-hidden />
         Gestionar Presentación
       </Button>
@@ -159,31 +134,16 @@ export default function ListaProductosPageClient({
         </div>
       </ClassicFilteredTableLayout>
 
-      <AgregarProductoTiendaModal open={modal === "agregar"} onOpenChange={cerrar} onCreado={refrescar} />
-      <GestionarMarcasModal
-        open={modal === "marcas"}
-        onOpenChange={cerrar}
+      <AgregarProductoTiendaModal
+        open={agregarAbierto}
+        onOpenChange={setAgregarAbierto}
+        onCreado={refrescar}
+      />
+      <GestionarCatalogosProductoTienda
+        abierto={gestionando}
+        onClose={cerrarGestion}
         esEditor={esEditor}
         onCatalogoChanged={refrescar}
-      />
-      <GestionarRubrosModal
-        open={modal === "rubros"}
-        onOpenChange={cerrar}
-        esEditor={esEditor}
-        onCatalogoChanged={refrescar}
-      />
-      <GestionarEstPorProdColoresModal
-        open={modal === "colores"}
-        onOpenChange={cerrar}
-        itemsIniciales={COLORES_INICIALES}
-        esEditor={esEditor}
-      />
-      <GestionarEstPorProdPresentacionModal
-        open={modal === "presentacion"}
-        onOpenChange={cerrar}
-        itemsIniciales={PRESENTACIONES_INICIALES}
-        unidades={unidades}
-        esEditor={esEditor}
       />
     </div>
   );

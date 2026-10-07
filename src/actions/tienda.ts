@@ -79,19 +79,19 @@ async function getTiendaEmptyWithOpciones() {
         },
       }),
       listarProveedoresCxCompraOpciones(),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { rubro: true },
         distinct: ["rubro"],
         where: { rubro: { not: null } },
         orderBy: { rubro: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { subRubro: true },
         distinct: ["subRubro"],
         where: { subRubro: { not: null } },
         orderBy: { subRubro: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { marca: true },
         distinct: ["marca"],
         where: { marca: { not: null } },
@@ -140,7 +140,7 @@ export interface ItemTiendaParaTabla {
   cxProd: CxProdDatosFila;
   /** Producto propio TiendaColor (sin vínculos a lista proveedor). */
   esProductoPropio: boolean;
-  /** Unidades por bulto (`prod_tienda.bulto`); `null` = vacío. */
+  /** Unidades por bulto (`prod_propios.bulto`); `null` = vacío. */
   bulto: number | null;
   idMarca: string | null;
   idPresentacion: string | null;
@@ -186,7 +186,7 @@ export async function getProveedoresTintoLts(): Promise<ProveedorTintoLts[]> {
 }
 
 /**
- * Datos para la página /tienda desde prod_tienda.
+ * Datos para la página /tienda desde prod_propios.
  * Mapeo: cod_tienda → codItem, descripcion_tienda → descripcion, costo_compra → costo,
  * proveedor → proveedorDux (resuelto a prefijo de proveedores cuando hay match).
  */
@@ -223,7 +223,7 @@ export async function getTiendaPageData(params: {
   const vNorm = (vinculadoRaw ?? "").toLowerCase();
   const vinculado = vNorm === "no" || vNorm === "si" ? vNorm : "";
 
-  const andParts: Prisma.ProdTiendaWhereInput[] = [];
+  const andParts: Prisma.ProdPropioWhereInput[] = [];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
   if (rubro) andParts.push({ rubro });
@@ -257,21 +257,21 @@ export async function getTiendaPageData(params: {
     andParts.push({ listaPreciosProveedores: { some: {} } });
   }
 
-  const where: Prisma.ProdTiendaWhereInput = andParts.length ? { AND: andParts } : {};
+  const where: Prisma.ProdPropioWhereInput = andParts.length ? { AND: andParts } : {};
 
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
   /* Opciones de filtros: cada desplegable muestra siempre la lista completa de su dimensión (ver docs/FILTROS_DINAMICOS.md). Solo se aplica filtro de búsqueda (q) si existe. */
-  const andPartsOnlyQ: Prisma.ProdTiendaWhereInput[] = [];
+  const andPartsOnlyQ: Prisma.ProdPropioWhereInput[] = [];
   if (textFilter.AND?.length) andPartsOnlyQ.push(textFilter);
-  const whereMarcas: Prisma.ProdTiendaWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { marca: { not: null } }] } : { marca: { not: null } };
-  const whereRubros: Prisma.ProdTiendaWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { rubro: { not: null } }] } : { rubro: { not: null } };
-  const whereSubRubros: Prisma.ProdTiendaWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { subRubro: { not: null } }] } : { subRubro: { not: null } };
+  const whereMarcas: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { marca: { not: null } }] } : { marca: { not: null } };
+  const whereRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { rubro: { not: null } }] } : { rubro: { not: null } };
+  const whereSubRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { subRubro: { not: null } }] } : { subRubro: { not: null } };
 
   const [rows, total, proveedores, proveedoresCxCompra, rubrosDistinct, subRubrosDistinct, marcasDistinct] =
     await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         where,
         orderBy: [{ descripcionTienda: "asc" }],
         include: {
@@ -282,7 +282,7 @@ export async function getTiendaPageData(params: {
         skip,
         take: PAGE_SIZE,
       }),
-      prisma.prodTienda.count({ where }),
+      prisma.prodPropio.count({ where }),
       prisma.proveedor.findMany({
         where: { proveedorMercaderia: true },
         select: {
@@ -294,19 +294,19 @@ export async function getTiendaPageData(params: {
         },
       }),
       listarProveedoresCxCompraOpciones(),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { rubro: true },
         distinct: ["rubro"],
         where: whereRubros,
         orderBy: { rubro: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { subRubro: true },
         distinct: ["subRubro"],
         where: whereSubRubros,
         orderBy: { subRubro: "asc" },
       }),
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: { marca: true },
         distinct: ["marca"],
         where: whereMarcas,

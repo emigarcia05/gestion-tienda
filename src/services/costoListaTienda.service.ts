@@ -1,5 +1,5 @@
 /**
- * Costo lista para Cx/Px Tienda: `prod_precios_tienda.costo_compra_cod_ext` → `prod_precios_provee`.
+ * Costo lista para Cx/Px Tienda: `prod_propios.costo_compra_cod_ext` → `prod_precios_provee`.
  * `costo_compra` / `proveedor` en tienda siguen siendo espejo DUX (sync).
  */
 import type { ServiceResult } from "@/types";
@@ -57,7 +57,7 @@ export async function establecerCodExtCostoLista(
   if (!valid.success) return valid;
 
   try {
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { costoCompraCodExt: codExt },
     });
@@ -73,7 +73,7 @@ export async function limpiarCodExtCostoListaSiCoincide(
   codTienda: string,
   codExt: string
 ): Promise<void> {
-  await prisma.prodTienda.updateMany({
+  await prisma.prodPropio.updateMany({
     where: { codTienda, costoCompraCodExt: codExt },
     data: { costoCompraCodExt: null },
   });
@@ -85,7 +85,7 @@ export async function limpiarCodExtCostoListaSiCoincide(
 export async function autoAsignarCodExtCostoListaTrasVincular(
   codTienda: string
 ): Promise<void> {
-  const tienda = await prisma.prodTienda.findUnique({
+  const tienda = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: { costoCompraCodExt: true, proveedor: true },
   });
@@ -101,7 +101,7 @@ export async function autoAsignarCodExtCostoListaTrasVincular(
   if (candidatos.length === 0) return;
 
   if (candidatos.length === 1) {
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { costoCompraCodExt: candidatos[0].codExt },
     });
@@ -116,7 +116,7 @@ export async function autoAsignarCodExtCostoListaTrasVincular(
     )
   );
   if (matchDux) {
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { costoCompraCodExt: matchDux.codExt },
     });
@@ -157,7 +157,7 @@ export function calcularCostoPromedioVinculos(
 
 export async function limpiarCodExtCostoLista(codTienda: string): Promise<ServiceResult<void>> {
   try {
-    await prisma.prodTienda.update({
+    await prisma.prodPropio.update({
       where: { codTienda },
       data: { costoCompraCodExt: null },
     });

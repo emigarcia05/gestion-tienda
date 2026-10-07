@@ -178,7 +178,7 @@ export default function InfoPromedioPedidoAFabricaModal({
               />
               <FormulaLine
                 left="Prod. Vinculado"
-                right="Hay vínculo lista proveedor ↔ prod_tienda por cod_tienda (filtro SI/NO)"
+                right="Hay vínculo lista proveedor ↔ prod_propios por cod_tienda (filtro SI/NO)"
               />
               <FormulaLine
                 left="Pedido"

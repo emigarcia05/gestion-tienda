@@ -46,7 +46,7 @@ function factorSumaDesdePresentacion(
 export async function listarProductosEstVtas(): Promise<EstVtasProductoItem[]> {
   try {
     const [rows, colores, presentaciones, terminaciones] = await Promise.all([
-      prisma.prodTienda.findMany({
+      prisma.prodPropio.findMany({
         select: {
           codTienda: true,
           descripcionTienda: true,

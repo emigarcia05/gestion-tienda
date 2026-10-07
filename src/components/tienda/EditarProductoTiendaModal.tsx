@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -13,6 +13,9 @@ import ProductoTiendaCampos, {
   type CamposProductoTiendaForm,
 } from "@/components/tienda/ProductoTiendaCampos";
 import VinculosCostoProductoTienda from "@/components/tienda/VinculosCostoProductoTienda";
+import GestionarCatalogosProductoTienda, {
+  type CatalogoProductoTienda,
+} from "@/components/tienda/GestionarCatalogosProductoTienda";
 import { editarProductoTiendaAction } from "@/actions/listaProductos";
 import type { ItemTiendaParaTabla } from "@/actions/tienda";
 import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
@@ -43,6 +46,12 @@ export default function EditarProductoTiendaModal({
     bulto: item.bulto != null ? String(item.bulto) : "",
   });
   const [pending, setPending] = useState(false);
+  const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
+  const { recargar } = catalogos;
+  const cerrarGestion = useCallback(() => {
+    setGestionando(null);
+    recargar();
+  }, [recargar]);
 
   // Rubro y marca del ítem se resuelven contra el catálogo cuando llega (rubro por nombre; marca por id o nombre).
   const camposEfectivos: CamposProductoTiendaForm = {
@@ -80,7 +89,7 @@ export default function EditarProductoTiendaModal({
   return (
     <Dialog open onOpenChange={(next) => !next && !pending && onClose()}>
       <AppModal
-        title={`EDITAR PRODUCTO ${item.codItem}`}
+        title="EDITAR PRODUCTO"
         size="xl"
         actions={
           <div className="flex w-full justify-end gap-2">
@@ -101,6 +110,7 @@ export default function EditarProductoTiendaModal({
               onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
               catalogos={catalogos}
               disabled={pending}
+              onGestionar={setGestionando}
             />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
@@ -119,6 +129,12 @@ export default function EditarProductoTiendaModal({
           </section>
         </div>
       </AppModal>
+      <GestionarCatalogosProductoTienda
+        abierto={gestionando}
+        onClose={cerrarGestion}
+        esEditor
+        onCatalogoChanged={recargar}
+      />
     </Dialog>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Simula la llegada de datos de la API para prod_precios_tienda (upsert).
+ * Simula la llegada de datos de la API para prod_propios (upsert).
  * Usar para probar que la tabla se llena correctamente.
  * Ejecutar: npm run db:simulate-api-tienda
  */
@@ -51,7 +51,7 @@ export interface FilaListaPreciosTienda {
 }
 
 const UPSERT_SQL = `
-INSERT INTO prod_precios_tienda (
+INSERT INTO prod_propios (
   cod_ext, cod_tienda, rubro, sub_rubro, marca, proveedor, descripcion_tienda,
   costo_compra, px_lista_tienda, stock_maipu, stock_guaymallen, stockeable
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -132,7 +132,7 @@ async function main() {
         row.stockeable !== false,
       ]);
     }
-    console.log(`✓ Upsert simulando API: ${datosSimulados.length} filas en prod_precios_tienda.`);
+    console.log(`✓ Upsert simulando API: ${datosSimulados.length} filas en prod_propios.`);
   } finally {
     client.release();
   }

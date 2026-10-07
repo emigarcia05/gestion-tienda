@@ -42,7 +42,7 @@ function esErrorPrisma(error: unknown, code: string): boolean {
 /** Próximo `cod_tienda` numérico (máximo numérico actual + 1). Ignora códigos no numéricos. */
 async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string> {
   const rows = await tx.$queryRaw<{ max: bigint | null }[]>`
-    SELECT MAX(cod_tienda::bigint) AS max FROM prod_tienda WHERE cod_tienda ~ '^[0-9]+$'
+    SELECT MAX(cod_tienda::bigint) AS max FROM prod_propios WHERE cod_tienda ~ '^[0-9]+$'
   `;
   const max = rows[0]?.max ?? BigInt(0);
   return (max + BigInt(1)).toString();
@@ -53,7 +53,7 @@ type CamposProductoTienda = Pick<
   "descripcion" | "idRubro" | "subRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
 >;
 
-/** Valida los catálogos elegidos y arma las columnas de `prod_tienda` (texto rubro/marca + FKs). */
+/** Valida los catálogos elegidos y arma las columnas de `prod_propios` (texto rubro/marca + FKs). */
 async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos: CamposProductoTienda) {
   const etiqueta = campos.descripcion.trim().toLocaleUpperCase("es-AR");
   const [rubro, marca, presentacion, color] = await Promise.all([
@@ -110,7 +110,7 @@ async function crearUnProductoTienda(
     }
   }
 
-  await tx.prodTienda.create({
+  await tx.prodPropio.create({
     data: {
       ...data,
       codTienda: cod,
@@ -166,13 +166,13 @@ export async function editarProductoTienda(
 ): Promise<ServiceResult<{ codTienda: string }>> {
   try {
     await prisma.$transaction(async (tx) => {
-      const existe = await tx.prodTienda.findUnique({
+      const existe = await tx.prodPropio.findUnique({
         where: { codTienda: input.codTienda },
         select: { codTienda: true },
       });
       if (!existe) throw new ErrorNegocio("El producto ya no existe.");
       const { data } = await resolverCamposProductoTienda(tx, input);
-      await tx.prodTienda.update({ where: { codTienda: input.codTienda }, data });
+      await tx.prodPropio.update({ where: { codTienda: input.codTienda }, data });
     });
     return { success: true, data: { codTienda: input.codTienda } };
   } catch (error) {
@@ -192,7 +192,7 @@ export async function eliminarProductoTienda(
 ): Promise<ServiceResult<{ codTienda: string }>> {
   try {
     await prisma.$transaction(async (tx) => {
-      const existe = await tx.prodTienda.findUnique({ where: { codTienda }, select: { codTienda: true } });
+      const existe = await tx.prodPropio.findUnique({ where: { codTienda }, select: { codTienda: true } });
       if (!existe) throw new ErrorNegocio("El producto ya no existe.");
       const [movStock, transferencias, compras, ventas, estadisticas] = await Promise.all([
         tx.stockMovimiento.count({ where: { codItem: codTienda } }),
@@ -212,7 +212,7 @@ export async function eliminarProductoTienda(
         throw new ErrorNegocio(`No se puede borrar: el producto tiene ${usos.join(", ")}.`);
       }
       await tx.prodPedMerc2.deleteMany({ where: { reposicionCodTienda: codTienda } });
-      await tx.prodTienda.delete({ where: { codTienda } });
+      await tx.prodPropio.delete({ where: { codTienda } });
     });
     return { success: true, data: { codTienda } };
   } catch (error) {
@@ -281,7 +281,7 @@ export async function crearMarca(input: CrearMarcaInput): Promise<ServiceResult<
 }
 
 /**
- * Renombrar actualiza también el texto `marca` de `prod_tienda` (vinculados) y de `prod_precios_provee`
+ * Renombrar actualiza también el texto `marca` de `prod_propios` (vinculados) y de `prod_precios_provee`
  * (las reglas de descuento comparan por nombre contra ese texto).
  */
 export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResult<{ id: string }>> {
@@ -297,7 +297,7 @@ export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResul
       }),
       ...(renombra
         ? [
-            prisma.prodTienda.updateMany({ where: { idMarca: input.id }, data: { marca: nombre } }),
+            prisma.prodPropio.updateMany({ where: { idMarca: input.id }, data: { marca: nombre } }),
             prisma.listaPrecioProveedor.updateMany({
               where: { marca: { equals: actual.nombre, mode: "insensitive" } },
               data: { marca: nombre },
@@ -347,14 +347,14 @@ export async function eliminarMarca(id: string): Promise<ServiceResult<{ id: str
 }
 
 // ---------------------------------------------------------------------------
-// Rubros (`prod_rubros_lista`; `prod_tienda.rubro` guarda el nombre como texto)
+// Rubros (`prod_rubros_lista`; `prod_propios.rubro` guarda el nombre como texto)
 // ---------------------------------------------------------------------------
 
 export async function listarRubrosCatalogo(): Promise<RubroCatalogoItem[]> {
   await listarRubrosCatalogoReglasDesdeProdTienda();
   const [rubros, conteos] = await Promise.all([
     prisma.prodRubroLista.findMany({ orderBy: { nombre: "asc" }, select: { id: true, nombre: true } }),
-    prisma.prodTienda.groupBy({ by: ["rubro"], where: { rubro: { not: null } }, _count: true }),
+    prisma.prodPropio.groupBy({ by: ["rubro"], where: { rubro: { not: null } }, _count: true }),
   ]);
   const porNombre = new Map(conteos.map((c) => [c.rubro ?? "", c._count]));
   return rubros.map((r) => ({ ...r, productos: porNombre.get(r.nombre) ?? 0 }));
@@ -374,7 +374,7 @@ export async function crearRubro(input: CrearRubroInput): Promise<ServiceResult<
   }
 }
 
-/** Renombrar actualiza el texto en `prod_tienda.rubro` y `prod_precios_provee.rubro`. */
+/** Renombrar actualiza el texto en `prod_propios.rubro` y `prod_precios_provee.rubro`. */
 export async function editarRubro(input: EditarRubroInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
   const actual = await prisma.prodRubroLista.findUnique({
@@ -386,7 +386,7 @@ export async function editarRubro(input: EditarRubroInput): Promise<ServiceResul
   try {
     await prisma.$transaction([
       prisma.prodRubroLista.update({ where: { id: input.id }, data: { nombre } }),
-      prisma.prodTienda.updateMany({ where: { rubro: actual.nombre }, data: { rubro: nombre } }),
+      prisma.prodPropio.updateMany({ where: { rubro: actual.nombre }, data: { rubro: nombre } }),
       prisma.listaPrecioProveedor.updateMany({
         where: { rubro: { equals: actual.nombre, mode: "insensitive" } },
         data: { rubro: nombre },
@@ -412,7 +412,7 @@ export async function eliminarRubro(id: string): Promise<ServiceResult<{ id: str
     },
   });
   if (!rubro) return { success: false, error: "Rubro no encontrado." };
-  const productos = await prisma.prodTienda.count({ where: { rubro: rubro.nombre } });
+  const productos = await prisma.prodPropio.count({ where: { rubro: rubro.nombre } });
   if (productos > 0) {
     return { success: false, error: `El rubro tiene ${productos} producto(s).` };
   }

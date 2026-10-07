@@ -164,7 +164,7 @@ export async function importarEstPorProd(
   }
 
   const codigosUnicos = [...new Set(input.lineas.map((l) => l.codTienda))];
-  const existentes = await prisma.prodTienda.findMany({
+  const existentes = await prisma.prodPropio.findMany({
     where: { codTienda: { in: codigosUnicos } },
     select: { codTienda: true },
   });
@@ -179,7 +179,7 @@ export async function importarEstPorProd(
   if (lineasValidas.length === 0) {
     return {
       success: false,
-      error: "Ningún código de tienda de la planilla existe en el catálogo prod_tienda.",
+      error: "Ningún código de tienda de la planilla existe en el catálogo prod_propios.",
     };
   }
 

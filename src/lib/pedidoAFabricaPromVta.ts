@@ -320,7 +320,7 @@ export function calcularCantSugeridaPedidoAFabrica(
 /**
  * Redondeo de CANT. SUGERIDA según FORMA:
  * - UNIDAD → techo al entero siguiente (6,7 → 7).
- * - BULTO → techo al próximo múltiplo de `prod_tienda.bulto` (6,7 y bulto 12 → 12).
+ * - BULTO → techo al próximo múltiplo de `prod_propios.bulto` (6,7 y bulto 12 → 12).
  *   Sin bulto configurado → `null` (celda vacía).
  */
 export function redondearCantSugeridaPorFormaPedidoAFabrica(

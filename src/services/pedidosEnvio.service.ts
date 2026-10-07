@@ -1,6 +1,6 @@
 /**
  * Pedidos de mercadería: lectura/escritura en `prod_ped_merc` (urgente, tintométrico, reposición).
- * Resolución de proveedor y textos vía `prod_precios_tienda` / `prod_precios_provee` según tipo.
+ * Resolución de proveedor y textos vía `prod_propios` / `prod_precios_provee` según tipo.
  */
 
 import type { Prisma } from "@prisma/client";
@@ -105,7 +105,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
 
   try {
     const sucursalId = await getSucursalIdByCodigo(sucursal);
-    const tienda = await prisma.prodTienda.findFirst({
+    const tienda = await prisma.prodPropio.findFirst({
       where: { codTienda: codTienda.trim() },
       select: {
         codTienda: true,
@@ -113,7 +113,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
       },
     });
     if (!tienda) {
-      return { ok: false, error: "No se encontró el producto en prod_precios_tienda." };
+      return { ok: false, error: "No se encontró el producto en prod_propios." };
     }
     if (!(await isStockeableCodTienda(codTienda.trim()))) {
       return {
@@ -593,7 +593,7 @@ function proveedorEtiquetaDesdeRow(p: {
 
 /**
  * Convierte `reposicion_cant_conf` a unidades a pedir.
- * POR_BULTO: `cantConf` es cantidad de bultos; se multiplica por unidades de `prod_tienda.bulto`.
+ * POR_BULTO: `cantConf` es cantidad de bultos; se multiplica por unidades de `prod_propios.bulto`.
  * Sin bulto válido (≥ 1) → 0. El resto de formas deja `cantConf` en unidades.
  */
 export function cantConfReposicionAUnidades(
@@ -619,7 +619,7 @@ export function cantPedirReposicionMerc2(params: {
   cantConf: number | null | undefined;
   stock: number;
   stockeable: boolean;
-  /** Unidades por bulto (`prod_tienda.bulto`). Obligatorio para POR_BULTO. */
+  /** Unidades por bulto (`prod_propios.bulto`). Obligatorio para POR_BULTO. */
   bulto: number | null | undefined;
   /** `reposicion_omitir_pedido` («No pedir en este pedido»). */
   omitida?: boolean;
@@ -743,7 +743,7 @@ export async function getItemsTablaEnviarPedido(params: {
   ]);
   const tiendas =
     codTiendasLookup.size > 0
-      ? await prisma.prodTienda.findMany({
+      ? await prisma.prodPropio.findMany({
           where: { codTienda: { in: Array.from(codTiendasLookup) } },
           select: {
             codTienda: true,
@@ -1020,7 +1020,7 @@ export async function getItemsYProveedorParaEnviar(
   ]);
   const tiendas =
     codTiendasLookup.size > 0
-      ? await prisma.prodTienda.findMany({
+      ? await prisma.prodPropio.findMany({
           where: { codTienda: { in: Array.from(codTiendasLookup) } },
           select: {
             codTienda: true,
@@ -1285,7 +1285,7 @@ export async function getReposicionItemsProveedorPrioritarioAlternativo(params: 
   if (codTiendasRepos.size === 0) return [];
 
   const codTiendasArr = [...codTiendasRepos];
-  const tiendaRows = await prisma.prodTienda.findMany({
+  const tiendaRows = await prisma.prodPropio.findMany({
     where: { codTienda: { in: codTiendasArr } },
     select: { codTienda: true, descripcionTienda: true },
   });

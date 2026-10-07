@@ -719,7 +719,7 @@ async function armarLineasProductosCuentaCorriente(
   const tiendaRows =
     codigos.length === 0
       ? []
-      : await prisma.prodTienda.findMany({
+      : await prisma.prodPropio.findMany({
           where: { codTienda: { in: codigos } },
           select: {
             codTienda: true,
