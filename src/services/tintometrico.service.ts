@@ -55,8 +55,8 @@ export async function getSucursalesTintometricas(): Promise<SucursalTintometrica
 export type MarcaTintometricaCatalogo = {
   idMarca: string;
   nombre: string;
-  /** Máscaras `tintometrico_marcas.formato_cod`; vacío = sin formato cargado (código libre). */
-  formatos: string[];
+  /** Máscara `prod_marcas.formato_cod_tintometrico`; `null` = sin formato cargado (código libre). */
+  formatoCod: string | null;
 };
 
 export type BaseTintometricaCatalogo = {
@@ -71,7 +71,7 @@ const WHERE_BASE_TINTOMETRICA: Prisma.ProdTiendaWhereInput = {
 
 /**
  * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_tienda` rubro Tintometrico
- * con marca vinculada + marcas presentes en esas bases con sus formatos de código.
+ * con marca vinculada + marcas presentes en esas bases con su formato de código.
  */
 export async function getCatalogoAgregarTintometrico(): Promise<{
   marcas: MarcaTintometricaCatalogo[];
@@ -90,7 +90,7 @@ export async function getCatalogoAgregarTintometrico(): Promise<{
           select: {
             id: true,
             nombre: true,
-            tintometricoFormatos: { select: { formatoCod: true }, orderBy: { createdAt: "asc" } },
+            formatoCodTintometrico: true,
           },
           orderBy: { nombre: "asc" },
         })
@@ -99,7 +99,7 @@ export async function getCatalogoAgregarTintometrico(): Promise<{
     marcas: marcas.map((m) => ({
       idMarca: m.id,
       nombre: m.nombre,
-      formatos: m.tintometricoFormatos.map((f) => f.formatoCod),
+      formatoCod: m.formatoCodTintometrico?.trim() || null,
     })),
     bases: rows.map((r) => ({
       codTienda: r.codTienda.trim(),

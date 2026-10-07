@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Máscara de `tintometrico_marcas.formato_cod`:
+ * Máscara de `prod_marcas.formato_cod_tintometrico`:
  * - `L` = una letra (A–Z, sin distinguir mayúsculas).
  * - `N` = un número (0–9).
  * - `"…"` = texto fijo (ej. `"SW"`).

@@ -12,6 +12,7 @@ import {
   LineChart,
   Link2,
   List,
+  Package,
   PackageSearch,
   Percent,
   PieChart,
@@ -50,4 +51,5 @@ export const ADM_ICON_MAP: Record<AdmIconId, LucideIcon> = {
   "package-search": PackageSearch,
   tags: Tags,
   users: Users,
+  package: Package,
 };

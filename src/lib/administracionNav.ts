@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * LISTA PRECIOS, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
+ * LISTA PROPIA, LISTA PROVEEDORES, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
  * muestran sus funciones en una sola lista (sin grupo intermedio).
  *
  * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
@@ -33,7 +33,8 @@ export type AdmPillarId =
   | "operaciones"
   | "impuestos"
   | "vtas-cobros"
-  | "listas-precios"
+  | "lista-propia"
+  | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
   | "usuarios";
@@ -61,7 +62,8 @@ export type AdmIconId =
   | "package-search"
   | "tags"
   | "users"
-  | "store";
+  | "store"
+  | "package";
 
 export interface AdmScreenDef {
   id: string;
@@ -206,7 +208,14 @@ const vtasCobrosScreens: AdmScreenDef[] = [
   },
 ];
 
-const pxTiendaScreens: AdmScreenDef[] = [
+const listaPropiaScreens: AdmScreenDef[] = [
+  {
+    id: "lista-productos",
+    label: "Lista Productos",
+    href: GP_ROUTES.analisisPrecios.listaPropia.listaProductos,
+    icon: "package",
+    permiso: PERMISOS.tienda.acceso,
+  },
   {
     id: "cx-compra",
     label: "Cx. Compra",
@@ -229,15 +238,15 @@ const pxTiendaScreens: AdmScreenDef[] = [
     permiso: PERMISOS.cxPxTienda.acceso,
   },
   {
-    id: "categorias",
-    label: "Analisis Por Cat.",
-    href: GP_ROUTES.analisisPrecios.compCategorias.comparacion,
-    icon: "folder-tree",
-    permiso: PERMISOS.comparacionCategorias.acceso,
+    id: "margen-contribucion",
+    label: "Margen Contribución",
+    href: "/finanzas/analisis-mc/margen-contribucion",
+    icon: "pie-chart",
+    permiso: PERMISOS.finanzas.acceso,
   },
 ];
 
-const proveedoresScreens: AdmScreenDef[] = [
+const listaProveedoresScreens: AdmScreenDef[] = [
   {
     id: "lista-precios",
     label: "Listas Px Prov.",
@@ -252,15 +261,12 @@ const proveedoresScreens: AdmScreenDef[] = [
     icon: "list",
     permiso: PERMISOS.proveedores.lista,
   },
-];
-
-const analisisMcScreens: AdmScreenDef[] = [
   {
-    id: "margen-contribucion",
-    label: "Margen Contribución",
-    href: "/finanzas/analisis-mc/margen-contribucion",
-    icon: "pie-chart",
-    permiso: PERMISOS.finanzas.acceso,
+    id: "categorias",
+    label: "Analisis Por Cat.",
+    href: GP_ROUTES.analisisPrecios.compCategorias.comparacion,
+    icon: "folder-tree",
+    permiso: PERMISOS.comparacionCategorias.acceso,
   },
 ];
 
@@ -347,14 +353,16 @@ export const FIN_PILLARS: AdmPillarDef[] = [
 
 export const ADM_PILLARS: AdmPillarDef[] = [
   {
-    id: "listas-precios",
-    label: "LISTA PRECIOS",
+    id: "lista-propia",
+    label: "LISTA PROPIA",
+    icon: "store",
+    screens: listaPropiaScreens,
+  },
+  {
+    id: "lista-proveedores",
+    label: "LISTA PROVEEDORES",
     icon: "handshake",
-    screens: [
-      ...pxTiendaScreens,
-      ...proveedoresScreens,
-      ...analisisMcScreens,
-    ],
+    screens: listaProveedoresScreens,
   },
   {
     id: "pedido-a-fabrica",
@@ -442,9 +450,12 @@ export function isAdmGroupActive(pathname: string, group: AdmGroupDef): boolean 
   return (group.groups ?? []).some((g) => isAdmGroupActive(pathname, g));
 }
 
+function esPathnameListaPropia(pathname: string): boolean {
+  return listaPropiaScreens.some((s) => isAdmScreenActive(pathname, s));
+}
+
 export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boolean {
-  if (pillar.id === "listas-precios") {
-    if (isAnalisisPreciosPathname(pathname)) return true;
+  if (pillar.id === "lista-propia") {
     if (
       pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
       pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
@@ -453,6 +464,15 @@ export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boole
     }
     if (pathname.startsWith("/finanzas/analisis-mc")) return true;
     return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
+  }
+  if (pillar.id === "lista-proveedores") {
+    if (isGpRouteActive(pathname, GP_ROUTES.analisisPrecios.listaProveedores.reglasDescuentos)) {
+      return true;
+    }
+    if (isAnalisisPreciosPathname(pathname) && !esPathnameListaPropia(pathname)) {
+      return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
+    }
+    return false;
   }
   if (pillar.id === "pedido-a-fabrica") {
     return (

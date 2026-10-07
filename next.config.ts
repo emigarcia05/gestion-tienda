@@ -78,6 +78,7 @@ function canonicalGestionProductosRewrites(): { source: string; destination: str
       destination: I.analisisPrecios.listaProveedores.reglasDescuentos,
     },
     { source: R.analisisPrecios.listaProveedores.lista, destination: I.analisisPrecios.listaProveedores.lista },
+    { source: R.analisisPrecios.listaPropia.listaProductos, destination: I.analisisPrecios.listaPropia.listaProductos },
     { source: R.analisisPrecios.cxYPxTienda.cxCompra, destination: I.analisisPrecios.cxYPxTienda.cxCompra },
     { source: R.analisisPrecios.cxYPxTienda.pxListas, destination: I.analisisPrecios.cxYPxTienda.pxListas },
     { source: R.analisisPrecios.pxCompetencia, destination: I.analisisPrecios.pxCompetencia },

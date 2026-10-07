@@ -65,6 +65,15 @@ export function requireEditorEstadisticas(): Promise<ActionGateFail | null> {
   );
 }
 
+/** Lista Propia · Lista Productos (`PERMISOS.tienda.acceso`). */
+export function requireTiendaLectura(): Promise<ActionGateFail | null> {
+  return requirePermiso(PERMISOS.tienda.acceso, "Sin permisos para lista de productos.");
+}
+
+export function requireEditorTienda(): Promise<ActionGateFail | null> {
+  return requirePermisoEditor(PERMISOS.tienda.acceso, "Sin permisos para lista de productos.");
+}
+
 export function requireAsistenteIaLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(PERMISOS.asistenteIa.acceso, "Sin permisos para Asistente IA.");
 }

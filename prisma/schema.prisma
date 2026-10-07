@@ -1051,34 +1051,18 @@ model PresentacionComparacion {
 model Marca {
   id     String   @id @default(cuid())
   nombre String   @unique(map: "prod_marcas_nombre_key")
+  /// Máscara del código de color tintométrico (`@/lib/tintometricoFormatoCod`): `L` letra, `N` número,
+  /// `"…"` texto fijo, espacio / `/` / `-` / `.` literales. Ej.: `LLNN NN/NNN` (YY12 05/132), `"SW"NNNN` (SW2365).
+  /// `null` = sin formato (código libre).
+  formatoCodTintometrico String? @map("formato_cod_tintometrico")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   prodTiendas ProdTienda[]
   reglasDescuentosListaPrecio ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
-  tintometricoFormatos TintometricoMarca[]
 
   @@map("prod_marcas")
-}
-
-/**
- * Formato del código de color tintométrico por marca.
- * `formato_cod` = máscara de `@/lib/tintometricoFormatoCod`: `L` letra, `N` número,
- * `"…"` texto fijo, espacio / `/` / `-` / `.` literales. Ej.: `LLNN NN/NNN` (YY12 05/132), `"SW"NNNN` (SW2365).
- */
-model TintometricoMarca {
-  id         String   @id @default(cuid())
-  idMarca    String   @map("id_marca")
-  formatoCod String   @map("formato_cod")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  marca Marca @relation(fields: [idMarca], references: [id], onDelete: Restrict, onUpdate: Cascade)
-
-  @@unique([idMarca, formatoCod], map: "tintometrico_marcas_marca_formato_key")
-  @@index([idMarca], map: "tintometrico_marcas_id_marca_idx")
-  @@map("tintometrico_marcas")
 }
 
 /** Catálogo de precios REX por proveedor: descripción + precio lista por ítem. */

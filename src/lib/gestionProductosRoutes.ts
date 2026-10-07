@@ -39,6 +39,9 @@ export const GP_ROUTES = {
     movimientosStock: `${GP}/ayuda-vendedor/movimientos-stock`,
   },
   analisisPrecios: {
+    listaPropia: {
+      listaProductos: `${GP}/analisis-precios/lista-propia/lista-productos`,
+    },
     listaProveedores: {
       listaPrecios: `${GP}/analisis-precios/lista-proveedores/lista-precios`,
       reglasDescuentos: `${GP}/analisis-precios/lista-proveedores/reglas-descuentos`,
@@ -88,6 +91,9 @@ export const GP_INTERNAL = {
     movimientosStock: "/stock/movimientos",
   },
   analisisPrecios: {
+    listaPropia: {
+      listaProductos: "/tienda/lista-productos",
+    },
     listaProveedores: {
       listaPrecios: "/proveedores/lista-precios",
       reglasDescuentos: "/proveedores/lista-precios/reglas-descuentos",
@@ -158,6 +164,7 @@ const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
   [GP_ROUTES.ayudaVendedor.movimientosStock]: [
     "/stock/movimientos",
   ],
+  [GP_ROUTES.analisisPrecios.listaPropia.listaProductos]: ["/tienda/lista-productos"],
   [GP_ROUTES.analisisPrecios.listaProveedores.listaPrecios]: [
     "/gestion-productos/proveedores/lista-precios",
     "/proveedores/lista-precios",
@@ -402,6 +409,10 @@ export function gpRevalidatePaths(canonicalHrefs: readonly string[]): readonly s
   }
   return [...out];
 }
+
+export const REVALIDATE_LISTA_PRODUCTOS = gpRevalidatePaths([
+  GP_ROUTES.analisisPrecios.listaPropia.listaProductos,
+]);
 
 export const REVALIDATE_LISTA_PRECIOS = gpRevalidatePaths([
   GP_ROUTES.analisisPrecios.listaProveedores.listaPrecios,

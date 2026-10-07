@@ -109,10 +109,9 @@ export default function AgregarTintometricoModal({
   );
 
   const codigoTrim = codigo.trim();
-  const formatos = marca?.formatos ?? [];
+  const formatoCod = marca?.formatoCod ?? null;
   const codigoValido =
-    codigoTrim.length > 0 &&
-    (formatos.length === 0 || formatos.some((f) => codigoCumpleFormatoCod(codigoTrim, f)));
+    codigoTrim.length > 0 && (formatoCod === null || codigoCumpleFormatoCod(codigoTrim, formatoCod));
   const mostrarErrorCodigo = codigoTrim.length > 0 && !codigoValido;
 
   const cantidades = basesMarca
@@ -214,10 +213,10 @@ export default function AgregarTintometricoModal({
             <ModalMicroLabel>FORMATO DEL CÓDIGO</ModalMicroLabel>
             <div
               className="flex h-10 items-center justify-center rounded-md border border-border bg-muted/30 px-2 text-sm tabular-nums text-foreground"
-              title={formatos.map(describirFormatoCod).join(" | ") || undefined}
+              title={formatoCod ? describirFormatoCod(formatoCod) : undefined}
             >
               <span className="truncate">
-                {!marca ? "—" : formatos.length > 0 ? formatos.join(" | ") : "Sin formato (libre)"}
+                {!marca ? "—" : (formatoCod ?? "Sin formato (libre)")}
               </span>
             </div>
           </div>
@@ -227,7 +226,7 @@ export default function AgregarTintometricoModal({
               value={codigo}
               onChange={(e) => setCodigo(e.target.value.toUpperCase())}
               disabled={!marca}
-              placeholder={formatos[0] ?? "CÓDIGO"}
+              placeholder={formatoCod ?? "CÓDIGO"}
               aria-invalid={mostrarErrorCodigo || undefined}
               className={cn("h-10 text-center tabular-nums", mostrarErrorCodigo && "border-destructive")}
               aria-label="Código de color"
