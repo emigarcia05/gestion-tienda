@@ -4,7 +4,37 @@ import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
 import { z } from "zod";
-import { buscarBasesTintometricas } from "@/services/tintometrico.service";
+import {
+  buscarBasesTintometricas,
+  getCatalogoAgregarTintometrico,
+  getProveedoresTintometricos,
+  type BaseTintometricaCatalogo,
+  type MarcaTintometricaCatalogo,
+  type ProveedorTintometrico,
+} from "@/services/tintometrico.service";
+
+export async function getCatalogoAgregarTintometricoAction(): Promise<
+  ActionResult<{
+    proveedores: ProveedorTintometrico[];
+    marcas: MarcaTintometricaCatalogo[];
+    bases: BaseTintometricaCatalogo[];
+  }>
+> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.pedidos.acceso)) {
+    return { ok: false, error: "Sin permisos para pedidos." };
+  }
+  try {
+    const [proveedores, catalogo] = await Promise.all([
+      getProveedoresTintometricos(),
+      getCatalogoAgregarTintometrico(),
+    ]);
+    return { ok: true, data: { proveedores, ...catalogo } };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Error al cargar el catálogo tintométrico.";
+    return { ok: false, error: message };
+  }
+}
 
 const buscarBasesSchema = z.object({
   q: z.string().max(200).optional().default(""),

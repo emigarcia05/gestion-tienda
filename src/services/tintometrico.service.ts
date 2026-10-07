@@ -52,6 +52,63 @@ export async function getSucursalesTintometricas(): Promise<SucursalTintometrica
   return rows;
 }
 
+export type MarcaTintometricaCatalogo = {
+  idMarca: string;
+  nombre: string;
+  /** Máscaras `tintometrico_marcas.formato_cod`; vacío = sin formato cargado (código libre). */
+  formatos: string[];
+};
+
+export type BaseTintometricaCatalogo = {
+  codTienda: string;
+  descripcionTienda: string;
+  idMarca: string;
+};
+
+const WHERE_BASE_TINTOMETRICA: Prisma.ProdTiendaWhereInput = {
+  rubro: { equals: "Tintometrico", mode: "insensitive" },
+};
+
+/**
+ * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_tienda` rubro Tintometrico
+ * con marca vinculada + marcas presentes en esas bases con sus formatos de código.
+ */
+export async function getCatalogoAgregarTintometrico(): Promise<{
+  marcas: MarcaTintometricaCatalogo[];
+  bases: BaseTintometricaCatalogo[];
+}> {
+  const rows = await prisma.prodTienda.findMany({
+    where: { ...WHERE_BASE_TINTOMETRICA, idMarca: { not: null } },
+    select: { codTienda: true, descripcionTienda: true, idMarca: true },
+    orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
+  });
+  const idsMarca = [...new Set(rows.map((r) => r.idMarca!))];
+  const marcas =
+    idsMarca.length > 0
+      ? await prisma.marca.findMany({
+          where: { id: { in: idsMarca } },
+          select: {
+            id: true,
+            nombre: true,
+            tintometricoFormatos: { select: { formatoCod: true }, orderBy: { createdAt: "asc" } },
+          },
+          orderBy: { nombre: "asc" },
+        })
+      : [];
+  return {
+    marcas: marcas.map((m) => ({
+      idMarca: m.id,
+      nombre: m.nombre,
+      formatos: m.tintometricoFormatos.map((f) => f.formatoCod),
+    })),
+    bases: rows.map((r) => ({
+      codTienda: r.codTienda.trim(),
+      descripcionTienda: (r.descripcionTienda ?? "").trim(),
+      idMarca: r.idMarca!,
+    })),
+  };
+}
+
 export type BaseTintometricaRow = {
   id: string;
   codTienda: string;

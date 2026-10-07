@@ -431,11 +431,18 @@ export async function upsertPedidoTintometricoItems(
   }
 }
 
-export async function getPedidoTintometricoItems(): Promise<ItemPedidoTintometricoPersistido[]> {
+export async function getPedidoTintometricoItems(filtro?: {
+  sucursalCodigo?: string;
+  proveedorId?: string;
+}): Promise<ItemPedidoTintometricoPersistido[]> {
+  const sucursalCodigo = filtro?.sucursalCodigo?.trim();
+  const proveedorId = filtro?.proveedorId?.trim();
   const merc2 = await prisma.prodPedMerc2.findMany({
     where: {
       tipoDePedido: TIPO_TINTOMETRICO,
       tintometrioCantPedir: { gt: 0 },
+      ...(sucursalCodigo ? { sucursal: { codigo: sucursalCodigo } } : {}),
+      ...(proveedorId ? { tintometricoProveedor: proveedorId } : {}),
     },
     orderBy: [{ id: "desc" }],
     select: {
@@ -614,7 +621,10 @@ export function cantPedirReposicionMerc2(params: {
   stockeable: boolean;
   /** Unidades por bulto (`prod_tienda.bulto`). Obligatorio para POR_BULTO. */
   bulto: number | null | undefined;
+  /** `reposicion_omitir_pedido` («No pedir en este pedido»). */
+  omitida?: boolean;
 }): number {
+  if (params.omitida) return 0;
   if (!params.stockeable) return 0;
   const forma = normalizarReposicionFormaPedido(params.forma);
   if (!forma) return 0;
@@ -696,6 +706,7 @@ export async function getItemsTablaEnviarPedido(params: {
       reposicionFormaPedido: true,
       reposicionPuntoPedido: true,
       reposicionCantConf: true,
+      reposicionOmitirPedido: true,
       reposicionCantPedir: true,
       reposicionCodTienda: true,
       sucursal: { select: { codigo: true, nombre: true } },
@@ -827,6 +838,7 @@ export async function getItemsTablaEnviarPedido(params: {
         forma: r.reposicionFormaPedido,
         punto: r.reposicionPuntoPedido,
         cantConf: r.reposicionCantConf,
+        omitida: r.reposicionOmitirPedido,
         stock,
         stockeable: getStockeableFromMap(stockeableMap, codTi),
         bulto: bultosMap.get(codTi) ?? null,
@@ -964,6 +976,7 @@ export async function getItemsYProveedorParaEnviar(
         reposicionFormaPedido: true,
         reposicionPuntoPedido: true,
         reposicionCantConf: true,
+        reposicionOmitirPedido: true,
         reposicionCantPedir: true,
         reposicionCodTienda: true,
         sucursal: { select: { codigo: true } },
@@ -1120,6 +1133,7 @@ export async function getItemsYProveedorParaEnviar(
         forma: r.reposicionFormaPedido,
         punto: r.reposicionPuntoPedido,
         cantConf: r.reposicionCantConf,
+        omitida: r.reposicionOmitirPedido,
         stock,
         stockeable: getStockeableFromMap(stockeableMapPdf, codTi),
         bulto: bultosMapPdf.get(codTi) ?? null,
@@ -1257,6 +1271,7 @@ export async function getReposicionItemsProveedorPrioritarioAlternativo(params: 
       reposicionFormaPedido: true,
       reposicionPuntoPedido: true,
       reposicionCantConf: true,
+      reposicionOmitirPedido: true,
       reposicionCodTienda: true,
       sucursal: { select: { codigo: true } },
     },
@@ -1318,6 +1333,7 @@ export async function getReposicionItemsProveedorPrioritarioAlternativo(params: 
       forma: r.reposicionFormaPedido,
       punto: r.reposicionPuntoPedido,
       cantConf: r.reposicionCantConf,
+      omitida: r.reposicionOmitirPedido,
       stock,
       stockeable: getStockeableFromMap(stockeableMap, codTi),
       bulto: bultosMap.get(codTi) ?? null,
@@ -1415,8 +1431,31 @@ export async function ajustarCantidadesParaGenerarPedido(params: {
 }
 
 /**
+ * «No pedir en este pedido» de una regla REPOSICION (sucursal + `cod_tienda`): conserva la regla
+ * y deja su cantidad en 0 hasta el próximo pedido del proveedor (o hasta `omitir: false`).
+ */
+export async function setOmitirReposicionPedido(params: {
+  sucursal: SucursalPedidoEnvio;
+  codTienda: string;
+  omitir: boolean;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sucursalId = await getSucursalIdByCodigo(params.sucursal);
+  const res = await prisma.prodPedMerc2.updateMany({
+    where: {
+      sucursalId,
+      tipoDePedido: TIPO_REPOSICION,
+      reposicionCodTienda: params.codTienda.trim(),
+    },
+    data: { reposicionOmitirPedido: params.omitir },
+  });
+  if (res.count === 0) return { ok: false, error: "El producto no tiene reposición configurada." };
+  return { ok: true };
+}
+
+/**
  * Tras generar el PDF de un proveedor, borra sus ítems URGENTE / TINTOMÉTRICO / A FÁBRICA
  * en la sucursal (A FÁBRICA también en el resto de sucursales `pedido`, misma cant. total).
+ * Con REPOSICIÓN, reactiva las reglas omitidas («No pedir en este pedido») vinculadas al proveedor.
  * No debe afectar pedidos del mismo tipo de otros proveedores.
  */
 export async function limpiarPedidoMercaderiaTrasGenerarPdf(params: {
@@ -1426,6 +1465,27 @@ export async function limpiarPedidoMercaderiaTrasGenerarPdf(params: {
 }): Promise<void> {
   const pid = params.proveedorId.trim();
   if (!pid || !params.sucursalId) return;
+
+  if (params.tipos.includes(TIPO_REPOSICION)) {
+    const vinculos = await prisma.listaPrecioProveedor.findMany({
+      where: { idProveedor: pid, codTiendaVinculo: { not: null } },
+      select: { codTiendaVinculo: true },
+    });
+    const codTiendas = [
+      ...new Set(vinculos.map((v) => v.codTiendaVinculo?.trim()).filter((c): c is string => !!c)),
+    ];
+    if (codTiendas.length > 0) {
+      await prisma.prodPedMerc2.updateMany({
+        where: {
+          sucursalId: params.sucursalId,
+          tipoDePedido: TIPO_REPOSICION,
+          reposicionOmitirPedido: true,
+          reposicionCodTienda: { in: codTiendas },
+        },
+        data: { reposicionOmitirPedido: false },
+      });
+    }
+  }
 
   const tiposBorrar = params.tipos.filter(
     (t) =>

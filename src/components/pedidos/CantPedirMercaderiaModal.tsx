@@ -48,6 +48,8 @@ interface Props {
   onGuardarUrgente: (cambios: Record<string, number>) => Promise<boolean>;
   /** Abre «Configurar Reposición» (solo productos registrados en tienda). */
   onConfigurarReposicion: (producto: PedidoUrgenteItem) => void;
+  /** Quita «No pedir en este pedido» de la regla. */
+  onReactivarReposicion: (producto: PedidoUrgenteItem) => void;
 }
 
 export default function CantPedirMercaderiaModal({
@@ -58,6 +60,7 @@ export default function CantPedirMercaderiaModal({
   ivaSaldoAcumuladoComparacion,
   onGuardarUrgente,
   onConfigurarReposicion,
+  onReactivarReposicion,
 }: Props) {
   const [valores, setValores] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
@@ -181,11 +184,21 @@ export default function CantPedirMercaderiaModal({
                   <div className="flex flex-col items-center gap-1">
                     <ModalMicroLabel>CANT. A PEDIR</ModalMicroLabel>
                     <span className="text-sm tabular-nums text-foreground">
-                      {regla ? producto.cantReposicion : "—"}
+                      {regla ? (regla.omitidaEnPedido ? "NO PEDIR" : producto.cantReposicion) : "—"}
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-center">
+                {regla?.omitidaEnPedido ? (
+                  <p className="text-xs text-muted-foreground">
+                    No se pide en este pedido; vuelve a pedirse al generar el pedido del proveedor.
+                  </p>
+                ) : null}
+                <div className="flex justify-center gap-2">
+                  {regla?.omitidaEnPedido ? (
+                    <Button type="button" size="sm" onClick={() => onReactivarReposicion(producto)}>
+                      Volver a Pedir
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"

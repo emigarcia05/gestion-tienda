@@ -8,6 +8,28 @@ import { hayFiltroExtraPedidoUrgente } from "@/lib/pedidos";
 import FiltrosPedidoUrgente from "@/components/pedidos/FiltrosPedidoUrgente";
 import PedirMercaderiaPageClient from "@/components/pedidos/PedirMercaderiaPageClient";
 import { getPosicionIvaComparacionRevisionToken } from "@/services/finBalPosicionIvaComparacionRevision.service";
+import { getPedidoTintometricoItems } from "@/services/pedidosEnvio.service";
+import { getProveedoresTintometricos } from "@/services/tintometrico.service";
+import type { FilaTintometricoPedir } from "@/components/pedidos/TablaPedirMercaderia";
+
+async function cargarTintometricos(sucursal: string, proveedor: string): Promise<FilaTintometricoPedir[]> {
+  if (!sucursal) return [];
+  try {
+    const [items, proveedores] = await Promise.all([
+      getPedidoTintometricoItems({ sucursalCodigo: sucursal, proveedorId: proveedor || undefined }),
+      getProveedoresTintometricos(),
+    ]);
+    const prefijoPorId = new Map(proveedores.map((p) => [p.id, p.prefijo]));
+    return items.map((i) => ({
+      id: i.id,
+      prefijoProveedor: prefijoPorId.get(i.proveedorId) ?? "",
+      descripcion: i.descripcion,
+      cantidad: i.cantidad,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +67,15 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
   const pedidoValida: "cualquier" | "urgente" | "reposicion" | "" =
     pedido === "cualquier" || pedido === "urgente" || pedido === "reposicion" ? pedido : "";
 
-  const [{ proveedores, productos, total, totalPaginas, ivaSaldoAcumuladoComparacion }, ivaComparacionRevisionToken] =
-    await Promise.all([
-      getPedidoUrgenteData({ sucursal: sucursalValida, q, pagina, proveedor, pedido: pedidoValida }),
-      getPosicionIvaComparacionRevisionToken(),
-    ]);
+  const [
+    { proveedores, productos, total, totalPaginas, ivaSaldoAcumuladoComparacion },
+    ivaComparacionRevisionToken,
+    tintometricos,
+  ] = await Promise.all([
+    getPedidoUrgenteData({ sucursal: sucursalValida, q, pagina, proveedor, pedido: pedidoValida }),
+    getPosicionIvaComparacionRevisionToken(),
+    cargarTintometricos(sucursalValida, proveedor),
+  ]);
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const tieneSucursal = !!sucursalValida;
   const puedeListar = tieneSucursal && hayFiltroExtraPedidoUrgente({ proveedor, pedido: pedidoValida, q });
@@ -79,6 +105,7 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
       q={q}
       ivaSaldoAcumuladoComparacion={ivaSaldoAcumuladoComparacion}
       ivaComparacionRevisionToken={ivaComparacionRevisionToken}
+      tintometricos={tintometricos}
     />
   );
 }

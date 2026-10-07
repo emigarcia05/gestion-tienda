@@ -168,7 +168,7 @@ const MODULES: NavModule[] = [
       },
       {
         href: GP_ROUTES.pedidoMercaderia.recepcionPedido,
-        label: "Órdenes de Compra",
+        label: "Compras Emitidas",
         icon: <PackageCheck className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
       },

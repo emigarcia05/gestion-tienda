@@ -83,6 +83,13 @@ export const upsertPedidoUrgenteItemSchema = z.object({
   cant: z.number().int().min(0),
 });
 
+/** «No pedir en este pedido» de una regla REPOSICION (Pedir Mercadería). */
+export const setOmitirReposicionPedidoSchema = z.object({
+  sucursal: sucursalPedidoCodigoSchema,
+  codTienda: z.string().trim().min(1, "Cod. tienda requerido.").max(200),
+  omitir: z.boolean(),
+});
+
 /** Pedido A Fáb.: cantidad total a pedir (`cod_ext` de lista del proveedor fábrica). */
 export const upsertPedidoAFabricaItemSchema = z.object({
   listaPrecioProveedorId: listaPreciosCodExtSchema,

@@ -297,6 +297,7 @@ export async function getReposicionData(
       puntoReposicion: number;
       cant: number;
       cantPedidaReposicion: number;
+      omitida: boolean;
     }
   >();
   if (codTiendasRows.length > 0) {
@@ -313,6 +314,7 @@ export async function getReposicionData(
         reposicionFormaPedido: true,
         reposicionPuntoPedido: true,
         reposicionCantConf: true,
+        reposicionOmitirPedido: true,
         reposicionCantPedir: true,
       },
     });
@@ -328,6 +330,7 @@ export async function getReposicionData(
         puntoReposicion: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cant: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
         cantPedidaReposicion: Math.max(0, Math.floor(Number(r.reposicionCantPedir ?? 0))),
+        omitida: r.reposicionOmitirPedido,
       });
     }
 
@@ -362,6 +365,7 @@ export async function getReposicionData(
       forma,
       punto,
       cantConf: cantCfg,
+      omitida: regla?.omitida ?? false,
       stock,
       stockeable: getStockeableFromMap(stockeableMap, codTienda),
       bulto,

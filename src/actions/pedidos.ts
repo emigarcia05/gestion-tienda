@@ -20,6 +20,7 @@ import {
   upsertPedidoTintometricoItems,
   deletePedidoTintometricoItem,
   limpiarPedidoMercaderiaTrasGenerarPdf,
+  setOmitirReposicionPedido,
   sucursalPedidoHabilitada,
 } from "@/services/pedidosEnvio.service";
 import { crearPedidoHistoriaSnapshot } from "@/services/pedidosHistoria.service";
@@ -50,6 +51,7 @@ import {
   getReposicionProveedorPrioritarioParaModalSchema,
   getSobreStockReposicionParaModalSchema,
   listarProveedoresConPedidoActivoSchema,
+  setOmitirReposicionPedidoSchema,
   upsertPedidoTintometricoItemsSchema,
   upsertPedidoUrgenteItemSchema,
 } from "@/lib/validations/pedidosMutaciones";
@@ -428,6 +430,30 @@ export async function upsertPedidoUrgenteMercaderiaItemAction(raw: unknown): Pro
 
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: undefined };
+}
+
+export async function setOmitirReposicionPedidoAction(raw: unknown): Promise<ActionResult<void>> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.pedidos.acceso)) {
+    return { ok: false, error: "Sin permisos para pedidos." };
+  }
+  const parsed = setOmitirReposicionPedidoSchema.safeParse(raw);
+  if (!parsed.success) {
+    const msg = parsed.error.flatten().fieldErrors;
+    const first = Object.values(msg).flat().find(Boolean);
+    return { ok: false, error: (first as string) ?? "Datos inválidos." };
+  }
+  if (!(await sucursalPedidoHabilitada(parsed.data.sucursal))) {
+    return { ok: false, error: "La sucursal no está habilitada para pedidos." };
+  }
+  try {
+    const result = await setOmitirReposicionPedido(parsed.data);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, data: undefined };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Error al actualizar la reposición.";
+    return { ok: false, error: message };
+  }
 }
 
 const TIPO_LABEL: Record<string, string> = {

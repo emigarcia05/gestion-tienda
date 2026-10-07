@@ -840,6 +840,8 @@ export interface PedidoUrgenteReposicionRegla {
   puntoReposicion: number;
   /** `reposicion_cant_conf` (UN. MÁXIMAS o BULTOS REPOSICIÓN). */
   cantConf: number;
+  /** `reposicion_omitir_pedido`: «No pedir en este pedido» (cant. a pedir = 0). */
+  omitidaEnPedido: boolean;
 }
 
 export interface PedidoUrgenteItem {
@@ -958,12 +960,13 @@ async function mercaderiaMapsDesdeMerc2(
       reposicionFormaPedido: true,
       reposicionPuntoPedido: true,
       reposicionCantConf: true,
+      reposicionOmitirPedido: true,
     },
   });
 
   const reposicionReglaPorCodTienda = new Map<
     string,
-    { forma: string | null; punto: number; cantConf: number }
+    { forma: string | null; punto: number; cantConf: number; omitida: boolean }
   >();
 
   const cantUrgentePorCodExt = new Map<string, number>();
@@ -982,6 +985,7 @@ async function mercaderiaMapsDesdeMerc2(
         forma: r.reposicionFormaPedido,
         punto: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cantConf: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
+        omitida: r.reposicionOmitirPedido,
       };
       reposicionReglaPorCodTienda.set(k, regla);
       reglaRepoPorCodTienda.set(k, {
@@ -989,6 +993,7 @@ async function mercaderiaMapsDesdeMerc2(
         formaPedir: regla.forma,
         puntoReposicion: regla.punto,
         cantConf: regla.cantConf,
+        omitidaEnPedido: regla.omitida,
       });
     }
   }
@@ -1032,6 +1037,7 @@ async function mercaderiaMapsDesdeMerc2(
         forma: regla.forma,
         punto: regla.punto,
         cantConf: regla.cantConf,
+        omitida: regla.omitida,
         stock,
         stockeable: getStockeableFromMap(stockeableMapRepo, k),
         bulto: bultoProdTiendaValido(tienda.bulto),
@@ -1126,12 +1132,13 @@ async function clavesCantidadPositivaPedidoUrgente(
         reposicionFormaPedido: true,
         reposicionPuntoPedido: true,
         reposicionCantConf: true,
+        reposicionOmitirPedido: true,
       },
     });
 
     const reglaPorCod = new Map<
       string,
-      { forma: string | null; punto: number; cantConf: number }
+      { forma: string | null; punto: number; cantConf: number; omitida: boolean }
     >();
     for (const r of rows) {
       const k = (r.reposicionCodTienda ?? "").trim();
@@ -1140,6 +1147,7 @@ async function clavesCantidadPositivaPedidoUrgente(
         forma: r.reposicionFormaPedido,
         punto: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cantConf: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
+        omitida: r.reposicionOmitirPedido,
       });
     }
 
@@ -1157,6 +1165,7 @@ async function clavesCantidadPositivaPedidoUrgente(
           forma: regla.forma,
           punto: regla.punto,
           cantConf: regla.cantConf,
+          omitida: regla.omitida,
           stock,
           stockeable: getStockeableFromMap(stockeableMap, k),
           bulto: bultosMap.get(k) ?? null,

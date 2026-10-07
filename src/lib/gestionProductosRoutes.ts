@@ -20,7 +20,7 @@ export const GP_ROUTES = {
       tintometrico: `${GP}/pedido-mercaderia/conf-pedido/tintometrico`,
       reposicion: `${GP}/pedido-mercaderia/conf-pedido/reposicion`,
     },
-    /** Submódulo **Órdenes de Compra** (slug histórico `recepcion-pedido`). */
+    /** Submódulo **Compras Emitidas** (slug histórico `recepcion-pedido`). */
     recepcionPedido: `${GP}/pedido-mercaderia/recepcion-pedido`,
     /** Submódulo **Compras Recepcionadas**: comprobantes recepcionados + nota de crédito. */
     compras: `${GP}/pedido-mercaderia/compras`,

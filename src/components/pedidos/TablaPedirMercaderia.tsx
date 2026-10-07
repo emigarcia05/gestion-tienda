@@ -1,6 +1,6 @@
 "use client";
 
-import { PackagePlus } from "lucide-react";
+import { PackagePlus, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import TablaSubencabezadoSeccionRow from "@/components/shared/TablaSubencabezadoSeccionRow";
+import { cn } from "@/lib/utils";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -22,10 +23,60 @@ import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
 const COLUMNS = 8;
 /** PROVEEDOR, DESCRIPCIÓN, REPOSICIÓN (FORMA, PTO., CANT.), CANT. A PEDIR (CANT., FORMA), ACCIONES. */
-const COL_WIDTHS_PCT = [8, 44, 8, 7, 7, 7, 12, 7] as const;
+const COL_WIDTHS_PCT = [8, 41, 8, 7, 7, 7, 12, 10] as const;
 const MENSAJE_SIN_RESULTADOS = "No se encontraron productos.";
 const TEXTO_SECCION_REGISTRADOS = "Productos Registrados en Tienda";
 const TEXTO_SECCION_SIN_REGISTRAR = "Productos Sin Registrar en Tienda";
+const TEXTO_SECCION_TINTOMETRICOS = "Tintométricos";
+
+/** Fila `prod_ped_merc` tipo TINTOMETRICO (base + código de color). */
+export interface FilaTintometricoPedir {
+  id: string;
+  prefijoProveedor: string;
+  descripcion: string;
+  cantidad: number;
+}
+
+function FilaTintometrico({
+  fila,
+  onBorrar,
+}: {
+  fila: FilaTintometricoPedir;
+  onBorrar: (fila: FilaTintometricoPedir) => void;
+}) {
+  return (
+    <TableRow>
+      <TableCell className="celda-datos min-w-0 truncate text-center">{fila.prefijoProveedor}</TableCell>
+      <TableCell className="celda-datos min-w-0 truncate" title={fila.descripcion}>
+        {fila.descripcion}
+      </TableCell>
+      <TableCell className="celda-datos tabla-bloque-secundario-cell-divider" />
+      <TableCell className="celda-datos tabla-bloque-secundario-cell" />
+      <TableCell className="celda-datos tabla-bloque-secundario-cell" />
+      <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell-divider">
+        {fila.cantidad}
+      </TableCell>
+      <TableCell className="celda-datos min-w-0 truncate text-center tabla-bloque-secundario-cell">
+        TINTOMÉTRICO
+      </TableCell>
+      <TableCell className="celda-datos text-center tabla-bloque-secundario-cell-divider">
+        <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+            onClick={() => onBorrar(fila)}
+            aria-label="Borrar tintométrico"
+            title="Borrar tintométrico"
+          >
+            <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 function cantUrgente(prod: PedidoUrgenteItem, cantPorId: Record<string, string>): number {
   const codExts =
@@ -51,19 +102,22 @@ function FilaPedirMercaderia({
   prod,
   cantPorId,
   onAbrirCantidad,
+  onBorrar,
 }: {
   prod: PedidoUrgenteItem;
   cantPorId: Record<string, string>;
   onAbrirCantidad: (producto: PedidoUrgenteItem) => void;
+  onBorrar: (producto: PedidoUrgenteItem) => void;
 }) {
   const regla = prod.reposicionRegla;
   const urgente = cantUrgente(prod, cantPorId);
   const reposicion = cantReposicion(prod);
   const total = urgente + reposicion;
   const forma = textoFormaPedido(urgente, reposicion);
+  const puedeBorrar = urgente > 0 || Boolean(prod.estaVinculadoTienda && regla);
 
   return (
-    <TableRow className="cursor-pointer" onDoubleClick={() => onAbrirCantidad(prod)}>
+    <TableRow>
       <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
         {prod.estaVinculadoTienda ? "" : (prod.prefijo ?? "").trim()}
       </TableCell>
@@ -76,8 +130,14 @@ function FilaPedirMercaderia({
       <TableCell className="celda-datos text-center tabular-nums tabla-bloque-secundario-cell">
         {regla ? regla.puntoReposicion : ""}
       </TableCell>
-      <TableCell className="celda-datos text-center tabular-nums tabla-bloque-secundario-cell">
-        {regla ? prod.cantReposicion : ""}
+      <TableCell
+        className={cn(
+          "celda-datos text-center tabular-nums tabla-bloque-secundario-cell",
+          regla?.omitidaEnPedido && "text-xs text-muted-foreground"
+        )}
+        title={regla?.omitidaEnPedido ? "No se pide en este pedido" : undefined}
+      >
+        {regla ? (regla.omitidaEnPedido ? "NO PEDIR" : prod.cantReposicion) : ""}
       </TableCell>
       <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell-divider">
         {total > 0 ? total : ""}
@@ -95,14 +155,23 @@ function FilaPedirMercaderia({
             variant="ghost"
             size="icon"
             className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAbrirCantidad(prod);
-            }}
+            onClick={() => onAbrirCantidad(prod)}
             aria-label="Cant. a pedir"
             title="Cant. a pedir"
           >
             <PackagePlus className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+            onClick={() => onBorrar(prod)}
+            disabled={!puedeBorrar}
+            aria-label="Borrar"
+            title="Borrar"
+          >
+            <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
           </Button>
         </div>
       </TableCell>
@@ -117,6 +186,10 @@ interface Props {
   /** Cantidades URGENTE por `cod_ext` (estado optimista de la página). */
   cantPorId: Record<string, string>;
   onAbrirCantidad: (producto: PedidoUrgenteItem) => void;
+  onBorrar: (producto: PedidoUrgenteItem) => void;
+  /** Sección fija arriba (no depende del segundo filtro ni de la página). */
+  tintometricos: FilaTintometricoPedir[];
+  onBorrarTintometrico: (fila: FilaTintometricoPedir) => void;
 }
 
 export default function TablaPedirMercaderia({
@@ -125,6 +198,9 @@ export default function TablaPedirMercaderia({
   mensajeSinFiltros = "Seleccioná una sucursal para ver los productos.",
   cantPorId,
   onAbrirCantidad,
+  onBorrar,
+  tintometricos,
+  onBorrarTintometrico,
 }: Props) {
   const registrados = productos.filter((p) => p.estaVinculadoTienda);
   const sinRegistrar = productos.filter((p) => !p.estaVinculadoTienda);
@@ -169,6 +245,14 @@ export default function TablaPedirMercaderia({
         </TableRow>
       </TableHeader>
       <TableBody>
+        {tintometricos.length > 0 ? (
+          <>
+            <TablaSubencabezadoSeccionRow titulo={TEXTO_SECCION_TINTOMETRICOS} colSpan={COLUMNS} />
+            {tintometricos.map((t) => (
+              <FilaTintometrico key={t.id} fila={t} onBorrar={onBorrarTintometrico} />
+            ))}
+          </>
+        ) : null}
         {productos.length === 0 ? (
           <EmptyTableRow colSpan={COLUMNS} message={mensajeVacio} />
         ) : (
@@ -180,6 +264,7 @@ export default function TablaPedirMercaderia({
                 items={s.items}
                 cantPorId={cantPorId}
                 onAbrirCantidad={onAbrirCantidad}
+                onBorrar={onBorrar}
               />
             ) : null
           )
@@ -194,11 +279,13 @@ function SeccionFilas({
   items,
   cantPorId,
   onAbrirCantidad,
+  onBorrar,
 }: {
   titulo: string;
   items: PedidoUrgenteItem[];
   cantPorId: Record<string, string>;
   onAbrirCantidad: (producto: PedidoUrgenteItem) => void;
+  onBorrar: (producto: PedidoUrgenteItem) => void;
 }) {
   return (
     <>
@@ -209,6 +296,7 @@ function SeccionFilas({
           prod={prod}
           cantPorId={cantPorId}
           onAbrirCantidad={onAbrirCantidad}
+          onBorrar={onBorrar}
         />
       ))}
     </>

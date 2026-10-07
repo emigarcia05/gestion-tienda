@@ -1,17 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Palette } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import GenerarPedidoToolbarButton from "@/components/pedidos/GenerarPedidoToolbarButton";
-import TablaPedirMercaderia from "@/components/pedidos/TablaPedirMercaderia";
+import TablaPedirMercaderia, {
+  type FilaTintometricoPedir,
+} from "@/components/pedidos/TablaPedirMercaderia";
 import CantPedirMercaderiaModal from "@/components/pedidos/CantPedirMercaderiaModal";
+import AgregarTintometricoModal from "@/components/pedidos/AgregarTintometricoModal";
 import ConfigurarReposicionModal from "@/components/pedidos/ConfigurarReposicionModal";
+import BorrarReposicionPedirModal, {
+  type OpcionBorrarReposicion,
+} from "@/components/pedidos/BorrarReposicionPedirModal";
 import PosicionIvaComparacionAutoRefresh from "@/components/pedidos/PosicionIvaComparacionAutoRefresh";
-import { upsertPedidoUrgenteMercaderiaItemAction } from "@/actions/pedidos";
-import type { ItemReposicion } from "@/actions/reposicion";
+import {
+  deletePedidoTintometricoItemAction,
+  setOmitirReposicionPedidoAction,
+  upsertPedidoUrgenteMercaderiaItemAction,
+} from "@/actions/pedidos";
+import { deleteReglaReposicion, type ItemReposicion } from "@/actions/reposicion";
 import { PAGE_SIZE } from "@/lib/pagination";
 import {
   cantidadesUrgenteDesdeProductos,
@@ -25,7 +38,7 @@ import {
 import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
-const TIPOS_GENERAR_PEDIDO: TipoPedido[] = ["URGENTE", "REPOSICION"];
+const TIPOS_GENERAR_PEDIDO: TipoPedido[] = ["URGENTE", "TINTOMETRICO", "REPOSICION"];
 /** Espera al cierre animado de un `Dialog` antes de abrir otro (no apilar modales). */
 const MS_ENTRE_MODALES = 300;
 
@@ -45,6 +58,8 @@ interface Props {
   q: string;
   ivaSaldoAcumuladoComparacion: number;
   ivaComparacionRevisionToken: string;
+  /** Tintométricos de la sucursal (y proveedor si está filtrado); van siempre arriba. */
+  tintometricos: FilaTintometricoPedir[];
 }
 
 function itemReposicionDesdeProducto(prod: PedidoUrgenteItem): ItemReposicion {
@@ -82,12 +97,17 @@ export default function PedirMercaderiaPageClient({
   q,
   ivaSaldoAcumuladoComparacion,
   ivaComparacionRevisionToken,
+  tintometricos,
 }: Props) {
+  const router = useRouter();
+  const [modalTintoOpen, setModalTintoOpen] = useState(false);
   const [cantPorId, setCantPorId] = useState<Record<string, string>>({});
   const [productoModal, setProductoModal] = useState<PedidoUrgenteItem | null>(null);
   const [modalCantOpen, setModalCantOpen] = useState(false);
   const [itemReposicion, setItemReposicion] = useState<ItemReposicion | null>(null);
   const [modalRepoOpen, setModalRepoOpen] = useState(false);
+  const [productoBorrar, setProductoBorrar] = useState<PedidoUrgenteItem | null>(null);
+  const [modalBorrarOpen, setModalBorrarOpen] = useState(false);
   const timerModalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -119,7 +139,10 @@ export default function PedirMercaderiaPageClient({
     timerModalRef.current = window.setTimeout(() => setModalRepoOpen(true), MS_ENTRE_MODALES);
   }
 
-  async function guardarUrgente(cambios: Record<string, number>): Promise<boolean> {
+  async function guardarUrgente(
+    cambios: Record<string, number>,
+    mensajeExito: string | null = "Cantidad guardada."
+  ): Promise<boolean> {
     if (!sucursalValida) {
       toast.error("Seleccioná una sucursal para guardar.");
       return false;
@@ -145,21 +168,106 @@ export default function PedirMercaderiaPageClient({
         return false;
       }
     }
-    toast.success("Cantidad guardada.");
+    if (mensajeExito) toast.success(mensajeExito);
     return true;
   }
 
+  /** `cod_ext` con cantidad URGENTE > 0 del ítem (todos los miembros si está agrupado). */
+  function cambiosBorrarUrgente(prod: PedidoUrgenteItem): Record<string, number> {
+    const codExts =
+      prod.miembrosAgrupacion && prod.miembrosAgrupacion.length > 0
+        ? prod.miembrosAgrupacion.map((m) => m.codExt)
+        : [prod.id];
+    const cambios: Record<string, number> = {};
+    for (const ce of codExts) if (Number(cantPorId[ce] || 0) > 0) cambios[ce] = 0;
+    return cambios;
+  }
+
+  function borrarItem(prod: PedidoUrgenteItem) {
+    if (prod.estaVinculadoTienda && prod.reposicionRegla) {
+      setProductoBorrar(prod);
+      setModalBorrarOpen(true);
+      return;
+    }
+    const cambios = cambiosBorrarUrgente(prod);
+    if (Object.keys(cambios).length === 0) return;
+    void guardarUrgente(cambios, "Cantidad urgente borrada.");
+  }
+
+  async function elegirBorrarReposicion(opcion: OpcionBorrarReposicion): Promise<boolean> {
+    const prod = productoBorrar;
+    const regla = prod?.reposicionRegla;
+    if (!prod || !regla || !sucursalValida) return false;
+    const cambios = cambiosBorrarUrgente(prod);
+    if (Object.keys(cambios).length > 0 && !(await guardarUrgente(cambios, null))) return false;
+
+    const res =
+      opcion === "no-pedir"
+        ? await setOmitirReposicionPedidoAction({ sucursal: sucursalValida, codTienda: prod.codTienda, omitir: true })
+        : await deleteReglaReposicion({ id: regla.idReposicion });
+    if (!res.ok) {
+      toast.error(res.error ?? "Error al actualizar la reposición.");
+      return false;
+    }
+    toast.success(opcion === "no-pedir" ? "No se pide en este pedido." : "Configuración de reposición borrada.");
+    router.refresh();
+    return true;
+  }
+
+  async function reactivarReposicion(prod: PedidoUrgenteItem) {
+    if (!sucursalValida || !prod.codTienda) return;
+    const res = await setOmitirReposicionPedidoAction({
+      sucursal: sucursalValida,
+      codTienda: prod.codTienda,
+      omitir: false,
+    });
+    if (!res.ok) {
+      toast.error(res.error ?? "Error al actualizar la reposición.");
+      return;
+    }
+    toast.success("La reposición vuelve a pedirse.");
+    setModalCantOpen(false);
+    router.refresh();
+  }
+
+  async function borrarTintometrico(fila: FilaTintometricoPedir) {
+    const res = await deletePedidoTintometricoItemAction({ id: fila.id });
+    if (!res.ok) {
+      toast.error(res.error ?? "Error al borrar el tintométrico.");
+      return;
+    }
+    toast.success("Tintométrico borrado.");
+    router.refresh();
+  }
+
   const actions = (
-    <GenerarPedidoToolbarButton
-      proveedores={proveedores}
-      defaultSucursal={sucursalValida}
-      defaultProveedor={proveedor}
-      defaultTipos={TIPOS_GENERAR_PEDIDO}
-      modulo="enviar"
-      onGeneradoExito={() => {
-        setCantPorId((prev) => limpiarCantidadesUrgenteVisibles(productos, prev));
-      }}
-    />
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          if (!sucursalValida) {
+            toast.error("Seleccioná una sucursal.");
+            return;
+          }
+          setModalTintoOpen(true);
+        }}
+      >
+        <Palette className="h-4 w-4" aria-hidden />
+        Agregar Tintométrico
+      </Button>
+      <GenerarPedidoToolbarButton
+        proveedores={proveedores}
+        defaultSucursal={sucursalValida}
+        defaultProveedor={proveedor}
+        defaultTipos={TIPOS_GENERAR_PEDIDO}
+        modulo="enviar"
+        onGeneradoExito={() => {
+          setCantPorId((prev) => limpiarCantidadesUrgenteVisibles(productos, prev));
+        }}
+      />
+    </div>
   );
 
   return (
@@ -181,6 +289,9 @@ export default function PedirMercaderiaPageClient({
               }
               cantPorId={cantPorId}
               onAbrirCantidad={abrirCantidad}
+              onBorrar={borrarItem}
+              tintometricos={tintometricos}
+              onBorrarTintometrico={borrarTintometrico}
             />
           </div>
           {!sinFiltros && sucursalValida && totalPaginas > 1 ? (
@@ -205,6 +316,21 @@ export default function PedirMercaderiaPageClient({
         ivaSaldoAcumuladoComparacion={ivaSaldoAcumuladoComparacion}
         onGuardarUrgente={guardarUrgente}
         onConfigurarReposicion={abrirConfigurarReposicion}
+        onReactivarReposicion={reactivarReposicion}
+      />
+      <BorrarReposicionPedirModal
+        open={modalBorrarOpen}
+        onOpenChange={setModalBorrarOpen}
+        descripcion={productoBorrar?.descripcion ?? ""}
+        tieneUrgente={productoBorrar ? Object.keys(cambiosBorrarUrgente(productoBorrar)).length > 0 : false}
+        onElegir={elegirBorrarReposicion}
+      />
+      <AgregarTintometricoModal
+        open={modalTintoOpen}
+        onOpenChange={setModalTintoOpen}
+        sucursal={sucursalValida}
+        proveedorInicial={proveedor}
+        onAgregado={() => router.refresh()}
       />
       {itemReposicion && sucursalValida ? (
         <ConfigurarReposicionModal
