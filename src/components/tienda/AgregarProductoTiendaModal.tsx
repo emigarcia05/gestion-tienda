@@ -22,10 +22,9 @@ import SeleccionarProductoModal, {
 } from "@/components/tienda/SeleccionarProductoModal";
 import ProductoTiendaCampos, {
   CAMPOS_PRODUCTO_TIENDA_VACIOS,
-  ProductoTiendaBultoInput,
+  PRODUCTO_TIENDA_GRID_CLASS,
   camposProductoTiendaCompletos,
   camposProductoTiendaParaAction,
-  parsearBultoProductoTienda,
   type CamposProductoTiendaForm,
 } from "@/components/tienda/ProductoTiendaCampos";
 import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
@@ -53,7 +52,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [campos, setCampos] = useState<CamposProductoTiendaForm>(CAMPOS_PRODUCTO_TIENDA_VACIOS);
   const [vinculo, setVinculo] = useState<ProductoConProveedor | null>(null);
   const [esPropio, setEsPropio] = useState(false);
-  const [bulto, setBulto] = useState("");
   const [items, setItems] = useState<ItemPendiente[]>([]);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
@@ -63,13 +61,10 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setCampos(CAMPOS_PRODUCTO_TIENDA_VACIOS);
     setVinculo(null);
     setEsPropio(false);
-    setBulto("");
     setItems([]);
   }, [open]);
 
-  const { bulto: bultoNum, invalido: bultoInvalido } = parsearBultoProductoTienda(bulto);
-  const puedeCrear =
-    camposProductoTiendaCompletos(campos) && (esPropio || !!vinculo) && !bultoInvalido && !pending;
+  const puedeAgregar = camposProductoTiendaCompletos(campos) && (esPropio || !!vinculo) && !pending;
   const puedeGuardar = items.length > 0 && !pending;
 
   const rubroNombre = catalogos.rubros.find((r) => r.id === campos.idRubro)?.nombre ?? null;
@@ -89,8 +84,8 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setSelectorAbierto(false);
   }
 
-  function crear() {
-    if (!puedeCrear) return;
+  function agregar() {
+    if (!puedeAgregar) return;
     const base = camposProductoTiendaParaAction(campos);
     setItems((prev) => [
       ...prev,
@@ -98,7 +93,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         ...base,
         key: crypto.randomUUID(),
         descripcion: base.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-        bulto: bultoNum,
         esProductoPropio: esPropio,
         codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
         vinculoEtiqueta: esPropio || !vinculo ? null : etiquetaVinculo(vinculo),
@@ -156,15 +150,16 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
             disabled={pending}
             autoFocus
           />
-          {!esPropio ? (
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>CX. VINCULADO</ModalMicroLabel>
+          <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>
+            <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel>CX. VINC.</ModalMicroLabel>
               <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-w-0 flex-1 justify-start gap-2"
-                  disabled={pending}
+                  className="h-9 min-w-0 flex-1 justify-start gap-2"
+                  disabled={pending || esPropio}
                   onClick={() => setSelectorAbierto(true)}
                 >
                   <Link2 className="shrink-0" aria-hidden />
@@ -172,7 +167,11 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                     className={cn("truncate", !vinculo && "uppercase text-muted-foreground")}
                     title={vinculo ? etiquetaVinculo(vinculo) : undefined}
                   >
-                    {vinculo ? etiquetaVinculo(vinculo) : "Elegir línea de proveedor (obligatorio)"}
+                    {vinculo
+                      ? etiquetaVinculo(vinculo)
+                      : esPropio
+                        ? "No aplica (producto propio)"
+                        : "Elegir línea (obligatorio)"}
                   </span>
                 </Button>
                 {vinculo ? (
@@ -180,7 +179,8 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                     type="button"
                     variant="outline"
                     size="icon"
-                    aria-label="Quitar CX. VINCULADO"
+                    className="h-9 w-9"
+                    aria-label="Quitar CX. VINC."
                     disabled={pending}
                     onClick={() => setVinculo(null)}
                   >
@@ -189,12 +189,10 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 ) : null}
               </div>
             </div>
-          ) : null}
-          <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
-          <ProductoTiendaBultoInput value={bulto} onChange={setBulto} invalido={bultoInvalido} disabled={pending} />
-          <Button type="button" className="w-full gap-2" disabled={!puedeCrear} onClick={crear}>
+          </div>
+          <Button type="button" className="w-full gap-2" disabled={!puedeAgregar} onClick={agregar}>
             <Plus aria-hidden />
-            Crear
+            Agregar
           </Button>
           <Table variant="compact" scrollX={false} className="table-fixed w-full">
             <TableHeader>
@@ -207,7 +205,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
               {items.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={2}>
-                    <TableEmptyState message="TODAVÍA NO CREASTE PRODUCTOS." placement="panel" />
+                    <TableEmptyState message="TODAVÍA NO AGREGASTE PRODUCTOS." placement="panel" />
                   </TableCell>
                 </TableRow>
               ) : (

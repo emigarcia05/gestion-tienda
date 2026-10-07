@@ -14,6 +14,9 @@ import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTi
 /** Sentinel de los Select opcionales (PRESENTACIÓN / COLOR). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
+/** Grilla de dos columnas de los modales Agregar / Editar producto. */
+export const PRODUCTO_TIENDA_GRID_CLASS = "grid grid-cols-2 gap-3";
+
 export type CamposProductoTiendaForm = {
   descripcion: string;
   idRubro: string;
@@ -21,6 +24,8 @@ export type CamposProductoTiendaForm = {
   idMarca: string;
   idPresentacion: string;
   idColor: string;
+  /** Texto del input UN. POR BULTO (solo dígitos; vacío = sin bulto). */
+  bulto: string;
 };
 
 export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
@@ -30,10 +35,22 @@ export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
   idMarca: "",
   idPresentacion: SIN_VALOR_PRODUCTO_TIENDA,
   idColor: SIN_VALOR_PRODUCTO_TIENDA,
+  bulto: "",
 };
 
+export function parsearBultoProductoTienda(value: string): { bulto: number | null; invalido: boolean } {
+  const trim = value.trim();
+  const bulto = trim ? Number(trim) : null;
+  return { bulto, invalido: bulto !== null && (!Number.isInteger(bulto) || bulto < 1) };
+}
+
 export function camposProductoTiendaCompletos(campos: CamposProductoTiendaForm): boolean {
-  return campos.descripcion.trim().length > 0 && !!campos.idRubro && !!campos.idMarca;
+  return (
+    campos.descripcion.trim().length > 0 &&
+    !!campos.idRubro &&
+    !!campos.idMarca &&
+    !parsearBultoProductoTienda(campos.bulto).invalido
+  );
 }
 
 /** Campos en el formato que esperan las actions (`null` = vacío). */
@@ -45,10 +62,52 @@ export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm)
     idMarca: campos.idMarca,
     idPresentacion: campos.idPresentacion === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idPresentacion,
     idColor: campos.idColor === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idColor,
+    bulto: parsearBultoProductoTienda(campos.bulto).bulto,
   };
 }
 
-/** DESCRIPCIÓN · RUBRO · SUB-RUBRO · MARCA · PRESENTACIÓN · COLOR, en una columna (Agregar / Editar producto). */
+function SelectCatalogo({
+  label,
+  value,
+  onChange,
+  opciones,
+  placeholder,
+  opcionVacia,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  opciones: { id: string; nombre: string }[];
+  placeholder: string;
+  /** Texto de la opción sentinel; sin ella el campo es obligatorio. */
+  opcionVacia?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <ModalMicroLabel>{label}</ModalMicroLabel>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {opcionVacia ? <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>{opcionVacia}</SelectItem> : null}
+          {opciones.map((o) => (
+            <SelectItem key={o.id} value={o.id}>
+              {o.nombre}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/**
+ * Agregar / Editar producto:
+ * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | UN. POR BULTO.
+ */
 export default function ProductoTiendaCampos({
   campos,
   onChange,
@@ -62,6 +121,7 @@ export default function ProductoTiendaCampos({
   disabled?: boolean;
   autoFocus?: boolean;
 }) {
+  const bultoInvalido = parsearBultoProductoTienda(campos.bulto).invalido;
   return (
     <>
       <div className="flex flex-col gap-1">
@@ -74,114 +134,62 @@ export default function ProductoTiendaCampos({
           autoFocus={autoFocus}
         />
       </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>RUBRO</ModalMicroLabel>
-        <Select value={campos.idRubro} onValueChange={(v) => onChange({ idRubro: v })} disabled={disabled}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="RUBRO (OBLIGATORIO)" />
-          </SelectTrigger>
-          <SelectContent>
-            {catalogos.rubros.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>SUB-RUBRO</ModalMicroLabel>
-        <Input
-          value={campos.subRubro}
-          onChange={(e) => onChange({ subRubro: e.target.value })}
-          placeholder="SUB-RUBRO"
+      <div className={PRODUCTO_TIENDA_GRID_CLASS}>
+        <SelectCatalogo
+          label="RUBRO"
+          value={campos.idRubro}
+          onChange={(v) => onChange({ idRubro: v })}
+          opciones={catalogos.rubros}
+          placeholder="RUBRO (OBLIGATORIO)"
           disabled={disabled}
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>MARCA</ModalMicroLabel>
-        <Select value={campos.idMarca} onValueChange={(v) => onChange({ idMarca: v })} disabled={disabled}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="MARCA (OBLIGATORIO)" />
-          </SelectTrigger>
-          <SelectContent>
-            {catalogos.marcas.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>PRESENTACIÓN</ModalMicroLabel>
-        <Select
-          value={campos.idPresentacion}
-          onValueChange={(v) => onChange({ idPresentacion: v })}
+        <div className="flex min-w-0 flex-col gap-1">
+          <ModalMicroLabel>SUB-RUBRO</ModalMicroLabel>
+          <Input
+            value={campos.subRubro}
+            onChange={(e) => onChange({ subRubro: e.target.value })}
+            placeholder="SUB-RUBRO"
+            disabled={disabled}
+          />
+        </div>
+        <SelectCatalogo
+          label="MARCA"
+          value={campos.idMarca}
+          onChange={(v) => onChange({ idMarca: v })}
+          opciones={catalogos.marcas}
+          placeholder="MARCA (OBLIGATORIO)"
           disabled={disabled}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="PRESENTACIÓN" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>SIN PRESENTACIÓN</SelectItem>
-            {catalogos.presentaciones.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <ModalMicroLabel>COLOR</ModalMicroLabel>
-        <Select value={campos.idColor} onValueChange={(v) => onChange({ idColor: v })} disabled={disabled}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="COLOR" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>SIN COLOR</SelectItem>
-            {catalogos.colores.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
+        <SelectCatalogo
+          label="COLOR"
+          value={campos.idColor}
+          onChange={(v) => onChange({ idColor: v })}
+          opciones={catalogos.colores}
+          placeholder="COLOR"
+          opcionVacia="SIN COLOR"
+          disabled={disabled}
+        />
+        <SelectCatalogo
+          label="PRESENTACIÓN"
+          value={campos.idPresentacion}
+          onChange={(v) => onChange({ idPresentacion: v })}
+          opciones={catalogos.presentaciones}
+          placeholder="PRESENTACIÓN"
+          opcionVacia="SIN PRESENTACIÓN"
+          disabled={disabled}
+        />
+        <div className="flex min-w-0 flex-col gap-1">
+          <ModalMicroLabel>UN. POR BULTO</ModalMicroLabel>
+          <Input
+            value={campos.bulto}
+            onChange={(e) => onChange({ bulto: e.target.value.replace(/[^0-9]/g, "") })}
+            inputMode="numeric"
+            placeholder="UN. POR BULTO"
+            disabled={disabled}
+            aria-invalid={bultoInvalido || undefined}
+          />
+        </div>
       </div>
     </>
   );
-}
-
-/** Input BULTO (entero ≥ 1 o vacío). */
-export function ProductoTiendaBultoInput({
-  value,
-  onChange,
-  invalido,
-  disabled,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  invalido: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <ModalMicroLabel>BULTO</ModalMicroLabel>
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
-        inputMode="numeric"
-        placeholder="UNIDADES POR BULTO"
-        disabled={disabled}
-        aria-invalid={invalido || undefined}
-      />
-    </div>
-  );
-}
-
-export function parsearBultoProductoTienda(value: string): { bulto: number | null; invalido: boolean } {
-  const trim = value.trim();
-  const bulto = trim ? Number(trim) : null;
-  return { bulto, invalido: bulto !== null && (!Number.isInteger(bulto) || bulto < 1) };
 }

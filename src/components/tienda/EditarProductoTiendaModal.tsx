@@ -7,11 +7,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ProductoTiendaCampos, {
-  ProductoTiendaBultoInput,
   SIN_VALOR_PRODUCTO_TIENDA,
   camposProductoTiendaCompletos,
   camposProductoTiendaParaAction,
-  parsearBultoProductoTienda,
   type CamposProductoTiendaForm,
 } from "@/components/tienda/ProductoTiendaCampos";
 import VinculosCostoProductoTienda from "@/components/tienda/VinculosCostoProductoTienda";
@@ -42,8 +40,8 @@ export default function EditarProductoTiendaModal({
     idMarca: "",
     idPresentacion: item.idPresentacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     idColor: item.idColor ?? SIN_VALOR_PRODUCTO_TIENDA,
+    bulto: item.bulto != null ? String(item.bulto) : "",
   });
-  const [bulto, setBulto] = useState(item.bulto != null ? String(item.bulto) : "");
   const [pending, setPending] = useState(false);
 
   // Rubro y marca del ítem se resuelven contra el catálogo cuando llega (rubro por nombre; marca por id o nombre).
@@ -57,8 +55,7 @@ export default function EditarProductoTiendaModal({
         ""),
   };
 
-  const { bulto: bultoNum, invalido: bultoInvalido } = parsearBultoProductoTienda(bulto);
-  const puedeGuardar = camposProductoTiendaCompletos(camposEfectivos) && !bultoInvalido && !pending;
+  const puedeGuardar = camposProductoTiendaCompletos(camposEfectivos) && !pending;
 
   async function guardar() {
     if (!puedeGuardar) return;
@@ -67,7 +64,6 @@ export default function EditarProductoTiendaModal({
       const res = await editarProductoTiendaAction({
         ...camposProductoTiendaParaAction(camposEfectivos),
         codTienda: item.codItem,
-        bulto: bultoNum,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -104,12 +100,6 @@ export default function EditarProductoTiendaModal({
               campos={camposEfectivos}
               onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
               catalogos={catalogos}
-              disabled={pending}
-            />
-            <ProductoTiendaBultoInput
-              value={bulto}
-              onChange={setBulto}
-              invalido={bultoInvalido}
               disabled={pending}
             />
           </section>
