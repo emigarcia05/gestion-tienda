@@ -1,19 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { filtroTexto } from "@/lib/busqueda";
-import { PAGE_SIZE } from "@/lib/pagination";
 import type {
-  ListaProductoFila,
   MarcaCatalogoItem,
+  OpcionCatalogoItem,
   RubroCatalogoItem,
 } from "@/lib/listaProductos";
 import type {
   CrearMarcaInput,
-  CrearProductoTiendaInput,
+  CrearProductoTiendaItemInput,
+  CrearProductosTiendaLoteInput,
   CrearRubroInput,
   EditarMarcaInput,
   EditarRubroInput,
-  ListarListaProductosInput,
 } from "@/lib/validations/listaProductos";
 import { listarRubrosCatalogoReglasDesdeProdTienda } from "@/services/rubrosProdTienda.service";
 import type { ServiceResult } from "@/types";
@@ -37,61 +35,8 @@ function esErrorPrisma(error: unknown, code: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Lista Productos
+// Alta de producto (Lista Productos · Agregar Item)
 // ---------------------------------------------------------------------------
-
-export async function listarListaProductos(input: ListarListaProductosInput): Promise<{
-  items: ListaProductoFila[];
-  total: number;
-  totalPaginas: number;
-  rubros: string[];
-  marcas: { id: string; nombre: string }[];
-}> {
-  const andParts: Prisma.ProdTiendaWhereInput[] = [];
-  const textFilter = filtroTexto(input.q, ["descripcionTienda", "codTienda", "marca"]);
-  if (textFilter.AND?.length) andParts.push(textFilter);
-  if (input.rubro) andParts.push({ rubro: input.rubro });
-  if (input.marca) andParts.push({ idMarca: input.marca });
-  const where: Prisma.ProdTiendaWhereInput = andParts.length ? { AND: andParts } : {};
-
-  const [rows, total, rubrosRows, marcas] = await Promise.all([
-    prisma.prodTienda.findMany({
-      where,
-      orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
-      skip: (input.pagina - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: {
-        codTienda: true,
-        descripcionTienda: true,
-        rubro: true,
-        subRubro: true,
-        marca: true,
-        bulto: true,
-        esProductoPropio: true,
-        marcaRelation: { select: { nombre: true } },
-      },
-    }),
-    prisma.prodTienda.count({ where }),
-    prisma.prodRubroLista.findMany({ orderBy: { nombre: "asc" }, select: { nombre: true } }),
-    prisma.marca.findMany({ orderBy: { nombre: "asc" }, select: { id: true, nombre: true } }),
-  ]);
-
-  return {
-    items: rows.map((r) => ({
-      codTienda: r.codTienda.trim(),
-      descripcion: (r.descripcionTienda ?? "").trim(),
-      rubro: (r.rubro ?? "").trim(),
-      subRubro: (r.subRubro ?? "").trim(),
-      marca: (r.marcaRelation?.nombre ?? r.marca ?? "").trim(),
-      bulto: r.bulto,
-      esProductoPropio: r.esProductoPropio,
-    })),
-    total,
-    totalPaginas: total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE),
-    rubros: rubrosRows.map((r) => r.nombre),
-    marcas,
-  };
-}
 
 /** Próximo `cod_tienda` numérico (máximo numérico actual + 1). Ignora códigos no numéricos. */
 async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string> {
@@ -102,46 +47,112 @@ async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string>
   return (max + BigInt(1)).toString();
 }
 
-export async function crearProductoTienda(
-  input: CrearProductoTiendaInput
-): Promise<ServiceResult<{ codTienda: string }>> {
-  try {
-    const codTienda = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_COD_TIENDA})`;
+async function crearUnProductoTienda(
+  tx: Prisma.TransactionClient,
+  item: CrearProductoTiendaItemInput,
+  cod: string
+): Promise<void> {
+  const etiqueta = item.descripcion.trim().toLocaleUpperCase("es-AR");
+  const [rubro, marca, presentacion, color, lineaProveedor] = await Promise.all([
+    tx.prodRubroLista.findUnique({ where: { id: item.idRubro }, select: { nombre: true } }),
+    tx.marca.findUnique({ where: { id: item.idMarca }, select: { id: true, nombre: true } }),
+    item.idPresentacion
+      ? tx.estPorProdPresentacion.findUnique({ where: { id: item.idPresentacion }, select: { id: true } })
+      : null,
+    item.idColor ? tx.estPorProdColor.findUnique({ where: { id: item.idColor }, select: { id: true } }) : null,
+    item.codExtVinculo
+      ? tx.listaPrecioProveedor.findUnique({
+          where: { codExt: item.codExtVinculo },
+          select: { codExt: true, codTiendaVinculo: true },
+        })
+      : null,
+  ]);
+  if (!rubro) throw new ErrorNegocio(`${etiqueta}: el rubro elegido ya no existe.`);
+  if (!marca) throw new ErrorNegocio(`${etiqueta}: la marca elegida ya no existe.`);
+  if (item.idPresentacion && !presentacion) {
+    throw new ErrorNegocio(`${etiqueta}: la presentación elegida ya no existe.`);
+  }
+  if (item.idColor && !color) throw new ErrorNegocio(`${etiqueta}: el color elegido ya no existe.`);
+  if (item.codExtVinculo) {
+    if (!lineaProveedor) throw new ErrorNegocio(`${etiqueta}: la línea de proveedor ya no existe.`);
+    if (lineaProveedor.codTiendaVinculo) {
+      throw new ErrorNegocio(
+        `${etiqueta}: la línea de proveedor ya está vinculada al ítem ${lineaProveedor.codTiendaVinculo}.`
+      );
+    }
+  }
 
-      const [rubro, marca] = await Promise.all([
-        input.idRubro
-          ? tx.prodRubroLista.findUnique({ where: { id: input.idRubro }, select: { nombre: true } })
-          : null,
-        input.idMarca
-          ? tx.marca.findUnique({ where: { id: input.idMarca }, select: { id: true, nombre: true } })
-          : null,
-      ]);
-      if (input.idRubro && !rubro) throw new ErrorNegocio("El rubro elegido ya no existe.");
-      if (input.idMarca && !marca) throw new ErrorNegocio("La marca elegida ya no existe.");
-
-      const cod = await siguienteCodTienda(tx);
-      await tx.prodTienda.create({
-        data: {
-          codTienda: cod,
-          descripcionTienda: input.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-          rubro: rubro?.nombre ?? null,
-          subRubro: input.subRubro ? normalizarNombreCatalogo(input.subRubro) : null,
-          marca: marca?.nombre ?? null,
-          idMarca: marca?.id ?? null,
-          bulto: input.bulto,
-          esProductoPropio: input.esProductoPropio,
-          costoCompra: 0,
-        },
-      });
-      return cod;
+  await tx.prodTienda.create({
+    data: {
+      codTienda: cod,
+      descripcionTienda: item.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
+      rubro: rubro.nombre,
+      subRubro: item.subRubro ? normalizarNombreCatalogo(item.subRubro) : null,
+      marca: marca.nombre,
+      idMarca: marca.id,
+      idPresentacion: presentacion?.id ?? null,
+      idColor: color?.id ?? null,
+      bulto: item.bulto,
+      esProductoPropio: item.esProductoPropio,
+      costoCompraCodExt: lineaProveedor?.codExt ?? null,
+      costoCompra: 0,
+    },
+  });
+  if (lineaProveedor) {
+    await tx.listaPrecioProveedor.update({
+      where: { codExt: lineaProveedor.codExt },
+      data: { codTiendaVinculo: cod },
     });
-    return { success: true, data: { codTienda } };
+  }
+}
+
+/**
+ * Alta en lote (Agregar Item): todo o nada. Cada ítem toma el siguiente `cod_tienda` correlativo y,
+ * si no es propio, queda vinculado a su línea de proveedor, que además pasa a ser su CX COMPRA.
+ */
+export async function crearProductosTiendaLote(
+  input: CrearProductosTiendaLoteInput
+): Promise<ServiceResult<{ codTiendas: string[] }>> {
+  try {
+    const codTiendas = await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_COD_TIENDA})`;
+        const primero = BigInt(await siguienteCodTienda(tx));
+        const codigos: string[] = [];
+        for (const [i, item] of input.items.entries()) {
+          const cod = (primero + BigInt(i)).toString();
+          await crearUnProductoTienda(tx, item, cod);
+          codigos.push(cod);
+        }
+        return codigos;
+      },
+      { timeout: 60_000 }
+    );
+    return { success: true, data: { codTiendas } };
   } catch (error) {
     if (error instanceof ErrorNegocio) return { success: false, error: error.message };
-    console.error("[listaProductos.service] crearProductoTienda:", error);
-    return { success: false, error: "No se pudo crear el producto." };
+    console.error("[listaProductos.service] crearProductosTiendaLote:", error);
+    return { success: false, error: "No se pudieron crear los productos." };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Presentaciones y colores (Selects de Agregar Item)
+// ---------------------------------------------------------------------------
+
+export async function listarPresentacionesOpciones(): Promise<OpcionCatalogoItem[]> {
+  const rows = await prisma.estPorProdPresentacion.findMany({
+    orderBy: { texto: "asc" },
+    select: { id: true, texto: true },
+  });
+  return rows.map((r) => ({ id: r.id, nombre: r.texto }));
+}
+
+export async function listarColoresOpciones(): Promise<OpcionCatalogoItem[]> {
+  return prisma.estPorProdColor.findMany({
+    orderBy: { nombre: "asc" },
+    select: { id: true, nombre: true },
+  });
 }
 
 // ---------------------------------------------------------------------------

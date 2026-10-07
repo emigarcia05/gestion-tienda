@@ -28,6 +28,8 @@ import {
 const SUBFILA_DETALLE_CLASS = "tabla-fila-detalle-competencia";
 const SUBFILA_CELDA_BLOQUE_CLASS = "tabla-fila-detalle-competencia-celda";
 const SUBFILA_CELDA_HUECA_CLASS = "tabla-fila-detalle-competencia-hueca";
+/** RUBRO · SUB-RUBRO · MARCA de `TablaTienda` (Lista Productos): la subfila los cubre con la descripción. */
+const COLS_CATALOGO_LISTA_PRODUCTOS = 3;
 
 function CeldaVariacion({ px, pxBase, esBase }: { px: number; pxBase: number | null; esBase: boolean }) {
   if (esBase) {
@@ -92,7 +94,10 @@ function SubfilaVinculo({
       )}
     >
       <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
-      <TableCell className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}>
+      <TableCell
+        colSpan={1 + COLS_CATALOGO_LISTA_PRODUCTOS}
+        className={cn("celda-datos max-w-0", SUBFILA_CELDA_BLOQUE_CLASS)}
+      >
         <span className="block truncate text-xs" title={producto.descripcion}>
           {producto.descripcion}
         </span>
@@ -178,7 +183,10 @@ export function CxCompraDetallePropio() {
       )}
     >
       <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
-      <TableCell colSpan={3} className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}>
+      <TableCell
+        colSpan={3 + COLS_CATALOGO_LISTA_PRODUCTOS}
+        className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}
+      >
         <p className="truncate text-center text-xs text-muted-foreground">
           Producto propio TiendaColor — sin vínculos con proveedores.
         </p>
@@ -199,7 +207,10 @@ export function CxCompraDetalleVacio({ codTienda }: { codTienda: string }) {
       )}
     >
       <TableCell className={cn("celda-datos", SUBFILA_CELDA_HUECA_CLASS)} aria-hidden />
-      <TableCell colSpan={3} className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}>
+      <TableCell
+        colSpan={3 + COLS_CATALOGO_LISTA_PRODUCTOS}
+        className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}
+      >
         <p className="truncate text-center text-xs text-muted-foreground">
           Sin vínculos con proveedores para {codTienda}.
         </p>
@@ -298,7 +309,10 @@ export default function CxCompraVinculosDetalle({
   if (cargando) {
     return (
       <TableRow className={cn(SUBFILA_DETALLE_CLASS, "hover:bg-transparent")}>
-        <TableCell colSpan={6} className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}>
+        <TableCell
+          colSpan={6 + COLS_CATALOGO_LISTA_PRODUCTOS}
+          className={cn("celda-datos", SUBFILA_CELDA_BLOQUE_CLASS)}
+        >
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
             Cargando vínculos...

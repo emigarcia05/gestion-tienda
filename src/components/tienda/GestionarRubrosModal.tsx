@@ -172,9 +172,6 @@ export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onC
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
                       <p className="min-w-0 flex-1 truncate font-medium text-foreground">{r.nombre}</p>
-                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                        {r.productos > 0 ? `${r.productos} PROD.` : ""}
-                      </span>
                       {esEditor ? (
                         <div className="ml-2 flex shrink-0 items-center gap-1.5">
                           <Button

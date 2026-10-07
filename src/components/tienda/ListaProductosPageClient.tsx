@@ -7,20 +7,26 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
-import FiltrosListaProductos from "@/components/tienda/FiltrosListaProductos";
-import TablaListaProductos from "@/components/tienda/TablaListaProductos";
+import ActCxButton from "@/components/tienda/ActCxButton";
+import FiltrosTienda from "@/components/tienda/FiltrosTienda";
+import TablaTienda from "@/components/tienda/TablaTienda";
 import AgregarProductoTiendaModal from "@/components/tienda/AgregarProductoTiendaModal";
 import GestionarMarcasModal from "@/components/tienda/GestionarMarcasModal";
 import GestionarRubrosModal from "@/components/tienda/GestionarRubrosModal";
 import GestionarEstPorProdColoresModal from "@/components/estadisticas-productos/GestionarEstPorProdColoresModal";
 import GestionarEstPorProdPresentacionModal from "@/components/estadisticas-productos/GestionarEstPorProdPresentacionModal";
 import { listarEstPorProdUnPresentacionesAction } from "@/actions/estPorProdUnPresentacion";
+import type {
+  ItemTiendaParaTabla,
+  ProveedorOpcionFiltro,
+  ProveedorTintoLts,
+} from "@/actions/tienda";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PAGE_SIZE } from "@/lib/pagination";
+import { PERMISOS, puede, type Rol } from "@/lib/permisos";
 import type { EstPorProdColorItem } from "@/lib/estPorProdColores";
 import type { EstPorProdPresentacionItem } from "@/lib/estPorProdPresentacion";
 import type { EstPorProdUnPresentacionItem } from "@/lib/estPorProdUnPresentacion";
-import type { ListaProductoFila } from "@/lib/listaProductos";
 
 /** Referencias estables: los modales de estadísticas recargan al cambiar `itemsIniciales`. */
 const COLORES_INICIALES: EstPorProdColorItem[] = [];
@@ -28,34 +34,46 @@ const PRESENTACIONES_INICIALES: EstPorProdPresentacionItem[] = [];
 
 type ModalAbierto = "agregar" | "marcas" | "rubros" | "colores" | "presentacion" | null;
 
-interface Props {
-  items: ListaProductoFila[];
-  total: number;
-  totalPaginas: number;
-  rubros: string[];
-  marcas: { id: string; nombre: string }[];
+export type FiltrosListaProductosUrl = {
   q: string;
   rubro: string;
+  cxCompra: string;
   marca: string;
-  paginaNum: number;
+  proveedor: string;
+  vinculado: string;
+};
+
+interface Props {
+  items: ItemTiendaParaTabla[];
+  total: number;
+  totalPaginas: number;
+  proveedores: ProveedorTintoLts[];
+  marcas: string[];
+  rubros: string[];
+  proveedoresCxCompra: ProveedorOpcionFiltro[];
+  rol: Rol;
   esEditor: boolean;
+  filtros: FiltrosListaProductosUrl;
+  paginaNum: number;
 }
 
 export default function ListaProductosPageClient({
   items,
   total,
   totalPaginas,
-  rubros,
+  proveedores,
   marcas,
-  q,
-  rubro,
-  marca,
-  paginaNum,
+  rubros,
+  proveedoresCxCompra,
+  rol,
   esEditor,
+  filtros,
+  paginaNum,
 }: Props) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalAbierto>(null);
   const [unidades, setUnidades] = useState<EstPorProdUnPresentacionItem[]>([]);
+  const puedeEditarCxProd = puede(rol, PERMISOS.cxPxTienda.acceso);
 
   function cerrar(open: boolean) {
     if (!open) setModal(null);
@@ -81,6 +99,7 @@ export default function ListaProductosPageClient({
           Agregar Item
         </Button>
       ) : null}
+      {puedeEditarCxProd ? <ActCxButton /> : null}
       <Button type="button" size="sm" variant="outline" onClick={() => setModal("marcas")}>
         <Tags className="h-4 w-4" aria-hidden />
         Gestionar Marcas
@@ -106,24 +125,30 @@ export default function ListaProductosPageClient({
         title="Lista Productos"
         actions={actions}
         filters={
-          <FiltrosListaProductos
+          <FiltrosTienda
+            modoFiltroTercero="cxCompra"
             marcas={marcas}
             rubros={rubros}
-            qActual={q}
-            marcaActual={marca}
-            rubroActual={rubro}
+            proveedores={proveedores}
+            proveedoresCxCompra={proveedoresCxCompra}
+            qActual={filtros.q}
+            marcaActual={filtros.marca}
+            rubroActual={filtros.rubro}
+            cxCompraActual={filtros.cxCompra}
+            proveedorActual={filtros.proveedor}
+            vinculadoActual={filtros.vinculado}
           />
         }
       >
         <div className="flex h-full min-h-0 flex-col gap-0.5">
           <div className="contenedor-tabla-gestion no-scroll-x flex-1 min-h-0">
-            <TablaListaProductos items={items} />
+            <TablaTienda items={items} rol={rol} puedeEditarCxProd={puedeEditarCxProd} />
           </div>
           {totalPaginas > 1 ? (
             <div className="flex shrink-0 justify-end pt-2">
               <PaginacionTabla
                 basePath={GP_ROUTES.analisisPrecios.listaPropia.listaProductos}
-                params={{ q, rubro, marca }}
+                params={filtros}
                 paginaActual={paginaNum}
                 totalPaginas={totalPaginas}
                 total={total}

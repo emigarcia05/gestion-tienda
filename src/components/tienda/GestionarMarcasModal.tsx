@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2, WandSparkles } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,8 @@ import {
 } from "@/actions/listaProductos";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { MarcaCatalogoItem } from "@/lib/listaProductos";
-import {
-  codigoCumpleFormatoCod,
-  describirFormatoCod,
-  inferirFormatoCodDesdeEjemplo,
-  parsearFormatoCod,
-} from "@/lib/tintometricoFormatoCod";
-import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, TEXT_SUCCESS_CLASS } from "@/lib/ui-classes";
+import { describirFormatoCod, parsearFormatoCod } from "@/lib/tintometricoFormatoCod";
+import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 const LIST_ROW_ICON_BTN_CLASS = cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, "h-9 w-9 min-h-9 max-h-9");
@@ -42,7 +37,6 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
   const [editing, setEditing] = useState<MarcaCatalogoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formFormato, setFormFormato] = useState("");
-  const [formEjemplo, setFormEjemplo] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<MarcaCatalogoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -79,16 +73,11 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
   const formatoTrim = formFormato.trim();
   const formatoParse = formatoTrim ? parsearFormatoCod(formatoTrim) : null;
   const errorFormato = formatoParse && !formatoParse.ok ? formatoParse.error : null;
-  const ejemploTrim = formEjemplo.trim();
-  const ejemploCumple =
-    formatoTrim && !errorFormato && ejemploTrim ? codigoCumpleFormatoCod(ejemploTrim, formatoTrim) : null;
-
   function abrirForm(item: MarcaCatalogoItem | null) {
     if (!esEditor || pending) return;
     setEditing(item);
     setFormNombre(item?.nombre ?? "");
     setFormFormato(item?.formatoCodTintometrico ?? "");
-    setFormEjemplo("");
     setFormOpen(true);
   }
 
@@ -276,36 +265,6 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
                     ? describirFormatoCod(formatoTrim)
                     : 'L = letra · N = número · "…" = texto fijo · espacio / - . = literales')}
               </p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>CÓDIGO DE EJEMPLO</ModalMicroLabel>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={formEjemplo}
-                  onChange={(e) => setFormEjemplo(e.target.value.toUpperCase())}
-                  placeholder="EJ.: YY12 05/132"
-                  disabled={pending}
-                  className="tabular-nums"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={pending || !ejemploTrim}
-                  onClick={() => setFormFormato(inferirFormatoCodDesdeEjemplo(ejemploTrim))}
-                >
-                  <WandSparkles className="h-4 w-4" aria-hidden />
-                  Proponer Formato
-                </Button>
-              </div>
-              {ejemploCumple !== null ? (
-                <p className={cn("text-xs", ejemploCumple ? TEXT_SUCCESS_CLASS : "text-destructive")}>
-                  {ejemploCumple ? "El código de ejemplo cumple el formato." : "El código de ejemplo NO cumple el formato."}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Las partes fijas (p. ej. &quot;SW&quot;) hay que marcarlas a mano entre comillas.
-                </p>
-              )}
             </div>
           </div>
         </AppModal>

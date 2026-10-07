@@ -392,6 +392,7 @@ export async function setProductoPropioTiendaAction(
     );
     revalidatePath("/tienda");
     revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
+    revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
     return { ok: true, data };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "No se pudo actualizar el producto propio.";

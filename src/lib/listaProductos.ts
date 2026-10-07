@@ -1,14 +1,3 @@
-/** Fila de **Lista Productos** (`prod_tienda`). */
-export type ListaProductoFila = {
-  codTienda: string;
-  descripcion: string;
-  rubro: string;
-  subRubro: string;
-  marca: string;
-  bulto: number | null;
-  esProductoPropio: boolean;
-};
-
 /** `prod_marcas` en **Gestionar Marcas**; `productos` = filas `prod_tienda` vinculadas. */
 export type MarcaCatalogoItem = {
   id: string;
@@ -22,4 +11,10 @@ export type RubroCatalogoItem = {
   id: string;
   nombre: string;
   productos: number;
+};
+
+/** Opción de un Select de **Agregar Item** (presentación = `texto`, color = `nombre`). */
+export type OpcionCatalogoItem = {
+  id: string;
+  nombre: string;
 };

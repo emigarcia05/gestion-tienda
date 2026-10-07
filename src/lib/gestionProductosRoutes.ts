@@ -431,6 +431,7 @@ export const REVALIDATE_PEDIDOS_MERCADERIA = gpRevalidatePaths([
 
 export const REVALIDATE_CX_COMPRA = gpRevalidatePaths([
   GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra,
+  GP_ROUTES.analisisPrecios.listaPropia.listaProductos,
 ]);
 
 export const REVALIDATE_PX_COMPETENCIA = gpRevalidatePaths([

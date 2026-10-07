@@ -31,10 +31,11 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import { fmtCelda } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const COL_COUNT = 6;
-const COL_WIDTHS = [11, 32, 9, 22, 12, 14] as const;
+const COL_WIDTHS = [7, 25, 9, 9, 8, 7, 18, 8, 9] as const;
+const COL_COUNT = COL_WIDTHS.length;
 
 const MENSAJE_SIN_FILTRO =
   "Aplicá al menos un filtro (Marca, Rubro, Sub-rubro o búsqueda) para ver los productos.";
@@ -75,6 +76,9 @@ function FilaTienda({
         <TableCell className="celda-datos celda-destacado min-w-0 overflow-hidden">
           {item.descripcion}
         </TableCell>
+        <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.rubro)}</TableCell>
+        <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.subRubro)}</TableCell>
+        <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.marca)}</TableCell>
         <TableCell
           className={cn(
             "celda-datos celda-numero tabular-nums text-center",
@@ -226,9 +230,12 @@ export default function TablaTienda({
           <TableRow className="hover:bg-transparent">
             <TableHead>COD. TIENDA</TableHead>
             <TableHead>DESCRIPCIÓN</TableHead>
+            <TableHead>RUBRO</TableHead>
+            <TableHead>SUB-RUBRO</TableHead>
+            <TableHead>MARCA</TableHead>
             <TableHead className="text-center">VINCULACIÓN</TableHead>
             <TableHead className="text-center tabla-bloque-secundario-head-divider">
-              CX PROD.
+              CX COMPRA
             </TableHead>
             <TableHead className="text-center tabla-bloque-secundario-head-divider">
               ACCIONES

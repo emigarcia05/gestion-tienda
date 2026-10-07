@@ -4,11 +4,15 @@ import { revalidatePath } from "next/cache";
 import { requireEditorTienda, requireTiendaLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
-import type { MarcaCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
+import type {
+  MarcaCatalogoItem,
+  OpcionCatalogoItem,
+  RubroCatalogoItem,
+} from "@/lib/listaProductos";
 import type { ActionResult } from "@/lib/types";
 import {
   crearMarcaSchema,
-  crearProductoTiendaSchema,
+  crearProductosTiendaLoteSchema,
   crearRubroSchema,
   editarMarcaSchema,
   editarRubroSchema,
@@ -16,13 +20,15 @@ import {
 } from "@/lib/validations/listaProductos";
 import {
   crearMarca,
-  crearProductoTienda,
+  crearProductosTiendaLote,
   crearRubro,
   editarMarca,
   editarRubro,
   eliminarMarca,
   eliminarRubro,
+  listarColoresOpciones,
   listarMarcasCatalogo,
+  listarPresentacionesOpciones,
   listarRubrosCatalogo,
 } from "@/services/listaProductos.service";
 
@@ -30,16 +36,40 @@ function revalidateListaProductos(): void {
   for (const path of REVALIDATE_LISTA_PRODUCTOS) revalidatePath(path);
 }
 
-export async function crearProductoTiendaAction(
+export async function crearProductosTiendaLoteAction(
   raw: unknown
-): Promise<ActionResult<{ codTienda: string }>> {
+): Promise<ActionResult<{ codTiendas: string[] }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
-  const parsed = crearProductoTiendaSchema.safeParse(raw);
+  const parsed = crearProductosTiendaLoteSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  const out = fromServiceResult(await crearProductoTienda(parsed.data));
+  const out = fromServiceResult(await crearProductosTiendaLote(parsed.data));
   if (out.ok) revalidateListaProductos();
   return out;
+}
+
+export async function listarPresentacionesOpcionesAction(): Promise<
+  ActionResult<OpcionCatalogoItem[]>
+> {
+  const gate = await requireTiendaLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarPresentacionesOpciones() };
+  } catch (e) {
+    console.error("[listarPresentacionesOpcionesAction]", e);
+    return { ok: false, error: "No se pudieron listar las presentaciones." };
+  }
+}
+
+export async function listarColoresOpcionesAction(): Promise<ActionResult<OpcionCatalogoItem[]>> {
+  const gate = await requireTiendaLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarColoresOpciones() };
+  } catch (e) {
+    console.error("[listarColoresOpcionesAction]", e);
+    return { ok: false, error: "No se pudieron listar los colores." };
+  }
 }
 
 // --- Marcas ---

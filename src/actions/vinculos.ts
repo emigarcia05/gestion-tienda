@@ -231,5 +231,6 @@ export async function establecerCostoListaTiendaAction(
   }
   revalidatePath("/tienda");
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
+  revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
   return { ok: true, data: undefined };
 }

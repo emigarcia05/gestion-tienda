@@ -217,13 +217,6 @@ const listaPropiaScreens: AdmScreenDef[] = [
     permiso: PERMISOS.tienda.acceso,
   },
   {
-    id: "cx-compra",
-    label: "Cx. Compra",
-    href: GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra,
-    icon: "link-2",
-    permiso: PERMISOS.tienda.acceso,
-  },
-  {
     id: "px-listas",
     label: "Px. Listas",
     href: GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas,

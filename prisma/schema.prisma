@@ -806,6 +806,8 @@ model EstPorProdColor {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  prodTiendas ProdTienda[]
+
   @@map("est_por_prod_colores")
 }
 
@@ -857,6 +859,7 @@ model EstPorProdPresentacion {
 
   unidadMedida        EstPorProdUnPresentacion  @relation("PresentacionUnidadMedida", fields: [unidadMedidaId], references: [id], onDelete: Restrict)
   conversionAUnidad   EstPorProdUnPresentacion? @relation("PresentacionConversionUnidad", fields: [conversionAUnidadId], references: [id], onDelete: Restrict)
+  prodTiendas         ProdTienda[]
 
   @@index([unidadMedidaId])
   @@index([conversionAUnidadId])
@@ -1146,8 +1149,14 @@ model ProdTienda {
   /// Unidades por bulto. `null` = vacío (Cx Compra / Reposición). Entero ≥ 1.
   /// CHECK SQL `prod_tienda_bulto_positivo`. Sync DUX no escribe esta columna.
   bulto Int?
+  /// Presentación elegida al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
+  idPresentacion String? @map("id_presentacion")
+  /// Color elegido al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
+  idColor        String? @map("id_color")
 
   marcaRelation           Marca?   @relation(fields: [idMarca], references: [id], onDelete: SetNull)
+  presentacion            EstPorProdPresentacion? @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
+  color                   EstPorProdColor?        @relation(fields: [idColor], references: [id], onDelete: SetNull)
   listaPreciosProveedores ListaPrecioProveedor[] // vínculos por prod_precios_provee.cod_tienda → esta PK
   costoListaProveedor     ListaPrecioProveedor?  @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia? @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
@@ -1163,6 +1172,8 @@ model ProdTienda {
   @@index([marca], map: "prod_tienda_marca_idx")
   @@index([rubro], map: "prod_tienda_rubro_idx")
   @@index([subRubro], map: "prod_tienda_sub_rubro_idx")
+  @@index([idPresentacion], map: "prod_tienda_id_presentacion_idx")
+  @@index([idColor], map: "prod_tienda_id_color_idx")
   @@map("prod_tienda")
 }
 

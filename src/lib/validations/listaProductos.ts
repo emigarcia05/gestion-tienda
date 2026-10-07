@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
+import { listaPreciosCodExtSchema } from "@/lib/validations/common";
 
 /** `prod_marcas.id` / `prod_rubros_lista.id`: CUID o UUID histórico. */
 const idCatalogoSchema = z.string().trim().min(1, "ID inválido.").max(64, "ID inválido.");
@@ -10,25 +11,48 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-export const listarListaProductosSchema = z.object({
-  q: z.string().trim().max(200).optional().default(""),
-  rubro: z.string().trim().max(120).optional().default(""),
-  marca: z.string().trim().max(64).optional().default(""),
-  pagina: z.coerce.number().int().min(1).optional().default(1),
-});
+/** Un ítem del alta en lote. Propio ⇒ sin vínculo; no propio ⇒ vínculo obligatorio (CX. VINCULADO). */
+export const crearProductoTiendaItemSchema = z
+  .object({
+    descripcion: z
+      .string()
+      .trim()
+      .min(1, "Ingresá la descripción.")
+      .max(300, "La descripción es demasiado larga."),
+    idRubro: idCatalogoSchema,
+    subRubro: z.string().trim().max(120, "El sub-rubro es demasiado largo.").nullable(),
+    idMarca: idCatalogoSchema,
+    idPresentacion: idCatalogoSchema.nullable(),
+    idColor: idCatalogoSchema.nullable(),
+    bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
+    esProductoPropio: z.boolean(),
+    codExtVinculo: listaPreciosCodExtSchema.nullable(),
+  })
+  .superRefine((item, ctx) => {
+    if (item.esProductoPropio && item.codExtVinculo) {
+      ctx.addIssue({ code: "custom", message: "Un producto propio no puede tener CX. VINCULADO." });
+    }
+    if (!item.esProductoPropio && !item.codExtVinculo) {
+      ctx.addIssue({ code: "custom", message: "Elegí el CX. VINCULADO (o marcá producto propio)." });
+    }
+  });
 
-export const crearProductoTiendaSchema = z.object({
-  descripcion: z
-    .string()
-    .trim()
-    .min(1, "Ingresá la descripción.")
-    .max(300, "La descripción es demasiado larga."),
-  idRubro: idCatalogoSchema.nullable(),
-  subRubro: z.string().trim().max(120, "El sub-rubro es demasiado largo.").nullable(),
-  idMarca: idCatalogoSchema.nullable(),
-  bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
-  esProductoPropio: z.boolean(),
-});
+export const crearProductosTiendaLoteSchema = z
+  .object({
+    items: z
+      .array(crearProductoTiendaItemSchema)
+      .min(1, "Agregá al menos un producto.")
+      .max(100, "Máximo 100 productos por vez."),
+  })
+  .superRefine(({ items }, ctx) => {
+    const codExts = items.flatMap((i) => (i.codExtVinculo ? [i.codExtVinculo] : []));
+    if (new Set(codExts).size !== codExts.length) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Dos productos no pueden vincularse a la misma línea de proveedor.",
+      });
+    }
+  });
 
 export const crearMarcaSchema = z.object({
   nombre: nombreCatalogoSchema,
@@ -43,8 +67,8 @@ export const editarRubroSchema = crearRubroSchema.extend({ id: idCatalogoSchema 
 
 export const idCatalogoInputSchema = z.object({ id: idCatalogoSchema });
 
-export type ListarListaProductosInput = z.infer<typeof listarListaProductosSchema>;
-export type CrearProductoTiendaInput = z.infer<typeof crearProductoTiendaSchema>;
+export type CrearProductoTiendaItemInput = z.infer<typeof crearProductoTiendaItemSchema>;
+export type CrearProductosTiendaLoteInput = z.infer<typeof crearProductosTiendaLoteSchema>;
 export type CrearMarcaInput = z.infer<typeof crearMarcaSchema>;
 export type EditarMarcaInput = z.infer<typeof editarMarcaSchema>;
 export type CrearRubroInput = z.infer<typeof crearRubroSchema>;
