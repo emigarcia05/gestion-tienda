@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
-import { listaPreciosCodExtSchema } from "@/lib/validations/common";
+import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
 
 /** `prod_marcas.id` / `prod_rubros_lista.id`: CUID o UUID histórico. */
 const idCatalogoSchema = z.string().trim().min(1, "ID inválido.").max(64, "ID inválido.");
@@ -11,20 +11,24 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
+/** Campos de catálogo comunes al alta y a la edición de un producto de tienda. */
+const camposProductoTiendaSchema = z.object({
+  descripcion: z
+    .string()
+    .trim()
+    .min(1, "Ingresá la descripción.")
+    .max(300, "La descripción es demasiado larga."),
+  idRubro: idCatalogoSchema,
+  subRubro: z.string().trim().max(120, "El sub-rubro es demasiado largo.").nullable(),
+  idMarca: idCatalogoSchema,
+  idPresentacion: idCatalogoSchema.nullable(),
+  idColor: idCatalogoSchema.nullable(),
+  bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
+});
+
 /** Un ítem del alta en lote. Propio ⇒ sin vínculo; no propio ⇒ vínculo obligatorio (CX. VINCULADO). */
-export const crearProductoTiendaItemSchema = z
-  .object({
-    descripcion: z
-      .string()
-      .trim()
-      .min(1, "Ingresá la descripción.")
-      .max(300, "La descripción es demasiado larga."),
-    idRubro: idCatalogoSchema,
-    subRubro: z.string().trim().max(120, "El sub-rubro es demasiado largo.").nullable(),
-    idMarca: idCatalogoSchema,
-    idPresentacion: idCatalogoSchema.nullable(),
-    idColor: idCatalogoSchema.nullable(),
-    bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
+export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
+  .extend({
     esProductoPropio: z.boolean(),
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
   })
@@ -54,6 +58,13 @@ export const crearProductosTiendaLoteSchema = z
     }
   });
 
+/** Editar: vínculos, costo y producto propio se manejan con sus propias acciones (inmediatas). */
+export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
+  codTienda: listaPreciosCodTiendaSchema,
+});
+
+export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });
+
 export const crearMarcaSchema = z.object({
   nombre: nombreCatalogoSchema,
   formatoCodTintometrico: formatoCodSchema.nullable(),
@@ -69,6 +80,7 @@ export const idCatalogoInputSchema = z.object({ id: idCatalogoSchema });
 
 export type CrearProductoTiendaItemInput = z.infer<typeof crearProductoTiendaItemSchema>;
 export type CrearProductosTiendaLoteInput = z.infer<typeof crearProductosTiendaLoteSchema>;
+export type EditarProductoTiendaInput = z.infer<typeof editarProductoTiendaSchema>;
 export type CrearMarcaInput = z.infer<typeof crearMarcaSchema>;
 export type EditarMarcaInput = z.infer<typeof editarMarcaSchema>;
 export type CrearRubroInput = z.infer<typeof crearRubroSchema>;

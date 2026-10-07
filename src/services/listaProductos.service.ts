@@ -9,6 +9,7 @@ import type {
   CrearMarcaInput,
   CrearProductoTiendaItemInput,
   CrearProductosTiendaLoteInput,
+  EditarProductoTiendaInput,
   CrearRubroInput,
   EditarMarcaInput,
   EditarRubroInput,
@@ -47,19 +48,52 @@ async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string>
   return (max + BigInt(1)).toString();
 }
 
+type CamposProductoTienda = Pick<
+  CrearProductoTiendaItemInput,
+  "descripcion" | "idRubro" | "subRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
+>;
+
+/** Valida los catálogos elegidos y arma las columnas de `prod_tienda` (texto rubro/marca + FKs). */
+async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos: CamposProductoTienda) {
+  const etiqueta = campos.descripcion.trim().toLocaleUpperCase("es-AR");
+  const [rubro, marca, presentacion, color] = await Promise.all([
+    tx.prodRubroLista.findUnique({ where: { id: campos.idRubro }, select: { nombre: true } }),
+    tx.marca.findUnique({ where: { id: campos.idMarca }, select: { id: true, nombre: true } }),
+    campos.idPresentacion
+      ? tx.estPorProdPresentacion.findUnique({ where: { id: campos.idPresentacion }, select: { id: true } })
+      : null,
+    campos.idColor
+      ? tx.estPorProdColor.findUnique({ where: { id: campos.idColor }, select: { id: true } })
+      : null,
+  ]);
+  if (!rubro) throw new ErrorNegocio(`${etiqueta}: el rubro elegido ya no existe.`);
+  if (!marca) throw new ErrorNegocio(`${etiqueta}: la marca elegida ya no existe.`);
+  if (campos.idPresentacion && !presentacion) {
+    throw new ErrorNegocio(`${etiqueta}: la presentación elegida ya no existe.`);
+  }
+  if (campos.idColor && !color) throw new ErrorNegocio(`${etiqueta}: el color elegido ya no existe.`);
+  return {
+    etiqueta,
+    data: {
+      descripcionTienda: campos.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
+      rubro: rubro.nombre,
+      subRubro: campos.subRubro ? normalizarNombreCatalogo(campos.subRubro) : null,
+      marca: marca.nombre,
+      idMarca: marca.id,
+      idPresentacion: presentacion?.id ?? null,
+      idColor: color?.id ?? null,
+      bulto: campos.bulto,
+    },
+  };
+}
+
 async function crearUnProductoTienda(
   tx: Prisma.TransactionClient,
   item: CrearProductoTiendaItemInput,
   cod: string
 ): Promise<void> {
-  const etiqueta = item.descripcion.trim().toLocaleUpperCase("es-AR");
-  const [rubro, marca, presentacion, color, lineaProveedor] = await Promise.all([
-    tx.prodRubroLista.findUnique({ where: { id: item.idRubro }, select: { nombre: true } }),
-    tx.marca.findUnique({ where: { id: item.idMarca }, select: { id: true, nombre: true } }),
-    item.idPresentacion
-      ? tx.estPorProdPresentacion.findUnique({ where: { id: item.idPresentacion }, select: { id: true } })
-      : null,
-    item.idColor ? tx.estPorProdColor.findUnique({ where: { id: item.idColor }, select: { id: true } }) : null,
+  const [{ etiqueta, data }, lineaProveedor] = await Promise.all([
+    resolverCamposProductoTienda(tx, item),
     item.codExtVinculo
       ? tx.listaPrecioProveedor.findUnique({
           where: { codExt: item.codExtVinculo },
@@ -67,12 +101,6 @@ async function crearUnProductoTienda(
         })
       : null,
   ]);
-  if (!rubro) throw new ErrorNegocio(`${etiqueta}: el rubro elegido ya no existe.`);
-  if (!marca) throw new ErrorNegocio(`${etiqueta}: la marca elegida ya no existe.`);
-  if (item.idPresentacion && !presentacion) {
-    throw new ErrorNegocio(`${etiqueta}: la presentación elegida ya no existe.`);
-  }
-  if (item.idColor && !color) throw new ErrorNegocio(`${etiqueta}: el color elegido ya no existe.`);
   if (item.codExtVinculo) {
     if (!lineaProveedor) throw new ErrorNegocio(`${etiqueta}: la línea de proveedor ya no existe.`);
     if (lineaProveedor.codTiendaVinculo) {
@@ -84,15 +112,8 @@ async function crearUnProductoTienda(
 
   await tx.prodTienda.create({
     data: {
+      ...data,
       codTienda: cod,
-      descripcionTienda: item.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-      rubro: rubro.nombre,
-      subRubro: item.subRubro ? normalizarNombreCatalogo(item.subRubro) : null,
-      marca: marca.nombre,
-      idMarca: marca.id,
-      idPresentacion: presentacion?.id ?? null,
-      idColor: color?.id ?? null,
-      bulto: item.bulto,
       esProductoPropio: item.esProductoPropio,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
       costoCompra: 0,
@@ -133,6 +154,71 @@ export async function crearProductosTiendaLote(
     if (error instanceof ErrorNegocio) return { success: false, error: error.message };
     console.error("[listaProductos.service] crearProductosTiendaLote:", error);
     return { success: false, error: "No se pudieron crear los productos." };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edición y baja (Lista Productos · ACCIONES de la fila)
+// ---------------------------------------------------------------------------
+
+export async function editarProductoTienda(
+  input: EditarProductoTiendaInput
+): Promise<ServiceResult<{ codTienda: string }>> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existe = await tx.prodTienda.findUnique({
+        where: { codTienda: input.codTienda },
+        select: { codTienda: true },
+      });
+      if (!existe) throw new ErrorNegocio("El producto ya no existe.");
+      const { data } = await resolverCamposProductoTienda(tx, input);
+      await tx.prodTienda.update({ where: { codTienda: input.codTienda }, data });
+    });
+    return { success: true, data: { codTienda: input.codTienda } };
+  } catch (error) {
+    if (error instanceof ErrorNegocio) return { success: false, error: error.message };
+    console.error("[listaProductos.service] editarProductoTienda:", error);
+    return { success: false, error: "No se pudo guardar el producto." };
+  }
+}
+
+/**
+ * Baja bloqueada si el producto tiene historia (stock, transferencias, compras, ventas o estadísticas).
+ * Sin historia: borra sus reglas de reposición; los vínculos con proveedores quedan libres (FK SET NULL)
+ * y precios de lista / competencia se borran en cascada.
+ */
+export async function eliminarProductoTienda(
+  codTienda: string
+): Promise<ServiceResult<{ codTienda: string }>> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existe = await tx.prodTienda.findUnique({ where: { codTienda }, select: { codTienda: true } });
+      if (!existe) throw new ErrorNegocio("El producto ya no existe.");
+      const [movStock, transferencias, compras, ventas, estadisticas] = await Promise.all([
+        tx.stockMovimiento.count({ where: { codItem: codTienda } }),
+        tx.stockTransferenciaItem.count({ where: { codItem: codTienda } }),
+        tx.pedidoHistoriaItem.count({ where: { codTienda } }),
+        tx.comprobanteVtaItem.count({ where: { codTienda } }),
+        tx.estPorProd.count({ where: { codTienda } }),
+      ]);
+      const usos = [
+        movStock > 0 && "movimientos de stock",
+        transferencias > 0 && "transferencias",
+        compras > 0 && "pedidos / compras",
+        ventas > 0 && "comprobantes de venta",
+        estadisticas > 0 && "estadísticas de ventas",
+      ].filter((u): u is string => Boolean(u));
+      if (usos.length > 0) {
+        throw new ErrorNegocio(`No se puede borrar: el producto tiene ${usos.join(", ")}.`);
+      }
+      await tx.prodPedMerc2.deleteMany({ where: { reposicionCodTienda: codTienda } });
+      await tx.prodTienda.delete({ where: { codTienda } });
+    });
+    return { success: true, data: { codTienda } };
+  } catch (error) {
+    if (error instanceof ErrorNegocio) return { success: false, error: error.message };
+    console.error("[listaProductos.service] eliminarProductoTienda:", error);
+    return { success: false, error: "No se pudo borrar el producto." };
   }
 }
 

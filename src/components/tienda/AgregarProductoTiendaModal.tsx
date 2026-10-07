@@ -5,14 +5,6 @@ import { Link2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -28,19 +20,20 @@ import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
-import {
-  crearProductosTiendaLoteAction,
-  listarColoresOpcionesAction,
-  listarMarcasCatalogoAction,
-  listarPresentacionesOpcionesAction,
-  listarRubrosCatalogoAction,
-} from "@/actions/listaProductos";
-import type { MarcaCatalogoItem, OpcionCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
+import ProductoTiendaCampos, {
+  CAMPOS_PRODUCTO_TIENDA_VACIOS,
+  ProductoTiendaBultoInput,
+  camposProductoTiendaCompletos,
+  camposProductoTiendaParaAction,
+  parsearBultoProductoTienda,
+  type CamposProductoTiendaForm,
+} from "@/components/tienda/ProductoTiendaCampos";
+import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
+import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import type { CrearProductoTiendaItemInput } from "@/lib/validations/listaProductos";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-const SIN_VALOR = "none";
 const ROW_ICON_BTN_CLASS = cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, "h-8 w-8 min-h-8 max-h-8");
 
 type ItemPendiente = CrearProductoTiendaItemInput & { key: string; vinculoEtiqueta: string | null };
@@ -56,16 +49,8 @@ function etiquetaVinculo(p: ProductoConProveedor): string {
 }
 
 export default function AgregarProductoTiendaModal({ open, onOpenChange, onCreado }: Props) {
-  const [rubros, setRubros] = useState<RubroCatalogoItem[]>([]);
-  const [marcas, setMarcas] = useState<MarcaCatalogoItem[]>([]);
-  const [presentaciones, setPresentaciones] = useState<OpcionCatalogoItem[]>([]);
-  const [colores, setColores] = useState<OpcionCatalogoItem[]>([]);
-  const [descripcion, setDescripcion] = useState("");
-  const [idRubro, setIdRubro] = useState("");
-  const [subRubro, setSubRubro] = useState("");
-  const [idMarca, setIdMarca] = useState("");
-  const [idPresentacion, setIdPresentacion] = useState(SIN_VALOR);
-  const [idColor, setIdColor] = useState(SIN_VALOR);
+  const catalogos = useCatalogosProductoTienda(open);
+  const [campos, setCampos] = useState<CamposProductoTiendaForm>(CAMPOS_PRODUCTO_TIENDA_VACIOS);
   const [vinculo, setVinculo] = useState<ProductoConProveedor | null>(null);
   const [esPropio, setEsPropio] = useState(false);
   const [bulto, setBulto] = useState("");
@@ -75,47 +60,20 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
 
   useEffect(() => {
     if (!open) return;
-    setDescripcion("");
-    setIdRubro("");
-    setSubRubro("");
-    setIdMarca("");
-    setIdPresentacion(SIN_VALOR);
-    setIdColor(SIN_VALOR);
+    setCampos(CAMPOS_PRODUCTO_TIENDA_VACIOS);
     setVinculo(null);
     setEsPropio(false);
     setBulto("");
     setItems([]);
-    void Promise.all([
-      listarRubrosCatalogoAction(),
-      listarMarcasCatalogoAction(),
-      listarPresentacionesOpcionesAction(),
-      listarColoresOpcionesAction(),
-    ]).then(([resRubros, resMarcas, resPres, resColores]) => {
-      if (resRubros.ok) setRubros(resRubros.data);
-      else toast.error(resRubros.error);
-      if (resMarcas.ok) setMarcas(resMarcas.data);
-      else toast.error(resMarcas.error);
-      if (resPres.ok) setPresentaciones(resPres.data);
-      else toast.error(resPres.error);
-      if (resColores.ok) setColores(resColores.data);
-      else toast.error(resColores.error);
-    });
   }, [open]);
 
-  const bultoTrim = bulto.trim();
-  const bultoNum = bultoTrim ? Number(bultoTrim) : null;
-  const bultoInvalido = bultoNum !== null && (!Number.isInteger(bultoNum) || bultoNum < 1);
+  const { bulto: bultoNum, invalido: bultoInvalido } = parsearBultoProductoTienda(bulto);
   const puedeCrear =
-    descripcion.trim().length > 0 &&
-    !!idRubro &&
-    !!idMarca &&
-    (esPropio || !!vinculo) &&
-    !bultoInvalido &&
-    !pending;
+    camposProductoTiendaCompletos(campos) && (esPropio || !!vinculo) && !bultoInvalido && !pending;
   const puedeGuardar = items.length > 0 && !pending;
 
-  const rubroNombre = rubros.find((r) => r.id === idRubro)?.nombre ?? null;
-  const marcaNombre = marcas.find((m) => m.id === idMarca)?.nombre ?? null;
+  const rubroNombre = catalogos.rubros.find((r) => r.id === campos.idRubro)?.nombre ?? null;
+  const marcaNombre = catalogos.marcas.find((m) => m.id === campos.idMarca)?.nombre ?? null;
 
   function cambiarPropio(siguiente: boolean) {
     setEsPropio(siguiente);
@@ -133,16 +91,13 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
 
   function crear() {
     if (!puedeCrear) return;
+    const base = camposProductoTiendaParaAction(campos);
     setItems((prev) => [
       ...prev,
       {
+        ...base,
         key: crypto.randomUUID(),
-        descripcion: descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-        idRubro,
-        subRubro: subRubro.trim() || null,
-        idMarca,
-        idPresentacion: idPresentacion === SIN_VALOR ? null : idPresentacion,
-        idColor: idColor === SIN_VALOR ? null : idColor,
+        descripcion: base.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
         bulto: bultoNum,
         esProductoPropio: esPropio,
         codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
@@ -194,87 +149,13 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         }
       >
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>DESCRIPCIÓN</ModalMicroLabel>
-            <Input
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="DESCRIPCIÓN DEL PRODUCTO"
-              disabled={pending}
-              autoFocus
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>RUBRO</ModalMicroLabel>
-            <Select value={idRubro} onValueChange={setIdRubro} disabled={pending}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="RUBRO (OBLIGATORIO)" />
-              </SelectTrigger>
-              <SelectContent>
-                {rubros.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>SUB-RUBRO</ModalMicroLabel>
-            <Input
-              value={subRubro}
-              onChange={(e) => setSubRubro(e.target.value)}
-              placeholder="SUB-RUBRO"
-              disabled={pending}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>MARCA</ModalMicroLabel>
-            <Select value={idMarca} onValueChange={setIdMarca} disabled={pending}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="MARCA (OBLIGATORIO)" />
-              </SelectTrigger>
-              <SelectContent>
-                {marcas.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>PRESENTACIÓN</ModalMicroLabel>
-            <Select value={idPresentacion} onValueChange={setIdPresentacion} disabled={pending}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="PRESENTACIÓN" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_VALOR}>SIN PRESENTACIÓN</SelectItem>
-                {presentaciones.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>COLOR</ModalMicroLabel>
-            <Select value={idColor} onValueChange={setIdColor} disabled={pending}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="COLOR" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SIN_VALOR}>SIN COLOR</SelectItem>
-                {colores.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ProductoTiendaCampos
+            campos={campos}
+            onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
+            catalogos={catalogos}
+            disabled={pending}
+            autoFocus
+          />
           {!esPropio ? (
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>CX. VINCULADO</ModalMicroLabel>
@@ -310,17 +191,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
             </div>
           ) : null}
           <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>BULTO</ModalMicroLabel>
-            <Input
-              value={bulto}
-              onChange={(e) => setBulto(e.target.value.replace(/[^0-9]/g, ""))}
-              inputMode="numeric"
-              placeholder="UNIDADES POR BULTO"
-              disabled={pending}
-              aria-invalid={bultoInvalido || undefined}
-            />
-          </div>
+          <ProductoTiendaBultoInput value={bulto} onChange={setBulto} invalido={bultoInvalido} disabled={pending} />
           <Button type="button" className="w-full gap-2" disabled={!puedeCrear} onClick={crear}>
             <Plus aria-hidden />
             Crear
@@ -375,10 +246,10 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         onClose={() => setSelectorAbierto(false)}
         onSeleccionar={elegirVinculo}
         excluirItemTiendaId=""
-        itemDescripcion={descripcion.trim().toLocaleUpperCase("es-AR") || "NUEVO PRODUCTO"}
+        itemDescripcion={campos.descripcion.trim().toLocaleUpperCase("es-AR") || "NUEVO PRODUCTO"}
         marca={marcaNombre}
         rubro={rubroNombre}
-        subRubro={subRubro.trim().toLocaleUpperCase("es-AR") || null}
+        subRubro={campos.subRubro.trim().toLocaleUpperCase("es-AR") || null}
       />
     </Dialog>
   );

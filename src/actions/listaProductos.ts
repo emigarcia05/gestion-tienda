@@ -15,7 +15,9 @@ import {
   crearProductosTiendaLoteSchema,
   crearRubroSchema,
   editarMarcaSchema,
+  editarProductoTiendaSchema,
   editarRubroSchema,
+  eliminarProductoTiendaSchema,
   idCatalogoInputSchema,
 } from "@/lib/validations/listaProductos";
 import {
@@ -23,8 +25,10 @@ import {
   crearProductosTiendaLote,
   crearRubro,
   editarMarca,
+  editarProductoTienda,
   editarRubro,
   eliminarMarca,
+  eliminarProductoTienda,
   eliminarRubro,
   listarColoresOpciones,
   listarMarcasCatalogo,
@@ -44,6 +48,30 @@ export async function crearProductosTiendaLoteAction(
   const parsed = crearProductosTiendaLoteSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
   const out = fromServiceResult(await crearProductosTiendaLote(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function editarProductoTiendaAction(
+  raw: unknown
+): Promise<ActionResult<{ codTienda: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = editarProductoTiendaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await editarProductoTienda(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function eliminarProductoTiendaAction(
+  raw: unknown
+): Promise<ActionResult<{ codTienda: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = eliminarProductoTiendaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await eliminarProductoTienda(parsed.data.codTienda));
   if (out.ok) revalidateListaProductos();
   return out;
 }

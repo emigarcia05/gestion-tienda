@@ -142,7 +142,7 @@ export default function ListaProductosPageClient({
       >
         <div className="flex h-full min-h-0 flex-col gap-0.5">
           <div className="contenedor-tabla-gestion no-scroll-x flex-1 min-h-0">
-            <TablaTienda items={items} rol={rol} puedeEditarCxProd={puedeEditarCxProd} />
+            <TablaTienda items={items} rol={rol} puedeEditarCxProd={puedeEditarCxProd} esEditor={esEditor} />
           </div>
           {totalPaginas > 1 ? (
             <div className="flex shrink-0 justify-end pt-2">

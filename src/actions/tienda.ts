@@ -142,6 +142,13 @@ export interface ItemTiendaParaTabla {
   esProductoPropio: boolean;
   /** Unidades por bulto (`prod_tienda.bulto`); `null` = vacío. */
   bulto: number | null;
+  idMarca: string | null;
+  idPresentacion: string | null;
+  /** `est_por_prod_presentacion.texto`. */
+  presentacion: string | null;
+  idColor: string | null;
+  /** `est_por_prod_colores.nombre`. */
+  color: string | null;
 }
 
 export interface ProveedorTintoLts {
@@ -267,7 +274,11 @@ export async function getTiendaPageData(params: {
       prisma.prodTienda.findMany({
         where,
         orderBy: [{ descripcionTienda: "asc" }],
-        include: { _count: { select: { listaPreciosProveedores: true } } },
+        include: {
+          _count: { select: { listaPreciosProveedores: true } },
+          presentacion: { select: { texto: true } },
+          color: { select: { nombre: true } },
+        },
         skip,
         take: PAGE_SIZE,
       }),
@@ -348,6 +359,11 @@ export async function getTiendaPageData(params: {
       cxProd: cxProdMap.get(r.codTienda) ?? CX_PROD_FILA_VACIA,
       esProductoPropio: r.esProductoPropio,
       bulto: bultoProdTiendaValido(r.bulto),
+      idMarca: r.idMarca,
+      idPresentacion: r.idPresentacion,
+      presentacion: r.presentacion?.texto ?? null,
+      idColor: r.idColor,
+      color: r.color?.nombre ?? null,
     };
   });
 
