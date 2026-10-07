@@ -5,10 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ClipboardList,
-  AlarmClock,
   Send,
   FileSearch,
-  RotateCw,
   Pipette,
   Droplets,
   Receipt,
@@ -162,39 +160,21 @@ const MODULES: NavModule[] = [
     icon: <ClipboardList className={iconClass} />,
     submodules: [
       {
-        href: GP_ROUTES.pedidoMercaderia.confPedido.urgente,
-        label: "Urgente",
-        icon: <AlarmClock className="h-4 w-4 shrink-0" />,
+        href: GP_ROUTES.pedidoMercaderia.pedirMercaderia,
+        label: "Pedir Mercadería",
+        icon: <Send className="h-4 w-4 shrink-0" />,
         isUrgente: true,
         permiso: PERMISOS.pedidos.acceso,
       },
       {
-        href: GP_ROUTES.pedidoMercaderia.confPedido.tintometrico,
-        label: "Tintométrico",
-        icon: <Pipette className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.pedidos.acceso,
-      },
-      {
-        href: GP_ROUTES.pedidoMercaderia.confPedido.reposicion,
-        label: "Reposición",
-        icon: <RotateCw className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.pedidos.acceso,
-      },
-      {
-        href: GP_ROUTES.pedidoMercaderia.generarPedido,
-        label: "Generar Pedido",
-        icon: <Send className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.pedidos.acceso,
-      },
-      {
         href: GP_ROUTES.pedidoMercaderia.recepcionPedido,
-        label: "Recepción de Compra",
+        label: "Órdenes de Compra",
         icon: <PackageCheck className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
       },
       {
         href: GP_ROUTES.pedidoMercaderia.compras,
-        label: "Compras",
+        label: "Compras Recepcionadas",
         icon: <ShoppingCart className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
       },

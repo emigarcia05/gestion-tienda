@@ -83,7 +83,7 @@ export default function HistorialPedidosPageClient({
   const COL_WIDTHS_PCT = [18, 28, 18, 14, 22] as const;
 
   const title = "Compras";
-  const subtitle = "Recepción de Compra";
+  const subtitle = "Órdenes de Compra";
 
   function openRecepcion(id: string) {
     setRecepcionId(id);

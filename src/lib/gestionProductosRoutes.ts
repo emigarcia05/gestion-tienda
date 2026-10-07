@@ -12,15 +12,17 @@ export const GP_ROUTES = {
   /** Hub Vendedor / inicio: panel vacío hasta elegir una ruta hoja en el sidenav. */
   defaultEntry: `/`,
   pedidoMercaderia: {
+    /** **Pedir Mercadería**: unifica Urgente, Reposición y Generar Pedido (esas URLs redirigen acá). */
+    pedirMercaderia: `${GP}/pedido-mercaderia/pedir-mercaderia`,
     generarPedido: `${GP}/pedido-mercaderia/generar-pedido`,
     confPedido: {
       urgente: `${GP}/pedido-mercaderia/conf-pedido/urgente`,
       tintometrico: `${GP}/pedido-mercaderia/conf-pedido/tintometrico`,
       reposicion: `${GP}/pedido-mercaderia/conf-pedido/reposicion`,
     },
-    /** Submódulo **Recepción de Compra** (slug histórico `recepcion-pedido`). */
+    /** Submódulo **Órdenes de Compra** (slug histórico `recepcion-pedido`). */
     recepcionPedido: `${GP}/pedido-mercaderia/recepcion-pedido`,
-    /** Submódulo **Compras**: comprobantes recepcionados + nota de crédito. */
+    /** Submódulo **Compras Recepcionadas**: comprobantes recepcionados + nota de crédito. */
     compras: `${GP}/pedido-mercaderia/compras`,
   },
   ayudaVendedor: {
@@ -65,6 +67,7 @@ export const GP_ROUTES = {
 /** Destinos internos en `src/app/` (rewrites). */
 export const GP_INTERNAL = {
   pedidoMercaderia: {
+    pedirMercaderia: "/pedidos/pedir-mercaderia",
     generarPedido: "/pedidos/enviar",
     confPedido: {
       urgente: "/pedidos/urgente",
@@ -112,6 +115,7 @@ export const GP_INTERNAL = {
 
 /** URLs canónicas anteriores y rutas cortas equivalentes por href canónico. */
 const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
+  [GP_ROUTES.pedidoMercaderia.pedirMercaderia]: ["/pedidos/pedir-mercaderia"],
   [GP_ROUTES.pedidoMercaderia.generarPedido]: [
     "/gestion-productos/pedidos/generar-pedido",
     "/pedidos/enviar",
@@ -203,6 +207,7 @@ const GP_ROUTE_ALIASES: Record<string, readonly string[]> = {
 
 const PEDIDO_MERCADERIA_PREFIXES = [
   `${GP}/pedido-mercaderia`,
+  GP_ROUTES.pedidoMercaderia.pedirMercaderia,
   GP_ROUTES.pedidoMercaderia.generarPedido,
   `${GP}/pedido-mercaderia/conf-pedido`,
   GP_ROUTES.pedidoMercaderia.recepcionPedido,
@@ -404,6 +409,7 @@ export const REVALIDATE_LISTA_PRECIOS = gpRevalidatePaths([
 ]);
 
 export const REVALIDATE_PEDIDOS_MERCADERIA = gpRevalidatePaths([
+  GP_ROUTES.pedidoMercaderia.pedirMercaderia,
   GP_ROUTES.pedidoMercaderia.generarPedido,
   GP_ROUTES.pedidoMercaderia.confPedido.urgente,
   GP_ROUTES.pedidoMercaderia.confPedido.tintometrico,

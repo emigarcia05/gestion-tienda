@@ -7,12 +7,15 @@ const I = GP_INTERNAL;
 /** Redirecciones permanentes: URLs antiguas → canónicas actuales (sidebar). */
 function legacyGestionProductosRedirects(): { source: string; destination: string; permanent: true }[] {
   return [
-    { source: "/gestion-productos/pedidos/generar-pedido", destination: R.pedidoMercaderia.generarPedido, permanent: true },
-    { source: "/gestion-productos/pedidos/urgente", destination: R.pedidoMercaderia.confPedido.urgente, permanent: true },
+    { source: "/gestion-productos/pedidos/generar-pedido", destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
+    { source: "/gestion-productos/pedidos/urgente", destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
     { source: "/gestion-productos/pedidos/tintometrico", destination: R.pedidoMercaderia.confPedido.tintometrico, permanent: true },
-    { source: "/gestion-productos/pedidos/reposicion", destination: R.pedidoMercaderia.confPedido.reposicion, permanent: true },
+    { source: "/gestion-productos/pedidos/reposicion", destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
     { source: "/gestion-productos/pedidos/historial", destination: R.pedidoMercaderia.recepcionPedido, permanent: true },
-    { source: "/gestion-productos/pedidos", destination: R.pedidoMercaderia.generarPedido, permanent: true },
+    { source: "/gestion-productos/pedidos", destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
+    { source: R.pedidoMercaderia.generarPedido, destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
+    { source: R.pedidoMercaderia.confPedido.urgente, destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
+    { source: R.pedidoMercaderia.confPedido.reposicion, destination: R.pedidoMercaderia.pedirMercaderia, permanent: true },
     { source: "/gestion-productos/proveedores/sugeridos", destination: R.ayudaVendedor.pxVenta.pxVtaSugerido, permanent: true },
     { source: "/gestion-productos/tienda/calc-tintometrico", destination: R.ayudaVendedor.pxVenta.pxTintometrico, permanent: true },
     { source: "/gestion-productos/tienda/calc-litros", destination: R.ayudaVendedor.calcLitros, permanent: true },
@@ -54,10 +57,8 @@ function legacyGestionProductosRedirects(): { source: string; destination: strin
 
 function canonicalGestionProductosRewrites(): { source: string; destination: string }[] {
   return [
-    { source: R.pedidoMercaderia.generarPedido, destination: I.pedidoMercaderia.generarPedido },
-    { source: R.pedidoMercaderia.confPedido.urgente, destination: I.pedidoMercaderia.confPedido.urgente },
+    { source: R.pedidoMercaderia.pedirMercaderia, destination: I.pedidoMercaderia.pedirMercaderia },
     { source: R.pedidoMercaderia.confPedido.tintometrico, destination: I.pedidoMercaderia.confPedido.tintometrico },
-    { source: R.pedidoMercaderia.confPedido.reposicion, destination: I.pedidoMercaderia.confPedido.reposicion },
     { source: R.pedidoMercaderia.recepcionPedido, destination: I.pedidoMercaderia.recepcionPedido },
     { source: R.pedidoMercaderia.compras, destination: I.pedidoMercaderia.compras },
     { source: R.ayudaVendedor.pxVenta.pxVtaSugerido, destination: I.ayudaVendedor.pxVenta.pxVtaSugerido },
@@ -203,17 +204,22 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/pedidos",
-        destination: R.pedidoMercaderia.generarPedido,
+        destination: R.pedidoMercaderia.pedirMercaderia,
+        permanent: true,
+      },
+      {
+        source: "/pedidos/pedir-mercaderia",
+        destination: R.pedidoMercaderia.pedirMercaderia,
         permanent: true,
       },
       {
         source: "/pedidos/enviar",
-        destination: R.pedidoMercaderia.generarPedido,
+        destination: R.pedidoMercaderia.pedirMercaderia,
         permanent: true,
       },
       {
         source: "/pedidos/urgente",
-        destination: R.pedidoMercaderia.confPedido.urgente,
+        destination: R.pedidoMercaderia.pedirMercaderia,
         permanent: true,
       },
       {
@@ -223,7 +229,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/pedidos/reposicion",
-        destination: R.pedidoMercaderia.confPedido.reposicion,
+        destination: R.pedidoMercaderia.pedirMercaderia,
         permanent: true,
       },
       {

@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 /**
- * Error Boundary del módulo Recepción de Compra.
+ * Error Boundary del módulo Órdenes de Compra.
  *
  * Captura excepciones lanzadas durante el render del Server Component
  * `src/app/pedidos/historial/page.tsx` (lecturas a Prisma, sesión, etc.) y
@@ -39,7 +39,7 @@ export default function HistorialPedidosError({
     <div className="flex h-full min-h-[60vh] flex-col items-center justify-center p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold text-foreground">
-          No se pudo cargar Recepción de Compra
+          No se pudo cargar Órdenes de Compra
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Ocurrió un error inesperado al renderizar la página. Reintentá la

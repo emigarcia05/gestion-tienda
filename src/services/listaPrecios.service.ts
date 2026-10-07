@@ -833,6 +833,15 @@ export async function aplicarVariacionPxListaProveedorMasivo(
 
 // ─── Pedido Urgente: ítems con descripción unificada ─────────────────
 
+export interface PedidoUrgenteReposicionRegla {
+  /** `prod_ped_merc.id` (tipo REPOSICION). */
+  idReposicion: string;
+  formaPedir: string | null;
+  puntoReposicion: number;
+  /** `reposicion_cant_conf` (UN. MÁXIMAS o BULTOS REPOSICIÓN). */
+  cantConf: number;
+}
+
 export interface PedidoUrgenteItem {
   id: string;
   codExt: string;
@@ -855,6 +864,14 @@ export interface PedidoUrgenteItem {
    * true si hay `prod_tienda` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
    */
   estaVinculadoTienda: boolean;
+  /** `prod_tienda.cod_tienda` del vínculo; "" si no está registrado en tienda. */
+  codTienda: string;
+  /** Regla REPOSICIÓN (`prod_ped_merc`) del `cod_tienda` en la sucursal; null si no hay. */
+  reposicionRegla: PedidoUrgenteReposicionRegla | null;
+  /** `prod_tienda.bulto` (unidades por bulto); null si no hay o no está registrado. */
+  bultoTienda: number | null;
+  /** Stock de la sucursal (Dux) del `cod_tienda`; 0 si no está registrado. */
+  stockTienda: number;
   /**
    * Varias filas `prod_precios_provee` con el mismo `cod_tienda` (FK o match Dux): la UI muestra una sola fila;
    * cada miembro conserva su `cod_ext` para persistir cantidades. Ausente en filas no agrupadas.
@@ -878,17 +895,31 @@ async function mercaderiaMapsDesdeMerc2(
   mercaderiaMapUrgente: Map<string, number>;
   mercaderiaRepoSet: Set<string>;
   mercaderiaMapRepo: Map<string, number>;
+  reglaRepoPorCodTienda: Map<string, PedidoUrgenteReposicionRegla>;
+  bultoPorCodTienda: Map<string, number | null>;
+  stockPorCodTienda: Map<string, number>;
 }> {
   const mercaderiaMapUrgente = new Map<string, number>();
   const mercaderiaRepoSet = new Set<string>();
   const mercaderiaMapRepo = new Map<string, number>();
+  const reglaRepoPorCodTienda = new Map<string, PedidoUrgenteReposicionRegla>();
+  const bultoPorCodTienda = new Map<string, number | null>();
+  const stockPorCodTienda = new Map<string, number>();
+  const vacio = {
+    mercaderiaMapUrgente,
+    mercaderiaRepoSet,
+    mercaderiaMapRepo,
+    reglaRepoPorCodTienda,
+    bultoPorCodTienda,
+    stockPorCodTienda,
+  };
 
   const suc = await prisma.sucursal.findUnique({
     where: { codigo: sucursalTrim },
     select: { id: true },
   });
   if (!suc) {
-    return { mercaderiaMapUrgente, mercaderiaRepoSet, mercaderiaMapRepo };
+    return vacio;
   }
 
   const codExts = [...new Set(pairs.map((p) => (p.codExt ?? "").trim()).filter(Boolean))];
@@ -909,7 +940,7 @@ async function mercaderiaMapsDesdeMerc2(
   }
 
   if (orParts.length === 0) {
-    return { mercaderiaMapUrgente, mercaderiaRepoSet, mercaderiaMapRepo };
+    return vacio;
   }
 
   const rows = await prisma.prodPedMerc2.findMany({
@@ -919,6 +950,7 @@ async function mercaderiaMapsDesdeMerc2(
     },
     orderBy: [{ id: "desc" }],
     select: {
+      id: true,
       tipoDePedido: true,
       urgenteCodExt: true,
       urgenteCantPedir: true,
@@ -946,38 +978,49 @@ async function mercaderiaMapsDesdeMerc2(
       const k = (r.reposicionCodTienda ?? "").trim();
       if (!k || reposicionReglaPorCodTienda.has(k)) continue;
       mercaderiaRepoSet.add(k);
-      reposicionReglaPorCodTienda.set(k, {
+      const regla = {
         forma: r.reposicionFormaPedido,
         punto: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cantConf: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
+      };
+      reposicionReglaPorCodTienda.set(k, regla);
+      reglaRepoPorCodTienda.set(k, {
+        idReposicion: r.id,
+        formaPedir: regla.forma,
+        puntoReposicion: regla.punto,
+        cantConf: regla.cantConf,
       });
     }
   }
 
   const codTiendasRepo = [...mercaderiaRepoSet];
-  const tiendaRowsRepo =
-    codTiendasRepo.length > 0
+  const tiendaRows =
+    codTiendas.length > 0
       ? await prisma.prodTienda.findMany({
-          where: { codTienda: { in: codTiendasRepo } },
+          where: { codTienda: { in: codTiendas } },
           select: {
             codTienda: true,
             bulto: true,
           },
         })
       : [];
-  const tiendaRepoPorCod = new Map(
-    tiendaRowsRepo.map((t) => [t.codTienda.trim(), t])
-  );
+  const tiendaRepoPorCod = new Map(tiendaRows.map((t) => [t.codTienda.trim(), t]));
+  for (const t of tiendaRows) {
+    bultoPorCodTienda.set(t.codTienda.trim(), bultoProdTiendaValido(t.bulto));
+  }
   const [stockMapsRepo, stockeableMapRepo] =
-    codTiendasRepo.length > 0
+    codTiendas.length > 0
       ? await Promise.all([
-          buildMapsStockSucursalesPrincipales(codTiendasRepo),
+          buildMapsStockSucursalesPrincipales(codTiendas),
           buildMapStockeable(codTiendasRepo),
         ])
       : [
           { maipu: new Map<string, number>(), guaymallen: new Map<string, number>() },
           new Map<string, boolean>(),
         ];
+  for (const k of codTiendas) {
+    stockPorCodTienda.set(k, getStockSucursalPrincipal(k, sucursalTrim, stockMapsRepo));
+  }
 
   for (const k of mercaderiaRepoSet) {
     const regla = reposicionReglaPorCodTienda.get(k);
@@ -1006,7 +1049,7 @@ async function mercaderiaMapsDesdeMerc2(
     mercaderiaMapUrgente.set(ce, u);
   }
 
-  return { mercaderiaMapUrgente, mercaderiaRepoSet, mercaderiaMapRepo };
+  return vacio;
 }
 
 /**
@@ -1346,7 +1389,14 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   }
 
   const pairs = filas.map((f) => ({ idProveedor: f.idProveedor, codExt: f.codExt }));
-  const { mercaderiaMapUrgente, mercaderiaRepoSet, mercaderiaMapRepo } =
+  const {
+    mercaderiaMapUrgente,
+    mercaderiaRepoSet,
+    mercaderiaMapRepo,
+    reglaRepoPorCodTienda,
+    bultoPorCodTienda,
+    stockPorCodTienda,
+  } =
     pairs.length > 0
       ? await mercaderiaMapsDesdeMerc2(
           sucursalTrim,
@@ -1364,6 +1414,9 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
           mercaderiaMapUrgente: new Map<string, number>(),
           mercaderiaRepoSet: new Set<string>(),
           mercaderiaMapRepo: new Map<string, number>(),
+          reglaRepoPorCodTienda: new Map<string, PedidoUrgenteReposicionRegla>(),
+          bultoPorCodTienda: new Map<string, number | null>(),
+          stockPorCodTienda: new Map<string, number>(),
         };
 
   const filaByCodExt = new Map(filas.map((f) => [f.codExt, f]));
@@ -1401,6 +1454,10 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       confReposicion: mercaderiaRepoSet.has(codTienda),
       cantReposicion: mercaderiaMapRepo.get(codTienda) ?? 0,
       estaVinculadoTienda: Boolean(codTienda),
+      codTienda,
+      reposicionRegla: (codTienda && reglaRepoPorCodTienda.get(codTienda)) || null,
+      bultoTienda: (codTienda && bultoPorCodTienda.get(codTienda)) || null,
+      stockTienda: (codTienda && stockPorCodTienda.get(codTienda)) || 0,
     };
   }
 
@@ -1469,6 +1526,10 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       confReposicion: memberItems[0]!.confReposicion,
       cantReposicion: cantRepoGrupo,
       estaVinculadoTienda: true,
+      codTienda,
+      reposicionRegla: memberItems[0]!.reposicionRegla,
+      bultoTienda: memberItems[0]!.bultoTienda,
+      stockTienda: memberItems[0]!.stockTienda,
       miembrosAgrupacion: memberItems.map((i) => ({
         codExt: i.codExt,
         prefijo: i.prefijo,
