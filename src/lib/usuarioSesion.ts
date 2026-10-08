@@ -1,5 +1,5 @@
 /**
- * Usuario elegido en la sesión de navegador (onboarding slidenav).
+ * Copia en la pestaña del usuario que ingresó en `/ingresar` (fuente de verdad: iron-session).
  * La sucursal por defecto se copia a `main-app-sucursal-preferida`.
  */
 
@@ -8,8 +8,10 @@ import {
   type MainAppAreaId,
 } from "@/lib/main-app-areas";
 import {
+  EVENTO_SUCURSAL_PREFERIDA,
   guardarSucursalPreferida,
   parseSucursalPreferida,
+  STORAGE_SUCURSAL_PREFERIDA,
   type SucursalPreferida,
 } from "@/lib/sucursalPreferida";
 import { ordenarModulosPermitidos } from "@/lib/usuarios";
@@ -73,6 +75,36 @@ export function guardarUsuarioSesion(usuario: UsuarioSesion): void {
     sessionStorage.setItem(STORAGE_USUARIO_SESION, JSON.stringify(usuario));
     guardarSucursalPreferida(usuario.sucursalPorDefecto);
     window.dispatchEvent(new Event(EVENTO_USUARIO_SESION));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Copia el usuario de la sesión del servidor a `sessionStorage` sin disparar eventos
+ * (se llama durante el render de `AppShell`; los eventos se emiten luego en un efecto).
+ * Devuelve true si hubo cambio.
+ */
+export function sincronizarUsuarioSesion(usuario: UsuarioSesion): boolean {
+  try {
+    const json = JSON.stringify(usuario);
+    if (sessionStorage.getItem(STORAGE_USUARIO_SESION) === json) return false;
+    sessionStorage.setItem(STORAGE_USUARIO_SESION, json);
+    sessionStorage.setItem(STORAGE_SUCURSAL_PREFERIDA, usuario.sucursalPorDefecto);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function notificarUsuarioSesion(): void {
+  window.dispatchEvent(new Event(EVENTO_USUARIO_SESION));
+  window.dispatchEvent(new Event(EVENTO_SUCURSAL_PREFERIDA));
+}
+
+export function borrarUsuarioSesion(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_USUARIO_SESION);
   } catch {
     /* ignore */
   }

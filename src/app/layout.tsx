@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Toaster } from "@/components/ui/sonner";
 import AppShell from "@/components/layout/AppShell";
 import TooltipProvider from "@/components/providers/TooltipProvider";
 import { ImportResultProvider } from "@/components/import/ImportResultContext";
-import { getRol } from "@/lib/sesion";
+import { getIdPersonalSesion, getRol } from "@/lib/sesion";
+import { SESION_PATHNAME_HEADER } from "@/lib/sesion-arranque";
+import { esRutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
+import { esRutaIngreso, RUTA_INGRESO } from "@/lib/ingreso";
+import { obtenerUsuarioSesion } from "@/services/ingreso.service";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -28,7 +34,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const rol = await getRol();
+  const pathname = (await headers()).get(SESION_PATHNAME_HEADER) ?? "";
+  const esPublica = esRutaIngreso(pathname) || esRutaCuentaCorrientePublica(pathname);
+  const [rol, idPersonal] = await Promise.all([getRol(), getIdPersonalSesion()]);
+  const usuario =
+    esPublica || idPersonal == null ? null : await obtenerUsuarioSesion(idPersonal);
+  if (!esPublica && usuario == null) redirect(RUTA_INGRESO);
+
   return (
     <html lang="es">
       <body
@@ -40,7 +52,9 @@ export default async function RootLayout({
       >
         <TooltipProvider>
           <ImportResultProvider>
-            <AppShell rol={rol}>{children}</AppShell>
+            <AppShell rol={rol} usuario={usuario}>
+              {children}
+            </AppShell>
             <Toaster richColors position="bottom-right" />
           </ImportResultProvider>
         </TooltipProvider>

@@ -26,7 +26,7 @@ type Props = {
   seleccionado: SidebarModuloOpcion | null;
   placeholder?: string;
   menuLabel?: string;
-  /** `general` = área (ADMINISTRACIÓN). `modulo` = pilar (FINANZAS). */
+  /** `general` = área (ADMINISTRADOR). `modulo` = pilar (FINANZAS). */
   nivel?: "general" | "modulo";
   onSelect: (id: string) => void;
 };

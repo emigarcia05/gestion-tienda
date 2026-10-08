@@ -1,13 +1,14 @@
 /**
  * Áreas principales de la aplicación (macro-secciones).
- * **Vendedor** (id `gestion-productos`): ventas, clientes, envíos, mercadería, stock y herramientas.
- * **Administración** (id `finanzas`): análisis M.C., **VTAS. & COBROS**
+ * Orden UI: **Ventas** → **Administrador** → **Finanzas** → **Marketing**.
+ * **Ventas** (id `gestion-productos`, ex Vendedor): ventas, clientes, envíos, mercadería, stock y herramientas.
+ * **Administrador** (id `finanzas`): análisis M.C., **VTAS. & COBROS**
  * (`/vtas-cobros/...`), Análisis de Precios
  * (URLs de análisis aún bajo `/gestion-productos/analisis-precios/...`), Estadísticas Productos
  * (URLs bajo `/estadisticas-productos/...`) y **Pedido A Fáb.** (`/pedido-a-fabrica`).
- * **Marketing** (id `marketing`).
  * **Finanzas** (id `area-finanzas`): TESORERIA, BALANCE, OPERACIONES e IMPUESTOS
  * (las pantallas siguen en `/finanzas/...`; el hub vacío es `/area-finanzas`).
+ * **Marketing** (id `marketing`).
  */
 
 import {
@@ -29,37 +30,22 @@ interface MainAppAreaDefinition {
   statusLabel: string;
   /** Ruta de entrada al elegir el área desde el modal. */
   href: string;
-  /**
-   * Si `true`, al elegir el área desde el switcher se pide `ADMINISTRADOR_PASSWORD`
-   * (activa rol `editor`) cuando la sesión aún es `simple`.
-   */
-  requierePassword: boolean;
 }
 
 export const MAIN_APP_AREAS: MainAppAreaDefinition[] = [
   {
     id: "gestion-productos",
-    label: "Vendedor",
+    label: "Ventas",
     statusLabel: "Terminada",
     /** Hub vacío; el usuario elige una ruta hoja en el sidenav. */
     href: GP_ROUTES.defaultEntry,
-    requierePassword: false,
   },
   {
     id: "finanzas",
-    label: "Administración",
+    label: "Administrador",
     statusLabel: "A construir",
     /** Hub vacío; no redirige a Tesorería automáticamente. */
     href: "/finanzas",
-    requierePassword: true,
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    statusLabel: "A construir",
-    /** Hub vacío; no redirige a Calendario automáticamente. */
-    href: "/marketing",
-    requierePassword: false,
   },
   {
     id: "area-finanzas",
@@ -67,7 +53,13 @@ export const MAIN_APP_AREAS: MainAppAreaDefinition[] = [
     statusLabel: "A construir",
     /** Hub vacío; Tesorería, Balance, Operaciones e Impuestos se eligen en el sidenav. */
     href: "/area-finanzas",
-    requierePassword: false,
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    statusLabel: "A construir",
+    /** Hub vacío; no redirige a Calendario automáticamente. */
+    href: "/marketing",
   },
 ];
 
@@ -102,7 +94,7 @@ export function getMainAppAreaIdFromPathname(pathname: string): MainAppAreaId {
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) {
     return "marketing";
   }
-  // Ventas y Clientes siguen en `/facturacion/...` y pertenecen a Vendedor.
+  // Ventas y Clientes siguen en `/facturacion/...` y pertenecen al área Ventas.
   return "gestion-productos";
 }
 

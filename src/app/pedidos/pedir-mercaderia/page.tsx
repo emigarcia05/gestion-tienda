@@ -91,6 +91,7 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
           pedido={pedidoValida}
           proveedores={proveedores}
           sucursales={sucursalesDisponibles}
+          ocultarFiltroSucursal
         />
       }
       productos={productos}

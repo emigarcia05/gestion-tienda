@@ -515,6 +515,11 @@ model GlobalPersonal {
    */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
+  /**
+   * Hash de la contraseña (bcrypt/argon2); **nunca** texto plano. Null = sin contraseña.
+   * Omitido por defecto en el cliente Prisma (`src/lib/prisma.ts`): leer solo con `omit: { contrasena: false }`.
+   */
+  contrasena         String?  @map("contrasena")
 
   sucursalDefault              Sucursal?             @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
   comprobantesVtas             ComprobanteVta[]
@@ -2268,7 +2273,7 @@ model ProdIaDisenoCatalogo {
 }
 
 /**
- * Forma de cobro del envío. `PAGADO` implica `envios_final.pagado = true`.
+ * Forma de cobro del envío. `PAGADO` implica `envios.pagado = true`.
  */
 enum EnviosFormaPagado {
   PAGADO
@@ -2403,14 +2408,14 @@ model EnviosFinal {
   pintor       Cliente?        @relation("EnviosFinalPintor", fields: [pintorId], references: [id], onDelete: Restrict)
   direccion    EnviosDireccion @relation(fields: [direccionId], references: [id], onDelete: Restrict)
 
-  @@index([sucursalId], map: "envios_final_sucursal_id_idx")
-  @@index([clienteFinalId], map: "envios_final_cliente_final_id_idx")
-  @@index([pintorId], map: "envios_final_pintor_id_idx")
-  @@index([direccionId], map: "envios_final_direccion_id_idx")
-  @@index([fechaEnvio], map: "envios_final_fecha_envio_idx")
-  @@index([pagado], map: "envios_final_pagado_idx")
-  @@index([entregado], map: "envios_final_entregado_idx")
-  @@map("envios_final")
+  @@index([sucursalId], map: "envios_sucursal_id_idx")
+  @@index([clienteFinalId], map: "envios_cliente_final_id_idx")
+  @@index([pintorId], map: "envios_pintor_id_idx")
+  @@index([direccionId], map: "envios_direccion_id_idx")
+  @@index([fechaEnvio], map: "envios_fecha_envio_idx")
+  @@index([pagado], map: "envios_pagado_idx")
+  @@index([entregado], map: "envios_entregado_idx")
+  @@map("envios")
 }
 
 /**

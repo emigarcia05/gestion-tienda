@@ -23,7 +23,6 @@ import {
 import { DropdownMenu } from "radix-ui";
 import {
   AlertCircle,
-  CheckCircle2,
   ChevronDown,
   Loader2,
   Send,
@@ -671,6 +670,10 @@ export default function GenerarPedidoToolbarButton({
               </Select>
             </div>
 
+            {mensajeFaltantes ||
+            errorVerificacion ||
+            verificandoItems ||
+            (filtrosCompletos && hayItems === false) ? (
             <ModalFeedbackRegion>
               {mensajeFaltantes ? (
                 <div className="flex max-w-full flex-col items-center justify-center gap-2">
@@ -702,7 +705,7 @@ export default function GenerarPedidoToolbarButton({
                     COMPROBANDO ÍTEMS…
                   </p>
                 </div>
-              ) : filtrosCompletos && hayItems === false ? (
+              ) : (
                 <div className="flex max-w-full flex-col items-center justify-center gap-2">
                   <AlertCircle
                     className="h-5 w-5 shrink-0 text-destructive"
@@ -712,18 +715,9 @@ export default function GenerarPedidoToolbarButton({
                     NO HAY ÍTEMS PARA ESTA COMBINACIÓN DE FILTROS.
                   </p>
                 </div>
-              ) : filtrosCompletos && hayItems === true ? (
-                <div className="flex max-w-full flex-col items-center justify-center gap-2">
-                  <CheckCircle2
-                    className="h-5 w-5 shrink-0 text-primary"
-                    aria-hidden
-                  />
-                  <p className="text-sm font-medium leading-snug text-foreground uppercase tracking-wide">
-                    LISTO PARA GENERAR EL PEDIDO.
-                  </p>
-                </div>
-              ) : null}
+              )}
             </ModalFeedbackRegion>
+            ) : null}
           </div>
         </AppModal>
       </Dialog>

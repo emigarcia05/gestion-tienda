@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
+import type { UsuarioSesion } from "@/lib/usuarioSesion";
 import type { Rol } from "@/lib/permisos";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
@@ -117,44 +118,6 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "clientes",
-    label: "CLIENTES",
-    icon: <Users className={iconClass} />,
-    submodules: [
-      {
-        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
-        label: "Cuentas Corrientes",
-        icon: <Wallet className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
-        href: FACTURACION_ROUTES.clientes.lista,
-        label: "Lista Clientes",
-        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-    ],
-  },
-  {
-    id: "envios",
-    label: "ENVIOS",
-    icon: <Truck className={iconClass} />,
-    submodules: [
-      {
-        href: GP_ROUTES.envios.programados,
-        label: "Programados",
-        icon: <CalendarClock className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
-      },
-      {
-        href: GP_ROUTES.envios.conductor,
-        label: "Conductor",
-        icon: <CircleUser className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
-      },
-    ],
-  },
-  {
     id: "pedidos",
     label: "COMPRAS",
     icon: <ClipboardList className={iconClass} />,
@@ -181,27 +144,40 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "control-stock",
-    label: "STOCK",
-    icon: <Boxes className={iconClass} />,
+    id: "envios",
+    label: "ENVIOS",
+    icon: <Truck className={iconClass} />,
     submodules: [
       {
-        href: GP_ROUTES.ayudaVendedor.controlStock,
-        label: "Control Stock",
-        icon: <Boxes className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: GP_ROUTES.envios.programados,
+        label: "Programados",
+        icon: <CalendarClock className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.envios.acceso,
       },
       {
-        href: GP_ROUTES.ayudaVendedor.transfDepositos,
-        label: "Trans. Depósitos",
-        icon: <ArrowLeftRight className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: GP_ROUTES.envios.conductor,
+        label: "Conductor",
+        icon: <CircleUser className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.envios.acceso,
+      },
+    ],
+  },
+  {
+    id: "clientes",
+    label: "CLIENTES",
+    icon: <Users className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
+        label: "Cuentas Corrientes",
+        icon: <Wallet className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
       },
       {
-        href: GP_ROUTES.ayudaVendedor.movimientosStock,
-        label: "Movimientos",
-        icon: <History className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Lista Clientes",
+        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
       },
     ],
   },
@@ -227,6 +203,31 @@ const MODULES: NavModule[] = [
         label: "Diseñar",
         icon: <Paintbrush className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.asistenteIa.acceso,
+      },
+    ],
+  },
+  {
+    id: "control-stock",
+    label: "STOCK",
+    icon: <Boxes className={iconClass} />,
+    submodules: [
+      {
+        href: GP_ROUTES.ayudaVendedor.controlStock,
+        label: "Control Stock",
+        icon: <Boxes className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.transfDepositos,
+        label: "Trans. Depósitos",
+        icon: <ArrowLeftRight className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.movimientosStock,
+        label: "Movimientos",
+        icon: <History className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
       },
     ],
   },
@@ -341,7 +342,7 @@ function isNavModuleActive(
   );
 }
 
-export default function Sidebar({ rol }: { rol: Rol }) {
+export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSesion }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -477,7 +478,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           )}
           aria-label="Sesión"
         >
-          <SidebarAreaSwitcher rolActual={rol} />
+          <SidebarAreaSwitcher usuario={usuario} />
         </div>
         <img
           src="/logo_tiendacolor_letras_blancas.png"

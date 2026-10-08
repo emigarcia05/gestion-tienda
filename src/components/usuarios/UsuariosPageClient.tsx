@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import EditarUsuarioModal from "@/components/usuarios/EditarUsuarioModal";
 import EliminarUsuarioModal from "@/components/usuarios/EliminarUsuarioModal";
+import RestablecerContrasenaUsuarioModal from "@/components/usuarios/RestablecerContrasenaUsuarioModal";
 import FilterBar, {
   FilterRowSearch,
   LimpiarFiltrosButton,
@@ -51,6 +52,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
     });
   const [itemEditar, setItemEditar] = useState<GlobalPersonalItem | null>(null);
   const [itemEliminar, setItemEliminar] = useState<GlobalPersonalItem | null>(null);
+  const [itemRestablecer, setItemRestablecer] = useState<GlobalPersonalItem | null>(null);
   const [openCrear, setOpenCrear] = useState(false);
 
   const itemsFiltrados = useMemo(() => {
@@ -74,12 +76,12 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
     setQDebounced("");
   }
 
-  const colSpan = esEditor ? 6 : 5;
+  const colSpan = esEditor ? 7 : 6;
 
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Administración"
+        title="Administrador"
         subtitle="Usuarios"
         contentWidth="full"
         actions={
@@ -116,12 +118,13 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[24%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
-              <col className={esEditor ? "w-[22%]" : "w-[32%]"} />
-              <col className="w-[16%]" />
-              {esEditor ? <col className="w-[10%]" /> : null}
+              <col className="w-[22%]" />
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+              <col className={esEditor ? "w-[20%]" : "w-[32%]"} />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              {esEditor ? <col className="w-[12%]" /> : null}
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -130,6 +133,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                 <TableHead className="text-center">SUCURSAL POR DEFECTO</TableHead>
                 <TableHead>MÓDULOS PERMITIDOS</TableHead>
                 <TableHead className="text-center">TITULAR FINANCIERO</TableHead>
+                <TableHead className="text-center">CONTRASEÑA</TableHead>
                 {esEditor ? (
                   <TableHead className="tabla-bloque-secundario-head-divider text-center">
                     ACCIONES
@@ -165,6 +169,9 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                     <TableCell className="celda-datos text-center">
                       {item.titularFinanciero ? "SI" : "NO"}
                     </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      {item.tieneContrasena ? "SI" : "NO"}
+                    </TableCell>
                     {esEditor ? (
                       <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                         <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
@@ -178,6 +185,21 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                             onClick={() => setItemEditar(item)}
                           >
                             <Pencil
+                              className={TABLE_ROW_ACTION_ICON_CLASS}
+                              aria-hidden
+                            />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            title="Restablecer Contraseña"
+                            aria-label={`Restablecer contraseña de ${item.nombrePersonal}`}
+                            disabled={!item.tieneContrasena}
+                            onClick={() => setItemRestablecer(item)}
+                          >
+                            <KeyRound
                               className={TABLE_ROW_ACTION_ICON_CLASS}
                               aria-hidden
                             />
@@ -224,6 +246,14 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
           if (!open) setItemEliminar(null);
         }}
         onDeleted={() => router.refresh()}
+      />
+      <RestablecerContrasenaUsuarioModal
+        open={itemRestablecer != null}
+        item={itemRestablecer}
+        onOpenChange={(open) => {
+          if (!open) setItemRestablecer(null);
+        }}
+        onSuccess={() => router.refresh()}
       />
     </>
   );

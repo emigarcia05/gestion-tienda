@@ -542,6 +542,8 @@ export type ProveedorPedidoActivoOpcion = {
   id: string;
   nombre: string;
   prefijo: string;
+  /** Tipos con cant. a pedir &gt; 0 para ese proveedor (misma resolución que la tabla). */
+  tipos: string[];
 };
 
 /**
@@ -562,7 +564,14 @@ export async function getProveedoresConPedidoActivo(params?: {
     sucursalCodigo,
     tipos,
   });
-  const ids = [...new Set(items.map((i) => i.proveedorId).filter((id) => id.length > 0))];
+  const tiposPorProveedor = new Map<string, Set<string>>();
+  for (const i of items) {
+    if (!i.proveedorId) continue;
+    const set = tiposPorProveedor.get(i.proveedorId) ?? new Set<string>();
+    if (i.tipoPedido.trim()) set.add(i.tipoPedido.trim());
+    tiposPorProveedor.set(i.proveedorId, set);
+  }
+  const ids = [...tiposPorProveedor.keys()];
   if (ids.length === 0) return [];
 
   const rows = await prisma.proveedor.findMany({
@@ -578,6 +587,7 @@ export async function getProveedoresConPedidoActivo(params?: {
     id: p.id,
     nombre: p.nombre,
     prefijo: p.prefijo ?? "",
+    tipos: [...(tiposPorProveedor.get(p.id) ?? [])],
   }));
 }
 

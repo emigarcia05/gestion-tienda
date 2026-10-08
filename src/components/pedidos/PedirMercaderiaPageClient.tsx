@@ -32,7 +32,7 @@ import {
 } from "@/lib/pedidoUrgenteCantidades";
 import {
   MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE,
-  MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE,
+  MENSAJE_SIN_USUARIO_PEDIDO_MERCADERIA,
   type FiltroPedidoValor,
   type TipoPedido,
 } from "@/lib/pedidos";
@@ -145,7 +145,7 @@ export default function PedirMercaderiaPageClient({
     mensajeExito: string | null = "Cantidad guardada."
   ): Promise<boolean> {
     if (!sucursalValida) {
-      toast.error("Seleccioná una sucursal para guardar.");
+      toast.error("Seleccioná un usuario en el slidenav.");
       return false;
     }
     const codExts = Object.keys(cambios);
@@ -249,7 +249,7 @@ export default function PedirMercaderiaPageClient({
         variant="outline"
         onClick={() => {
           if (!sucursalValida) {
-            toast.error("Seleccioná una sucursal.");
+            toast.error("Seleccioná un usuario en el slidenav.");
             return;
           }
           setModalTintoOpen(true);
@@ -286,7 +286,9 @@ export default function PedirMercaderiaPageClient({
               productos={productos}
               sinFiltros={sinFiltros}
               mensajeSinFiltros={
-                tieneSucursal ? MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE : MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE
+                tieneSucursal
+                  ? MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE
+                  : MENSAJE_SIN_USUARIO_PEDIDO_MERCADERIA
               }
               cantPorId={cantPorId}
               onAbrirCantidad={abrirCantidad}

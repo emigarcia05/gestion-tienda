@@ -5,9 +5,8 @@
  * Modificá este archivo para controlar qué ve cada rol.
  *
  * Roles disponibles: "simple" | "editor"
- * El rol `editor` se activa al ingresar al módulo **Administración** con clave
- * (`SidebarAreaSwitcher` + `ADMINISTRADOR_PASSWORD`). Vendedor, Marketing y Facturación
- * son libre acceso.
+ * El rol se fija al ingresar en `/ingresar` (usuario + contraseña): `editor` si el usuario
+ * tiene habilitado el módulo **Administrador** (`finanzas`), si no `simple`.
  */
 
 export type Rol = "simple" | "editor";
@@ -139,8 +138,6 @@ export const PERMISOS = {
   usuarios: {
     /** Catálogo `personal`: sucursal, módulos y titular financiero. Solo editor. */
     acceso: { simple: false, editor: true },
-    /** Listado para el modal de inicio (nombre + sucursal + módulos). */
-    inicioSesion: { simple: true, editor: true },
   },
 
   // ─── Módulo Asistente IA (Vendedor) ────────────────────────────────────────
