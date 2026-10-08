@@ -43,7 +43,7 @@ function normalizeTokens(q: string): string[] {
 }
 
 /**
- * Busca en `prod_propios` por descripción: cada token debe aparecer (`contains`, insensitive).
+ * Busca en `prod_lista` por descripción: cada token debe aparecer (`contains`, insensitive).
  * Máx. `take` (Factura typeahead: 10). Incluye PX **1 - GENERAL** + stock por sucursal.
  */
 export async function buscarProductosParaFactura(params: {
@@ -51,11 +51,11 @@ export async function buscarProductosParaFactura(params: {
   take?: number;
   /** Código sucursal del usuario (p. ej. guaymallen); define la columna Stock. */
   sucursalCodigo?: string | null;
-  /** Igualdad con `prod_propios.rubro`. Vacío = sin filtro. */
+  /** Igualdad con `prod_lista.rubro`. Vacío = sin filtro. */
   rubro?: string | null;
-  /** Igualdad con `prod_propios.sub_rubro`. Vacío = sin filtro. */
+  /** Igualdad con `prod_lista.sub_rubro`. Vacío = sin filtro. */
   subRubro?: string | null;
-  /** Igualdad con `prod_propios.marca`. Vacío = sin filtro. */
+  /** Igualdad con `prod_lista.marca`. Vacío = sin filtro. */
   marca?: string | null;
   /**
    * Tope de filas. Typeahead: 10 (default). Búsqueda avanzada: 100.

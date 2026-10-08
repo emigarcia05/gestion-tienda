@@ -167,7 +167,7 @@ export async function listarMarcasCodColorTintometrico(): Promise<MarcaTintometr
 }
 
 /**
- * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): todas las bases `prod_propios`
+ * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): todas las bases `prod_lista`
  * rubro Tintometrico + marcas de COD. COLOR (`listarMarcasCodColorTintometrico`).
  */
 export async function getCatalogoAgregarTintometrico(): Promise<{

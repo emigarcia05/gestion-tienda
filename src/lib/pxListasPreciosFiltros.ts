@@ -32,7 +32,7 @@ export type FiltrosListadoPxListas = {
   actualizar: string;
 };
 
-/** Sin filtro desplegable ni búsqueda ≥ 3 caracteres no se consulta `prod_propios`. */
+/** Sin filtro desplegable ni búsqueda ≥ 3 caracteres no se consulta `prod_lista`. */
 export function hayFiltroActivoPxListas(
   params: FiltrosListadoPxListas
 ): boolean {

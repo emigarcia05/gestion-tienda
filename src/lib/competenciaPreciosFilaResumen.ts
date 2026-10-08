@@ -19,7 +19,7 @@ interface ResumenPreciosCompetenciaFila {
   competidoresOrdenados: CompetidorPrecioFila[];
 }
 
-/** Abreviatura en columnas MENOR/MAYOR PRECIO: `global_proveedores.prefijo` del proveedor del competidor. */
+/** Abreviatura en columnas MENOR/MAYOR PRECIO: `proveedores.prefijo` del proveedor del competidor. */
 function abreviaturaCompetidorEnGrilla(c: CompetenciaParaCliente): string {
   const p = c.prefijoProveedor?.trim();
   if (!p) return "—";

@@ -58,7 +58,7 @@ export async function resolverCotizacionDolarParaItem(pxDolares: boolean): Promi
 }
 
 /**
- * Actualiza cotización global y propaga a `prod_precios_provee.cotizacion_dolar`
+ * Actualiza cotización global y propaga a `proveedor_prod_lista.cotizacion_dolar`
  * en filas con `px_dolares = true` (caché para columna GENERATED).
  */
 export async function actualizarCotizacionUsd(
@@ -78,7 +78,7 @@ export async function actualizarCotizacionUsd(
 
     const actualizados = await prisma.$executeRawUnsafe(
       `
-      UPDATE prod_precios_provee
+      UPDATE proveedor_prod_lista
       SET cotizacion_dolar = $1::numeric, updated_at = CURRENT_TIMESTAMP
       WHERE px_dolares = true
       `,

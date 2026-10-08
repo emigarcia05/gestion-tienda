@@ -179,7 +179,7 @@ export async function importarEstPorProd(
   if (lineasValidas.length === 0) {
     return {
       success: false,
-      error: "Ningún código de tienda de la planilla existe en el catálogo prod_propios.",
+      error: "Ningún código de tienda de la planilla existe en el catálogo prod_lista.",
     };
   }
 

@@ -141,7 +141,7 @@ cuotas_base AS (
       ELSE p.plazo_pago_4_dias
     END AS p4
   FROM fin_compras_comprobante c
-  INNER JOIN global_proveedores p ON p.id_proveedor_dux = c.id_proveedor
+  INNER JOIN proveedores p ON p.id_proveedor_dux = c.id_proveedor
   WHERE c.total > c.monto_aplicado
 ),
 cuotas_n AS (

@@ -8,7 +8,7 @@ Documento orientado a **desarrollo** y revisión funcional. Describe cómo el ba
 
 - En el flujo **Generar pedido** (cualquier combinación de tipos **URGENTE**, **TINTOMÉTRICO**, **REPOSICIÓN**).
 - El pedido se arma para **un proveedor** y **la sucursal que ordena** (`guaymallen` o `maipu`).
-- Solo se evalúan líneas con **`cod_tienda`** (resolución del producto vía `prod_propios` por ese código).
+- Solo se evalúan líneas con **`cod_tienda`** (resolución del producto vía `prod_lista` por ese código).
 - Objetivo: **advertir** si en la **otra** tienda hay stock “de más” respecto al tope de reposición (posible **transferencia interna** vs pedido al proveedor) y **bloquear** hasta confirmación.
 
 ---
@@ -17,10 +17,10 @@ Documento orientado a **desarrollo** y revisión funcional. Describe cómo el ba
 
 | Concepto | Origen | Notas |
 |----------|--------|--------|
-| Stock de la otra sucursal | `prod_propios` (`ListaPrecioTienda`) | `stock_maipu` / `stock_guaymallen` según la sucursal **donde se mide** el excedente (siempre la otra respecto a quien pide). Si `stockeable` es `false`, el flujo de sobrestock **no** incluye esa línea (DUX: `ctd_disponible` nulo en algún depósito en la sync de ítems). |
-| Tope / configuración | `prod_ped_merc` (`ProdPedMerc2`) en la **otra** sucursal | Filas `tipo_de_pedido` **REPOSICIÓN** con `reposicion_cod_tienda` igual al `cod_tienda` de la línea; resolución de proveedor vía `prod_propios` + LP habilitada (ver `getSobreStockOtraSucursalParaPedidoEnviar`). |
+| Stock de la otra sucursal | `prod_lista` (`ListaPrecioTienda`) | `stock_maipu` / `stock_guaymallen` según la sucursal **donde se mide** el excedente (siempre la otra respecto a quien pide). Si `stockeable` es `false`, el flujo de sobrestock **no** incluye esa línea (DUX: `ctd_disponible` nulo en algún depósito en la sync de ítems). |
+| Tope / configuración | `prod_ped_merc` (`ProdPedMerc2`) en la **otra** sucursal | Filas `tipo_de_pedido` **REPOSICIÓN** con `reposicion_cod_tienda` igual al `cod_tienda` de la línea; resolución de proveedor vía `prod_lista` + LP habilitada (ver `getSobreStockOtraSucursalParaPedidoEnviar`). |
 | Cantidad a pedir | Línea del pedido que genera | `cant_pedir` de la sucursal que ordena. |
-| `cod_ext` del producto | `prod_propios` | Se obtiene desde `cod_tienda` de la línea. |
+| `cod_ext` del producto | `prod_lista` | Se obtiene desde `cod_tienda` de la línea. |
 
 **Importante:** no hay columna `tiene_sobrestock` en base; el modal muestra valores **derivados**.
 
@@ -35,7 +35,7 @@ Entrada: las mismas **`rows`** que devuelve **`getItemsYProveedorParaEnviar`** p
 Sobre esas filas:
 
 1. Solo se consideran las que tienen **`cod_tienda`** no vacío.
-2. Debe existir fila en **`prod_propios`** para ese `cod_tienda` (si no, la línea se omite).
+2. Debe existir fila en **`prod_lista`** para ese `cod_tienda` (si no, la línea se omite).
 3. Se resuelve **`cod_ext`** desde esa fila de tienda para buscar configuración REPOSICIÓN en la otra sucursal.
 
 Si no queda ninguna fila elegible, `tieneSobreStock: false` e `items: []`.
@@ -46,7 +46,7 @@ Si no queda ninguna fila elegible, `tieneSobreStock: false` e `items: []`.
 
 Para cada línea elegible:
 
-1. **Stock medido:** el de la **otra** sucursal en `prod_propios` (mismo registro que aportó `cod_ext`).
+1. **Stock medido:** el de la **otra** sucursal en `prod_lista` (mismo registro que aportó `cod_ext`).
 2. **Tope en la otra sucursal:** filas REPOSICIÓN en la otra tienda con el mismo **`cod_tienda`** (clave `reposicion_cod_tienda` en `prod_ped_merc`); prioridad: mismo `id_proveedor` que el pedido → fila con `reposicion_cant_conf > 0` → primera fila. Si no hay ninguna en la otra pero la **línea del pedido** es REPOSICIÓN con `reposicion_cant_conf > 0`, se usa ese tope como referencia contra el stock de la otra tienda.
 3. **¿Evaluar?** Solo si hay “ancla”: alguna fila REPOSICIÓN en la otra con contexto útil **o** `reposicion_cant_conf > 0` en la línea del pedido (cuando es REPOSICIÓN).
 4. **Reglas A y B** (`evaluarSobrestockEnValores`):

@@ -1,4 +1,4 @@
-/** Fila de Categorización (`prod_propios` + color/terminación/presentación calculados). */
+/** Fila de Categorización (`prod_lista` + color/terminación/presentación calculados). */
 export type EstCategorizacionItem = {
   codTienda: string;
   descripcionTienda: string;

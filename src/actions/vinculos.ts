@@ -72,7 +72,7 @@ export async function getProveedores() {
   return getProveedoresMercaderia();
 }
 
-/** Lista ítems de prod_precios_provee para modal "Vincular nuevo producto". Filtros: proveedor, descripción (q). */
+/** Lista ítems de proveedor_prod_lista para modal "Vincular nuevo producto". Filtros: proveedor, descripción (q). */
 export async function listarProductosParaVincular(
   proveedorId?: string,
   q?: string
@@ -201,7 +201,7 @@ export async function desvincularProducto(
 }
 
 /**
- * Define qué fila `prod_precios_provee` alimenta CX. COMPRA / costo base de comparación.
+ * Define qué fila `proveedor_prod_lista` alimenta CX. COMPRA / costo base de comparación.
  * - `productoListaCodExt = string` → fija FK `costo_compra_cod_ext` al `codExt` indicado.
  * - `productoListaCodExt = null` → destilda: limpia la FK (vuelve a Cx. Prom. / sin base).
  */

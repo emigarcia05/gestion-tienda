@@ -50,7 +50,7 @@ function logServiceError(scope: string, err: unknown): void {
 }
 
 /**
- * Retención por `global_proveedores.es_fabrica` (días desde `generado_at`):
+ * Retención por `proveedores.es_fabrica` (días desde `generado_at`):
  * purga automática en cada escritura del historial.
  */
 const DIAS_RETENCION_PEDIDOS_FABRICA = 60;
@@ -502,7 +502,7 @@ export async function listarPedidosHistoria(params: {
   estado?: PedidoHistoriaEstado | "ALL";
   proveedorId?: string;
   sucursalCodigo?: SucursalPedidoEnvio;
-  /** Palabras que deben aparecer en `descripcion` del snapshot o en `descripcion_tienda` de `prod_propios`. */
+  /** Palabras que deben aparecer en `descripcion` del snapshot o en `descripcion` de `prod_lista`. */
   q?: string;
 }): Promise<
   ServiceResult<{
@@ -1188,7 +1188,7 @@ export async function registrarNotaCreditoCompraPedido(params: {
 
 /**
  * Arma los datos para regenerar la nota de pedido PDF desde el snapshot (`prod_ped_historial` + ítems)
- * y el catálogo vigente (`prod_precios_provee` por `cod_ext`).
+ * y el catálogo vigente (`proveedor_prod_lista` por `cod_ext`).
  */
 export async function getPedidoHistoriaPdfPayload(params: {
   pedidoHistoriaId: string;

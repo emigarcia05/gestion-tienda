@@ -97,7 +97,7 @@ export default function ProveedorForm({
 
   /**
    * Política IVA. Controlled + hidden `name="iva"`.
-   * Alta: default `PREGUNTA` (mismo default que la columna `global_proveedores.iva`).
+   * Alta: default `PREGUNTA` (mismo default que la columna `proveedores.iva`).
    * Edición: precarga el valor persistido.
    */
   const [iva, setIva] = useState<IvaProveedorValue>(

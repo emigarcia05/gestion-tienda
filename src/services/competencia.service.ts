@@ -10,7 +10,7 @@ export interface CompetenciaParaCliente {
   nombre: string;
   web: string;
   idProveedor: string | null;
-  /** `global_proveedores.prefijo` del proveedor asociado (abreviatura en grilla). */
+  /** `proveedores.prefijo` del proveedor asociado (abreviatura en grilla). */
   prefijoProveedor: string | null;
   ultimaComparacionAt: string | null;
   configExtraccion: CompetenciaConfigExtraccion | null;

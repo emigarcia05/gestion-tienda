@@ -1,6 +1,6 @@
 /**
  * Pedidos de mercadería: lectura/escritura en `prod_ped_merc` (urgente, tintométrico, reposición).
- * Resolución de proveedor y textos vía `prod_propios` / `prod_precios_provee` según tipo.
+ * Resolución de proveedor y textos vía `prod_lista` / `proveedor_prod_lista` según tipo.
  */
 
 import type { Prisma } from "@prisma/client";
@@ -116,7 +116,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
       },
     });
     if (!tienda) {
-      return { ok: false, error: "No se encontró el producto en prod_propios." };
+      return { ok: false, error: "No se encontró el producto en prod_lista." };
     }
     if (!(await isStockeableCodTienda(codTienda.trim()))) {
       return {
@@ -131,7 +131,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
       return {
         ok: false,
         error:
-          "No hay proveedor vinculado al producto en prod_precios_provee. Vinculá al menos un proveedor desde Vínculos Con Proveedores.",
+          "No hay proveedor vinculado al producto en proveedor_prod_lista. Vinculá al menos un proveedor desde Vínculos Con Proveedores.",
       };
     }
 
@@ -600,7 +600,7 @@ function proveedorEtiquetaDesdeRow(p: {
 
 /**
  * Convierte `reposicion_cant_conf` a unidades a pedir.
- * POR_BULTO: `cantConf` es cantidad de bultos; se multiplica por unidades de `prod_propios.bulto`.
+ * POR_BULTO: `cantConf` es cantidad de bultos; se multiplica por unidades de `prod_lista.bulto`.
  * Sin bulto válido (≥ 1) → 0. El resto de formas deja `cantConf` en unidades.
  */
 export function cantConfReposicionAUnidades(
@@ -626,7 +626,7 @@ export function cantPedirReposicionMerc2(params: {
   cantConf: number | null | undefined;
   stock: number;
   stockeable: boolean;
-  /** Unidades por bulto (`prod_propios.bulto`). Obligatorio para POR_BULTO. */
+  /** Unidades por bulto (`prod_lista.bulto`). Obligatorio para POR_BULTO. */
   bulto: number | null | undefined;
   /** `reposicion_omitir_pedido` («No pedir en este pedido»). */
   omitida?: boolean;
@@ -1259,7 +1259,7 @@ export interface ReposicionProveedorPrioritarioItem {
 /**
  * Reposición con cantidad a pedir > 0 cuyo proveedor ganador (menor costo comparable) no es el
  * proveedor elegido en el modal Generar Pedido, pero el producto **sí** tiene vínculo habilitado
- * con ese proveedor en `prod_precios_provee.cod_tienda`.
+ * con ese proveedor en `proveedor_prod_lista.cod_tienda`.
  */
 export async function getReposicionItemsProveedorPrioritarioAlternativo(params: {
   proveedorSeleccionadoId: string;

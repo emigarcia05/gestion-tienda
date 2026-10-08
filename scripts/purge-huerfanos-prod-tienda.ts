@@ -1,5 +1,5 @@
 /**
- * Limpia filas huérfanas: referencias a `cod_tienda` sin fila en `prod_propios`.
+ * Limpia filas huérfanas: referencias a `cod_tienda` sin fila en `prod_lista`.
  *
  * Uso:
  *   npm run db:purge-huerfanos-prod-tienda
@@ -32,7 +32,7 @@ function parseArgs(argv: string[]): { execute: boolean; incluirHistorial: boolea
 async function main(): Promise<void> {
   const { execute, incluirHistorial } = parseArgs(process.argv.slice(2));
 
-  console.log("── Limpieza huérfanos prod_propios ──");
+  console.log("── Limpieza huérfanos prod_lista ──");
   console.log(
     execute
       ? "Modo: EJECUCIÓN"

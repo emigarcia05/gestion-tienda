@@ -50,7 +50,7 @@ export type ProveedorFabricaOption = {
   id: string;
   nombre: string;
   prefijo: string;
-  /** `global_proveedores.tiempo_entrega_en_dias` (nullable). */
+  /** `proveedores.tiempo_entrega_en_dias` (nullable). */
   tiempoEntregaEnDias: number | null;
 };
 

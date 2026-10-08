@@ -674,51 +674,51 @@ export default function FacturaGenerarComprobanteModal({
                 <p className="font-semibold tabular-nums">CAE: {comprobante.cae}</p>
                 <p className="tabular-nums">
                   N°: {comprobante.nroComprobante.trim() || ""}
-                </p>
-                <p>
-                  Vto. CAE:{" "}
-                  {comprobante.caeVtoIso
-                    ? formatIsoYmdDdMmYyyyArgentina(comprobante.caeVtoIso)
+              </p>
+              <p>
+                Vto. CAE:{" "}
+                {comprobante.caeVtoIso
+                  ? formatIsoYmdDdMmYyyyArgentina(comprobante.caeVtoIso)
                     : ""}
-                </p>
-              </div>
-            ) : null}
+              </p>
+            </div>
+          ) : null}
             <div className="grid grid-cols-4 gap-2">
-              <Button
-                type="button"
-                variant="default"
+          <Button
+            type="button"
+            variant="default"
                 className={BOTON_GENERAR_CLASS}
-                disabled={ocupado}
+            disabled={ocupado}
                 aria-label="Generar"
                 onClick={() => void ejecutar("emitir")}
-              >
+          >
                 {pending === "emitir" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
                   <span className="text-center text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
                     GENERAR
                   </span>
-                )}
-              </Button>
+            )}
+          </Button>
               {ACCIONES_GENERAR.map((accion) => (
-                <Button
+          <Button
                   key={accion.id}
-                  type="button"
-                  variant="default"
+            type="button"
+            variant="default"
                   className={BOTON_GENERAR_CLASS}
-                  disabled={ocupado}
+            disabled={ocupado}
                   aria-label={accion.ariaLabel}
                   onClick={() => void ejecutar(accion.id)}
-                >
+          >
                   {pending === accion.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
                     <span className="flex flex-col items-center justify-center gap-0.5 text-center text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
                       <span>GENERAR</span>
                       <span>{accion.linea2}</span>
                     </span>
-                  )}
-                </Button>
+            )}
+          </Button>
               ))}
             </div>
           </section>

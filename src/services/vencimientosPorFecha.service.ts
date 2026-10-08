@@ -12,7 +12,7 @@ export const FLUJO_FONDO_DETALLE_MERCADERIA = "MERCADERÍA" as const;
 export interface VencimientoPorFechaLinea {
   fechaVenc: string;
   nombre: string;
-  /** Abreviatura de 3 letras (`global_proveedores.prefijo`). Vacío si no tiene. */
+  /** Abreviatura de 3 letras (`proveedores.prefijo`). Vacío si no tiene. */
   prefijo: string | null;
   saldo: Prisma.Decimal;
   comprobanteId: string;
@@ -34,7 +34,7 @@ export async function listarVencimientosEnRango(
       (cm.id::text || ':' || cm.nro_cuota::text) AS "comprobanteId",
       cm.fecha_comp::text AS "fechaComp"
     FROM cuotas_mercaderia cm
-    LEFT JOIN global_proveedores gp ON gp.nombre = cm.nombre
+    LEFT JOIN proveedores gp ON gp.nombre = cm.nombre
     WHERE cm.saldo_cuota > 0
       AND cm.fecha_venc >= ${fechaDesde}::date
       AND cm.fecha_venc <= ${fechaHasta}::date

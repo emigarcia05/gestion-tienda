@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Valores cerrados del enum PostgreSQL/Prisma `IvaProveedor`.
  * Reutilizado como **política transversal de IVA** en todas las tablas que
- * lo necesiten (hoy `global_proveedores.iva` y `fin_bal_gasto_final.iva`).
+ * lo necesiten (hoy `proveedores.iva` y `fin_bal_gasto_final.iva`).
  *
  * Convención: el enum NO se rebautiza en BD aunque ahora aplique fuera del
  * dominio de proveedor — ver docs/BACKEND_GUIDELINES.md §3.1. Documentar acá

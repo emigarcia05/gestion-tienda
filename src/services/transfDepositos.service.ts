@@ -40,7 +40,7 @@ async function saldosPorCodigo(
 }
 
 /**
- * Catálogo de **Trans. Depósitos** (`prod_propios`) con saldo del ledger
+ * Catálogo de **Trans. Depósitos** (`prod_lista`) con saldo del ledger
  * (`stock_movimientos`) en origen y destino para la página actual.
  */
 export async function listarCatalogoTransfDepositos(

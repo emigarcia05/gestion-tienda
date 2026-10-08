@@ -28,7 +28,7 @@ function toNum(n: unknown): number {
 }
 
 /**
- * Difieren `prod_propios.costo_compra` vs `prod_precios_provee.px_compra_final_sin_iva`
+ * Difieren `prod_lista.costo_compra` vs `proveedor_prod_lista.px_compra_final_sin_iva`
  * (vinculados por `costo_compra_cod_ext` → `cod_ext`).
  */
 export function costosCompraDifieren(costoCompra: number, pxProveedorSinIva: number): boolean {

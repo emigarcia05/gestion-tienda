@@ -6,7 +6,7 @@ import {
 } from "@/lib/validations/common";
 import { porcentajeListaPreciosSchema } from "@/lib/validations/listaPrecios";
 
-/** Campos materializables gobernados por reglas (columnas prod_precios_provee). */
+/** Campos materializables gobernados por reglas (columnas proveedor_prod_lista). */
 export const campoReglaDescuentoListaPrecioSchema = z.enum([
   "dto_proveedor",
   "dto_marca",

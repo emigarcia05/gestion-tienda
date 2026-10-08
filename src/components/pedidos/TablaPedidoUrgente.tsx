@@ -29,7 +29,7 @@ export interface ProductoPedidoUrgente {
   /** Prefijo proveedor en fila 1:1; vacío en fila agrupada por tienda (payload); con varios miembros Dux la columna PROVEEDOR muestra solo el número de miembros. */
   prefijo: string;
   descripcion: string;
-  /** `px_compra_final_sin_iva` desde prod_precios_provee (null si no está disponible). */
+  /** `px_compra_final_sin_iva` desde proveedor_prod_lista (null si no está disponible). */
   pxCompraFinalSinIva: number | null;
   /** Política IVA del proveedor; solo en filas 1:1 o en cada miembro del grupo. */
   ivaProveedor?: IvaProveedor;
@@ -40,7 +40,7 @@ export interface ProductoPedidoUrgente {
   /** Misma cantidad que **CANT. A PEDIR** en Pedido Reposición (regla forma/punto/stock/stockeable). */
   cantReposicion: number;
   /**
-   * `true` si hay `prod_propios` de Dux (FK `cod_tienda`, CX PROD o match de descripción).
+   * `true` si hay `prod_lista` de Dux (FK `cod_tienda`, CX PROD o match de descripción).
    * La tabla muestra primero **Productos Registrados en Dux** y luego **Sin Registrar**.
    */
   estaVinculadoTienda: boolean;

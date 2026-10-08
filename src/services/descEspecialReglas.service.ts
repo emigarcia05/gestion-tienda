@@ -153,7 +153,7 @@ async function materializarDescEspecialEnCodigos(
     const chunk = codigosExt.slice(i, i + CHUNK_MATERIALIZACION);
     const n = await prisma.$executeRawUnsafe(
       `
-      UPDATE prod_precios_provee
+      UPDATE proveedor_prod_lista
       SET desc_especial = $2::numeric, updated_at = CURRENT_TIMESTAMP
       WHERE cod_ext = ANY($1::text[])
       `,
@@ -391,7 +391,7 @@ export async function eliminarReglaDescEspecial(
 /** Recalcula desc_especial en todas las filas desde reglas (mantenimiento). */
 export async function recalcularTodasLasFilasDescEspecial(): Promise<number> {
   await prisma.$executeRawUnsafe(
-    `UPDATE prod_precios_provee SET desc_especial = 0, updated_at = CURRENT_TIMESTAMP`
+    `UPDATE proveedor_prod_lista SET desc_especial = 0, updated_at = CURRENT_TIMESTAMP`
   );
 
   const reglas = await prisma.prodPrecioDescEspecialRegla.findMany({

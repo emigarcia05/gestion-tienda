@@ -156,7 +156,7 @@ async function consumeBody(res: Response): Promise<void> {
 
 /**
  * Obtiene una página de ítems de la API DUX (limit=50 por restricción de la API).
- * Para sincronización paginada con prod_propios.
+ * Para sincronización paginada con prod_lista.
  * Ante 429 Too Many Requests: consume el body, respeta Retry-After si viene en la respuesta,
  * y reintenta con backoff exponencial (10s, 20s, 40s, 80s, 160s).
  *

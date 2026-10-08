@@ -4,17 +4,17 @@ import {
   listarNombresRubrosProdPropios,
 } from "@/services/prodPropiosCatalogos.service";
 
-/** Nombres de marca (`prod_marcas`) usados por al menos un ítem de `prod_propios` (orden alfabético). */
+/** Nombres de marca (`prod_marcas`) usados por al menos un ítem de `prod_lista` (orden alfabético). */
 export async function listarNombresMarcaDistinctProdTienda(): Promise<string[]> {
   return listarNombresMarcasProdPropios();
 }
 
-/** Nombres de rubro (`prod_rubros`) usados por al menos un ítem de `prod_propios` (orden alfabético). */
+/** Nombres de rubro (`prod_rubros`) usados por al menos un ítem de `prod_lista` (orden alfabético). */
 export async function listarNombresRubroDistinctProdTienda(): Promise<string[]> {
   return listarNombresRubrosProdPropios();
 }
 
-/** Pares rubro + sub-rubro (`prod_sub_rubros`) usados por al menos un ítem de `prod_propios`. */
+/** Pares rubro + sub-rubro (`prod_sub_rubros`) usados por al menos un ítem de `prod_lista`. */
 export async function listarSubRubrosPorRubroProdTienda(): Promise<
   { rubro: string; subRubro: string }[]
 > {
@@ -28,7 +28,7 @@ export async function listarSubRubrosPorRubroProdTienda(): Promise<
 
 /**
  * Opciones de rubro para UI de lista precios (edición masiva / filtros).
- * `id` y `nombre` = nombre del rubro (se persiste como texto en `prod_precios_provee.rubro`).
+ * `id` y `nombre` = nombre del rubro (se persiste como texto en `proveedor_prod_lista.rubro`).
  */
 export async function listarRubrosOpcionesDesdeProdTienda(): Promise<
   { id: string; nombre: string }[]
@@ -37,7 +37,7 @@ export async function listarRubrosOpcionesDesdeProdTienda(): Promise<
   return nombres.map((nombre) => ({ id: nombre, nombre }));
 }
 
-/** Catálogo de rubros para reglas de descuento: rubros de `prod_rubros` usados por ítems de `prod_propios`. */
+/** Catálogo de rubros para reglas de descuento: rubros de `prod_rubros` usados por ítems de `prod_lista`. */
 export async function listarRubrosCatalogoReglasDesdeProdTienda(): Promise<
   { id: string; nombre: string }[]
 > {

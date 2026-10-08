@@ -91,7 +91,7 @@ async function ejecutarPasoSyncListaPrecioTienda() {
     }
     const message = e instanceof Error ? e.message : String(e);
     await setSyncDuxErrorInDb(message);
-    console.error("Error en sync prod_propios:", message);
+    console.error("Error en sync prod_lista:", message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   } finally {
     syncInProgress = false;

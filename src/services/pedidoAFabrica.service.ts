@@ -44,14 +44,14 @@ export type DatosSucursalProductoPedidoAFabrica = {
 export type ProductoPedidoAFabricaItem = {
   codExt: string;
   /**
-   * Vinculado (`prod_precios_provee.cod_tienda` → `prod_propios`): `descripcion_tienda`.
+   * Vinculado (`proveedor_prod_lista.cod_tienda` → `prod_lista`): `descripcion`.
    * Sin vínculo: `descripcion_proveedor`.
    */
   descripcion: string;
-  /** `prod_precios_provee.cod_tienda` si hay fila en `prod_propios`; si no, `null`. */
+  /** `proveedor_prod_lista.cod_tienda` si hay fila en `prod_lista`; si no, `null`. */
   codTienda: string | null;
   /**
-   * Vinculado: unidades de `prod_propios.bulto` (`null` = sin configurar).
+   * Vinculado: unidades de `prod_lista.bulto` (`null` = sin configurar).
    * Sin vínculo: siempre `null` (celda vacía).
    */
   bulto: number | null;
@@ -65,7 +65,7 @@ export type FiltrosProductosPedidoAFabrica = {
   subRubro?: string;
   q?: string;
   pagina?: number;
-  /** `si` = hay `prod_propios`; `no` = sin vínculo; omitido = todos. */
+  /** `si` = hay `prod_lista`; `no` = sin vínculo; omitido = todos. */
   prodVinculado?: "si" | "no";
   /** `si` = CANT. PED. persistida > 0; `no` = sin cantidad o 0; omitido = todos. */
   pedido?: "si" | "no";
@@ -76,7 +76,7 @@ export type ProductosPedidoAFabricaResult = {
   productos: ProductoPedidoAFabricaItem[];
   total: number;
   totalPaginas: number;
-  /** Opciones dinámicas (prod_propios vía vínculo del proveedor). */
+  /** Opciones dinámicas (prod_lista vía vínculo del proveedor). */
   marcas: string[];
   rubros: string[];
   subRubros: string[];
@@ -271,10 +271,10 @@ async function opcionesCampoTienda(
 }
 
 /**
- * Lista productos de `prod_precios_provee` del proveedor, solo si `es_fabrica = true`.
- * Vínculo con tienda: `prod_precios_provee.cod_tienda` → `prod_propios.cod_tienda`.
- * Descripción: vinculada → `descripcion_tienda`; si no → `descripcion_proveedor`.
- * BULTO: vinculado → `prod_propios.bulto`; si no → vacío.
+ * Lista productos de `proveedor_prod_lista` del proveedor, solo si `es_fabrica = true`.
+ * Vínculo con tienda: `proveedor_prod_lista.cod_tienda` → `prod_lista.cod_tienda`.
+ * Descripción: vinculada → `descripcion`; si no → `descripcion_proveedor`.
+ * BULTO: vinculado → `prod_lista.bulto`; si no → vacío.
  * Solo filas `habilitado = true`. Filtros opcionales: marca / rubro / sub_rubro (tienda) + q + **PROD. VINCULADO** + **PEDIDO** (CANT. PED. persistida > 0).
  * Por cada sucursal `genera_est`: **PROM. VTA.** y STOCK / UN. ACT. del ledger `stock_movimientos`.
  */

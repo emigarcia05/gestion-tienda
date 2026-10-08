@@ -203,7 +203,7 @@ export async function exportarListaPreciosAction(
 }
 
 /**
- * Alta manual de un producto en prod_precios_provee (equivalente a una fila de import CSV).
+ * Alta manual de un producto en proveedor_prod_lista (equivalente a una fila de import CSV).
  */
 export async function crearProductoListaPrecioAction(
   raw: unknown
@@ -245,7 +245,7 @@ export async function crearProductoListaPrecioAction(
 }
 
 /**
- * Edición masiva: actualiza campos permitidos en `prod_precios_provee`.
+ * Edición masiva: actualiza campos permitidos en `proveedor_prod_lista`.
  * Payload: `{ ids, data }` (fila única) o `{ filtros, data }` (todos los ítems del filtro, sin paginación).
  * Solo usuarios con permiso listaPrecios.acciones.edicionMasiva.
  */
@@ -385,7 +385,7 @@ export async function contarProductosVariacionPxListaAction(
 }
 
 /**
- * Aplica `variacion` % (±, 2 dec.) a `prod_precios_provee.px_lista_proveedor`: `px * (1 + variacion/100)` (piso 0).
+ * Aplica `variacion` % (±, 2 dec.) a `proveedor_prod_lista.px_lista_proveedor`: `px * (1 + variacion/100)` (piso 0).
  * Alcance: proveedor obligatorio; marca opcional; rubro opcional solo con marca.
  */
 export async function aplicarVariacionPxListaMasivaAction(
@@ -427,7 +427,7 @@ export async function aplicarVariacionPxListaMasivaAction(
 }
 
 /**
- * Elimina un ítem de prod_precios_provee por cod_ext.
+ * Elimina un ítem de proveedor_prod_lista por cod_ext.
  * Solo usuarios con permiso listaPrecios.acciones.edicionMasiva.
  */
 export async function eliminarListaPrecioAction(raw: unknown): Promise<ActionResult<void>> {

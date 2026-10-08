@@ -15,7 +15,7 @@ export function listaPrecioBasePesos(
 }
 
 /**
- * Precio de compra **sin IVA** (misma lógica que la columna generada `prod_precios_provee.px_compra_final_sin_iva`).
+ * Precio de compra **sin IVA** (misma lógica que la columna generada `proveedor_prod_lista.px_compra_final_sin_iva`).
  * Todos los dto y cx_transporte son porcentajes.
  * Fórmula con descuento acumulado:
  *   precioLista × (1 - dtoTotal/100) × (1 + cxTransporte/100)
@@ -61,7 +61,7 @@ export function calcPxCompraFinal(
   );
 }
 
-/** Inputs de `prod_precios_provee` para recalcular costo en Comp. Categorias. */
+/** Inputs de `proveedor_prod_lista` para recalcular costo en Comp. Categorias. */
 export type DatosCostoComparacion = {
   pxListaProveedor: number;
   pxDolares: boolean;
@@ -79,7 +79,7 @@ export type DatosCostoComparacion = {
 
 /**
  * Costo sin IVA en **Comparacion por categorías**: misma fórmula que `px_compra_final_sin_iva`
- * más `dto_extra_comparacion` (persistido en `prod_comp_item_comparados`, no en `prod_precios_provee`).
+ * más `dto_extra_comparacion` (persistido en `prod_comp_item_comparados`, no en `proveedor_prod_lista`).
  * Con Px Promo Fijo el dto extra **no** se aplica.
  */
 export function calcCostoComparacion(

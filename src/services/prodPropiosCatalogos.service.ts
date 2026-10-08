@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Rubro, sub-rubro y marca de `prod_propios` viven solo como FK (`id_rubro`, `id_sub_rubro`, `id_marca`).
+ * Rubro, sub-rubro y marca de `prod_lista` viven solo como FK (`id_rubro`, `id_sub_rubro`, `id_marca`).
  * Los filtros de las pantallas siguen trabajando por **nombre**; estos helpers traducen a relaciones.
  */
 export type FiltroCatalogoProdPropio = {

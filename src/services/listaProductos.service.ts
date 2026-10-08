@@ -43,7 +43,7 @@ function esErrorPrisma(error: unknown, code: string): boolean {
 /** Próximo `cod_tienda` numérico (máximo numérico actual + 1). Ignora códigos no numéricos. */
 async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string> {
   const rows = await tx.$queryRaw<{ max: bigint | null }[]>`
-    SELECT MAX(cod_tienda::bigint) AS max FROM prod_propios WHERE cod_tienda ~ '^[0-9]+$'
+    SELECT MAX(cod_tienda::bigint) AS max FROM prod_lista WHERE cod_tienda ~ '^[0-9]+$'
   `;
   const max = rows[0]?.max ?? BigInt(0);
   return (max + BigInt(1)).toString();
@@ -54,7 +54,7 @@ type CamposProductoTienda = Pick<
   "descripcion" | "idRubro" | "idSubRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
 >;
 
-/** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_propios`. */
+/** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_lista`. */
 async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos: CamposProductoTienda) {
   const etiqueta = campos.descripcion.trim().toLocaleUpperCase("es-AR");
   const [rubro, subRubro, marca, presentacion, color] = await Promise.all([
@@ -288,8 +288,8 @@ export async function crearMarca(input: CrearMarcaInput): Promise<ServiceResult<
 }
 
 /**
- * Renombrar actualiza también el texto `marca` de `prod_precios_provee`
- * (las reglas de descuento comparan por nombre contra ese texto). `prod_propios` solo guarda `id_marca`.
+ * Renombrar actualiza también el texto `marca` de `proveedor_prod_lista`
+ * (las reglas de descuento comparan por nombre contra ese texto). `prod_lista` solo guarda `id_marca`.
  */
 export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
@@ -353,7 +353,7 @@ export async function eliminarMarca(id: string): Promise<ServiceResult<{ id: str
 }
 
 // ---------------------------------------------------------------------------
-// Rubros (`prod_rubros`) y sub-rubros (`prod_sub_rubros`); `prod_propios` los referencia por FK
+// Rubros (`prod_rubros`) y sub-rubros (`prod_sub_rubros`); `prod_lista` los referencia por FK
 // ---------------------------------------------------------------------------
 
 export async function listarRubrosCatalogo(): Promise<RubroCatalogoItem[]> {
@@ -391,7 +391,7 @@ export async function crearRubro(input: CrearRubroInput): Promise<ServiceResult<
   }
 }
 
-/** Renombrar actualiza también el texto `prod_precios_provee.rubro` (listas de proveedor). */
+/** Renombrar actualiza también el texto `proveedor_prod_lista.rubro` (listas de proveedor). */
 export async function editarRubro(input: EditarRubroInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
   const actual = await prisma.prodRubro.findUnique({

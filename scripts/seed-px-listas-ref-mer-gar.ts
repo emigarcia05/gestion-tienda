@@ -228,7 +228,7 @@ async function main(): Promise<void> {
   }
 
   const codTiendas = [...proveedoresPorCod.keys()].sort();
-  console.log(`Ítems prod_propios con vínculo MER y/o GAR: ${codTiendas.length}`);
+  console.log(`Ítems prod_lista con vínculo MER y/o GAR: ${codTiendas.length}`);
 
   console.log("Cargando precios de referencia (lote)…");
   const [sugeridoMap, scrapMap, tiendas] = await Promise.all([

@@ -32,7 +32,7 @@ export async function buildMapBultosProdTienda(
 }
 
 /**
- * Persiste `prod_propios.bulto`. Entero ≥ 1; `null` deja la columna vacía.
+ * Persiste `prod_lista.bulto`. Entero ≥ 1; `null` deja la columna vacía.
  */
 export async function guardarBultoProdTienda(
   codTienda: string,

@@ -34,7 +34,7 @@ export interface DatoVinculoCompetenciaCliente {
   estado: string;
   errorMensaje: string | null;
   relevadoAt: string | null;
-  /** true si el competidor tiene proveedor y existe `px_vta_sugerido` en `prod_precios_provee` para este `cod_tienda`. */
+  /** true si el competidor tiene proveedor y existe `px_vta_sugerido` en `proveedor_prod_lista` para este `cod_tienda`. */
   urlBloqueadaPorPxSugerido: boolean;
 }
 

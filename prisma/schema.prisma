@@ -113,7 +113,7 @@ enum NotificacionTipo {
 }
 
 /**
- * Política de IVA por proveedor (`global_proveedores.iva`).
+ * Política de IVA por proveedor (`proveedores.iva`).
  * - SIEMPRE  : el proveedor siempre factura con IVA.
  * - NUNCA    : el proveedor nunca factura con IVA.
  * - PREGUNTA : política indefinida; la UI / flujo debe preguntar caso por caso.
@@ -127,13 +127,13 @@ enum IvaProveedor {
 
 model Proveedor {
   id                      String       @id @default(cuid())
-  nombre                  String       @unique(map: "global_proveedores_nombre_key")
+  nombre                  String       @unique(map: "proveedores_nombre_key")
   /**
    * Opcional. Si falta, `codigo_unico` se genera al alta (ver `createProveedor`).
    */
-  prefijo                 String?      @unique(map: "global_proveedores_prefijo_ux")
+  prefijo                 String?      @unique(map: "proveedores_prefijo_ux")
   codigoUnico             String       @map("codigo_unico")
-  idProveedorDux          String?      @unique(map: "global_proveedores_id_proveedor_dux_key") @map("id_proveedor_dux") // ID único del proveedor en DUX; FK desde fin_compras_comprobante
+  idProveedorDux          String?      @unique(map: "proveedores_id_proveedor_dux_key") @map("id_proveedor_dux") // ID único del proveedor en DUX; FK desde fin_compras_comprobante
   whatsapp                String?      @map("whatsapp") // Número para envío de pedido por WhatsApp (internacional sin +)
   coeficienteTintometrico Decimal      @default(1) @map("coeficiente_tintometrico") @db.Decimal(12, 6)
   /**
@@ -182,9 +182,9 @@ model Proveedor {
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
 
-  @@index([proveedorMercaderia], map: "global_proveedores_proveedor_mercaderia_idx")
-  @@index([esFabrica], map: "global_proveedores_es_fabrica_idx")
-  @@map("global_proveedores")
+  @@index([proveedorMercaderia], map: "proveedores_proveedor_mercaderia_idx")
+  @@index([esFabrica], map: "proveedores_es_fabrica_idx")
+  @@map("proveedores")
 }
 
 /**
@@ -199,7 +199,7 @@ model GlobalCotizacionUsd {
 }
 
 /**
- * Campo materializable en `prod_precios_provee` gobernado por reglas de descuento.
+ * Campo materializable en `proveedor_prod_lista` gobernado por reglas de descuento.
  */
 enum CampoReglaDescuentoListaPrecio {
   dto_proveedor
@@ -229,7 +229,7 @@ model ProdRubro {
 
 /**
  * Sub-rubros de un rubro (1 rubro → N sub-rubros). Nombre único dentro del rubro.
- * `@@unique([id, idRubro])` sostiene la FK compuesta de `prod_propios` (el sub-rubro debe ser del rubro del ítem).
+ * `@@unique([id, idRubro])` sostiene la FK compuesta de `prod_lista` (el sub-rubro debe ser del rubro del ítem).
  */
 model ProdSubRubro {
   id        String   @id @default(cuid())
@@ -248,7 +248,7 @@ model ProdSubRubro {
 }
 
 /**
- * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en prod_precios_provee.
+ * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en proveedor_prod_lista.
  */
 model ProdPrecioProveeRegla {
   id          String                         @id @default(cuid())
@@ -264,11 +264,11 @@ model ProdPrecioProveeRegla {
   marca     Marca?     @relation(fields: [idMarca], references: [id], onDelete: Cascade)
   rubro     ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Cascade)
 
-  @@index([campo], map: "prod_precios_provee_reglas_campo_idx")
-  @@index([idProveedor], map: "prod_precios_provee_reglas_id_proveedor_idx")
-  @@index([idMarca], map: "prod_precios_provee_reglas_id_marca_idx")
-  @@index([idRubro], map: "prod_precios_provee_reglas_id_rubro_idx")
-  @@map("prod_precios_provee_reglas")
+  @@index([campo], map: "proveedores_precios_reglas_campo_idx")
+  @@index([idProveedor], map: "proveedores_precios_reglas_id_proveedor_idx")
+  @@index([idMarca], map: "proveedores_precios_reglas_id_marca_idx")
+  @@index([idRubro], map: "proveedores_precios_reglas_id_rubro_idx")
+  @@map("proveedores_precios_reglas")
 }
 
 /**
@@ -310,7 +310,7 @@ model ProdPrecioDescEspecialReglaProducto {
 
 // Comprobantes de compra (`fin_compras_comprobante`). Tabla y UI se conservan.
 // El GET DUX `/compras` y su sync están deshabilitados (se reutilizará más adelante).
-// `id_proveedor` almacena el mismo valor que `global_proveedores.id_proveedor_dux` (FK).
+// `id_proveedor` almacena el mismo valor que `proveedores.id_proveedor_dux` (FK).
 model ComprobanteProveedor {
   id                String   @id @default(cuid())
   idSucursalEmpresa String   @map("id_sucursal_empresa")
@@ -801,7 +801,7 @@ model FinBalGastoFinal {
   comentarios  String?      @map("comentarios") @db.Text
   /**
    * Política de IVA del gasto final. Reusa el enum `IvaProveedor`
-   * (compartido con `global_proveedores.iva`). Default DB `PREGUNTA`.
+   * (compartido con `proveedores.iva`). Default DB `PREGUNTA`.
    * La política del gasto final es **independiente** de la del proveedor:
    * un proveedor con `iva = SIEMPRE` puede tener un gasto final con
    * `iva = NUNCA` (p. ej. una imputación específica sin discriminación
@@ -905,7 +905,7 @@ model FinBalVtas {
 /**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
  * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
- * `cod_tienda` referencia `prod_propios.cod_tienda` (código numérico DUX importado como texto).
+ * `cod_tienda` referencia `prod_lista.cod_tienda` (código numérico DUX importado como texto).
  */
 model EstPorProd {
   id         String   @id @default(cuid())
@@ -939,7 +939,7 @@ model EstPorProd {
 /**
  * Catálogo de nombres de color para estadísticas por producto.
  * El color no viene en columna: se detecta por match (regex) del `nombre`
- * (MAYÚSCULAS) dentro de la descripción del producto en `prod_propios`.
+ * (MAYÚSCULAS) dentro de la descripción del producto en `prod_lista`.
  */
 model ProdColor {
   id        String   @id @default(cuid())
@@ -1119,7 +1119,7 @@ model ListaPrecioProveedor {
    */
   pxPromoFijo          Decimal? @map("px_promo_fijo") @db.Decimal(14, 4)
   pxCompraFinalSinIva  Decimal? @map("px_compra_final_sin_iva") @db.Decimal(14, 4) // GENERATED: promo → monto×(cotiz si USD)×(1+cx); si no, lista×(1-dtoTotal/100)×(1+cx)
-  codTiendaVinculo     String?  @map("cod_tienda") // FK al ítem tienda (`prod_propios.cod_tienda`; 1 tienda → N proveedores)
+  codTiendaVinculo     String?  @map("cod_tienda") // FK al ítem tienda (`prod_lista.cod_tienda`; 1 tienda → N proveedores)
   /**
    * FK opcional → catálogo REX (`prod_precios_rex`). Varios `cod_ext` pueden compartir el mismo REX.
    */
@@ -1138,9 +1138,9 @@ model ListaPrecioProveedor {
    */
   costoListaEnTiendas ProdPropio[]                         @relation("CostoListaEnTienda")
 
-  @@unique([idProveedor, codProdProveedor], map: "prod_precios_provee_id_proveedor_cod_prod_prov_key")
-  @@index([idPrecioRex], map: "prod_precios_provee_id_precio_rex_idx")
-  @@map("prod_precios_provee")
+  @@unique([idProveedor, codProdProveedor], map: "proveedor_prod_lista_id_proveedor_cod_prod_prov_key")
+  @@index([idPrecioRex], map: "proveedor_prod_lista_id_precio_rex_idx")
+  @@map("proveedor_prod_lista")
 }
 
 /**
@@ -1220,7 +1220,7 @@ model PresentacionComparacion {
   @@map("prod_comp_presentaciones")
 }
 
-// Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_propios.
+// Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_lista.
 model Marca {
   id                     String   @id @default(cuid())
   nombre                 String   @unique(map: "prod_marcas_nombre_key")
@@ -1318,9 +1318,9 @@ model ProdPropio {
    * Histórico DUX: a partir de 2026-05-28 ya no se sincroniza. La relación tienda ↔ proveedor se infiere de `listaPreciosProveedores` (vínculos manuales).
    */
   proveedor                   String?
-  descripcionTienda           String?   @map("descripcion_tienda")
+  descripcionTienda           String?   @map("descripcion")
   /**
-   * FK a `prod_precios_provee.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
+   * FK a `proveedor_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
    */
   costoCompraCodExt           String?   @map("costo_compra_cod_ext")
   costoCompra                 Decimal   @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
@@ -1329,14 +1329,14 @@ model ProdPropio {
    * Legacy export Excel de Control Stock (ya no se lee ni escribe).
    */
   ultimaExportacionExcel      DateTime? @map("ultima_exportacion_excel")
-  /// Producto propio TiendaColor: no admite vínculos con `prod_precios_provee`; el sync DUX no modifica este flag.
+  /// Producto propio TiendaColor: no admite vínculos con `proveedor_prod_lista`; el sync DUX no modifica este flag.
   esProductoPropio            Boolean   @default(false) @map("es_producto_propio")
   /// Incluido en Px Competencia (`/gestion-productos/tienda/cx-px-tienda`); el sync DUX no modifica este flag.
   compararCompetencia         Boolean   @default(false) @map("comparar_competencia")
   /// Competidor de referencia para PX de **1 - GENERAL** (Px Listas). Sync DUX no modifica.
   competenciaIdPxListaGeneral String?   @map("competencia_id_px_lista_general")
   /// Unidades por bulto. `null` = vacío (Cx Compra / Reposición). Entero ≥ 1.
-  /// CHECK SQL `prod_propios_bulto_positivo`. Sync DUX no escribe esta columna.
+  /// CHECK SQL `prod_lista_bulto_positivo`. Sync DUX no escribe esta columna.
   bulto                       Int?
   /// Presentación elegida al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
   idPresentacion              String?   @map("id_presentacion")
@@ -1348,7 +1348,7 @@ model ProdPropio {
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
   presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
   color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
-  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por prod_precios_provee.cod_tienda → esta PK
+  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedor_prod_lista.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
   preciosCompetencia        ProdPrecioCompetencia[]
@@ -1358,14 +1358,14 @@ model ProdPropio {
   stockMovimientos          StockMovimiento[]
   stockTransferenciaItems   StockTransferenciaItem[]
 
-  @@index([competenciaIdPxListaGeneral], map: "prod_propios_competencia_id_px_lista_general_idx")
-  @@index([descripcionTienda], map: "prod_propios_descripcion_tienda_idx")
-  @@index([idMarca], map: "prod_propios_id_marca_idx")
-  @@index([idRubro], map: "prod_propios_id_rubro_idx")
-  @@index([idSubRubro], map: "prod_propios_id_sub_rubro_idx")
-  @@index([idPresentacion], map: "prod_propios_id_presentacion_idx")
-  @@index([idColor], map: "prod_propios_id_color_idx")
-  @@map("prod_propios")
+  @@index([competenciaIdPxListaGeneral], map: "prod_lista_competencia_id_px_lista_general_idx")
+  @@index([descripcionTienda], map: "prod_lista_descripcion_idx")
+  @@index([idMarca], map: "prod_lista_id_marca_idx")
+  @@index([idRubro], map: "prod_lista_id_rubro_idx")
+  @@index([idSubRubro], map: "prod_lista_id_sub_rubro_idx")
+  @@index([idPresentacion], map: "prod_lista_id_presentacion_idx")
+  @@index([idColor], map: "prod_lista_id_color_idx")
+  @@map("prod_lista")
 }
 
 /**
@@ -1547,7 +1547,7 @@ model ProdCompetencia {
   nombre              String    @unique(map: "prod_competencia_nombre_key")
   /// Sitio principal del competidor (opcional; las fichas van en prod_precios_competencia.url_producto).
   web                 String?
-  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `prod_precios_provee` (mismo `cod_tienda`) sin scraping.
+  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `proveedor_prod_lista` (mismo `cod_tienda`) sin scraping.
   idProveedor         String?   @map("id_proveedor")
   /// Última ejecución de relevamiento masivo para este competidor.
   ultimaComparacionAt DateTime? @map("ultima_comparacion_at")
@@ -1628,7 +1628,7 @@ model ProdPedMerc2 {
   tintometricoCodColorIdMarca String? @map("tintometrico_cod_color_id_marca")
   tintometrioCantPedir        Int     @default(0) @map("tintometrio_cant_pedir")
   /**
-   * `id` de `global_proveedores` para filas tintométricas (texto / cuid).
+   * `id` de `proveedores` para filas tintométricas (texto / cuid).
    */
   tintometricoProveedor       String? @map("tintometrico_proveedor")
   reposicionFormaPedido       String? @map("reposicion_forma_pedido")
@@ -1639,7 +1639,7 @@ model ProdPedMerc2 {
    */
   reposicionCantPedir         Int?    @map("reposicion_cant_pedir")
   /**
-   * Código tienda (`prod_propios.cod_tienda`) para reglas / filas de tipo REPOSICION.
+   * Código tienda (`prod_lista.cod_tienda`) para reglas / filas de tipo REPOSICION.
    */
   reposicionCodTienda         String? @map("reposicion_cod_tienda")
   /**
@@ -1694,7 +1694,7 @@ model PedidoHistoriaItem {
 
   pedidoHistoriaId String  @map("pedido_historia_id")
   /**
-   * `prod_propios.cod_tienda` que recibe el ingreso de stock en la recepción.
+   * `prod_lista.cod_tienda` que recibe el ingreso de stock en la recepción.
    * Sin vínculo / match: fallback `1503` (PRODUCTO VARIO). Varias líneas pueden
    * compartir el mismo código; la identidad de la fila es `cod_ext`.
    */
@@ -2445,7 +2445,7 @@ model SyncDuxStatus {
   fetchOffset      Int       @default(0) @map("fetch_offset")
   apiFetchComplete Boolean   @default(false) @map("api_fetch_complete")
   /**
-   * Inicio de corrida; limpieza borra `prod_propios` con `last_sync` anterior.
+   * Inicio de corrida; limpieza borra `prod_lista` con `last_sync` anterior.
    */
   startedAt        DateTime? @map("started_at")
   /**

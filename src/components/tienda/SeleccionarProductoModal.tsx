@@ -57,7 +57,7 @@ interface Props {
   onClose: () => void;
   onSeleccionar: (producto: ProductoConProveedor) => void;
   excluirItemTiendaId: string;
-  /** IDs de proveedor (`global_proveedores`) ya vinculados; se excluyen filas de esos proveedores. */
+  /** IDs de proveedor (`proveedores`) ya vinculados; se excluyen filas de esos proveedores. */
   idsProveedoresYaVinculados?: string[];
   /** Mismo encabezado que en el detalle expandido de **Cx Compra**. */
   itemDescripcion: string;

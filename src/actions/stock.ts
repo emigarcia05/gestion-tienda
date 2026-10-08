@@ -24,7 +24,7 @@ import {
 export type Sucursal = "guaymallen" | "maipu";
 
 export interface ItemStock {
-  /** `cod_tienda` (`prod_propios`); clave estable para tabla. */
+  /** `cod_tienda` (`prod_lista`); clave estable para tabla. */
   id: string;
   codItem: string;
   descripcion: string;
@@ -58,7 +58,7 @@ const emptyControlStock: ControlStockData = {
 };
 
 /**
- * Datos para Control Stock desde prod_propios.
+ * Datos para Control Stock desde prod_lista.
  * STOCK: saldo de `stock_movimientos` (ingresos − egresos) por sucursal.
  * Requiere permiso PERMISOS.stock.acceso.
  */

@@ -158,6 +158,7 @@ export default function FacturaComprobanteDetalleModal({
       <AppModal
         size="xl"
         padding="sm"
+        className="max-w-[66rem]"
         title={tituloDetalle(datos)}
         actions={
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -219,7 +220,7 @@ export default function FacturaComprobanteDetalleModal({
                           <TableCell className="celda-datos tabular-nums">
                             {fmtCelda(linea.codTienda)}
                           </TableCell>
-                          <TableCell className="celda-datos text-left">
+                          <TableCell className="celda-datos celda-datos--crece text-left">
                             <span className="flex flex-col gap-0.5">
                               <span>{descripcionConCodColor(linea.descripcion, linea.codColor)}</span>
                               {comentario ? (

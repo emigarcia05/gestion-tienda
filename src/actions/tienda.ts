@@ -129,7 +129,7 @@ export interface ItemTiendaParaTabla {
   cxProd: CxProdDatosFila;
   /** Producto propio TiendaColor (sin vínculos a lista proveedor). */
   esProductoPropio: boolean;
-  /** Unidades por bulto (`prod_propios.bulto`); `null` = vacío. */
+  /** Unidades por bulto (`prod_lista.bulto`); `null` = vacío. */
   bulto: number | null;
   idRubro: string | null;
   idSubRubro: string | null;
@@ -177,8 +177,8 @@ export async function getProveedoresTintoLts(): Promise<ProveedorTintoLts[]> {
 }
 
 /**
- * Datos para la página /tienda desde prod_propios.
- * Mapeo: cod_tienda → codItem, descripcion_tienda → descripcion, costo_compra → costo,
+ * Datos para la página /tienda desde prod_lista.
+ * Mapeo: cod_tienda → codItem, prod_lista.descripcion → descripcion, costo_compra → costo,
  * proveedor → proveedorDux (resuelto a prefijo de proveedores cuando hay match).
  */
 export async function getTiendaPageData(params: {

@@ -1,5 +1,5 @@
 /**
- * Costo lista para Cx/Px Tienda: `prod_propios.costo_compra_cod_ext` → `prod_precios_provee`.
+ * Costo lista para Cx/Px Tienda: `prod_lista.costo_compra_cod_ext` → `proveedor_prod_lista`.
  * `costo_compra` / `proveedor` en tienda siguen siendo espejo DUX (sync).
  */
 import type { ServiceResult } from "@/types";

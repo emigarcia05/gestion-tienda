@@ -49,7 +49,7 @@ export type SucursalReposicion = "guaymallen" | "maipu";
 export type FormaPedirReposicionOption = ReposicionFormaPedido | "";
 
 export interface ItemReposicion {
-  /** Clave estable de fila tienda (= `prod_propios.cod_tienda`). El nombre conserva compatibilidad con la UI */
+  /** Clave estable de fila tienda (= `prod_lista.cod_tienda`). El nombre conserva compatibilidad con la UI */
   idListaTienda: string;
   codExt: string;
   codTienda: string;
@@ -67,7 +67,7 @@ export interface ItemReposicion {
   cantPedidaReposicion: number;
   /** Cantidad a pedir recalculada (stock / forma); misma regla que Generar pedido. */
   cantPedir: number;
-  /** Unidades por bulto (`prod_propios.bulto`). `null` = vacío. */
+  /** Unidades por bulto (`prod_lista.bulto`). `null` = vacío. */
   bulto: number | null;
 }
 
@@ -149,7 +149,7 @@ function baseWhere(
 }
 
 /**
- * Datos para Pedido Reposición: con sucursal, **todos** los ítems de `prod_propios`
+ * Datos para Pedido Reposición: con sucursal, **todos** los ítems de `prod_lista`
  * (paginados). Marca / rubro / descripción / proveedor son opcionales.
  * Cada ítem incluye la configuración REPOSICION desde `prod_ped_merc`.
  * **CANT. A PEDIR** se recalcula con la misma regla que Generar Pedido / `upsertPedidoMercaderiaReposicionConfig`.
@@ -472,7 +472,7 @@ const upsertReglaSchema = z.object({
 
 /**
  * Crea o actualiza la regla de reposición para (sucursal, cod_tienda),
- * resolviendo proveedor/cod_ext vigentes desde `prod_propios`.
+ * resolviendo proveedor/cod_ext vigentes desde `prod_lista`.
  * Validación estricta: no guarda nada si falta Forma/Punto/Cant.
  */
 export async function upsertReglaReposicion(raw: unknown): Promise<ActionResult<void>> {

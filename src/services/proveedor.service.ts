@@ -102,9 +102,9 @@ export interface ProveedorListItem {
   esFabrica: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA (default BD: PREGUNTA). */
   iva: IvaProveedor;
-  /** Cantidad de ítems en prod_precios_provee. */
+  /** Cantidad de ítems en proveedor_prod_lista. */
   cantProductos: number;
-  /** Cantidad de ítems de `prod_precios_provee` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_propios`). */
+  /** Cantidad de ítems de `proveedor_prod_lista` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_lista`). */
   cantVinculados: number;
 }
 
@@ -128,7 +128,7 @@ async function generarCodigoUnicoDisponible(): Promise<string> {
 }
 
 /**
- * Lista de proveedores desde la base de datos con conteos en prod_precios_provee y prod_propios.
+ * Lista de proveedores desde la base de datos con conteos en proveedor_prod_lista y prod_lista.
  *
  * Devuelve TODOS los proveedores (sin filtrar por `proveedorMercaderia`).
  * Este método alimenta vistas transversales (Px Sugeridos, Lista Px Proveedores,
@@ -229,7 +229,7 @@ export async function getProveedoresNoMercaderia(): Promise<ProveedorListItem[]>
 /**
  * Lista únicamente los proveedores con `es_fabrica = true`.
  * Alimenta el selector **PROVEEDOR** de **Pedido A Fábrica**.
- * Usa el índice `global_proveedores_es_fabrica_idx`.
+ * Usa el índice `proveedores_es_fabrica_idx`.
  */
 export async function getProveedoresFabrica(): Promise<ProveedorListItem[]> {
   return listarProveedoresInterno({ esFabrica: true });

@@ -9,7 +9,7 @@ import { guardarBultoTiendaSchema } from "@/lib/validations/tiendaBultos";
 import { guardarBultoProdTienda } from "@/services/tiendaBultos.service";
 
 /**
- * Persiste BULTO del ítem tienda (`prod_propios.bulto`). `bulto: null` vacía el valor.
+ * Persiste BULTO del ítem tienda (`prod_lista.bulto`). `bulto: null` vacía el valor.
  */
 export async function guardarBultoTiendaAction(
   raw: unknown

@@ -24,7 +24,7 @@ export interface ReferenciaCompetenciaPresentacion {
   codTienda: string;
   competenciaId: string;
   competenciaNombre: string;
-  /** Abreviatura: `global_proveedores.prefijo` del proveedor del competidor. */
+  /** Abreviatura: `proveedores.prefijo` del proveedor del competidor. */
   competenciaAbreviatura: string;
   descripcionTienda: string | null;
   pxMostrar: number | null;

@@ -2,14 +2,14 @@ import { z } from "zod";
 
 import { prismaCuidSchema, listaPreciosCodExtSchema } from "@/lib/validations/common";
 
-/** Lista no vacía de `cod_ext` para edición masiva en `prod_precios_provee`. */
+/** Lista no vacía de `cod_ext` para edición masiva en `proveedor_prod_lista`. */
 export { listaPreciosCodExtListSchema, listaPreciosCodExtSchema } from "@/lib/validations/common";
 
 function tieneMaxDosDecimales(n: number): boolean {
   return Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
 }
 
-/** Porcentaje 0–100 con hasta 2 decimales (`prod_precios_provee.dto_*`, `cx_transporte`). */
+/** Porcentaje 0–100 con hasta 2 decimales (`proveedor_prod_lista.dto_*`, `cx_transporte`). */
 export const porcentajeListaPreciosSchema = z
   .number()
   .min(0)
@@ -32,7 +32,7 @@ export const pxPromoFijoListaPreciosSchema = z
 export const actualizacionMasivaListaPreciosSchema = z.object({
   marca: z.string().nullable().optional(),
   rubro: z.string().nullable().optional(),
-  /** Precio de lista del proveedor (`prod_precios_provee.px_lista_proveedor`). */
+  /** Precio de lista del proveedor (`proveedor_prod_lista.px_lista_proveedor`). */
   pxListaProveedor: z.number().min(0).optional(),
   habilitado: z.boolean().optional(),
   /** Moneda del ítem; `null` elimina el promo (vuelven los descuentos %). */
@@ -84,7 +84,7 @@ export const variacionPxListaMasivaFiltrosSchema = z
 export type VariacionPxListaMasivaFiltrosInput = z.infer<typeof variacionPxListaMasivaFiltrosSchema>;
 
 /**
- * Variación masiva de `prod_precios_provee.px_lista_proveedor`.
+ * Variación masiva de `proveedor_prod_lista.px_lista_proveedor`.
  * Proveedor y variación % obligatorios; marca opcional; rubro opcional solo con marca.
  */
 export const aplicarVariacionPxListaMasivaSchema = z
@@ -118,7 +118,7 @@ export const listaPreciosFiltrosLecturaSchema = z.object({
   rubroNombre: z.string().max(200).optional(),
   busqueda: z.string().max(500).optional(),
   habilitado: z.boolean().optional(),
-  /** Vinculación `prod_precios_provee.id_precio_rex` → `prod_precios_rex`. */
+  /** Vinculación `proveedor_prod_lista.id_precio_rex` → `prod_precios_rex`. */
   vinculado: z.boolean().optional(),
   opciones: listaPreciosOpcionesFiltroSchema.optional(),
   pagina: z.preprocess(
@@ -134,7 +134,7 @@ export const listaPreciosFiltrosExportSchema = listaPreciosFiltrosLecturaSchema.
 
 export type ListaPreciosFiltrosExportInput = z.infer<typeof listaPreciosFiltrosExportSchema>;
 
-/** Alta manual de un producto en `prod_precios_provee` (misma lógica que import CSV). */
+/** Alta manual de un producto en `proveedor_prod_lista` (misma lógica que import CSV). */
 export const crearProductoListaPrecioSchema = z.object({
   idProveedor: prismaCuidSchema,
   codProdProveedor: z
@@ -158,7 +158,7 @@ export const crearProductoListaPrecioSchema = z.object({
 
 export type CrearProductoListaPrecioInput = z.infer<typeof crearProductoListaPrecioSchema>;
 
-/** Eliminar un ítem de `prod_precios_provee` por `cod_ext`. */
+/** Eliminar un ítem de `proveedor_prod_lista` por `cod_ext`. */
 export const eliminarListaPrecioSchema = z.object({
   codExt: listaPreciosCodExtSchema,
 });

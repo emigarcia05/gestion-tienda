@@ -1,5 +1,5 @@
 /**
- * Servicio prod_precios_provee – Capa de datos (Neon / Prisma).
+ * Servicio proveedor_prod_lista – Capa de datos (Neon / Prisma).
  * Upsert por código externo (cod_ext = [SUFIJO]-[codProdProv]).
  * Lectura paginada: `getListaPreciosConTiendaFiltrada` (SSOT de la grilla).
  */
@@ -361,7 +361,7 @@ export async function getMarcasDisponiblesListaPrecios(
   return out;
 }
 
-/** Rubros desde `prod_propios.rubro` (catálogo de tienda). */
+/** Rubros desde `prod_lista.rubro` (catálogo de tienda). */
 export async function getRubrosDisponiblesListaPrecios(
   _proveedorId: string | undefined,
   _marcaNombre: string | undefined,
@@ -385,7 +385,7 @@ export interface ProductoProveedorParaVincular {
   proveedor: { prefijo: string; nombre: string };
   /** Precio final de compra (para usar como costo objetivo al seleccionar desde lista). */
   pxCompraFinalSinIva: number | null;
-  /** Si ya está vinculado a un ítem `prod_propios`, datos para mostrar bloqueo informativo. */
+  /** Si ya está vinculado a un ítem `prod_lista`, datos para mostrar bloqueo informativo. */
   tiendaVinculada: { codTienda: string; descripcion: string | null } | null;
 }
 
@@ -415,7 +415,7 @@ function whereBusquedaProductosVincular(q: string): Prisma.ListaPrecioProveedorW
 }
 
 /**
- * Lista ítems de prod_precios_provee para el modal "Vincular nuevo producto".
+ * Lista ítems de proveedor_prod_lista para el modal "Vincular nuevo producto".
  * Filtros: proveedor (opcional), descripción/código/marca/rubro/proveedor (q, multi-término).
  */
 export async function listarProductosProveedoresParaVincular(
@@ -487,7 +487,7 @@ export interface UpsertListaPreciosOptions {
 }
 
 /**
- * Upsert de filas en prod_precios_provee.
+ * Upsert de filas en proveedor_prod_lista.
  * Clave lógica: cod_ext (único) = [SUFIJO]-[codProdProv].
  * Si existe, actualiza; si no, crea con descuentos y cx_transporte en 0 (defaults BD).
  * precioEnDolares: mapea al switch SÍ/NO del modal; se persiste en px_dolares. Si true, cotizacion_dolar = cotización global USD (BACKEND_GUIDELINES §3.2).
@@ -594,7 +594,7 @@ export type CrearProductoListaPrecioServiceResult =
   | { ok: false; error: string };
 
 /**
- * Alta manual 1:1 en `prod_precios_provee` — misma clave y defaults que `upsertListaPrecios` (import CSV).
+ * Alta manual 1:1 en `proveedor_prod_lista` — misma clave y defaults que `upsertListaPrecios` (import CSV).
  */
 export async function crearProductoListaPrecio(
   input: CrearProductoListaPrecioServiceInput
@@ -665,7 +665,7 @@ export async function crearProductoListaPrecio(
   }
 }
 
-/** Elimina un ítem de `prod_precios_provee` por `cod_ext`. Cascadas: dto extra / margen manual. */
+/** Elimina un ítem de `proveedor_prod_lista` por `cod_ext`. Cascadas: dto extra / margen manual. */
 export async function eliminarListaPrecioProveedor(
   codExt: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -699,7 +699,7 @@ export interface ActualizacionMasivaListaPrecios {
 }
 
 /**
- * Actualiza campos editables manualmente en prod_precios_provee.
+ * Actualiza campos editables manualmente en proveedor_prod_lista.
  * Los dto_* y cx_transporte solo los escribe el motor de reglas (`descuentosListaPrecioReglas.service`).
  * Si cambia marca o rubro, re-materializa descuentos en las filas afectadas.
  */
@@ -751,7 +751,7 @@ export async function actualizarListaPreciosMasivo(
   params.push(ids);
 
   try {
-    const sql = `UPDATE prod_precios_provee SET ${setClauses.join(", ")} WHERE cod_ext = ANY($${params.length}::text[])`;
+    const sql = `UPDATE proveedor_prod_lista SET ${setClauses.join(", ")} WHERE cod_ext = ANY($${params.length}::text[])`;
     const actualizados = await prisma.$executeRawUnsafe(sql, ...params);
 
     if (updatePayload.marca !== undefined || updatePayload.rubro !== undefined) {
@@ -811,10 +811,10 @@ export async function aplicarVariacionPxListaProveedorMasivo(
 
   try {
     const actualizados = await prisma.$executeRawUnsafe(
-      `UPDATE prod_precios_provee p
+      `UPDATE proveedor_prod_lista p
        SET px_lista_proveedor = GREATEST(ROUND(p.px_lista_proveedor * (1 + $1::numeric / 100), 4), 0),
            updated_at = CURRENT_TIMESTAMP
-       FROM global_proveedores g
+       FROM proveedores g
        WHERE p.id_proveedor = g.id
          AND g.proveedor_mercaderia = true
          AND p.id_proveedor = $2
@@ -850,7 +850,7 @@ export interface PedidoUrgenteItem {
   codExt: string;
   prefijo: string;
   descripcion: string;
-  /** `px_compra_final_sin_iva` desde prod_precios_provee (modal de cantidad). */
+  /** `px_compra_final_sin_iva` desde proveedor_prod_lista (modal de cantidad). */
   pxCompraFinalSinIva: number | null;
   /** En filas 1:1; ausente en fila agrupada por `cod_tienda`. */
   ivaProveedor?: IvaProveedor;
@@ -864,26 +864,26 @@ export interface PedidoUrgenteItem {
    */
   cantReposicion: number;
   /**
-   * true si hay `prod_propios` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
+   * true si hay `prod_lista` de Dux: FK `cod_tienda`, CX PROD, o match único de descripción.
    */
   estaVinculadoTienda: boolean;
-  /** `prod_propios.cod_tienda` del vínculo; "" si no está registrado en tienda. */
+  /** `prod_lista.cod_tienda` del vínculo; "" si no está registrado en tienda. */
   codTienda: string;
   /** Regla REPOSICIÓN (`prod_ped_merc`) del `cod_tienda` en la sucursal; null si no hay. */
   reposicionRegla: PedidoUrgenteReposicionRegla | null;
-  /** `prod_propios.bulto` (unidades por bulto); null si no hay o no está registrado. */
+  /** `prod_lista.bulto` (unidades por bulto); null si no hay o no está registrado. */
   bultoTienda: number | null;
   /** Stock de la sucursal (Dux) del `cod_tienda`; 0 si no está registrado. */
   stockTienda: number;
   /**
-   * Varias filas `prod_precios_provee` con el mismo `cod_tienda` (FK o match Dux): la UI muestra una sola fila;
+   * Varias filas `proveedor_prod_lista` con el mismo `cod_tienda` (FK o match Dux): la UI muestra una sola fila;
    * cada miembro conserva su `cod_ext` para persistir cantidades. Ausente en filas no agrupadas.
    */
   miembrosAgrupacion?: Array<{
     codExt: string;
     prefijo: string;
     pxCompraFinalSinIva: number | null;
-    /** Política IVA del proveedor (`global_proveedores.iva`). */
+    /** Política IVA del proveedor (`proveedores.iva`). */
     ivaProveedor: IvaProveedor;
     cantPedidaUrgente: number;
     estaVinculadoTienda: boolean;
@@ -1060,7 +1060,7 @@ async function mercaderiaMapsDesdeMerc2(
 }
 
 /**
- * Una sola descripción de **tienda** para la fila agrupada: toma `descripcion_tienda` de la relación
+ * Una sola descripción de **tienda** para la fila agrupada: toma `prod_lista.descripcion` de la relación
  * `prodTienda` vía `cod_tienda_vinculo`; si hay textos distintos, se usa el **más largo** (suele ser la ficha completa).
  * Solo si no hay ninguna descripción de tienda se recurre a `descripcion_proveedor`.
  */
@@ -1197,12 +1197,12 @@ async function clavesCantidadPositivaPedidoUrgente(
 }
 
 /**
- * Pantalla Pedido Urgente: filas **`prod_precios_provee`** con **`habilitado = true`**.
+ * Pantalla Pedido Urgente: filas **`proveedor_prod_lista`** con **`habilitado = true`**.
  * Varias filas con el mismo **`cod_tienda`** (FK o match Dux) se agrupan en **una sola fila** de UI (`id` `agrup-tienda:{cod_tienda}`, `miembrosAgrupacion`);
  * la paginación y el **`total`** cuentan **grupos** (fila vista), no filas crudas. Filas sin vínculo a tienda siguen 1:1 por `cod_ext`.
  * Filtro **`proveedorId`**: solo reduce qué **grupos/filas** entran al listado (al menos un miembro del grupo coincide); **`miembrosAgrupacion`** sigue incluyendo **todos** los proveedores del vínculo para el modal «Elegir Proveedor».
  * Filtro **`pedidoTipo`**: `urgente` = cant. urgente &gt; 0; `reposicion` = cant. reposición &gt; 0; `reposicion_conf` = tiene regla de reposición; `null` = catálogo completo.
- * `prefijo` vacío en la fila agrupada; **`descripcion`** unifica **`descripcion_tienda`** entre miembros.
+ * `prefijo` vacío en la fila agrupada; **`descripcion`** unifica **`prod_lista.descripcion`** entre miembros.
  * Cantidades / flags de urgente y reposición se leen de **`prod_ped_merc`** según sucursal.
  */
 async function getListaPedidoUrgenteDesdeListaPrecios(
@@ -1575,8 +1575,8 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 /**
  * Ítems de lista precios para Pedido Urgente.
  * Con sucursal: todos los `habilitado` de mercadería no fábrica, paginados.
- * La grilla parte **Productos Registrados en Dux** (`prod_propios` por FK, CX PROD o match de descripción) y **Sin Registrar**.
- * descripcion = descripcion_tienda si existe; si no, descripcion_proveedor.
+ * La grilla parte **Productos Registrados en Dux** (`prod_lista` por FK, CX PROD o match de descripción) y **Sin Registrar**.
+ * descripcion = descripcion si existe; si no, descripcion_proveedor.
  */
 export async function getListaPreciosParaPedidoUrgente(
   sucursal: string,

@@ -39,7 +39,7 @@ export interface SyncCompetenciaPreciosOptions {
 
 /**
  * Releva precios por vínculo producto×competidor: primero `px_vta_sugerido` del proveedor
- * asociado (si está configurado y existe en `prod_precios_provee`); si no, scraping de `url_producto`.
+ * asociado (si está configurado y existe en `proveedor_prod_lista`); si no, scraping de `url_producto`.
  */
 export async function syncCompetenciaPrecios(
   options: SyncCompetenciaPreciosOptions

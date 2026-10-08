@@ -1,5 +1,5 @@
 /**
- * Sincronización de prod_propios desde la API DUX ERP.
+ * Sincronización de prod_lista desde la API DUX ERP.
  * Fase 1: bucle paginado (50 ítems por petición); tras cada página, persistencia en Neon
  *           en paralelo con la espera de rate limit DUX (`DELAY_MS`).
  */
@@ -69,7 +69,7 @@ export interface SyncListaPrecioTiendaResult {
 }
 
 /**
- * Mapea ítem DUX a la fila de upsert prod_propios. `proveedor` queda fuera del sync (§1.4.2).
+ * Mapea ítem DUX a la fila de upsert prod_lista. `proveedor` queda fuera del sync (§1.4.2).
  * Rubro / sub-rubro no se sincronizan (se gestionan en Lista Productos); `marca` solo resuelve `id_marca`.
  */
 function itemDuxToProdTiendaRecord(item: ItemDux) {
@@ -339,7 +339,7 @@ async function finalizeSyncWorker(
       eliminados = await eliminarProdTiendaAusentesEnSyncDux(worker.startedAt);
       if (eliminados > 0) {
         console.log(
-          `Sync DUX: eliminados ${eliminados} ítem(s) de prod_propios ausentes en DUX.`
+          `Sync DUX: eliminados ${eliminados} ítem(s) de prod_lista ausentes en DUX.`
         );
       }
     } catch (e) {
@@ -359,13 +359,13 @@ async function finalizeSyncWorker(
       const totalHuerfanos = huerfanos.reduce((s, r) => s + r.aplicados, 0);
       if (totalHuerfanos > 0) {
         console.log(
-          `Limpieza huérfanos prod_propios: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
+          `Limpieza huérfanos prod_lista: ${totalHuerfanos} fila(s) en ${huerfanos.filter((r) => r.aplicados > 0).length} tabla(s)`
         );
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      errores.push(`Limpieza huérfanos prod_propios: ${msg}`);
-      console.error("Error en limpieza huérfanos prod_propios:", msg);
+      errores.push(`Limpieza huérfanos prod_lista: ${msg}`);
+      console.error("Error en limpieza huérfanos prod_lista:", msg);
     }
   }
 

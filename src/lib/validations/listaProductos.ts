@@ -19,7 +19,7 @@ const camposProductoTiendaSchema = z.object({
     .min(1, "Ingresá la descripción.")
     .max(300, "La descripción es demasiado larga."),
   idRubro: idCatalogoSchema,
-  /** Debe pertenecer a `idRubro` (FK compuesta en `prod_propios`). */
+  /** Debe pertenecer a `idRubro` (FK compuesta en `prod_lista`). */
   idSubRubro: idCatalogoSchema.nullable(),
   idMarca: idCatalogoSchema,
   idPresentacion: idCatalogoSchema.nullable(),
