@@ -4,6 +4,12 @@ import { filtroTexto } from "@/lib/busqueda";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { whereProdTiendaStockeable } from "@/services/prodTiendaStock.service";
 import {
+  listarNombresMarcasProdPropios,
+  listarNombresRubrosProdPropios,
+  SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
+import {
   buildMapSaldoStockPorSucursal,
   obtenerSucursalIdPorCodigo,
 } from "@/services/stockMovimientos.service";
@@ -47,21 +53,19 @@ export async function listarCatalogoTransfDepositos(
   function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdPropioWhereInput[] {
     const parts: Prisma.ProdPropioWhereInput[] = [whereProdTiendaStockeable()];
     if (textFilter.AND?.length) parts.push(textFilter);
-    if (exclude !== "marca" && marca) parts.push({ marca });
-    if (exclude !== "rubro" && rubro) parts.push({ rubro });
+    parts.push(
+      ...whereCatalogoProdPropio({
+        marca: exclude !== "marca" ? marca : "",
+        rubro: exclude !== "rubro" ? rubro : "",
+      })
+    );
     return parts;
   }
 
   const whereItems: Prisma.ProdPropioWhereInput = { AND: baseWhere() };
-  const whereMarcas: Prisma.ProdPropioWhereInput = {
-    AND: [...baseWhere("marca"), { marca: { not: null } }],
-  };
-  const whereRubros: Prisma.ProdPropioWhereInput = {
-    AND: [...baseWhere("rubro"), { rubro: { not: null } }],
-  };
 
   try {
-    const [rows, total, marcasDistinct, rubrosDistinct] = await Promise.all([
+    const [rows, total, marcas, rubros] = await Promise.all([
       prisma.prodPropio.findMany({
         where: whereItems,
         orderBy: { descripcionTienda: "asc" },
@@ -70,23 +74,12 @@ export async function listarCatalogoTransfDepositos(
         select: {
           codTienda: true,
           descripcionTienda: true,
-          marca: true,
-          rubro: true,
+          ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
       }),
       prisma.prodPropio.count({ where: whereItems }),
-      prisma.prodPropio.findMany({
-        select: { marca: true },
-        distinct: ["marca"],
-        where: whereMarcas,
-        orderBy: { marca: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { rubro: true },
-        distinct: ["rubro"],
-        where: whereRubros,
-        orderBy: { rubro: "asc" },
-      }),
+      listarNombresMarcasProdPropios({ AND: baseWhere("marca") }),
+      listarNombresRubrosProdPropios({ AND: baseWhere("rubro") }),
     ]);
 
     const codigos = rows.map((r) => r.codTienda);
@@ -99,8 +92,8 @@ export async function listarCatalogoTransfDepositos(
       id: r.codTienda,
       codItem: r.codTienda,
       descripcion: r.descripcionTienda ?? "",
-      marca: r.marca,
-      rubro: r.rubro,
+      marca: r.marcaRelation?.nombre ?? null,
+      rubro: r.rubroRelation?.nombre ?? null,
       stockOrigen: saldosOrigen ? (saldosOrigen.get(r.codTienda) ?? 0) : null,
       stockDestino: saldosDestino ? (saldosDestino.get(r.codTienda) ?? 0) : null,
     }));
@@ -110,8 +103,8 @@ export async function listarCatalogoTransfDepositos(
       items,
       total,
       totalPaginas: total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE),
-      marcas: marcasDistinct.flatMap((m) => (m.marca ? [m.marca] : [])),
-      rubros: rubrosDistinct.flatMap((r) => (r.rubro ? [r.rubro] : [])),
+      marcas,
+      rubros,
     };
   } catch (e) {
     console.error("[listarCatalogoTransfDepositos]", e);

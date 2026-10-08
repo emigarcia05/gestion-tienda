@@ -1,6 +1,6 @@
 export type EstPorProdPosicionUnidad = "PREFIJO" | "SUFIJO" | "SUFIJO_SIN_ESPACIO";
 
-/** Ítem del catálogo `est_por_prod_un_presentacion`. */
+/** Ítem del catálogo `prod_presentaciones_unidades`. */
 export type EstPorProdUnPresentacionItem = {
   id: string;
   /** Unidad en MAYÚSCULAS (p. ej. LTS, Nº, ''). */

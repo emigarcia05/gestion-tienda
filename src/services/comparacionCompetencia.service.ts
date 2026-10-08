@@ -11,12 +11,17 @@ export interface ProductoTiendaParaComparacionRow {
   rubro: string | null;
 }
 
-const CAMPOS_BUSQUEDA_COMPARACION = [
-  "descripcionTienda",
-  "codTienda",
-  "marca",
-  "rubro",
-] as const;
+function whereTokenComparacion(token: string): Prisma.ProdPropioWhereInput {
+  const contains = { contains: token, mode: "insensitive" as const };
+  return {
+    OR: [
+      { descripcionTienda: contains },
+      { codTienda: contains },
+      { marcaRelation: { nombre: contains } },
+      { rubroRelation: { nombre: contains } },
+    ],
+  };
+}
 
 const MAX_BUSQUEDA_COMPARACION_DB = 500;
 
@@ -24,13 +29,7 @@ function buildWhereBusquedaProductosTienda(q: string): Prisma.ProdPropioWhereInp
   const andParts: Prisma.ProdPropioWhereInput[] = [{ compararCompetencia: false }];
   const tokens = q.trim().split(/\s+/).filter(Boolean);
   if (tokens.length > 0) {
-    andParts.push({
-      AND: tokens.map((token) => ({
-        OR: CAMPOS_BUSQUEDA_COMPARACION.map((campo) => ({
-          [campo]: { contains: token, mode: "insensitive" as const },
-        })),
-      })),
-    });
+    andParts.push({ AND: tokens.map(whereTokenComparacion) });
   } else {
     andParts.push(
       { descripcionTienda: { not: null } },
@@ -40,18 +39,22 @@ function buildWhereBusquedaProductosTienda(q: string): Prisma.ProdPropioWhereInp
   return { AND: andParts };
 }
 
-function mapRowProductoComparacion(r: {
-  codTienda: string;
-  descripcionTienda: string | null;
-  marca: string | null;
-  rubro: string | null;
-}): ProductoTiendaParaComparacionRow {
+const SELECT_PRODUCTO_COMPARACION = {
+  codTienda: true,
+  descripcionTienda: true,
+  marcaRelation: { select: { nombre: true } },
+  rubroRelation: { select: { nombre: true } },
+} satisfies Prisma.ProdPropioSelect;
+
+function mapRowProductoComparacion(
+  r: Prisma.ProdPropioGetPayload<{ select: typeof SELECT_PRODUCTO_COMPARACION }>
+): ProductoTiendaParaComparacionRow {
   return {
     id: r.codTienda,
     codTienda: r.codTienda,
     descripcionTienda: (r.descripcionTienda ?? "").trim(),
-    marca: r.marca,
-    rubro: r.rubro,
+    marca: r.marcaRelation?.nombre ?? null,
+    rubro: r.rubroRelation?.nombre ?? null,
   };
 }
 
@@ -69,12 +72,7 @@ export async function buscarProductosTiendaParaComparacion(params: {
       const [rows, total] = await Promise.all([
         prisma.prodPropio.findMany({
           where,
-          select: {
-            codTienda: true,
-            descripcionTienda: true,
-            marca: true,
-            rubro: true,
-          },
+          select: SELECT_PRODUCTO_COMPARACION,
           orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
           take,
         }),
@@ -92,12 +90,7 @@ export async function buscarProductosTiendaParaComparacion(params: {
 
     const rows = await prisma.prodPropio.findMany({
       where,
-      select: {
-        codTienda: true,
-        descripcionTienda: true,
-        marca: true,
-        rubro: true,
-      },
+      select: SELECT_PRODUCTO_COMPARACION,
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take: Math.max(take, MAX_BUSQUEDA_COMPARACION_DB),
     });

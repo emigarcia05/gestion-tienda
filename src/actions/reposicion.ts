@@ -28,6 +28,12 @@ import {
 } from "@/services/pedidosReposicionProveedor.service";
 import { prismaCuidSchema } from "@/lib/validations/common";
 import { bultoProdTiendaValido, buildMapBultosProdTienda, guardarBultoProdTienda } from "@/services/tiendaBultos.service";
+import {
+  listarNombresMarcasProdPropios,
+  listarNombresRubrosProdPropios,
+  listarNombresSubRubrosProdPropios,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
 import { REVALIDATE_CX_COMPRA } from "@/lib/gestionProductosRoutes";
 import {
   getReposicionParamsSchema,
@@ -132,9 +138,13 @@ function baseWhere(
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
   const parts: Prisma.ProdPropioWhereInput[] = [];
   if (textFilter.AND?.length) parts.push(textFilter);
-  if (exclude !== "marca" && marca) parts.push({ marca });
-  if (exclude !== "rubro" && rubro) parts.push({ rubro });
-  if (exclude !== "subRubro" && subRubro) parts.push({ subRubro });
+  parts.push(
+    ...whereCatalogoProdPropio({
+      marca: exclude !== "marca" ? marca : "",
+      rubro: exclude !== "rubro" ? rubro : "",
+      subRubro: exclude !== "subRubro" ? subRubro : "",
+    })
+  );
   return parts;
 }
 
@@ -235,28 +245,21 @@ export async function getReposicionData(
     }
     return parts.length > 0 ? { AND: parts } : {};
   })();
-  const toWhereWithNotNull = (
+  const whereOpciones = (
     exclude: "marca" | "rubro" | "subRubro"
   ): Prisma.ProdPropioWhereInput => {
     const parts = baseWhere(paramsNorm, exclude);
-    const key = exclude;
-    const notNull = {
-      [key]: { not: null },
-    } as Prisma.ProdPropioWhereInput;
     const extra: Prisma.ProdPropioWhereInput[] = [];
     if (vinculoProveedor) extra.push(vinculoProveedor);
     if (configurado === "si") {
       if (codTiendaList.length === 0) return { codTienda: { in: ["__none__"] } };
       extra.push({ codTienda: { in: codTiendaList } });
     }
-    return { AND: [...parts, ...extra, notNull] };
+    return { AND: [...parts, ...extra] };
   };
-  const whereMarcas = toWhereWithNotNull("marca");
-  const whereRubros = toWhereWithNotNull("rubro");
-  const whereSubRubros = toWhereWithNotNull("subRubro");
 
   try {
-  const [rows, total, marcasDistinct, rubrosDistinct, subRubrosDistinct] =
+  const [rows, total, marcas, rubros, subRubros] =
     await Promise.all([
       prisma.prodPropio.findMany({
         where: whereItems,
@@ -265,24 +268,9 @@ export async function getReposicionData(
         take: PAGE_SIZE,
       }),
       prisma.prodPropio.count({ where: whereItems }),
-      prisma.prodPropio.findMany({
-        select: { marca: true },
-        distinct: ["marca"],
-        where: whereMarcas,
-        orderBy: { marca: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { rubro: true },
-        distinct: ["rubro"],
-        where: whereRubros,
-        orderBy: { rubro: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { subRubro: true },
-        distinct: ["subRubro"],
-        where: whereSubRubros,
-        orderBy: { subRubro: "asc" },
-      }),
+      listarNombresMarcasProdPropios(whereOpciones("marca")),
+      listarNombresRubrosProdPropios(whereOpciones("rubro")),
+      listarNombresSubRubrosProdPropios(whereOpciones("subRubro")),
     ]);
 
   const codTiendasRows = rows.map((r) => r.codTienda.trim()).filter(Boolean);
@@ -394,11 +382,9 @@ export async function getReposicionData(
     items,
     total,
     totalPaginas,
-    marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => m.marca!),
-    rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => r.rubro!),
-    subRubros: subRubrosDistinct
-      .filter((s) => s.subRubro != null)
-      .map((s) => s.subRubro!),
+    marcas,
+    rubros,
+    subRubros,
     proveedores,
   };
   } catch (error: unknown) {

@@ -76,7 +76,9 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const puedeAgregar = camposProductoTiendaCompletos(campos) && (esPropio || !!vinculo) && !pending;
   const puedeGuardar = items.length > 0 && !pending;
 
-  const rubroNombre = catalogos.rubros.find((r) => r.id === campos.idRubro)?.nombre ?? null;
+  const rubroSel = catalogos.rubros.find((r) => r.id === campos.idRubro);
+  const rubroNombre = rubroSel?.nombre ?? null;
+  const subRubroNombre = rubroSel?.subRubros.find((s) => s.id === campos.idSubRubro)?.nombre ?? null;
   const marcaNombre = catalogos.marcas.find((m) => m.id === campos.idMarca)?.nombre ?? null;
 
   function cambiarPropio(siguiente: boolean) {
@@ -257,7 +259,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         itemDescripcion={campos.descripcion.trim().toLocaleUpperCase("es-AR") || "NUEVO PRODUCTO"}
         marca={marcaNombre}
         rubro={rubroNombre}
-        subRubro={campos.subRubro.trim().toLocaleUpperCase("es-AR") || null}
+        subRubro={subRubroNombre}
       />
       <GestionarCatalogosProductoTienda
         abierto={gestionando}

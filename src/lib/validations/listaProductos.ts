@@ -2,7 +2,7 @@ import { z } from "zod";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
 import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
 
-/** `prod_marcas.id` / `prod_rubros_lista.id`: CUID o UUID histórico. */
+/** `prod_marcas.id` / `prod_rubros.id` / `prod_sub_rubros.id`: CUID o UUID (backfill SQL). */
 const idCatalogoSchema = z.string().trim().min(1, "ID inválido.").max(64, "ID inválido.");
 
 const nombreCatalogoSchema = z
@@ -19,7 +19,8 @@ const camposProductoTiendaSchema = z.object({
     .min(1, "Ingresá la descripción.")
     .max(300, "La descripción es demasiado larga."),
   idRubro: idCatalogoSchema,
-  subRubro: z.string().trim().max(120, "El sub-rubro es demasiado largo.").nullable(),
+  /** Debe pertenecer a `idRubro` (FK compuesta en `prod_propios`). */
+  idSubRubro: idCatalogoSchema.nullable(),
   idMarca: idCatalogoSchema,
   idPresentacion: idCatalogoSchema.nullable(),
   idColor: idCatalogoSchema.nullable(),
@@ -76,6 +77,10 @@ export const crearRubroSchema = z.object({ nombre: nombreCatalogoSchema });
 
 export const editarRubroSchema = crearRubroSchema.extend({ id: idCatalogoSchema });
 
+export const crearSubRubroSchema = z.object({ idRubro: idCatalogoSchema, nombre: nombreCatalogoSchema });
+
+export const editarSubRubroSchema = z.object({ id: idCatalogoSchema, nombre: nombreCatalogoSchema });
+
 export const idCatalogoInputSchema = z.object({ id: idCatalogoSchema });
 
 export type CrearProductoTiendaItemInput = z.infer<typeof crearProductoTiendaItemSchema>;
@@ -85,3 +90,5 @@ export type CrearMarcaInput = z.infer<typeof crearMarcaSchema>;
 export type EditarMarcaInput = z.infer<typeof editarMarcaSchema>;
 export type CrearRubroInput = z.infer<typeof crearRubroSchema>;
 export type EditarRubroInput = z.infer<typeof editarRubroSchema>;
+export type CrearSubRubroInput = z.infer<typeof crearSubRubroSchema>;
+export type EditarSubRubroInput = z.infer<typeof editarSubRubroSchema>;

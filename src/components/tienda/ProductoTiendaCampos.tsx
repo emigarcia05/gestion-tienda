@@ -15,7 +15,7 @@ import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalo
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import { cn } from "@/lib/utils";
 
-/** Sentinel de los Select opcionales (PRESENTACIÓN / COLOR). */
+/** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
 /** Grilla de dos columnas de los modales Agregar / Editar producto. */
@@ -24,7 +24,8 @@ export const PRODUCTO_TIENDA_GRID_CLASS = "grid grid-cols-2 gap-3";
 export type CamposProductoTiendaForm = {
   descripcion: string;
   idRubro: string;
-  subRubro: string;
+  /** Sub-rubro del rubro elegido (`SIN_VALOR_PRODUCTO_TIENDA` = sin sub-rubro). */
+  idSubRubro: string;
   idMarca: string;
   idPresentacion: string;
   idColor: string;
@@ -35,7 +36,7 @@ export type CamposProductoTiendaForm = {
 export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
   descripcion: "",
   idRubro: "",
-  subRubro: "",
+  idSubRubro: SIN_VALOR_PRODUCTO_TIENDA,
   idMarca: "",
   idPresentacion: SIN_VALOR_PRODUCTO_TIENDA,
   idColor: SIN_VALOR_PRODUCTO_TIENDA,
@@ -62,7 +63,7 @@ export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm)
   return {
     descripcion: campos.descripcion,
     idRubro: campos.idRubro,
-    subRubro: campos.subRubro.trim() || null,
+    idSubRubro: campos.idSubRubro === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idSubRubro,
     idMarca: campos.idMarca,
     idPresentacion: campos.idPresentacion === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idPresentacion,
     idColor: campos.idColor === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idColor,
@@ -146,10 +147,11 @@ export default function ProductoTiendaCampos({
   catalogos: CatalogosProductoTienda;
   disabled?: boolean;
   autoFocus?: boolean;
-  /** Si viene, RUBRO / MARCA / COLOR / PRESENTACIÓN muestran el botón «+» que abre su «GESTIONAR…». */
+  /** Si viene, los Select muestran el botón «+» que abre su «GESTIONAR…» (SUB-RUBRO abre Gestionar Rubros). */
   onGestionar?: (catalogo: CatalogoProductoTienda) => void;
 }) {
   const bultoInvalido = parsearBultoProductoTienda(campos.bulto).invalido;
+  const subRubros = catalogos.rubros.find((r) => r.id === campos.idRubro)?.subRubros ?? [];
   return (
     <>
       <div className="flex flex-col gap-1">
@@ -166,22 +168,26 @@ export default function ProductoTiendaCampos({
         <SelectCatalogo
           label="RUBRO"
           value={campos.idRubro}
-          onChange={(v) => onChange({ idRubro: v })}
+          onChange={(v) =>
+            onChange(v === campos.idRubro ? {} : { idRubro: v, idSubRubro: SIN_VALOR_PRODUCTO_TIENDA })
+          }
           opciones={catalogos.rubros}
           placeholder="RUBRO (OBLIGATORIO)"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("rubros") : undefined}
           gestionarLabel="Gestionar rubros"
         />
-        <div className="flex min-w-0 flex-col gap-1">
-          <ModalMicroLabel>SUB-RUBRO</ModalMicroLabel>
-          <Input
-            value={campos.subRubro}
-            onChange={(e) => onChange({ subRubro: e.target.value })}
-            placeholder="SUB-RUBRO"
-            disabled={disabled}
-          />
-        </div>
+        <SelectCatalogo
+          label="SUB-RUBRO"
+          value={campos.idSubRubro}
+          onChange={(v) => onChange({ idSubRubro: v })}
+          opciones={subRubros}
+          placeholder={campos.idRubro ? "SUB-RUBRO" : "ELEGÍ UN RUBRO"}
+          opcionVacia="SIN SUB-RUBRO"
+          disabled={disabled || !campos.idRubro}
+          onGestionar={onGestionar ? () => onGestionar("rubros") : undefined}
+          gestionarLabel="Gestionar sub-rubros"
+        />
         <SelectCatalogo
           label="MARCA"
           value={campos.idMarca}

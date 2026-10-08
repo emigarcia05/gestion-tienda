@@ -14,9 +14,11 @@ import {
   crearMarcaSchema,
   crearProductosTiendaLoteSchema,
   crearRubroSchema,
+  crearSubRubroSchema,
   editarMarcaSchema,
   editarProductoTiendaSchema,
   editarRubroSchema,
+  editarSubRubroSchema,
   eliminarProductoTiendaSchema,
   idCatalogoInputSchema,
 } from "@/lib/validations/listaProductos";
@@ -24,12 +26,15 @@ import {
   crearMarca,
   crearProductosTiendaLote,
   crearRubro,
+  crearSubRubro,
   editarMarca,
   editarProductoTienda,
   editarRubro,
+  editarSubRubro,
   eliminarMarca,
   eliminarProductoTienda,
   eliminarRubro,
+  eliminarSubRubro,
   listarColoresOpciones,
   listarMarcasCatalogo,
   listarPresentacionesOpciones,
@@ -182,6 +187,38 @@ export async function eliminarRubroAction(raw: unknown): Promise<ActionResult<{ 
   const parsed = idCatalogoInputSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
   const out = fromServiceResult(await eliminarRubro(parsed.data.id));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+// --- Sub-rubros (se listan anidados en `listarRubrosCatalogoAction`) ---
+
+export async function crearSubRubroAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = crearSubRubroSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await crearSubRubro(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function editarSubRubroAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = editarSubRubroSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await editarSubRubro(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function eliminarSubRubroAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = idCatalogoInputSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await eliminarSubRubro(parsed.data.id));
   if (out.ok) revalidateListaProductos();
   return out;
 }

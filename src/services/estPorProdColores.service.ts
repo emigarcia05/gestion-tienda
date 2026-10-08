@@ -26,7 +26,7 @@ function mapDbError(error: unknown, fallback: string): string {
 
 export async function listarEstPorProdColores(): Promise<EstPorProdColorItem[]> {
   try {
-    const rows = await prisma.estPorProdColor.findMany({
+    const rows = await prisma.prodColor.findMany({
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true },
     });
@@ -48,7 +48,7 @@ export async function crearEstPorProdColor(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const created = await prisma.estPorProdColor.create({
+    const created = await prisma.prodColor.create({
       data: { nombre },
       select: { id: true, nombre: true },
     });
@@ -69,7 +69,7 @@ export async function editarEstPorProdColor(
     return { success: false, error: "El nombre no puede quedar vacío." };
   }
   try {
-    const updated = await prisma.estPorProdColor.update({
+    const updated = await prisma.prodColor.update({
       where: { id: input.id },
       data: { nombre },
       select: { id: true, nombre: true },
@@ -87,7 +87,7 @@ export async function eliminarEstPorProdColor(
   id: string
 ): Promise<ServiceResult<{ id: string }>> {
   try {
-    await prisma.estPorProdColor.delete({ where: { id } });
+    await prisma.prodColor.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {
     return {

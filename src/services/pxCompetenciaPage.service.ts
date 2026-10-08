@@ -16,6 +16,10 @@ import {
 import { buildPxCompetenciaItemsDesdeFilas } from "@/services/pxCompetenciaRows.service";
 import type { ItemPxCompetenciaTabla } from "@/lib/pxCompetencia";
 import { buildMapPrecioListaPrincipal } from "@/services/prodTiendaPrecios.service";
+import {
+  listarNombresCatalogoProdPropios,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
 
 type FilaPxCompetenciaBase = {
   codTienda: string;
@@ -48,8 +52,7 @@ function buildWherePxListas(params: {
   const andParts: Prisma.ProdPropioWhereInput[] = [{ compararCompetencia: true }];
   const textFilter = filtroTexto(params.q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
-  if (params.rubro) andParts.push({ rubro: params.rubro });
-  if (params.marca) andParts.push({ marca: params.marca });
+  andParts.push(...whereCatalogoProdPropio({ rubro: params.rubro, marca: params.marca }));
   return { AND: andParts };
 }
 
@@ -67,27 +70,16 @@ async function getPxListasPageEmpty(): Promise<{
   rubros: Array<{ rubro: string }>;
   competencias: CompetenciaParaCliente[];
 }> {
-  const [marcasDistinct, rubrosDistinct, competencias] = await Promise.all([
-    prisma.prodPropio.findMany({
-      select: { marca: true },
-      distinct: ["marca"],
-      where: { marca: { not: null }, compararCompetencia: true },
-      orderBy: { marca: "asc" },
-    }),
-    prisma.prodPropio.findMany({
-      select: { rubro: true },
-      distinct: ["rubro"],
-      where: { rubro: { not: null }, compararCompetencia: true },
-      orderBy: { rubro: "asc" },
-    }),
+  const [catalogo, competencias] = await Promise.all([
+    listarNombresCatalogoProdPropios({ compararCompetencia: true }),
     listCompetencias(),
   ]);
   return {
     items: [],
     total: 0,
     totalPaginas: 1,
-    marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => ({ marca: m.marca! })),
-    rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => ({ rubro: r.rubro! })),
+    marcas: catalogo.marcas.map((marca) => ({ marca })),
+    rubros: catalogo.rubros.map((rubro) => ({ rubro })),
     competencias,
   };
 }
@@ -146,33 +138,13 @@ export async function getPxCompetenciaPageDataFromDb(params: {
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const postProceso = requierePostProcesoPxCompetencia({ filtroPxPromedio });
 
-  const andPartsOnlyQ: Prisma.ProdPropioWhereInput[] = [];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
-  if (textFilter.AND?.length) andPartsOnlyQ.push(textFilter);
-  const whereMarcas: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length
-    ? { AND: [...andPartsOnlyQ, { marca: { not: null } }, { compararCompetencia: true }] }
-    : { marca: { not: null }, compararCompetencia: true };
-  const whereRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length
-    ? { AND: [...andPartsOnlyQ, { rubro: { not: null } }, { compararCompetencia: true }] }
-    : { rubro: { not: null }, compararCompetencia: true };
-
-  const [marcasDistinct, rubrosDistinct] = await Promise.all([
-    prisma.prodPropio.findMany({
-      select: { marca: true },
-      distinct: ["marca"],
-      where: whereMarcas,
-      orderBy: { marca: "asc" },
-    }),
-    prisma.prodPropio.findMany({
-      select: { rubro: true },
-      distinct: ["rubro"],
-      where: whereRubros,
-      orderBy: { rubro: "asc" },
-    }),
-  ]);
-
-  const marcas = marcasDistinct.filter((m) => m.marca != null).map((m) => ({ marca: m.marca! }));
-  const rubros = rubrosDistinct.filter((r) => r.rubro != null).map((r) => ({ rubro: r.rubro! }));
+  const whereOpciones: Prisma.ProdPropioWhereInput = textFilter.AND?.length
+    ? { AND: [textFilter, { compararCompetencia: true }] }
+    : { compararCompetencia: true };
+  const catalogo = await listarNombresCatalogoProdPropios(whereOpciones);
+  const marcas = catalogo.marcas.map((m) => ({ marca: m }));
+  const rubros = catalogo.rubros.map((r) => ({ rubro: r }));
 
   if (postProceso) {
     const { items, total, totalPaginas, competencias } =

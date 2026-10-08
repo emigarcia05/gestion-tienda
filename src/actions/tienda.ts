@@ -20,6 +20,12 @@ import {
   getStockeableFromMap,
 } from "@/services/prodTiendaStock.service";
 import { setProductoPropioTienda } from "@/services/productoPropioTienda.service";
+import {
+  listarNombresCatalogoProdPropios,
+  nombresCatalogoProdPropio,
+  SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
 import { bultoProdTiendaValido } from "@/services/tiendaBultos.service";
 import { setProductoPropioTiendaSchema } from "@/lib/validations/productoPropioTienda";
 import { revalidatePath } from "next/cache";
@@ -66,7 +72,7 @@ async function listarProveedoresCxCompraOpciones(): Promise<ProveedorOpcionFiltr
 
 /** Respuesta vacía con opciones de filtros (marcas, rubros, subRubros, proveedores) para reutilizar en sinFiltros y filtro `vinculado` sin resultados. */
 async function getTiendaEmptyWithOpciones() {
-  const [proveedores, proveedoresCxCompra, rubrosDistinct, subRubrosDistinct, marcasDistinct] =
+  const [proveedores, proveedoresCxCompra, catalogo] =
     await Promise.all([
       prisma.proveedor.findMany({
         where: { proveedorMercaderia: true },
@@ -79,24 +85,7 @@ async function getTiendaEmptyWithOpciones() {
         },
       }),
       listarProveedoresCxCompraOpciones(),
-      prisma.prodPropio.findMany({
-        select: { rubro: true },
-        distinct: ["rubro"],
-        where: { rubro: { not: null } },
-        orderBy: { rubro: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { subRubro: true },
-        distinct: ["subRubro"],
-        where: { subRubro: { not: null } },
-        orderBy: { subRubro: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { marca: true },
-        distinct: ["marca"],
-        where: { marca: { not: null } },
-        orderBy: { marca: "asc" },
-      }),
+      listarNombresCatalogoProdPropios(),
     ]);
   return {
     items: [] as ItemTiendaParaTabla[],
@@ -109,9 +98,9 @@ async function getTiendaEmptyWithOpciones() {
       coeficienteTintometrico: Number(p.coeficienteTintometrico),
     })),
     proveedoresCxCompra,
-    marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => ({ marca: m.marca! })),
-    rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => ({ rubro: r.rubro! })),
-    subRubros: subRubrosDistinct.filter((s) => s.subRubro != null).map((s) => ({ subRubro: s.subRubro! })),
+    marcas: catalogo.marcas.map((marca) => ({ marca })),
+    rubros: catalogo.rubros.map((rubro) => ({ rubro })),
+    subRubros: catalogo.subRubros.map((subRubro) => ({ subRubro })),
     totalPaginas: 0,
   };
 }
@@ -142,12 +131,14 @@ export interface ItemTiendaParaTabla {
   esProductoPropio: boolean;
   /** Unidades por bulto (`prod_propios.bulto`); `null` = vacío. */
   bulto: number | null;
+  idRubro: string | null;
+  idSubRubro: string | null;
   idMarca: string | null;
   idPresentacion: string | null;
-  /** `est_por_prod_presentacion.texto`. */
+  /** `prod_presentaciones.texto`. */
   presentacion: string | null;
   idColor: string | null;
-  /** `est_por_prod_colores.nombre`. */
+  /** `prod_colores.nombre`. */
   color: string | null;
 }
 
@@ -226,9 +217,7 @@ export async function getTiendaPageData(params: {
   const andParts: Prisma.ProdPropioWhereInput[] = [];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
-  if (rubro) andParts.push({ rubro });
-  if (subRubro) andParts.push({ subRubro });
-  if (marca) andParts.push({ marca });
+  andParts.push(...whereCatalogoProdPropio({ rubro, subRubro, marca }));
   // Filtro CX COMPRA: ítems cuyo CX PROD. apunta a una fila lista de ese proveedor (`costo_compra_cod_ext`).
   const cxCompraIdParsed = prismaCuidSchema.safeParse(cxCompra);
   if (cxCompraIdParsed.success) {
@@ -263,13 +252,9 @@ export async function getTiendaPageData(params: {
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
   /* Opciones de filtros: cada desplegable muestra siempre la lista completa de su dimensión (ver docs/FILTROS_DINAMICOS.md). Solo se aplica filtro de búsqueda (q) si existe. */
-  const andPartsOnlyQ: Prisma.ProdPropioWhereInput[] = [];
-  if (textFilter.AND?.length) andPartsOnlyQ.push(textFilter);
-  const whereMarcas: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { marca: { not: null } }] } : { marca: { not: null } };
-  const whereRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { rubro: { not: null } }] } : { rubro: { not: null } };
-  const whereSubRubros: Prisma.ProdPropioWhereInput = andPartsOnlyQ.length ? { AND: [...andPartsOnlyQ, { subRubro: { not: null } }] } : { subRubro: { not: null } };
+  const whereSoloQ: Prisma.ProdPropioWhereInput = textFilter.AND?.length ? textFilter : {};
 
-  const [rows, total, proveedores, proveedoresCxCompra, rubrosDistinct, subRubrosDistinct, marcasDistinct] =
+  const [rows, total, proveedores, proveedoresCxCompra, catalogo] =
     await Promise.all([
       prisma.prodPropio.findMany({
         where,
@@ -278,6 +263,7 @@ export async function getTiendaPageData(params: {
           _count: { select: { listaPreciosProveedores: true } },
           presentacion: { select: { texto: true } },
           color: { select: { nombre: true } },
+          ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
         skip,
         take: PAGE_SIZE,
@@ -294,24 +280,7 @@ export async function getTiendaPageData(params: {
         },
       }),
       listarProveedoresCxCompraOpciones(),
-      prisma.prodPropio.findMany({
-        select: { rubro: true },
-        distinct: ["rubro"],
-        where: whereRubros,
-        orderBy: { rubro: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { subRubro: true },
-        distinct: ["subRubro"],
-        where: whereSubRubros,
-        orderBy: { subRubro: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { marca: true },
-        distinct: ["marca"],
-        where: whereMarcas,
-        orderBy: { marca: "asc" },
-      }),
+      listarNombresCatalogoProdPropios(whereSoloQ),
     ]);
 
   const nombreToPrefijo = new Map(
@@ -342,9 +311,9 @@ export async function getTiendaPageData(params: {
       id: r.codTienda,
       codItem: r.codTienda,
       descripcion: r.descripcionTienda ?? "",
-      rubro: r.rubro,
-      subRubro: r.subRubro,
-      marca: r.marca,
+      ...nombresCatalogoProdPropio(r),
+      idRubro: r.idRubro,
+      idSubRubro: r.idSubRubro,
       proveedorDux: prefijo,
       codigoExterno: null,
       costo: Number(r.costoCompra),
@@ -380,9 +349,9 @@ export async function getTiendaPageData(params: {
       coeficienteTintometrico: Number(p.coeficienteTintometrico),
     })),
     proveedoresCxCompra,
-    marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => ({ marca: m.marca! })),
-    rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => ({ rubro: r.rubro! })),
-    subRubros: subRubrosDistinct.filter((s) => s.subRubro != null).map((s) => ({ subRubro: s.subRubro! })),
+    marcas: catalogo.marcas.map((marca) => ({ marca })),
+    rubros: catalogo.rubros.map((rubro) => ({ rubro })),
+    subRubros: catalogo.subRubros.map((subRubro) => ({ subRubro })),
     totalPaginas,
   };
 }

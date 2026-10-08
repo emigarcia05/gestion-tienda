@@ -2,7 +2,7 @@ import { escaparRegexLiteral } from "@/lib/estPorProdColores";
 import type { EstPorProdUnPresentacionItem } from "@/lib/estPorProdUnPresentacion";
 import { formatearPresentacionConUnidad } from "@/lib/estPorProdUnPresentacion";
 
-/** Ítem del catálogo `est_por_prod_presentacion`. */
+/** Ítem del catálogo `prod_presentaciones`. */
 export type EstPorProdPresentacionItem = {
   id: string;
   /** Texto en MAYÚSCULAS a buscar en la descripción (derivado de numérica + unidad). */

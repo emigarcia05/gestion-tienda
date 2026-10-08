@@ -1,4 +1,4 @@
-/** Ítem del catálogo `est_por_prod_colores`. */
+/** Ítem del catálogo `prod_colores`. */
 export type EstPorProdColorItem = {
   id: string;
   /** Nombre en MAYÚSCULAS (valor usado en el match sobre descripciones). */

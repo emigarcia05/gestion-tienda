@@ -13,6 +13,11 @@ import { bultoProdTiendaValido } from "@/services/tiendaBultos.service";
 import { buildMapCantAPedirAFabricaPorProveedor } from "@/services/pedidosEnvio.service";
 import { getIdDepositoPorSucursalCodigo } from "@/services/prodTiendaStock.service";
 import {
+  nombresCatalogoProdPropio,
+  SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
+import {
   buildMapSaldoStockItemsSucursales,
   claveSaldoStock,
 } from "@/services/stockMovimientos.service";
@@ -206,9 +211,13 @@ function buildWhereLista(
   const marca = filtros.marca?.trim() ?? "";
   const rubro = filtros.rubro?.trim() ?? "";
   const subRubro = filtros.subRubro?.trim() ?? "";
-  if (exclude !== "marca" && marca) tiendaAnd.push({ marca });
-  if (exclude !== "rubro" && rubro) tiendaAnd.push({ rubro });
-  if (exclude !== "subRubro" && subRubro) tiendaAnd.push({ subRubro });
+  tiendaAnd.push(
+    ...whereCatalogoProdPropio({
+      marca: exclude !== "marca" ? marca : "",
+      rubro: exclude !== "rubro" ? rubro : "",
+      subRubro: exclude !== "subRubro" ? subRubro : "",
+    })
+  );
   if (tiendaAnd.length > 0) {
     parts.push({ prodTienda: { is: { AND: tiendaAnd } } });
   }
@@ -235,21 +244,27 @@ async function opcionesCampoTienda(
   whereLista: Prisma.ListaPrecioProveedorWhereInput,
   campo: CampoFiltroTienda
 ): Promise<string[]> {
+  const campoNoNulo: Prisma.ProdPropioWhereInput =
+    campo === "marca"
+      ? { idMarca: { not: null } }
+      : campo === "rubro"
+        ? { idRubro: { not: null } }
+        : { idSubRubro: { not: null } };
   const rows = await prisma.listaPrecioProveedor.findMany({
     where: {
       AND: [
         whereLista,
         { codTiendaVinculo: { not: null } },
-        { prodTienda: { is: { [campo]: { not: null } } } },
+        { prodTienda: { is: campoNoNulo } },
       ],
     },
     select: {
-      prodTienda: { select: { marca: true, rubro: true, subRubro: true } },
+      prodTienda: { select: SELECT_NOMBRES_CATALOGO_PROD_PROPIO },
     },
   });
   const set = new Set<string>();
   for (const r of rows) {
-    const v = r.prodTienda?.[campo]?.trim();
+    const v = r.prodTienda ? nombresCatalogoProdPropio(r.prodTienda)[campo]?.trim() : null;
     if (v) set.add(v);
   }
   return [...set].sort((a, b) => a.localeCompare(b, "es"));

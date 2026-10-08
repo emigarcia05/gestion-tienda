@@ -8,7 +8,7 @@ const nombreEstPorProdColorSchema = z
   .max(200, "El nombre es demasiado largo.");
 
 /**
- * PK de `est_por_prod_colores`: CUID (altas desde el modal) o id fijo de seed
+ * PK de `prod_colores`: CUID (altas desde el modal) o id fijo de seed
  * (`est_color_*`, migración `20260804152000_add_est_por_prod_colores`).
  * Todos son editables/eliminables desde **Gestion Colores**.
  */

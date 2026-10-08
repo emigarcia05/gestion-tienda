@@ -90,9 +90,9 @@ export async function buscarProductosParaFactura(params: {
         })),
       });
     }
-    if (rubro) and.push({ rubro: { equals: rubro, mode: "insensitive" } });
-    if (subRubro) and.push({ subRubro: { equals: subRubro, mode: "insensitive" } });
-    if (marca) and.push({ marca: { equals: marca, mode: "insensitive" } });
+    if (rubro) and.push({ rubroRelation: { nombre: { equals: rubro, mode: "insensitive" } } });
+    if (subRubro) and.push({ subRubroRelation: { nombre: { equals: subRubro, mode: "insensitive" } } });
+    if (marca) and.push({ marcaRelation: { nombre: { equals: marca, mode: "insensitive" } } });
 
     const where: Prisma.ProdPropioWhereInput = { AND: and };
 

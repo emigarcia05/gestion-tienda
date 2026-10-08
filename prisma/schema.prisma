@@ -213,16 +213,38 @@ enum CampoReglaDescuentoListaPrecio {
 /**
  * Catálogo de rubros para condiciones de reglas de descuento en lista de precios proveedor.
  */
-model ProdRubroLista {
+model ProdRubro {
   id        String   @id @default(cuid())
-  nombre    String   @unique(map: "prod_rubros_lista_nombre_key")
+  nombre    String   @unique(map: "prod_rubros_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   reglasDescuentos   ProdPrecioProveeRegla[]
   reglasDescEspecial ProdPrecioDescEspecialRegla[]
+  subRubros          ProdSubRubro[]
+  prodPropios        ProdPropio[]
 
-  @@map("prod_rubros_lista")
+  @@map("prod_rubros")
+}
+
+/**
+ * Sub-rubros de un rubro (1 rubro → N sub-rubros). Nombre único dentro del rubro.
+ * `@@unique([id, idRubro])` sostiene la FK compuesta de `prod_propios` (el sub-rubro debe ser del rubro del ítem).
+ */
+model ProdSubRubro {
+  id        String   @id @default(cuid())
+  idRubro   String   @map("id_rubro")
+  nombre    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rubro       ProdRubro    @relation(fields: [idRubro], references: [id], onDelete: Cascade)
+  prodPropios ProdPropio[]
+
+  @@unique([idRubro, nombre], map: "prod_sub_rubros_id_rubro_nombre_key")
+  @@unique([id, idRubro], map: "prod_sub_rubros_id_id_rubro_key")
+  @@index([idRubro], map: "prod_sub_rubros_id_rubro_idx")
+  @@map("prod_sub_rubros")
 }
 
 /**
@@ -238,9 +260,9 @@ model ProdPrecioProveeRegla {
   createdAt   DateTime                       @default(now()) @map("created_at")
   updatedAt   DateTime                       @updatedAt @map("updated_at")
 
-  proveedor Proveedor?      @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
-  marca     Marca?          @relation(fields: [idMarca], references: [id], onDelete: Cascade)
-  rubro     ProdRubroLista? @relation(fields: [idRubro], references: [id], onDelete: Cascade)
+  proveedor Proveedor? @relation(fields: [idProveedor], references: [id], onDelete: Cascade)
+  marca     Marca?     @relation(fields: [idMarca], references: [id], onDelete: Cascade)
+  rubro     ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Cascade)
 
   @@index([campo], map: "prod_precios_provee_reglas_campo_idx")
   @@index([idProveedor], map: "prod_precios_provee_reglas_id_proveedor_idx")
@@ -264,7 +286,7 @@ model ProdPrecioDescEspecialRegla {
 
   proveedor Proveedor?                            @relation(fields: [idProveedor], references: [id], onDelete: SetNull)
   marca     Marca?                                @relation(fields: [idMarca], references: [id], onDelete: SetNull)
-  rubro     ProdRubroLista?                       @relation(fields: [idRubro], references: [id], onDelete: SetNull)
+  rubro     ProdRubro?                            @relation(fields: [idRubro], references: [id], onDelete: SetNull)
   productos ProdPrecioDescEspecialReglaProducto[]
 
   @@index([idProveedor], map: "pp_desc_esp_regla_id_proveedor_idx")
@@ -919,18 +941,18 @@ model EstPorProd {
  * El color no viene en columna: se detecta por match (regex) del `nombre`
  * (MAYÚSCULAS) dentro de la descripción del producto en `prod_propios`.
  */
-model EstPorProdColor {
+model ProdColor {
   id        String   @id @default(cuid())
   /**
    * Nombre en MAYÚSCULAS (p. ej. BLANCO); único para match en descripciones.
    */
-  nombre    String   @unique(map: "est_por_prod_colores_nombre_key")
+  nombre    String   @unique(map: "prod_colores_nombre_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   prodTiendas ProdPropio[]
 
-  @@map("est_por_prod_colores")
+  @@map("prod_colores")
 }
 
 /**
@@ -938,21 +960,21 @@ model EstPorProdColor {
  * Prefijo = unidad antes del número (Nº 20); Sufijo = después (20 LTS).
  * `suma` = true si el valor numérico puede agregarse en estadísticas.
  */
-model EstPorProdUnPresentacion {
+model ProdPresentacionUnidad {
   id             String                   @id @default(cuid())
   /**
    * Texto de unidad en MAYÚSCULAS (único).
    */
-  unidad         String                   @unique(map: "est_por_prod_un_presentacion_unidad_key")
+  unidad         String                   @unique(map: "prod_presentaciones_unidades_unidad_key")
   posicionUnidad EstPorProdPosicionUnidad @map("posicion_unidad")
   suma           Boolean                  @default(false)
   createdAt      DateTime                 @default(now()) @map("created_at")
   updatedAt      DateTime                 @updatedAt @map("updated_at")
 
-  presentacionesComoMedida     EstPorProdPresentacion[] @relation("PresentacionUnidadMedida")
-  presentacionesComoConversion EstPorProdPresentacion[] @relation("PresentacionConversionUnidad")
+  presentacionesComoMedida     ProdPresentacion[] @relation("PresentacionUnidadMedida")
+  presentacionesComoConversion ProdPresentacion[] @relation("PresentacionConversionUnidad")
 
-  @@map("est_por_prod_un_presentacion")
+  @@map("prod_presentaciones_unidades")
 }
 
 enum EstPorProdPosicionUnidad {
@@ -971,12 +993,12 @@ enum EstPorProdPosicionUnidad {
  * Se detecta `texto` (MAYÚSCULAS) por regex en la descripción; define unidad de medida,
  * valor numérico y conversión opcional a otra unidad.
  */
-model EstPorProdPresentacion {
+model ProdPresentacion {
   id                            String   @id @default(cuid())
   /**
    * Fragmento a buscar en la descripción (MAYÚSCULAS), p. ej. «440 CC».
    */
-  texto                         String   @unique(map: "est_por_prod_presentacion_texto_key")
+  texto                         String   @unique(map: "prod_presentaciones_texto_key")
   unidadMedidaId                String   @map("unidad_medida_id")
   presentacionNumerica          Decimal  @map("presentacion_numerica") @db.Decimal(12, 4)
   /**
@@ -987,13 +1009,13 @@ model EstPorProdPresentacion {
   createdAt                     DateTime @default(now()) @map("created_at")
   updatedAt                     DateTime @updatedAt @map("updated_at")
 
-  unidadMedida      EstPorProdUnPresentacion  @relation("PresentacionUnidadMedida", fields: [unidadMedidaId], references: [id], onDelete: Restrict)
-  conversionAUnidad EstPorProdUnPresentacion? @relation("PresentacionConversionUnidad", fields: [conversionAUnidadId], references: [id], onDelete: Restrict)
+  unidadMedida      ProdPresentacionUnidad  @relation("PresentacionUnidadMedida", fields: [unidadMedidaId], references: [id], onDelete: Restrict)
+  conversionAUnidad ProdPresentacionUnidad? @relation("PresentacionConversionUnidad", fields: [conversionAUnidadId], references: [id], onDelete: Restrict)
   prodTiendas       ProdPropio[]
 
   @@index([unidadMedidaId])
   @@index([conversionAUnidadId])
-  @@map("est_por_prod_presentacion")
+  @@map("prod_presentaciones")
 }
 
 /**
@@ -1280,13 +1302,15 @@ model ProdPropioListaPrecioEdicion {
   @@map("prod_propios_listas_precios_edicion")
 }
 
-// Alimentada solo por API externa (tabla prod_propios). Frontend solo lectura; no usar create/update/delete desde UI.
+/// Catálogo de productos propios (alta/edición en Lista Productos). Rubro, sub-rubro, marca, color y
+/// presentación solo por FK a sus catálogos (sin columnas de texto espejo).
 model ProdPropio {
-  codTienda                   String    @id @map("cod_tienda") // clave de negocio estable (PK); sync upsert por cod_tienda
-  rubro                       String?
-  subRubro                    String?   @map("sub_rubro")
-  marca                       String? // texto tal cual viene de la API DUX (se mantiene para trazabilidad)
-  idMarca                     String?   @map("id_marca") // FK a prod_marcas: marca normalizada y vinculada
+  codTienda                   String    @id @map("cod_tienda") // clave de negocio estable (PK)
+  /// FK `prod_rubros` (Restrict: no se borra un rubro con productos).
+  idRubro                     String?   @map("id_rubro")
+  /// FK compuesta (`id_sub_rubro`, `id_rubro`) → `prod_sub_rubros`: el sub-rubro pertenece al rubro del ítem.
+  idSubRubro                  String?   @map("id_sub_rubro")
+  idMarca                     String?   @map("id_marca") // FK a prod_marcas
   /**
    * Histórico DUX: a partir de 2026-05-28 ya no se sincroniza. La relación tienda ↔ proveedor se infiere de `listaPreciosProveedores` (vínculos manuales).
    */
@@ -1316,9 +1340,11 @@ model ProdPropio {
   /// Color elegido al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
   idColor                     String?   @map("id_color")
 
+  rubroRelation             ProdRubro?                     @relation(fields: [idRubro], references: [id], onDelete: Restrict)
+  subRubroRelation          ProdSubRubro?                  @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
-  presentacion              EstPorProdPresentacion?        @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
-  color                     EstPorProdColor?               @relation(fields: [idColor], references: [id], onDelete: SetNull)
+  presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
+  color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
   listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por prod_precios_provee.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
@@ -1331,9 +1357,9 @@ model ProdPropio {
 
   @@index([competenciaIdPxListaGeneral], map: "prod_propios_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_propios_descripcion_tienda_idx")
-  @@index([marca], map: "prod_propios_marca_idx")
-  @@index([rubro], map: "prod_propios_rubro_idx")
-  @@index([subRubro], map: "prod_propios_sub_rubro_idx")
+  @@index([idMarca], map: "prod_propios_id_marca_idx")
+  @@index([idRubro], map: "prod_propios_id_rubro_idx")
+  @@index([idSubRubro], map: "prod_propios_id_sub_rubro_idx")
   @@index([idPresentacion], map: "prod_propios_id_presentacion_idx")
   @@index([idColor], map: "prod_propios_id_color_idx")
   @@map("prod_propios")

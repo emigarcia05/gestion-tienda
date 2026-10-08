@@ -456,7 +456,7 @@ export function resolverDescuentosParaItem(
 async function cargarCatalogosResolver(): Promise<CatalogosResolver> {
   const [marcas, rubros] = await Promise.all([
     prisma.marca.findMany({ select: { id: true, nombre: true } }),
-    prisma.prodRubroLista.findMany({ select: { id: true, nombre: true } }),
+    prisma.prodRubro.findMany({ select: { id: true, nombre: true } }),
   ]);
 
   const marcasPorId = new Map<string, string>();
@@ -736,7 +736,7 @@ export async function validarReglaSinConflicto(input: {
     if (!marca) return { success: false, error: "Marca no encontrada." };
   }
   if (condiciones.idRubro) {
-    const rubro = await prisma.prodRubroLista.findUnique({
+    const rubro = await prisma.prodRubro.findUnique({
       where: { id: condiciones.idRubro },
       select: { id: true },
     });

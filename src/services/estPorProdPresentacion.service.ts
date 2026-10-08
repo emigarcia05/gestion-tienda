@@ -103,7 +103,7 @@ async function validarUnidadesPresentacion(
   unidadMedidaId: string,
   conversionAUnidadId: string | null
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const medida = await prisma.estPorProdUnPresentacion.findUnique({
+  const medida = await prisma.prodPresentacionUnidad.findUnique({
     where: { id: unidadMedidaId },
     select: { id: true },
   });
@@ -119,7 +119,7 @@ async function validarUnidadesPresentacion(
       error: "Convertir a un. debe ser distinta de la unidad medida.",
     };
   }
-  const destino = await prisma.estPorProdUnPresentacion.findUnique({
+  const destino = await prisma.prodPresentacionUnidad.findUnique({
     where: { id: conversionAUnidadId },
     select: { id: true, suma: true },
   });
@@ -143,7 +143,7 @@ async function derivarTextoPresentacion(
   presentacionNumerica: number,
   unidadMedidaId: string
 ): Promise<{ ok: true; texto: string } | { ok: false; error: string }> {
-  const unidad = await prisma.estPorProdUnPresentacion.findUnique({
+  const unidad = await prisma.prodPresentacionUnidad.findUnique({
     where: { id: unidadMedidaId },
     select: { unidad: true, posicionUnidad: true },
   });
@@ -187,7 +187,7 @@ export async function listarEstPorProdPresentaciones(): Promise<
   EstPorProdPresentacionItem[]
 > {
   try {
-    const rows = await prisma.estPorProdPresentacion.findMany({
+    const rows = await prisma.prodPresentacion.findMany({
       orderBy: { texto: "asc" },
       include: presentacionInclude,
     });
@@ -220,7 +220,7 @@ export async function crearEstPorProdPresentacion(
   }
   const conversion = datosConversion(input);
   try {
-    const created = await prisma.estPorProdPresentacion.create({
+    const created = await prisma.prodPresentacion.create({
       data: {
         texto: derivado.texto,
         unidadMedidaId: input.unidadMedidaId,
@@ -258,7 +258,7 @@ export async function editarEstPorProdPresentacion(
   }
   const conversion = datosConversion(input);
   try {
-    const updated = await prisma.estPorProdPresentacion.update({
+    const updated = await prisma.prodPresentacion.update({
       where: { id: input.id },
       data: {
         texto: derivado.texto,
@@ -282,7 +282,7 @@ export async function eliminarEstPorProdPresentacion(
   id: string
 ): Promise<ServiceResult<{ id: string }>> {
   try {
-    await prisma.estPorProdPresentacion.delete({ where: { id } });
+    await prisma.prodPresentacion.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {
     return {

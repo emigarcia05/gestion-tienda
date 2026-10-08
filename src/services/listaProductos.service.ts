@@ -11,10 +11,11 @@ import type {
   CrearProductosTiendaLoteInput,
   EditarProductoTiendaInput,
   CrearRubroInput,
+  CrearSubRubroInput,
   EditarMarcaInput,
   EditarRubroInput,
+  EditarSubRubroInput,
 } from "@/lib/validations/listaProductos";
-import { listarRubrosCatalogoReglasDesdeProdTienda } from "@/services/rubrosProdTienda.service";
 import type { ServiceResult } from "@/types";
 
 /** Clave de `pg_advisory_xact_lock` que serializa la asignación de `cod_tienda` correlativo. */
@@ -50,23 +51,30 @@ async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string>
 
 type CamposProductoTienda = Pick<
   CrearProductoTiendaItemInput,
-  "descripcion" | "idRubro" | "subRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
+  "descripcion" | "idRubro" | "idSubRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
 >;
 
-/** Valida los catálogos elegidos y arma las columnas de `prod_propios` (texto rubro/marca + FKs). */
+/** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_propios`. */
 async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos: CamposProductoTienda) {
   const etiqueta = campos.descripcion.trim().toLocaleUpperCase("es-AR");
-  const [rubro, marca, presentacion, color] = await Promise.all([
-    tx.prodRubroLista.findUnique({ where: { id: campos.idRubro }, select: { nombre: true } }),
-    tx.marca.findUnique({ where: { id: campos.idMarca }, select: { id: true, nombre: true } }),
+  const [rubro, subRubro, marca, presentacion, color] = await Promise.all([
+    tx.prodRubro.findUnique({ where: { id: campos.idRubro }, select: { id: true } }),
+    campos.idSubRubro
+      ? tx.prodSubRubro.findUnique({ where: { id: campos.idSubRubro }, select: { id: true, idRubro: true } })
+      : null,
+    tx.marca.findUnique({ where: { id: campos.idMarca }, select: { id: true } }),
     campos.idPresentacion
-      ? tx.estPorProdPresentacion.findUnique({ where: { id: campos.idPresentacion }, select: { id: true } })
+      ? tx.prodPresentacion.findUnique({ where: { id: campos.idPresentacion }, select: { id: true } })
       : null,
     campos.idColor
-      ? tx.estPorProdColor.findUnique({ where: { id: campos.idColor }, select: { id: true } })
+      ? tx.prodColor.findUnique({ where: { id: campos.idColor }, select: { id: true } })
       : null,
   ]);
   if (!rubro) throw new ErrorNegocio(`${etiqueta}: el rubro elegido ya no existe.`);
+  if (campos.idSubRubro && !subRubro) throw new ErrorNegocio(`${etiqueta}: el sub-rubro elegido ya no existe.`);
+  if (subRubro && subRubro.idRubro !== rubro.id) {
+    throw new ErrorNegocio(`${etiqueta}: el sub-rubro no pertenece al rubro elegido.`);
+  }
   if (!marca) throw new ErrorNegocio(`${etiqueta}: la marca elegida ya no existe.`);
   if (campos.idPresentacion && !presentacion) {
     throw new ErrorNegocio(`${etiqueta}: la presentación elegida ya no existe.`);
@@ -76,9 +84,8 @@ async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos
     etiqueta,
     data: {
       descripcionTienda: campos.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-      rubro: rubro.nombre,
-      subRubro: campos.subRubro ? normalizarNombreCatalogo(campos.subRubro) : null,
-      marca: marca.nombre,
+      idRubro: rubro.id,
+      idSubRubro: subRubro?.id ?? null,
       idMarca: marca.id,
       idPresentacion: presentacion?.id ?? null,
       idColor: color?.id ?? null,
@@ -227,7 +234,7 @@ export async function eliminarProductoTienda(
 // ---------------------------------------------------------------------------
 
 export async function listarPresentacionesOpciones(): Promise<OpcionCatalogoItem[]> {
-  const rows = await prisma.estPorProdPresentacion.findMany({
+  const rows = await prisma.prodPresentacion.findMany({
     orderBy: { texto: "asc" },
     select: { id: true, texto: true },
   });
@@ -235,7 +242,7 @@ export async function listarPresentacionesOpciones(): Promise<OpcionCatalogoItem
 }
 
 export async function listarColoresOpciones(): Promise<OpcionCatalogoItem[]> {
-  return prisma.estPorProdColor.findMany({
+  return prisma.prodColor.findMany({
     orderBy: { nombre: "asc" },
     select: { id: true, nombre: true },
   });
@@ -281,8 +288,8 @@ export async function crearMarca(input: CrearMarcaInput): Promise<ServiceResult<
 }
 
 /**
- * Renombrar actualiza también el texto `marca` de `prod_propios` (vinculados) y de `prod_precios_provee`
- * (las reglas de descuento comparan por nombre contra ese texto).
+ * Renombrar actualiza también el texto `marca` de `prod_precios_provee`
+ * (las reglas de descuento comparan por nombre contra ese texto). `prod_propios` solo guarda `id_marca`.
  */
 export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
@@ -297,7 +304,6 @@ export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResul
       }),
       ...(renombra
         ? [
-            prisma.prodPropio.updateMany({ where: { idMarca: input.id }, data: { marca: nombre } }),
             prisma.listaPrecioProveedor.updateMany({
               where: { marca: { equals: actual.nombre, mode: "insensitive" } },
               data: { marca: nombre },
@@ -347,23 +353,34 @@ export async function eliminarMarca(id: string): Promise<ServiceResult<{ id: str
 }
 
 // ---------------------------------------------------------------------------
-// Rubros (`prod_rubros_lista`; `prod_propios.rubro` guarda el nombre como texto)
+// Rubros (`prod_rubros`) y sub-rubros (`prod_sub_rubros`); `prod_propios` los referencia por FK
 // ---------------------------------------------------------------------------
 
 export async function listarRubrosCatalogo(): Promise<RubroCatalogoItem[]> {
-  await listarRubrosCatalogoReglasDesdeProdTienda();
-  const [rubros, conteos] = await Promise.all([
-    prisma.prodRubroLista.findMany({ orderBy: { nombre: "asc" }, select: { id: true, nombre: true } }),
-    prisma.prodPropio.groupBy({ by: ["rubro"], where: { rubro: { not: null } }, _count: true }),
-  ]);
-  const porNombre = new Map(conteos.map((c) => [c.rubro ?? "", c._count]));
-  return rubros.map((r) => ({ ...r, productos: porNombre.get(r.nombre) ?? 0 }));
+  const rubros = await prisma.prodRubro.findMany({
+    orderBy: { nombre: "asc" },
+    select: {
+      id: true,
+      nombre: true,
+      _count: { select: { prodPropios: true } },
+      subRubros: {
+        orderBy: { nombre: "asc" },
+        select: { id: true, nombre: true, _count: { select: { prodPropios: true } } },
+      },
+    },
+  });
+  return rubros.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    productos: r._count.prodPropios,
+    subRubros: r.subRubros.map((s) => ({ id: s.id, nombre: s.nombre, productos: s._count.prodPropios })),
+  }));
 }
 
 export async function crearRubro(input: CrearRubroInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
   try {
-    const created = await prisma.prodRubroLista.create({ data: { nombre }, select: { id: true } });
+    const created = await prisma.prodRubro.create({ data: { nombre }, select: { id: true } });
     return { success: true, data: created };
   } catch (error) {
     if (esErrorPrisma(error, "P2002")) {
@@ -374,10 +391,10 @@ export async function crearRubro(input: CrearRubroInput): Promise<ServiceResult<
   }
 }
 
-/** Renombrar actualiza el texto en `prod_propios.rubro` y `prod_precios_provee.rubro`. */
+/** Renombrar actualiza también el texto `prod_precios_provee.rubro` (listas de proveedor). */
 export async function editarRubro(input: EditarRubroInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
-  const actual = await prisma.prodRubroLista.findUnique({
+  const actual = await prisma.prodRubro.findUnique({
     where: { id: input.id },
     select: { nombre: true },
   });
@@ -385,8 +402,7 @@ export async function editarRubro(input: EditarRubroInput): Promise<ServiceResul
   if (actual.nombre === nombre) return { success: true, data: { id: input.id } };
   try {
     await prisma.$transaction([
-      prisma.prodRubroLista.update({ where: { id: input.id }, data: { nombre } }),
-      prisma.prodPropio.updateMany({ where: { rubro: actual.nombre }, data: { rubro: nombre } }),
+      prisma.prodRubro.update({ where: { id: input.id }, data: { nombre } }),
       prisma.listaPrecioProveedor.updateMany({
         where: { rubro: { equals: actual.nombre, mode: "insensitive" } },
         data: { rubro: nombre },
@@ -402,17 +418,19 @@ export async function editarRubro(input: EditarRubroInput): Promise<ServiceResul
   }
 }
 
-/** Solo si ningún producto lo usa y no tiene reglas de descuento (la FK de reglas borra en cascada). */
+/**
+ * Solo si ningún producto lo usa y no tiene reglas de descuento (la FK de reglas borra en cascada).
+ * Sus sub-rubros (sin productos, porque el rubro no tiene) se borran en cascada.
+ */
 export async function eliminarRubro(id: string): Promise<ServiceResult<{ id: string }>> {
-  const rubro = await prisma.prodRubroLista.findUnique({
+  const rubro = await prisma.prodRubro.findUnique({
     where: { id },
     select: {
-      nombre: true,
-      _count: { select: { reglasDescuentos: true, reglasDescEspecial: true } },
+      _count: { select: { prodPropios: true, reglasDescuentos: true, reglasDescEspecial: true } },
     },
   });
   if (!rubro) return { success: false, error: "Rubro no encontrado." };
-  const productos = await prisma.prodPropio.count({ where: { rubro: rubro.nombre } });
+  const productos = rubro._count.prodPropios;
   if (productos > 0) {
     return { success: false, error: `El rubro tiene ${productos} producto(s).` };
   }
@@ -420,10 +438,63 @@ export async function eliminarRubro(id: string): Promise<ServiceResult<{ id: str
     return { success: false, error: "El rubro se usa en reglas de descuento de lista de precios." };
   }
   try {
-    await prisma.prodRubroLista.delete({ where: { id } });
+    await prisma.prodRubro.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {
     console.error("[listaProductos.service] eliminarRubro:", error);
     return { success: false, error: "No se pudo eliminar el rubro." };
+  }
+}
+
+export async function crearSubRubro(input: CrearSubRubroInput): Promise<ServiceResult<{ id: string }>> {
+  const nombre = normalizarNombreCatalogo(input.nombre);
+  const rubro = await prisma.prodRubro.findUnique({ where: { id: input.idRubro }, select: { id: true } });
+  if (!rubro) return { success: false, error: "Rubro no encontrado." };
+  try {
+    const created = await prisma.prodSubRubro.create({
+      data: { idRubro: rubro.id, nombre },
+      select: { id: true },
+    });
+    return { success: true, data: created };
+  } catch (error) {
+    if (esErrorPrisma(error, "P2002")) {
+      return { success: false, error: "El rubro ya tiene un sub-rubro con ese nombre." };
+    }
+    console.error("[listaProductos.service] crearSubRubro:", error);
+    return { success: false, error: "No se pudo crear el sub-rubro." };
+  }
+}
+
+export async function editarSubRubro(input: EditarSubRubroInput): Promise<ServiceResult<{ id: string }>> {
+  const nombre = normalizarNombreCatalogo(input.nombre);
+  try {
+    await prisma.prodSubRubro.update({ where: { id: input.id }, data: { nombre } });
+    return { success: true, data: { id: input.id } };
+  } catch (error) {
+    if (esErrorPrisma(error, "P2025")) return { success: false, error: "Sub-rubro no encontrado." };
+    if (esErrorPrisma(error, "P2002")) {
+      return { success: false, error: "El rubro ya tiene un sub-rubro con ese nombre." };
+    }
+    console.error("[listaProductos.service] editarSubRubro:", error);
+    return { success: false, error: "No se pudo actualizar el sub-rubro." };
+  }
+}
+
+/** Bloqueado si algún producto lo usa (FK Restrict). */
+export async function eliminarSubRubro(id: string): Promise<ServiceResult<{ id: string }>> {
+  const sub = await prisma.prodSubRubro.findUnique({
+    where: { id },
+    select: { _count: { select: { prodPropios: true } } },
+  });
+  if (!sub) return { success: false, error: "Sub-rubro no encontrado." };
+  if (sub._count.prodPropios > 0) {
+    return { success: false, error: `El sub-rubro tiene ${sub._count.prodPropios} producto(s).` };
+  }
+  try {
+    await prisma.prodSubRubro.delete({ where: { id } });
+    return { success: true, data: { id } };
+  } catch (error) {
+    console.error("[listaProductos.service] eliminarSubRubro:", error);
+    return { success: false, error: "No se pudo eliminar el sub-rubro." };
   }
 }

@@ -723,14 +723,14 @@ async function armarLineasProductosCuentaCorriente(
           where: { codTienda: { in: codigos } },
           select: {
             codTienda: true,
-            marca: true,
-            rubro: true,
+            marcaRelation: { select: { nombre: true } },
+            rubroRelation: { select: { nombre: true } },
           },
         });
   const metaPorCod = new Map(
     tiendaRows.map((t) => {
-      const marca = (t.marca ?? "").trim();
-      const rubro = (t.rubro ?? "").trim();
+      const marca = (t.marcaRelation?.nombre ?? "").trim();
+      const rubro = (t.rubroRelation?.nombre ?? "").trim();
       return [t.codTienda, { marca, rubro }] as const;
     })
   );

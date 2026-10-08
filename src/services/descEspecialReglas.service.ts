@@ -58,7 +58,7 @@ async function validarProductosCoincidenFiltros(
         })
       : Promise.resolve(null),
     filtros.idRubro
-      ? prisma.prodRubroLista.findUnique({
+      ? prisma.prodRubro.findUnique({
           where: { id: filtros.idRubro },
           select: { nombre: true },
         })

@@ -25,6 +25,10 @@ import {
   listarOpcionesFiltroPxVinculado,
 } from "@/services/pxListasCompetenciaRef.service";
 import { listarFinAnaMcCategorias } from "@/services/finAnaMcCategorias.service";
+import {
+  listarNombresCatalogoProdPropios,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
 
 export type PxListasPreciosPageData = {
   items: ItemPxListasPreciosTabla[];
@@ -93,9 +97,9 @@ function buildWhere(params: {
       : "";
   const textFilter = filtroTexto(qListado, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
-  if (params.rubro) andParts.push({ rubro: params.rubro });
-  if (params.marca) andParts.push({ marca: params.marca });
-  if (params.subRubro) andParts.push({ subRubro: params.subRubro });
+  andParts.push(
+    ...whereCatalogoProdPropio({ rubro: params.rubro, marca: params.marca, subRubro: params.subRubro })
+  );
   if (params.pxVinculado) {
     andParts.push({ competenciaIdPxListaGeneral: params.pxVinculado });
   }
@@ -107,14 +111,9 @@ function buildWhere(params: {
   return andParts.length ? { AND: andParts } : {};
 }
 
-function whereDistinctOpciones(
-  q: string,
-  extra: Prisma.ProdPropioWhereInput
-): Prisma.ProdPropioWhereInput {
-  const andParts: Prisma.ProdPropioWhereInput[] = [extra];
+function whereDistinctOpciones(q: string): Prisma.ProdPropioWhereInput {
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
-  if (textFilter.AND?.length) andParts.push(textFilter);
-  return { AND: andParts };
+  return textFilter.AND?.length ? textFilter : {};
 }
 
 async function listarColumnasListas(): Promise<ListaPrecioPxListasColumna[]> {
@@ -154,37 +153,11 @@ async function cargarMetaEstaticoPxListas(): Promise<MetaEstaticoPxListas> {
 async function listarOpcionesDistinctFiltros(
   q: string
 ): Promise<DistinctFiltrosPxListas> {
-  const [marcasDistinct, rubrosDistinct, subRubrosDistinct] = await Promise.all([
-    prisma.prodPropio.findMany({
-      select: { marca: true },
-      distinct: ["marca"],
-      where: whereDistinctOpciones(q, { marca: { not: null } }),
-      orderBy: { marca: "asc" },
-    }),
-    prisma.prodPropio.findMany({
-      select: { rubro: true },
-      distinct: ["rubro"],
-      where: whereDistinctOpciones(q, { rubro: { not: null } }),
-      orderBy: { rubro: "asc" },
-    }),
-    prisma.prodPropio.findMany({
-      select: { subRubro: true },
-      distinct: ["subRubro"],
-      where: whereDistinctOpciones(q, { subRubro: { not: null } }),
-      orderBy: { subRubro: "asc" },
-    }),
-  ]);
-
+  const catalogo = await listarNombresCatalogoProdPropios(whereDistinctOpciones(q));
   return {
-    marcas: marcasDistinct.flatMap((m) =>
-      m.marca != null ? [{ marca: m.marca }] : []
-    ),
-    rubros: rubrosDistinct.flatMap((r) =>
-      r.rubro != null ? [{ rubro: r.rubro }] : []
-    ),
-    subRubros: subRubrosDistinct.flatMap((s) =>
-      s.subRubro != null ? [{ subRubro: s.subRubro }] : []
-    ),
+    marcas: catalogo.marcas.map((marca) => ({ marca })),
+    rubros: catalogo.rubros.map((rubro) => ({ rubro })),
+    subRubros: catalogo.subRubros.map((subRubro) => ({ subRubro })),
   };
 }
 

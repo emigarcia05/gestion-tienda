@@ -48,7 +48,7 @@ export async function listarEstPorProdUnPresentaciones(): Promise<
   EstPorProdUnPresentacionItem[]
 > {
   try {
-    const rows = await prisma.estPorProdUnPresentacion.findMany({
+    const rows = await prisma.prodPresentacionUnidad.findMany({
       orderBy: { unidad: "asc" },
       select: { id: true, unidad: true, posicionUnidad: true, suma: true },
     });
@@ -70,7 +70,7 @@ export async function crearEstPorProdUnPresentacion(
     return { success: false, error: "La unidad no puede quedar vacía." };
   }
   try {
-    const created = await prisma.estPorProdUnPresentacion.create({
+    const created = await prisma.prodPresentacionUnidad.create({
       data: {
         unidad,
         posicionUnidad: input.posicionUnidad,
@@ -95,7 +95,7 @@ export async function editarEstPorProdUnPresentacion(
     return { success: false, error: "La unidad no puede quedar vacía." };
   }
   try {
-    const updated = await prisma.estPorProdUnPresentacion.update({
+    const updated = await prisma.prodPresentacionUnidad.update({
       where: { id: input.id },
       data: {
         unidad,
@@ -117,7 +117,7 @@ export async function eliminarEstPorProdUnPresentacion(
   id: string
 ): Promise<ServiceResult<{ id: string }>> {
   try {
-    await prisma.estPorProdUnPresentacion.delete({ where: { id } });
+    await prisma.prodPresentacionUnidad.delete({ where: { id } });
     return { success: true, data: { id } };
   } catch (error) {
     return {

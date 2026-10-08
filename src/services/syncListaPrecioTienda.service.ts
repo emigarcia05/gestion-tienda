@@ -68,13 +68,14 @@ export interface SyncListaPrecioTiendaResult {
   errores: string[];
 }
 
-/** Mapea ítem DUX a la fila de upsert prod_propios. `proveedor` queda fuera del sync (§1.4.2). */
+/**
+ * Mapea ítem DUX a la fila de upsert prod_propios. `proveedor` queda fuera del sync (§1.4.2).
+ * Rubro / sub-rubro no se sincronizan (se gestionan en Lista Productos); `marca` solo resuelve `id_marca`.
+ */
 function itemDuxToProdTiendaRecord(item: ItemDux) {
   const codTienda = (item.codItem ?? "").trim() || COD_TIENDA;
   return {
     codTienda,
-    rubro: item.rubro ?? null,
-    subRubro: item.subRubro ?? null,
     marca: item.marca ?? null,
     descripcionTienda: item.descripcion ?? null,
     costoCompra: Number(item.costo) || 0,
@@ -171,9 +172,6 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
                 where: { codTienda: row.codTienda },
                 create: {
                   codTienda: row.codTienda,
-                  rubro: row.rubro,
-                  subRubro: row.subRubro,
-                  marca: row.marca,
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
                   costoCompra: new Prisma.Decimal(row.costoCompra),
@@ -181,9 +179,6 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
                 },
                 update: {
                   codTienda: row.codTienda,
-                  rubro: row.rubro,
-                  subRubro: row.subRubro,
-                  marca: row.marca,
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
                   costoCompra: new Prisma.Decimal(row.costoCompra),

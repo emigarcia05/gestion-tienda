@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
 
 /**
- * Validación de filas de `est_por_prod_presentacion`.
+ * Validación de filas de `prod_presentaciones`.
  * `texto` se deriva en el servicio (presentacion_numerica + unidad medida).
  * Conversión opcional: si hay unidad o valor, ambos; destino ≠ medida y `suma = true` (servicio).
  */

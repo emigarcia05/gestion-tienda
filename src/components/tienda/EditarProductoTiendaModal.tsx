@@ -38,9 +38,9 @@ export default function EditarProductoTiendaModal({
   const catalogos = useCatalogosProductoTienda(true);
   const [campos, setCampos] = useState<CamposProductoTiendaForm>({
     descripcion: item.descripcion,
-    idRubro: "",
-    subRubro: item.subRubro ?? "",
-    idMarca: "",
+    idRubro: item.idRubro ?? "",
+    idSubRubro: item.idSubRubro ?? SIN_VALOR_PRODUCTO_TIENDA,
+    idMarca: item.idMarca ?? "",
     idPresentacion: item.idPresentacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     idColor: item.idColor ?? SIN_VALOR_PRODUCTO_TIENDA,
     bulto: item.bulto != null ? String(item.bulto) : "",
@@ -53,25 +53,14 @@ export default function EditarProductoTiendaModal({
     recargar();
   }, [recargar]);
 
-  // Rubro y marca del ítem se resuelven contra el catálogo cuando llega (rubro por nombre; marca por id o nombre).
-  const camposEfectivos: CamposProductoTiendaForm = {
-    ...campos,
-    idRubro: campos.idRubro || (catalogos.rubros.find((r) => r.nombre === item.rubro)?.id ?? ""),
-    idMarca:
-      campos.idMarca ||
-      (catalogos.marcas.find((m) => m.id === item.idMarca)?.id ??
-        catalogos.marcas.find((m) => m.nombre === item.marca)?.id ??
-        ""),
-  };
-
-  const puedeGuardar = camposProductoTiendaCompletos(camposEfectivos) && !pending;
+  const puedeGuardar = camposProductoTiendaCompletos(campos) && !pending;
 
   async function guardar() {
     if (!puedeGuardar) return;
     setPending(true);
     try {
       const res = await editarProductoTiendaAction({
-        ...camposProductoTiendaParaAction(camposEfectivos),
+        ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
       });
       if (!res.ok) {
@@ -106,7 +95,7 @@ export default function EditarProductoTiendaModal({
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>DATOS DEL PRODUCTO</h3>
             <ProductoTiendaCampos
-              campos={camposEfectivos}
+              campos={campos}
               onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
               catalogos={catalogos}
               disabled={pending}

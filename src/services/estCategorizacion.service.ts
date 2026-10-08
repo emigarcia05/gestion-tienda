@@ -7,6 +7,10 @@ import {
 } from "@/lib/estPorProdPresentacion";
 import { matchTerminacionesEnDescripcion } from "@/lib/estPorProdTerminacion";
 import { listarEstPorProdColores } from "@/services/estPorProdColores.service";
+import {
+  nombresCatalogoProdPropio,
+  SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+} from "@/services/prodPropiosCatalogos.service";
 import { listarEstPorProdPresentaciones } from "@/services/estPorProdPresentacion.service";
 import { listarEstPorProdTerminaciones } from "@/services/estPorProdTerminacion.service";
 
@@ -22,9 +26,7 @@ export async function listarProdTiendaCategorizacion(): Promise<EstCategorizacio
         select: {
           codTienda: true,
           descripcionTienda: true,
-          marca: true,
-          rubro: true,
-          subRubro: true,
+          ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
         orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       }),
@@ -46,12 +48,13 @@ export async function listarProdTiendaCategorizacion(): Promise<EstCategorizacio
         descripcionTienda,
         presentaciones
       );
+      const nombres = nombresCatalogoProdPropio(r);
       return {
         codTienda: r.codTienda,
         descripcionTienda,
-        marca: upperOrEmpty(r.marca),
-        rubro: upperOrEmpty(r.rubro),
-        subRubro: upperOrEmpty(r.subRubro),
+        marca: upperOrEmpty(nombres.marca),
+        rubro: upperOrEmpty(nombres.rubro),
+        subRubro: upperOrEmpty(nombres.subRubro),
         colores: coloresNombres,
         colorEtiqueta: coloresNombres.join(" · "),
         terminaciones: terminacionesNombres,

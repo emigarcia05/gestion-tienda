@@ -10,6 +10,13 @@ import { PAGE_SIZE } from "@/lib/pagination";
 import { getControlStockParamsSchema } from "@/lib/validations/stock";
 import { whereProdTiendaStockeable } from "@/services/prodTiendaStock.service";
 import {
+  listarNombresMarcasProdPropios,
+  listarNombresRubrosProdPropios,
+  nombresCatalogoProdPropio,
+  SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+  whereCatalogoProdPropio,
+} from "@/services/prodPropiosCatalogos.service";
+import {
   buildMapSaldoStockPorSucursal,
   obtenerSucursalIdPorCodigo,
 } from "@/services/stockMovimientos.service";
@@ -88,27 +95,20 @@ export async function getControlStock(
   function baseWhere(exclude?: "marca" | "rubro"): Prisma.ProdPropioWhereInput[] {
     const parts: Prisma.ProdPropioWhereInput[] = [whereProdTiendaStockeable()];
     if (textFilter.AND?.length) parts.push(textFilter);
-    if (exclude !== "marca" && marca) parts.push({ marca });
-    if (exclude !== "rubro" && rubro) parts.push({ rubro });
+    parts.push(
+      ...whereCatalogoProdPropio({
+        marca: exclude !== "marca" ? marca : "",
+        rubro: exclude !== "rubro" ? rubro : "",
+      })
+    );
     return parts;
   }
 
-  const toWhereWithNotNull = (
-    exclude: "marca" | "rubro"
-  ): Prisma.ProdPropioWhereInput => {
-    const parts = baseWhere(exclude);
-    const key = exclude;
-    const notNull = { [key]: { not: null } } as Prisma.ProdPropioWhereInput;
-    return parts.length > 0 ? { AND: [...parts, notNull] } : notNull;
-  };
-
   const whereItems: Prisma.ProdPropioWhereInput =
     baseWhere().length > 0 ? { AND: baseWhere() } : {};
-  const whereMarcas = toWhereWithNotNull("marca");
-  const whereRubros = toWhereWithNotNull("rubro");
 
   try {
-    const [rows, total, marcasDistinct, rubrosDistinct] = await Promise.all([
+    const [rows, total, marcas, rubros] = await Promise.all([
       prisma.prodPropio.findMany({
         where: whereItems,
         orderBy: { descripcionTienda: "asc" },
@@ -117,23 +117,12 @@ export async function getControlStock(
         select: {
           codTienda: true,
           descripcionTienda: true,
-          marca: true,
-          rubro: true,
+          ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
       }),
       prisma.prodPropio.count({ where: whereItems }),
-      prisma.prodPropio.findMany({
-        select: { marca: true },
-        distinct: ["marca"],
-        where: whereMarcas,
-        orderBy: { marca: "asc" },
-      }),
-      prisma.prodPropio.findMany({
-        select: { rubro: true },
-        distinct: ["rubro"],
-        where: whereRubros,
-        orderBy: { rubro: "asc" },
-      }),
+      listarNombresMarcasProdPropios({ AND: baseWhere("marca") }),
+      listarNombresRubrosProdPropios({ AND: baseWhere("rubro") }),
     ]);
 
     const sucursalId = await obtenerSucursalIdPorCodigo(sucursal);
@@ -144,14 +133,17 @@ export async function getControlStock(
         )
       : new Map<string, number>();
 
-    const items: ItemStock[] = rows.map((r) => ({
-      id: r.codTienda,
-      codItem: r.codTienda,
-      descripcion: r.descripcionTienda ?? "",
-      marca: r.marca,
-      rubro: r.rubro,
-      stock: saldos.get(r.codTienda) ?? 0,
-    }));
+    const items: ItemStock[] = rows.map((r) => {
+      const { marca: marcaItem, rubro: rubroItem } = nombresCatalogoProdPropio(r);
+      return {
+        id: r.codTienda,
+        codItem: r.codTienda,
+        descripcion: r.descripcionTienda ?? "",
+        marca: marcaItem,
+        rubro: rubroItem,
+        stock: saldos.get(r.codTienda) ?? 0,
+      };
+    });
 
     const totalPaginas = total <= 0 ? 1 : Math.ceil(total / PAGE_SIZE);
 
@@ -159,8 +151,8 @@ export async function getControlStock(
       items,
       total,
       totalPaginas,
-      marcas: marcasDistinct.filter((m) => m.marca != null).map((m) => m.marca!),
-      rubros: rubrosDistinct.filter((r) => r.rubro != null).map((r) => r.rubro!),
+      marcas,
+      rubros,
     };
   } catch (e) {
     console.error("[getControlStock]", e);

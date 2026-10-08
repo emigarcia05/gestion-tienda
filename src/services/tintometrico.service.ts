@@ -66,7 +66,7 @@ export type BaseTintometricaCatalogo = {
 };
 
 const WHERE_BASE_TINTOMETRICA: Prisma.ProdPropioWhereInput = {
-  rubro: { equals: "Tintometrico", mode: "insensitive" },
+  rubroRelation: { nombre: { equals: "Tintometrico", mode: "insensitive" } },
 };
 
 /**
@@ -122,9 +122,7 @@ export async function buscarBasesTintometricas(
   take: number
 ): Promise<{ items: BaseTintometricaRow[]; total: number }> {
   const query = (q ?? "").trim();
-  const andParts: Prisma.ProdPropioWhereInput[] = [
-    { rubro: { equals: "Tintometrico", mode: "insensitive" as const } },
-  ];
+  const andParts: Prisma.ProdPropioWhereInput[] = [WHERE_BASE_TINTOMETRICA];
 
   if (query.length >= 3) {
     const tokens = query.split(/\s+/).filter(Boolean);
@@ -134,7 +132,7 @@ export async function buscarBasesTintometricas(
           OR: [
             { descripcionTienda: { contains: t, mode: "insensitive" as const } },
             { codTienda: { contains: t, mode: "insensitive" as const } },
-            { marca: { contains: t, mode: "insensitive" as const } },
+            { marcaRelation: { nombre: { contains: t, mode: "insensitive" as const } } },
           ],
         })),
       });
@@ -149,8 +147,8 @@ export async function buscarBasesTintometricas(
       select: {
         codTienda: true,
         descripcionTienda: true,
-        marca: true,
-        rubro: true,
+        marcaRelation: { select: { nombre: true } },
+        rubroRelation: { select: { nombre: true } },
       },
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take,
@@ -163,8 +161,8 @@ export async function buscarBasesTintometricas(
       id: r.codTienda,
       codTienda: r.codTienda,
       descripcionTienda: (r.descripcionTienda ?? "").trim(),
-      marca: r.marca ?? null,
-      rubro: r.rubro ?? null,
+      marca: r.marcaRelation?.nombre ?? null,
+      rubro: r.rubroRelation?.nombre ?? null,
     })),
     total,
   };
