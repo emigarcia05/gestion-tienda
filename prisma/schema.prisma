@@ -1234,6 +1234,9 @@ model Marca {
   prodTiendas                   ProdPropio[]
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
+  codColorVtasItems             ComprobanteVtaItem[]
+  codColorPedidosMerc           ProdPedMerc2[]
+  codColorPedidosHistoriaItems  PedidoHistoriaItem[]
 
   @@map("prod_marcas")
 }
@@ -1609,38 +1612,43 @@ model ImportProgress {
  * `reposicion_forma_pedido`: UNIDADES_MAX | POR_BULTO | UNIDADES_FIJAS.
  */
 model ProdPedMerc2 {
-  id                      String  @id @default(uuid())
-  tipoDePedido            String  @map("tipo_de_pedido")
-  sucursalId              String  @map("sucursal_id")
-  urgenteCodExt           String? @map("urgente_cod_ext")
-  urgenteCantPedir        Int     @default(0) @map("urgente_cant_pedir")
-  tintometricoDescripcion String? @map("tintometrico_descripcion")
+  id                          String  @id @default(uuid())
+  tipoDePedido                String  @map("tipo_de_pedido")
+  sucursalId                  String  @map("sucursal_id")
+  urgenteCodExt               String? @map("urgente_cod_ext")
+  urgenteCantPedir            Int     @default(0) @map("urgente_cant_pedir")
+  tintometricoDescripcion     String? @map("tintometrico_descripcion")
   /**
    * COD. COLOR tipeado en «Agregar Tintométrico» (MAYÚSCULAS); pasa a `prod_ped_historial_merc.cod_color`.
    */
-  tintometricoCodColor    String? @map("tintometrico_cod_color") @db.VarChar(40)
-  tintometrioCantPedir    Int     @default(0) @map("tintometrio_cant_pedir")
+  tintometricoCodColor        String? @map("tintometrico_cod_color") @db.VarChar(40)
+  /**
+   * Marca del COD. COLOR (define la máscara); independiente de la marca de la base.
+   */
+  tintometricoCodColorIdMarca String? @map("tintometrico_cod_color_id_marca")
+  tintometrioCantPedir        Int     @default(0) @map("tintometrio_cant_pedir")
   /**
    * `id` de `global_proveedores` para filas tintométricas (texto / cuid).
    */
-  tintometricoProveedor   String? @map("tintometrico_proveedor")
-  reposicionFormaPedido   String? @map("reposicion_forma_pedido")
-  reposicionPuntoPedido   Int?    @map("reposicion_punto_pedido")
-  reposicionCantConf      Int?    @map("reposicion_cant_conf")
+  tintometricoProveedor       String? @map("tintometrico_proveedor")
+  reposicionFormaPedido       String? @map("reposicion_forma_pedido")
+  reposicionPuntoPedido       Int?    @map("reposicion_punto_pedido")
+  reposicionCantConf          Int?    @map("reposicion_cant_conf")
   /**
    * Cantidad a pedir (reposición); manual vía sobrestock o al persistir la regla.
    */
-  reposicionCantPedir     Int?    @map("reposicion_cant_pedir")
+  reposicionCantPedir         Int?    @map("reposicion_cant_pedir")
   /**
    * Código tienda (`prod_propios.cod_tienda`) para reglas / filas de tipo REPOSICION.
    */
-  reposicionCodTienda     String? @map("reposicion_cod_tienda")
+  reposicionCodTienda         String? @map("reposicion_cod_tienda")
   /**
    * REPOSICION: «No pedir en este pedido» (cant. = 0 sin borrar la regla); vuelve a false al generar el pedido del proveedor o al editar la regla.
    */
-  reposicionOmitirPedido  Boolean @default(false) @map("reposicion_omitir_pedido")
+  reposicionOmitirPedido      Boolean @default(false) @map("reposicion_omitir_pedido")
 
-  sucursal Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  sucursal             Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  tintometricoMarcaCod Marca?   @relation(fields: [tintometricoCodColorIdMarca], references: [id], onDelete: SetNull)
 
   @@index([sucursalId, tipoDePedido], map: "prod_ped_merc_sucursal_tipo_idx")
   @@index([reposicionCodTienda], map: "prod_ped_merc_reposicion_cod_tienda_idx")
@@ -1704,12 +1712,17 @@ model PedidoHistoriaItem {
    * COD. COLOR de ítems tintométricos (MAYÚSCULAS); `null` en el resto. Ya va incluido en `descripcion`.
    */
   codColor         String? @map("cod_color") @db.VarChar(40)
+  /**
+   * Marca del COD. COLOR (independiente de la marca del producto).
+   */
+  codColorIdMarca  String? @map("cod_color_id_marca")
   cantPedida       Int     @default(0) @map("cant_pedida")
   cantRecibida     Int?    @map("cant_recibida") // Unidades recibidas; admite negativo. `null` = sin confirmar.
 
   pedidoHistoria PedidoHistoria @relation(fields: [pedidoHistoriaId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
+  marcaCodColor  Marca?         @relation(fields: [codColorIdMarca], references: [id], onDelete: SetNull)
 
   @@unique([pedidoHistoriaId, codExt])
   @@index([pedidoHistoriaId])
@@ -2601,28 +2614,33 @@ model ClienteCobro {
 }
 
 model ComprobanteVtaItem {
-  id            String  @id @default(cuid())
-  comprobanteId String  @map("comprobante_id")
-  orden         Int
-  codTienda     String  @map("cod_tienda")
-  descripcion   String
+  id              String  @id @default(cuid())
+  comprobanteId   String  @map("comprobante_id")
+  orden           Int
+  codTienda       String  @map("cod_tienda")
+  descripcion     String
   /**
    * Hasta 1 decimal. El front muestra entero si no hay fracción.
    */
-  cantidad      Decimal @db.Decimal(12, 1)
-  px            Decimal @db.Decimal(14, 2)
-  descuentoPct  Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
-  alicuotaIva   Decimal @map("alicuota_iva") @db.Decimal(5, 2)
-  ivaId         Int     @map("iva_id")
-  importe       Decimal @db.Decimal(14, 2)
-  comentario    String  @default("") @db.Text
+  cantidad        Decimal @db.Decimal(12, 1)
+  px              Decimal @db.Decimal(14, 2)
+  descuentoPct    Decimal @default(0) @map("descuento_pct") @db.Decimal(5, 2)
+  alicuotaIva     Decimal @map("alicuota_iva") @db.Decimal(5, 2)
+  ivaId           Int     @map("iva_id")
+  importe         Decimal @db.Decimal(14, 2)
+  comentario      String  @default("") @db.Text
   /**
    * COD. COLOR de ítems tintométricos (MAYÚSCULAS); `null` en el resto.
    * `descripcion` ya lo incluye como sufijo ` (COD)` (texto fiscal impreso).
    */
-  codColor      String? @map("cod_color") @db.VarChar(40)
+  codColor        String? @map("cod_color") @db.VarChar(40)
+  /**
+   * Marca del COD. COLOR (define la máscara); independiente de la marca del producto.
+   */
+  codColorIdMarca String? @map("cod_color_id_marca")
 
-  comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  comprobante   ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  marcaCodColor Marca?         @relation(fields: [codColorIdMarca], references: [id], onDelete: SetNull)
 
   @@index([comprobanteId], map: "vtas_comprobantes_items_comp_idx")
   @@index([codColor], map: "vtas_comprobantes_items_cod_color_idx")

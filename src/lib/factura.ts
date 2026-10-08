@@ -819,6 +819,8 @@ export type FacturaLineaLocal = {
   comentario: string;
   /** COD. COLOR de ítems tintométricos; la grilla muestra `descripcionConCodColor`. */
   codColor: string | null;
+  /** Marca del COD. COLOR (puede diferir de la marca del producto). */
+  codColorIdMarca: string | null;
 };
 
 /**

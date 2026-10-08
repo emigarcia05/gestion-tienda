@@ -45,7 +45,9 @@ import {
   type ProductoFacturaBusquedaItem,
 } from "@/services/facturaProductos.service";
 import {
+  listarMarcasCodColorTintometrico,
   listarProveedoresCoefTintometrico,
+  type MarcaTintometricaCatalogo,
   type ProveedorCoefTintometrico,
 } from "@/services/tintometrico.service";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
@@ -131,13 +133,17 @@ export async function buscarProductosFacturaAction(
   return fromServiceResult(res);
 }
 
-/** Proveedores con COEF. TINTOMÉTRICO > 1 para el modal tintométrico de Factura · Crear. */
-export async function listarProveedoresTintometricoFacturaAction(): Promise<
-  ActionResult<ProveedorCoefTintometrico[]>
+/** Modal tintométrico de Factura · Crear: marcas de COD. COLOR + proveedores con COEF. TINTOMÉTRICO > 1. */
+export async function obtenerCatalogoTintometricoFacturaAction(): Promise<
+  ActionResult<{ marcas: MarcaTintometricaCatalogo[]; proveedores: ProveedorCoefTintometrico[] }>
 > {
   const gate = await requireFacturacionLectura();
   if (gate) return gate;
-  return { ok: true, data: await listarProveedoresCoefTintometrico() };
+  const [marcas, proveedores] = await Promise.all([
+    listarMarcasCodColorTintometrico(),
+    listarProveedoresCoefTintometrico(),
+  ]);
+  return { ok: true, data: { marcas, proveedores } };
 }
 
 export async function listarCatalogoBusquedaProductosFacturaAction(): Promise<

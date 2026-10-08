@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { listarProveedoresTintometricoFacturaAction } from "@/actions/factura";
+import { obtenerCatalogoTintometricoFacturaAction } from "@/actions/factura";
 import AppModal from "@/components/shared/AppModal";
 import CodColorTintometricoInput from "@/components/shared/CodColorTintometricoInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -20,67 +20,102 @@ import { calcularPxTintometrico, descripcionConCodColor } from "@/lib/codColorTi
 import { fmtPrecio } from "@/lib/format";
 import { montoArNormalizedStringToPesosNumber } from "@/lib/montoArMask";
 import { aplicarEntradaCodigoFormato, codigoCumpleFormatoCod } from "@/lib/tintometricoFormatoCod";
-import type { ProveedorCoefTintometrico } from "@/services/tintometrico.service";
+import { cn } from "@/lib/utils";
+import type {
+  MarcaTintometricaCatalogo,
+  ProveedorCoefTintometrico,
+} from "@/services/tintometrico.service";
 
+const TITULO_SECCION_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
+const CAMPO_CLASS = "flex min-w-0 flex-col gap-1";
 const VALOR_CALCULADO_CLASS =
   "flex h-10 items-center justify-center rounded-md border border-border bg-background px-3 text-sm tabular-nums text-foreground";
+
+const LISTAS = {
+  general: "PX. LISTA GENERAL",
+  mayorista: "PX. LISTA MAYORISTA",
+} as const;
+type ListaTintometrico = keyof typeof LISTAS;
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   descripcion: string;
-  /** Máscara de la marca del producto; `null` = código libre. */
-  formatoCod: string | null;
-  onConfirmar: (datos: { codColor: string; pxLista: number }) => void;
+  /** Marca del producto: solo preselecciona MARCA COD. (el código puede ser de cualquier marca). */
+  idMarcaProducto: string | null;
+  onConfirmar: (datos: { codColor: string; codColorIdMarca: string; pxLista: number }) => void;
 }
 
 /**
- * Factura · Crear: al elegir un producto del rubro TINTOMETRICO se piden COD. COLOR
- * (máscara de Pedir Tintométrico) y precio (cálculo de Px Tintométrico → PX. LISTA = lista general).
+ * Factura · Crear, producto del rubro TINTOMETRICO.
+ * COD. COLOR: MARCA COD. (máscara) | COD. · PRECIO: proveedor × px compra → lista elegida; PX. MANUAL tiene prioridad.
  * El padre remonta con `key` por producto.
  */
 export default function FacturaTintometricoModal({
   open,
   onOpenChange,
   descripcion,
-  formatoCod,
+  idMarcaProducto,
   onConfirmar,
 }: Props) {
-  const [codigo, setCodigo] = useState(() => aplicarEntradaCodigoFormato(formatoCod, "").value);
+  const [marcas, setMarcas] = useState<MarcaTintometricaCatalogo[]>([]);
   const [proveedores, setProveedores] = useState<ProveedorCoefTintometrico[]>([]);
+  const [idMarcaCod, setIdMarcaCod] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [proveedorId, setProveedorId] = useState("");
   const [pxCompraNorm, setPxCompraNorm] = useState("");
+  const [lista, setLista] = useState<ListaTintometrico>("general");
+  const [pxManualNorm, setPxManualNorm] = useState("");
 
   useEffect(() => {
     if (!open) return;
     let cancelado = false;
-    void listarProveedoresTintometricoFacturaAction().then((res) => {
+    void obtenerCatalogoTintometricoFacturaAction().then((res) => {
       if (cancelado) return;
       if (!res.ok) {
-        toast.error(res.error ?? "No se pudieron cargar los proveedores.");
+        toast.error(res.error ?? "No se pudo cargar el catálogo tintométrico.");
         return;
       }
-      setProveedores(res.data);
+      setMarcas(res.data.marcas);
+      setProveedores(res.data.proveedores);
+      const inicial = res.data.marcas.find((m) => m.idMarca === idMarcaProducto);
+      if (inicial) {
+        setIdMarcaCod(inicial.idMarca);
+        setCodigo(aplicarEntradaCodigoFormato(inicial.formatoCod, "").value);
+      }
     });
     return () => {
       cancelado = true;
     };
-  }, [open]);
+  }, [open, idMarcaProducto]);
 
+  const marcaCod = marcas.find((m) => m.idMarca === idMarcaCod) ?? null;
+  const formatoCod = marcaCod?.formatoCod ?? null;
   const codigoTrim = codigo.trim();
   const codigoValido =
-    codigoTrim.length > 0 && (formatoCod === null || codigoCumpleFormatoCod(codigoTrim, formatoCod));
+    !!marcaCod &&
+    codigoTrim.length > 0 &&
+    (formatoCod === null || codigoCumpleFormatoCod(codigoTrim, formatoCod));
 
-  const px = useMemo(() => {
+  const pxCalculado = useMemo(() => {
     const coef = proveedores.find((p) => p.id === proveedorId)?.coeficienteTintometrico ?? null;
-    return calcularPxTintometrico(montoArNormalizedStringToPesosNumber(pxCompraNorm), coef);
-  }, [proveedores, proveedorId, pxCompraNorm]);
+    return calcularPxTintometrico(montoArNormalizedStringToPesosNumber(pxCompraNorm), coef)[lista];
+  }, [proveedores, proveedorId, pxCompraNorm, lista]);
+  const pxManual = montoArNormalizedStringToPesosNumber(pxManualNorm);
+  const usaManual = pxManual > 0;
+  const pxFinal = usaManual ? pxManual : pxCalculado;
 
-  const puedeAgregar = codigoValido && px.general > 0;
+  const puedeAgregar = codigoValido && pxFinal > 0;
+
+  function cambiarMarcaCod(id: string) {
+    setIdMarcaCod(id);
+    const m = marcas.find((x) => x.idMarca === id);
+    setCodigo(aplicarEntradaCodigoFormato(m?.formatoCod ?? null, "").value);
+  }
 
   function handleAgregar() {
-    if (!puedeAgregar) return;
-    onConfirmar({ codColor: codigoTrim, pxLista: px.general });
+    if (!puedeAgregar || !marcaCod) return;
+    onConfirmar({ codColor: codigoTrim, codColorIdMarca: marcaCod.idMarca, pxLista: pxFinal });
     onOpenChange(false);
   }
 
@@ -106,53 +141,102 @@ export default function FacturaTintometricoModal({
             {descripcionConCodColor(descripcion, codigoValido ? codigoTrim : null)}
           </p>
 
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>COD. COLOR</ModalMicroLabel>
-            <CodColorTintometricoInput
-              formatoCod={formatoCod}
-              value={codigo}
-              onChange={setCodigo}
-              autoFocus
-            />
-          </div>
+          <section className="modal-seccion-formulario">
+            <p className={TITULO_SECCION_CLASS}>COD. COLOR</p>
+            <div className="grid grid-cols-2 items-start gap-3">
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>MARCA COD.</ModalMicroLabel>
+                <Select value={idMarcaCod} onValueChange={cambiarMarcaCod}>
+                  <SelectTrigger className="h-10 w-full" aria-label="Marca del código">
+                    <SelectValue placeholder="MARCA" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" align="start">
+                    {marcas.map((m) => (
+                      <SelectItem key={m.idMarca} value={m.idMarca}>
+                        {m.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>COD.</ModalMicroLabel>
+                <CodColorTintometricoInput
+                  key={idMarcaCod}
+                  formatoCod={formatoCod}
+                  value={codigo}
+                  onChange={setCodigo}
+                  disabled={!marcaCod}
+                  autoFocus={!!marcaCod}
+                />
+              </div>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>PROVEEDOR</ModalMicroLabel>
-              <Select value={proveedorId} onValueChange={setProveedorId}>
-                <SelectTrigger className="h-10 w-full" aria-label="Proveedor">
-                  <SelectValue placeholder="SIN COEF." />
-                </SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start">
-                  {proveedores.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.prefijo ? `[${p.prefijo}] ${p.nombre}` : p.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <section className="modal-seccion-formulario">
+            <p className={TITULO_SECCION_CLASS}>PRECIO</p>
+            <div className="grid grid-cols-2 items-start gap-3">
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>PROVEEDOR</ModalMicroLabel>
+                <Select value={proveedorId} onValueChange={setProveedorId}>
+                  <SelectTrigger className="h-10 w-full" aria-label="Proveedor">
+                    <SelectValue placeholder="SIN COEF." />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" align="start">
+                    {proveedores.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.prefijo ? `[${p.prefijo}] ${p.nombre}` : p.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>PX. COMPRA</ModalMicroLabel>
+                <MontoArInput
+                  valueNormalized={pxCompraNorm}
+                  onValueNormalizedChange={setPxCompraNorm}
+                  className="h-10"
+                  aria-label="Px. Compra"
+                />
+              </div>
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>LISTA</ModalMicroLabel>
+                <Select value={lista} onValueChange={(v) => setLista(v as ListaTintometrico)}>
+                  <SelectTrigger className="h-10 w-full" aria-label="Lista">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" side="bottom" align="start">
+                    {(Object.keys(LISTAS) as ListaTintometrico[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {LISTAS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className={CAMPO_CLASS}>
+                <ModalMicroLabel>PX. LISTA</ModalMicroLabel>
+                <div
+                  className={cn(
+                    VALOR_CALCULADO_CLASS,
+                    usaManual && "text-muted-foreground line-through"
+                  )}
+                >
+                  {`$${fmtPrecio(pxCalculado)}`}
+                </div>
+              </div>
+              <div className={cn(CAMPO_CLASS, "col-span-2")}>
+                <ModalMicroLabel>PX. MANUAL</ModalMicroLabel>
+                <MontoArInput
+                  valueNormalized={pxManualNorm}
+                  onValueNormalizedChange={setPxManualNorm}
+                  className="h-10"
+                  aria-label="Px. Manual"
+                />
+              </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>PX. COMPRA</ModalMicroLabel>
-              <MontoArInput
-                valueNormalized={pxCompraNorm}
-                onValueNormalizedChange={setPxCompraNorm}
-                className="h-10"
-                aria-label="Px. Compra"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>PX. LISTA GENERAL</ModalMicroLabel>
-              <div className={VALOR_CALCULADO_CLASS}>{`$${fmtPrecio(px.general)}`}</div>
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel>PX. LISTA MAYORISTA</ModalMicroLabel>
-              <div className={VALOR_CALCULADO_CLASS}>{`$${fmtPrecio(px.mayorista)}`}</div>
-            </div>
-          </div>
+          </section>
         </div>
       </AppModal>
     </Dialog>

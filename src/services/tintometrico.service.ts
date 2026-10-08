@@ -82,87 +82,112 @@ export type MarcaTintometricaCatalogo = {
 export type BaseTintometricaCatalogo = {
   codTienda: string;
   descripcionTienda: string;
-  idMarca: string;
+  /** Marca del producto (puede diferir de la marca del COD. COLOR). */
+  idMarca: string | null;
 };
 
 const WHERE_BASE_TINTOMETRICA: Prisma.ProdPropioWhereInput = {
   rubroRelation: { nombre: { equals: RUBRO_TINTOMETRICO, mode: "insensitive" } },
 };
 
+export type CodColorLineaResuelto = { codColor: string | null; codColorIdMarca: string | null };
+
 /**
- * COD. COLOR por línea de venta: normalizado, `null` si el producto no es tintométrico,
- * y validado contra la máscara de la marca cuando existe.
+ * COD. COLOR por línea de venta: normalizado; `null` si el producto no es tintométrico.
+ * La máscara es la de la **marca del código** (`codColorIdMarca`), no la del producto.
  */
 export async function resolverCodColorLineas(
-  lineas: { codTienda: string; codColor: string | null | undefined }[]
-): Promise<ServiceResult<(string | null)[]>> {
+  lineas: {
+    codTienda: string;
+    codColor: string | null | undefined;
+    codColorIdMarca?: string | null;
+  }[]
+): Promise<ServiceResult<CodColorLineaResuelto[]>> {
+  const vacio: CodColorLineaResuelto = { codColor: null, codColorIdMarca: null };
   const conCod = lineas.filter((l) => normalizarCodColor(l.codColor) != null);
-  if (conCod.length === 0) return { success: true, data: lineas.map(() => null) };
+  if (conCod.length === 0) return { success: true, data: lineas.map(() => vacio) };
 
-  const rows = await prisma.prodPropio.findMany({
-    where: { ...WHERE_BASE_TINTOMETRICA, codTienda: { in: [...new Set(conCod.map((l) => l.codTienda))] } },
-    select: { codTienda: true, marcaRelation: { select: { formatoCodTintometrico: true } } },
-  });
-  const formatoPorCod = new Map(
-    rows.map((r) => [r.codTienda, r.marcaRelation?.formatoCodTintometrico?.trim() || null])
-  );
+  const idsMarca = [
+    ...new Set(conCod.map((l) => l.codColorIdMarca?.trim()).filter((v): v is string => !!v)),
+  ];
+  const [tintometricos, marcas] = await Promise.all([
+    prisma.prodPropio.findMany({
+      where: { ...WHERE_BASE_TINTOMETRICA, codTienda: { in: [...new Set(conCod.map((l) => l.codTienda))] } },
+      select: { codTienda: true },
+    }),
+    idsMarca.length > 0
+      ? prisma.marca.findMany({
+          where: { id: { in: idsMarca } },
+          select: { id: true, formatoCodTintometrico: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const esTintometrico = new Set(tintometricos.map((r) => r.codTienda));
+  const formatoPorMarca = new Map(marcas.map((m) => [m.id, m.formatoCodTintometrico?.trim() || null]));
 
-  const out: (string | null)[] = [];
+  const out: CodColorLineaResuelto[] = [];
   for (let i = 0; i < lineas.length; i += 1) {
     const l = lineas[i]!;
     const cod = normalizarCodColor(l.codColor);
-    if (!cod || !formatoPorCod.has(l.codTienda)) {
-      out.push(null);
+    if (!cod || !esTintometrico.has(l.codTienda)) {
+      out.push(vacio);
       continue;
     }
-    const formato = formatoPorCod.get(l.codTienda) ?? null;
+    const idMarca = l.codColorIdMarca?.trim() || null;
+    if (idMarca && !formatoPorMarca.has(idMarca)) {
+      return { success: false, error: `La marca del COD. COLOR de la línea ${i + 1} no existe.` };
+    }
+    const formato = idMarca ? (formatoPorMarca.get(idMarca) ?? null) : null;
     if (formato && !codigoCumpleFormatoCod(cod, formato)) {
       return {
         success: false,
         error: `El COD. COLOR «${cod}» de la línea ${i + 1} no respeta el formato ${formato}.`,
       };
     }
-    out.push(cod);
+    out.push({ codColor: cod, codColorIdMarca: idMarca });
   }
   return { success: true, data: out };
 }
 
 /**
- * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_propios` rubro Tintometrico
- * con marca vinculada + marcas presentes en esas bases con su formato de código.
+ * Marcas elegibles como **MARCA COD.** (marcas de las bases tintométricas, con su máscara).
+ * Un código de una marca sirve para cualquier base tintométrica.
+ */
+export async function listarMarcasCodColorTintometrico(): Promise<MarcaTintometricaCatalogo[]> {
+  const marcas = await prisma.marca.findMany({
+    where: { prodTiendas: { some: WHERE_BASE_TINTOMETRICA } },
+    select: { id: true, nombre: true, formatoCodTintometrico: true },
+    orderBy: { nombre: "asc" },
+  });
+  return marcas.map((m) => ({
+    idMarca: m.id,
+    nombre: m.nombre,
+    formatoCod: m.formatoCodTintometrico?.trim() || null,
+  }));
+}
+
+/**
+ * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): todas las bases `prod_propios`
+ * rubro Tintometrico + marcas de COD. COLOR (`listarMarcasCodColorTintometrico`).
  */
 export async function getCatalogoAgregarTintometrico(): Promise<{
   marcas: MarcaTintometricaCatalogo[];
   bases: BaseTintometricaCatalogo[];
 }> {
-  const rows = await prisma.prodPropio.findMany({
-    where: { ...WHERE_BASE_TINTOMETRICA, idMarca: { not: null } },
-    select: { codTienda: true, descripcionTienda: true, idMarca: true },
-    orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
-  });
-  const idsMarca = [...new Set(rows.map((r) => r.idMarca!))];
-  const marcas =
-    idsMarca.length > 0
-      ? await prisma.marca.findMany({
-          where: { id: { in: idsMarca } },
-          select: {
-            id: true,
-            nombre: true,
-            formatoCodTintometrico: true,
-          },
-          orderBy: { nombre: "asc" },
-        })
-      : [];
+  const [rows, marcas] = await Promise.all([
+    prisma.prodPropio.findMany({
+      where: WHERE_BASE_TINTOMETRICA,
+      select: { codTienda: true, descripcionTienda: true, idMarca: true },
+      orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
+    }),
+    listarMarcasCodColorTintometrico(),
+  ]);
   return {
-    marcas: marcas.map((m) => ({
-      idMarca: m.id,
-      nombre: m.nombre,
-      formatoCod: m.formatoCodTintometrico?.trim() || null,
-    })),
+    marcas,
     bases: rows.map((r) => ({
       codTienda: r.codTienda.trim(),
       descripcionTienda: (r.descripcionTienda ?? "").trim(),
-      idMarca: r.idMarca!,
+      idMarca: r.idMarca,
     })),
   };
 }

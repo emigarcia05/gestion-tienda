@@ -144,6 +144,7 @@ const facturaLineaEmitirSchema = z.object({
   descuentoPct: z.number().min(0).max(100),
   comentario: z.string().trim().max(2000).optional().default(""),
   codColor: codColorSchema,
+  codColorIdMarca: z.string().trim().max(64).nullable().optional(),
   alicuotaIva: z.number().min(0).max(27).optional(),
 });
 

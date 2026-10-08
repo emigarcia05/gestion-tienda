@@ -27,10 +27,11 @@ export interface ProductoFacturaBusquedaItem {
   /** Detalle por sucursal (cada sucursal es depósito). */
   stockPorSucursal: ProductoFacturaStockSucursal[];
   /**
-   * Rubro TINTOMETRICO: al elegirlo se piden COD. COLOR (máscara de la marca) y px.
+   * Rubro TINTOMETRICO: al elegirlo se piden MARCA COD. + COD. COLOR y px.
+   * `idMarca` = marca del producto (solo preselección; el código puede ser de otra marca).
    * `null` = producto común.
    */
-  tintometrico: { formatoCod: string | null } | null;
+  tintometrico: { idMarca: string | null } | null;
 }
 
 function normalizeTokens(q: string): string[] {
@@ -108,7 +109,7 @@ export async function buscarProductosParaFactura(params: {
         codTienda: true,
         descripcionTienda: true,
         rubroRelation: { select: { nombre: true } },
-        marcaRelation: { select: { formatoCodTintometrico: true } },
+        idMarca: true,
       },
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take,
@@ -156,7 +157,7 @@ export async function buscarProductosParaFactura(params: {
         stock,
         stockPorSucursal,
         tintometrico: esRubroTintometrico(r.rubroRelation?.nombre)
-          ? { formatoCod: r.marcaRelation?.formatoCodTintometrico?.trim() || null }
+          ? { idMarca: r.idMarca }
           : null,
       };
     });

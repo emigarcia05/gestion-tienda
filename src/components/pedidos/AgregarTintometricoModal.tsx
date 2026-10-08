@@ -115,10 +115,7 @@ export default function AgregarTintometricoModal({
     () => catalogo?.marcas.find((m) => m.idMarca === idMarca) ?? null,
     [catalogo, idMarca]
   );
-  const basesMarca = useMemo(
-    () => (catalogo && idMarca ? catalogo.bases.filter((b) => b.idMarca === idMarca) : []),
-    [catalogo, idMarca]
-  );
+  const basesMarca = useMemo(() => (catalogo && idMarca ? catalogo.bases : []), [catalogo, idMarca]);
   const basesFiltradas = useMemo(() => {
     if (!qDebounced.trim()) return basesMarca;
     return basesMarca.filter((b) => matchByMultiTerm([b.descripcionTienda], qDebounced));
@@ -145,6 +142,7 @@ export default function AgregarTintometricoModal({
           proveedorId,
           codTienda: base.codTienda,
           codTintometrico: codigoTrim,
+          codColorIdMarca: idMarca,
           cantidad: cant,
           descripcion: descripcionConCodigo(base.descripcionTienda, codigoTrim),
         }))
@@ -265,7 +263,7 @@ export default function AgregarTintometricoModal({
                 {basesMarca.length === 0 ? (
                   <EmptyTableRow
                     colSpan={2}
-                    message={marca ? "La marca no tiene ítems tintométricos." : "Elegí una marca para ver los ítems."}
+                    message={marca ? "No hay ítems tintométricos." : "Elegí la marca del código para ver los ítems."}
                   />
                 ) : basesFiltradas.length === 0 ? (
                   <EmptyTableRow colSpan={2} message="Sin resultados." />

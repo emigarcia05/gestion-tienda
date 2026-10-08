@@ -102,6 +102,8 @@ export const pedidoTintometricoItemSchema = z.object({
   proveedorId: proveedorIdPedidoSchema,
   codTienda: z.string().min(1, "Cod. Tienda requerido.").max(200),
   codTintometrico: z.string().min(1, "Código tintométrico requerido.").max(120),
+  /** Marca del COD. COLOR (máscara); independiente de la marca de la base. */
+  codColorIdMarca: z.string().trim().max(64).nullable().optional(),
   cantidad: z.number().int().min(1, "Cant. debe ser mayor a 0."),
   descripcion: z.string().min(1, "Descripción requerida.").max(500),
 });

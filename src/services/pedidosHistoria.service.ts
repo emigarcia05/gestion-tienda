@@ -299,7 +299,13 @@ export async function crearPedidoHistoriaSnapshot(params: {
 
     const itemsPorCodExt = new Map<
       string,
-      { codTienda: string; descripcion: string; codColor: string | null; cantPedida: number }
+      {
+        codTienda: string;
+        descripcion: string;
+        codColor: string | null;
+        codColorIdMarca: string | null;
+        cantPedida: number;
+      }
     >();
     for (const row of snapshotRows) {
       const clave = claveSnapshotItem(row);
@@ -313,6 +319,7 @@ export async function crearPedidoHistoriaSnapshot(params: {
         codTienda: normalizeCodTienda(row.codTienda),
         descripcion: descripcionSnapshotDesdeRow(row),
         codColor: row.codColor,
+        codColorIdMarca: row.codColorIdMarca,
         cantPedida: cant,
       });
     }
@@ -332,6 +339,7 @@ export async function crearPedidoHistoriaSnapshot(params: {
         codTienda: it.codTienda,
         descripcion: it.descripcion,
         codColor: it.codColor,
+        codColorIdMarca: it.codColorIdMarca,
         cantPedida: it.cantPedida,
       }));
 
@@ -343,6 +351,7 @@ export async function crearPedidoHistoriaSnapshot(params: {
             codTienda: it.codTienda,
             descripcion: it.descripcion,
             codColor: it.codColor,
+            codColorIdMarca: it.codColorIdMarca,
             cantPedida: it.cantPedida,
             cantRecibida: null,
           })),

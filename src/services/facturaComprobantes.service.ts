@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
-import { resolverCodColorLineas } from "@/services/tintometrico.service";
+import {
+  resolverCodColorLineas,
+  type CodColorLineaResuelto,
+} from "@/services/tintometrico.service";
 import { prisma } from "@/lib/prisma";
 import {
   arcaCertificadosConfigurados,
@@ -553,6 +556,7 @@ export async function obtenerFacturaComprobantePdfDatos(
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
       codColor: l.codColor,
+      codColorIdMarca: l.codColorIdMarca,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -620,6 +624,7 @@ export async function obtenerBorradorDuplicarComprobante(
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
       codColor: l.codColor,
+      codColorIdMarca: l.codColorIdMarca,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -680,6 +685,7 @@ export async function obtenerBorradorNotaCreditoComprobante(
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
       codColor: l.codColor,
+      codColorIdMarca: l.codColorIdMarca,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -834,6 +840,7 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
           descuentoPct: decimalToNumber(l.descuentoPct),
           comentario: l.comentario,
           codColor: l.codColor,
+          codColorIdMarca: l.codColorIdMarca,
           alicuotaIva: decimalToNumber(l.alicuotaIva),
         })),
         descuento:
@@ -897,13 +904,14 @@ type LineaCalculada = {
   importe: number;
   comentario: string;
   codColor: string | null;
+  codColorIdMarca: string | null;
 };
 
 /** `codColores`: salida de `resolverCodColorLineas` (mismo orden que `input.lineas`). */
 function calcularLineas(
   input: EmitirFacturaComprobanteInput,
   letra: ArcaLetra | null,
-  codColores: (string | null)[]
+  codColores: CodColorLineaResuelto[]
 ): ServiceResult<LineaCalculada[]> {
   const lineasLocales: FacturaLineaLocal[] = input.lineas.map((l, i) => ({
     key: String(i),
@@ -913,7 +921,8 @@ function calcularLineas(
     pxLista: l.pxLista,
     descuentoPctEspecial: l.descuentoPct,
     comentario: l.comentario ?? "",
-    codColor: codColores[i] ?? null,
+    codColor: codColores[i]?.codColor ?? null,
+    codColorIdMarca: codColores[i]?.codColorIdMarca ?? null,
   }));
   const descuento: FacturaDescuentoEstado | null = input.descuento ?? null;
   const pctGlobal = porcentajeDescuentoGlobal(lineasLocales, descuento);
@@ -943,6 +952,7 @@ function calcularLineas(
       importe,
       comentario: (raw.comentario ?? "").trim().toLocaleUpperCase("es-AR"),
       codColor: linea.codColor,
+      codColorIdMarca: linea.codColorIdMarca,
     });
   }
   return { success: true, data: out };
@@ -1240,7 +1250,8 @@ export async function emitirFacturaComprobante(
       pxLista: l.pxLista,
       descuentoPctEspecial: l.descuentoPct,
       comentario: l.comentario ?? "",
-      codColor: codColorRes.data[i] ?? null,
+      codColor: codColorRes.data[i]?.codColor ?? null,
+      codColorIdMarca: codColorRes.data[i]?.codColorIdMarca ?? null,
     })),
     input.descuento ?? null
   );
@@ -1370,6 +1381,7 @@ export async function emitirFacturaComprobante(
                 importe: l.importe,
                 comentario: l.comentario,
                 codColor: l.codColor,
+                codColorIdMarca: l.codColorIdMarca,
               })),
             },
           },
@@ -1641,6 +1653,7 @@ async function emitirFiscal(args: {
               importe: l.importe,
               comentario: l.comentario,
               codColor: l.codColor,
+              codColorIdMarca: l.codColorIdMarca,
             })),
           },
         },
@@ -1779,6 +1792,7 @@ export async function emitirNotaCreditoDesdeComprobante(
       descuentoPct: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
       codColor: l.codColor,
+      codColorIdMarca: l.codColorIdMarca,
       alicuotaIva: decimalToNumber(l.alicuotaIva),
     })),
     descuento:

@@ -52,6 +52,8 @@ export interface ItemPedidoTintometricoPayload {
   codTienda: string;
   /** Código de fórmula (COD. …) — parte de `cod_ext` para no colisionar por misma base. */
   codTintometrico: string;
+  /** Marca del COD. COLOR (independiente de la marca de la base). */
+  codColorIdMarca?: string | null;
   cantidad: number;
   descripcion: string;
 }
@@ -406,6 +408,7 @@ export async function upsertPedidoTintometricoItems(
             data: {
               tintometricoDescripcion: item.descripcion,
               tintometricoCodColor: normalizarCodColor(item.codTintometrico),
+              tintometricoCodColorIdMarca: item.codColorIdMarca?.trim() || null,
               tintometrioCantPedir: item.cantidad,
             },
           });
@@ -417,6 +420,7 @@ export async function upsertPedidoTintometricoItems(
               tintometricoProveedor: item.proveedorId.trim(),
               tintometricoDescripcion: item.descripcion,
               tintometricoCodColor: normalizarCodColor(item.codTintometrico),
+              tintometricoCodColorIdMarca: item.codColorIdMarca?.trim() || null,
               tintometrioCantPedir: item.cantidad,
               urgenteCodExt: codExt,
             },
@@ -921,6 +925,7 @@ export interface ItemPedidoEnvioRowParaEnviar {
   reposicionCantConf: number | null;
   /** COD. COLOR de filas TINTOMETRICO (`tintometrico_cod_color`); `null` en el resto. */
   codColor: string | null;
+  codColorIdMarca: string | null;
 }
 
 export interface AjusteCantPedirSobreStockInput {
@@ -977,6 +982,7 @@ export async function getItemsYProveedorParaEnviar(
         urgenteCantPedir: true,
         tintometricoDescripcion: true,
         tintometricoCodColor: true,
+        tintometricoCodColorIdMarca: true,
         tintometrioCantPedir: true,
         tintometricoProveedor: true,
         reposicionFormaPedido: true,
@@ -1211,6 +1217,7 @@ export async function getItemsYProveedorParaEnviar(
       codTienda,
       reposicionCantConf: r.reposicionCantConf,
       codColor: r.tipoDePedido === TIPO_TINTOMETRICO ? r.tintometricoCodColor : null,
+      codColorIdMarca: r.tipoDePedido === TIPO_TINTOMETRICO ? r.tintometricoCodColorIdMarca : null,
     });
   }
 

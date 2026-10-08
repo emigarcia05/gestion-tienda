@@ -253,7 +253,7 @@ export default function FacturaCrearLineasBlock({
   function agregarItem(
     item: ProductoFacturaBusquedaItem,
     opts?: { mantenerBusqueda?: boolean },
-    tintometrico?: { codColor: string; pxLista: number }
+    tintometrico?: { codColor: string; codColorIdMarca: string; pxLista: number }
   ) {
     if (item.tintometrico && !tintometrico) {
       setAbierto(false);
@@ -278,6 +278,7 @@ export default function FacturaCrearLineasBlock({
         descuentoPctEspecial,
         comentario: "",
         codColor: tintometrico?.codColor ?? null,
+        codColorIdMarca: tintometrico?.codColorIdMarca ?? null,
       },
     ]);
     if (!opts?.mantenerBusqueda) {
@@ -796,7 +797,7 @@ export default function FacturaCrearLineasBlock({
             }
           }}
           descripcion={tintometricoPendiente.item.descripcion}
-          formatoCod={tintometricoPendiente.item.tintometrico?.formatoCod ?? null}
+          idMarcaProducto={tintometricoPendiente.item.tintometrico?.idMarca ?? null}
           onConfirmar={(datos) =>
             agregarItem(
               tintometricoPendiente.item,
