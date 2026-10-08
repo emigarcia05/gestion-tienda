@@ -1615,6 +1615,10 @@ model ProdPedMerc2 {
   urgenteCodExt           String? @map("urgente_cod_ext")
   urgenteCantPedir        Int     @default(0) @map("urgente_cant_pedir")
   tintometricoDescripcion String? @map("tintometrico_descripcion")
+  /**
+   * COD. COLOR tipeado en «Agregar Tintométrico» (MAYÚSCULAS); pasa a `prod_ped_historial_merc.cod_color`.
+   */
+  tintometricoCodColor    String? @map("tintometrico_cod_color") @db.VarChar(40)
   tintometrioCantPedir    Int     @default(0) @map("tintometrio_cant_pedir")
   /**
    * `id` de `global_proveedores` para filas tintométricas (texto / cuid).
@@ -1680,24 +1684,28 @@ model PedidoHistoria {
 model PedidoHistoriaItem {
   id String @id @default(cuid())
 
-  pedidoHistoriaId String @map("pedido_historia_id")
+  pedidoHistoriaId String  @map("pedido_historia_id")
   /**
    * `prod_propios.cod_tienda` que recibe el ingreso de stock en la recepción.
    * Sin vínculo / match: fallback `1503` (PRODUCTO VARIO). Varias líneas pueden
    * compartir el mismo código; la identidad de la fila es `cod_ext`.
    */
-  codTienda        String @map("cod_tienda")
+  codTienda        String  @map("cod_tienda")
   /**
    * Identidad del ítem del pedido (lista `cod_ext`, `TINT-…` o `cod_tienda` si se
    * agregó en recepción). UNIQUE por pedido: no colapsar SKUs distintos en 1503.
    */
-  codExt           String @map("cod_ext")
+  codExt           String  @map("cod_ext")
   /**
    * Descripción del snapshot (lista / fórmula tintométrica / tienda).
    */
-  descripcion      String @default("") @map("descripcion")
-  cantPedida       Int    @default(0) @map("cant_pedida")
-  cantRecibida     Int?   @map("cant_recibida") // Unidades recibidas; admite negativo. `null` = sin confirmar.
+  descripcion      String  @default("") @map("descripcion")
+  /**
+   * COD. COLOR de ítems tintométricos (MAYÚSCULAS); `null` en el resto. Ya va incluido en `descripcion`.
+   */
+  codColor         String? @map("cod_color") @db.VarChar(40)
+  cantPedida       Int     @default(0) @map("cant_pedida")
+  cantRecibida     Int?    @map("cant_recibida") // Unidades recibidas; admite negativo. `null` = sin confirmar.
 
   pedidoHistoria PedidoHistoria @relation(fields: [pedidoHistoriaId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now()) @map("created_at")
@@ -1705,6 +1713,7 @@ model PedidoHistoriaItem {
 
   @@unique([pedidoHistoriaId, codExt])
   @@index([pedidoHistoriaId])
+  @@index([codColor], map: "prod_ped_historial_merc_cod_color_idx")
   @@map("prod_ped_historial_merc")
 }
 
@@ -2607,10 +2616,16 @@ model ComprobanteVtaItem {
   ivaId         Int     @map("iva_id")
   importe       Decimal @db.Decimal(14, 2)
   comentario    String  @default("") @db.Text
+  /**
+   * COD. COLOR de ítems tintométricos (MAYÚSCULAS); `null` en el resto.
+   * `descripcion` ya lo incluye como sufijo ` (COD)` (texto fiscal impreso).
+   */
+  codColor      String? @map("cod_color") @db.VarChar(40)
 
   comprobante ComprobanteVta @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
 
   @@index([comprobanteId], map: "vtas_comprobantes_items_comp_idx")
+  @@index([codColor], map: "vtas_comprobantes_items_cod_color_idx")
   @@map("vtas_comprobantes_items")
 }
 

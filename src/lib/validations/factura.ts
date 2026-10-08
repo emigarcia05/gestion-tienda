@@ -6,6 +6,7 @@ import {
   mensajeClienteFacturaNoSeleccionado,
 } from "@/lib/factura";
 import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
+import { codColorSchema } from "@/lib/codColorTintometrico";
 import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
 import {
   idPersonalSchema,
@@ -142,6 +143,7 @@ const facturaLineaEmitirSchema = z.object({
   pxLista: z.number().nonnegative("El precio no puede ser negativo.").max(1_000_000_000),
   descuentoPct: z.number().min(0).max(100),
   comentario: z.string().trim().max(2000).optional().default(""),
+  codColor: codColorSchema,
   alicuotaIva: z.number().min(0).max(27).optional(),
 });
 

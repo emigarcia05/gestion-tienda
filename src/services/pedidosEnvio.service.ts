@@ -10,6 +10,7 @@ import {
   buildCodExtTintometrico,
   parseCodTiendaFromCodExtTintometrico,
 } from "@/lib/pedidosTintometrico";
+import { normalizarCodColor } from "@/lib/codColorTintometrico";
 import { SUCURSAL_LABEL_PEDIDO } from "@/lib/pedidos";
 import {
   cargarListaPrecioReposicionPorCodTiendas,
@@ -404,6 +405,7 @@ export async function upsertPedidoTintometricoItems(
             where: { id: mercTint.id },
             data: {
               tintometricoDescripcion: item.descripcion,
+              tintometricoCodColor: normalizarCodColor(item.codTintometrico),
               tintometrioCantPedir: item.cantidad,
             },
           });
@@ -414,6 +416,7 @@ export async function upsertPedidoTintometricoItems(
               sucursalId,
               tintometricoProveedor: item.proveedorId.trim(),
               tintometricoDescripcion: item.descripcion,
+              tintometricoCodColor: normalizarCodColor(item.codTintometrico),
               tintometrioCantPedir: item.cantidad,
               urgenteCodExt: codExt,
             },
@@ -916,6 +919,8 @@ export interface ItemPedidoEnvioRowParaEnviar {
   cantPedir: number;
   codTienda: string | null;
   reposicionCantConf: number | null;
+  /** COD. COLOR de filas TINTOMETRICO (`tintometrico_cod_color`); `null` en el resto. */
+  codColor: string | null;
 }
 
 export interface AjusteCantPedirSobreStockInput {
@@ -971,6 +976,7 @@ export async function getItemsYProveedorParaEnviar(
         urgenteCodExt: true,
         urgenteCantPedir: true,
         tintometricoDescripcion: true,
+        tintometricoCodColor: true,
         tintometrioCantPedir: true,
         tintometricoProveedor: true,
         reposicionFormaPedido: true,
@@ -1204,6 +1210,7 @@ export async function getItemsYProveedorParaEnviar(
       cantPedir,
       codTienda,
       reposicionCantConf: r.reposicionCantConf,
+      codColor: r.tipoDePedido === TIPO_TINTOMETRICO ? r.tintometricoCodColor : null,
     });
   }
 

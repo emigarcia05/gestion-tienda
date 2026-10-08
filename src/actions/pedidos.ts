@@ -32,6 +32,7 @@ import { PAGE_SIZE } from "@/lib/pagination";
 import { revalidatePedidosMercaderiaListados } from "@/lib/revalidatePedidosMercaderia";
 import {
   hayFiltroExtraPedidoUrgente,
+  parseFiltroPedidoValor,
   SUCURSAL_LABEL_PEDIDO,
   type SucursalPedido,
 } from "@/lib/pedidos";
@@ -110,14 +111,7 @@ export async function getPedidoUrgenteData(params: {
     : false;
 
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
-  const pedidoTipo: "cualquier" | "urgente" | "reposicion" | undefined =
-    pedido === "cualquier"
-      ? "cualquier"
-      : pedido === "urgente"
-        ? "urgente"
-        : pedido === "reposicion"
-          ? "reposicion"
-          : undefined;
+  const pedidoTipo = parseFiltroPedidoValor(pedido) || undefined;
   try {
     const proveedores = await getProveedoresParaPedidoUrgente();
 

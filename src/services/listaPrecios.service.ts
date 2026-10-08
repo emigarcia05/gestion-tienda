@@ -24,6 +24,7 @@ import {
 } from "@/lib/listaPreciosFiltros";
 import type { Prisma } from "@prisma/client";
 import { PAGE_SIZE } from "@/lib/pagination";
+import type { FiltroPedidoCatalogo } from "@/lib/pedidos";
 import { cantPedirReposicionMerc2 } from "@/services/pedidosEnvio.service";
 import {
   buildMapStockeable,
@@ -1088,13 +1089,28 @@ function descripcionTiendaUnificadaParaGrupoPedidoUrgente(
   return "";
 }
 
+type FiltroPedidoLista = Exclude<FiltroPedidoCatalogo, "tintometrico">;
+
+function pasaFiltroPedidoLista(
+  pedidoTipo: FiltroPedidoLista | null,
+  cantUrgente: number,
+  cantRepo: number,
+  tieneConf: boolean
+): boolean {
+  if (!pedidoTipo) return true;
+  if (pedidoTipo === "urgente") return cantUrgente > 0;
+  if (pedidoTipo === "reposicion") return cantRepo > 0;
+  return tieneConf;
+}
+
 /**
- * Claves con cantidad a pedir &gt; 0 para el filtro **PEDIDO** de Pedido Urgente.
- * Urgente: `urgente_cant_pedir &gt; 0`. Reposición: cant. calculada (`cantPedirReposicionMerc2`) &gt; 0.
+ * Claves para el filtro **PEDIDO** de Pedir Mercadería.
+ * URGENTE: `urgente_cant_pedir &gt; 0`. REPOSICIÓN: cant. calculada &gt; 0.
+ * REPOSICIÓN CONF.: hay regla en `prod_ped_merc` (sin mirar la cant. a pedir).
  */
 async function clavesCantidadPositivaPedidoUrgente(
   sucursalTrim: string,
-  pedidoTipo: "urgente" | "reposicion" | "cualquier"
+  pedidoTipo: FiltroPedidoLista
 ): Promise<{ urgenteCodExts: Set<string>; repoCodTiendas: Set<string> }> {
   const urgenteCodExts = new Set<string>();
   const repoCodTiendas = new Set<string>();
@@ -1105,7 +1121,7 @@ async function clavesCantidadPositivaPedidoUrgente(
   });
   if (!suc) return { urgenteCodExts, repoCodTiendas };
 
-  if (pedidoTipo === "urgente" || pedidoTipo === "cualquier") {
+  if (pedidoTipo === "urgente") {
     const rows = await prisma.prodPedMerc2.findMany({
       where: {
         sucursalId: suc.id,
@@ -1120,7 +1136,7 @@ async function clavesCantidadPositivaPedidoUrgente(
     }
   }
 
-  if (pedidoTipo === "reposicion" || pedidoTipo === "cualquier") {
+  if (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") {
     const rows = await prisma.prodPedMerc2.findMany({
       where: {
         sucursalId: suc.id,
@@ -1152,7 +1168,9 @@ async function clavesCantidadPositivaPedidoUrgente(
     }
 
     const codTiendas = [...reglaPorCod.keys()];
-    if (codTiendas.length > 0) {
+    if (pedidoTipo === "reposicion_conf") {
+      for (const k of codTiendas) repoCodTiendas.add(k);
+    } else if (codTiendas.length > 0) {
       const [stockMaps, stockeableMap, bultosMap] = await Promise.all([
         buildMapsStockSucursalesPrincipales(codTiendas),
         buildMapStockeable(codTiendas),
@@ -1183,7 +1201,7 @@ async function clavesCantidadPositivaPedidoUrgente(
  * Varias filas con el mismo **`cod_tienda`** (FK o match Dux) se agrupan en **una sola fila** de UI (`id` `agrup-tienda:{cod_tienda}`, `miembrosAgrupacion`);
  * la paginación y el **`total`** cuentan **grupos** (fila vista), no filas crudas. Filas sin vínculo a tienda siguen 1:1 por `cod_ext`.
  * Filtro **`proveedorId`**: solo reduce qué **grupos/filas** entran al listado (al menos un miembro del grupo coincide); **`miembrosAgrupacion`** sigue incluyendo **todos** los proveedores del vínculo para el modal «Elegir Proveedor».
- * Filtro **`pedidoTipo`**: `urgente` / `reposicion` / `cualquier` = solo grupos con cant. &gt; 0 en ese tipo (o en cualquiera); `null` = catálogo completo.
+ * Filtro **`pedidoTipo`**: `urgente` = cant. urgente &gt; 0; `reposicion` = cant. reposición &gt; 0; `reposicion_conf` = tiene regla de reposición; `null` = catálogo completo.
  * `prefijo` vacío en la fila agrupada; **`descripcion`** unifica **`descripcion_tienda`** entre miembros.
  * Cantidades / flags de urgente y reposición se leen de **`prod_ped_merc`** según sucursal.
  */
@@ -1193,7 +1211,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   busqueda: string,
   pageSize: number,
   paginaNum: number,
-  pedidoTipo: "urgente" | "reposicion" | "cualquier" | null
+  pedidoTipo: FiltroPedidoLista | null
 ): Promise<{
   items: PedidoUrgenteItem[];
   total: number;
@@ -1215,9 +1233,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     repoCodTiendasFiltro = claves.repoCodTiendas;
     if (
       (pedidoTipo === "urgente" && urgenteCodExtsFiltro.size === 0) ||
-      (pedidoTipo === "reposicion" && repoCodTiendasFiltro.size === 0) ||
-      (pedidoTipo === "cualquier" &&
-        urgenteCodExtsFiltro.size === 0 &&
+      ((pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") &&
         repoCodTiendasFiltro.size === 0)
     ) {
       return { items: [], total: 0, totalPaginas: 1 };
@@ -1236,10 +1252,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   if (pedidoTipo && urgenteCodExtsFiltro && repoCodTiendasFiltro) {
     const orSeed: Prisma.ListaPrecioProveedorWhereInput[] = [];
 
-    if (
-      (pedidoTipo === "urgente" || pedidoTipo === "cualquier") &&
-      urgenteCodExtsFiltro.size > 0
-    ) {
+    if (pedidoTipo === "urgente" && urgenteCodExtsFiltro.size > 0) {
       const codExtsUrg = [...urgenteCodExtsFiltro];
       const seedsUrg = await prisma.listaPrecioProveedor.findMany({
         where: { habilitado: true, codExt: { in: codExtsUrg } },
@@ -1259,7 +1272,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     }
 
     if (
-      (pedidoTipo === "reposicion" || pedidoTipo === "cualquier") &&
+      (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") &&
       repoCodTiendasFiltro.size > 0
     ) {
       const tiendas = [...repoCodTiendasFiltro];
@@ -1360,8 +1373,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       const tieneRepo =
         Boolean(codTiendaVinculo) && repoCodTiendasFiltro!.has(codTiendaVinculo);
       if (pedidoTipo === "urgente") return tieneUrgente;
-      if (pedidoTipo === "reposicion") return tieneRepo;
-      return tieneUrgente || tieneRepo;
+      return tieneRepo;
     });
   }
 
@@ -1479,12 +1491,13 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     if (memberFilas.length === 0) continue;
     if (memberFilas.length === 1) {
       const unico = itemDesdeFila(memberFilas[0]!);
-      if (pedidoTipo === "urgente" && unico.cantPedidaUrgente <= 0) continue;
-      if (pedidoTipo === "reposicion" && unico.cantReposicion <= 0) continue;
       if (
-        pedidoTipo === "cualquier" &&
-        unico.cantPedidaUrgente <= 0 &&
-        unico.cantReposicion <= 0
+        !pasaFiltroPedidoLista(
+          pedidoTipo,
+          unico.cantPedidaUrgente,
+          unico.cantReposicion,
+          Boolean(unico.confReposicion || unico.reposicionRegla)
+        )
       ) {
         continue;
       }
@@ -1495,12 +1508,13 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     if (!codTienda) {
       for (const mf of memberFilas) {
         const it = itemDesdeFila(mf);
-        if (pedidoTipo === "urgente" && it.cantPedidaUrgente <= 0) continue;
-        if (pedidoTipo === "reposicion" && it.cantReposicion <= 0) continue;
         if (
-          pedidoTipo === "cualquier" &&
-          it.cantPedidaUrgente <= 0 &&
-          it.cantReposicion <= 0
+          !pasaFiltroPedidoLista(
+            pedidoTipo,
+            it.cantPedidaUrgente,
+            it.cantReposicion,
+            Boolean(it.confReposicion || it.reposicionRegla)
+          )
         ) {
           continue;
         }
@@ -1511,9 +1525,14 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     const memberItems = memberFilas.map(itemDesdeFila);
     const cantUrgenteGrupo = memberItems.reduce((s, x) => s + x.cantPedidaUrgente, 0);
     const cantRepoGrupo = memberItems[0]!.cantReposicion;
-    if (pedidoTipo === "urgente" && cantUrgenteGrupo <= 0) continue;
-    if (pedidoTipo === "reposicion" && cantRepoGrupo <= 0) continue;
-    if (pedidoTipo === "cualquier" && cantUrgenteGrupo <= 0 && cantRepoGrupo <= 0) {
+    if (
+      !pasaFiltroPedidoLista(
+        pedidoTipo,
+        cantUrgenteGrupo,
+        cantRepoGrupo,
+        Boolean(memberItems[0]!.confReposicion || memberItems[0]!.reposicionRegla)
+      )
+    ) {
       continue;
     }
     const descripcionGrupo = descripcionTiendaUnificadaParaGrupoPedidoUrgente(
@@ -1562,7 +1581,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 export async function getListaPreciosParaPedidoUrgente(
   sucursal: string,
   proveedorId: string | undefined,
-  pedidoTipo: "cualquier" | "urgente" | "reposicion" | undefined,
+  pedidoTipo: FiltroPedidoCatalogo | undefined,
   q: string | undefined,
   pagina: number | undefined,
   pageSize: number | undefined
@@ -1581,11 +1600,15 @@ export async function getListaPreciosParaPedidoUrgente(
   const takeSize = pageSize ?? 100;
   const paginaNum = Math.max(1, pagina ?? 1);
 
-  /** Sin filtro PEDIDO: catálogo completo. Con filtro: solo cant. &gt; 0 del tipo elegido. */
-  const filtroPedido: "urgente" | "reposicion" | "cualquier" | null =
+  if (pedidoTipo === "tintometrico") {
+    return { items: [], total: 0, totalPaginas: 1 };
+  }
+
+  /** Sin filtro PEDIDO: catálogo completo. Con filtro: semillas del tipo elegido. */
+  const filtroPedido: FiltroPedidoLista | null =
     pedidoTipo === "urgente" ||
     pedidoTipo === "reposicion" ||
-    pedidoTipo === "cualquier"
+    pedidoTipo === "reposicion_conf"
       ? pedidoTipo
       : null;
 

@@ -44,6 +44,10 @@ import {
   buscarProductosParaFactura,
   type ProductoFacturaBusquedaItem,
 } from "@/services/facturaProductos.service";
+import {
+  listarProveedoresCoefTintometrico,
+  type ProveedorCoefTintometrico,
+} from "@/services/tintometrico.service";
 import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
@@ -125,6 +129,15 @@ export async function buscarProductosFacturaAction(
     sucursalCodigo: parsed.data.sucursalCodigo,
   });
   return fromServiceResult(res);
+}
+
+/** Proveedores con COEF. TINTOMÉTRICO > 1 para el modal tintométrico de Factura · Crear. */
+export async function listarProveedoresTintometricoFacturaAction(): Promise<
+  ActionResult<ProveedorCoefTintometrico[]>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  return { ok: true, data: await listarProveedoresCoefTintometrico() };
 }
 
 export async function listarCatalogoBusquedaProductosFacturaAction(): Promise<

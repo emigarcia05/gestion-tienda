@@ -4,7 +4,7 @@ import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { prisma } from "@/lib/prisma";
-import { hayFiltroExtraPedidoUrgente } from "@/lib/pedidos";
+import { hayFiltroExtraPedidoUrgente, parseFiltroPedidoValor } from "@/lib/pedidos";
 import FiltrosPedidoUrgente from "@/components/pedidos/FiltrosPedidoUrgente";
 import PedirMercaderiaPageClient from "@/components/pedidos/PedirMercaderiaPageClient";
 import { getPosicionIvaComparacionRevisionToken } from "@/services/finBalPosicionIvaComparacionRevision.service";
@@ -64,8 +64,7 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
     (sucursal === "maipu" || sucursal === "guaymallen") && codigosHabilitados.has(sucursal)
       ? (sucursal as SucursalPedido)
       : "";
-  const pedidoValida: "cualquier" | "urgente" | "reposicion" | "" =
-    pedido === "cualquier" || pedido === "urgente" || pedido === "reposicion" ? pedido : "";
+  const pedidoValida = parseFiltroPedidoValor(pedido);
 
   const [
     { proveedores, productos, total, totalPaginas, ivaSaldoAcumuladoComparacion },
@@ -74,7 +73,9 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
   ] = await Promise.all([
     getPedidoUrgenteData({ sucursal: sucursalValida, q, pagina, proveedor, pedido: pedidoValida }),
     getPosicionIvaComparacionRevisionToken(),
-    cargarTintometricos(sucursalValida, proveedor),
+    pedidoValida === "" || pedidoValida === "tintometrico"
+      ? cargarTintometricos(sucursalValida, proveedor)
+      : Promise.resolve([]),
   ]);
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const tieneSucursal = !!sucursalValida;

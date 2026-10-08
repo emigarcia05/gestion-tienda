@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
+import { descripcionConCodColor } from "@/lib/codColorTintometrico";
+import { resolverCodColorLineas } from "@/services/tintometrico.service";
 import { prisma } from "@/lib/prisma";
 import {
   arcaCertificadosConfigurados,
@@ -550,6 +552,7 @@ export async function obtenerFacturaComprobantePdfDatos(
       pxLista: decimalToNumber(l.px),
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
+      codColor: l.codColor,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -616,6 +619,7 @@ export async function obtenerBorradorDuplicarComprobante(
       pxLista: decimalToNumber(l.px),
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
+      codColor: l.codColor,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -675,6 +679,7 @@ export async function obtenerBorradorNotaCreditoComprobante(
       pxLista: decimalToNumber(l.px),
       descuentoPctEspecial: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
+      codColor: l.codColor,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -828,6 +833,7 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
           pxLista: decimalToNumber(l.px),
           descuentoPct: decimalToNumber(l.descuentoPct),
           comentario: l.comentario,
+          codColor: l.codColor,
           alicuotaIva: decimalToNumber(l.alicuotaIva),
         })),
         descuento:
@@ -890,11 +896,14 @@ type LineaCalculada = {
   ivaId: number;
   importe: number;
   comentario: string;
+  codColor: string | null;
 };
 
+/** `codColores`: salida de `resolverCodColorLineas` (mismo orden que `input.lineas`). */
 function calcularLineas(
   input: EmitirFacturaComprobanteInput,
-  letra: ArcaLetra | null
+  letra: ArcaLetra | null,
+  codColores: (string | null)[]
 ): ServiceResult<LineaCalculada[]> {
   const lineasLocales: FacturaLineaLocal[] = input.lineas.map((l, i) => ({
     key: String(i),
@@ -904,6 +913,7 @@ function calcularLineas(
     pxLista: l.pxLista,
     descuentoPctEspecial: l.descuentoPct,
     comentario: l.comentario ?? "",
+    codColor: codColores[i] ?? null,
   }));
   const descuento: FacturaDescuentoEstado | null = input.descuento ?? null;
   const pctGlobal = porcentajeDescuentoGlobal(lineasLocales, descuento);
@@ -924,7 +934,7 @@ function calcularLineas(
     out.push({
       orden: i + 1,
       codTienda: raw.codTienda,
-      descripcion: raw.descripcion.toLocaleUpperCase("es-AR"),
+      descripcion: descripcionConCodColor(raw.descripcion, linea.codColor).toLocaleUpperCase("es-AR"),
       cantidad,
       px: roundArs2(raw.pxLista),
       descuentoPct: roundArs2(pct),
@@ -932,6 +942,7 @@ function calcularLineas(
       ivaId,
       importe,
       comentario: (raw.comentario ?? "").trim().toLocaleUpperCase("es-AR"),
+      codColor: linea.codColor,
     });
   }
   return { success: true, data: out };
@@ -1215,7 +1226,9 @@ export async function emitirFacturaComprobante(
     cbteTipo = letraRes.cbteTipo;
   }
 
-  const lineasRes = calcularLineas(input, letra);
+  const codColorRes = await resolverCodColorLineas(input.lineas);
+  if (!codColorRes.success) return codColorRes;
+  const lineasRes = calcularLineas(input, letra, codColorRes.data);
   if (!lineasRes.success) return lineasRes;
   const lineas = lineasRes.data;
   const resumen = resumenTotalesFactura(
@@ -1227,6 +1240,7 @@ export async function emitirFacturaComprobante(
       pxLista: l.pxLista,
       descuentoPctEspecial: l.descuentoPct,
       comentario: l.comentario ?? "",
+      codColor: codColorRes.data[i] ?? null,
     })),
     input.descuento ?? null
   );
@@ -1355,6 +1369,7 @@ export async function emitirFacturaComprobante(
                 ivaId: l.ivaId,
                 importe: l.importe,
                 comentario: l.comentario,
+                codColor: l.codColor,
               })),
             },
           },
@@ -1625,6 +1640,7 @@ async function emitirFiscal(args: {
               ivaId: l.ivaId,
               importe: l.importe,
               comentario: l.comentario,
+              codColor: l.codColor,
             })),
           },
         },
@@ -1762,6 +1778,7 @@ export async function emitirNotaCreditoDesdeComprobante(
       pxLista: decimalToNumber(l.px),
       descuentoPct: decimalToNumber(l.descuentoPct),
       comentario: l.comentario,
+      codColor: l.codColor,
       alicuotaIva: decimalToNumber(l.alicuotaIva),
     })),
     descuento:

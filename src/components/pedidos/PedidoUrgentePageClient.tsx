@@ -27,6 +27,7 @@ import {
 import {
   MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE,
   MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE,
+  type FiltroPedidoValor,
 } from "@/lib/pedidos";
 
 interface Props {
@@ -38,7 +39,7 @@ interface Props {
   sinFiltros: boolean;
   /** Sucursal ya elegida (el segundo filtro puede faltar). */
   tieneSucursal: boolean;
-  pedidoValida: "cualquier" | "urgente" | "reposicion" | "";
+  pedidoValida: FiltroPedidoValor;
   total: number;
   totalPaginas: number;
   paginaNum: number;

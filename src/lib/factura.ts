@@ -817,6 +817,8 @@ export type FacturaLineaLocal = {
   descuentoPctEspecial: number | null;
   /** Comentario de línea (MAYÚSCULAS); vacío = sin comentario. */
   comentario: string;
+  /** COD. COLOR de ítems tintométricos; la grilla muestra `descripcionConCodColor`. */
+  codColor: string | null;
 };
 
 /**

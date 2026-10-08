@@ -18,6 +18,28 @@ export const TIPOS_PEDIDO = [
 ] as const;
 export type TipoPedido = (typeof TIPOS_PEDIDO)[number];
 
+/** Valores del Select **PEDIDO** en Pedir Mercadería (`?pedido=`). */
+export const FILTRO_PEDIDO_VALORES = [
+  "tintometrico",
+  "urgente",
+  "reposicion",
+  "reposicion_conf",
+] as const;
+export type FiltroPedidoCatalogo = (typeof FILTRO_PEDIDO_VALORES)[number];
+export type FiltroPedidoValor = FiltroPedidoCatalogo | "";
+
+export const FILTRO_PEDIDO_OPCIONES: { value: FiltroPedidoCatalogo; label: string }[] = [
+  { value: "tintometrico", label: "TINTOMÉTRICO" },
+  { value: "urgente", label: "URGENTE" },
+  { value: "reposicion", label: "REPOSICIÓN" },
+  { value: "reposicion_conf", label: "REPOSICIÓN CONF." },
+];
+
+export function parseFiltroPedidoValor(pedido: string | undefined): FiltroPedidoValor {
+  const v = (pedido ?? "").trim();
+  return (FILTRO_PEDIDO_VALORES as readonly string[]).includes(v) ? (v as FiltroPedidoCatalogo) : "";
+}
+
 /** Mínimo de caracteres de búsqueda para contar como segundo filtro en Pedido Urgente. */
 export const MIN_CARACTERES_BUSQUEDA_PEDIDO_URGENTE = 3;
 

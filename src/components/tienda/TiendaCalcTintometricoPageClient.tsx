@@ -16,7 +16,7 @@ import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import EditarCoeficientesModal from "@/components/stock/EditarCoeficientesModal";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { montoArNormalizedStringToPesosNumber, montoArPesosEnterosToDisplay } from "@/lib/montoArMask";
-import { roundToNearestHundred } from "@/lib/tiendaCalculosLts";
+import { calcularPxTintometrico } from "@/lib/codColorTintometrico";
 
 type ProveedorOption = {
   id: string;
@@ -51,18 +51,16 @@ export default function TiendaCalcTintometricoPageClient({
    * Lista mayorista: 30 % menos que la general (70 % del valor general en pesos enteros).
    */
   const { pxListaGeneral, pxListaMayorista } = useMemo(() => {
-    const base = Math.round(montoArNormalizedStringToPesosNumber(pxCompraNorm));
-    const generalPesos = proveedorId
-      ? roundToNearestHundred(
-          base *
-            (proveedoresConCoefMayorAUno.find((p) => p.id === proveedorId)?.coeficienteTintometrico ??
-              1),
-        )
-      : roundToNearestHundred(base);
-    const mayoristaPesos = Math.round(generalPesos * 0.7);
+    const coef = proveedorId
+      ? (proveedoresConCoefMayorAUno.find((p) => p.id === proveedorId)?.coeficienteTintometrico ?? null)
+      : null;
+    const { general, mayorista } = calcularPxTintometrico(
+      montoArNormalizedStringToPesosNumber(pxCompraNorm),
+      coef
+    );
     return {
-      pxListaGeneral: montoArPesosEnterosToDisplay(generalPesos),
-      pxListaMayorista: montoArPesosEnterosToDisplay(mayoristaPesos),
+      pxListaGeneral: montoArPesosEnterosToDisplay(general),
+      pxListaMayorista: montoArPesosEnterosToDisplay(mayorista),
     };
   }, [pxCompraNorm, proveedorId, proveedoresConCoefMayorAUno]);
 

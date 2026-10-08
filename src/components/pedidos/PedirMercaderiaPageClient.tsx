@@ -33,6 +33,7 @@ import {
 import {
   MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE,
   MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE,
+  type FiltroPedidoValor,
   type TipoPedido,
 } from "@/lib/pedidos";
 import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
@@ -50,7 +51,7 @@ interface Props {
   /** True cuando no se puede listar (falta sucursal o el segundo filtro). */
   sinFiltros: boolean;
   tieneSucursal: boolean;
-  pedidoValida: "cualquier" | "urgente" | "reposicion" | "";
+  pedidoValida: FiltroPedidoValor;
   total: number;
   totalPaginas: number;
   paginaNum: number;

@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { normalizarCodColor, RUBRO_TINTOMETRICO } from "@/lib/codColorTintometrico";
+import { codigoCumpleFormatoCod } from "@/lib/tintometricoFormatoCod";
+import type { ServiceResult } from "@/types";
 
 const PROVEEDORES_TINTOMETRICOS_IDS = [
   "cmm546hyj000004lbskwbrvb6",
@@ -43,6 +46,23 @@ export async function getProveedoresTintometricos(): Promise<ProveedorTintometri
     .map((r) => ({ ...r, prefijo: r.prefijo ?? "" }));
 }
 
+export type ProveedorCoefTintometrico = ProveedorTintometrico & { coeficienteTintometrico: number };
+
+/** Proveedores de mercadería con COEF. TINTOMÉTRICO > 1 (mismo criterio que Px Tintométrico). */
+export async function listarProveedoresCoefTintometrico(): Promise<ProveedorCoefTintometrico[]> {
+  const rows = await prisma.proveedor.findMany({
+    where: { proveedorMercaderia: true, coeficienteTintometrico: { gt: 1 } },
+    select: { id: true, nombre: true, prefijo: true, coeficienteTintometrico: true },
+    orderBy: { nombre: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    prefijo: r.prefijo ?? "",
+    coeficienteTintometrico: Number(r.coeficienteTintometrico),
+  }));
+}
+
 export async function getSucursalesTintometricas(): Promise<SucursalTintometrica[]> {
   const rows = await prisma.sucursal.findMany({
     where: { pedido: true },
@@ -66,8 +86,46 @@ export type BaseTintometricaCatalogo = {
 };
 
 const WHERE_BASE_TINTOMETRICA: Prisma.ProdPropioWhereInput = {
-  rubroRelation: { nombre: { equals: "Tintometrico", mode: "insensitive" } },
+  rubroRelation: { nombre: { equals: RUBRO_TINTOMETRICO, mode: "insensitive" } },
 };
+
+/**
+ * COD. COLOR por línea de venta: normalizado, `null` si el producto no es tintométrico,
+ * y validado contra la máscara de la marca cuando existe.
+ */
+export async function resolverCodColorLineas(
+  lineas: { codTienda: string; codColor: string | null | undefined }[]
+): Promise<ServiceResult<(string | null)[]>> {
+  const conCod = lineas.filter((l) => normalizarCodColor(l.codColor) != null);
+  if (conCod.length === 0) return { success: true, data: lineas.map(() => null) };
+
+  const rows = await prisma.prodPropio.findMany({
+    where: { ...WHERE_BASE_TINTOMETRICA, codTienda: { in: [...new Set(conCod.map((l) => l.codTienda))] } },
+    select: { codTienda: true, marcaRelation: { select: { formatoCodTintometrico: true } } },
+  });
+  const formatoPorCod = new Map(
+    rows.map((r) => [r.codTienda, r.marcaRelation?.formatoCodTintometrico?.trim() || null])
+  );
+
+  const out: (string | null)[] = [];
+  for (let i = 0; i < lineas.length; i += 1) {
+    const l = lineas[i]!;
+    const cod = normalizarCodColor(l.codColor);
+    if (!cod || !formatoPorCod.has(l.codTienda)) {
+      out.push(null);
+      continue;
+    }
+    const formato = formatoPorCod.get(l.codTienda) ?? null;
+    if (formato && !codigoCumpleFormatoCod(cod, formato)) {
+      return {
+        success: false,
+        error: `El COD. COLOR «${cod}» de la línea ${i + 1} no respeta el formato ${formato}.`,
+      };
+    }
+    out.push(cod);
+  }
+  return { success: true, data: out };
+}
 
 /**
  * Catálogo del modal «Agregar Tintométrico» (Pedir Mercadería): bases `prod_propios` rubro Tintometrico

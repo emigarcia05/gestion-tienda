@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import AppModal from "@/components/shared/AppModal";
+import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -220,7 +221,7 @@ export default function FacturaComprobanteDetalleModal({
                           </TableCell>
                           <TableCell className="celda-datos text-left">
                             <span className="flex flex-col gap-0.5">
-                              <span>{linea.descripcion}</span>
+                              <span>{descripcionConCodColor(linea.descripcion, linea.codColor)}</span>
                               {comentario ? (
                                 <span className="font-normal">{comentario}</span>
                               ) : null}

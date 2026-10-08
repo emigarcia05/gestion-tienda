@@ -187,7 +187,7 @@ interface Props {
   cantPorId: Record<string, string>;
   onAbrirCantidad: (producto: PedidoUrgenteItem) => void;
   onBorrar: (producto: PedidoUrgenteItem) => void;
-  /** Sección fija arriba (no depende del segundo filtro ni de la página). */
+  /** Sección Tintométricos (la página no la pasa si PEDIDO es URGENTE / REPOSICIÓN / REPOSICIÓN CONF.). */
   tintometricos: FilaTintometricoPedir[];
   onBorrarTintometrico: (fila: FilaTintometricoPedir) => void;
 }
@@ -253,7 +253,7 @@ export default function TablaPedirMercaderia({
             ))}
           </>
         ) : null}
-        {productos.length === 0 ? (
+        {productos.length === 0 && tintometricos.length === 0 ? (
           <EmptyTableRow colSpan={COLUMNS} message={mensajeVacio} />
         ) : (
           secciones.map((s) =>

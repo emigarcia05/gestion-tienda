@@ -506,6 +506,7 @@ export default function FacturaCrearPageClient({
         pxLista: l.pxLista,
         descuentoPct: porcentajeDescuentoLinea(l, pctGlobal),
         comentario: l.comentario,
+        codColor: l.codColor ?? null,
       })),
       descuento: draft.descuento,
       cobros,

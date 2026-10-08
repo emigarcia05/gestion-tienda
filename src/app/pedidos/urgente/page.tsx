@@ -7,7 +7,7 @@ import FiltrosPedidoUrgente from "@/components/pedidos/FiltrosPedidoUrgente";
 import PedidoUrgentePageClient from "@/components/pedidos/PedidoUrgentePageClient";
 import { prisma } from "@/lib/prisma";
 import { getPosicionIvaComparacionRevisionToken } from "@/services/finBalPosicionIvaComparacionRevision.service";
-import { hayFiltroExtraPedidoUrgente } from "@/lib/pedidos";
+import { hayFiltroExtraPedidoUrgente, parseFiltroPedidoValor } from "@/lib/pedidos";
 
 export const dynamic = "force-dynamic";
 
@@ -42,14 +42,7 @@ export default async function PedidoUrgentePage({ searchParams }: Props) {
     (sucursal === "maipu" || sucursal === "guaymallen") && codigosHabilitados.has(sucursal)
       ? (sucursal as SucursalPedido)
       : "";
-  const pedidoValida: "cualquier" | "urgente" | "reposicion" | "" =
-    pedido === "cualquier"
-      ? "cualquier"
-      : pedido === "urgente"
-        ? "urgente"
-        : pedido === "reposicion"
-          ? "reposicion"
-          : "";
+  const pedidoValida = parseFiltroPedidoValor(pedido);
 
   const [{ proveedores, productos, total, totalPaginas, ivaSaldoAcumuladoComparacion }, ivaComparacionRevisionToken] =
     await Promise.all([

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { esRubroTintometrico } from "@/lib/codColorTintometrico";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import {
   buildMapSaldoStockItemsSucursales,
@@ -25,6 +26,11 @@ export interface ProductoFacturaBusquedaItem {
   stock: number;
   /** Detalle por sucursal (cada sucursal es depósito). */
   stockPorSucursal: ProductoFacturaStockSucursal[];
+  /**
+   * Rubro TINTOMETRICO: al elegirlo se piden COD. COLOR (máscara de la marca) y px.
+   * `null` = producto común.
+   */
+  tintometrico: { formatoCod: string | null } | null;
 }
 
 function normalizeTokens(q: string): string[] {
@@ -101,6 +107,8 @@ export async function buscarProductosParaFactura(params: {
       select: {
         codTienda: true,
         descripcionTienda: true,
+        rubroRelation: { select: { nombre: true } },
+        marcaRelation: { select: { formatoCodTintometrico: true } },
       },
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take,
@@ -147,6 +155,9 @@ export async function buscarProductosParaFactura(params: {
         pxLista: pxPorCod.get(r.codTienda) ?? 0,
         stock,
         stockPorSucursal,
+        tintometrico: esRubroTintometrico(r.rubroRelation?.nombre)
+          ? { formatoCod: r.marcaRelation?.formatoCodTintometrico?.trim() || null }
+          : null,
       };
     });
 

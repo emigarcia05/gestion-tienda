@@ -9,6 +9,7 @@ import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModa
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
+import FacturaTintometricoModal from "@/components/facturacion/FacturaTintometricoModal";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ import {
   formatCantidadInputValor,
   parseCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
+import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -133,6 +135,10 @@ export default function FacturaCrearLineasBlock({
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
   const [busquedaAvanzadaOpen, setBusquedaAvanzadaOpen] = useState(false);
+  const [tintometricoPendiente, setTintometricoPendiente] = useState<{
+    item: ProductoFacturaBusquedaItem;
+    mantenerBusqueda: boolean;
+  } | null>(null);
   const [stockDesdeAvanzada, setStockDesdeAvanzada] = useState(false);
   const [cantidadDrafts, setCantidadDrafts] = useState<Record<string, string>>(
     {}
@@ -203,7 +209,8 @@ export default function FacturaCrearLineasBlock({
         stockModalItem != null ||
         descuentoModalOpen ||
         comentarioModalOpen ||
-        busquedaAvanzadaOpen
+        busquedaAvanzadaOpen ||
+        tintometricoPendiente != null
       )
         return;
       const el = wrapRef.current;
@@ -214,7 +221,13 @@ export default function FacturaCrearLineasBlock({
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [stockModalItem, descuentoModalOpen, comentarioModalOpen, busquedaAvanzadaOpen]);
+  }, [
+    stockModalItem,
+    descuentoModalOpen,
+    comentarioModalOpen,
+    busquedaAvanzadaOpen,
+    tintometricoPendiente,
+  ]);
 
   useEffect(() => {
     const key = pendingFocusCantidadKeyRef.current;
@@ -239,8 +252,14 @@ export default function FacturaCrearLineasBlock({
 
   function agregarItem(
     item: ProductoFacturaBusquedaItem,
-    opts?: { mantenerBusqueda?: boolean }
+    opts?: { mantenerBusqueda?: boolean },
+    tintometrico?: { codColor: string; pxLista: number }
   ) {
+    if (item.tintometrico && !tintometrico) {
+      setAbierto(false);
+      setTintometricoPendiente({ item, mantenerBusqueda: opts?.mantenerBusqueda ?? false });
+      return;
+    }
     const keyFoco = nuevaKeyLinea();
     pendingScrollAlFinalRef.current = true;
     const { descuentoPctEspecial, descuentoSiguiente } =
@@ -255,9 +274,10 @@ export default function FacturaCrearLineasBlock({
         codTienda: item.codTienda,
         descripcion: item.descripcion,
         cantidad: 1,
-        pxLista: item.pxLista,
+        pxLista: tintometrico?.pxLista ?? item.pxLista,
         descuentoPctEspecial,
         comentario: "",
+        codColor: tintometrico?.codColor ?? null,
       },
     ]);
     if (!opts?.mantenerBusqueda) {
@@ -524,6 +544,10 @@ export default function FacturaCrearLineasBlock({
                       ? pctToNorm(pctGlobal)
                       : "";
                 const comentarioVisible = linea.comentario.trim();
+                const descripcionVisible = descripcionConCodColor(
+                  linea.descripcion,
+                  linea.codColor
+                );
                 return (
                   <TableRow key={linea.key}>
                     <TableCell className="celda-datos min-w-0 text-center">
@@ -575,7 +599,7 @@ export default function FacturaCrearLineasBlock({
                     <TableCell className="celda-datos min-w-0 text-center">
                       <div className="flex min-w-0 flex-col items-center gap-0.5">
                         <span className="w-full min-w-0 break-words">
-                          {linea.descripcion}
+                          {descripcionVisible}
                         </span>
                         {comentarioVisible ? (
                           <span className="w-full min-w-0 break-words text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -759,6 +783,29 @@ export default function FacturaCrearLineasBlock({
         descuentoActual={descuento}
         onAplicar={aplicarDescuentoDesdeModal}
       />
+
+      {tintometricoPendiente ? (
+        <FacturaTintometricoModal
+          key={`tint-${tintometricoPendiente.item.codTienda}`}
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            setTintometricoPendiente(null);
+            if (pendingFocusCantidadKeyRef.current == null) {
+              queueMicrotask(() => ref.current?.focus());
+            }
+          }}
+          descripcion={tintometricoPendiente.item.descripcion}
+          formatoCod={tintometricoPendiente.item.tintometrico?.formatoCod ?? null}
+          onConfirmar={(datos) =>
+            agregarItem(
+              tintometricoPendiente.item,
+              { mantenerBusqueda: tintometricoPendiente.mantenerBusqueda },
+              datos
+            )
+          }
+        />
+      ) : null}
 
       {comentarioLinea ? (
         <FacturaLineaComentarioModal

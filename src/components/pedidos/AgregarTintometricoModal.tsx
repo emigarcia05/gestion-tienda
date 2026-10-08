@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
+import CodColorTintometricoInput from "@/components/shared/CodColorTintometricoInput";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,14 +25,12 @@ import {
   TableRow,
   EmptyTableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { matchByMultiTerm } from "@/lib/busqueda";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { getCatalogoAgregarTintometricoAction } from "@/actions/tintometrico";
 import { upsertPedidoTintometricoItemsAction } from "@/actions/pedidos";
-import {
-  aplicarEntradaCodigoFormato,
-  codigoCumpleFormatoCod,
-  longitudCompletaFormatoCod,
-} from "@/lib/tintometricoFormatoCod";
+import { descripcionConCodColor } from "@/lib/codColorTintometrico";
+import { aplicarEntradaCodigoFormato, codigoCumpleFormatoCod } from "@/lib/tintometricoFormatoCod";
 import type {
   BaseTintometricaCatalogo,
   MarcaTintometricaCatalogo,
@@ -46,7 +46,7 @@ type Catalogo = {
 const CAMPO_CLASS = "flex min-w-0 flex-col gap-1";
 
 function descripcionConCodigo(base: string, codigo: string): string {
-  return (codigo ? `${base} - COD. ${codigo}` : base).toUpperCase();
+  return descripcionConCodColor(base, codigo).toUpperCase();
 }
 
 interface Props {
@@ -70,18 +70,23 @@ export default function AgregarTintometricoModal({
   const [proveedorId, setProveedorId] = useState("");
   const [idMarca, setIdMarca] = useState("");
   const [codigo, setCodigo] = useState("");
-  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
   const [cantPorCod, setCantPorCod] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
-  const codigoInputRef = useRef<HTMLInputElement>(null);
+  const [qDebounced, setQDebounced] = useState("");
+  const { q, setQ, handleQChange, isDebouncing, ref: searchRef } = useFiltrosConBusqueda({
+    qActual: qDebounced,
+    debounceMs: 300,
+    onDebouncedSearch: setQDebounced,
+  });
 
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setIdMarca("");
       setCodigo("");
-      setErrorCodigo(null);
       setCantPorCod({});
+      setQ("");
+      setQDebounced("");
     });
     if (catalogo) {
       queueMicrotask(() =>
@@ -104,7 +109,7 @@ export default function AgregarTintometricoModal({
     return () => {
       cancelado = true;
     };
-  }, [open, catalogo, proveedorInicial]);
+  }, [open, catalogo, proveedorInicial, setQ]);
 
   const marca = useMemo(
     () => catalogo?.marcas.find((m) => m.idMarca === idMarca) ?? null,
@@ -114,25 +119,15 @@ export default function AgregarTintometricoModal({
     () => (catalogo && idMarca ? catalogo.bases.filter((b) => b.idMarca === idMarca) : []),
     [catalogo, idMarca]
   );
+  const basesFiltradas = useMemo(() => {
+    if (!qDebounced.trim()) return basesMarca;
+    return basesMarca.filter((b) => matchByMultiTerm([b.descripcionTienda], qDebounced));
+  }, [basesMarca, qDebounced]);
 
   const codigoTrim = codigo.trim();
   const formatoCod = marca?.formatoCod ?? null;
   const codigoValido =
     codigoTrim.length > 0 && (formatoCod === null || codigoCumpleFormatoCod(codigoTrim, formatoCod));
-  const maxLenCodigo = formatoCod ? longitudCompletaFormatoCod(formatoCod) : null;
-
-  function aplicarCodigo(raw: string) {
-    const r = aplicarEntradaCodigoFormato(formatoCod, raw);
-    setCodigo(r.value);
-    setErrorCodigo(r.error);
-    queueMicrotask(() => {
-      const el = codigoInputRef.current;
-      if (!el) return;
-      const pos = r.value.length;
-      el.setSelectionRange(pos, pos);
-    });
-  }
-
   const cantidades = basesMarca
     .map((b) => ({ base: b, cant: Number.parseInt(cantPorCod[b.codTienda] ?? "", 10) }))
     .filter((x) => Number.isFinite(x.cant) && x.cant > 0);
@@ -213,10 +208,10 @@ export default function AgregarTintometricoModal({
               onValueChange={(v) => {
                 setIdMarca(v);
                 setCantPorCod({});
+                setQ("");
+                setQDebounced("");
                 const nextMarca = catalogo?.marcas.find((m) => m.idMarca === v);
-                const inicial = aplicarEntradaCodigoFormato(nextMarca?.formatoCod ?? null, "");
-                setCodigo(inicial.value);
-                setErrorCodigo(null);
+                setCodigo(aplicarEntradaCodigoFormato(nextMarca?.formatoCod ?? null, "").value);
               }}
               disabled={!catalogo}
             >
@@ -234,69 +229,73 @@ export default function AgregarTintometricoModal({
           </div>
           <div className={CAMPO_CLASS}>
             <ModalMicroLabel>COD. COLOR</ModalMicroLabel>
-            <Input
-              ref={codigoInputRef}
+            <CodColorTintometricoInput
+              key={idMarca}
+              formatoCod={formatoCod}
               value={codigo}
-              onChange={(e) => aplicarCodigo(e.target.value)}
+              onChange={setCodigo}
               disabled={!marca}
-              placeholder={formatoCod ? undefined : "CÓDIGO"}
-              maxLength={maxLenCodigo ?? undefined}
-              aria-invalid={errorCodigo ? true : undefined}
-              className={cn("h-10 text-center tabular-nums", errorCodigo && "border-destructive")}
-              aria-label="Código de color"
-              autoComplete="off"
-              spellCheck={false}
             />
-            {errorCodigo ? (
-              <span className="text-xs text-destructive">{errorCodigo}</span>
-            ) : null}
           </div>
         </div>
 
-        <div className="contenedor-tabla-gestion no-scroll-x min-h-0 flex-1">
-          <Table variant="compact" scrollX={false} className="tabla-gestion-compacta w-full table-fixed">
-            <colgroup>
-              <col style={{ width: "82%" }} />
-              <col style={{ width: "18%" }} />
-            </colgroup>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="min-w-0">DESCRIPCIÓN</TableHead>
-                <TableHead className="text-center">CANT. A PEDIR</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {basesMarca.length === 0 ? (
-                <EmptyTableRow
-                  colSpan={2}
-                  message={marca ? "La marca no tiene ítems tintométricos." : "Elegí una marca para ver los ítems."}
-                />
-              ) : (
-                basesMarca.map((b) => (
-                  <TableRow key={b.codTienda}>
-                    <TableCell className="celda-datos min-w-0 truncate" title={b.descripcionTienda}>
-                      {descripcionConCodigo(b.descripcionTienda, codigoValido ? codigoTrim : "")}
-                    </TableCell>
-                    <TableCell className="celda-datos text-center">
-                      <Input
-                        inputMode="numeric"
-                        value={cantPorCod[b.codTienda] ?? ""}
-                        placeholder="0"
-                        onChange={(e) =>
-                          setCantPorCod((prev) => ({
-                            ...prev,
-                            [b.codTienda]: e.target.value.replace(/\D/g, ""),
-                          }))
-                        }
-                        className="mx-auto h-7 w-16 px-1 text-center tabular-nums"
-                        aria-label={`Cantidad ${b.descripcionTienda}`}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <FiltroBusquedaInput
+            id="agregar-tintometrico-filtro-descripcion"
+            placeholder="BUSCAR POR DESCRIPCIÓN..."
+            value={q}
+            onChange={handleQChange}
+            isDebouncing={isDebouncing}
+            inputRef={searchRef}
+            disabled={!marca}
+          />
+          <div className="contenedor-tabla-gestion no-scroll-x min-h-0 flex-1">
+            <Table variant="compact" scrollX={false} className="tabla-gestion-compacta w-full table-fixed">
+              <colgroup>
+                <col style={{ width: "82%" }} />
+                <col style={{ width: "18%" }} />
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="min-w-0">DESCRIPCIÓN</TableHead>
+                  <TableHead className="text-center">CANT. A PEDIR</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {basesMarca.length === 0 ? (
+                  <EmptyTableRow
+                    colSpan={2}
+                    message={marca ? "La marca no tiene ítems tintométricos." : "Elegí una marca para ver los ítems."}
+                  />
+                ) : basesFiltradas.length === 0 ? (
+                  <EmptyTableRow colSpan={2} message="Sin resultados." />
+                ) : (
+                  basesFiltradas.map((b) => (
+                    <TableRow key={b.codTienda}>
+                      <TableCell className="celda-datos min-w-0 truncate" title={b.descripcionTienda}>
+                        {descripcionConCodigo(b.descripcionTienda, codigoValido ? codigoTrim : "")}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center">
+                        <Input
+                          inputMode="numeric"
+                          value={cantPorCod[b.codTienda] ?? ""}
+                          placeholder="0"
+                          onChange={(e) =>
+                            setCantPorCod((prev) => ({
+                              ...prev,
+                              [b.codTienda]: e.target.value.replace(/\D/g, ""),
+                            }))
+                          }
+                          className="mx-auto h-7 w-16 px-1 text-center tabular-nums"
+                          aria-label={`Cantidad ${b.descripcionTienda}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </AppModal>
     </Dialog>

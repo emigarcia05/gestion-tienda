@@ -6,6 +6,7 @@
  */
 
 import { jsPDF } from "jspdf";
+import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import {
   esFacturaTipoFiscal,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
@@ -175,7 +176,10 @@ export function generarPdfFacturaComprobante(
       const pct = porcentajeDescuentoLinea(linea, pctGlobal);
       const pxDesc = pxConDescuento(linea.pxLista, pct);
       const total = totalLineaConDescuento(linea, pct);
-      const descLines = doc.splitTextToSize(linea.descripcion, col.desc - 2);
+      const descLines = doc.splitTextToSize(
+        descripcionConCodColor(linea.descripcion, linea.codColor),
+        col.desc - 2
+      );
       const comentario = linea.comentario.trim();
       const comentarioLines = comentario
         ? doc.splitTextToSize(comentario, col.desc - 2)

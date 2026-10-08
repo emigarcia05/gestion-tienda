@@ -20,6 +20,10 @@ import FilterBar, {
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
+import {
+  FILTRO_PEDIDO_OPCIONES,
+  type FiltroPedidoValor,
+} from "@/lib/pedidos";
 
 export type SucursalPedido = "guaymallen" | "maipu";
 type SucursalFiltroOption = { value: SucursalPedido; label: string };
@@ -30,7 +34,7 @@ interface Proveedor {
   prefijo: string;
 }
 
-export type FiltroPedidoValor = "cualquier" | "urgente" | "reposicion" | "";
+export type { FiltroPedidoValor };
 
 interface Props {
   q: string;
@@ -187,9 +191,11 @@ export default function FiltrosPedidoUrgente({
                 align="start"
                 className="select-content-filtro"
               >
-                <SelectItem value="cualquier">CUALQUIER TIPO PEDIDO</SelectItem>
-                <SelectItem value="urgente">PEDIDO URGENTE</SelectItem>
-                <SelectItem value="reposicion">PEDIDO REPOSICION</SelectItem>
+                {FILTRO_PEDIDO_OPCIONES.map((op) => (
+                  <SelectItem key={op.value} value={op.value}>
+                    {op.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FiltroIndividualContainer>
