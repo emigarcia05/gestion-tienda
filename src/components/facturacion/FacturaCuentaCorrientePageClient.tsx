@@ -61,13 +61,16 @@ import {
   CUENTA_CORRIENTE_PRODUCTO_TIPO_LABELS,
   FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS,
   FACTURA_BUSQUEDA_CLIENTES_TAKE,
+  comprobantesConProductoCuentaCorriente,
   filtrarMovimientosCuentaCorriente,
+  lineaProductoCoincideFiltroCc,
   resumenIndicadoresCuentaCorriente,
   totalesPorItemCuentaCorriente,
   type ClienteConSaldoCuentaCorriente,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteProductoLinea,
   type FiltroPeriodoCuentaCorriente,
+  type FiltroProductoCuentaCorriente,
   type FiltroSaldoCuentaCorriente,
   type FiltroSaldoVencidoCuentaCorriente,
   type FiltroTipoCuentaCorriente,
@@ -77,7 +80,6 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtCantidad, fmtCelda, fmtPrecio } from "@/lib/format";
-import { matchByMultiTerm } from "@/lib/busqueda";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -217,6 +219,16 @@ export default function FacturaCuentaCorrientePageClient({
 
   const puedeBuscar = q.trim().length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
 
+  const filtroProducto = useMemo<FiltroProductoCuentaCorriente>(
+    () => ({ marca: filtroMarca, rubro: filtroRubro, q: qDescDebounced }),
+    [filtroMarca, filtroRubro, qDescDebounced]
+  );
+
+  const comprobantesConProducto = useMemo(
+    () => comprobantesConProductoCuentaCorriente(productos, filtroProducto),
+    [productos, filtroProducto]
+  );
+
   const movimientosFiltrados = useMemo(
     () =>
       filtrarMovimientosCuentaCorriente(movimientos, {
@@ -227,6 +239,7 @@ export default function FacturaCuentaCorrientePageClient({
         saldo: filtroSaldo,
         saldoVencido: filtroSaldoVencido,
         proyectoId: proyectoFiltroId,
+        comprobantesConProducto,
       }),
     [
       movimientos,
@@ -237,6 +250,7 @@ export default function FacturaCuentaCorrientePageClient({
       filtroSaldo,
       filtroSaldoVencido,
       proyectoFiltroId,
+      comprobantesConProducto,
     ]
   );
 
@@ -255,10 +269,7 @@ export default function FacturaCuentaCorrientePageClient({
         if (p.fechaIso < rangoDesde || p.fechaIso > rangoHasta) return false;
       }
       if (proyectoFiltroId && p.proyectoId !== proyectoFiltroId) return false;
-      if (filtroMarca && p.marca.trim() !== filtroMarca) return false;
-      if (filtroRubro && p.rubro.trim() !== filtroRubro) return false;
-      if (!qDescDebounced.trim()) return true;
-      return matchByMultiTerm([p.descripcion], qDescDebounced);
+      return lineaProductoCoincideFiltroCc(p, filtroProducto);
     });
   }, [
     productos,
@@ -266,9 +277,7 @@ export default function FacturaCuentaCorrientePageClient({
     rangoDesde,
     rangoHasta,
     proyectoFiltroId,
-    filtroMarca,
-    filtroRubro,
-    qDescDebounced,
+    filtroProducto,
   ]);
 
   const totalesPorItem = useMemo(
@@ -567,6 +576,69 @@ export default function FacturaCuentaCorrientePageClient({
     </FiltroIndividualContainer>
   );
 
+  const filtroMarcaSelect = (
+    <FiltroIndividualContainer
+      activo={Boolean(filtroMarca)}
+      onLimpiar={() => setFiltroMarca("")}
+      className={FILTER_SELECT_WRAPPER_CLASS}
+    >
+      <Select value={filtroMarca || undefined} onValueChange={setFiltroMarca}>
+        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+          <SelectValue placeholder="MARCA" />
+        </SelectTrigger>
+        <SelectContent
+          className="select-content-filtro"
+          position="popper"
+          side="bottom"
+          align="start"
+        >
+          {marcasOpciones.map((m) => (
+            <SelectItem key={m} value={m}>
+              {m.toLocaleUpperCase("es-AR")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FiltroIndividualContainer>
+  );
+
+  const filtroRubroSelect = (
+    <FiltroIndividualContainer
+      activo={Boolean(filtroRubro)}
+      onLimpiar={() => setFiltroRubro("")}
+      className={FILTER_SELECT_WRAPPER_CLASS}
+    >
+      <Select value={filtroRubro || undefined} onValueChange={setFiltroRubro}>
+        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+          <SelectValue placeholder="RUBRO" />
+        </SelectTrigger>
+        <SelectContent
+          className="select-content-filtro"
+          position="popper"
+          side="bottom"
+          align="start"
+        >
+          {rubrosOpciones.map((r) => (
+            <SelectItem key={r} value={r}>
+              {r.toLocaleUpperCase("es-AR")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FiltroIndividualContainer>
+  );
+
+  const filtroDescripcionInput = (
+    <FiltroBusquedaInput
+      id="filtro-cuenta-corriente-descripcion"
+      placeholder="BUSCAR POR DESCRIPCIÓN…"
+      value={qDesc}
+      onChange={handleQDescChange}
+      isDebouncing={isDebouncingDesc}
+      inputRef={searchDescRef}
+    />
+  );
+
   return (
     <>
       <ClassicFilteredTableLayout
@@ -575,6 +647,17 @@ export default function FacturaCuentaCorrientePageClient({
         contentWidth="full"
         actions={
           <>
+            <ToolbarActionButton
+              label={
+                esVistaProductos ? "DETALLE DE COMPROBANTES" : "DETALLE DE PRODUCTOS"
+              }
+              icon={esVistaProductos ? <FileText /> : <Package />}
+              className="w-full justify-start"
+              onClick={() => {
+                setTotalesItemVista(false);
+                setVista(esVistaProductos ? "comprobantes" : "productos");
+              }}
+            />
             {esPublico ? null : (
               <ToolbarActionButton
                 label="PAGO CUENTA CORRIENTE"
@@ -584,26 +667,6 @@ export default function FacturaCuentaCorrientePageClient({
                 onClick={() => setPagoCcOpen(true)}
               />
             )}
-            <ToolbarActionButton
-              label="DETALLE COMPROBANTES"
-              icon={<FileText />}
-              aria-pressed={esVistaComprobantes}
-              className="w-full justify-start"
-              onClick={() => {
-                setTotalesItemVista(false);
-                setVista("comprobantes");
-              }}
-            />
-            <ToolbarActionButton
-              label="DETALLE PRODUCTOS"
-              icon={<Package />}
-              aria-pressed={esVistaProductos}
-              className="w-full justify-start"
-              onClick={() => {
-                setTotalesItemVista(false);
-                setVista("productos");
-              }}
-            />
             {esPublico ? null : (
               <ToolbarActionButton
                 label="CLIENTES CON SALDO"
@@ -871,72 +934,9 @@ export default function FacturaCuentaCorrientePageClient({
             {esVistaProductos ? (
               <div className="grid w-full min-w-0 overflow-hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,4fr)_minmax(0,1.1fr)] items-center gap-3">
                 <div className="min-w-0">{filtroFecha}</div>
-                <div className="min-w-0">
-                <FiltroIndividualContainer
-                  activo={Boolean(filtroMarca)}
-                  onLimpiar={() => setFiltroMarca("")}
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                >
-                  <Select
-                    value={filtroMarca || undefined}
-                    onValueChange={setFiltroMarca}
-                  >
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="MARCA" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="select-content-filtro"
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                    >
-                      {marcasOpciones.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m.toLocaleUpperCase("es-AR")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-                </div>
-                <div className="min-w-0">
-                <FiltroIndividualContainer
-                  activo={Boolean(filtroRubro)}
-                  onLimpiar={() => setFiltroRubro("")}
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                >
-                  <Select
-                    value={filtroRubro || undefined}
-                    onValueChange={setFiltroRubro}
-                  >
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="RUBRO" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="select-content-filtro"
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                    >
-                      {rubrosOpciones.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r.toLocaleUpperCase("es-AR")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-                </div>
-                <div className="min-w-0">
-                  <FiltroBusquedaInput
-                    id="filtro-cuenta-corriente-descripcion"
-                    placeholder="BUSCAR POR DESCRIPCIÓN…"
-                    value={qDesc}
-                    onChange={handleQDescChange}
-                    isDebouncing={isDebouncingDesc}
-                    inputRef={searchDescRef}
-                  />
-                </div>
+                <div className="min-w-0">{filtroMarcaSelect}</div>
+                <div className="min-w-0">{filtroRubroSelect}</div>
+                <div className="min-w-0">{filtroDescripcionInput}</div>
                 <div className="min-w-0">
                   <Button
                     type="button"
@@ -1017,6 +1017,13 @@ export default function FacturaCuentaCorrientePageClient({
               {filtroSaldoVencidoSelect}
             </FilaFiltrosDesplegables>
             )}
+            {esVistaComprobantes ? (
+              <FilaFiltrosDesplegables columnas={4}>
+                {filtroMarcaSelect}
+                {filtroRubroSelect}
+                <div className="col-span-2 min-w-0">{filtroDescripcionInput}</div>
+              </FilaFiltrosDesplegables>
+            ) : null}
           </FilterBar>
           </div>
         }

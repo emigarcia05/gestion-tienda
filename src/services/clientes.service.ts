@@ -742,6 +742,7 @@ async function armarLineasProductosCuentaCorriente(
     const meta = metaPorCod.get(item.codTienda);
     out.push({
       id: item.id,
+      comprobanteId: item.comprobanteId,
       fechaIso: cab.fechaIso,
       createdAtIso: cab.createdAtIso,
       tipo: cab.tipo,

@@ -7,6 +7,7 @@ import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   type ClienteListaItem,
 } from "@/lib/envios";
+import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   addDaysToIsoYmdArgentina,
   diffCalendarDaysIsoYmdArgentina,
@@ -489,6 +490,7 @@ export const CUENTA_CORRIENTE_PRODUCTO_TIPO_LABELS: Record<
 
 export type CuentaCorrienteProductoLinea = {
   id: string;
+  comprobanteId: string;
   fechaIso: string;
   createdAtIso: string;
   tipo: CuentaCorrienteProductoTipo;
@@ -661,7 +663,47 @@ export function mapaEstadoPagoVentasCc(
   return out;
 }
 
-/** Filtros de Cuenta Corrientes sobre el ledger ya cargado (fecha / tipo / saldo). */
+/** Filtro por producto (MARCA / RUBRO / DESCRIPCIÓN) de Cuenta Corrientes. */
+export type FiltroProductoCuentaCorriente = {
+  marca: string;
+  rubro: string;
+  q: string;
+};
+
+export function filtroProductoCuentaCorrienteActivo(
+  filtro: FiltroProductoCuentaCorriente
+): boolean {
+  return Boolean(filtro.marca || filtro.rubro || filtro.q.trim());
+}
+
+/** DESCRIPCIÓN busca multi-término sobre descripción + marca (`Colorin Emocion`). */
+export function lineaProductoCoincideFiltroCc(
+  linea: CuentaCorrienteProductoLinea,
+  filtro: FiltroProductoCuentaCorriente
+): boolean {
+  if (filtro.marca && linea.marca.trim() !== filtro.marca) return false;
+  if (filtro.rubro && linea.rubro.trim() !== filtro.rubro) return false;
+  if (!filtro.q.trim()) return true;
+  return matchByMultiTerm([linea.descripcion, linea.marca], filtro.q);
+}
+
+/**
+ * Ids de comprobantes (venta / NC) con al menos un ítem que cumple el filtro.
+ * `null` = filtro inactivo (no restringe).
+ */
+export function comprobantesConProductoCuentaCorriente(
+  productos: readonly CuentaCorrienteProductoLinea[],
+  filtro: FiltroProductoCuentaCorriente
+): Set<string> | null {
+  if (!filtroProductoCuentaCorrienteActivo(filtro)) return null;
+  const out = new Set<string>();
+  for (const linea of productos) {
+    if (lineaProductoCoincideFiltroCc(linea, filtro)) out.add(linea.comprobanteId);
+  }
+  return out;
+}
+
+/** Filtros de Cuenta Corrientes sobre el ledger ya cargado (fecha / tipo / saldo / producto). */
 export function filtrarMovimientosCuentaCorriente(
   movimientos: readonly CuentaCorrienteClienteMovimiento[],
   filtros: {
@@ -672,12 +714,18 @@ export function filtrarMovimientosCuentaCorriente(
     saldo: FiltroSaldoCuentaCorriente;
     saldoVencido: FiltroSaldoVencidoCuentaCorriente;
     proyectoId: string | null;
+    /** Solo ventas / NC con estos ids (ver `comprobantesConProductoCuentaCorriente`). */
+    comprobantesConProducto?: ReadonlySet<string> | null;
   }
 ): CuentaCorrienteClienteMovimiento[] {
   const estadoPorVenta = mapaEstadoPagoVentasCc(movimientos);
   return movimientos.filter((mov) => {
     if (filtros.proyectoId && mov.proyectoId !== filtros.proyectoId) {
       return false;
+    }
+    if (filtros.comprobantesConProducto) {
+      if (mov.tipo !== "venta" && mov.tipo !== "nota_credito") return false;
+      if (!filtros.comprobantesConProducto.has(mov.comprobanteId)) return false;
     }
     if (filtros.periodo === "rango") {
       if (!filtros.rangoDesde || !filtros.rangoHasta) return false;
