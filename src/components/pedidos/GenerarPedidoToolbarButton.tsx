@@ -12,27 +12,16 @@ import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalFeedbackRegion from "@/components/shared/ModalFeedbackRegion";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { DropdownMenu } from "radix-ui";
 import {
   AlertCircle,
   CheckCircle2,
-  ChevronDown,
   Loader2,
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { filterItemsBySelectSearch } from "@/lib/selectSearch";
-import SelectSearchInput from "@/components/shared/SelectSearchInput";
-import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import {
   TIPOS_PEDIDO,
   type SucursalPedido,
@@ -46,7 +35,7 @@ import {
   listarProveedoresConPedidoActivoAction,
 } from "@/actions/pedidos";
 import { descargarPdfBase64 } from "@/lib/descargarPdfBase64";
-import { leerSucursalPreferida } from "@/lib/sucursalPreferida";
+import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import SobreStockReposicionAdvertenciaModal from "@/components/shared/SobreStockReposicionAdvertenciaModal";
 import ReposicionProveedorPrioritarioModal, {
   type ReposicionProveedorPrioritarioSeleccion,
@@ -57,17 +46,34 @@ import type { ReposicionProveedorPrioritarioItem } from "@/services/pedidosEnvio
 const PREFIX_SOBRESTOCK = "SOBRESTOCK_REQUIERE_CONFIRMACION:";
 const PREFIX_REPOSICION_PRIORITARIO = "REPOSICION_PROVEEDOR_PRIORITARIO_REQUIERE_CONFIRMACION:";
 
-const SUCURSALES: { value: SucursalPedido; label: string }[] = [
-  { value: "guaymallen", label: "GUAYMALLÉN" },
-  { value: "maipu", label: "MAIPÚ" },
-];
-
 const OPCIONES_TIPO: { value: TipoPedido; label: string }[] = [
-  { value: "URGENTE", label: "URGENTE" },
   { value: "TINTOMETRICO", label: "TINTOMÉTRICO" },
+  { value: "URGENTE", label: "URGENTE" },
   { value: "REPOSICION", label: "REPOSICIÓN" },
   { value: "A FÁBRICA", label: "A FÁBRICA" },
 ];
+
+const BOTON_CUADRADO_CLASS =
+  "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
+
+function tiposCatalogoParaModulo(modulo: ModuloGenerarPedidoOrigen): TipoPedido[] {
+  if (modulo === "a-fabrica") return ["A FÁBRICA"];
+  return ["TINTOMETRICO", "URGENTE", "REPOSICION"];
+}
+
+function parseTipoPedido(raw: string): TipoPedido | null {
+  return (TIPOS_PEDIDO as readonly string[]).includes(raw) ? (raw as TipoPedido) : null;
+}
+
+function etiquetaProveedor(p: ProveedorGenerarPedidoOpcion): string {
+  const pref = p.prefijo.trim();
+  const nom = p.nombre.trim();
+  return (pref ? `[${pref}] ${nom}` : nom).toUpperCase();
+}
+
+function etiquetaTipoPedido(tipo: TipoPedido): string {
+  return OPCIONES_TIPO.find((o) => o.value === tipo)?.label ?? tipo;
+}
 
 export type ModuloGenerarPedidoOrigen =
   | "enviar"
@@ -80,22 +86,11 @@ export interface ProveedorGenerarPedidoOpcion {
   id: string;
   nombre: string;
   prefijo: string;
-}
-
-function tiposInicialesParaModulo(
-  modulo: ModuloGenerarPedidoOrigen,
-  desdePagina: TipoPedido[]
-): TipoPedido[] {
-  const set = new Set<TipoPedido>(desdePagina);
-  if (modulo === "urgente") set.add("URGENTE");
-  if (modulo === "tintometrico") set.add("TINTOMETRICO");
-  if (modulo === "reposicion") set.add("REPOSICION");
-  if (modulo === "a-fabrica") return ["A FÁBRICA"];
-  return TIPOS_PEDIDO.filter((t) => set.has(t));
+  tipos: TipoPedido[];
 }
 
 interface Props {
-  proveedores: ProveedorGenerarPedidoOpcion[];
+  proveedores: { id: string; nombre: string; prefijo: string }[];
   defaultSucursal: SucursalPedido | "";
   defaultProveedor: string;
   defaultTipos: TipoPedido[];
@@ -110,9 +105,9 @@ interface Props {
 
 export default function GenerarPedidoToolbarButton({
   proveedores: _proveedores,
-  defaultSucursal,
+  defaultSucursal: _defaultSucursal,
   defaultProveedor,
-  defaultTipos,
+  defaultTipos: _defaultTipos,
   modulo,
   triggerLabel = "Generar Pedido",
   triggerClassName,
@@ -135,8 +130,6 @@ export default function GenerarPedidoToolbarButton({
   >([]);
   const [reposicionPrioritarioSeleccion, setReposicionPrioritarioSeleccion] =
     useState<ReposicionProveedorPrioritarioSeleccion[] | null>(null);
-  const [multiTipoOpen, setMultiTipoOpen] = useState(false);
-  const [tipoQuery, setTipoQuery] = useState("");
   const [hayItems, setHayItems] = useState<boolean | null>(null);
   const [verificandoItems, setVerificandoItems] = useState(false);
   const [errorVerificacion, setErrorVerificacion] = useState<string | null>(null);
@@ -144,12 +137,15 @@ export default function GenerarPedidoToolbarButton({
   const [cargandoProveedores, setCargandoProveedores] = useState(false);
   const verificarSeqRef = useRef(0);
   const proveedoresSeqRef = useRef(0);
+  const proveedorRef = useRef(proveedor);
+  proveedorRef.current = proveedor;
 
   const aplicarDefaults = useCallback(() => {
-    setSucursal(defaultSucursal || leerSucursalPreferida() || "");
+    const sucUsuario = leerUsuarioSesion()?.sucursalPorDefecto ?? "";
+    setSucursal(sucUsuario === "guaymallen" || sucUsuario === "maipu" ? sucUsuario : "");
     setProveedor(defaultProveedor.trim());
-    setTipos(tiposInicialesParaModulo(modulo, defaultTipos));
-  }, [defaultSucursal, defaultProveedor, defaultTipos, modulo]);
+    setTipos([]);
+  }, [defaultProveedor]);
 
   useEffect(() => {
     if (open) aplicarDefaults();
@@ -157,7 +153,6 @@ export default function GenerarPedidoToolbarButton({
 
   useEffect(() => {
     if (!open) {
-      setMultiTipoOpen(false);
       setHayItems(null);
       setVerificandoItems(false);
       setErrorVerificacion(null);
@@ -172,9 +167,8 @@ export default function GenerarPedidoToolbarButton({
   }, [open]);
 
   useEffect(() => {
-    if (!open || !sucursal || tipos.length === 0) {
+    if (!open || !sucursal) {
       setProveedoresActivos([]);
-      if (!sucursal || tipos.length === 0) setProveedor("");
       return;
     }
 
@@ -184,7 +178,7 @@ export default function GenerarPedidoToolbarButton({
       void (async () => {
         const res = await listarProveedoresConPedidoActivoAction({
           sucursal,
-          tipos,
+          tipos: tiposCatalogoParaModulo(modulo),
           soloNoFabrica: modulo === "reposicion",
         });
         if (seq !== proveedoresSeqRef.current) return;
@@ -193,18 +187,42 @@ export default function GenerarPedidoToolbarButton({
           setProveedoresActivos([]);
           return;
         }
-        const lista = res.data.proveedores;
+        const lista: ProveedorGenerarPedidoOpcion[] = res.data.proveedores.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          prefijo: p.prefijo,
+          tipos: p.tipos
+            .map(parseTipoPedido)
+            .filter((t): t is TipoPedido => t != null),
+        }));
         setProveedoresActivos(lista);
-        setProveedor((actual) => {
-          const pid = actual.trim();
-          if (!pid) return "";
-          return lista.some((p) => p.id === pid) ? pid : "";
-        });
+        const pid = proveedorRef.current.trim();
+        const nextId =
+          pid && lista.some((p) => p.id === pid)
+            ? pid
+            : lista.length === 1
+              ? lista[0]!.id
+              : "";
+        const elegido = lista.find((p) => p.id === nextId);
+        setProveedor(nextId);
+        setTipos(
+          tiposCatalogoParaModulo(modulo).filter((t) => elegido?.tipos.includes(t))
+        );
       })();
     }, 280);
 
     return () => window.clearTimeout(timeoutId);
-  }, [open, sucursal, tipos, modulo]);
+  }, [open, sucursal, modulo]);
+
+  const tiposDisponibles = useMemo(() => {
+    const catalogo = tiposCatalogoParaModulo(modulo);
+    const pid = proveedor.trim();
+    const elegido = proveedoresActivos.find((x) => x.id === pid);
+    const crudos = elegido
+      ? elegido.tipos
+      : [...new Set(proveedoresActivos.flatMap((x) => x.tipos))];
+    return catalogo.filter((t) => crudos.includes(t));
+  }, [modulo, proveedor, proveedoresActivos]);
 
   const filtrosCompletos =
     !!sucursal && !!proveedor.trim() && tipos.length > 0;
@@ -213,10 +231,22 @@ export default function GenerarPedidoToolbarButton({
     const pid = proveedor.trim();
     const p = proveedoresActivos.find((x) => x.id === pid);
     if (!p) return "—";
-    const pref = p.prefijo.trim();
-    const nom = p.nombre.trim();
-    return pref ? `[${pref}] ${nom}` : nom;
+    return etiquetaProveedor(p);
   }, [proveedoresActivos, proveedor]);
+
+  function seleccionarProveedor(id: string) {
+    setProveedor(id);
+    const p = proveedoresActivos.find((x) => x.id === id);
+    const next = tiposCatalogoParaModulo(modulo).filter((t) => p?.tipos.includes(t));
+    setTipos(next);
+  }
+
+  function toggleTipo(tipo: TipoPedido) {
+    if (!tiposDisponibles.includes(tipo)) return;
+    setTipos((prev) =>
+      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+    );
+  }
 
   useEffect(() => {
     if (!open || !filtrosCompletos || !sucursal) {
@@ -255,27 +285,17 @@ export default function GenerarPedidoToolbarButton({
   }, [open, filtrosCompletos, sucursal, proveedor, tipos]);
 
   const faltantes: string[] = [];
-  if (!sucursal) faltantes.push("SUCURSAL");
-  if (tipos.length === 0) faltantes.push("TIPO DE PEDIDO");
   if (!proveedor.trim()) faltantes.push("PROVEEDOR");
+  if (tipos.length === 0) faltantes.push("TIPO DE PEDIDO");
 
-  const mensajeFaltantes =
-    faltantes.length > 0
+  const mensajeFaltantes = !sucursal
+    ? "SELECCIONÁ UN USUARIO EN EL SLIDENAV."
+    : faltantes.length > 0
       ? `FALTA SELECCIONAR: ${faltantes.join(", ")}.`
       : null;
 
   const puedeGenerar =
     filtrosCompletos && hayItems === true && !verificandoItems && !errorVerificacion;
-
-  const labelTipo = !sucursal
-    ? "TIPO DE PEDIDO (elegí sucursal)"
-    : tipos.length === 0
-      ? "TIPO DE PEDIDO"
-      : tipos.length === TIPOS_PEDIDO.length
-        ? "TODOS"
-        : tipos
-            .map((t) => OPCIONES_TIPO.find((o) => o.value === t)?.label ?? t)
-            .join(", ");
 
   /** Tras `SOBRESTOCK_REQUIERE_CONFIRMACION` del servidor, carga ítems y abre el modal. */
   async function abrirModalSobrestockDesdeServidor(): Promise<void> {
@@ -446,7 +466,7 @@ export default function GenerarPedidoToolbarButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <AppModal
           title="Generar Pedido"
-          size="md"
+          size="lg"
           padding="sm"
           scrollBody={false}
           headerClassName="pt-4 pb-3"
@@ -484,192 +504,94 @@ export default function GenerarPedidoToolbarButton({
           }
         >
           <div className="flex w-full min-w-0 flex-col gap-4">
-            <div className="w-full min-w-0">
-              <Select
-                value={sucursal ?? ""}
-                onValueChange={(v) => {
-                  const next = v as SucursalPedido;
-                  setSucursal(next);
-                  setTipos([]);
-                  setProveedor("");
-                }}
-              >
-                <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
-                  <SelectValue placeholder="SUCURSAL" />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                  className="select-content-filtro"
-                >
-                  {SUCURSALES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-full min-w-0">
-              <DropdownMenu.Root
-                modal={false}
-                open={multiTipoOpen}
-                onOpenChange={(next) => {
-                  if (!sucursal) return;
-                  setMultiTipoOpen(next);
-                  if (!next) setTipoQuery("");
-                }}
-              >
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    type="button"
-                    disabled={!sucursal}
-                    className={cn(
-                      SELECT_TRIGGER_FILTER_CLASS,
-                      "flex h-auto min-h-9 w-full items-center justify-between gap-2 py-2 text-left font-semibold whitespace-normal",
-                      !sucursal && "pointer-events-none opacity-50"
-                    )}
-                    aria-expanded={multiTipoOpen}
-                    aria-haspopup="menu"
-                    aria-disabled={!sucursal}
-                    aria-label="Tipo de pedido (selección múltiple)"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-left">
-                      {labelTipo}
-                    </span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 opacity-50 transition-transform",
-                        multiTipoOpen && "rotate-180"
-                      )}
-                    />
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    className={cn(
-                      "select-content-filtro z-[200] flex max-h-[min(18rem,var(--radix-dropdown-menu-content-available-height))] min-w-[var(--radix-dropdown-menu-trigger-width)] flex-col overflow-hidden rounded-md border border-border bg-popover p-0 text-popover-foreground shadow-md",
-                      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
-                    )}
-                    side="bottom"
-                    align="start"
-                    sideOffset={4}
-                    collisionPadding={8}
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <div className="shrink-0 border-b border-border p-1">
-                      <SelectSearchInput
-                        value={tipoQuery}
-                        onValueChange={setTipoQuery}
-                        autoFocus
+            {sucursal ? (
+              <>
+                <div className="flex w-full min-w-0 flex-col gap-2">
+                  <ModalMicroLabel>PROVEEDORES</ModalMicroLabel>
+                  {cargandoProveedores ? (
+                    <div className="flex min-h-16 items-center justify-center gap-2">
+                      <Loader2
+                        className="h-5 w-5 shrink-0 animate-spin text-muted-foreground"
+                        aria-hidden
                       />
+                      <p className="text-sm leading-snug text-muted-foreground uppercase tracking-wide">
+                        CARGANDO PROVEEDORES…
+                      </p>
                     </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto p-1">
-                      {(() => {
-                        const base =
-                          modulo === "a-fabrica"
-                            ? OPCIONES_TIPO.filter((o) => o.value === "A FÁBRICA")
-                            : OPCIONES_TIPO;
-                        const opciones = filterItemsBySelectSearch(
-                          base,
-                          tipoQuery,
-                          (o) => o.label
+                  ) : proveedoresActivos.length === 0 ? (
+                    <p
+                      className="text-sm leading-snug text-muted-foreground uppercase tracking-wide"
+                      role="status"
+                    >
+                      SIN PROVEEDORES CON PEDIDO
+                    </p>
+                  ) : (
+                    <div
+                      role="radiogroup"
+                      aria-label="Proveedores"
+                      className="flex flex-wrap justify-center gap-2"
+                    >
+                      {proveedoresActivos.map((p) => {
+                        const seleccionado = p.id === proveedor.trim();
+                        return (
+                          <Button
+                            key={p.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={seleccionado}
+                            variant={seleccionado ? "default" : "outline"}
+                            disabled={loading}
+                            className={BOTON_CUADRADO_CLASS}
+                            onClick={() => seleccionarProveedor(p.id)}
+                          >
+                            <span className="line-clamp-3 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                              {etiquetaProveedor(p)}
+                            </span>
+                          </Button>
                         );
-                        if (opciones.length === 0) {
-                          return (
-                            <p
-                              className="px-2 py-1.5 text-sm text-muted-foreground"
-                              role="status"
-                            >
-                              SIN RESULTADOS
-                            </p>
-                          );
-                        }
-                        return opciones.map((opt) => {
-                          const selected = tipos.includes(opt.value);
-                          return (
-                            <DropdownMenu.Item
-                              key={opt.value}
-                              className={cn(
-                                "cursor-pointer rounded-sm px-2 py-1.5 text-sm font-medium outline-none select-none",
-                                "focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-muted"
-                              )}
-                              onSelect={(e) => e.preventDefault()}
-                              asChild
-                            >
-                              <label className="flex w-full cursor-pointer items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => {
-                                    if (selected) {
-                                      setTipos((prev) => {
-                                        const next = prev.filter(
-                                          (k) => k !== opt.value
-                                        );
-                                        if (next.length === 0) setProveedor("");
-                                        return next;
-                                      });
-                                    } else {
-                                      setTipos((prev) =>
-                                        prev.includes(opt.value)
-                                          ? prev
-                                          : [...prev, opt.value]
-                                      );
-                                    }
-                                  }}
-                                  className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
-                                  aria-label={opt.label}
-                                />
-                                <span>{opt.label}</span>
-                              </label>
-                            </DropdownMenu.Item>
-                          );
-                        });
-                      })()}
+                      })}
                     </div>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
+                  )}
+                </div>
 
-            <div className="w-full min-w-0">
-              <Select
-                value={proveedor ?? ""}
-                onValueChange={(v) => setProveedor(v)}
-                disabled={!sucursal || tipos.length === 0 || cargandoProveedores}
-              >
-                <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS}>
-                  <SelectValue
-                    placeholder={
-                      !sucursal
-                        ? "PROVEEDOR (elegí sucursal y tipo)"
-                        : tipos.length === 0
-                          ? "PROVEEDOR (elegí tipo de pedido)"
-                          : cargandoProveedores
-                            ? "PROVEEDOR…"
-                            : proveedoresActivos.length === 0
-                              ? "SIN PROVEEDORES CON PEDIDO"
-                              : "PROVEEDOR"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                  className="select-content-filtro"
-                >
-                  {proveedoresActivos.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      [{p.prefijo}] {p.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="flex w-full min-w-0 flex-col gap-2">
+                  <ModalMicroLabel>TIPO DE PEDIDO</ModalMicroLabel>
+                  {tiposDisponibles.length === 0 ? (
+                    <p
+                      className="text-sm leading-snug text-muted-foreground uppercase tracking-wide"
+                      role="status"
+                    >
+                      SIN TIPOS CON CANTIDAD A PEDIR
+                    </p>
+                  ) : (
+                    <div
+                      role="group"
+                      aria-label="Tipo de pedido (selección múltiple)"
+                      className="flex flex-wrap justify-center gap-2"
+                    >
+                      {tiposDisponibles.map((tipo) => {
+                        const seleccionado = tipos.includes(tipo);
+                        return (
+                          <Button
+                            key={tipo}
+                            type="button"
+                            aria-pressed={seleccionado}
+                            variant={seleccionado ? "default" : "outline"}
+                            disabled={loading || !proveedor.trim()}
+                            className={BOTON_CUADRADO_CLASS}
+                            onClick={() => toggleTipo(tipo)}
+                          >
+                            <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                              {etiquetaTipoPedido(tipo)}
+                            </span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
 
             <ModalFeedbackRegion>
               {mensajeFaltantes ? (

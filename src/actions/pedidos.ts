@@ -209,7 +209,11 @@ export async function getEnviarPedidoData(params?: {
 /** Proveedores con pedido activo para el modal Generar Pedido (según sucursal y tipos). */
 export async function listarProveedoresConPedidoActivoAction(
   raw: unknown
-): Promise<ActionResult<{ proveedores: { id: string; nombre: string; prefijo: string }[] }>> {
+): Promise<
+  ActionResult<{
+    proveedores: { id: string; nombre: string; prefijo: string; tipos: string[] }[];
+  }>
+> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.pedidos.acceso)) {
     return { ok: false, error: "Sin permisos para pedidos." };

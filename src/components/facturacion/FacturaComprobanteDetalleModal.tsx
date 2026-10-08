@@ -24,10 +24,16 @@ import {
   totalLineaConDescuento,
 } from "@/lib/factura";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
-import { fmtCantidad, fmtCelda, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { fmtCantidad, fmtCelda, fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import type { ActionResult } from "@/lib/types";
 import type { FacturaComprobantePdfDatos } from "@/services/facturaComprobantes.service";
+
+const PIE_ETIQUETA_CLASS =
+  "w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground";
+const PIE_VALOR_CLASS =
+  "celda-destacado w-full text-sm font-medium tabular-nums leading-tight";
 
 type Props = {
   open: boolean;
@@ -252,16 +258,34 @@ export default function FacturaComprobanteDetalleModal({
             </div>
 
             {resumen ? (
-              <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/20 p-3 text-sm font-semibold">
-                <p>TOTAL ITEM: {resumen.totalItem}</p>
-                <p className="tabular-nums">TOTAL $: ${fmtPrecio(resumen.totalLista)}</p>
-                <p className="tabular-nums">
-                  DESC. % PROMEDIO: {fmtPorcentajeTabla(resumen.descPctPromedio)}
-                </p>
-                <p className="tabular-nums">DESC. $: ${fmtPrecio(resumen.descPesos)}</p>
-                <p className="tabular-nums">
-                  TOTAL C/ DESC.: ${fmtPrecio(resumen.totalConDesc)}
-                </p>
+              <div
+                className={cn(
+                  "pie-pagina flex min-h-12 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-md px-2 py-1.5"
+                )}
+                aria-label="Resumen de totales"
+              >
+                <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+                  <span className={PIE_ETIQUETA_CLASS}>CANT. ITEMS</span>
+                  <span className={PIE_VALOR_CLASS}>{fmtNumero(resumen.totalItem)}</span>
+                </div>
+                <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+                  <span className={PIE_ETIQUETA_CLASS}>TOTAL S/ DESC.</span>
+                  <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalLista)}`}</span>
+                </div>
+                <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+                  <span className={PIE_ETIQUETA_CLASS}>DESC. PROMEDIO</span>
+                  <span className={PIE_VALOR_CLASS}>
+                    {fmtPorcentajeTabla(resumen.descPctPromedio)}
+                  </span>
+                </div>
+                <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+                  <span className={PIE_ETIQUETA_CLASS}>DESC.</span>
+                  <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.descPesos)}`}</span>
+                </div>
+                <div className={cn("finanzas-resumen-tarjeta", "min-w-0 flex-1")}>
+                  <span className={PIE_ETIQUETA_CLASS}>TOTAL C/ DESC.</span>
+                  <span className={PIE_VALOR_CLASS}>{`$${fmtPrecio(resumen.totalConDesc)}`}</span>
+                </div>
               </div>
             ) : null}
 
