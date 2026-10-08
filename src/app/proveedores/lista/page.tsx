@@ -25,7 +25,7 @@ export default async function ListaProveedoresPage() {
 
   return (
     <div className="area-page-shell">
-      <ClassicFilteredTableLayout title="Lista Proveedores" subtitle="Proveedores" actions={actions}>
+      <ClassicFilteredTableLayout title="Proveedores" subtitle="Proveedores" actions={actions}>
         <TablaProveedoresLista proveedores={proveedores} />
       </ClassicFilteredTableLayout>
     </div>

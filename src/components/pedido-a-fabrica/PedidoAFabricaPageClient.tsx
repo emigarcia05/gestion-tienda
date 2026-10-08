@@ -386,8 +386,8 @@ export default function PedidoAFabricaPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="PEDIDO A FÁB."
-        subtitle="Pedido A Fáb."
+        title="PEDIDOS A FÁBRICA"
+        subtitle="Pedidos A Fábrica"
         contentWidth="full"
         actions={
           <div className="flex flex-wrap items-center gap-2">

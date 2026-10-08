@@ -16,6 +16,8 @@ export interface GlobalPersonalItem {
   sucursalPorDefecto: SucursalPreferida | null;
   modulosPermitidos: MainAppAreaId[];
   titularFinanciero: boolean;
+  /** Modo SUPER: `modulosPermitidos` guardados se ignoran; ver `modulosEfectivosUsuario`. */
+  superUsuario: boolean;
   /** Hay hash en `usuarios.contrasena` (el hash nunca sale del servicio). */
   tieneContrasena: boolean;
 }
@@ -27,6 +29,7 @@ const PERSONAL_SELECT = {
   sucursalPorDefecto: true,
   modulosPermitidos: true,
   titularFinanciero: true,
+  superUsuario: true,
   contrasena: true,
 } as const;
 
@@ -92,6 +95,7 @@ function mapRow(row: {
   sucursalPorDefecto: string | null;
   modulosPermitidos: string[];
   titularFinanciero: boolean;
+  superUsuario: boolean;
   contrasena: string | null;
 }): GlobalPersonalItem {
   return {
@@ -101,6 +105,7 @@ function mapRow(row: {
     sucursalPorDefecto: parseSucursalPreferida(row.sucursalPorDefecto),
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
     titularFinanciero: row.titularFinanciero,
+    superUsuario: row.superUsuario,
     tieneContrasena: row.contrasena != null,
   };
 }
@@ -176,6 +181,7 @@ export async function crearUsuarioPersonal(
         sucursalPorDefecto: input.sucursalPorDefecto,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
+        superUsuario: input.superUsuario,
       },
       select: PERSONAL_SELECT,
     });
@@ -208,6 +214,7 @@ export async function actualizarUsuarioPersonal(
         idDux: input.idDux,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
+        superUsuario: input.superUsuario,
       },
       select: PERSONAL_SELECT,
     });

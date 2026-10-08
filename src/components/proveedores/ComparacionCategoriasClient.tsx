@@ -509,8 +509,8 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Lista Proveedores"
-        subtitle="Categorias"
+        title="Productos"
+        subtitle="Análisis Cat."
         contentWidth={COMP_CATEGORIAS_CONTENT_WIDTH}
         contentClassName={COMP_CATEGORIAS_PAGE_CONTENT_CLASS}
       >

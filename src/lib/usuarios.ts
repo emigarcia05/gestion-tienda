@@ -27,6 +27,16 @@ export function ordenarModulosPermitidos(
   return MODULOS_PERMITIDOS_USUARIO.map((m) => m.id).filter((id) => set.has(id));
 }
 
+/** Módulos que el usuario puede usar: SUPER = todos los de `MAIN_APP_AREAS` (incluye futuros). */
+export function modulosEfectivosUsuario(
+  modulos: readonly string[],
+  superUsuario: boolean
+): MainAppAreaId[] {
+  return superUsuario
+    ? MODULOS_PERMITIDOS_USUARIO.map((m) => m.id)
+    : ordenarModulosPermitidos(modulos);
+}
+
 export function etiquetaModulosPermitidos(ids: readonly string[]): string {
   return MODULOS_PERMITIDOS_USUARIO.filter((m) => ids.includes(m.id))
     .map((m) => m.label)

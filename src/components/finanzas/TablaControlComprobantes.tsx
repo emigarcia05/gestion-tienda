@@ -39,11 +39,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PLAZOS_PAGO_DIAS_PERMITIDOS } from "@/lib/comprobanteCuotasPlazoPago";
 import {
+  PLAZOS_PAGO_DIAS_PERMITIDOS,
   formatPlanPlazosLabel,
   resolverPlazosEfectivos,
+  resumirSaldosVencimientosCompras,
+  type PlanPlazosPago,
 } from "@/lib/comprobanteCuotasPlazoPago";
+import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -109,6 +112,34 @@ function labelPlanProveedor(fila: ControlComprobanteRow): string {
   );
 }
 
+function planFromFila(
+  p1: number | null,
+  p2: number | null,
+  p3: number | null,
+  p4: number | null
+): PlanPlazosPago {
+  return { plazo1: p1, plazo2: p2, plazo3: p3, plazo4: p4 };
+}
+
+function TarjetaResumenCompras({
+  etiqueta,
+  valor,
+}: {
+  etiqueta: string;
+  valor: number;
+}) {
+  return (
+    <div className="finanzas-resumen-tarjeta">
+      <span className="w-full text-[10px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
+        {etiqueta}
+      </span>
+      <span className="celda-destacado w-full text-sm font-medium tabular-nums leading-tight">
+        {fmtMonto(valor.toFixed(2))}
+      </span>
+    </div>
+  );
+}
+
 export default function TablaControlComprobantes({
   filas,
   esEditor,
@@ -144,6 +175,8 @@ export default function TablaControlComprobantes({
     .filter((v) => v.trim().length > 0)
     .sort((a, b) => a.localeCompare(b, "es"));
 
+  const hoyIso = dateToIsoYmdArgentina(new Date());
+
   const filasFiltradas = filas.filter((fila) => {
     if (filtroProveedor && fila.proveedorPrefijo !== filtroProveedor) return false;
     if (filtroSucursal && fila.sucursalNombre !== filtroSucursal) return false;
@@ -154,6 +187,27 @@ export default function TablaControlComprobantes({
     if (filtroFechaHasta && fila.fechaComp > filtroFechaHasta) return false;
     return true;
   });
+
+  const resumenVenc = resumirSaldosVencimientosCompras(
+    filasFiltradas.map((fila) => ({
+      fechaCompIso: fila.fechaComp,
+      total: Number(fila.total),
+      montoAplicado: Number(fila.montoAplicado),
+      override: planFromFila(
+        fila.plazoPago1Dias,
+        fila.plazoPago2Dias,
+        fila.plazoPago3Dias,
+        fila.plazoPago4Dias
+      ),
+      proveedor: planFromFila(
+        fila.proveedorPlazo1Dias,
+        fila.proveedorPlazo2Dias,
+        fila.proveedorPlazo3Dias,
+        fila.proveedorPlazo4Dias
+      ),
+    })),
+    hoyIso
+  );
 
   const rangoFechasLabel = (() => {
     if (filtroFechaDesde && filtroFechaHasta) {
@@ -390,8 +444,8 @@ export default function TablaControlComprobantes({
           </FiltroIndividualContainer>
         </FilterRowDateRange>
       </FilterBar>
-      <div className="contenedor-tabla-gestion flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card">
-        <div className="flex-1 min-h-0 min-w-0 overflow-x-auto overflow-y-auto">
+      <div className="contenedor-tabla-gestion contenedor-tabla-gestion--pie-fijo flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-card">
+        <div className="contenedor-tabla-gestion--pie-fijo-scroll flex-1 min-h-0 min-w-0 overflow-x-auto overflow-y-auto">
           <Table variant="compact" scrollX={false}>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -502,6 +556,21 @@ export default function TablaControlComprobantes({
               )}
             </TableBody>
           </Table>
+        </div>
+        <div
+          className={cn("pie-pagina", "w-full shrink-0 px-2 py-2")}
+          role="region"
+          aria-label="Resumen de vencimientos del listado visible"
+          aria-live="polite"
+        >
+          <div className="flex w-full flex-wrap items-stretch justify-center gap-2">
+            <TarjetaResumenCompras etiqueta="TOTAL" valor={resumenVenc.total} />
+            <TarjetaResumenCompras etiqueta="VENC. A 15 DÍAS" valor={resumenVenc.venc15} />
+            <TarjetaResumenCompras etiqueta="VENC. A 30" valor={resumenVenc.venc30} />
+            <TarjetaResumenCompras etiqueta="VENC. A 60" valor={resumenVenc.venc60} />
+            <TarjetaResumenCompras etiqueta="VENC. A 90" valor={resumenVenc.venc90} />
+            <TarjetaResumenCompras etiqueta="VENC. A 120" valor={resumenVenc.venc120} />
+          </div>
         </div>
       </div>
       <FiltroRangoFechasCalendarioModal

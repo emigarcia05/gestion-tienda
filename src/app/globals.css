@@ -1505,17 +1505,6 @@
   --tabla-row-bg: var(--muted);
   background-color: var(--muted);
 }
-.tabla-gestion-compacta.tabla-deuda-proveedores tbody td.celda-proveedor-deuda {
-  white-space: nowrap !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  text-align: center;
-}
-.tabla-gestion-compacta.tabla-deuda-proveedores tfoot td.celda-proveedor-deuda {
-  vertical-align: middle;
-  text-align: center;
-}
 /* Modal vínculos (Tienda): conserva ancho y densidad de celdas; encabezado usa la misma regla global. */
 .tabla-gestion-compacta.tabla-vinculos-modal {
   width: 100% !important;

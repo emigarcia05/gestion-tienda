@@ -3,15 +3,24 @@
 import { useState, useTransition, type FormEvent } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, KeyRound, MapPin, User } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { crearContrasenaUsuarioAction, ingresarUsuarioAction } from "@/actions/sesion";
 import { getMainAppAreaById } from "@/lib/main-app-areas";
-import { SUCURSALES_PREFERIDAS, type SucursalPreferida } from "@/lib/sucursalPreferida";
+import { type SucursalPreferida } from "@/lib/sucursalPreferida";
 import { etiquetaSucursalPorDefecto, primerModuloPermitido } from "@/lib/usuarios";
 import { guardarUsuarioSesion, type UsuarioSesion } from "@/lib/usuarioSesion";
+import { cn } from "@/lib/utils";
 import { CONTRASENA_MIN } from "@/lib/validations/ingreso";
 import type { UsuarioIngresoItem } from "@/services/ingreso.service";
 
@@ -20,10 +29,7 @@ interface Props {
   errorCarga: string | null;
 }
 
-const BLOQUE_CLASS = "flex w-full flex-col gap-3 rounded-lg bg-card p-5 shadow-lg";
-const BLOQUE_TITULO_CLASS =
-  "flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-foreground";
-const OPCION_CLASS = "h-auto w-full justify-start px-3 py-2.5 text-left whitespace-normal";
+const TARJETA_CLASS = "flex w-full flex-col gap-3 rounded-lg bg-card p-4 shadow-lg";
 
 function CampoContrasena({
   id,
@@ -72,24 +78,28 @@ function CampoContrasena({
 }
 
 /**
- * Pantalla de ingreso (sin slidenav): fondo `bg-primary`, logo arriba al centro y tres bloques
- * apilados — sucursal → usuarios de esa sucursal → contraseña (crear si el usuario no tiene).
+ * Pantalla de ingreso (sin slidenav): fondo `bg-primary`, logo y un solo bloque
+ * (sucursal / usuario en Select + contraseña) que entra en una vista.
  */
 export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   const router = useRouter();
-  const [sucursal, setSucursal] = useState<SucursalPreferida | null>(null);
-  const [idPersonal, setIdPersonal] = useState<number | null>(null);
+  const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
+  const [idPersonal, setIdPersonal] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
 
-  const sucursales = SUCURSALES_PREFERIDAS.map((s) => s.value).filter((codigo) =>
-    usuarios.some((u) => u.sucursalPorDefecto === codigo)
-  );
-  const usuariosSucursal = usuarios.filter((u) => u.sucursalPorDefecto === sucursal);
-  const usuario = usuariosSucursal.find((u) => u.idPersonal === idPersonal) ?? null;
+  const sucursales = sucursalesDeUsuarios(usuarios);
+  const usuariosSucursal = sucursal
+    ? usuarios.filter((u) => u.sucursalPorDefecto === sucursal)
+    : [];
+  const idNum = idPersonal.trim() ? Number.parseInt(idPersonal, 10) : NaN;
+  const usuario =
+    Number.isInteger(idNum) && idNum > 0
+      ? (usuariosSucursal.find((u) => u.idPersonal === idNum) ?? null)
+      : null;
   const creando = usuario != null && !usuario.tieneContrasena;
 
   function limpiarContrasena() {
@@ -99,13 +109,13 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
     setError("");
   }
 
-  function elegirSucursal(codigo: SucursalPreferida) {
+  function elegirSucursal(codigo: SucursalPreferida | "") {
     setSucursal(codigo);
-    setIdPersonal(null);
+    setIdPersonal("");
     limpiarContrasena();
   }
 
-  function elegirUsuario(id: number) {
+  function elegirUsuario(id: string) {
     setIdPersonal(id);
     limpiarContrasena();
   }
@@ -138,80 +148,89 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center overflow-y-auto bg-primary px-4 py-12">
+    <div className="flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-primary px-4 py-6">
       <Image
         src="/logo_tiendacolor_letras_blancas.png"
         alt="TiendaColor"
         width={615}
         height={375}
         priority
-        className="h-auto w-60"
+        className="h-auto w-44"
       />
 
-      <div className="mt-10 flex w-[24rem] flex-col gap-4">
-        <section className={BLOQUE_CLASS} aria-label="Sucursal">
-          <h2 className={BLOQUE_TITULO_CLASS}>
-            <MapPin className="h-4 w-4" aria-hidden />
-            Seleccioná La Sucursal
-          </h2>
-          {errorCarga ? <p className="text-sm text-destructive">{errorCarga}</p> : null}
-          {!errorCarga && sucursales.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay usuarios configurados. Cargá sucursal y módulos en Usuarios.
-            </p>
-          ) : null}
-          <div className="grid grid-cols-2 gap-2">
-            {sucursales.map((codigo) => (
-              <Button
-                key={codigo}
-                type="button"
-                variant={sucursal === codigo ? "default" : "outline"}
-                disabled={pending}
-                onClick={() => elegirSucursal(codigo)}
-                aria-pressed={sucursal === codigo}
-              >
-                {etiquetaSucursalPorDefecto(codigo)}
-              </Button>
-            ))}
-          </div>
-        </section>
-
-        {sucursal ? (
-          <section className={BLOQUE_CLASS} aria-label="Usuario">
-            <h2 className={BLOQUE_TITULO_CLASS}>
-              <User className="h-4 w-4" aria-hidden />
-              Usuario
-            </h2>
-            <div className="flex max-h-[min(18rem,35vh)] flex-col gap-2 overflow-y-auto">
-              {usuariosSucursal.map((u) => (
-                <Button
-                  key={u.idPersonal}
-                  type="button"
-                  variant={u.idPersonal === idPersonal ? "default" : "outline"}
-                  disabled={pending}
-                  onClick={() => elegirUsuario(u.idPersonal)}
-                  aria-pressed={u.idPersonal === idPersonal}
-                  className={OPCION_CLASS}
-                >
-                  <span className="truncate text-sm font-semibold tracking-wide">
-                    {u.nombrePersonal.toLocaleUpperCase("es-AR")}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          </section>
+      <form
+        className={cn(TARJETA_CLASS, "mt-6 w-[24rem]")}
+        onSubmit={handleSubmit}
+        aria-label="Ingreso"
+      >
+        {errorCarga ? <p className="text-sm text-destructive">{errorCarga}</p> : null}
+        {!errorCarga && sucursales.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No hay usuarios configurados. Cargá sucursal y módulos en Usuarios.
+          </p>
         ) : null}
 
+        <div className="space-y-1.5">
+          <Label htmlFor="ingreso-sucursal">SUCURSAL</Label>
+          <Select
+            value={sucursal}
+            onValueChange={(v) => elegirSucursal(v as SucursalPreferida)}
+            disabled={pending || sucursales.length === 0}
+          >
+            <SelectTrigger
+              id="ingreso-sucursal"
+              className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+            >
+              <SelectValue placeholder="SUCURSAL" />
+            </SelectTrigger>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              align="start"
+              className="select-content-filtro"
+            >
+              {sucursales.map((codigo) => (
+                <SelectItem key={codigo} value={codigo}>
+                  {etiquetaSucursalPorDefecto(codigo)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="ingreso-usuario">USUARIO</Label>
+          <Select
+            value={idPersonal}
+            onValueChange={elegirUsuario}
+            disabled={pending || !sucursal || usuariosSucursal.length === 0}
+          >
+            <SelectTrigger
+              id="ingreso-usuario"
+              className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+            >
+              <SelectValue placeholder="USUARIO" />
+            </SelectTrigger>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              align="start"
+              className="select-content-filtro"
+            >
+              {usuariosSucursal.map((u) => (
+                <SelectItem key={u.idPersonal} value={String(u.idPersonal)}>
+                  {u.nombrePersonal.toLocaleUpperCase("es-AR")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {usuario ? (
-          <form className={BLOQUE_CLASS} onSubmit={handleSubmit} aria-label="Contraseña">
-            <h2 className={BLOQUE_TITULO_CLASS}>
-              <KeyRound className="h-4 w-4" aria-hidden />
-              {creando ? "Creá Tu Contraseña" : "Contraseña"}
-            </h2>
+          <>
             {creando ? (
               <p className="text-sm text-muted-foreground">
-                Es tu primer ingreso: elegí una contraseña (mínimo {CONTRASENA_MIN} caracteres).
-                Se va a pedir cada vez que ingreses.
+                Primer ingreso: mínimo {CONTRASENA_MIN} caracteres.
               </p>
             ) : null}
             <CampoContrasena
@@ -250,9 +269,20 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
             >
               {pending ? "Ingresando..." : creando ? "Crear E Ingresar" : "Ingresar"}
             </Button>
-          </form>
+          </>
         ) : null}
-      </div>
+      </form>
     </div>
   );
+}
+
+function sucursalesDeUsuarios(usuarios: UsuarioIngresoItem[]): SucursalPreferida[] {
+  const set = new Set<SucursalPreferida>();
+  for (const u of usuarios) {
+    if (u.sucursalPorDefecto === "guaymallen" || u.sucursalPorDefecto === "maipu") {
+      set.add(u.sucursalPorDefecto);
+    }
+  }
+  const orden: SucursalPreferida[] = ["guaymallen", "maipu"];
+  return orden.filter((c) => set.has(c));
 }

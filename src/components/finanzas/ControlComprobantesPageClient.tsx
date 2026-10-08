@@ -45,7 +45,7 @@ export default function ControlComprobantesPageClient({
     <div className="area-page-shell">
       <ClassicFilteredTableLayout
         title="Finanzas"
-        subtitle="Comprobantes"
+        subtitle="Comp. Compras"
         actions={
           esEditor ? (
             <Button type="button" onClick={() => setOpenGestionarVenc(true)}>

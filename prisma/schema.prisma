@@ -516,7 +516,12 @@ model GlobalPersonal {
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
   /**
-   * Hash de la contraseña (bcrypt/argon2); **nunca** texto plano. Null = sin contraseña.
+   * Modo SUPER: acceso a todos los módulos de `MAIN_APP_AREAS` (incluye los que se agreguen).
+   * `modulos_permitidos` se conserva pero se ignora mientras esté activo.
+   */
+  superUsuario       Boolean  @default(false) @map("super_usuario")
+  /**
+   * Hash de la contraseña (scrypt, `src/lib/contrasena.ts`); **nunca** texto plano. Null = sin contraseña.
    * Omitido por defecto en el cliente Prisma (`src/lib/prisma.ts`): leer solo con `omit: { contrasena: false }`.
    */
   contrasena         String?  @map("contrasena")

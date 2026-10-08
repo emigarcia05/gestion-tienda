@@ -18,7 +18,6 @@ import { actualizarPlazosPagosProveedoresMercaderia } from "@/services/proveedor
 function revalidateComprobantesFinanzas() {
   revalidatePath("/finanzas");
   revalidatePath("/finanzas/control-comprobantes");
-  revalidatePath("/finanzas/deuda-proveedores");
   revalidatePath("/finanzas/venc-por-fecha");
 }
 

@@ -109,6 +109,69 @@ export function formatPlanPlazosLabel(plazos: number[]): string {
   return plazos.join(", ");
 }
 
+export type ResumenVencimientosCompras = {
+  total: number;
+  venc15: number;
+  venc30: number;
+  venc60: number;
+  venc90: number;
+  venc120: number;
+};
+
+function round2Resumen(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Saldo pendiente de cuotas (FIFO) en horizontes desde hoy (AR).
+ * Vencidas y hasta 15 días → venc15; 16–30 → venc30; 31–60 → venc60; 61–90 → venc90; 91+ → venc120.
+ */
+export function resumirSaldosVencimientosCompras(
+  filas: Array<{
+    fechaCompIso: string;
+    total: number;
+    montoAplicado: number;
+    override?: PlanPlazosPago | null;
+    proveedor?: PlanPlazosPago | null;
+  }>,
+  hoyIso: string
+): ResumenVencimientosCompras {
+  const acc: ResumenVencimientosCompras = {
+    total: 0,
+    venc15: 0,
+    venc30: 0,
+    venc60: 0,
+    venc90: 0,
+    venc120: 0,
+  };
+  const lim15 = addDaysIso(hoyIso, 15);
+  const lim30 = addDaysIso(hoyIso, 30);
+  const lim60 = addDaysIso(hoyIso, 60);
+  const lim90 = addDaysIso(hoyIso, 90);
+
+  for (const fila of filas) {
+    const cuotas = expandirCuotasComprobante({
+      fechaCompIso: fila.fechaCompIso,
+      total: fila.total,
+      montoAplicado: fila.montoAplicado,
+      override: fila.override,
+      proveedor: fila.proveedor,
+    });
+    for (const c of cuotas) {
+      const saldo = c.saldoCuota;
+      if (!(saldo > 0)) continue;
+      acc.total = round2Resumen(acc.total + saldo);
+      const fv = c.fechaVencIso.slice(0, 10);
+      if (fv <= lim15) acc.venc15 = round2Resumen(acc.venc15 + saldo);
+      else if (fv <= lim30) acc.venc30 = round2Resumen(acc.venc30 + saldo);
+      else if (fv <= lim60) acc.venc60 = round2Resumen(acc.venc60 + saldo);
+      else if (fv <= lim90) acc.venc90 = round2Resumen(acc.venc90 + saldo);
+      else acc.venc120 = round2Resumen(acc.venc120 + saldo);
+    }
+  }
+  return acc;
+}
+
 /**
  * CTE SQL `cuotas_mercaderia`: una fila por cuota con saldo &gt; 0.
  * Columnas: id, fecha_comp, nombre, id_proveedor_dux, nro_cuota, fecha_venc, saldo_cuota.

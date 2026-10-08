@@ -2,7 +2,7 @@
  * Navegación del área **Administración**: pilares en sidebar + árbol
  * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
  *
- * LISTA PROPIA, LISTA PROVEEDORES, PEDIDO A FÁB., ESTADÍSTICAS y USUARIOS
+ * PRODUCTOS, PROVEEDORES, PEDIDOS A FÁBRICA, ESTADÍSTICAS y USUARIOS
  * muestran sus funciones en una sola lista (sin grupo intermedio).
  *
  * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
@@ -159,15 +159,8 @@ const impuestosScreens: AdmScreenDef[] = [
 
 const comprasScreens: AdmScreenDef[] = [
   {
-    id: "venc-provee-merc",
-    label: "Venc. Mercadería",
-    href: "/finanzas/deuda-proveedores",
-    icon: "wallet",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
     id: "control-comprobantes",
-    label: "Comprobantes",
+    label: "Comp. Compras",
     href: "/finanzas/control-comprobantes",
     icon: "file-search",
     permiso: PERMISOS.finanzas.acceso,
@@ -231,6 +224,13 @@ const listaPropiaScreens: AdmScreenDef[] = [
     permiso: PERMISOS.cxPxTienda.acceso,
   },
   {
+    id: "categorias",
+    label: "Análisis Cat.",
+    href: GP_ROUTES.analisisPrecios.compCategorias.comparacion,
+    icon: "folder-tree",
+    permiso: PERMISOS.comparacionCategorias.acceso,
+  },
+  {
     id: "margen-contribucion",
     label: "Margen Contribución",
     href: "/finanzas/analisis-mc/margen-contribucion",
@@ -242,31 +242,24 @@ const listaPropiaScreens: AdmScreenDef[] = [
 const listaProveedoresScreens: AdmScreenDef[] = [
   {
     id: "lista-precios",
-    label: "Listas Px Prov.",
+    label: "Lista Prod. Prov.",
     href: GP_ROUTES.analisisPrecios.listaProveedores.listaPrecios,
     icon: "file-search",
     permiso: PERMISOS.proveedores.listaPrecios,
   },
   {
     id: "lista-proveedores",
-    label: "Lista Prov.",
+    label: "Proveedores",
     href: GP_ROUTES.analisisPrecios.listaProveedores.lista,
     icon: "list",
     permiso: PERMISOS.proveedores.lista,
-  },
-  {
-    id: "categorias",
-    label: "Analisis Por Cat.",
-    href: GP_ROUTES.analisisPrecios.compCategorias.comparacion,
-    icon: "folder-tree",
-    permiso: PERMISOS.comparacionCategorias.acceso,
   },
 ];
 
 const pedidoAFabricaScreens: AdmScreenDef[] = [
   {
     id: "pedido-a-fabrica",
-    label: "Pedido A Fáb.",
+    label: "Pedidos A Fábrica",
     href: PEDIDO_A_FABRICA_ROUTES.defaultEntry,
     icon: "factory",
     permiso: PERMISOS.estadisticasProductos.acceso,
@@ -347,19 +340,19 @@ export const FIN_PILLARS: AdmPillarDef[] = [
 export const ADM_PILLARS: AdmPillarDef[] = [
   {
     id: "lista-propia",
-    label: "LISTA PROPIA",
+    label: "PRODUCTOS",
     icon: "store",
     screens: listaPropiaScreens,
   },
   {
     id: "lista-proveedores",
-    label: "LISTA PROVEEDORES",
+    label: "PROVEEDORES",
     icon: "handshake",
     screens: listaProveedoresScreens,
   },
   {
     id: "pedido-a-fabrica",
-    label: "PEDIDO A FÁB.",
+    label: "PEDIDOS A FÁBRICA",
     icon: "factory",
     screens: pedidoAFabricaScreens,
   },

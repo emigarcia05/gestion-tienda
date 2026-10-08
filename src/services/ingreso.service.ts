@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
 import { hashContrasena, verificarContrasena } from "@/lib/contrasena";
-import { ordenarModulosPermitidos } from "@/lib/usuarios";
+import { modulosEfectivosUsuario } from "@/lib/usuarios";
 import { parseSucursalPreferida } from "@/lib/sucursalPreferida";
 import { usuarioSesionDesdeItem, type UsuarioSesion } from "@/lib/usuarioSesion";
 import type {
@@ -19,6 +19,7 @@ const USUARIO_SELECT = {
   nombrePersonal: true,
   sucursalPorDefecto: true,
   modulosPermitidos: true,
+  superUsuario: true,
 } as const;
 
 function aUsuarioSesion(row: {
@@ -26,12 +27,13 @@ function aUsuarioSesion(row: {
   nombrePersonal: string;
   sucursalPorDefecto: string | null;
   modulosPermitidos: string[];
+  superUsuario: boolean;
 }): UsuarioSesion | null {
   return usuarioSesionDesdeItem({
     idPersonal: row.idPersonal,
     nombrePersonal: row.nombrePersonal,
     sucursalPorDefecto: parseSucursalPreferida(row.sucursalPorDefecto),
-    modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
+    modulosPermitidos: modulosEfectivosUsuario(row.modulosPermitidos, row.superUsuario),
   });
 }
 
