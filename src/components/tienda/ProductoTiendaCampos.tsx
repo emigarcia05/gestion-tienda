@@ -13,8 +13,6 @@ import {
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
-import { cn } from "@/lib/utils";
-
 /** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
@@ -90,16 +88,16 @@ function SelectCatalogo({
   /** Texto de la opción sentinel; sin ella el campo es obligatorio. */
   opcionVacia?: string;
   disabled?: boolean;
-  /** Botón «+» dentro del input (a la izquierda del chevron) que abre el modal «GESTIONAR…». */
+  /** Botón «+» a la derecha del input que abre el modal «GESTIONAR…». */
   onGestionar?: () => void;
   gestionarLabel: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <ModalMicroLabel>{label}</ModalMicroLabel>
-      <div className="relative">
+      <div className="flex items-center gap-2">
         <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger className={cn("w-full", onGestionar && "pr-14")}>
+          <SelectTrigger className="w-full min-w-0 flex-1">
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>
           <SelectContent>
@@ -114,9 +112,8 @@ function SelectCatalogo({
         {onGestionar ? (
           <Button
             type="button"
-            variant="ghost"
             size="icon"
-            className="absolute right-8 top-1/2 h-6 w-6 -translate-y-1/2 text-primary hover:bg-accent"
+            className="size-9 shrink-0"
             aria-label={gestionarLabel}
             title={gestionarLabel}
             disabled={disabled}

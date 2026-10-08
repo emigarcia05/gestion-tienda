@@ -86,6 +86,86 @@ export function codigoCumpleFormatoCod(codigo: string, formato: string): boolean
   return regexDesdeFormatoCod(formato)?.test(codigo.trim()) ?? false;
 }
 
+function longitudToken(t: TokenFormatoCod): number {
+  return t.tipo === "FIJO" ? t.valor.length : 1;
+}
+
+/** Longitud del código completo (fijos + slots). `null` si la máscara es inválida. */
+export function longitudCompletaFormatoCod(formato: string): number | null {
+  const r = parsearFormatoCod(formato.trim());
+  if (!r.ok) return null;
+  return r.tokens.reduce((n, t) => n + longitudToken(t), 0);
+}
+
+/**
+ * Aplica la máscara al texto tipeado (siempre MAYÚSCULAS).
+ * FIJO y separadores quedan en el valor y no se pueden borrar.
+ * Si el slot espera letra y llega un dígito (o al revés), no incorpora ese carácter
+ * y devuelve `error` para el input.
+ */
+export function aplicarEntradaCodigoFormato(
+  formato: string | null | undefined,
+  raw: string
+): { value: string; error: string | null } {
+  const upper = raw.toUpperCase();
+  if (formato == null || formato.trim() === "") {
+    return { value: upper, error: null };
+  }
+  const parsed = parsearFormatoCod(formato.trim());
+  if (!parsed.ok) return { value: upper, error: null };
+
+  let i = 0;
+  let out = "";
+
+  function consumirLiteral(literal: string) {
+    if (upper.startsWith(literal, i)) {
+      i += literal.length;
+      return;
+    }
+    const rest = upper.slice(i);
+    if (rest.length > 0 && literal.startsWith(rest)) {
+      i = upper.length;
+    }
+  }
+
+  for (const t of parsed.tokens) {
+    if (t.tipo === "FIJO" || t.tipo === "SEPARADOR") {
+      out += t.valor;
+      consumirLiteral(t.valor);
+      continue;
+    }
+
+    if (i >= upper.length) break;
+
+    let aceptado = false;
+    while (i < upper.length && !aceptado) {
+      const ch = upper[i]!;
+      if (t.tipo === "LETRA") {
+        if (/[A-Z]/.test(ch)) {
+          out += ch;
+          i += 1;
+          aceptado = true;
+        } else if (/[0-9]/.test(ch)) {
+          return { value: out, error: "En esta posición va una letra." };
+        } else {
+          i += 1;
+        }
+      } else if (/[0-9]/.test(ch)) {
+        out += ch;
+        i += 1;
+        aceptado = true;
+      } else if (/[A-Z]/.test(ch)) {
+        return { value: out, error: "En esta posición va un número." };
+      } else {
+        i += 1;
+      }
+    }
+    if (!aceptado) break;
+  }
+
+  return { value: out, error: null };
+}
+
 /** Lectura humana: `LETRA, LETRA, NÚMERO, …, "SW" FIJO`. */
 export function describirFormatoCod(formato: string): string {
   const r = parsearFormatoCod(formato.trim());

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -26,7 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 import { getCatalogoAgregarTintometricoAction } from "@/actions/tintometrico";
 import { upsertPedidoTintometricoItemsAction } from "@/actions/pedidos";
-import { codigoCumpleFormatoCod, describirFormatoCod } from "@/lib/tintometricoFormatoCod";
+import {
+  aplicarEntradaCodigoFormato,
+  codigoCumpleFormatoCod,
+  longitudCompletaFormatoCod,
+} from "@/lib/tintometricoFormatoCod";
 import type {
   BaseTintometricaCatalogo,
   MarcaTintometricaCatalogo,
@@ -66,14 +70,17 @@ export default function AgregarTintometricoModal({
   const [proveedorId, setProveedorId] = useState("");
   const [idMarca, setIdMarca] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
   const [cantPorCod, setCantPorCod] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
+  const codigoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setIdMarca("");
       setCodigo("");
+      setErrorCodigo(null);
       setCantPorCod({});
     });
     if (catalogo) {
@@ -112,7 +119,19 @@ export default function AgregarTintometricoModal({
   const formatoCod = marca?.formatoCod ?? null;
   const codigoValido =
     codigoTrim.length > 0 && (formatoCod === null || codigoCumpleFormatoCod(codigoTrim, formatoCod));
-  const mostrarErrorCodigo = codigoTrim.length > 0 && !codigoValido;
+  const maxLenCodigo = formatoCod ? longitudCompletaFormatoCod(formatoCod) : null;
+
+  function aplicarCodigo(raw: string) {
+    const r = aplicarEntradaCodigoFormato(formatoCod, raw);
+    setCodigo(r.value);
+    setErrorCodigo(r.error);
+    queueMicrotask(() => {
+      const el = codigoInputRef.current;
+      if (!el) return;
+      const pos = r.value.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
 
   const cantidades = basesMarca
     .map((b) => ({ base: b, cant: Number.parseInt(cantPorCod[b.codTienda] ?? "", 10) }))
@@ -186,7 +205,7 @@ export default function AgregarTintometricoModal({
           </Select>
         </div>
 
-        <div className="grid grid-cols-[1fr_1fr_1fr] items-start gap-3">
+        <div className="grid grid-cols-2 items-start gap-3">
           <div className={CAMPO_CLASS}>
             <ModalMicroLabel>COD. COLOR (MARCA)</ModalMicroLabel>
             <Select
@@ -194,6 +213,10 @@ export default function AgregarTintometricoModal({
               onValueChange={(v) => {
                 setIdMarca(v);
                 setCantPorCod({});
+                const nextMarca = catalogo?.marcas.find((m) => m.idMarca === v);
+                const inicial = aplicarEntradaCodigoFormato(nextMarca?.formatoCod ?? null, "");
+                setCodigo(inicial.value);
+                setErrorCodigo(null);
               }}
               disabled={!catalogo}
             >
@@ -210,29 +233,22 @@ export default function AgregarTintometricoModal({
             </Select>
           </div>
           <div className={CAMPO_CLASS}>
-            <ModalMicroLabel>FORMATO DEL CÓDIGO</ModalMicroLabel>
-            <div
-              className="flex h-10 items-center justify-center rounded-md border border-border bg-muted/30 px-2 text-sm tabular-nums text-foreground"
-              title={formatoCod ? describirFormatoCod(formatoCod) : undefined}
-            >
-              <span className="truncate">
-                {!marca ? "—" : (formatoCod ?? "Sin formato (libre)")}
-              </span>
-            </div>
-          </div>
-          <div className={CAMPO_CLASS}>
             <ModalMicroLabel>COD. COLOR</ModalMicroLabel>
             <Input
+              ref={codigoInputRef}
               value={codigo}
-              onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+              onChange={(e) => aplicarCodigo(e.target.value)}
               disabled={!marca}
-              placeholder={formatoCod ?? "CÓDIGO"}
-              aria-invalid={mostrarErrorCodigo || undefined}
-              className={cn("h-10 text-center tabular-nums", mostrarErrorCodigo && "border-destructive")}
+              placeholder={formatoCod ? undefined : "CÓDIGO"}
+              maxLength={maxLenCodigo ?? undefined}
+              aria-invalid={errorCodigo ? true : undefined}
+              className={cn("h-10 text-center tabular-nums", errorCodigo && "border-destructive")}
               aria-label="Código de color"
+              autoComplete="off"
+              spellCheck={false}
             />
-            {mostrarErrorCodigo ? (
-              <span className="text-xs text-destructive">No cumple el formato de la marca.</span>
+            {errorCodigo ? (
+              <span className="text-xs text-destructive">{errorCodigo}</span>
             ) : null}
           </div>
         </div>

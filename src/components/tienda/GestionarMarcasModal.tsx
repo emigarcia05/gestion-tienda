@@ -178,12 +178,6 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
                       <p className="min-w-0 flex-1 truncate font-medium text-foreground">{m.nombre}</p>
-                      <span
-                        className="w-32 shrink-0 truncate text-right text-sm tabular-nums text-muted-foreground"
-                        title={m.formatoCodTintometrico ? describirFormatoCod(m.formatoCodTintometrico) : undefined}
-                      >
-                        {m.formatoCodTintometrico ?? ""}
-                      </span>
                       {esEditor ? (
                         <div className="ml-2 flex shrink-0 items-center gap-1.5">
                           <Button
