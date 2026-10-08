@@ -3,7 +3,9 @@
  * Pagos (`monto_aplicado`) se aplican FIFO a las cuotas 1→4.
  */
 
-export const PLAZOS_PAGO_DIAS_PERMITIDOS = [30, 60, 90, 120, 150] as const;
+/** 0 = vence el mismo día del comprobante (vencido desde el día siguiente). */
+export const PLAZOS_PAGO_DIAS_PERMITIDOS = [0, 30, 60, 90, 120, 150] as const;
+export const PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL = "0, 30, 60, 90, 120 o 150";
 export type PlazoPagoDiasPermitido = (typeof PLAZOS_PAGO_DIAS_PERMITIDOS)[number];
 
 export type PlanPlazosPago = {
@@ -63,7 +65,7 @@ function addDaysIso(fechaCompIso: string, dias: number): string {
   const d = Number(ds);
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return iso;
   const t = new Date(Date.UTC(y, m - 1, d));
-  t.setUTCDate(t.getUTCDate() + Math.max(1, dias));
+  t.setUTCDate(t.getUTCDate() + Math.max(0, dias));
   return t.toISOString().slice(0, 10);
 }
 
@@ -266,7 +268,7 @@ cuotas_mercaderia AS (
     f.nombre,
     f.id_proveedor_dux,
     f.nro AS nro_cuota,
-    (f.fecha_comp::date + GREATEST(1, f.dias))::date AS fecha_venc,
+    (f.fecha_comp::date + GREATEST(0, f.dias))::date AS fecha_venc,
     GREATEST(
       0,
       f.monto_cuota - LEAST(f.monto_cuota, GREATEST(0, f.monto_aplicado - f.acum_antes))

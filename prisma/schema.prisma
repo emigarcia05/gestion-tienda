@@ -22,6 +22,15 @@ enum TipoValorTesoreria {
 }
 
 /**
+ * Estado del cheque físico en cartera (`tesoreria_cheques`).
+ */
+enum EstadoChequeTesoreria {
+  EN_CARTERA
+  DEPOSITADO
+  ENTREGADO_PROVEEDOR
+}
+
+/**
  * Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo.
  */
 enum SentidoMovimientoTesoreria {
@@ -181,6 +190,7 @@ model Proveedor {
   preciosRex                    ProdPrecioRex[]
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
+  chequesRecibidos              TesoreriaCheque[]
 
   @@index([proveedorMercaderia], map: "proveedores_proveedor_mercaderia_idx")
   @@index([esFabrica], map: "proveedores_es_fabrica_idx")
@@ -603,6 +613,8 @@ model CajaTesoreria {
   cobrosPorSucursalDestino   CobrosPorSucursal[]
   movimientos                TesoreriaMovimiento[] @relation("MovimientoCaja")
   movimientosComoContraparte TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
+  cheques                    TesoreriaCheque[]     @relation("ChequeCaja")
+  chequesDepositados         TesoreriaCheque[]     @relation("ChequeCajaDestino")
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
@@ -711,6 +723,12 @@ model TesoreriaMovimiento {
    */
   notaCreditoId        String?                      @map("nota_credito_id")
   notaCredito          ComprobanteVta?              @relation("MovimientoNotaCredito", fields: [notaCreditoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * Cheque físico: cobro de entrada (puede partirse en varias filas por imputación CC)
+   * y piernas de salida (depósito / pago a proveedor).
+   */
+  chequeId             String?                      @map("cheque_id")
+  cheque               TesoreriaCheque?             @relation(fields: [chequeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
@@ -730,7 +748,58 @@ model TesoreriaMovimiento {
   @@index([comprobanteId], map: "tesoreria_movimientos_comprobante_idx")
   @@index([clienteCobroId], map: "tesoreria_movimientos_cliente_cobro_idx")
   @@index([notaCreditoId], map: "tesoreria_movimientos_nota_credito_idx")
+  @@index([chequeId], map: "tesoreria_movimientos_cheque_idx")
   @@map("tesoreria_movimientos")
+}
+
+/**
+ * Cartera de cheques físicos. Nace con el cobro a una caja `tipo_caja = CHEQUE`
+ * (monto + fecha de pago = FECHA ACREDITACIÓN del cobro; cliente = venta o pago CC).
+ * El saldo de la caja CHEQUE cuenta desde `fecha_recepcion`.
+ */
+model TesoreriaCheque {
+  id              String                @id @default(cuid())
+  /** Caja CHEQUE donde entró. */
+  cajaId          String                @map("caja_id")
+  caja            CajaTesoreria         @relation("ChequeCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  /** Importe del cheque (bruto del cobro). */
+  monto           Int
+  /** Neto que sumó a la caja CHEQUE; es lo que sale al depositar / pagar. */
+  montoAcreditado Int                   @map("monto_acreditado")
+  fechaRecepcion  DateTime              @map("fecha_recepcion") @db.Date
+  /** Fecha en que el cheque se puede cobrar (desde ese día se puede depositar). */
+  fechaPago       DateTime              @map("fecha_pago") @db.Date
+  clienteId       String?               @map("cliente_id")
+  cliente         Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  /** Snapshot del nombre del cliente al recibir. */
+  clienteNombre   String                @default("") @map("cliente_nombre")
+  /** Venta del cobro directo. Null en pago CC. */
+  comprobanteId   String?               @map("comprobante_id")
+  comprobante     ComprobanteVta?       @relation(fields: [comprobanteId], references: [id], onDelete: SetNull)
+  /** Pago CC padre. Null en cobro directo de venta. */
+  clienteCobroId  String?               @map("cliente_cobro_id")
+  clienteCobro    ClienteCobro?         @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict)
+  estado          EstadoChequeTesoreria @default(EN_CARTERA)
+  fechaSalida     DateTime?             @map("fecha_salida") @db.Date
+  /** DEPOSITADO: caja propia que lo recibió. */
+  cajaDestinoId   String?               @map("caja_destino_id")
+  cajaDestino     CajaTesoreria?        @relation("ChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: Restrict)
+  /** ENTREGADO_PROVEEDOR: proveedor que lo recibió. */
+  proveedorId     String?               @map("proveedor_id")
+  proveedor       Proveedor?            @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  movimientos TesoreriaMovimiento[]
+
+  @@index([estado, fechaPago], map: "tesoreria_cheques_estado_fecha_pago_idx")
+  @@index([cajaId], map: "tesoreria_cheques_caja_idx")
+  @@index([clienteId], map: "tesoreria_cheques_cliente_idx")
+  @@index([comprobanteId], map: "tesoreria_cheques_comprobante_idx")
+  @@index([clienteCobroId], map: "tesoreria_cheques_cliente_cobro_idx")
+  @@index([cajaDestinoId], map: "tesoreria_cheques_caja_destino_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_proveedor_idx")
+  @@map("tesoreria_cheques")
 }
 
 // Catálogo raíz de la jerarquía Finanzas → Balance → Gastos: Tipo (1) ─→ Rubros (N) ─→ Gastos (N).
@@ -2332,6 +2401,7 @@ model Cliente {
   direcciones            EnviosDireccion[]
   comprobantesVtas       ComprobanteVta[]
   cobros                 ClienteCobro[]
+  cheques                TesoreriaCheque[]
 
   @@index([esPintor], map: "clientes_es_pintor_idx")
   @@index([nombreCompleto], map: "clientes_nombre_completo_idx")
@@ -2591,6 +2661,7 @@ model ComprobanteVta {
    */
   movimientosComoNotaCredito TesoreriaMovimiento[]         @relation("MovimientoNotaCredito")
   stockComprobantes          StockComprobante[]
+  cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")
   @@index([ptoVtaId], map: "vtas_comprobantes_pto_vta_idx")
@@ -2618,6 +2689,7 @@ model ClienteCobro {
 
   cliente      Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   imputaciones TesoreriaMovimiento[]
+  cheques      TesoreriaCheque[]
 
   @@index([clienteId], map: "clientes_cobros_cliente_id_idx")
   @@map("clientes_cobros")

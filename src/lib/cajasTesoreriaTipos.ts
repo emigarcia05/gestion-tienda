@@ -63,3 +63,25 @@ export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria): string {
     tipo.replaceAll("_", " ")
   );
 }
+
+/** «TIPO - ENTIDAD - SUCURSAL - TITULAR» (omite partes vacías). */
+export function etiquetaCajaTesoreria(caja: {
+  titular: string;
+  tipoCaja: TipoCajaTesoreria;
+  entidad: { nombre: string } | null;
+  sucursal: { nombre: string } | null;
+}): string {
+  const partes = [
+    etiquetaTipoCajaEnPantalla(caja.tipoCaja),
+    caja.entidad?.nombre.trim()
+      ? caja.entidad.nombre.toLocaleUpperCase("es-AR")
+      : null,
+    caja.sucursal?.nombre.trim()
+      ? caja.sucursal.nombre.toLocaleUpperCase("es-AR")
+      : null,
+    caja.titular.trim()
+      ? caja.titular.toLocaleUpperCase("es-AR")
+      : null,
+  ].filter((parte): parte is string => parte != null && parte.length > 0);
+  return partes.join(" - ");
+}

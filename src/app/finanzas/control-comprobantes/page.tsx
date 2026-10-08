@@ -24,6 +24,7 @@ export default async function ControlComprobantesPage() {
     proveedorNombre: fila.proveedorNombre,
     proveedorPrefijo: fila.proveedorPrefijo,
     sucursalNombre: fila.sucursalNombre,
+    pedidoHistoriaId: fila.pedidoHistoriaId,
     comprobante: fila.comprobante,
     total: fila.total.toFixed(2),
     montoAplicado: fila.montoAplicado.toFixed(2),

@@ -1,6 +1,14 @@
 import { z } from "zod";
+import { esCobroNotaCreditoNombre } from "@/lib/factura";
 import { prismaCuidSchema } from "@/lib/validations/common";
-import { PLAZOS_PAGO_DIAS_PERMITIDOS } from "@/lib/comprobanteCuotasPlazoPago";
+import {
+  PLAZOS_PAGO_DIAS_PERMITIDOS,
+  PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL,
+} from "@/lib/comprobanteCuotasPlazoPago";
+import {
+  idPersonalSchema,
+  sucursalPorDefectoSchema,
+} from "@/lib/validations/globalPersonal";
 
 const plazoOpcionalSchema = z
   .union([z.literal(""), z.literal("none"), z.null(), z.coerce.number().int()])
@@ -12,7 +20,7 @@ const plazoOpcionalSchema = z
     (v) =>
       v === null ||
       PLAZOS_PAGO_DIAS_PERMITIDOS.includes(v as (typeof PLAZOS_PAGO_DIAS_PERMITIDOS)[number]),
-    { message: "Plazo inválido (30, 60, 90, 120 o 150)." }
+    { message: `Plazo inválido (${PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL}).` }
   );
 
 const plazoObligatorioSchema = z.coerce
@@ -20,7 +28,7 @@ const plazoObligatorioSchema = z.coerce
   .int()
   .refine(
     (v) => PLAZOS_PAGO_DIAS_PERMITIDOS.includes(v as (typeof PLAZOS_PAGO_DIAS_PERMITIDOS)[number]),
-    { message: "El 1.er plazo es obligatorio (30, 60, 90, 120 o 150)." }
+    { message: `El 1.er plazo es obligatorio (${PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL}).` }
   );
 
 function refinePlanCreciente(
@@ -92,3 +100,30 @@ export const actualizarPlazosPagosMercaderiaSchema = z.object({
     )
     .min(1),
 });
+
+export const listarCatalogoPagoProveedorSchema = z.object({
+  sucursalCodigo: sucursalPorDefectoSchema,
+});
+
+export const registrarPagoCuentaCorrienteProveedoresSchema = z
+  .object({
+    pagoNombre: z.string().trim().min(1).max(200),
+    entidadNombre: z.string().trim().max(200).optional().default(""),
+    cuotaEtiqueta: z.string().trim().max(100).nullable(),
+    montoCents: z.number().int().positive(),
+    personalId: idPersonalSchema,
+    sucursalCodigo: sucursalPorDefectoSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (esCobroNotaCreditoNombre(data.pagoNombre)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["pagoNombre"],
+        message: "El pago a proveedores no se registra como nota de crédito.",
+      });
+    }
+  });
+
+export type RegistrarPagoCuentaCorrienteProveedoresInput = z.infer<
+  typeof registrarPagoCuentaCorrienteProveedoresSchema
+>;

@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Wallet } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import GestionarVencimientosProveedorModal from "@/components/finanzas/GestionarVencimientosProveedorModal";
+import PagoCuentaCorrienteProveedoresModal from "@/components/finanzas/PagoCuentaCorrienteProveedoresModal";
 import TablaControlComprobantes from "@/components/finanzas/TablaControlComprobantes";
-import { Button } from "@/components/ui/button";
 import type { ProveedorMercaderiaPlazosFila } from "@/services/proveedor.service";
 
 interface ControlComprobanteRow {
@@ -13,6 +16,7 @@ interface ControlComprobanteRow {
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
+  pedidoHistoriaId: string | null;
   comprobante: string;
   total: string;
   montoAplicado: string;
@@ -39,7 +43,9 @@ export default function ControlComprobantesPageClient({
   proveedoresMercaderia: ProveedorMercaderiaPlazosFila[];
   esEditor: boolean;
 }) {
+  const router = useRouter();
   const [openGestionarVenc, setOpenGestionarVenc] = useState(false);
+  const [openPagoCc, setOpenPagoCc] = useState(false);
 
   return (
     <div className="area-page-shell">
@@ -48,9 +54,20 @@ export default function ControlComprobantesPageClient({
         subtitle="Comp. Compras"
         actions={
           esEditor ? (
-            <Button type="button" onClick={() => setOpenGestionarVenc(true)}>
-              Gestionar Venc.
-            </Button>
+            <>
+              <ToolbarActionButton
+                label="PAGO CUENTA CORRIENTE"
+                icon={<Wallet />}
+                className="w-full justify-start"
+                onClick={() => setOpenPagoCc(true)}
+              />
+              <ToolbarActionButton
+                label="Gestionar Venc."
+                icon={<CalendarClock />}
+                className="w-full justify-start"
+                onClick={() => setOpenGestionarVenc(true)}
+              />
+            </>
           ) : null
         }
       >
@@ -63,6 +80,11 @@ export default function ControlComprobantesPageClient({
           proveedores={proveedoresMercaderia}
         />
       ) : null}
+      <PagoCuentaCorrienteProveedoresModal
+        open={openPagoCc}
+        onOpenChange={setOpenPagoCc}
+        onRegistrado={() => router.refresh()}
+      />
     </div>
   );
 }

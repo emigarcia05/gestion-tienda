@@ -49,6 +49,7 @@ export default function EditarUsuarioModal({
   const [sucursal, setSucursal] = useState<SucursalPreferida | "">("");
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
   const [titularFinanciero, setTitularFinanciero] = useState(false);
+  const [superUsuario, setSuperUsuario] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function EditarUsuarioModal({
       setSucursal(item.sucursalPorDefecto ?? "");
       setModulos(item.modulosPermitidos);
       setTitularFinanciero(item.titularFinanciero);
+      setSuperUsuario(item.superUsuario);
       return;
     }
     setNombre("");
@@ -66,10 +68,12 @@ export default function EditarUsuarioModal({
     setSucursal("");
     setModulos([]);
     setTitularFinanciero(false);
+    setSuperUsuario(false);
+    setSuperUsuario(false);
   }, [open, item]);
 
   const puedeGuardar =
-    modulos.length > 0 && (esAlta ? nombre.trim() !== "" : item != null);
+    (superUsuario || modulos.length > 0) && (esAlta ? nombre.trim() !== "" : item != null);
 
   function toggleModulo(id: MainAppAreaId) {
     setModulos((prev) =>
@@ -90,6 +94,7 @@ export default function EditarUsuarioModal({
             sucursalPorDefecto,
             modulosPermitidos: modulos,
             titularFinanciero,
+            superUsuario,
           })
         : item
           ? await actualizarUsuarioPersonalAction({
@@ -98,6 +103,7 @@ export default function EditarUsuarioModal({
               sucursalPorDefecto,
               modulosPermitidos: modulos,
               titularFinanciero,
+              superUsuario,
             })
           : { ok: false as const, error: "Usuario no encontrado." };
       if (!res.ok) {
@@ -207,18 +213,26 @@ export default function EditarUsuarioModal({
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-col gap-1">
+            <ModalSiNoChoice
+              label="SUPER (TODOS LOS MÓDULOS)"
+              value={superUsuario}
+              onChange={setSuperUsuario}
+              disabled={saving}
+            />
+          </div>
           <div className="flex flex-col gap-2">
             <ModalMicroLabel>Módulos Permitidos</ModalMicroLabel>
             <div className="flex flex-col gap-2">
               {MODULOS_PERMITIDOS_USUARIO.map((m) => {
-                const activo = modulos.includes(m.id);
+                const activo = superUsuario || modulos.includes(m.id);
                 return (
                   <Button
                     key={m.id}
                     type="button"
                     size="sm"
                     variant={activo ? "default" : "outline"}
-                    disabled={saving}
+                    disabled={saving || superUsuario}
                     className={cn("justify-start", activo && "font-semibold")}
                     onClick={() => toggleModulo(m.id)}
                     aria-pressed={activo}

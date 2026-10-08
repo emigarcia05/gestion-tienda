@@ -6,6 +6,17 @@ import {
   resolverPlazosEfectivos,
   type PlanPlazosPago,
 } from "@/lib/comprobanteCuotasPlazoPago";
+import {
+  esCobroNotaCreditoNombre,
+  imputarPagoFifoVentas,
+  type FacturaVentaPendientePago,
+} from "@/lib/factura";
+import {
+  dateToIsoYmdArgentina,
+  isoYmdFromPrismaDateOnly,
+} from "@/lib/fechaArgentina";
+import { prepararMovimientosCobroDesdeSnapshots } from "@/services/tesoreriaMovimientos.service";
+import type { RegistrarPagoCuentaCorrienteProveedoresInput } from "@/lib/validations/controlComprobantes";
 import type { ServiceResult } from "@/types/service.types";
 
 export interface ControlComprobanteFila {
@@ -14,6 +25,7 @@ export interface ControlComprobanteFila {
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
+  pedidoHistoriaId: string | null;
   comprobante: string;
   total: Prisma.Decimal;
   montoAplicado: Prisma.Decimal;
@@ -40,6 +52,7 @@ type ControlComprobanteRaw = {
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
+  pedidoHistoriaId: string | null;
   comprobante: string;
   total: Prisma.Decimal;
   montoAplicado: Prisma.Decimal;
@@ -75,6 +88,7 @@ export async function listarControlComprobantes(): Promise<ControlComprobanteFil
       p.nombre AS "proveedorNombre",
       COALESCE(p.prefijo, '') AS "proveedorPrefijo",
       COALESCE(s.nombre, c.id_sucursal_empresa) AS "sucursalNombre",
+      c.pedido_historia_id AS "pedidoHistoriaId",
       c.comprobante AS comprobante,
       c.total AS total,
       c.monto_aplicado AS "montoAplicado",
@@ -129,6 +143,7 @@ export async function listarControlComprobantes(): Promise<ControlComprobanteFil
       proveedorNombre: r.proveedorNombre,
       proveedorPrefijo: r.proveedorPrefijo,
       sucursalNombre: r.sucursalNombre,
+      pedidoHistoriaId: r.pedidoHistoriaId,
       comprobante: r.comprobante,
       total: r.total,
       montoAplicado: r.montoAplicado,
@@ -191,5 +206,142 @@ export async function actualizarPlazoPagoComprobante(
     const message =
       error instanceof Error ? error.message : "No se pudo actualizar el plazo de pago.";
     return { success: false, error: message };
+  }
+}
+
+function roundArs2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+export async function listarComprobantesCompraPendientesPago(): Promise<
+  FacturaVentaPendientePago[]
+> {
+  const rows = await prisma.comprobanteProveedor.findMany({
+    where: {
+      tipoComp: { not: "NOTA_CREDITO" },
+    },
+    select: {
+      id: true,
+      fechaComp: true,
+      comprobante: true,
+      total: true,
+      montoAplicado: true,
+    },
+    orderBy: [{ fechaComp: "asc" }, { comprobante: "asc" }],
+  });
+  return rows
+    .map((r) => ({
+      id: r.id,
+      nroComprobante: r.comprobante,
+      fechaIso: isoYmdFromPrismaDateOnly(r.fechaComp),
+      saldoPendiente: roundArs2(Number(r.total) - Number(r.montoAplicado)),
+    }))
+    .filter((r) => r.saldoPendiente > 0);
+}
+
+/**
+ * Pago CC de proveedores: imputa FIFO `monto_aplicado` y registra un egreso
+ * `PAGO_PROVEEDOR` en la caja de `cobros_vinc_cajas` (la caja baja).
+ */
+export async function registrarPagoCuentaCorrienteProveedores(
+  input: RegistrarPagoCuentaCorrienteProveedoresInput
+): Promise<ServiceResult<void>> {
+  try {
+    if (esCobroNotaCreditoNombre(input.pagoNombre)) {
+      return {
+        success: false,
+        error: "El pago a proveedores no se registra como nota de crédito.",
+      };
+    }
+    const pendientes = await listarComprobantesCompraPendientesPago();
+    const montoPesos = roundArs2(input.montoCents / 100);
+    if (montoPesos <= 0) {
+      return { success: false, error: "Ingresá un monto a pagar." };
+    }
+    const imputaciones = imputarPagoFifoVentas(pendientes, montoPesos).filter(
+      (fila) => fila.asignado > 0
+    );
+    const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
+      cobros: [
+        {
+          pagoNombre: input.pagoNombre,
+          entidadNombre: input.entidadNombre,
+          cuotaEtiqueta: input.cuotaEtiqueta,
+          montoCents: input.montoCents,
+        },
+      ],
+      sucursalCodigo: input.sucursalCodigo,
+      fechaIso: dateToIsoYmdArgentina(new Date()),
+      personalId: input.personalId,
+      observacion: "Pago cuenta corriente proveedores",
+    });
+    if (!movsPrep.success) return movsPrep;
+    const base = movsPrep.data[0];
+    if (!base) {
+      return { success: false, error: "No se pudo resolver el pago en tesorería." };
+    }
+    if (base.chequeFechaPago) {
+      return {
+        success: false,
+        error: "Para pagar con cheques usá TESORERIA → Cheques (Pagar A Proveedor).",
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const fila of imputaciones) {
+        const row = await tx.comprobanteProveedor.findUnique({
+          where: { id: fila.id },
+          select: {
+            tipoComp: true,
+            total: true,
+            montoAplicado: true,
+          },
+        });
+        if (!row || row.tipoComp === "NOTA_CREDITO") {
+          throw new Error("comprobante-ausente");
+        }
+        const saldo = roundArs2(Number(row.total) - Number(row.montoAplicado));
+        const montoFila = roundArs2(fila.asignado);
+        if (montoFila > saldo) {
+          throw new Error("saldo-cambio");
+        }
+        await tx.comprobanteProveedor.update({
+          where: { id: fila.id },
+          data: {
+            montoAplicado: new Prisma.Decimal(roundArs2(Number(row.montoAplicado) + montoFila).toFixed(2)),
+          },
+        });
+      }
+      await tx.tesoreriaMovimiento.create({
+        data: {
+          cajaId: base.cajaId,
+          tipoMovimiento: "EGRESO",
+          catMovimiento: "PAGO_PROVEEDOR",
+          monto: base.monto,
+          montoAcreditado: base.monto,
+          costoFinanciero: null,
+          fechaRegistro: base.fechaRegistro,
+          fechaAcreditacion: base.fechaAcreditacion,
+          observacion: base.observacion,
+          pagoId: null,
+          entidadId: null,
+          cuotaId: null,
+          cxFinId: null,
+          sucursalId: base.sucursalId,
+          personalId: base.personalId,
+          comprobanteId: null,
+        },
+      });
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    if (e instanceof Error && e.message === "saldo-cambio") {
+      return {
+        success: false,
+        error: "El saldo de un comprobante cambió. Recargá e intentá de nuevo.",
+      };
+    }
+    console.error("[registrarPagoCuentaCorrienteProveedores]", e);
+    return { success: false, error: "No se pudo registrar el pago." };
   }
 }

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  PLAZOS_PAGO_DIAS_PERMITIDOS,
+  PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL,
+} from "@/lib/comprobanteCuotasPlazoPago";
 
 const whatsappSchema = z
   .string()
@@ -20,7 +24,8 @@ const coeficienteTintometricoSchema = z
   .refine((n) => Number.isFinite(n) && n > 0, "Coef. Tintométrico debe ser mayor a 0.")
   .refine((n) => n <= 1_000_000, "Coef. Tintométrico fuera de rango.");
 
-const PLAZOS_PAGO_PERMITIDOS = new Set([30, 60, 90, 120, 150]);
+const PLAZOS_PAGO_PERMITIDOS = new Set<number>(PLAZOS_PAGO_DIAS_PERMITIDOS);
+const PLAZOS_PAGO_MENSAJE = `Solo se permiten ${PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL}.`;
 
 const plazoPagoSlotSchema = z
   .string()
@@ -34,7 +39,7 @@ const plazoPagoSlotSchema = z
     if (!Number.isFinite(n) || !PLAZOS_PAGO_PERMITIDOS.has(n) || String(n) !== s) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Solo se permiten 30, 60, 90, 120 o 150.",
+        message: PLAZOS_PAGO_MENSAJE,
       });
     }
   })
@@ -53,7 +58,7 @@ export const planPlazosProveedorFormSchema = z
           .refine((s) => {
             const n = Number.parseInt(s, 10);
             return Number.isFinite(n) && PLAZOS_PAGO_PERMITIDOS.has(n) && String(n) === s;
-          }, "Solo se permiten 30, 60, 90, 120 o 150.")
+          }, PLAZOS_PAGO_MENSAJE)
           .transform((s) => Number.parseInt(s, 10))
       ),
     plazoPago2Dias: plazoPagoSlotSchema,

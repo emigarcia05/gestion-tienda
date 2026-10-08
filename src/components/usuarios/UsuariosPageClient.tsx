@@ -63,7 +63,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
           item.nombrePersonal,
           item.idDux ?? "",
           etiquetaSucursalPorDefecto(item.sucursalPorDefecto),
-          etiquetaModulosPermitidos(item.modulosPermitidos),
+          item.superUsuario ? "SUPER" : etiquetaModulosPermitidos(item.modulosPermitidos),
           item.titularFinanciero ? "TITULAR FINANCIERO SI" : "NO",
         ],
         qDebounced
@@ -164,7 +164,9 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                       {etiquetaSucursalPorDefecto(item.sucursalPorDefecto)}
                     </TableCell>
                     <TableCell className="celda-datos">
-                      {etiquetaModulosPermitidos(item.modulosPermitidos)}
+                      {item.superUsuario
+                        ? "SUPER (TODOS)"
+                        : etiquetaModulosPermitidos(item.modulosPermitidos)}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
                       {item.titularFinanciero ? "SI" : "NO"}

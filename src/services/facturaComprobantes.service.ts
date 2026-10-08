@@ -115,6 +115,11 @@ import {
   type MovimientoCobroFacturaData,
 } from "@/services/tesoreriaMovimientos.service";
 import {
+  chequesEnCarteraDeMovimientos,
+  crearChequeEnCarteraDesdeCobro,
+  eliminarChequesSinMovimientos,
+} from "@/services/tesoreriaCheques.service";
+import {
   crearImputacionNotaCreditoMovimiento,
   eliminarImputacionesNotaCredito,
   leftoverClienteCobroDesdeMovimientos,
@@ -741,6 +746,11 @@ export async function eliminarComprobanteNoFiscal(
         error: "Solo se pueden eliminar comprobantes no fiscales.",
       };
     }
+    const cheques = await chequesEnCarteraDeMovimientos({
+      comprobanteId: id,
+      clienteCobroId: null,
+    });
+    if (!cheques.success) return cheques;
     await prisma.$transaction(async (tx) => {
       if (esFacturaTipoNotaCredito(tipo)) {
         await revertirImputacionesNotaCredito(tx, id);
@@ -751,6 +761,7 @@ export async function eliminarComprobanteNoFiscal(
         data: { cbteAsocId: null },
       });
       await tx.comprobanteVta.delete({ where: { id } });
+      await eliminarChequesSinMovimientos(cheques.data, tx);
     });
     return { success: true, data: undefined };
   } catch (e) {
@@ -1902,14 +1913,18 @@ export async function guardarDiasVencimientoComprobante(
     }
     await prisma.$transaction(async (tx) => {
       // Solo se reescriben los cobros directos; imputaciones de NC y pagos de CC se conservan.
-      await tx.tesoreriaMovimiento.deleteMany({
-        where: {
-          comprobanteId: input.id,
-          catMovimiento: "COBRO",
-          clienteCobroId: null,
-          notaCreditoId: null,
-        },
-      });
+      const whereCobrosDirectos = {
+        comprobanteId: input.id,
+        catMovimiento: "COBRO" as const,
+        clienteCobroId: null,
+        notaCreditoId: null,
+      };
+      const chequesPrevios = await chequesEnCarteraDeMovimientos(whereCobrosDirectos, tx);
+      if (!chequesPrevios.success) {
+        throw new TesoreriaCobroFacturaError(chequesPrevios.error);
+      }
+      await tx.tesoreriaMovimiento.deleteMany({ where: whereCobrosDirectos });
+      await eliminarChequesSinMovimientos(chequesPrevios.data, tx);
       const retenido = await sumarImpCobradoDesdeMovimientos(input.id, tx);
       const ordenInicio = await siguienteOrdenCobroComprobante(input.id, tx);
       await persistirMovimientosCobroEnTx(
@@ -1998,6 +2013,12 @@ export async function registrarCobroComprobanteVta(
         observacion: "Devolución de nota de crédito",
       });
       if (!prep.success) return prep;
+      if (prep.data.some((fila) => fila.chequeFechaPago)) {
+        return {
+          success: false,
+          error: "La devolución no se puede hacer desde la caja de cheques.",
+        };
+      }
       // La devolución saca plata de la caja: egreso categoría NOTA_CREDITO con forma de pago.
       const egresos: MovimientoCobroFacturaData[] = prep.data.map((fila) => ({
         ...fila,
@@ -2141,6 +2162,24 @@ export async function registrarPagoCuentaCorriente(
           montoCents: input.montoCents,
         },
       });
+      // Un solo cheque físico aunque el pago se reparta en varias filas del ledger.
+      const chequeId = base.chequeFechaPago
+        ? (
+            await crearChequeEnCarteraDesdeCobro(
+              {
+                cajaId: base.cajaId,
+                monto: base.monto,
+                montoAcreditado: base.montoAcreditado,
+                fechaRecepcion: base.fechaRegistro,
+                fechaPago: base.chequeFechaPago,
+                comprobanteId: null,
+                clienteCobroId: padre.id,
+              },
+              tx
+            )
+          ).id
+        : null;
+      const baseFila: MovimientoCobroFacturaData = { ...base, chequeFechaPago: null, chequeId };
       let restantePesos = base.monto;
       let restanteAcreditado = base.montoAcreditado;
       for (const fila of imputaciones) {
@@ -2196,7 +2235,7 @@ export async function registrarPagoCuentaCorriente(
         await persistirMovimientosCobroEnTx(
           [
             {
-              ...base,
+              ...baseFila,
               monto: pesosLedger,
               montoAcreditado: acredLedger,
               comprobanteId: fila.id,
@@ -2218,7 +2257,7 @@ export async function registrarPagoCuentaCorriente(
         await persistirMovimientosCobroEnTx(
           [
             {
-              ...base,
+              ...baseFila,
               monto: restantePesos,
               montoAcreditado: restanteAcreditado,
               comprobanteId: null,
@@ -2368,6 +2407,7 @@ export async function asignarClienteCobroComoCobro(
               comprobanteId: input.ventaId,
               orden,
               clienteCobroId: input.cobroId,
+              chequeId: anticipo.chequeId,
             },
           });
         }
