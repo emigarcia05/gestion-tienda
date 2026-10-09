@@ -1549,7 +1549,7 @@
   background-color: color-mix(in oklab, var(--accent2) 30%, var(--tabla-row-bg, var(--card)));
 }
 
-/* Flujo de fondo (`/finanzas/venc-por-fecha`): **thead** = centrado global. **FECHA** en cuerpo
+/* Flujo de fondo (`/finanzas/tesoreria/flujo-de-fondos`): **thead** = centrado global. **FECHA** en cuerpo
  * centrada en la columna (`text-center` en `TablaFlujoDeFondo`); modal detalle: **PROVEEDOR** con
  * `text-left` en JSX. Importes: `TD_NUM`. **SALDO** negativo: `text-destructive` en la celda. */
 

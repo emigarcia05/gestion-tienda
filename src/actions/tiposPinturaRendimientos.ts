@@ -101,7 +101,7 @@ export async function upsertTipoPinturaRendimientoAction(
       row = inserted[0]!;
     }
 
-    revalidatePath("/tienda/litros");
+    revalidatePath("/ventas/herramientas/calculadora-lts");
     return { ok: true, data: row };
   } catch (error: unknown) {
     return { ok: false, error: mapDbError(error, "No se pudo guardar el tipo de pintura.") };
@@ -122,7 +122,7 @@ export async function deleteTipoPinturaRendimientoAction(idRaw: string): Promise
       DELETE FROM prod_rendimientos
       WHERE id = ${id.data}
     `;
-    revalidatePath("/tienda/litros");
+    revalidatePath("/ventas/herramientas/calculadora-lts");
     return { ok: true, data: undefined };
   } catch (error: unknown) {
     return { ok: false, error: mapDbError(error, "No se pudo eliminar el tipo de pintura.") };

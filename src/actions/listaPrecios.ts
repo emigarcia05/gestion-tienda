@@ -338,7 +338,7 @@ export async function actualizarListaPreciosMasivoAction(
 
     const result = await actualizarListaPreciosMasivo(ids, parsed.data.data);
     if (result.error) return { ok: false, error: result.error };
-    revalidatePath("/proveedores/lista-precios");
+    revalidatePath("/administrador/proveedores/lista-prod-prov");
     return { ok: true, data: { actualizados: result.actualizados } };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al actualizar la lista de precios.";
@@ -449,6 +449,6 @@ export async function eliminarListaPrecioAction(raw: unknown): Promise<ActionRes
     return { ok: false, error: result.error };
   }
 
-  revalidatePath("/proveedores/lista-precios");
+  revalidatePath("/administrador/proveedores/lista-prod-prov");
   return { ok: true, data: undefined };
 }

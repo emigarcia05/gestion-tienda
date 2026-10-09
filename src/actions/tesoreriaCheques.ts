@@ -18,10 +18,10 @@ import {
 } from "@/services/tesoreriaCheques.service";
 
 function revalidateCheques(): void {
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath("/finanzas/tesoreria/cajas");
   revalidatePath("/finanzas/tesoreria/movimientos");
-  revalidatePath("/finanzas/venc-por-fecha");
-  revalidatePath("/finanzas/control-comprobantes");
+  revalidatePath("/finanzas/tesoreria/flujo-de-fondos");
+  revalidatePath("/finanzas/operaciones/comp-compras");
 }
 
 /** Cheques en cartera de la caja + destinos de depósito + proveedores con saldo. */

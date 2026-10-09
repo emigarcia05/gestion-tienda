@@ -1,7 +1,7 @@
 /**
- * Hub del área Administración: panel central vacío hasta elegir una ruta hoja
- * en el sidenav (Tesorería, Balance, Pedido A Fáb., Usuarios, etc.).
+ * Hub del área Finanzas: panel central vacío hasta elegir Tesorería,
+ * Balance, Operaciones, Cobros o Impuestos en el sidenav.
  */
-export default function FinanzasPage() {
+export default function FinanzasHubPage() {
   return null;
 }

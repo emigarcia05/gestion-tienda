@@ -1,17 +1,14 @@
-/**
- * Rutas canónicas del área Marketing.
- * Prefijo: `/marketing/{módulo}/{submódulo?}`.
- */
+import { APP_ROUTES } from "./appRoutes";
 
+/** Rutas del área Marketing (`/marketing/{módulo}/{función}`). */
 export const MARKETING_ROUTES = {
-  defaultEntry: "/marketing/publicaciones/calendario",
   publicaciones: {
-    calendario: "/marketing/publicaciones/calendario",
-    ideas: "/marketing/publicaciones/ideas",
-    objetivos: "/marketing/publicaciones/objetivos",
+    calendario: APP_ROUTES.marketing.publicaciones.calendario,
+    ideas: APP_ROUTES.marketing.publicaciones.ideasContenido,
+    objetivos: APP_ROUTES.marketing.publicaciones.objetivos,
   },
   baseMultimedia: {
-    contenido: "/marketing/base-multimedia",
-    coloresMarca: "/marketing/base-multimedia/colores-marca",
+    contenido: APP_ROUTES.marketing.baseMultimedia.baseMultimedia,
+    coloresMarca: APP_ROUTES.marketing.baseMultimedia.coloresMarca,
   },
 } as const;

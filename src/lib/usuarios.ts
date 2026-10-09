@@ -1,3 +1,4 @@
+import { APP_ROUTES } from "@/lib/appRoutes";
 import {
   MAIN_APP_AREAS,
   areaLabelMayusculas,
@@ -8,7 +9,7 @@ import {
   type SucursalPreferida,
 } from "@/lib/sucursalPreferida";
 
-export const USUARIOS_PATH = "/finanzas/usuarios";
+export const USUARIOS_PATH = APP_ROUTES.administrador.usuarios.usuarios;
 
 export const MODULOS_PERMITIDOS_USUARIO: {
   id: MainAppAreaId;

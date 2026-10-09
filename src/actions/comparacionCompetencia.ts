@@ -14,7 +14,7 @@ import * as comparacionCompetenciaService from "@/services/comparacionCompetenci
 
 function revalidatePxCompetenciaPaths() {
   revalidatePath(GP_ROUTES.analisisPrecios.pxCompetencia);
-  revalidatePath("/tienda/cx-px");
+  revalidatePath("/administrador/productos/px-competencia");
 }
 
 async function gateEditarComparacion(): Promise<{ ok: false; error: string } | null> {

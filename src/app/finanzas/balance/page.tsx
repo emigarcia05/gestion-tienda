@@ -21,5 +21,5 @@ export default async function BalanceIndexPage() {
   }
   const { mes, anio: anioRaw } = mesAnioCalendarioArgentina();
   const anio = clampAnio(anioRaw);
-  redirect(`/finanzas/balance/mensual?mes=${mes}&anio=${anio}`);
+  redirect(`/finanzas/balance/balance-mensual?mes=${mes}&anio=${anio}`);
 }

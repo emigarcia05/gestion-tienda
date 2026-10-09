@@ -50,7 +50,7 @@ export async function guardarCostoCxProdTiendaAction(
 
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
   revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
-  revalidatePath("/tienda");
+  revalidatePath("/administrador/productos/cx-compra");
   return { ok: true, data: undefined };
 }
 

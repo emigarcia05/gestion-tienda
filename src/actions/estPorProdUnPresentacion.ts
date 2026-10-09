@@ -30,7 +30,7 @@ function firstZodErrorMessage(error: {
 
 
 function revalidateCategorizacion() {
-  revalidatePath("/estadisticas-productos");
+  revalidatePath("/administrador/estadisticas");
   revalidatePath(ESTADISTICAS_PRODUCTOS_ROUTES.categorizacion);
 }
 

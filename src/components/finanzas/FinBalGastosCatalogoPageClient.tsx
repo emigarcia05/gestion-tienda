@@ -42,7 +42,7 @@ import type { ProveedorListItem } from "@/services/proveedor.service";
  * día devengado y plazo de pago en la UI de columna GASTO FINAL).
  * La gestión de **PROVEEDORES** se resuelve con un botón en el header que
  * abre un modal autónomo (lista + búsqueda + alta/edición), reutilizando
- * `ProveedorModal` de `/gestion-productos/proveedores/lista`.
+ * `ProveedorModal` de `/administrador/proveedores/proveedores`.
  *
  * Interacción:
  *   - Click en un ítem de las 3 primeras columnas lo selecciona y revela la siguiente.

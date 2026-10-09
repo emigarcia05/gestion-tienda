@@ -55,7 +55,7 @@ export const PERMISOS = {
     editar:  { simple: false, editor: true }, // CRUD categorías/subcategorías/presentaciones y asignar productos
   },
 
-  // ─── Módulo /precios-competencia (Precios Competencia) ───────────────────────
+  // ─── Módulo /administrador/productos/px-competencia (Precios Competencia) ───────────────────────
   competenciaPrecios: {
     acceso: { simple: false, editor: true },
     editar: { simple: false, editor: true }, // CRUD competidores + sincronizar precios desde webs
@@ -63,15 +63,15 @@ export const PERMISOS = {
 
   // ─── Px Listas + Px Competencia + CX PROD. en Cx Compra ───────────────────
   cxPxTienda: {
-    /** Px Listas (/gestion-productos/tienda/px-listas), Px Competencia (/gestion-productos/tienda/cx-px-tienda), edición CX PROD. y Exportar Cx en Cx Compra. */
+    /** Px Listas (/administrador/productos/px-listas), Px Competencia (/administrador/productos/px-competencia), edición CX PROD. y Exportar Cx en Cx Compra. */
     acceso: { simple: false, editor: true },
   },
 
-  // ─── Página /tienda (y submódulos en sidebar) ──────────────────────────────
+  // ─── Cx Compra /administrador/productos/cx-compra (y submódulos en sidebar) ──────────────────────────────
   tienda: {
-    /** Cx Compra (/gestion-productos/tienda/comp-proveedores). Módulo Análisis de Precios — solo editor. */
+    /** Cx Compra (/administrador/productos/cx-compra). Módulo Análisis de Precios — solo editor. */
     acceso: { simple: false, editor: true },
-    /** Calc. Tintométrico y Calc. Litros (/tienda/tintometrico, /tienda/litros). */
+    /** Calc. Tintométrico y Calc. Litros (/ventas/ventas/px-tintometrico, /ventas/herramientas/calculadora-lts). */
     tintoLts: { simple: true, editor: true },
     acciones: {
       /** Lista tienda DUX: sidebar y POST /api/sync-lista-precios-tienda; simple y editor pueden disparar. */
@@ -95,7 +95,7 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Página /pedidos ──────────────────────────────────────────────────────
+  // ─── Módulo /ventas/compras ──────────────────────────────────────────────────────
   pedidos: {
     acceso: { simple: true, editor: true },
   },
@@ -117,7 +117,7 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Área /estadisticas-productos ─────────────────────────────────────────
+  // ─── Módulo /administrador/estadisticas ─────────────────────────────────────────
   estadisticasProductos: {
     acceso: { simple: true, editor: true },
   },
@@ -128,13 +128,13 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Área /facturacion ────────────────────────────────────────────────────
+  // ─── Módulo /ventas/ventas ────────────────────────────────────────────────────
   facturacion: {
     /** Acceso al área: leer y emitir comprobantes (sin clave de editor). */
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Administración · USUARIOS (`/finanzas/usuarios`) ─────────────────────
+  // ─── Administración · USUARIOS (`/administrador/usuarios/usuarios`) ─────────────────────
   usuarios: {
     /** Catálogo `personal`: sucursal, módulos y titular financiero. Solo editor. */
     acceso: { simple: false, editor: true },

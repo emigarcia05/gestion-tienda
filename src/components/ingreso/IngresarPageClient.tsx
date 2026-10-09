@@ -79,7 +79,7 @@ function CampoContrasena({
 
 /**
  * Pantalla de ingreso (sin slidenav): fondo `bg-primary`, logo y un solo bloque
- * (sucursal / usuario en Select + contraseña) que entra en una vista.
+ * (sucursal / usuario / contraseña siempre visibles y fijos).
  */
 export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   const router = useRouter();
@@ -92,13 +92,13 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   const [pending, startTransition] = useTransition();
 
   const sucursales = sucursalesDeUsuarios(usuarios);
-  const usuariosSucursal = sucursal
+  const usuariosOpciones = sucursal
     ? usuarios.filter((u) => u.sucursalPorDefecto === sucursal)
-    : [];
+    : usuarios;
   const idNum = idPersonal.trim() ? Number.parseInt(idPersonal, 10) : NaN;
   const usuario =
     Number.isInteger(idNum) && idNum > 0
-      ? (usuariosSucursal.find((u) => u.idPersonal === idNum) ?? null)
+      ? (usuarios.find((u) => u.idPersonal === idNum) ?? null)
       : null;
   const creando = usuario != null && !usuario.tieneContrasena;
 
@@ -111,13 +111,27 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
 
   function elegirSucursal(codigo: SucursalPreferida | "") {
     setSucursal(codigo);
-    setIdPersonal("");
-    limpiarContrasena();
+    const sigueEnSucursal =
+      codigo !== "" &&
+      usuarios.some(
+        (u) => u.sucursalPorDefecto === codigo && String(u.idPersonal) === idPersonal
+      );
+    if (!sigueEnSucursal) {
+      setIdPersonal("");
+      limpiarContrasena();
+    }
   }
 
   function elegirUsuario(id: string) {
+    const anterior = idPersonal;
     setIdPersonal(id);
-    limpiarContrasena();
+    const elegido = usuarios.find((u) => String(u.idPersonal) === id);
+    if (elegido && !sucursal) {
+      setSucursal(elegido.sucursalPorDefecto);
+    }
+    if (anterior && anterior !== id) {
+      limpiarContrasena();
+    }
   }
 
   function entrar(sesion: UsuarioSesion) {
@@ -148,7 +162,7 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-primary px-4 py-6">
+    <div className="flex h-screen w-full flex-col items-center justify-start overflow-hidden bg-primary px-4 pb-6 pt-16">
       <Image
         src="/logo_tiendacolor_letras_blancas.png"
         alt="TiendaColor"
@@ -159,7 +173,7 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
       />
 
       <form
-        className={cn(TARJETA_CLASS, "mt-6 w-[24rem]")}
+        className={cn(TARJETA_CLASS, "mt-4 w-[24rem]")}
         onSubmit={handleSubmit}
         aria-label="Ingreso"
       >
@@ -203,7 +217,7 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
           <Select
             value={idPersonal}
             onValueChange={elegirUsuario}
-            disabled={pending || !sucursal || usuariosSucursal.length === 0}
+            disabled={pending || usuariosOpciones.length === 0}
           >
             <SelectTrigger
               id="ingreso-usuario"
@@ -217,7 +231,7 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
               align="start"
               className="select-content-filtro"
             >
-              {usuariosSucursal.map((u) => (
+              {usuariosOpciones.map((u) => (
                 <SelectItem key={u.idPersonal} value={String(u.idPersonal)}>
                   {u.nombrePersonal.toLocaleUpperCase("es-AR")}
                 </SelectItem>
@@ -226,51 +240,45 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
           </Select>
         </div>
 
-        {usuario ? (
-          <>
-            {creando ? (
-              <p className="text-sm text-muted-foreground">
-                Primer ingreso: mínimo {CONTRASENA_MIN} caracteres.
-              </p>
-            ) : null}
-            <CampoContrasena
-              key={`${usuario.idPersonal}-contrasena`}
-              id="ingreso-contrasena"
-              label={creando ? "NUEVA CONTRASEÑA" : "CONTRASEÑA"}
-              value={contrasena}
-              onChange={(v) => {
-                setContrasena(v);
-                setError("");
-              }}
-              visible={visible}
-              onToggleVisible={() => setVisible((v) => !v)}
-              autoFocus
-              autoComplete={creando ? "new-password" : "current-password"}
-            />
-            {creando ? (
-              <CampoContrasena
-                id="ingreso-confirmacion"
-                label="REPETIR CONTRASEÑA"
-                value={confirmacion}
-                onChange={(v) => {
-                  setConfirmacion(v);
-                  setError("");
-                }}
-                visible={visible}
-                onToggleVisible={() => setVisible((v) => !v)}
-                autoComplete="new-password"
-              />
-            ) : null}
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={pending || !contrasena || (creando && !confirmacion)}
-            >
-              {pending ? "Ingresando..." : creando ? "Crear E Ingresar" : "Ingresar"}
-            </Button>
-          </>
+        {creando ? (
+          <p className="text-sm text-muted-foreground">
+            Primer ingreso: mínimo {CONTRASENA_MIN} caracteres.
+          </p>
         ) : null}
+        <CampoContrasena
+          id="ingreso-contrasena"
+          label={creando ? "NUEVA CONTRASEÑA" : "CONTRASEÑA"}
+          value={contrasena}
+          onChange={(v) => {
+            setContrasena(v);
+            setError("");
+          }}
+          visible={visible}
+          onToggleVisible={() => setVisible((v) => !v)}
+          autoComplete={creando ? "new-password" : "current-password"}
+        />
+        {creando ? (
+          <CampoContrasena
+            id="ingreso-confirmacion"
+            label="REPETIR CONTRASEÑA"
+            value={confirmacion}
+            onChange={(v) => {
+              setConfirmacion(v);
+              setError("");
+            }}
+            visible={visible}
+            onToggleVisible={() => setVisible((v) => !v)}
+            autoComplete="new-password"
+          />
+        ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={pending || !usuario || !contrasena || (creando && !confirmacion)}
+        >
+          {pending ? "Ingresando..." : creando ? "Crear E Ingresar" : "Ingresar"}
+        </Button>
       </form>
     </div>
   );

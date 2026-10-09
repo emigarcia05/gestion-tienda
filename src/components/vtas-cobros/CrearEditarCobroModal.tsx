@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -61,8 +62,10 @@ export default function CrearEditarCobroModal({
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [discriminaIva, setDiscriminaIva] = useState(false);
+  const [esCheque, setEsCheque] = useState(false);
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   const esEditar = mode === "editar";
   const muestraEntidad = vinculosPagoEntidad.some((v) => v.pagoId === pagoId);
@@ -75,6 +78,7 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setDiscriminaIva(fila.discriminaIva);
+      setEsCheque(pagos.some((p) => p.id === fila.pagoId && p.esCheque));
       setObservacion(fila.observacion);
       return;
     }
@@ -83,7 +87,10 @@ export default function CrearEditarCobroModal({
     setSucursalId("");
     setCajaDestinoId("");
     setDiscriminaIva(false);
+    setEsCheque(false);
     setObservacion("");
+    // Solo al abrir / cambiar fila: no resetear si `pagos` se refresca con el modal abierto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pagos
   }, [open, esEditar, fila]);
 
   const entidadesDisponibles = useMemo(() => {
@@ -98,9 +105,8 @@ export default function CrearEditarCobroModal({
 
   const cajasDisponibles = useMemo(() => {
     if (!pagoId) return [];
-    const esCheque = pagos.some((p) => p.id === pagoId && p.esCheque);
     return esCheque ? cajas.filter((c) => c.recibeCheque) : cajas;
-  }, [cajas, pagos, pagoId]);
+  }, [cajas, esCheque, pagoId]);
 
   useEffect(() => {
     if (!open || !muestraEntidad) return;
@@ -138,6 +144,7 @@ export default function CrearEditarCobroModal({
             id: fila.id,
             cajaDestinoId,
             discriminaIva,
+            esCheque,
             observacion,
           })
         : await crearCobroPorSucursalAction({
@@ -146,6 +153,7 @@ export default function CrearEditarCobroModal({
             sucursalId,
             cajaDestinoId,
             discriminaIva,
+            esCheque,
             observacion,
           });
       if (!res.ok) {
@@ -154,6 +162,7 @@ export default function CrearEditarCobroModal({
       }
       toast.success(esEditar ? "Cobro actualizado." : "Cobro creado.");
       onSaved(res.data);
+      router.refresh();
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -198,6 +207,7 @@ export default function CrearEditarCobroModal({
               value={pagoId || undefined}
               onValueChange={(value) => {
                 setPagoId(value);
+                setEsCheque(pagos.some((p) => p.id === value && p.esCheque));
                 setEntidadId("");
                 setSucursalId("");
                 setCajaDestinoId("");
@@ -275,6 +285,19 @@ export default function CrearEditarCobroModal({
               </SelectContent>
             </Select>
           </div>
+
+          <ModalSiNoChoice
+            label="ES CHEQUE"
+            value={esCheque}
+            onChange={setEsCheque}
+            disabled={saving || !pagoId}
+          />
+          {esCheque ? (
+            <p className="text-xs text-muted-foreground">
+              Aplica a la forma de pago en todas las sucursales: cada cobro crea un cheque en
+              cartera y la caja vinculada debe recibir cheques.
+            </p>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>

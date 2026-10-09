@@ -95,7 +95,7 @@ export interface ProveedorListItem {
   tiempoEntregaEnDias: number | null;
   /**
    * Flag "proveedor de mercadería". Solo los TRUE se listan en
-   * /gestion-productos/proveedores/lista (ver `getProveedoresMercaderia`).
+   * /administrador/proveedores/proveedores (ver `getProveedoresMercaderia`).
    */
   proveedorMercaderia: boolean;
   /** True si el proveedor es fábrica (Pedido A Fábrica). */
@@ -141,7 +141,7 @@ export async function getProveedores(): Promise<ProveedorListItem[]> {
 
 /**
  * Lista únicamente los proveedores con `proveedor_mercaderia = true`.
- * Alimenta /gestion-productos/proveedores/lista (tabla "Lista Proveedores").
+ * Alimenta /administrador/proveedores/proveedores (tabla "Lista Proveedores").
  * Usa el índice `proveedores_proveedor_mercaderia_idx` para el filtro.
  */
 export async function getProveedoresMercaderia(): Promise<ProveedorListItem[]> {
@@ -217,7 +217,7 @@ export async function actualizarPlazosPagosProveedoresMercaderia(
 /**
  * Lista únicamente los proveedores con `proveedor_mercaderia = false`
  * (contraparte de `getProveedoresMercaderia`). Alimenta la columna
- * "PROVEEDORES" de `/finanzas/balance/gastos/catalogo`, donde se gestiona
+ * "PROVEEDORES" de `/finanzas/balance/catalogo-gastos`, donde se gestiona
  * el catálogo maestro de proveedores "no de mercadería" (gastos operativos,
  * servicios, impuestos, etc.). Usa el mismo índice
  * `proveedores_proveedor_mercaderia_idx`.

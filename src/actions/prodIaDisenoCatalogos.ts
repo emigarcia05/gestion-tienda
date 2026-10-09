@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { GP_INTERNAL, GP_ROUTES } from "@/lib/gestionProductosRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import type {
   ProdIaDisenoCatalogoKind,
   ProdIaDisenoCatalogoNombreItem,
@@ -32,7 +32,6 @@ function firstZodErrorMessage(error: {
 
 function revalidateAsistenteIa(): void {
   revalidatePath(GP_ROUTES.asistenteIa.buscarColorImagen);
-  revalidatePath(GP_INTERNAL.asistenteIa.buscarColorImagen);
 }
 
 

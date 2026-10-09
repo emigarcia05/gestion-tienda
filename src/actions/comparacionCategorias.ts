@@ -53,12 +53,7 @@ const buscarProductosAsignarSchema = z.object({
   q: z.string().max(500).optional(),
 });
 
-const PATHS_COMPARACION_CATEGORIAS = [
-  "/proveedores/comparacion-categorias",
-  GP_ROUTES.analisisPrecios.compCategorias.comparacion,
-  "/proveedores/comparacion-categorias/categorias",
-  GP_ROUTES.analisisPrecios.compCategorias.categorias,
-] as const;
+const PATHS_COMPARACION_CATEGORIAS = [GP_ROUTES.analisisPrecios.compCategorias.comparacion] as const;
 
 function revalidateComparacionCategorias() {
   for (const path of PATHS_COMPARACION_CATEGORIAS) {
@@ -279,7 +274,7 @@ export async function asignarProductosAPresentacionAction(
   try {
     const { count } = await asignarProductosAPresentacion(parsed.data.presentacionId, parsed.data.idsProductos);
     revalidateComparacionCategorias();
-    revalidatePath("/proveedores/lista-precios");
+    revalidatePath("/administrador/proveedores/lista-prod-prov");
     return { ok: true, data: { count } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al asignar." };
@@ -296,7 +291,7 @@ export async function quitarAsignacionPresentacionAction(
   try {
     const { count } = await quitarAsignacionPresentacion(parsed.data);
     revalidateComparacionCategorias();
-    revalidatePath("/proveedores/lista-precios");
+    revalidatePath("/administrador/proveedores/lista-prod-prov");
     return { ok: true, data: { count } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al quitar asignación." };

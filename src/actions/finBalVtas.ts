@@ -49,8 +49,8 @@ export async function guardarFinBalVtasCargaPeriodoAction(
   const res = await guardarFinBalVtasCargaPeriodo(parsed.data);
   const out = fromServiceResult(res);
   if (!out.ok) return out;
-  revalidatePath("/finanzas/balance/vtas");
-  revalidatePath("/finanzas/balance/mensual");
+  revalidatePath("/finanzas/balance/ventas-mensuales");
+  revalidatePath("/finanzas/balance/balance-mensual");
   return out;
 }
 
@@ -71,7 +71,7 @@ export async function eliminarFinBalVtasPorPeriodoAction(
   const res = await eliminarFinBalVtasPorPeriodo(parsed.data.mes, parsed.data.anio);
   const out = fromServiceResult(res);
   if (!out.ok) return out;
-  revalidatePath("/finanzas/balance/vtas");
-  revalidatePath("/finanzas/balance/mensual");
+  revalidatePath("/finanzas/balance/ventas-mensuales");
+  revalidatePath("/finanzas/balance/balance-mensual");
   return out;
 }

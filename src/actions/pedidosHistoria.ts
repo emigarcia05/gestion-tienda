@@ -162,8 +162,8 @@ export async function marcarPedidoHistoriaRegistradoAction(
     });
     if (!res.success) return { ok: false, error: res.error };
 
-    revalidatePath("/pedidos/historial");
-    revalidatePath("/pedidos/compras");
+    revalidatePath("/ventas/compras/compras-emitidas");
+    revalidatePath("/ventas/compras/compras-recepcionadas");
     return { ok: true, data: undefined };
   });
 }
@@ -185,8 +185,8 @@ export async function registrarNotaCreditoCompraPedidoAction(
     const res = await pedidosHistoriaService.registrarNotaCreditoCompraPedido(parsed.data);
     if (!res.success) return { ok: false, error: res.error };
 
-    revalidatePath("/pedidos/historial");
-    revalidatePath("/pedidos/compras");
+    revalidatePath("/ventas/compras/compras-emitidas");
+    revalidatePath("/ventas/compras/compras-recepcionadas");
     return { ok: true, data: res.data };
   });
 }
@@ -211,7 +211,7 @@ export async function guardarRecepcionPedidoHistoriaAction(
     });
     if (!res.success) return { ok: false, error: res.error };
 
-    revalidatePath("/pedidos/historial");
+    revalidatePath("/ventas/compras/compras-emitidas");
     return { ok: true, data: undefined };
   });
 }
@@ -233,7 +233,7 @@ export async function eliminarPedidoHistoriaAction(
     });
     if (!res.success) return { ok: false, error: res.error };
 
-    revalidatePath("/pedidos/historial");
+    revalidatePath("/ventas/compras/compras-emitidas");
     return { ok: true, data: undefined };
   });
 }

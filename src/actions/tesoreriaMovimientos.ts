@@ -23,9 +23,9 @@ import {
 } from "@/services/tesoreriaMovimientos.service";
 
 function revalidateTesoreria(): void {
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath("/finanzas/tesoreria/cajas");
   revalidatePath("/finanzas/tesoreria/movimientos");
-  revalidatePath("/finanzas/venc-por-fecha");
+  revalidatePath("/finanzas/tesoreria/flujo-de-fondos");
 }
 
 export async function listarMovimientosTesoreriaAction(): Promise<

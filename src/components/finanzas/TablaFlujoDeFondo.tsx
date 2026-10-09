@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Flujo De Fondo (`/finanzas/venc-por-fecha`) — tablas con el **mismo cascarón** que
+ * Flujo De Fondo (`/finanzas/tesoreria/flujo-de-fondos`) — tablas con el **mismo cascarón** que
  * `TablaControlComprobantes` (`contenedor-tabla-gestion` → scroll →
  * `<Table variant="compact" scrollX={false}>`). Clase `tabla-flujo-de-fondo`: columna **FECHA**
  * centrada; importes con `TD_NUM`. **SALDO** negativo: `text-destructive font-semibold` en la celda.

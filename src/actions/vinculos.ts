@@ -149,7 +149,7 @@ export async function vincularProducto(
       data: { codTiendaVinculo: parsedItem.data },
     });
     await autoAsignarCodExtCostoListaTrasVincular(parsedItem.data);
-    revalidatePath("/tienda");
+    revalidatePath("/administrador/productos/cx-compra");
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al vincular el producto.";
@@ -192,7 +192,7 @@ export async function desvincularProducto(
       where: { codExt: parsed.data },
       data: { codTiendaVinculo: null },
     });
-    revalidatePath("/tienda");
+    revalidatePath("/administrador/productos/cx-compra");
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al desvincular el producto.";
@@ -229,7 +229,6 @@ export async function establecerCostoListaTiendaAction(
     const res = await establecerCodExtCostoLista(parsedItem.data, parsedProducto.data);
     if (!res.success) return { ok: false, error: res.error };
   }
-  revalidatePath("/tienda");
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
   revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
   return { ok: true, data: undefined };

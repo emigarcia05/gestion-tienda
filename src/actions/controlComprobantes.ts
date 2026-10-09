@@ -28,9 +28,9 @@ import { actualizarPlazosPagosProveedoresMercaderia } from "@/services/proveedor
 
 function revalidateComprobantesFinanzas() {
   revalidatePath("/finanzas");
-  revalidatePath("/finanzas/control-comprobantes");
-  revalidatePath("/finanzas/venc-por-fecha");
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath("/finanzas/operaciones/comp-compras");
+  revalidatePath("/finanzas/tesoreria/flujo-de-fondos");
+  revalidatePath("/finanzas/tesoreria/cajas");
   revalidatePath("/finanzas/tesoreria/movimientos");
 }
 

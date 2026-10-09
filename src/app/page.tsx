@@ -1,13 +1,7 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { APP_ROUTES } from "@/lib/appRoutes";
 
-export const metadata: Metadata = {
-  title: "TiendaColor — Gestión",
-};
-
-/**
- * Entrada de la app / hub del área Vendedor: panel central vacío.
- * El contenido aparece al elegir una ruta hoja en el sidenav.
- */
+/** Entrada de la app: hub del área Ventas. */
 export default function HomePage() {
-  return null;
+  redirect(APP_ROUTES.ventas.hub);
 }

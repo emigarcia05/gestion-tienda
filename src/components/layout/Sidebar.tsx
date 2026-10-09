@@ -41,7 +41,8 @@ import type { UsuarioSesion } from "@/lib/usuarioSesion";
 import type { Rol } from "@/lib/permisos";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
-import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
+import { pathnameEnPrefijo } from "@/lib/appRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
@@ -285,46 +286,19 @@ function isSubmoduleActive(
   href: string,
   crearClase: string | null
 ): boolean {
-  if (href.startsWith("/gestion-productos") || href.startsWith("/asistente-ia")) {
-    return isGpRouteActive(pathname, href);
-  }
-  if (href === MARKETING_ROUTES.publicaciones.calendario) {
-    return pathname === MARKETING_ROUTES.publicaciones.calendario;
-  }
-  if (href === MARKETING_ROUTES.publicaciones.ideas) {
-    return pathname === MARKETING_ROUTES.publicaciones.ideas;
-  }
-  if (href === MARKETING_ROUTES.publicaciones.objetivos) {
-    return pathname === MARKETING_ROUTES.publicaciones.objetivos;
-  }
-  if (href === MARKETING_ROUTES.baseMultimedia.contenido) {
-    return pathname === MARKETING_ROUTES.baseMultimedia.contenido;
-  }
-  if (href === MARKETING_ROUTES.baseMultimedia.coloresMarca) {
-    return pathname === MARKETING_ROUTES.baseMultimedia.coloresMarca;
-  }
   if (href === FACTURACION_ROUTES.factura.crear) {
     return (
       pathname === FACTURACION_ROUTES.factura.crear && crearClase !== "presupuesto"
     );
   }
-  if (href === FACTURACION_ROUTES.factura.facturas) {
-    return pathname === FACTURACION_ROUTES.factura.facturas;
-  }
   if (href === FACTURACION_ROUTES.factura.presupuestos) {
     return (
-      pathname === FACTURACION_ROUTES.factura.presupuestos ||
+      pathnameEnPrefijo(pathname, href) ||
       (pathname === FACTURACION_ROUTES.factura.crear &&
         crearClase === "presupuesto")
     );
   }
-  if (href === FACTURACION_ROUTES.clientes.lista) {
-    return pathname === FACTURACION_ROUTES.clientes.lista;
-  }
-  if (href === FACTURACION_ROUTES.clientes.cuentaCorriente) {
-    return pathname === FACTURACION_ROUTES.clientes.cuentaCorriente;
-  }
-  return pathname === href;
+  return pathnameEnPrefijo(pathname, href);
 }
 
 function submoduleVisible(sub: SubmoduleItem, rol: Rol): boolean {

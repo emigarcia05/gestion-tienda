@@ -18,7 +18,7 @@ import {
 } from "@/services/tesoreriaTipoCaja.service";
 
 function revalidateTesoreriaTipoCajaPaths(): void {
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath("/finanzas/tesoreria/cajas");
 }
 
 export async function listarTesoreriaTipoCajaAction(): Promise<

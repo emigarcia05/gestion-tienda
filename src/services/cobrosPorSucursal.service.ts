@@ -213,6 +213,42 @@ async function validarCajaDestino(
   };
 }
 
+/**
+ * Valida y persiste `es_cheque` de la forma de pago desde una fila de Cobros & Cajas.
+ * Si queda en true, todas sus filas (salvo `filaIdExcluida`, que ya validó su caja) deben
+ * cobrar en cajas con `recibe_cheque`.
+ */
+async function aplicarEsChequePago(args: {
+  pagoId: string;
+  esCheque: boolean;
+  esChequeActual: boolean;
+  filaIdExcluida: string | null;
+}): Promise<ServiceResult<void>> {
+  if (args.esCheque === args.esChequeActual) return { success: true, data: undefined };
+  if (args.esCheque) {
+    const sinRecibe = await prisma.cobrosPorSucursal.findFirst({
+      where: {
+        pagoId: args.pagoId,
+        ...(args.filaIdExcluida ? { id: { not: args.filaIdExcluida } } : {}),
+        cajaDestino: { recibeCheque: false },
+      },
+      select: { sucursal: { select: { nombre: true } } },
+    });
+    if (sinRecibe) {
+      return {
+        success: false,
+        error: `En ${sinRecibe.sucursal.nombre.toLocaleUpperCase("es-AR")} esta forma de pago cobra en una caja que no recibe cheques.`,
+      };
+    }
+  }
+  await prisma.finAnaCosFinaPagoCat.update({
+    where: { id: args.pagoId },
+    data: { esCheque: args.esCheque },
+    select: { id: true },
+  });
+  return { success: true, data: undefined };
+}
+
 export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalVista> {
   const [sucursales, cajasRows, destinos, pagosRows, entidadesRows, vinculosRows] =
     await Promise.all([
@@ -351,7 +387,7 @@ export async function crearCobroPorSucursal(
       entidadNombre = vinculo.entidad.nombre.toLocaleUpperCase("es-AR");
     }
 
-    const cajaRes = await validarCajaDestino(input.cajaDestinoId, pago.esCheque);
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
     const sucursal = await prisma.sucursal.findUnique({
@@ -370,6 +406,14 @@ export async function crearCobroPorSucursal(
     if (duplicado) {
       return { success: false, error: mensajeDuplicado(Boolean(entidadId)) };
     }
+
+    const chequeRes = await aplicarEsChequePago({
+      pagoId: pago.id,
+      esCheque: input.esCheque,
+      esChequeActual: pago.esCheque,
+      filaIdExcluida: null,
+    });
+    if (!chequeRes.success) return chequeRes;
 
     const created = await prisma.cobrosPorSucursal.create({
       data: {
@@ -429,8 +473,16 @@ export async function actualizarCobroPorSucursal(
       return { success: false, error: "Cobro no encontrado." };
     }
 
-    const cajaRes = await validarCajaDestino(input.cajaDestinoId, existente.pago.esCheque);
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
+
+    const chequeRes = await aplicarEsChequePago({
+      pagoId: existente.pagoId,
+      esCheque: input.esCheque,
+      esChequeActual: existente.pago.esCheque,
+      filaIdExcluida: existente.id,
+    });
+    if (!chequeRes.success) return chequeRes;
 
     await prisma.cobrosPorSucursal.update({
       where: { id: existente.id },

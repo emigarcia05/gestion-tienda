@@ -1,31 +1,12 @@
 /**
- * Navegación del área **Administración**: pilares en sidebar + árbol
- * de decisiones vía recuadro de pilares (`AdministracionAccordionNav`).
- *
- * PRODUCTOS, PROVEEDORES, PEDIDOS A FÁBRICA, ESTADÍSTICAS y USUARIOS
- * muestran sus funciones en una sola lista (sin grupo intermedio).
- *
- * El módulo principal **Finanzas** (`FIN_PILLARS`) usa el mismo recuadro:
- * TESORERIA | BALANCE | OPERACIONES | COBROS | IMPUESTOS, también con funciones planas.
+ * Navegación de las áreas **Administrador** (`ADM_PILLARS`) y **Finanzas** (`FIN_PILLARS`):
+ * recuadro de pilares (módulos) en el sidenav (`AdministracionAccordionNav`), cada uno con
+ * sus funciones en una sola lista. URL = `/{área}/{módulo}/{función}` (`APP_ROUTES`):
+ * el pilar activo es el que contiene la URL (`basePath`).
  */
 
-import {
-  GP_ROUTES,
-  isAnalisisPreciosPathname,
-  isGpRouteActive,
-} from "@/lib/gestionProductosRoutes";
-import { ESTADISTICAS_PRODUCTOS_ROUTES } from "@/lib/estadisticasProductosRoutes";
-import {
-  PEDIDO_A_FABRICA_LEGACY_PATH,
-  PEDIDO_A_FABRICA_ROUTES,
-} from "@/lib/pedidoAFabricaRoutes";
+import { APP_ROUTES, pathnameEnPrefijo } from "@/lib/appRoutes";
 import { PERMISOS } from "@/lib/permisos";
-import { USUARIOS_PATH } from "@/lib/usuarios";
-import {
-  VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH,
-  VTAS_COBROS_LEGACY_FACT_COBROS_PATH,
-  VTAS_COBROS_ROUTES,
-} from "@/lib/vtasCobrosRoutes";
 
 export type AdmPillarId =
   | "tesoreria"
@@ -87,62 +68,108 @@ export interface AdmPillarDef {
   /** Label sidebar (MAYÚSCULAS). */
   label: string;
   icon: AdmIconId;
+  /** Prefijo `/{área}/{módulo}`: toda función del pilar vive debajo. */
+  basePath: string;
   /** Primer nivel bajo el módulo: solo funciones. `groups` queda por compatibilidad y se aplana. */
   groups?: AdmGroupDef[];
   screens?: AdmScreenDef[];
 }
 
-const balanceScreens: AdmScreenDef[] = [
-  {
-    id: "balance-mensual",
-    label: "Balance Mensual",
-    href: "/finanzas/balance/mensual",
-    icon: "scale",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "gastos",
-    label: "Gastos",
-    href: "/finanzas/balance/gastos",
-    icon: "receipt",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "catalogo-gastos",
-    label: "Catálogo Gastos",
-    href: "/finanzas/balance/gastos/catalogo",
-    icon: "folder-tree",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "ventas-mensuales",
-    label: "Ventas Mensuales",
-    href: "/finanzas/balance/vtas",
-    icon: "circle-dollar",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
+const F = APP_ROUTES.finanzas;
+const A = APP_ROUTES.administrador;
 
 const flujosScreens: AdmScreenDef[] = [
   {
     id: "tesoreria",
     label: "Cajas",
-    href: "/finanzas/tesoreria",
+    href: F.tesoreria.cajas,
     icon: "banknote",
     permiso: PERMISOS.finanzas.acceso,
   },
   {
     id: "tesoreria-movimientos",
     label: "Movimientos",
-    href: "/finanzas/tesoreria/movimientos",
+    href: F.tesoreria.movimientos,
     icon: "list",
     permiso: PERMISOS.finanzas.acceso,
   },
   {
     id: "flujo-de-fondos",
     label: "Flujo De Fondos",
-    href: "/finanzas/venc-por-fecha",
+    href: F.tesoreria.flujoDeFondos,
     icon: "calendar-days",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+];
+
+const balanceScreens: AdmScreenDef[] = [
+  {
+    id: "balance-mensual",
+    label: "Balance Mensual",
+    href: F.balance.balanceMensual,
+    icon: "scale",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "gastos",
+    label: "Gastos",
+    href: F.balance.gastos,
+    icon: "receipt",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "catalogo-gastos",
+    label: "Catálogo Gastos",
+    href: F.balance.catalogoGastos,
+    icon: "folder-tree",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "ventas-mensuales",
+    label: "Ventas Mensuales",
+    href: F.balance.ventasMensuales,
+    icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+];
+
+const operacionesScreens: AdmScreenDef[] = [
+  {
+    id: "control-comprobantes",
+    label: "Comp. Compras",
+    href: F.operaciones.compCompras,
+    icon: "file-search",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "venc-provee-gastos",
+    label: "Venc. Gastos",
+    href: F.operaciones.vencGastos,
+    icon: "calendar-clock",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+];
+
+const cobrosScreens: AdmScreenDef[] = [
+  {
+    id: "ptos-venta",
+    label: "Ptos. Vtas.",
+    href: F.cobros.ptosVtas,
+    icon: "store",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cx-fin-cobros",
+    label: "Cobros & Cx. Fin.",
+    href: F.cobros.cobrosCxFin,
+    icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cobros-por-sucursal",
+    label: "Cobros & Cajas",
+    href: F.cobros.cobrosCajas,
+    icon: "wallet",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -151,144 +178,96 @@ const impuestosScreens: AdmScreenDef[] = [
   {
     id: "posicion-iva",
     label: "Posición De IVA",
-    href: "/finanzas/posicion-iva",
+    href: F.impuestos.posicionIva,
     icon: "percent",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
 
-const comprasScreens: AdmScreenDef[] = [
-  {
-    id: "control-comprobantes",
-    label: "Comp. Compras",
-    href: "/finanzas/control-comprobantes",
-    icon: "file-search",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
-const gastosScreens: AdmScreenDef[] = [
-  {
-    id: "venc-provee-gastos",
-    label: "Venc. Gastos",
-    href: "/finanzas/vencimientos-gastos",
-    icon: "calendar-clock",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
-const vtasCobrosScreens: AdmScreenDef[] = [
-  {
-    id: "ptos-venta",
-    label: "Ptos. Vtas.",
-    href: VTAS_COBROS_ROUTES.ptosVenta,
-    icon: "store",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "cx-fin-cobros",
-    label: "Cobros & Cx. Fin.",
-    href: VTAS_COBROS_ROUTES.cxFinCobros,
-    icon: "circle-dollar",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "cobros-por-sucursal",
-    label: "Cobros & Cajas",
-    href: VTAS_COBROS_ROUTES.cobrosPorSucursal,
-    icon: "wallet",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
-const listaPropiaScreens: AdmScreenDef[] = [
+const productosScreens: AdmScreenDef[] = [
   {
     id: "lista-productos",
     label: "Lista Productos",
-    href: GP_ROUTES.analisisPrecios.listaPropia.listaProductos,
+    href: A.productos.listaProductos,
     icon: "package",
     permiso: PERMISOS.tienda.acceso,
   },
   {
     id: "px-listas",
     label: "Px. Listas",
-    href: GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas,
+    href: A.productos.pxListas,
     icon: "circle-dollar",
     permiso: PERMISOS.cxPxTienda.acceso,
   },
   {
     id: "px-competencia",
     label: "Px. Competencia",
-    href: GP_ROUTES.analisisPrecios.pxCompetencia,
+    href: A.productos.pxCompetencia,
     icon: "circle-dollar",
     permiso: PERMISOS.cxPxTienda.acceso,
   },
   {
     id: "categorias",
     label: "Análisis Cat.",
-    href: GP_ROUTES.analisisPrecios.compCategorias.comparacion,
+    href: A.productos.analisisCat,
     icon: "folder-tree",
     permiso: PERMISOS.comparacionCategorias.acceso,
   },
   {
     id: "margen-contribucion",
     label: "Margen Contribución",
-    href: "/finanzas/analisis-mc/margen-contribucion",
+    href: A.productos.margenContribucion,
     icon: "pie-chart",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
 
-const listaProveedoresScreens: AdmScreenDef[] = [
+const proveedoresScreens: AdmScreenDef[] = [
   {
     id: "lista-precios",
     label: "Lista Prod. Prov.",
-    href: GP_ROUTES.analisisPrecios.listaProveedores.listaPrecios,
+    href: A.proveedores.listaProdProv,
     icon: "file-search",
     permiso: PERMISOS.proveedores.listaPrecios,
   },
   {
     id: "lista-proveedores",
     label: "Proveedores",
-    href: GP_ROUTES.analisisPrecios.listaProveedores.lista,
+    href: A.proveedores.proveedores,
     icon: "list",
     permiso: PERMISOS.proveedores.lista,
   },
 ];
 
-const pedidoAFabricaScreens: AdmScreenDef[] = [
+const pedidosAFabricaScreens: AdmScreenDef[] = [
   {
     id: "pedido-a-fabrica",
     label: "Pedidos A Fábrica",
-    href: PEDIDO_A_FABRICA_ROUTES.defaultEntry,
+    href: A.pedidosAFabrica.pedidosAFabrica,
     icon: "factory",
     permiso: PERMISOS.estadisticasProductos.acceso,
   },
 ];
 
-/** Pantalla directa bajo ESTADÍSTICAS (sin grupo intermedio). */
-const estadisticasVentasScreens: AdmScreenDef[] = [
+const estadisticasScreens: AdmScreenDef[] = [
   {
     id: "estadisticas-vtas",
     label: "VENTAS",
-    href: ESTADISTICAS_PRODUCTOS_ROUTES.estadisticasVtas,
+    href: A.estadisticas.ventas,
     icon: "line-chart",
     permiso: PERMISOS.estadisticasProductos.acceso,
   },
-];
-
-const estadisticasConfiguracionScreens: AdmScreenDef[] = [
   {
     id: "carga-de-datos",
     label: "Carga De Datos",
-    href: ESTADISTICAS_PRODUCTOS_ROUTES.ventasPorProducto,
+    href: A.estadisticas.cargaDeDatos,
     icon: "package-search",
     permiso: PERMISOS.estadisticasProductos.acceso,
   },
   {
     id: "categorizacion",
     label: "Configuracion",
-    href: ESTADISTICAS_PRODUCTOS_ROUTES.categorizacion,
+    href: A.estadisticas.configuracion,
     icon: "tags",
     permiso: PERMISOS.estadisticasProductos.acceso,
   },
@@ -298,7 +277,7 @@ const usuariosScreens: AdmScreenDef[] = [
   {
     id: "usuarios",
     label: "Usuarios",
-    href: USUARIOS_PATH,
+    href: A.usuarios.usuarios,
     icon: "users",
     permiso: PERMISOS.usuarios.acceso,
   },
@@ -309,30 +288,35 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     id: "tesoreria",
     label: "TESORERIA",
     icon: "banknote",
+    basePath: `${F.hub}/tesoreria`,
     screens: flujosScreens,
   },
   {
     id: "balance",
     label: "BALANCE",
     icon: "scale",
+    basePath: F.balance.raiz,
     screens: balanceScreens,
   },
   {
     id: "operaciones",
     label: "OPERACIONES",
     icon: "wallet",
-    screens: [...comprasScreens, ...gastosScreens],
+    basePath: `${F.hub}/operaciones`,
+    screens: operacionesScreens,
   },
   {
     id: "vtas-cobros",
     label: "COBROS",
     icon: "circle-dollar",
-    screens: vtasCobrosScreens,
+    basePath: `${F.hub}/cobros`,
+    screens: cobrosScreens,
   },
   {
     id: "impuestos",
     label: "IMPUESTOS",
     icon: "percent",
+    basePath: `${F.hub}/impuestos`,
     screens: impuestosScreens,
   },
 ];
@@ -342,69 +326,38 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     id: "lista-propia",
     label: "PRODUCTOS",
     icon: "store",
-    screens: listaPropiaScreens,
+    basePath: `${A.hub}/productos`,
+    screens: productosScreens,
   },
   {
     id: "lista-proveedores",
     label: "PROVEEDORES",
     icon: "handshake",
-    screens: listaProveedoresScreens,
+    basePath: `${A.hub}/proveedores`,
+    screens: proveedoresScreens,
   },
   {
     id: "pedido-a-fabrica",
     label: "PEDIDOS A FÁBRICA",
     icon: "factory",
-    screens: pedidoAFabricaScreens,
+    basePath: `${A.hub}/pedidos-a-fabrica`,
+    screens: pedidosAFabricaScreens,
   },
   {
     id: "estadisticas",
     label: "ESTADÍSTICAS",
     icon: "bar-chart-3",
-    screens: [...estadisticasVentasScreens, ...estadisticasConfiguracionScreens],
+    basePath: `${A.hub}/estadisticas`,
+    screens: estadisticasScreens,
   },
   {
     id: "usuarios",
     label: "USUARIOS",
     icon: "users",
+    basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,
   },
 ];
-
-function pathnameMatchesScreen(pathname: string, href: string): boolean {
-  if (
-    href.startsWith("/gestion-productos") ||
-    href.startsWith("/proveedores") ||
-    href.startsWith("/tienda")
-  ) {
-    return isGpRouteActive(pathname, href);
-  }
-  if (href === PEDIDO_A_FABRICA_ROUTES.defaultEntry) {
-    return (
-      pathname === PEDIDO_A_FABRICA_ROUTES.defaultEntry ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_ROUTES.defaultEntry}/`) ||
-      pathname === PEDIDO_A_FABRICA_LEGACY_PATH ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
-    );
-  }
-  if (href === VTAS_COBROS_ROUTES.ptosVenta) {
-    return (
-      pathname === VTAS_COBROS_ROUTES.ptosVenta ||
-      pathname.startsWith(`${VTAS_COBROS_ROUTES.ptosVenta}/`) ||
-      pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`)
-    );
-  }
-  if (href === VTAS_COBROS_ROUTES.cxFinCobros) {
-    return (
-      pathname === VTAS_COBROS_ROUTES.cxFinCobros ||
-      pathname.startsWith(`${VTAS_COBROS_ROUTES.cxFinCobros}/`) ||
-      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
-    );
-  }
-  if (pathname === href) return true;
-  return pathname.startsWith(`${href}/`);
-}
 
 function collectGroupScreens(group: AdmGroupDef): AdmScreenDef[] {
   const fromScreens = group.screens ?? [];
@@ -419,11 +372,11 @@ function collectPillarScreens(pillar: AdmPillarDef): AdmScreenDef[] {
 }
 
 export function isAdmScreenActive(pathname: string, screen: AdmScreenDef): boolean {
-  // Prefijo más largo gana entre todos los screens del área (catálogo vs gastos).
+  // Prefijo más largo gana entre todos los screens (ej. Balance Gastos vs Catálogo Gastos).
   let best: AdmScreenDef | null = null;
   for (const pillar of [...FIN_PILLARS, ...ADM_PILLARS]) {
     for (const s of collectPillarScreens(pillar)) {
-      if (!pathnameMatchesScreen(pathname, s.href)) continue;
+      if (!pathnameEnPrefijo(pathname, s.href)) continue;
       if (!best || s.href.length > best.href.length) best = s;
     }
   }
@@ -436,64 +389,9 @@ export function isAdmGroupActive(pathname: string, group: AdmGroupDef): boolean 
   return (group.groups ?? []).some((g) => isAdmGroupActive(pathname, g));
 }
 
-function esPathnameListaPropia(pathname: string): boolean {
-  return listaPropiaScreens.some((s) => isAdmScreenActive(pathname, s));
-}
-
+/** El pilar (módulo) está activo si la URL cae bajo `/{área}/{módulo}`. */
 export function isAdmPillarActive(pathname: string, pillar: AdmPillarDef): boolean {
-  if (pillar.id === "lista-propia") {
-    if (
-      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
-    ) {
-      return false;
-    }
-    if (pathname.startsWith("/finanzas/analisis-mc")) return true;
-    return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
-  }
-  if (pillar.id === "lista-proveedores") {
-    if (isGpRouteActive(pathname, GP_ROUTES.analisisPrecios.listaProveedores.reglasDescuentos)) {
-      return true;
-    }
-    if (isAnalisisPreciosPathname(pathname) && !esPathnameListaPropia(pathname)) {
-      return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
-    }
-    return false;
-  }
-  if (pillar.id === "pedido-a-fabrica") {
-    return (
-      pathname === PEDIDO_A_FABRICA_ROUTES.defaultEntry ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_ROUTES.defaultEntry}/`) ||
-      pathname === PEDIDO_A_FABRICA_LEGACY_PATH ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
-    );
-  }
-  if (pillar.id === "estadisticas") {
-    if (
-      pathname === PEDIDO_A_FABRICA_LEGACY_PATH ||
-      pathname.startsWith(`${PEDIDO_A_FABRICA_LEGACY_PATH}/`)
-    ) {
-      return false;
-    }
-    return (
-      pathname.startsWith("/estadisticas-productos") ||
-      collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s))
-    );
-  }
-  if (pillar.id === "usuarios") {
-    return pathname === USUARIOS_PATH || pathname.startsWith(`${USUARIOS_PATH}/`);
-  }
-  if (pillar.id === "vtas-cobros") {
-    return (
-      pathname === VTAS_COBROS_ROUTES.hub ||
-      pathname.startsWith(`${VTAS_COBROS_ROUTES.hub}/`) ||
-      pathname === VTAS_COBROS_LEGACY_FACT_COBROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_FACT_COBROS_PATH}/`) ||
-      pathname === VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH ||
-      pathname.startsWith(`${VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH}/`)
-    );
-  }
-  return collectPillarScreens(pillar).some((s) => isAdmScreenActive(pathname, s));
+  return pathnameEnPrefijo(pathname, pillar.basePath);
 }
 
 export function pillarHasVisibleItems(

@@ -18,9 +18,9 @@ import {
 } from "@/services/estPorProdColores.service";
 
 function revalidateEstColores(): void {
-  revalidatePath("/estadisticas-productos");
-  revalidatePath("/estadisticas-productos/ventas-por-producto");
-  revalidatePath("/estadisticas-productos/categorizacion");
+  revalidatePath("/administrador/estadisticas");
+  revalidatePath("/administrador/estadisticas/carga-de-datos");
+  revalidatePath("/administrador/estadisticas/configuracion");
 }
 
 export async function listarEstPorProdColoresAction(): Promise<
