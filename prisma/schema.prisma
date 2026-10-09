@@ -1863,11 +1863,6 @@ model FinAnaCosFinaPagoCat {
    * Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`).
    */
   fechaAcreditacionVariable Boolean  @default(false) @map("fecha_acreditacion_variable")
-  /**
-   * Si true, cada cobro con esta forma crea un cheque en `tesoreria_cheques` (pide fecha de
-   * acreditación). Su caja destino en `cobros_vinc_cajas` debe tener `recibe_cheque`.
-   */
-  esCheque                  Boolean  @default(false) @map("es_cheque")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
@@ -1985,6 +1980,11 @@ model CobrosPorSucursal {
    * FALSE → Cx Fin al acreditar = CX TOTAL C/ IVA.
    */
   discriminaIva Boolean                     @default(false) @map("discrimina_iva")
+  /**
+   * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
+   * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
+   */
+  esCheque      Boolean                     @default(false) @map("es_cheque")
   /**
    * Texto libre de la fila.
    */

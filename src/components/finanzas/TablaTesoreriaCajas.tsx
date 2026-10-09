@@ -206,6 +206,22 @@ export default function TablaTesoreriaCajas({
                         )}
                       >
                         <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "flex-nowrap justify-center gap-1")}>
+                          {onEditMontoClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onEditMontoClick(f);
+                              }}
+                              aria-label="Ajustar monto"
+                              title="Ajustar monto"
+                            >
+                              <Banknote className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
                           {onChequesClick ? (
                             <Button
                               type="button"
@@ -229,22 +245,6 @@ export default function TablaTesoreriaCajas({
                               }
                             >
                               <ReceiptText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                            </Button>
-                          ) : null}
-                          {onEditMontoClick ? (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onEditMontoClick(f);
-                              }}
-                              aria-label="Ajustar monto"
-                              title="Ajustar monto"
-                            >
-                              <Banknote className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>
                           ) : null}
                           {onEditDataClick ? (

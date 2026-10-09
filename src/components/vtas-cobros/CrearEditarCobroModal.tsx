@@ -78,7 +78,7 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setDiscriminaIva(fila.discriminaIva);
-      setEsCheque(pagos.some((p) => p.id === fila.pagoId && p.esCheque));
+      setEsCheque(fila.esCheque);
       setObservacion(fila.observacion);
       return;
     }
@@ -89,8 +89,6 @@ export default function CrearEditarCobroModal({
     setDiscriminaIva(false);
     setEsCheque(false);
     setObservacion("");
-    // Solo al abrir / cambiar fila: no resetear si `pagos` se refresca con el modal abierto.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pagos
   }, [open, esEditar, fila]);
 
   const entidadesDisponibles = useMemo(() => {
@@ -207,7 +205,7 @@ export default function CrearEditarCobroModal({
               value={pagoId || undefined}
               onValueChange={(value) => {
                 setPagoId(value);
-                setEsCheque(pagos.some((p) => p.id === value && p.esCheque));
+                setEsCheque(false);
                 setEntidadId("");
                 setSucursalId("");
                 setCajaDestinoId("");
@@ -292,12 +290,6 @@ export default function CrearEditarCobroModal({
             onChange={setEsCheque}
             disabled={saving || !pagoId}
           />
-          {esCheque ? (
-            <p className="text-xs text-muted-foreground">
-              Aplica a la forma de pago en todas las sucursales: cada cobro crea un cheque en
-              cartera y la caja vinculada debe recibir cheques.
-            </p>
-          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>

@@ -897,7 +897,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
 
     const pago = await db.finAnaCosFinaPagoCat.findFirst({
       where: { nombre: pagoNombre },
-      select: { id: true, nombre: true, fechaAcreditacionVariable: true, esCheque: true },
+      select: { id: true, nombre: true, fechaAcreditacionVariable: true },
     });
     if (!pago) {
       return {
@@ -987,6 +987,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       select: {
         cajaDestinoId: true,
         discriminaIva: true,
+        esCheque: true,
         cajaDestino: { select: { recibeCheque: true } },
       },
     });
@@ -1002,7 +1003,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
         error: `No hay caja destino para «${pagoNombre}» en ${sucursal.codigo}.`,
       };
     }
-    if (pago.esCheque && vinculoCaja.cajaDestino?.recibeCheque !== true) {
+    if (vinculoCaja.esCheque && vinculoCaja.cajaDestino?.recibeCheque !== true) {
       return {
         success: false,
         error: `La caja destino de «${pagoNombre}» en ${sucursal.codigo} no recibe cheques.`,
@@ -1026,7 +1027,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
 
     let fechaRegistro: Date;
     let fechaAcreditacion: Date;
-    if (pago.fechaAcreditacionVariable || pago.esCheque) {
+    if (pago.fechaAcreditacionVariable || vinculoCaja.esCheque) {
       const iso = cobro.fechaAcreditacionIso?.trim() ?? "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
         return {
@@ -1047,7 +1048,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       vinculoCaja.discriminaIva
     );
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
-    const esCheque = pago.esCheque;
+    const esCheque = vinculoCaja.esCheque;
 
     out.push({
       cajaId: vinculoCaja.cajaDestinoId,
