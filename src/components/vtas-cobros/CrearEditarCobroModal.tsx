@@ -78,7 +78,7 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setDiscriminaIva(fila.discriminaIva);
-      setEsCheque(pagos.some((p) => p.id === fila.pagoId && p.esCheque));
+      setEsCheque(fila.esCheque);
       setObservacion(fila.observacion);
       return;
     }
@@ -89,8 +89,6 @@ export default function CrearEditarCobroModal({
     setDiscriminaIva(false);
     setEsCheque(false);
     setObservacion("");
-    // Solo al abrir / cambiar fila: no resetear si `pagos` se refresca con el modal abierto.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pagos
   }, [open, esEditar, fila]);
 
   const entidadesDisponibles = useMemo(() => {
@@ -207,7 +205,7 @@ export default function CrearEditarCobroModal({
               value={pagoId || undefined}
               onValueChange={(value) => {
                 setPagoId(value);
-                setEsCheque(pagos.some((p) => p.id === value && p.esCheque));
+                setEsCheque(false);
                 setEntidadId("");
                 setSucursalId("");
                 setCajaDestinoId("");

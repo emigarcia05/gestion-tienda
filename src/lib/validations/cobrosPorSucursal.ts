@@ -7,7 +7,7 @@ export const crearCobroPorSucursalSchema = z.object({
   sucursalId: prismaCuidOrUuidSchema,
   cajaDestinoId: prismaCuidOrUuidSchema,
   discriminaIva: z.boolean(),
-  /** Atributo de la forma de pago (`cobros_forma_pago.es_cheque`): aplica a todas las sucursales. */
+  /** De esta fila (`cobros_vinc_cajas.es_cheque`): no se hereda a otras sucursales. */
   esCheque: z.boolean().default(false),
   observacion: z.string().max(2000).default(""),
 });

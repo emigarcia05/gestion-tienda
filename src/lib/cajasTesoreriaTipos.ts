@@ -64,12 +64,18 @@ export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria): string {
   );
 }
 
-/** «TIPO - ENTIDAD - SUCURSAL - TITULAR» (omite partes vacías). */
+/** Etiqueta de pantalla de `tipo_valor` (`EFECTIVO` y `DIGITAL` se ven DIGITAL). */
+export function etiquetaTipoValorEnPantalla(tipo: TipoValorTesoreria): string {
+  return OPCIONES_TIPO_VALOR_TESORERIA_UI.find((o) => o.value === tipo)?.label ?? tipo;
+}
+
+/** «TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR» y, si viene, «- TIPO VALOR». Omite partes vacías. */
 export function etiquetaCajaTesoreria(caja: {
   titular: string;
   tipoCaja: TipoCajaTesoreria;
   entidad: { nombre: string } | null;
   sucursal: { nombre: string } | null;
+  tipoValor?: TipoValorTesoreria | null;
 }): string {
   const partes = [
     etiquetaTipoCajaEnPantalla(caja.tipoCaja),
@@ -82,6 +88,7 @@ export function etiquetaCajaTesoreria(caja: {
     caja.titular.trim()
       ? caja.titular.toLocaleUpperCase("es-AR")
       : null,
+    caja.tipoValor ? etiquetaTipoValorEnPantalla(caja.tipoValor) : null,
   ].filter((parte): parte is string => parte != null && parte.length > 0);
   return partes.join(" - ");
 }

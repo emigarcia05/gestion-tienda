@@ -22,6 +22,7 @@ import {
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
   OPCIONES_TIPO_VALOR_CAJA_MODAL_UI,
   cajaTesoreriaUsaSucursal,
+  etiquetaCajaTesoreria,
   siguienteTipoValorAlCambiarTipoCaja,
 } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
@@ -59,6 +60,27 @@ export default function EditarCajaTesoreriaModal({
   const [openEliminar, setOpenEliminar] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open, caja?.titular);
   const muestraTipoValor = cajaTesoreriaUsaSucursal(tipoCaja);
+
+  const tituloCaja = useMemo(() => {
+    const entidadNombre =
+      entidades.find((entidad) => entidad.id === entidadId)?.nombre ??
+      (caja && entidadId !== "" && entidadId === (caja.entidadId ?? "")
+        ? caja.entidadNombre
+        : "");
+    const sucursalNombre = cajaTesoreriaUsaSucursal(tipoCaja)
+      ? (sucursales.find((sucursal) => sucursal.id === sucursalId)?.nombre ??
+        (caja && sucursalId !== "" && sucursalId === (caja.sucursalId ?? "")
+          ? caja.sucursalNombre
+          : ""))
+      : "";
+    return etiquetaCajaTesoreria({
+      tipoCaja,
+      titular,
+      entidad: entidadNombre.trim() ? { nombre: entidadNombre } : null,
+      sucursal: sucursalNombre.trim() ? { nombre: sucursalNombre } : null,
+      tipoValor,
+    });
+  }, [caja, entidadId, entidades, sucursalId, sucursales, tipoCaja, tipoValor, titular]);
 
   const cargarCatalogos = useCallback(async () => {
     const [resEntidades, resSucursales] = await Promise.all([
@@ -195,6 +217,9 @@ export default function EditarCajaTesoreriaModal({
           }
         >
           <div className="grid min-h-0 grid-cols-1 gap-3">
+            <p className="text-center text-sm font-semibold uppercase leading-snug text-foreground">
+              {tituloCaja}
+            </p>
             <label className="flex flex-col gap-1">
               <ModalMicroLabel>TIPO DE CAJA</ModalMicroLabel>
               <Select
