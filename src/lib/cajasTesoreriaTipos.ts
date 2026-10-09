@@ -57,11 +57,45 @@ export function cajaTesoreriaUsaSucursal(tipo: TipoCajaTesoreria): boolean {
 }
 
 /** Etiqueta de pantalla para filtros, tabla y selects (enum persistido sin cambiar). */
-export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria): string {
+export function etiquetaTipoCajaEnPantalla(tipo: TipoCajaTesoreria | string): string {
   return (
     OPCIONES_TIPO_CAJA_TESORERIA_UI.find((o) => o.value === tipo)?.label ??
     tipo.replaceAll("_", " ")
   );
+}
+
+type CajaTesoreriaClavesListado = {
+  tipoCaja: TipoCajaTesoreria | string;
+  entidadNombre: string;
+  sucursalNombre: string;
+  titular: string;
+};
+
+/**
+ * Orden de Fondos: TIPO CAJA (etiqueta de pantalla) → ENTIDAD → SUCURSAL → TITULAR.
+ * Vacío (sin entidad / CHEQUE sin sucursal) queda primero en esa columna.
+ */
+export function compararCajasTesoreriaListado(
+  a: CajaTesoreriaClavesListado,
+  b: CajaTesoreriaClavesListado
+): number {
+  const colsA = [
+    etiquetaTipoCajaEnPantalla(a.tipoCaja),
+    a.entidadNombre,
+    a.sucursalNombre,
+    a.titular,
+  ];
+  const colsB = [
+    etiquetaTipoCajaEnPantalla(b.tipoCaja),
+    b.entidadNombre,
+    b.sucursalNombre,
+    b.titular,
+  ];
+  for (let i = 0; i < colsA.length; i++) {
+    const cmp = colsA[i].localeCompare(colsB[i], "es", { sensitivity: "base" });
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
 }
 
 /** Etiqueta de pantalla de `tipo_valor` (`EFECTIVO` y `DIGITAL` se ven DIGITAL). */

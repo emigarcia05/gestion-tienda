@@ -1,11 +1,16 @@
 "use client";
 
+import { Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { chequePuedeAcreditarsePorFechaArgentina } from "@/lib/fechaArgentina";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 /**
- * Botón **Depositar** de un cheque en cartera.
+ * Ícono **Depositar** de un cheque en cartera (fila ACCIONES).
  * Queda `disabled` si la fecha de acreditación (calendario AR) aún no está al día.
  * El `onClick` lo define cada pantalla (Fondos u otra ventana).
  */
@@ -26,8 +31,9 @@ export default function BotonDepositarCheque({
   return (
     <Button
       type="button"
-      size="sm"
-      className={cn(className)}
+      size="icon"
+      variant="ghost"
+      className={cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, className)}
       disabled={bloqueado}
       onClick={onClick}
       title={
@@ -41,7 +47,7 @@ export default function BotonDepositarCheque({
           : "Depositar (la fecha de acreditación aún no está al día)"
       }
     >
-      Depositar
+      <Landmark className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
     </Button>
   );
 }

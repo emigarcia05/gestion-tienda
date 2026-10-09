@@ -28,6 +28,7 @@ export default async function FinanzasTesoreriaPage() {
     depositaCheque: c.depositaCheque,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
+    montoAAcreditar: c.montoAAcreditar,
     ultActualizacionIso: c.ultActualizacion.toISOString(),
   }));
 

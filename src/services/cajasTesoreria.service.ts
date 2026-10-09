@@ -5,10 +5,16 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
-import { tipoValorCompatibleConTipoCaja } from "@/lib/cajasTesoreriaTipos";
+import {
+  compararCajasTesoreriaListado,
+  tipoValorCompatibleConTipoCaja,
+} from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
-import { saldosPorCajaDesdeMovimientos } from "@/services/tesoreriaMovimientos.service";
+import {
+  saldosPendientesAcreditacionPorCaja,
+  saldosPorCajaDesdeMovimientos,
+} from "@/services/tesoreriaMovimientos.service";
 
 export type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 
@@ -39,10 +45,12 @@ export interface CajaTesoreriaItem {
   /** Caché legacy en `tesoreria_cajas.monto`. La UI usa `montoDisponible`. */
   monto: number;
   /**
-   * Saldo de la caja = Σ `tesoreria_movimientos.monto` con signo de `tipo_movimiento`
-   * (INGRESO +, EGRESO −). Sin movimientos → 0.
+   * Saldo de la caja = Σ `tesoreria_movimientos.monto_acreditado` con signo de `tipo_movimiento`
+   * (INGRESO +, EGRESO −; `fecha_acreditacion` ≤ hoy AR). Sin movimientos acreditados → 0.
    */
   montoDisponible: number;
+  /** INGRESO con `fecha_acreditacion` posterior a hoy AR (aún no suma al disponible). */
+  montoAAcreditar: number;
   /**
    * Última actualización registrada en la caja (campo legacy de ordenado local).
    */
@@ -81,7 +89,8 @@ export interface SucursalTesoreriaOption {
 
 function mapCaja(
   row: CajaTesoreriaRowLista,
-  montoDisponible: number
+  montoDisponible: number,
+  montoAAcreditar = 0
 ): CajaTesoreriaItem {
   return {
     id: row.id,
@@ -99,6 +108,7 @@ function mapCaja(
     depositaCheque: row.depositaCheque,
     monto: montoDisponible,
     montoDisponible,
+    montoAAcreditar,
     ultActualizacion: row.ultActualizacion,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -247,14 +257,17 @@ export async function eliminarFinTesoreriaEntidad(id: string): Promise<ServiceRe
 export async function listarCajasTesoreria(): Promise<CajaTesoreriaItem[]> {
   const rows = await prisma.cajaTesoreria.findMany({
     include: CAJA_TESORERIA_LIST_INCLUDE,
-    orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const ids = rows.map((row) => row.id);
-  const saldos = await saldosPorCajaDesdeMovimientos(ids);
-  return rows.map((row) => {
-    const saldo = saldos.get(row.id) ?? 0;
-    return mapCaja(row, saldo);
-  });
+  const [saldos, pendientes] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
+    saldosPendientesAcreditacionPorCaja(ids),
+  ]);
+  return rows
+    .map((row) =>
+      mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0)
+    )
+    .sort(compararCajasTesoreriaListado);
 }
 
 /** Cajas con un `tipo_caja` dado (p. ej. **BANCO**). */
@@ -264,14 +277,17 @@ export async function listarCajasTesoreriaPorTipoCaja(
   const rows = await prisma.cajaTesoreria.findMany({
     where: { tipoCaja },
     include: CAJA_TESORERIA_LIST_INCLUDE,
-    orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const ids = rows.map((row) => row.id);
-  const saldos = await saldosPorCajaDesdeMovimientos(ids);
-  return rows.map((row) => {
-    const saldo = saldos.get(row.id) ?? 0;
-    return mapCaja(row, saldo);
-  });
+  const [saldos, pendientes] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
+    saldosPendientesAcreditacionPorCaja(ids),
+  ]);
+  return rows
+    .map((row) =>
+      mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0)
+    )
+    .sort(compararCajasTesoreriaListado);
 }
 
 export async function crearCajaTesoreria(
@@ -375,9 +391,14 @@ export async function editarCajaTesoreria(
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
-    const saldos = await saldosPorCajaDesdeMovimientos([row.id]);
-    const saldo = saldos.get(row.id) ?? 0;
-    return { success: true, data: mapCaja(row, saldo) };
+    const [saldos, pendientes] = await Promise.all([
+      saldosPorCajaDesdeMovimientos([row.id]),
+      saldosPendientesAcreditacionPorCaja([row.id]),
+    ]);
+    return {
+      success: true,
+      data: mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0),
+    };
   } catch (error: unknown) {
     return {
       success: false,

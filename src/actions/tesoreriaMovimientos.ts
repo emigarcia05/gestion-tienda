@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireFinanzasLectura } from "@/lib/actionGates";
+import { APP_ROUTES } from "@/lib/appRoutes";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
@@ -9,6 +10,7 @@ import {
   crearMovimientoTesoreriaSchema,
   crearTransferenciaEntreCajasSchema,
   eliminarMovimientoTesoreriaSchema,
+  pendientesAcreditacionCajaSchema,
 } from "@/lib/validations/tesoreriaMovimientos";
 import {
   ajustarMontoCajaTesoreria,
@@ -17,15 +19,33 @@ import {
   eliminarMovimientoTesoreria,
   type EliminarMovimientoTesoreriaResultado,
   listarMovimientosTesoreria,
+  listarPendientesAcreditacionCaja,
   obtenerMovimientoTesoreriaPorId,
+  type ResumenPendientesAcreditacionCaja,
   type TesoreriaMovimientoCreado,
   type TesoreriaMovimientoFila,
 } from "@/services/tesoreriaMovimientos.service";
 
 function revalidateTesoreria(): void {
-  revalidatePath("/finanzas/tesoreria/cajas");
-  revalidatePath("/finanzas/tesoreria/movimientos");
-  revalidatePath("/finanzas/tesoreria/flujo-de-fondos");
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.cajas);
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.movimientos);
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.flujoDeFondos);
+}
+
+export async function listarPendientesAcreditacionCajaAction(
+  raw: unknown
+): Promise<ActionResult<ResumenPendientesAcreditacionCaja>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  const parsed = pendientesAcreditacionCajaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const data = await listarPendientesAcreditacionCaja(parsed.data.cajaId);
+    return { ok: true, data };
+  } catch (e) {
+    console.error("[listarPendientesAcreditacionCajaAction]", e);
+    return { ok: false, error: "No se pudo cargar el monto a acreditar." };
+  }
 }
 
 export async function listarMovimientosTesoreriaAction(): Promise<

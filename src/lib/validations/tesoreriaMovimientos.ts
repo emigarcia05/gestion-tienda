@@ -57,12 +57,17 @@ export const crearMovimientoTesoreriaSchema = z
 
 export type CrearMovimientoTesoreriaInput = z.infer<typeof crearMovimientoTesoreriaSchema>;
 
+/**
+ * Egreso en origen + ingreso en destino. Sucursal del movimiento: la de la caja origen,
+ * si no la de destino, si no `sucursalCodigo` del operador (cajas CHEQUE no tienen sucursal).
+ */
 export const crearTransferenciaEntreCajasSchema = z.object({
   cajaOrigenId: prismaIdSchema,
   cajaDestinoId: prismaIdSchema,
   monto: z.number().int().positive("El monto tiene que ser mayor a cero."),
-  fecha: isoYmdSchema,
-  sucursalId: globalSucursalIdSchema,
+  /** Por defecto, hoy (AR). */
+  fecha: isoYmdSchema.optional(),
+  sucursalCodigo: z.enum(["guaymallen", "maipu"]).optional(),
   personalId: idPersonalSchema,
   observacion: z.string().max(2000).default(""),
 }).superRefine((data, ctx) => {
@@ -104,6 +109,10 @@ export type AjustarMontoCajaTesoreriaInput = z.infer<
 
 export const eliminarMovimientoTesoreriaSchema = z.object({
   id: prismaIdSchema,
+});
+
+export const pendientesAcreditacionCajaSchema = z.object({
+  cajaId: prismaIdSchema,
 });
 
 export type EliminarMovimientoTesoreriaInput = z.infer<

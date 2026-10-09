@@ -13,7 +13,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
-import { Banknote, Pencil, ReceiptText, Trash2 } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  CalendarClock,
+  Pencil,
+  ReceiptText,
+  Trash2,
+} from "lucide-react";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -33,11 +40,13 @@ export interface TesoreriaCajaFila {
   tipoValor: string;
   recibeCheque: boolean;
   depositaCheque: boolean;
-  /** Caché legacy en BD; la columna MONTO usa `montoDisponible`. */
+  /** Caché legacy en BD; no se muestra. */
   monto: number;
-  /** Saldo = Σ movimientos (INGRESO +, EGRESO −). */
+  /** Saldo acreditado (`fecha_acreditacion` ≤ hoy). */
   montoDisponible: number;
-  /** Solo para ordenar en cliente; no se muestra en la grilla. */
+  /** INGRESO aún no acreditado (`fecha_acreditacion` > hoy). */
+  montoAAcreditar: number;
+  /** ISO de `ult_actualizacion` (caché legacy); no se muestra ni ordena la grilla. */
   ultActualizacionIso: string;
 }
 
@@ -46,17 +55,21 @@ interface Props {
   esEditor?: boolean;
   /** Cajas: abrir modal de actualización de monto. */
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
+  /** Transferir desde esta caja a otra; `disabled` sin monto disponible. */
+  onTransferenciaClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
   onDeleteClick?: (fila: TesoreriaCajaFila) => void;
   /** Abrir el modal CHEQUES. El ícono está en todas las filas; `disabled` si no RECIBE CHEQUE. */
   onChequesClick?: (fila: TesoreriaCajaFila) => void;
+  /** Resumen de solo lectura del monto a acreditar (tarjetas / cheques). */
+  onResumenAcreditacionClick?: (fila: TesoreriaCajaFila) => void;
 }
 
-/** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO [, ACCIONES]. */
-const COLS = 5;
+/** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO DISPONIBLE, MONTO A ACREDITAR [, ACCIONES]. */
+const COLS = 6;
 
-const COL_WIDTHS_PCT_CON_ACCIONES = [16, 18, 16, 18, 18, 14] as const;
-const COL_WIDTHS_PCT_SIN_ACCIONES = [18, 22, 18, 22, 20] as const;
+const COL_WIDTHS_PCT_CON_ACCIONES = [13, 13, 11, 13, 13, 13, 24] as const;
+const COL_WIDTHS_PCT_SIN_ACCIONES = [16, 16, 14, 16, 19, 19] as const;
 
 const TH_NUM = "text-right whitespace-nowrap";
 const TD_NUM = "celda-datos text-right tabular-nums";
@@ -147,13 +160,16 @@ export default function TablaTesoreriaCajas({
   filas,
   esEditor = false,
   onEditMontoClick,
+  onTransferenciaClick,
   onEditDataClick,
   onDeleteClick,
   onChequesClick,
+  onResumenAcreditacionClick,
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
-  const mostrarAcciones = esEditor || onChequesClick != null;
+  const mostrarAcciones =
+    esEditor || onChequesClick != null || onResumenAcreditacionClick != null;
   const colCount = mostrarAcciones ? COLS + 1 : COLS;
   const anchosColPct = mostrarAcciones ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
 
@@ -169,7 +185,8 @@ export default function TablaTesoreriaCajas({
                 <TableHead className={CELL_MIN}>ENTIDAD</TableHead>
                 <TableHead className={CELL_MIN}>SUCURSAL</TableHead>
                 <TableHead className={CELL_MIN}>TITULAR</TableHead>
-                <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO</TableHead>
+                <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO DISPONIBLE</TableHead>
+                <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO A ACREDITAR</TableHead>
                 {mostrarAcciones ? (
                   <TableHead className={cn("text-center tabla-bloque-secundario-head-divider", CELL_MIN)}>
                     ACCIONES
@@ -198,6 +215,9 @@ export default function TablaTesoreriaCajas({
                     <TableCell className={cn(TD_NUM, "celda-destacado", CELL_MIN)}>
                       ${fmtPrecio(f.montoDisponible)}
                     </TableCell>
+                    <TableCell className={cn(TD_NUM, CELL_MIN)}>
+                      ${fmtPrecio(f.montoAAcreditar)}
+                    </TableCell>
                     {mostrarAcciones ? (
                       <TableCell
                         className={cn(
@@ -220,6 +240,56 @@ export default function TablaTesoreriaCajas({
                               title="Ajustar monto"
                             >
                               <Banknote className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
+                          {onTransferenciaClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={f.montoDisponible <= 0}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onTransferenciaClick(f);
+                              }}
+                              aria-label={
+                                f.montoDisponible > 0
+                                  ? "Transferencia"
+                                  : "Transferencia (sin monto disponible)"
+                              }
+                              title={
+                                f.montoDisponible > 0
+                                  ? "Transferencia"
+                                  : "No hay monto disponible para transferir"
+                              }
+                            >
+                              <ArrowLeftRight className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
+                          {onResumenAcreditacionClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={f.montoAAcreditar <= 0}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onResumenAcreditacionClick(f);
+                              }}
+                              aria-label={
+                                f.montoAAcreditar > 0
+                                  ? "Monto a acreditar"
+                                  : "Monto a acreditar (sin pendientes)"
+                              }
+                              title={
+                                f.montoAAcreditar > 0
+                                  ? "Monto a acreditar"
+                                  : "No hay montos a acreditar"
+                              }
+                            >
+                              <CalendarClock className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>
                           ) : null}
                           {onChequesClick ? (

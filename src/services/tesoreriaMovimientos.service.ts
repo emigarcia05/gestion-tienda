@@ -359,30 +359,73 @@ export async function crearMovimientoTesoreria(
   return { success: true, data: { ...created, cajaId: input.cajaId } };
 }
 
-/** Egreso en la caja origen e ingreso en la caja destino, sin datos de cobro. */
+const CAJA_TRANSFERENCIA_SELECT = {
+  id: true,
+  sucursalId: true,
+  titular: true,
+  tipoCaja: true,
+  entidad: { select: { nombre: true } },
+  sucursal: { select: { nombre: true } },
+} as const;
+
+/**
+ * Egreso en la caja origen e ingreso en la caja destino, sin datos de cobro.
+ * El monto no puede superar el saldo disponible (acreditado) de la caja origen.
+ */
 export async function crearTransferenciaEntreCajas(
   input: CrearTransferenciaEntreCajasInput
 ): Promise<ServiceResult<{ transferenciaGrupoId: string; ids: [string, string] }>> {
   if (input.cajaOrigenId === input.cajaDestinoId) {
     return { success: false, error: "La caja destino tiene que ser otra caja." };
   }
-  const [origen, destino, sucursal] = await Promise.all([
-    prisma.cajaTesoreria.findUnique({ where: { id: input.cajaOrigenId }, select: { id: true } }),
-    prisma.cajaTesoreria.findUnique({ where: { id: input.cajaDestinoId }, select: { id: true } }),
-    prisma.sucursal.findUnique({ where: { id: input.sucursalId }, select: { id: true } }),
+  const [origen, destino] = await Promise.all([
+    prisma.cajaTesoreria.findUnique({
+      where: { id: input.cajaOrigenId },
+      select: CAJA_TRANSFERENCIA_SELECT,
+    }),
+    prisma.cajaTesoreria.findUnique({
+      where: { id: input.cajaDestinoId },
+      select: CAJA_TRANSFERENCIA_SELECT,
+    }),
   ]);
   if (!origen || !destino) return { success: false, error: "Caja inválida." };
-  if (!sucursal) return { success: false, error: "Sucursal inválida." };
+
+  let sucursalId = origen.sucursalId ?? destino.sucursalId;
+  if (!sucursalId) {
+    if (!input.sucursalCodigo) {
+      return {
+        success: false,
+        error: "Indicá la sucursal del movimiento (ninguna de las cajas tiene sucursal).",
+      };
+    }
+    const sucursal = await prisma.sucursal.findUnique({
+      where: { codigo: input.sucursalCodigo },
+      select: { id: true },
+    });
+    if (!sucursal) return { success: false, error: "Sucursal inválida." };
+    sucursalId = sucursal.id;
+  }
 
   const personalErr = await personalExiste(input.personalId);
   if (personalErr) return { success: false, error: personalErr };
 
+  const saldos = await saldosPorCajaDesdeMovimientos([origen.id]);
+  const saldoOrigen = saldos.get(origen.id) ?? 0;
+  if (input.monto > saldoOrigen) {
+    return {
+      success: false,
+      error: `El monto supera el disponible de la caja origen ($${saldoOrigen.toLocaleString("es-AR")}).`,
+    };
+  }
+
   const transferenciaGrupoId = randomUUID();
   const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
-    input.fecha,
+    input.fecha ?? dateToIsoYmdArgentina(new Date()),
     0
   );
-  const observacion = input.observacion.trim();
+  const observacion =
+    input.observacion.trim() ||
+    `Transferencia de ${etiquetaCajaTesoreria(origen)} a ${etiquetaCajaTesoreria(destino)}`;
   const base = {
     catMovimiento: "TRANSFERENCIA_ENTRE_CAJAS" as const,
     monto: input.monto,
@@ -390,7 +433,7 @@ export async function crearTransferenciaEntreCajas(
     fechaRegistro,
     fechaAcreditacion,
     observacion,
-    sucursalId: input.sucursalId,
+    sucursalId,
     personalId: input.personalId,
     transferenciaGrupoId,
   };
@@ -453,6 +496,136 @@ export async function saldosPorCajaDesdeMovimientos(
     );
   }
   return map;
+}
+
+/**
+ * INGRESO con `fecha_acreditacion` posterior a hoy AR: aún no suma al saldo disponible
+ * (depósitos de tarjeta, cheques, etc.).
+ */
+export async function saldosPendientesAcreditacionPorCaja(
+  cajaIds?: readonly string[]
+): Promise<Map<string, number>> {
+  const hoy = fechaNegocio(dateToIsoYmdArgentina(new Date()));
+  const rows = await prisma.tesoreriaMovimiento.groupBy({
+    by: ["cajaId"],
+    where: {
+      tipoMovimiento: "INGRESO",
+      cajaId: {
+        not: null,
+        ...(cajaIds && cajaIds.length > 0 ? { in: [...cajaIds] } : {}),
+      },
+      fechaAcreditacion: { gt: hoy },
+    },
+    _sum: { montoAcreditado: true },
+  });
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.cajaId) continue;
+    map.set(row.cajaId, row._sum.montoAcreditado ?? 0);
+  }
+  return map;
+}
+
+export type OrigenPendienteAcreditacion = "CHEQUE" | "TARJETA" | "OTRO";
+
+export type PendienteAcreditacionFila = {
+  id: string;
+  fechaAcreditacionIso: string;
+  origen: OrigenPendienteAcreditacion;
+  origenEtiqueta: string;
+  detalle: string;
+  montoAcreditado: number;
+};
+
+export type ResumenPendientesAcreditacionCaja = {
+  total: number;
+  totalTarjeta: number;
+  totalCheque: number;
+  totalOtros: number;
+  filas: PendienteAcreditacionFila[];
+};
+
+const ETIQUETA_ORIGEN_PENDIENTE: Record<OrigenPendienteAcreditacion, string> = {
+  CHEQUE: "CHEQUE",
+  TARJETA: "DEPÓSITO TARJETA",
+  OTRO: "OTRO",
+};
+
+function origenPendienteAcreditacion(args: {
+  chequeId: string | null;
+  tipoCaja: string | null;
+}): OrigenPendienteAcreditacion {
+  if (args.chequeId) return "CHEQUE";
+  if (args.tipoCaja === "TARJETAS_A_COBRAR") return "TARJETA";
+  return "OTRO";
+}
+
+/** Detalle de INGRESOS aún no acreditados de una caja (solo lectura). */
+export async function listarPendientesAcreditacionCaja(
+  cajaId: string
+): Promise<ResumenPendientesAcreditacionCaja> {
+  const hoy = fechaNegocio(dateToIsoYmdArgentina(new Date()));
+  const rows = await prisma.tesoreriaMovimiento.findMany({
+    where: {
+      cajaId,
+      tipoMovimiento: "INGRESO",
+      fechaAcreditacion: { gt: hoy },
+    },
+    orderBy: [{ fechaAcreditacion: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      fechaAcreditacion: true,
+      montoAcreditado: true,
+      chequeId: true,
+      pago: { select: { nombre: true } },
+      entidad: { select: { nombre: true } },
+      comprobante: { select: { receptorNombre: true } },
+      cheque: { select: { clienteNombre: true } },
+      caja: { select: { tipoCaja: true } },
+    },
+  });
+
+  const filas: PendienteAcreditacionFila[] = rows.map((row) => {
+    const origen = origenPendienteAcreditacion({
+      chequeId: row.chequeId,
+      tipoCaja: row.caja?.tipoCaja ?? null,
+    });
+    const cliente = (row.cheque?.clienteNombre ?? row.comprobante?.receptorNombre ?? "")
+      .trim()
+      .toLocaleUpperCase("es-AR");
+    const forma = row.pago?.nombre?.trim()
+      ? row.pago.nombre.toLocaleUpperCase("es-AR")
+      : "";
+    const entidad = row.entidad?.nombre?.trim()
+      ? row.entidad.nombre.toLocaleUpperCase("es-AR")
+      : "";
+    const detalle = [cliente, forma, entidad].filter((p) => p.length > 0).join(" · ");
+    return {
+      id: row.id,
+      fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
+      origen,
+      origenEtiqueta: ETIQUETA_ORIGEN_PENDIENTE[origen],
+      detalle,
+      montoAcreditado: row.montoAcreditado,
+    };
+  });
+
+  let totalTarjeta = 0;
+  let totalCheque = 0;
+  let totalOtros = 0;
+  for (const fila of filas) {
+    if (fila.origen === "TARJETA") totalTarjeta += fila.montoAcreditado;
+    else if (fila.origen === "CHEQUE") totalCheque += fila.montoAcreditado;
+    else totalOtros += fila.montoAcreditado;
+  }
+
+  return {
+    total: totalTarjeta + totalCheque + totalOtros,
+    totalTarjeta,
+    totalCheque,
+    totalOtros,
+    filas,
+  };
 }
 
 const ETIQUETA_CATEGORIA: Record<CategoriaMovimientoTesoreria, string> = {
