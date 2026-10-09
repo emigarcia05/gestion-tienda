@@ -280,10 +280,10 @@ export async function registrarPagoCuentaCorrienteProveedores(
     if (!base) {
       return { success: false, error: "No se pudo resolver el pago en tesorería." };
     }
-    if (base.chequeFechaPago) {
+    if (base.chequeFechaAcreditacion) {
       return {
         success: false,
-        error: "Para pagar con cheques usá TESORERIA → Cheques (Pagar A Proveedor).",
+        error: "Para pagar con cheques usá TESORERIA → Cajas → CHEQUES (Pagar A Proveedor).",
       };
     }
 

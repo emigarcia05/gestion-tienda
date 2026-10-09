@@ -32,6 +32,10 @@ export interface CajaTesoreriaItem {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   supervisionFiscal: boolean;
+  /** Los cobros a esta caja crean cheques que viven acá. */
+  recibeCheque: boolean;
+  /** Destino posible al depositar un cheque. */
+  depositaCheque: boolean;
   /** Caché legacy en `tesoreria_cajas.monto`. La UI usa `montoDisponible`. */
   monto: number;
   /**
@@ -54,6 +58,8 @@ export interface CrearCajaTesoreriaInput {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   monto: number;
+  recibeCheque: boolean;
+  depositaCheque: boolean;
 }
 
 export interface EditarCajaTesoreriaInput {
@@ -64,6 +70,8 @@ export interface EditarCajaTesoreriaInput {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   monto: number;
+  recibeCheque: boolean;
+  depositaCheque: boolean;
 }
 
 export interface SucursalTesoreriaOption {
@@ -87,6 +95,8 @@ function mapCaja(
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
     supervisionFiscal: row.supervisionFiscal,
+    recibeCheque: row.recibeCheque,
+    depositaCheque: row.depositaCheque,
     monto: montoDisponible,
     montoDisponible,
     ultActualizacion: row.ultActualizacion,
@@ -287,6 +297,8 @@ export async function crearCajaTesoreria(
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         monto: input.monto,
+        recibeCheque: input.recibeCheque,
+        depositaCheque: input.depositaCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
@@ -313,6 +325,17 @@ export async function editarCajaTesoreria(
     if (!existing) {
       return { success: false, error: "Caja no encontrada." };
     }
+    if (!input.recibeCheque) {
+      const enCartera = await prisma.tesoreriaCheque.count({
+        where: { cajaId: input.id, estado: "EN_CARTERA" },
+      });
+      if (enCartera > 0) {
+        return {
+          success: false,
+          error: "La caja tiene cheques en cartera: no se puede quitar RECIBE CHEQUE.",
+        };
+      }
+    }
     if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
       return {
         success: false,
@@ -337,6 +360,8 @@ export async function editarCajaTesoreria(
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         monto: input.monto,
+        recibeCheque: input.recibeCheque,
+        depositaCheque: input.depositaCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });

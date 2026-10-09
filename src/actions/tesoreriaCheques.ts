@@ -1,25 +1,43 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireEditorFinanzas } from "@/lib/actionGates";
+import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { getIdPersonalSesion } from "@/lib/sesion";
 import type { ActionResult } from "@/lib/types";
 import {
+  chequesCajaSchema,
   depositarChequesSchema,
   pagarProveedorConChequesSchema,
 } from "@/lib/validations/tesoreriaCheques";
 import {
   depositarCheques,
+  obtenerDatosChequesCaja,
   pagarProveedorConCheques,
+  type DatosChequesCaja,
 } from "@/services/tesoreriaCheques.service";
 
 function revalidateCheques(): void {
   revalidatePath("/finanzas/tesoreria");
-  revalidatePath("/finanzas/tesoreria/cheques");
   revalidatePath("/finanzas/tesoreria/movimientos");
   revalidatePath("/finanzas/venc-por-fecha");
   revalidatePath("/finanzas/control-comprobantes");
+}
+
+/** Cheques en cartera de la caja + destinos de depósito + proveedores con saldo. */
+export async function obtenerDatosChequesCajaAction(
+  raw: unknown
+): Promise<ActionResult<DatosChequesCaja>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  const parsed = chequesCajaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    return fromServiceResult(await obtenerDatosChequesCaja(parsed.data.cajaId));
+  } catch (e) {
+    console.error("[obtenerDatosChequesCajaAction]", e);
+    return { ok: false, error: "No se pudieron cargar los cheques." };
+  }
 }
 
 export async function depositarChequesAction(

@@ -605,6 +605,14 @@ model CajaTesoreria {
    * Supervisión fiscal (TRUE/FALSE).
    */
   supervisionFiscal Boolean                     @default(false) @map("supervision_fiscal")
+  /**
+   * Los cobros que llegan acá crean un cheque (`tesoreria_cheques`) que vive en esta caja.
+   */
+  recibeCheque      Boolean                     @default(false) @map("recibe_cheque")
+  /**
+   * Se puede elegir como destino al depositar un cheque (pasa a ser valor monetario).
+   */
+  depositaCheque    Boolean                     @default(false) @map("deposita_cheque")
   monto             Int                         @default(0)
   ultActualizacion  DateTime                    @default(now()) @map("ult_actualizacion")
   createdAt         DateTime                    @default(now()) @map("created_at")
@@ -753,22 +761,22 @@ model TesoreriaMovimiento {
 }
 
 /**
- * Cartera de cheques físicos. Nace con el cobro a una caja `tipo_caja = CHEQUE`
- * (monto + fecha de pago = FECHA ACREDITACIÓN del cobro; cliente = venta o pago CC).
- * El saldo de la caja CHEQUE cuenta desde `fecha_recepcion`.
+ * Cartera de cheques (físicos o eCheq; se distinguen por configuración/nombre de forma de pago).
+ * Nace con el cobro a una caja con `recibe_cheque = true` (cliente = venta o pago CC).
+ * Su monto suma a esa caja desde `fecha_acreditacion`.
  */
 model TesoreriaCheque {
-  id              String                @id @default(cuid())
-  /** Caja CHEQUE donde entró. */
-  cajaId          String                @map("caja_id")
-  caja            CajaTesoreria         @relation("ChequeCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  id                String                @id @default(cuid())
+  /** Caja (recibe_cheque) donde vive el cheque. */
+  cajaId            String                @map("caja_id")
+  caja              CajaTesoreria         @relation("ChequeCaja", fields: [cajaId], references: [id], onDelete: Restrict)
   /** Importe del cheque (bruto del cobro). */
-  monto           Int
-  /** Neto que sumó a la caja CHEQUE; es lo que sale al depositar / pagar. */
-  montoAcreditado Int                   @map("monto_acreditado")
-  fechaRecepcion  DateTime              @map("fecha_recepcion") @db.Date
-  /** Fecha en que el cheque se puede cobrar (desde ese día se puede depositar). */
-  fechaPago       DateTime              @map("fecha_pago") @db.Date
+  monto             Int
+  /** Neto que sumó a la caja; es lo que sale al depositar / pagar. */
+  montoAcreditado   Int                   @map("monto_acreditado")
+  fechaRecepcion    DateTime              @map("fecha_recepcion") @db.Date
+  /** Desde este día suma a la caja y se puede depositar. */
+  fechaAcreditacion DateTime              @map("fecha_acreditacion") @db.Date
   clienteId       String?               @map("cliente_id")
   cliente         Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   /** Snapshot del nombre del cliente al recibir. */
@@ -781,7 +789,7 @@ model TesoreriaCheque {
   clienteCobro    ClienteCobro?         @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict)
   estado          EstadoChequeTesoreria @default(EN_CARTERA)
   fechaSalida     DateTime?             @map("fecha_salida") @db.Date
-  /** DEPOSITADO: caja propia que lo recibió. */
+  /** DEPOSITADO: caja (deposita_cheque) que lo recibió; puede ser la misma `caja_id`. */
   cajaDestinoId   String?               @map("caja_destino_id")
   cajaDestino     CajaTesoreria?        @relation("ChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: Restrict)
   /** ENTREGADO_PROVEEDOR: proveedor que lo recibió. */
@@ -792,7 +800,7 @@ model TesoreriaCheque {
 
   movimientos TesoreriaMovimiento[]
 
-  @@index([estado, fechaPago], map: "tesoreria_cheques_estado_fecha_pago_idx")
+  @@index([estado, fechaAcreditacion], map: "tesoreria_cheques_estado_fecha_acred_idx")
   @@index([cajaId], map: "tesoreria_cheques_caja_idx")
   @@index([clienteId], map: "tesoreria_cheques_cliente_idx")
   @@index([comprobanteId], map: "tesoreria_cheques_comprobante_idx")

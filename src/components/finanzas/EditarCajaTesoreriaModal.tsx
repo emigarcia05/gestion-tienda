@@ -16,6 +16,7 @@ import {
 import { editarCajaTesoreriaAction, listarEntidadesFinTesoreriaAction, listarSucursalesTesoreriaAction } from "@/actions/cajasTesoreria";
 import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import {
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
@@ -52,6 +53,8 @@ export default function EditarCajaTesoreriaModal({
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
+  const [recibeCheque, setRecibeCheque] = useState(false);
+  const [depositaCheque, setDepositaCheque] = useState(false);
   const [saving, setSaving] = useState(false);
   const [openEliminar, setOpenEliminar] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open, caja?.titular);
@@ -88,6 +91,8 @@ export default function EditarCajaTesoreriaModal({
     setEntidadId(caja.entidadId ?? "");
     setTipoCaja(caja.tipoCaja as TipoCajaTesoreria);
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
+    setRecibeCheque(caja.recibeCheque);
+    setDepositaCheque(caja.depositaCheque);
   }, [open, caja]);
 
   function resetForm() {
@@ -96,6 +101,8 @@ export default function EditarCajaTesoreriaModal({
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor("EFECTIVO");
+    setRecibeCheque(false);
+    setDepositaCheque(false);
     setOpenEliminar(false);
   }
 
@@ -106,9 +113,11 @@ export default function EditarCajaTesoreriaModal({
       sucursalId !== (caja.sucursalId ?? "") ||
       titular.trim() !== caja.titular ||
       tipoCaja !== caja.tipoCaja ||
-      tipoValor !== caja.tipoValor
+      tipoValor !== caja.tipoValor ||
+      recibeCheque !== caja.recibeCheque ||
+      depositaCheque !== caja.depositaCheque
     );
-  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor]);
+  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, recibeCheque, depositaCheque]);
 
   const disabledSubmit = useMemo(
     () =>
@@ -131,6 +140,8 @@ export default function EditarCajaTesoreriaModal({
         tipoCaja,
         tipoValor,
         monto: caja.monto,
+        recibeCheque,
+        depositaCheque,
       });
 
       if (!res.ok) {
@@ -295,6 +306,19 @@ export default function EditarCajaTesoreriaModal({
               </Select>
             </label>
             ) : null}
+
+            <ModalSiNoChoice
+              label="RECIBE CHEQUE"
+              value={recibeCheque}
+              onChange={setRecibeCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="DEPOSITA CHEQUE"
+              value={depositaCheque}
+              onChange={setDepositaCheque}
+              disabled={saving}
+            />
           </div>
         </AppModal>
       </Dialog>

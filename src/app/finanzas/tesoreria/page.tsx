@@ -24,6 +24,8 @@ export default async function FinanzasTesoreriaPage() {
     sucursalNombre: c.sucursalNombre,
     tipoCaja: c.tipoCaja,
     tipoValor: c.tipoValor,
+    recibeCheque: c.recibeCheque,
+    depositaCheque: c.depositaCheque,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
     ultActualizacionIso: c.ultActualizacion.toISOString(),

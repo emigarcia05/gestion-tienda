@@ -16,27 +16,14 @@ import type { ServiceResult } from "@/types";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
-export const ETIQUETA_ESTADO_CHEQUE: Record<EstadoChequeTesoreria, string> = {
-  EN_CARTERA: "EN CARTERA",
-  DEPOSITADO: "DEPOSITADO",
-  ENTREGADO_PROVEEDOR: "ENTREGADO A PROVEEDOR",
-};
-
 export type TesoreriaChequeFila = {
   id: string;
   monto: number;
   montoAcreditado: number;
   fechaRecepcionIso: string;
-  fechaPagoIso: string;
+  fechaAcreditacionIso: string;
   clienteNombre: string;
-  comprobanteId: string | null;
   comprobanteEtiqueta: string;
-  estado: EstadoChequeTesoreria;
-  estadoEtiqueta: string;
-  cajaEtiqueta: string;
-  fechaSalidaIso: string;
-  /** Caja propia (DEPOSITADO) o proveedor (ENTREGADO_PROVEEDOR). */
-  destinoEtiqueta: string;
 };
 
 export type CajaDepositoChequeOpcion = { id: string; etiqueta: string };
@@ -45,6 +32,12 @@ export type ProveedorPagoChequeOpcion = {
   id: string;
   nombre: string;
   saldoPendiente: number;
+};
+
+export type DatosChequesCaja = {
+  cheques: TesoreriaChequeFila[];
+  cajasDeposito: CajaDepositoChequeOpcion[];
+  proveedores: ProveedorPagoChequeOpcion[];
 };
 
 function roundArs2(n: number): number {
@@ -71,7 +64,7 @@ const CAJA_ETIQUETA_SELECT = {
 } as const;
 
 /**
- * Alta EN_CARTERA desde un cobro a caja CHEQUE (misma transacción que el movimiento).
+ * Alta EN_CARTERA desde un cobro a caja con `recibe_cheque` (misma transacción que el movimiento).
  * Cliente: el de la venta (`comprobanteId`) o el del pago CC (`clienteCobroId`).
  */
 export async function crearChequeEnCarteraDesdeCobro(
@@ -80,7 +73,7 @@ export async function crearChequeEnCarteraDesdeCobro(
     monto: number;
     montoAcreditado: number;
     fechaRecepcion: Date;
-    fechaPago: Date;
+    fechaAcreditacion: Date;
     comprobanteId: string | null;
     clienteCobroId: string | null;
   },
@@ -113,7 +106,7 @@ export async function crearChequeEnCarteraDesdeCobro(
       monto: args.monto,
       montoAcreditado: args.montoAcreditado,
       fechaRecepcion: args.fechaRecepcion,
-      fechaPago: args.fechaPago,
+      fechaAcreditacion: args.fechaAcreditacion,
       clienteId,
       clienteNombre: clienteNombre.trim().toLocaleUpperCase("es-AR"),
       comprobanteId: args.comprobanteId,
@@ -159,22 +152,21 @@ export async function eliminarChequesSinMovimientos(
   });
 }
 
-export async function listarChequesTesoreria(): Promise<TesoreriaChequeFila[]> {
+/** Cheques EN_CARTERA de una caja (fecha de acreditación ascendente). */
+export async function listarChequesEnCarteraDeCaja(
+  cajaId: string
+): Promise<TesoreriaChequeFila[]> {
   const rows = await prisma.tesoreriaCheque.findMany({
-    orderBy: [{ fechaPago: "asc" }, { createdAt: "asc" }],
+    where: { cajaId, estado: "EN_CARTERA" },
+    orderBy: [{ fechaAcreditacion: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
       monto: true,
       montoAcreditado: true,
       fechaRecepcion: true,
-      fechaPago: true,
+      fechaAcreditacion: true,
       clienteNombre: true,
-      estado: true,
-      fechaSalida: true,
-      comprobante: { select: { id: true, ptoVenta: true, cbteNro: true } },
-      caja: { select: CAJA_ETIQUETA_SELECT },
-      cajaDestino: { select: CAJA_ETIQUETA_SELECT },
-      proveedor: { select: { nombre: true } },
+      comprobante: { select: { ptoVenta: true, cbteNro: true } },
     },
   });
   return rows.map((row) => ({
@@ -182,24 +174,16 @@ export async function listarChequesTesoreria(): Promise<TesoreriaChequeFila[]> {
     monto: row.monto,
     montoAcreditado: row.montoAcreditado,
     fechaRecepcionIso: isoYmdFromPrismaDateOnly(row.fechaRecepcion),
-    fechaPagoIso: isoYmdFromPrismaDateOnly(row.fechaPago),
+    fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
     clienteNombre: row.clienteNombre,
-    comprobanteId: row.comprobante?.id ?? null,
     comprobanteEtiqueta: etiquetaComprobante(row.comprobante),
-    estado: row.estado,
-    estadoEtiqueta: ETIQUETA_ESTADO_CHEQUE[row.estado],
-    cajaEtiqueta: etiquetaCajaTesoreria(row.caja),
-    fechaSalidaIso: row.fechaSalida ? isoYmdFromPrismaDateOnly(row.fechaSalida) : "",
-    destinoEtiqueta: row.cajaDestino
-      ? etiquetaCajaTesoreria(row.cajaDestino)
-      : (row.proveedor?.nombre.toLocaleUpperCase("es-AR") ?? ""),
   }));
 }
 
-/** Cajas propias donde se puede depositar (todas menos CHEQUE). */
+/** Cajas con `deposita_cheque` (destinos posibles de un depósito). */
 export async function listarCajasDepositoCheque(): Promise<CajaDepositoChequeOpcion[]> {
   const rows = await prisma.cajaTesoreria.findMany({
-    where: { tipoCaja: { not: "CHEQUE" } },
+    where: { depositaCheque: true },
     select: { id: true, ...CAJA_ETIQUETA_SELECT },
   });
   return rows
@@ -251,12 +235,30 @@ export async function listarProveedoresPagoCheque(): Promise<ProveedorPagoCheque
   return [...porProveedor.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+/** Datos del modal CHEQUES de una caja. */
+export async function obtenerDatosChequesCaja(
+  cajaId: string
+): Promise<ServiceResult<DatosChequesCaja>> {
+  const caja = await prisma.cajaTesoreria.findUnique({
+    where: { id: cajaId },
+    select: { recibeCheque: true },
+  });
+  if (!caja) return { success: false, error: "Caja inexistente." };
+  if (!caja.recibeCheque) return { success: false, error: "La caja no recibe cheques." };
+  const [cheques, cajasDeposito, proveedores] = await Promise.all([
+    listarChequesEnCarteraDeCaja(cajaId),
+    listarCajasDepositoCheque(),
+    listarProveedoresPagoCheque(),
+  ]);
+  return { success: true, data: { cheques, cajasDeposito, proveedores } };
+}
+
 type ChequeParaSalida = {
   id: string;
   cajaId: string;
   monto: number;
   montoAcreditado: number;
-  fechaPago: Date;
+  fechaAcreditacion: Date;
 };
 
 async function chequesEnCartera(
@@ -271,7 +273,7 @@ async function chequesEnCartera(
       cajaId: true,
       monto: true,
       montoAcreditado: true,
-      fechaPago: true,
+      fechaAcreditacion: true,
       estado: true,
     },
   });
@@ -331,8 +333,9 @@ async function marcarSalida(
 }
 
 /**
- * Depósito en caja propia: por cheque, transferencia CHEQUE → caja destino (hoy).
- * Solo cheques con fecha de pago ≤ hoy.
+ * Depósito (desde la fecha de acreditación) en una caja con `deposita_cheque`.
+ * Misma caja del cheque → solo cambia el estado (el monto ya suma ahí).
+ * Otra caja → transferencia hoy de la caja del cheque al destino.
  */
 export async function depositarCheques(
   input: DepositarChequesInput & { personalId: number }
@@ -340,23 +343,26 @@ export async function depositarCheques(
   try {
     const destino = await prisma.cajaTesoreria.findUnique({
       where: { id: input.cajaDestinoId },
-      select: { id: true, tipoCaja: true, sucursalId: true },
+      select: { id: true, depositaCheque: true, sucursalId: true },
     });
     if (!destino) return { success: false, error: "Caja destino inválida." };
-    if (destino.tipoCaja === "CHEQUE") {
-      return { success: false, error: "El depósito tiene que ir a una caja que no sea de cheques." };
+    if (!destino.depositaCheque) {
+      return { success: false, error: "La caja destino no admite depósitos de cheques." };
     }
     const cheques = await chequesEnCartera(input.chequeIds, prisma);
     if (!cheques.success) return cheques;
     const hoy = hoyNegocio();
-    if (cheques.data.some((c) => isoYmdFromPrismaDateOnly(c.fechaPago) > hoy.iso)) {
+    if (cheques.data.some((c) => isoYmdFromPrismaDateOnly(c.fechaAcreditacion) > hoy.iso)) {
       return {
         success: false,
-        error: "Solo se pueden depositar cheques con fecha de pago hasta hoy.",
+        error: "Solo se pueden depositar cheques con fecha de acreditación hasta hoy.",
       };
     }
-    const sucursal = await sucursalOperador(input.personalId, destino.sucursalId);
-    if (!sucursal.success) return sucursal;
+    const requiereTransferencia = cheques.data.some((c) => c.cajaId !== destino.id);
+    const sucursal = requiereTransferencia
+      ? await sucursalOperador(input.personalId, destino.sucursalId)
+      : null;
+    if (sucursal && !sucursal.success) return sucursal;
     const observacion = input.observacion.trim() || "Depósito de cheque";
 
     await prisma.$transaction(async (tx) => {
@@ -366,6 +372,7 @@ export async function depositarCheques(
           fechaSalida: hoy.fecha,
           cajaDestinoId: destino.id,
         });
+        if (cheque.cajaId === destino.id || !sucursal?.success) continue;
         const base = {
           catMovimiento: "TRANSFERENCIA_ENTRE_CAJAS" as const,
           monto: cheque.montoAcreditado,
@@ -406,8 +413,9 @@ export async function depositarCheques(
 }
 
 /**
- * Pago a proveedor con cheques (cualquier fecha de pago): imputa FIFO a los comprobantes
- * pendientes de ese proveedor y registra un egreso PAGO_PROVEEDOR por cheque en su caja CHEQUE.
+ * Pago a proveedor con cheques (cualquier fecha): imputa FIFO a los comprobantes pendientes
+ * de ese proveedor y registra un egreso PAGO_PROVEEDOR por cheque en su caja,
+ * acreditado el mayor entre hoy y la fecha de acreditación del cheque.
  */
 export async function pagarProveedorConCheques(
   input: PagarProveedorConChequesInput & { personalId: number }
@@ -466,6 +474,8 @@ export async function pagarProveedorConCheques(
           fechaSalida: hoy.fecha,
           proveedorId: proveedor.id,
         });
+        const acreditaFutura =
+          isoYmdFromPrismaDateOnly(cheque.fechaAcreditacion) > hoy.iso;
         await tx.tesoreriaMovimiento.create({
           data: {
             cajaId: cheque.cajaId,
@@ -474,7 +484,7 @@ export async function pagarProveedorConCheques(
             monto: cheque.montoAcreditado,
             montoAcreditado: cheque.montoAcreditado,
             fechaRegistro: hoy.fecha,
-            fechaAcreditacion: hoy.fecha,
+            fechaAcreditacion: acreditaFutura ? cheque.fechaAcreditacion : hoy.fecha,
             observacion,
             sucursalId: sucursal.data,
             personalId: input.personalId,

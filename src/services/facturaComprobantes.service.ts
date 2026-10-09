@@ -2013,7 +2013,7 @@ export async function registrarCobroComprobanteVta(
         observacion: "Devolución de nota de crédito",
       });
       if (!prep.success) return prep;
-      if (prep.data.some((fila) => fila.chequeFechaPago)) {
+      if (prep.data.some((fila) => fila.chequeFechaAcreditacion)) {
         return {
           success: false,
           error: "La devolución no se puede hacer desde la caja de cheques.",
@@ -2163,7 +2163,7 @@ export async function registrarPagoCuentaCorriente(
         },
       });
       // Un solo cheque físico aunque el pago se reparta en varias filas del ledger.
-      const chequeId = base.chequeFechaPago
+      const chequeId = base.chequeFechaAcreditacion
         ? (
             await crearChequeEnCarteraDesdeCobro(
               {
@@ -2171,7 +2171,7 @@ export async function registrarPagoCuentaCorriente(
                 monto: base.monto,
                 montoAcreditado: base.montoAcreditado,
                 fechaRecepcion: base.fechaRegistro,
-                fechaPago: base.chequeFechaPago,
+                fechaAcreditacion: base.chequeFechaAcreditacion,
                 comprobanteId: null,
                 clienteCobroId: padre.id,
               },
@@ -2179,7 +2179,7 @@ export async function registrarPagoCuentaCorriente(
             )
           ).id
         : null;
-      const baseFila: MovimientoCobroFacturaData = { ...base, chequeFechaPago: null, chequeId };
+      const baseFila: MovimientoCobroFacturaData = { ...base, chequeFechaAcreditacion: null, chequeId };
       let restantePesos = base.monto;
       let restanteAcreditado = base.montoAcreditado;
       for (const fila of imputaciones) {

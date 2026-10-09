@@ -16,6 +16,7 @@ import {
 import { crearCajaTesoreriaAction, listarEntidadesFinTesoreriaAction, listarSucursalesTesoreriaAction } from "@/actions/cajasTesoreria";
 import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import {
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
   OPCIONES_TIPO_VALOR_CAJA_MODAL_UI,
@@ -42,6 +43,8 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
+  const [recibeCheque, setRecibeCheque] = useState(false);
+  const [depositaCheque, setDepositaCheque] = useState(false);
   const [saving, setSaving] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open);
   const muestraTipoValor = cajaTesoreriaUsaSucursal(tipoCaja);
@@ -84,6 +87,8 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor(tipoValorDesdeTipoCaja("EFECTIVO"));
+    setRecibeCheque(false);
+    setDepositaCheque(false);
   }
 
   function handleTipoCajaChange(value: string) {
@@ -103,6 +108,8 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
         sucursalId: cajaTesoreriaUsaSucursal(tipoCaja) ? sucursalId : null,
         tipoCaja,
         tipoValor,
+        recibeCheque,
+        depositaCheque,
       });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo crear la caja.");
@@ -253,6 +260,19 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
               </Select>
             </label>
           ) : null}
+
+          <ModalSiNoChoice
+            label="RECIBE CHEQUE"
+            value={recibeCheque}
+            onChange={setRecibeCheque}
+            disabled={saving}
+          />
+          <ModalSiNoChoice
+            label="DEPOSITA CHEQUE"
+            value={depositaCheque}
+            onChange={setDepositaCheque}
+            disabled={saving}
+          />
         </div>
       </AppModal>
     </Dialog>

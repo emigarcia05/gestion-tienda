@@ -10,6 +10,7 @@ import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaMod
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
+import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarTesoreriaTitularesModal from "@/components/vtas-cobros/GestionarTesoreriaTitularesModal";
@@ -46,6 +47,7 @@ export default function FinanzasTesoreriaPageClient({
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaCheques, setCajaCheques] = useState<TesoreriaCajaFila | null>(null);
   const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
@@ -260,6 +262,16 @@ export default function FinanzasTesoreriaPageClient({
           onEditMontoClick={esEditor ? (fila) => setCajaParaEditarMonto(fila) : undefined}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
           onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
+          onChequesClick={(fila) => setCajaCheques(fila)}
+        />
+        <ChequesCajaTesoreriaModal
+          open={cajaCheques != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaCheques(null);
+          }}
+          caja={cajaCheques}
+          esEditor={esEditor}
+          onChanged={refreshCatalogos}
         />
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}

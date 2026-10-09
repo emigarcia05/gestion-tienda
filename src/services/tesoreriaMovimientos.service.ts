@@ -820,10 +820,10 @@ export type MovimientoCobroFacturaData = {
   orden?: number | null;
   clienteCobroId?: string | null;
   /**
-   * Solo en cobros a caja CHEQUE: fecha de pago del cheque físico.
+   * Solo en cobros a caja con `recibe_cheque`: fecha de acreditación del cheque.
    * `crearMovimientosCobroPreparados` crea el cheque EN_CARTERA (no es columna del ledger).
    */
-  chequeFechaPago?: Date | null;
+  chequeFechaAcreditacion?: Date | null;
   /** Cheque ya creado (p. ej. pago CC repartido en varias filas). */
   chequeId?: string | null;
 };
@@ -987,7 +987,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       select: {
         cajaDestinoId: true,
         discriminaIva: true,
-        cajaDestino: { select: { tipoCaja: true } },
+        cajaDestino: { select: { recibeCheque: true } },
       },
     });
     if (!vinculoCaja) {
@@ -1041,8 +1041,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       vinculoCaja.discriminaIva
     );
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
-    // Cheque físico: suma en la caja CHEQUE desde que se recibe; la fecha ingresada es la de pago.
-    const esCheque = vinculoCaja.cajaDestino?.tipoCaja === "CHEQUE";
+    const esCheque = vinculoCaja.cajaDestino?.recibeCheque === true;
 
     out.push({
       cajaId: vinculoCaja.cajaDestinoId,
@@ -1052,7 +1051,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       montoAcreditado,
       costoFinanciero: costoPct,
       fechaRegistro,
-      fechaAcreditacion: esCheque ? fechaRegistro : fechaAcreditacion,
+      fechaAcreditacion,
       observacion: observacionBase,
       pagoId: pago.id,
       entidadId,
@@ -1060,7 +1059,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       cxFinId: costos[0]?.id ?? null,
       sucursalId: sucursal.id,
       personalId: args.personalId,
-      chequeFechaPago: esCheque ? fechaAcreditacion : null,
+      chequeFechaAcreditacion: esCheque ? fechaAcreditacion : null,
     });
   }
 
@@ -1077,11 +1076,11 @@ export async function crearMovimientosCobroPreparados(
   }
   const ids: string[] = [];
   for (const fila of filas) {
-    const { chequeFechaPago, chequeId: chequeIdFila, ...data } = fila;
+    const { chequeFechaAcreditacion, chequeId: chequeIdFila, ...data } = fila;
     let chequeId = chequeIdFila ?? null;
     if (
       !chequeId &&
-      chequeFechaPago &&
+      chequeFechaAcreditacion &&
       data.tipoMovimiento === "INGRESO" &&
       data.catMovimiento === "COBRO"
     ) {
@@ -1091,7 +1090,7 @@ export async function crearMovimientosCobroPreparados(
           monto: data.monto,
           montoAcreditado: data.montoAcreditado,
           fechaRecepcion: data.fechaRegistro,
-          fechaPago: chequeFechaPago,
+          fechaAcreditacion: chequeFechaAcreditacion,
           comprobanteId: data.comprobanteId ?? null,
           clienteCobroId: data.clienteCobroId ?? null,
         },

@@ -6,6 +6,10 @@ const chequeIdsSchema = z
   .min(1, "Seleccioná al menos un cheque.")
   .max(200, "Demasiados cheques en una sola operación.");
 
+export const chequesCajaSchema = z.object({
+  cajaId: prismaIdSchema,
+});
+
 export const depositarChequesSchema = z.object({
   chequeIds: chequeIdsSchema,
   cajaDestinoId: prismaIdSchema,

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
-import { Banknote, Pencil, Trash2 } from "lucide-react";
+import { Banknote, Pencil, ReceiptText, Trash2 } from "lucide-react";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -31,6 +31,8 @@ export interface TesoreriaCajaFila {
   sucursalNombre: string;
   tipoCaja: string;
   tipoValor: string;
+  recibeCheque: boolean;
+  depositaCheque: boolean;
   /** Caché legacy en BD; la columna MONTO usa `montoDisponible`. */
   monto: number;
   /** Saldo = Σ movimientos (INGRESO +, EGRESO −). */
@@ -46,6 +48,8 @@ interface Props {
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
   onDeleteClick?: (fila: TesoreriaCajaFila) => void;
+  /** Cajas con RECIBE CHEQUE: abrir el modal CHEQUES (visible para todos). */
+  onChequesClick?: (fila: TesoreriaCajaFila) => void;
 }
 
 /** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO [, ACCIONES]. */
@@ -145,11 +149,14 @@ export default function TablaTesoreriaCajas({
   onEditMontoClick,
   onEditDataClick,
   onDeleteClick,
+  onChequesClick,
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
-  const colCount = esEditor ? COLS + 1 : COLS;
-  const anchosColPct = esEditor ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
+  const mostrarAcciones =
+    esEditor || (onChequesClick != null && filas.some((f) => f.recibeCheque));
+  const colCount = mostrarAcciones ? COLS + 1 : COLS;
+  const anchosColPct = mostrarAcciones ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col pb-4">
@@ -164,7 +171,7 @@ export default function TablaTesoreriaCajas({
                 <TableHead className={CELL_MIN}>SUCURSAL</TableHead>
                 <TableHead className={CELL_MIN}>TITULAR</TableHead>
                 <TableHead className={cn(TH_NUM, CELL_MIN)}>MONTO</TableHead>
-                {esEditor ? (
+                {mostrarAcciones ? (
                   <TableHead className={cn("text-center tabla-bloque-secundario-head-divider", CELL_MIN)}>
                     ACCIONES
                   </TableHead>
@@ -192,7 +199,7 @@ export default function TablaTesoreriaCajas({
                     <TableCell className={cn(TD_NUM, "celda-destacado", CELL_MIN)}>
                       ${fmtPrecio(f.montoDisponible)}
                     </TableCell>
-                    {esEditor ? (
+                    {mostrarAcciones ? (
                       <TableCell
                         className={cn(
                           "celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider",
@@ -200,6 +207,22 @@ export default function TablaTesoreriaCajas({
                         )}
                       >
                         <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "flex-wrap justify-center gap-1")}>
+                          {onChequesClick && f.recibeCheque ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onChequesClick(f);
+                              }}
+                              aria-label="Cheques"
+                              title="Cheques"
+                            >
+                              <ReceiptText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
                           {onEditMontoClick ? (
                             <Button
                               type="button"
@@ -216,20 +239,22 @@ export default function TablaTesoreriaCajas({
                               <Banknote className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>
                           ) : null}
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onEditDataClick?.(f);
-                            }}
-                            aria-label="Editar caja"
-                            title="Editar caja"
-                          >
-                            <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                          </Button>
+                          {onEditDataClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onEditDataClick(f);
+                              }}
+                              aria-label="Editar caja"
+                              title="Editar caja"
+                            >
+                              <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
                           {onDeleteClick ? (
                             <Button
                               type="button"
