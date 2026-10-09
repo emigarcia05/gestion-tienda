@@ -100,7 +100,6 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
-    setFormEsCheque(false);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
