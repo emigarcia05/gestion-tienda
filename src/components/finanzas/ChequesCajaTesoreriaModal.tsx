@@ -9,6 +9,7 @@ import {
   pagarProveedorConChequesAction,
 } from "@/actions/tesoreriaCheques";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
+import BotonDepositarCheque from "@/components/finanzas/BotonDepositarCheque";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -32,11 +33,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  dateToIsoYmdArgentina,
+  chequePuedeAcreditarsePorFechaArgentina,
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
-import { CALLOUT_WARNING_CLASS } from "@/lib/ui-classes";
+import { CALLOUT_WARNING_CLASS, TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import type { DatosChequesCaja } from "@/services/tesoreriaCheques.service";
 
@@ -68,7 +69,6 @@ export default function ChequesCajaTesoreriaModal({
   const [saving, setSaving] = useState(false);
 
   const cajaId = caja?.id ?? null;
-  const hoyIso = dateToIsoYmdArgentina(new Date());
 
   const cargar = useCallback(async (id: string) => {
     setCargando(true);
@@ -104,10 +104,17 @@ export default function ChequesCajaTesoreriaModal({
   );
   const totalCartera = datos.cheques.reduce((acc, c) => acc + c.monto, 0);
   const totalSeleccion = seleccionados.reduce((acc, c) => acc + c.monto, 0);
-  const haySinAcreditar = seleccionados.some((c) => c.fechaAcreditacionIso > hoyIso);
+  const haySinAcreditar = seleccionados.some(
+    (c) => !chequePuedeAcreditarsePorFechaArgentina(c.fechaAcreditacionIso)
+  );
   const proveedorElegido = datos.proveedores.find((p) => p.id === proveedorId) ?? null;
   const superaSaldoProveedor =
     proveedorElegido != null && totalSeleccion > proveedorElegido.saldoPendiente;
+
+  function iniciarDepositoCheque(id: string) {
+    setSeleccion(new Set([id]));
+    setVista("depositar");
+  }
 
   function toggle(id: string) {
     setSeleccion((prev) => {
@@ -282,7 +289,7 @@ export default function ChequesCajaTesoreriaModal({
       </div>
     );
   } else {
-    const colSpan = esEditor ? 4 : 3;
+    const colSpan = esEditor ? 5 : 4;
     acciones = (
       <>
         <Button
@@ -329,6 +336,9 @@ export default function ChequesCajaTesoreriaModal({
               <TableHead>CLIENTE</TableHead>
               <TableHead>FECHA ACREDITACIÓN</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
+              <TableHead className="tabla-bloque-secundario-head-divider text-center">
+                ACCIONES
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -364,6 +374,20 @@ export default function ChequesCajaTesoreriaModal({
                     <TableCell className="celda-datos text-right tabular-nums">
                       ${fmtPrecio(cheque.monto)}
                     </TableCell>
+                    <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
+                      <div
+                        className={cn(
+                          TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                          "flex-nowrap justify-center"
+                        )}
+                      >
+                        <BotonDepositarCheque
+                          fechaAcreditacionIso={cheque.fechaAcreditacionIso}
+                          disabled={!esEditor}
+                          onClick={() => iniciarDepositoCheque(cheque.id)}
+                        />
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -372,7 +396,7 @@ export default function ChequesCajaTesoreriaModal({
           {datos.cheques.length > 0 ? (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={colSpan - 1} className="celda-datos font-bold">
+                <TableCell colSpan={colSpan - 2} className="celda-datos font-bold">
                   {seleccionados.length > 0
                     ? `TOTAL (SELECCIONADOS $${fmtPrecio(totalSeleccion)})`
                     : "TOTAL"}
@@ -380,6 +404,7 @@ export default function ChequesCajaTesoreriaModal({
                 <TableCell className="celda-datos text-right font-bold tabular-nums">
                   ${fmtPrecio(totalCartera)}
                 </TableCell>
+                <TableCell className="celda-datos tabla-bloque-secundario-cell-divider" />
               </TableRow>
             </TableFooter>
           ) : null}

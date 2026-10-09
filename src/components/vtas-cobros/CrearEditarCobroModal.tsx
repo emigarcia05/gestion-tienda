@@ -292,12 +292,6 @@ export default function CrearEditarCobroModal({
             onChange={setEsCheque}
             disabled={saving || !pagoId}
           />
-          {esCheque ? (
-            <p className="text-xs text-muted-foreground">
-              Aplica a la forma de pago en todas las sucursales: cada cobro crea un cheque en
-              cartera y la caja vinculada debe recibir cheques.
-            </p>
-          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>
