@@ -48,7 +48,7 @@ interface Props {
   onEditMontoClick?: (fila: TesoreriaCajaFila) => void;
   onEditDataClick?: (fila: TesoreriaCajaFila) => void;
   onDeleteClick?: (fila: TesoreriaCajaFila) => void;
-  /** Cajas con RECIBE CHEQUE: abrir el modal CHEQUES (visible para todos). */
+  /** Abrir el modal CHEQUES. El ícono está en todas las filas; `disabled` si no RECIBE CHEQUE. */
   onChequesClick?: (fila: TesoreriaCajaFila) => void;
 }
 
@@ -153,8 +153,7 @@ export default function TablaTesoreriaCajas({
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
-  const mostrarAcciones =
-    esEditor || (onChequesClick != null && filas.some((f) => f.recibeCheque));
+  const mostrarAcciones = esEditor || onChequesClick != null;
   const colCount = mostrarAcciones ? COLS + 1 : COLS;
   const anchosColPct = mostrarAcciones ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
 
@@ -206,19 +205,28 @@ export default function TablaTesoreriaCajas({
                           CELL_MIN
                         )}
                       >
-                        <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "flex-wrap justify-center gap-1")}>
-                          {onChequesClick && f.recibeCheque ? (
+                        <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "flex-nowrap justify-center gap-1")}>
+                          {onChequesClick ? (
                             <Button
                               type="button"
                               size="icon"
                               variant="ghost"
                               className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={!f.recibeCheque}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 onChequesClick(f);
                               }}
-                              aria-label="Cheques"
-                              title="Cheques"
+                              aria-label={
+                                f.recibeCheque
+                                  ? "Cheques"
+                                  : "Cheques (la caja no recibe cheque)"
+                              }
+                              title={
+                                f.recibeCheque
+                                  ? "Cheques"
+                                  : "La caja no recibe cheque"
+                              }
                             >
                               <ReceiptText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>

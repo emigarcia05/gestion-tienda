@@ -26,6 +26,7 @@ export type CobrosPorSucursalCajaOption = {
   titular: string;
   /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR`. Omite el tramo si el dato es null. */
   etiqueta: string;
+  recibeCheque: boolean;
 };
 
 export type CobrosPorSucursalCatalogoItem = {
@@ -35,6 +36,8 @@ export type CobrosPorSucursalCatalogoItem = {
 
 export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
   fechaAcreditacionVariable: boolean;
+  /** Solo admite cajas destino con `recibeCheque`. */
+  esCheque: boolean;
 };
 
 export type CobrosPorSucursalVinculoPagoEntidad = {
@@ -167,7 +170,8 @@ export async function listarSucursalesCobrosPorSucursal(): Promise<
 }
 
 async function validarCajaDestino(
-  cajaDestinoId: string
+  cajaDestinoId: string,
+  pagoEsCheque: boolean
 ): Promise<
   ServiceResult<{
     id: string;
@@ -184,12 +188,19 @@ async function validarCajaDestino(
       sucursalId: true,
       titular: true,
       tipoCaja: true,
+      recibeCheque: true,
       entidad: { select: { nombre: true } },
       sucursal: { select: { nombre: true } },
     },
   });
   if (!caja) {
     return { success: false, error: "Caja vinculada inválida." };
+  }
+  if (pagoEsCheque && !caja.recibeCheque) {
+    return {
+      success: false,
+      error: "La forma de pago es cheque: elegí una caja que reciba cheques.",
+    };
   }
   return {
     success: true,
@@ -214,6 +225,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           sucursalId: true,
           titular: true,
           tipoCaja: true,
+          recibeCheque: true,
           entidad: { select: { nombre: true } },
           sucursal: { select: { nombre: true } },
         },
@@ -242,7 +254,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       }),
       prisma.finAnaCosFinaPagoCat.findMany({
         orderBy: [{ nombre: "asc" }],
-        select: { id: true, nombre: true, fechaAcreditacionVariable: true },
+        select: { id: true, nombre: true, fechaAcreditacionVariable: true, esCheque: true },
       }),
       prisma.finAnaCosFinaTerminalMarca.findMany({
         orderBy: [{ nombre: "asc" }],
@@ -283,6 +295,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     sucursalNombre: textoEtiqueta(row.sucursal?.nombre) ?? "",
     titular: textoEtiqueta(row.titular) ?? "",
     etiqueta: etiquetaCajaLista(row),
+    recibeCheque: row.recibeCheque,
   }));
 
   return {
@@ -293,6 +306,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       id: p.id,
       nombre: p.nombre.toLocaleUpperCase("es-AR"),
       fechaAcreditacionVariable: p.fechaAcreditacionVariable,
+      esCheque: p.esCheque,
     })),
     entidades: entidadesRows.map((e) => ({
       id: e.id,
@@ -310,7 +324,7 @@ export async function crearCobroPorSucursal(
 
     const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
       where: { id: input.pagoId },
-      select: { id: true, nombre: true },
+      select: { id: true, nombre: true, esCheque: true },
     });
     if (!pago) {
       return { success: false, error: "Forma de pago inválida." };
@@ -337,9 +351,7 @@ export async function crearCobroPorSucursal(
       entidadNombre = vinculo.entidad.nombre.toLocaleUpperCase("es-AR");
     }
 
-    const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId
-    );
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, pago.esCheque);
     if (!cajaRes.success) return cajaRes;
 
     const sucursal = await prisma.sucursal.findUnique({
@@ -409,7 +421,7 @@ export async function actualizarCobroPorSucursal(
         entidadId: true,
         sucursalId: true,
         sucursal: { select: { nombre: true } },
-        pago: { select: { nombre: true } },
+        pago: { select: { nombre: true, esCheque: true } },
         entidad: { select: { nombre: true } },
       },
     });
@@ -417,9 +429,7 @@ export async function actualizarCobroPorSucursal(
       return { success: false, error: "Cobro no encontrado." };
     }
 
-    const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId
-    );
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, existente.pago.esCheque);
     if (!cajaRes.success) return cajaRes;
 
     await prisma.cobrosPorSucursal.update({

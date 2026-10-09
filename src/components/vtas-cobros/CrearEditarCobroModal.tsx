@@ -98,8 +98,9 @@ export default function CrearEditarCobroModal({
 
   const cajasDisponibles = useMemo(() => {
     if (!pagoId) return [];
-    return cajas;
-  }, [cajas, pagoId]);
+    const esCheque = pagos.some((p) => p.id === pagoId && p.esCheque);
+    return esCheque ? cajas.filter((c) => c.recibeCheque) : cajas;
+  }, [cajas, pagos, pagoId]);
 
   useEffect(() => {
     if (!open || !muestraEntidad) return;

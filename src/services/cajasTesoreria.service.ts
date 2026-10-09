@@ -335,6 +335,16 @@ export async function editarCajaTesoreria(
           error: "La caja tiene cheques en cartera: no se puede quitar RECIBE CHEQUE.",
         };
       }
+      const vinculoCheque = await prisma.cobrosPorSucursal.findFirst({
+        where: { cajaDestinoId: input.id, pago: { esCheque: true } },
+        select: { pago: { select: { nombre: true } } },
+      });
+      if (vinculoCheque) {
+        return {
+          success: false,
+          error: `La forma de pago ${vinculoCheque.pago.nombre.toLocaleUpperCase("es-AR")} (cheque) cobra en esta caja: no se puede quitar RECIBE CHEQUE.`,
+        };
+      }
     }
     if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
       return {

@@ -1863,6 +1863,11 @@ model FinAnaCosFinaPagoCat {
    * Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`).
    */
   fechaAcreditacionVariable Boolean  @default(false) @map("fecha_acreditacion_variable")
+  /**
+   * Si true, cada cobro con esta forma crea un cheque en `tesoreria_cheques` (pide fecha de
+   * acreditación). Su caja destino en `cobros_vinc_cajas` debe tener `recibe_cheque`.
+   */
+  esCheque                  Boolean  @default(false) @map("es_cheque")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 

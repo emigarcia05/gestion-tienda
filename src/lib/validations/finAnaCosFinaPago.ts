@@ -21,12 +21,14 @@ const entidadIdsFormaPagoSchema = z
 export const crearFinAnaCosFinaPagoSchema = z.object({
   nombre: nombreFinAnaCosFinaPagoSchema,
   entidadIds: entidadIdsFormaPagoSchema,
+  esCheque: z.boolean().default(false),
 });
 
 export const editarFinAnaCosFinaPagoSchema = z.object({
   id: prismaCuidOrUuidSchema,
   nombre: nombreFinAnaCosFinaPagoSchema,
   entidadIds: entidadIdsFormaPagoSchema,
+  esCheque: z.boolean().default(false),
 });
 
 export const eliminarFinAnaCosFinaPagoSchema = z.object({

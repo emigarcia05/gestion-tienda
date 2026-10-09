@@ -13,6 +13,7 @@ const pagoSelect = {
   enCostosFinancieros: true,
   enMargenContribucion: true,
   fechaAcreditacionVariable: true,
+  esCheque: true,
   entidades: {
     orderBy: { entidad: { nombre: "asc" as const } },
     select: {
@@ -28,6 +29,7 @@ type PagoRowConEntidades = {
   enCostosFinancieros: boolean;
   enMargenContribucion: boolean;
   fechaAcreditacionVariable: boolean;
+  esCheque: boolean;
   entidades: { entidadId: string; entidad: { nombre: string } }[];
 };
 
@@ -37,7 +39,8 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     nombre: row.nombre.toUpperCase(),
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
-    fechaAcreditacionVariable: row.fechaAcreditacionVariable,
+    fechaAcreditacionVariable: row.fechaAcreditacionVariable || row.esCheque,
+    esCheque: row.esCheque,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };
@@ -156,6 +159,7 @@ export async function crearFinAnaCosFinaPago(
           nombre,
           enCostosFinancieros: true,
           enMargenContribucion: true,
+          esCheque: input.esCheque,
           entidades:
             entidadIds.length === 0
               ? undefined
@@ -209,6 +213,18 @@ export async function editarFinAnaCosFinaPago(
         throw Object.assign(new Error("Forma de pago no encontrada."), { code: "P2025" });
       }
 
+      if (input.esCheque) {
+        const sinRecibe = await tx.cobrosPorSucursal.findFirst({
+          where: { pagoId: input.id, cajaDestino: { recibeCheque: false } },
+          select: { sucursal: { select: { nombre: true } } },
+        });
+        if (sinRecibe) {
+          throw new Error(
+            `La caja destino en ${sinRecibe.sucursal.nombre.toLocaleUpperCase("es-AR")} no recibe cheques. Configurala en Cobros por Sucursal o en Tesorería → Cajas.`
+          );
+        }
+      }
+
       if (entidadIds.length === 0) {
         await tx.cobrosFormaPagoEntidad.deleteMany({ where: { pagoId: input.id } });
       } else {
@@ -228,6 +244,7 @@ export async function editarFinAnaCosFinaPago(
         where: { id: input.id },
         data: {
           nombre,
+          esCheque: input.esCheque,
         },
         select: pagoSelect,
       });
