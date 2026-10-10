@@ -110,7 +110,6 @@ export default function ResumenAcreditacionCajaModal({ open, onOpenChange, caja 
                 <TableHeader>
                   <TableRow>
                     <TableHead>FECHA ACREDITACIÓN</TableHead>
-                    <TableHead>ORIGEN</TableHead>
                     <TableHead>DETALLE</TableHead>
                     <TableHead className="text-right">MONTO</TableHead>
                   </TableRow>
@@ -118,7 +117,7 @@ export default function ResumenAcreditacionCajaModal({ open, onOpenChange, caja 
                 <TableBody>
                   {datos.filas.length === 0 ? (
                     <EmptyTableRow
-                      colSpan={4}
+                      colSpan={3}
                       message={cargando ? "Cargando..." : "No hay montos a acreditar."}
                     />
                   ) : (
@@ -127,7 +126,6 @@ export default function ResumenAcreditacionCajaModal({ open, onOpenChange, caja 
                         <TableCell className="celda-datos">
                           {formatIsoYmdDdMmYyyyArgentina(fila.fechaAcreditacionIso)}
                         </TableCell>
-                        <TableCell className="celda-datos">{fila.origenEtiqueta}</TableCell>
                         <TableCell className="celda-datos">{fmtCelda(fila.detalle)}</TableCell>
                         <TableCell className="celda-datos text-right tabular-nums">
                           ${fmtPrecio(fila.montoAcreditado)}
@@ -139,7 +137,7 @@ export default function ResumenAcreditacionCajaModal({ open, onOpenChange, caja 
                 {datos.filas.length > 0 ? (
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={3} className="celda-datos font-bold">
+                      <TableCell colSpan={2} className="celda-datos font-bold">
                         TOTAL
                       </TableCell>
                       <TableCell className="celda-datos text-right font-bold tabular-nums">

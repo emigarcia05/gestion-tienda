@@ -22,6 +22,7 @@ export type TesoreriaChequeFila = {
   montoAcreditado: number;
   fechaRecepcionIso: string;
   fechaAcreditacionIso: string;
+  formaPagoNombre: string;
   clienteNombre: string;
   comprobanteEtiqueta: string;
 };
@@ -167,6 +168,11 @@ export async function listarChequesEnCarteraDeCaja(
       fechaAcreditacion: true,
       clienteNombre: true,
       comprobante: { select: { ptoVenta: true, cbteNro: true } },
+      movimientos: {
+        where: { catMovimiento: "COBRO", pagoId: { not: null } },
+        take: 1,
+        select: { pago: { select: { nombre: true } } },
+      },
     },
   });
   return rows.map((row) => ({
@@ -175,6 +181,7 @@ export async function listarChequesEnCarteraDeCaja(
     montoAcreditado: row.montoAcreditado,
     fechaRecepcionIso: isoYmdFromPrismaDateOnly(row.fechaRecepcion),
     fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
+    formaPagoNombre: row.movimientos[0]?.pago?.nombre.toLocaleUpperCase("es-AR") ?? "",
     clienteNombre: row.clienteNombre,
     comprobanteEtiqueta: etiquetaComprobante(row.comprobante),
   }));

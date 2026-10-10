@@ -50,7 +50,7 @@ interface Props {
 }
 
 const DATOS_VACIOS: DatosChequesCaja = { cheques: [], cajasDeposito: [], proveedores: [] };
-const COL_SPAN = 4;
+const COL_SPAN = 5;
 
 export default function ChequesCajaTesoreriaModal({
   open,
@@ -218,6 +218,7 @@ export default function ChequesCajaTesoreriaModal({
         <Table variant="compact">
           <TableHeader>
             <TableRow>
+              <TableHead>FORMA DE PAGO</TableHead>
               <TableHead>CLIENTE</TableHead>
               <TableHead>FECHA ACREDITACIÓN</TableHead>
               <TableHead className="text-right">MONTO</TableHead>
@@ -235,6 +236,9 @@ export default function ChequesCajaTesoreriaModal({
             ) : (
               datos.cheques.map((cheque) => (
                 <TableRow key={cheque.id}>
+                  <TableCell className="celda-datos">
+                    {fmtCelda(cheque.formaPagoNombre)}
+                  </TableCell>
                   <TableCell className="celda-datos" title={cheque.comprobanteEtiqueta || undefined}>
                     {fmtCelda(cheque.clienteNombre)}
                   </TableCell>
