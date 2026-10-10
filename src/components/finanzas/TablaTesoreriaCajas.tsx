@@ -17,6 +17,7 @@ import {
   ArrowLeftRight,
   Banknote,
   CalendarClock,
+  FileOutput,
   Pencil,
   ReceiptText,
   Trash2,
@@ -40,6 +41,7 @@ export interface TesoreriaCajaFila {
   tipoValor: string;
   recibeCheque: boolean;
   depositaCheque: boolean;
+  emiteCheque: boolean;
   /** Caché legacy en BD; no se muestra. */
   monto: number;
   /** Saldo acreditado (`fecha_acreditacion` ≤ hoy). */
@@ -61,6 +63,8 @@ interface Props {
   onDeleteClick?: (fila: TesoreriaCajaFila) => void;
   /** Abrir el modal CHEQUES. El ícono está en todas las filas; `disabled` si no RECIBE CHEQUE. */
   onChequesClick?: (fila: TesoreriaCajaFila) => void;
+  /** Modal ECHEQS EMITIDOS. El ícono está en todas las filas; `disabled` si no EMITE CHEQUE. */
+  onChequesEmitidosClick?: (fila: TesoreriaCajaFila) => void;
   /** Resumen de solo lectura del monto a acreditar (tarjetas / cheques). */
   onResumenAcreditacionClick?: (fila: TesoreriaCajaFila) => void;
 }
@@ -68,7 +72,7 @@ interface Props {
 /** Orden: TIPO CAJA, ENTIDAD, SUCURSAL, TITULAR, MONTO DISPONIBLE, MONTO A ACREDITAR [, ACCIONES]. */
 const COLS = 6;
 
-const COL_WIDTHS_PCT_CON_ACCIONES = [13, 13, 11, 13, 13, 13, 24] as const;
+const COL_WIDTHS_PCT_CON_ACCIONES = [12, 12, 10, 12, 12, 12, 30] as const;
 const COL_WIDTHS_PCT_SIN_ACCIONES = [16, 16, 14, 16, 19, 19] as const;
 
 const TH_NUM = "text-right whitespace-nowrap";
@@ -164,12 +168,16 @@ export default function TablaTesoreriaCajas({
   onEditDataClick,
   onDeleteClick,
   onChequesClick,
+  onChequesEmitidosClick,
   onResumenAcreditacionClick,
 }: Props) {
   const { efectivoTipoValor, digitalTipoValor, chequeTipoValor } =
     totalesPieResumenTesoreria(filas);
   const mostrarAcciones =
-    esEditor || onChequesClick != null || onResumenAcreditacionClick != null;
+    esEditor ||
+    onChequesClick != null ||
+    onChequesEmitidosClick != null ||
+    onResumenAcreditacionClick != null;
   const colCount = mostrarAcciones ? COLS + 1 : COLS;
   const anchosColPct = mostrarAcciones ? COL_WIDTHS_PCT_CON_ACCIONES : COL_WIDTHS_PCT_SIN_ACCIONES;
 
@@ -315,6 +323,31 @@ export default function TablaTesoreriaCajas({
                               }
                             >
                               <ReceiptText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          ) : null}
+                          {onChequesEmitidosClick ? (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              disabled={!f.emiteCheque}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onChequesEmitidosClick(f);
+                              }}
+                              aria-label={
+                                f.emiteCheque
+                                  ? "eCheqs emitidos"
+                                  : "eCheqs emitidos (la caja no emite cheque)"
+                              }
+                              title={
+                                f.emiteCheque
+                                  ? "eCheqs emitidos"
+                                  : "La caja no emite cheque"
+                              }
+                            >
+                              <FileOutput className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                             </Button>
                           ) : null}
                           {onEditDataClick ? (

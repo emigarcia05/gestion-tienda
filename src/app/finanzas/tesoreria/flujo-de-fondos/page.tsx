@@ -20,6 +20,10 @@ import {
 } from "@/services/finBalGastoMensualBalance.service";
 import { listarCajasTesoreria } from "@/services/cajasTesoreria.service";
 import { listarIngresosCajaPorFechaAcreditacion } from "@/services/tesoreriaMovimientos.service";
+import {
+  FLUJO_FONDO_DETALLE_ECHEQ,
+  listarChequesEmitidosPendientesEnRango,
+} from "@/services/tesoreriaChequesEmitidos.service";
 import type { FilaFlujoDeFondoVista } from "@/components/finanzas/TablaFlujoDeFondo";
 import { calcularFilasFlujoDeFondo } from "@/lib/flujoDeFondoFilas";
 import { PAGE_SIZE, skipForPagina, totalPaginasFromTotal } from "@/lib/pagination";
@@ -64,6 +68,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     saldoGastosAntes,
     cajasTesoreria,
     ingresosPorDia,
+    echeqsPendientes,
   ] = await Promise.all([
     listarVencimientosEnRango(hoyIso, hastaIso),
     listarVencimientosGastoFlujoEnRango(hoyIso, hastaIso),
@@ -71,6 +76,8 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     sumarPendienteGastosConFechaVencAnteriorA(hoyIso),
     listarCajasTesoreria(),
     listarIngresosCajaPorFechaAcreditacion(hoyIso, hastaIso),
+    /** Desde mañana: el EGRESO de un eCheq con pago hoy ya descuenta de `montoDisponible`. */
+    listarChequesEmitidosPendientesEnRango(addDaysToIsoYmdArgentina(hoyIso, 1), hastaIso),
   ]);
   const saldoVencidoAntesDeHoy = saldoComprasAntes + saldoGastosAntes;
 
@@ -116,6 +123,22 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
     });
   }
 
+  for (const e of echeqsPendientes) {
+    const key = e.fechaPagoIso;
+    totalPorDia[key] = (totalPorDia[key] ?? 0) + e.monto;
+    if (!acumDetalle[key]) acumDetalle[key] = [];
+    acumDetalle[key].push({
+      fechaDevengadaIso: e.fechaEmisionIso,
+      fechaVencimientoIso: key,
+      proveedor: e.proveedorNombre,
+      proveedorPrefijo: e.proveedorPrefijo,
+      detalle: e.numero ? `${FLUJO_FONDO_DETALLE_ECHEQ} N° ${e.numero}` : FLUJO_FONDO_DETALLE_ECHEQ,
+      monto: e.monto,
+      sortFecha: e.fechaEmisionIso,
+      sortId: e.id,
+    });
+  }
+
   const detallesPorDia: Record<string, FlujoFondoDetalleDiaFila[]> = Object.fromEntries(
     Object.entries(acumDetalle).map(([isoYmd, filas]) => [isoYmd, ordenarDetallesFlujoDia(filas)])
   );
@@ -157,6 +180,7 @@ export default async function VencPorFechaPage({ searchParams }: Props) {
   const nombresProveedores = new Set<string>();
   for (const l of lineasCompra) nombresProveedores.add(l.nombre.trim().toUpperCase());
   for (const g of lineasGasto) nombresProveedores.add(g.proveedor);
+  for (const e of echeqsPendientes) nombresProveedores.add(e.proveedorNombre);
   const proveedoresConVencimientos = [...nombresProveedores].sort((a, b) =>
     a.localeCompare(b, "es")
   );

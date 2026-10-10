@@ -21,6 +21,7 @@ export default async function ControlComprobantesPage() {
   const filas = raw.map((fila) => ({
     id: fila.id,
     fechaComp: fila.fechaComp,
+    idProveedor: fila.idProveedor,
     proveedorNombre: fila.proveedorNombre,
     proveedorPrefijo: fila.proveedorPrefijo,
     sucursalNombre: fila.sucursalNombre,

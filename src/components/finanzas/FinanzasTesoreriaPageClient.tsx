@@ -12,6 +12,7 @@ import TransferenciaCajaTesoreriaModal from "@/components/finanzas/Transferencia
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
 import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
+import ChequesEmitidosCajaTesoreriaModal from "@/components/finanzas/ChequesEmitidosCajaTesoreriaModal";
 import ResumenAcreditacionCajaModal from "@/components/finanzas/ResumenAcreditacionCajaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
@@ -54,6 +55,7 @@ export default function FinanzasTesoreriaPageClient({
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
   const [cajaCheques, setCajaCheques] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaChequesEmitidos, setCajaChequesEmitidos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaResumenAcreditacion, setCajaResumenAcreditacion] =
     useState<TesoreriaCajaFila | null>(null);
   const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
@@ -263,7 +265,17 @@ export default function FinanzasTesoreriaPageClient({
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
           onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
           onChequesClick={(fila) => setCajaCheques(fila)}
+          onChequesEmitidosClick={(fila) => setCajaChequesEmitidos(fila)}
           onResumenAcreditacionClick={(fila) => setCajaResumenAcreditacion(fila)}
+        />
+        <ChequesEmitidosCajaTesoreriaModal
+          open={cajaChequesEmitidos != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaChequesEmitidos(null);
+          }}
+          caja={cajaChequesEmitidos}
+          esEditor={esEditor}
+          onChanged={refreshCatalogos}
         />
         <ResumenAcreditacionCajaModal
           open={cajaResumenAcreditacion != null}

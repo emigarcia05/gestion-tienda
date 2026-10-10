@@ -56,6 +56,7 @@ export default function EditarCajaTesoreriaModal({
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
   const [recibeCheque, setRecibeCheque] = useState(false);
   const [depositaCheque, setDepositaCheque] = useState(false);
+  const [emiteCheque, setEmiteCheque] = useState(false);
   const [saving, setSaving] = useState(false);
   const [openEliminar, setOpenEliminar] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open, caja?.titular);
@@ -115,6 +116,7 @@ export default function EditarCajaTesoreriaModal({
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
     setRecibeCheque(caja.recibeCheque);
     setDepositaCheque(caja.depositaCheque);
+    setEmiteCheque(caja.emiteCheque);
   }, [open, caja]);
 
   function resetForm() {
@@ -125,6 +127,7 @@ export default function EditarCajaTesoreriaModal({
     setTipoValor("EFECTIVO");
     setRecibeCheque(false);
     setDepositaCheque(false);
+    setEmiteCheque(false);
     setOpenEliminar(false);
   }
 
@@ -137,9 +140,10 @@ export default function EditarCajaTesoreriaModal({
       tipoCaja !== caja.tipoCaja ||
       tipoValor !== caja.tipoValor ||
       recibeCheque !== caja.recibeCheque ||
-      depositaCheque !== caja.depositaCheque
+      depositaCheque !== caja.depositaCheque ||
+      emiteCheque !== caja.emiteCheque
     );
-  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, recibeCheque, depositaCheque]);
+  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, recibeCheque, depositaCheque, emiteCheque]);
 
   const disabledSubmit = useMemo(
     () =>
@@ -164,6 +168,7 @@ export default function EditarCajaTesoreriaModal({
         monto: caja.monto,
         recibeCheque,
         depositaCheque,
+        emiteCheque,
       });
 
       if (!res.ok) {
@@ -342,6 +347,12 @@ export default function EditarCajaTesoreriaModal({
               label="DEPOSITA CHEQUE"
               value={depositaCheque}
               onChange={setDepositaCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="EMITE CHEQUE"
+              value={emiteCheque}
+              onChange={setEmiteCheque}
               disabled={saving}
             />
           </div>

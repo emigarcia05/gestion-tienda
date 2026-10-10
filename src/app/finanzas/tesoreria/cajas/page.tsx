@@ -26,6 +26,7 @@ export default async function FinanzasTesoreriaPage() {
     tipoValor: c.tipoValor,
     recibeCheque: c.recibeCheque,
     depositaCheque: c.depositaCheque,
+    emiteCheque: c.emiteCheque,
     monto: c.monto,
     montoDisponible: c.montoDisponible,
     montoAAcreditar: c.montoAAcreditar,

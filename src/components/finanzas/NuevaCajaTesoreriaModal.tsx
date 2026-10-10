@@ -45,6 +45,7 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
   const [recibeCheque, setRecibeCheque] = useState(false);
   const [depositaCheque, setDepositaCheque] = useState(false);
+  const [emiteCheque, setEmiteCheque] = useState(false);
   const [saving, setSaving] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open);
   const muestraTipoValor = cajaTesoreriaUsaSucursal(tipoCaja);
@@ -89,6 +90,7 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
     setTipoValor(tipoValorDesdeTipoCaja("EFECTIVO"));
     setRecibeCheque(false);
     setDepositaCheque(false);
+    setEmiteCheque(false);
   }
 
   function handleTipoCajaChange(value: string) {
@@ -110,6 +112,7 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
         tipoValor,
         recibeCheque,
         depositaCheque,
+        emiteCheque,
       });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo crear la caja.");
@@ -271,6 +274,12 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
             label="DEPOSITA CHEQUE"
             value={depositaCheque}
             onChange={setDepositaCheque}
+            disabled={saving}
+          />
+          <ModalSiNoChoice
+            label="EMITE CHEQUE"
+            value={emiteCheque}
+            onChange={setEmiteCheque}
             disabled={saving}
           />
         </div>

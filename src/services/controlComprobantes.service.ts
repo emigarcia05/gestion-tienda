@@ -6,22 +6,28 @@ import {
   resolverPlazosEfectivos,
   type PlanPlazosPago,
 } from "@/lib/comprobanteCuotasPlazoPago";
+import { etiquetaCajaTesoreria } from "@/lib/cajasTesoreriaTipos";
 import {
-  esCobroNotaCreditoNombre,
   imputarPagoFifoVentas,
   type FacturaVentaPendientePago,
 } from "@/lib/factura";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
+  prismaDateOnlyFromIsoYmd,
 } from "@/lib/fechaArgentina";
-import { prepararMovimientosCobroDesdeSnapshots } from "@/services/tesoreriaMovimientos.service";
+import {
+  saldosPorCajaDesdeMovimientos,
+  sucursalIdMovimientoOperador,
+} from "@/services/tesoreriaMovimientos.service";
 import type { RegistrarPagoCuentaCorrienteProveedoresInput } from "@/lib/validations/controlComprobantes";
 import type { ServiceResult } from "@/types/service.types";
 
 export interface ControlComprobanteFila {
   id: string;
   fechaComp: string;
+  /** `proveedores.id_proveedor_dux` (clave del filtro PROVEEDOR y del pago CC). */
+  idProveedor: string;
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
@@ -49,6 +55,7 @@ export interface ControlComprobanteFila {
 type ControlComprobanteRaw = {
   id: string;
   fechaComp: string;
+  idProveedor: string;
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
@@ -85,6 +92,7 @@ export async function listarControlComprobantes(): Promise<ControlComprobanteFil
     SELECT
       c.id AS id,
       c.fecha_comp::text AS "fechaComp",
+      c.id_proveedor AS "idProveedor",
       p.nombre AS "proveedorNombre",
       COALESCE(p.prefijo, '') AS "proveedorPrefijo",
       COALESCE(s.nombre, c.id_sucursal_empresa) AS "sucursalNombre",
@@ -140,6 +148,7 @@ export async function listarControlComprobantes(): Promise<ControlComprobanteFil
     return {
       id: r.id,
       fechaComp: r.fechaComp,
+      idProveedor: r.idProveedor,
       proveedorNombre: r.proveedorNombre,
       proveedorPrefijo: r.proveedorPrefijo,
       sucursalNombre: r.sucursalNombre,
@@ -213,11 +222,14 @@ function roundArs2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-export async function listarComprobantesCompraPendientesPago(): Promise<
-  FacturaVentaPendientePago[]
-> {
-  const rows = await prisma.comprobanteProveedor.findMany({
+/** Comprobantes de compra con saldo de un proveedor (FIFO por fecha). */
+export async function listarComprobantesCompraPendientesPago(
+  idProveedorDux: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<FacturaVentaPendientePago[]> {
+  const rows = await db.comprobanteProveedor.findMany({
     where: {
+      idProveedor: idProveedorDux,
       tipoComp: { not: "NOTA_CREDITO" },
     },
     select: {
@@ -239,97 +251,160 @@ export async function listarComprobantesCompraPendientesPago(): Promise<
     .filter((r) => r.saldoPendiente > 0);
 }
 
+/** Saldo total pendiente; error si `montoPesos` lo supera o no hay saldo. */
+export function validarMontoContraSaldoProveedor(
+  pendientes: readonly FacturaVentaPendientePago[],
+  montoPesos: number
+): ServiceResult<void> {
+  const saldo = roundArs2(pendientes.reduce((acc, p) => acc + p.saldoPendiente, 0));
+  if (saldo <= 0) {
+    return { success: false, error: "El proveedor no tiene comprobantes con saldo." };
+  }
+  if (montoPesos > saldo) {
+    return {
+      success: false,
+      error: `El monto supera el saldo pendiente del proveedor ($${saldo.toLocaleString("es-AR", { minimumFractionDigits: 2 })}).`,
+    };
+  }
+  return { success: true, data: undefined };
+}
+
 /**
- * Pago CC de proveedores: imputa FIFO `monto_aplicado` y registra un egreso
- * `PAGO_PROVEEDOR` en la caja de `cobros_vinc_cajas` (la caja baja).
+ * Suma `asignado` a `monto_aplicado` de cada comprobante dentro de la transacción.
+ * Lanza `saldo-cambio` si el saldo ya no alcanza (concurrencia).
+ */
+export async function aplicarImputacionesCompra(
+  tx: Prisma.TransactionClient,
+  imputaciones: ReadonlyArray<{ id: string; asignado: number }>
+): Promise<void> {
+  for (const fila of imputaciones) {
+    const row = await tx.comprobanteProveedor.findUnique({
+      where: { id: fila.id },
+      select: { tipoComp: true, total: true, montoAplicado: true },
+    });
+    if (!row || row.tipoComp === "NOTA_CREDITO") {
+      throw new Error("comprobante-ausente");
+    }
+    const saldo = roundArs2(Number(row.total) - Number(row.montoAplicado));
+    const montoFila = roundArs2(fila.asignado);
+    if (montoFila > saldo) {
+      throw new Error("saldo-cambio");
+    }
+    await tx.comprobanteProveedor.update({
+      where: { id: fila.id },
+      data: {
+        montoAplicado: new Prisma.Decimal(
+          roundArs2(Number(row.montoAplicado) + montoFila).toFixed(2)
+        ),
+      },
+    });
+  }
+}
+
+export type CajaPagoProveedorOpcion = {
+  id: string;
+  etiqueta: string;
+  montoDisponible: number;
+};
+
+const CAJA_PAGO_PROVEEDOR_SELECT = {
+  id: true,
+  sucursalId: true,
+  titular: true,
+  tipoCaja: true,
+  tipoValor: true,
+  entidad: { select: { nombre: true } },
+  sucursal: { select: { nombre: true } },
+} as const;
+
+/**
+ * Cajas de tesorería desde las que se puede pagar a proveedores: saldo disponible > 0
+ * y `tipo_valor` ≠ CHEQUE (los cheques en cartera se entregan desde Cajas → CHEQUES).
+ */
+export async function listarCajasPagoProveedor(): Promise<CajaPagoProveedorOpcion[]> {
+  const [cajas, saldos] = await Promise.all([
+    prisma.cajaTesoreria.findMany({
+      where: { tipoValor: { not: "CHEQUE" } },
+      select: CAJA_PAGO_PROVEEDOR_SELECT,
+    }),
+    saldosPorCajaDesdeMovimientos(),
+  ]);
+  return cajas
+    .map((caja) => ({
+      id: caja.id,
+      etiqueta: etiquetaCajaTesoreria(caja),
+      montoDisponible: saldos.get(caja.id) ?? 0,
+    }))
+    .filter((caja) => caja.montoDisponible > 0)
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
+}
+
+/**
+ * Pago CC de un proveedor desde una caja de tesorería: imputa FIFO `monto_aplicado` a sus
+ * comprobantes y registra un EGRESO `PAGO_PROVEEDOR` hoy en esa caja (no puede superar su disponible).
  */
 export async function registrarPagoCuentaCorrienteProveedores(
   input: RegistrarPagoCuentaCorrienteProveedoresInput
 ): Promise<ServiceResult<void>> {
   try {
-    if (esCobroNotaCreditoNombre(input.pagoNombre)) {
-      return {
-        success: false,
-        error: "El pago a proveedores no se registra como nota de crédito.",
-      };
-    }
-    const pendientes = await listarComprobantesCompraPendientesPago();
     const montoPesos = roundArs2(input.montoCents / 100);
-    if (montoPesos <= 0) {
+    const montoLedger = Math.round(montoPesos);
+    if (montoLedger <= 0) {
       return { success: false, error: "Ingresá un monto a pagar." };
     }
-    const imputaciones = imputarPagoFifoVentas(pendientes, montoPesos).filter(
-      (fila) => fila.asignado > 0
-    );
-    const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
-      cobros: [
-        {
-          pagoNombre: input.pagoNombre,
-          entidadNombre: input.entidadNombre,
-          cuotaEtiqueta: input.cuotaEtiqueta,
-          montoCents: input.montoCents,
-        },
-      ],
-      sucursalCodigo: input.sucursalCodigo,
-      fechaIso: dateToIsoYmdArgentina(new Date()),
-      personalId: input.personalId,
-      observacion: "Pago cuenta corriente proveedores",
-    });
-    if (!movsPrep.success) return movsPrep;
-    const base = movsPrep.data[0];
-    if (!base) {
-      return { success: false, error: "No se pudo resolver el pago en tesorería." };
-    }
-    if (base.chequeFechaAcreditacion) {
+    const [proveedor, caja] = await Promise.all([
+      prisma.proveedor.findUnique({
+        where: { idProveedorDux: input.idProveedorDux },
+        select: { nombre: true },
+      }),
+      prisma.cajaTesoreria.findUnique({
+        where: { id: input.cajaId },
+        select: CAJA_PAGO_PROVEEDOR_SELECT,
+      }),
+    ]);
+    if (!proveedor) return { success: false, error: "Proveedor inválido." };
+    if (!caja) return { success: false, error: "Caja inválida." };
+    if (caja.tipoValor === "CHEQUE") {
       return {
         success: false,
-        error: "Para pagar con cheques usá TESORERIA → Cajas → CHEQUES (Pagar A Proveedor).",
+        error:
+          "Para pagar con cheques en cartera usá TESORERIA → Cajas → CHEQUES (Pagar A Proveedor); para un cheque propio elegí eCheq.",
+      };
+    }
+    const saldoCaja = (await saldosPorCajaDesdeMovimientos([caja.id])).get(caja.id) ?? 0;
+    if (montoLedger > saldoCaja) {
+      return {
+        success: false,
+        error: `El monto supera el disponible de la caja ($${saldoCaja.toLocaleString("es-AR")}).`,
       };
     }
 
+    const pendientes = await listarComprobantesCompraPendientesPago(input.idProveedorDux);
+    const saldoOk = validarMontoContraSaldoProveedor(pendientes, montoPesos);
+    if (!saldoOk.success) return saldoOk;
+    const imputaciones = imputarPagoFifoVentas(pendientes, montoPesos).filter(
+      (fila) => fila.asignado > 0
+    );
+
+    const sucursal = await sucursalIdMovimientoOperador(input.personalId, caja.sucursalId);
+    if (!sucursal.success) return sucursal;
+    const hoy = prismaDateOnlyFromIsoYmd(dateToIsoYmdArgentina(new Date()));
+    if (!hoy) return { success: false, error: "Fecha inválida." };
+
     await prisma.$transaction(async (tx) => {
-      for (const fila of imputaciones) {
-        const row = await tx.comprobanteProveedor.findUnique({
-          where: { id: fila.id },
-          select: {
-            tipoComp: true,
-            total: true,
-            montoAplicado: true,
-          },
-        });
-        if (!row || row.tipoComp === "NOTA_CREDITO") {
-          throw new Error("comprobante-ausente");
-        }
-        const saldo = roundArs2(Number(row.total) - Number(row.montoAplicado));
-        const montoFila = roundArs2(fila.asignado);
-        if (montoFila > saldo) {
-          throw new Error("saldo-cambio");
-        }
-        await tx.comprobanteProveedor.update({
-          where: { id: fila.id },
-          data: {
-            montoAplicado: new Prisma.Decimal(roundArs2(Number(row.montoAplicado) + montoFila).toFixed(2)),
-          },
-        });
-      }
+      await aplicarImputacionesCompra(tx, imputaciones);
       await tx.tesoreriaMovimiento.create({
         data: {
-          cajaId: base.cajaId,
+          cajaId: caja.id,
           tipoMovimiento: "EGRESO",
           catMovimiento: "PAGO_PROVEEDOR",
-          monto: base.monto,
-          montoAcreditado: base.monto,
-          costoFinanciero: null,
-          fechaRegistro: base.fechaRegistro,
-          fechaAcreditacion: base.fechaAcreditacion,
-          observacion: base.observacion,
-          pagoId: null,
-          entidadId: null,
-          cuotaId: null,
-          cxFinId: null,
-          sucursalId: base.sucursalId,
-          personalId: base.personalId,
-          comprobanteId: null,
+          monto: montoLedger,
+          montoAcreditado: montoLedger,
+          fechaRegistro: hoy,
+          fechaAcreditacion: hoy,
+          observacion: `Pago cuenta corriente a ${proveedor.nombre.toLocaleUpperCase("es-AR")}`,
+          sucursalId: sucursal.data,
+          personalId: input.personalId,
         },
       });
     });
@@ -345,3 +420,4 @@ export async function registrarPagoCuentaCorrienteProveedores(
     return { success: false, error: "No se pudo registrar el pago." };
   }
 }
+

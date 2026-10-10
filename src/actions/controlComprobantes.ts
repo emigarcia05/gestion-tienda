@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { APP_ROUTES } from "@/lib/appRoutes";
 import { esEditor, getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
@@ -9,29 +10,26 @@ import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import {
   actualizarPlazoPagoComprobanteSchema,
   actualizarPlazosPagosMercaderiaSchema,
-  listarCatalogoPagoProveedorSchema,
+  comprobantesPendientesProveedorSchema,
   registrarPagoCuentaCorrienteProveedoresSchema,
   toggleControladoSchema,
 } from "@/lib/validations/controlComprobantes";
 import {
   actualizarControladoComprobante,
   actualizarPlazoPagoComprobante,
+  listarCajasPagoProveedor,
   listarComprobantesCompraPendientesPago,
   registrarPagoCuentaCorrienteProveedores,
+  type CajaPagoProveedorOpcion,
 } from "@/services/controlComprobantes.service";
-import { listarCobrosCuotas } from "@/services/cobrosCuotas.service";
-import { listarPagosCobroHabilitadosSucursal } from "@/services/cobrosPorSucursal.service";
-import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
-import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FacturaVentaPendientePago } from "@/lib/factura";
 import { actualizarPlazosPagosProveedoresMercaderia } from "@/services/proveedor.service";
 
 function revalidateComprobantesFinanzas() {
-  revalidatePath("/finanzas");
-  revalidatePath("/finanzas/operaciones/comp-compras");
-  revalidatePath("/finanzas/tesoreria/flujo-de-fondos");
-  revalidatePath("/finanzas/tesoreria/cajas");
-  revalidatePath("/finanzas/tesoreria/movimientos");
+  revalidatePath(APP_ROUTES.finanzas.operaciones.compCompras);
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.flujoDeFondos);
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.cajas);
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.movimientos);
 }
 
 export async function actualizarControladoComprobanteAction(
@@ -129,32 +127,30 @@ export async function actualizarPlazosPagosMercaderiaAction(
   return { ok: true, data: undefined };
 }
 
-export async function listarCatalogoPagoProveedorAction(
-  raw: unknown
-): Promise<ActionResult<{ pagos: FinAnaCosFinaPagoItem[]; cuotas: CobrosCuotaItem[] }>> {
-  const gate = await requireFinanzasLectura();
-  if (gate) return gate;
-  const parsed = listarCatalogoPagoProveedorSchema.safeParse(raw);
-  if (!parsed.success) return zodFail(parsed.error);
-  try {
-    const [pagos, cuotas] = await Promise.all([
-      listarPagosCobroHabilitadosSucursal(parsed.data.sucursalCodigo),
-      listarCobrosCuotas(),
-    ]);
-    return { ok: true, data: { pagos, cuotas } };
-  } catch (e) {
-    console.error("[listarCatalogoPagoProveedorAction]", e);
-    return { ok: false, error: "No se pudieron cargar las formas de pago." };
-  }
-}
-
-export async function listarComprobantesCompraPendientesPagoAction(): Promise<
-  ActionResult<{ comprobantes: FacturaVentaPendientePago[] }>
+export async function listarCajasPagoProveedorAction(): Promise<
+  ActionResult<CajaPagoProveedorOpcion[]>
 > {
   const gate = await requireFinanzasLectura();
   if (gate) return gate;
   try {
-    const comprobantes = await listarComprobantesCompraPendientesPago();
+    return { ok: true, data: await listarCajasPagoProveedor() };
+  } catch (e) {
+    console.error("[listarCajasPagoProveedorAction]", e);
+    return { ok: false, error: "No se pudieron cargar las cajas de tesorería." };
+  }
+}
+
+export async function listarComprobantesCompraPendientesPagoAction(
+  raw: unknown
+): Promise<ActionResult<{ comprobantes: FacturaVentaPendientePago[] }>> {
+  const gate = await requireFinanzasLectura();
+  if (gate) return gate;
+  const parsed = comprobantesPendientesProveedorSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  try {
+    const comprobantes = await listarComprobantesCompraPendientesPago(
+      parsed.data.idProveedorDux
+    );
     return { ok: true, data: { comprobantes } };
   } catch (e) {
     console.error("[listarComprobantesCompraPendientesPagoAction]", e);

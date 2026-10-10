@@ -11,6 +11,7 @@ import {
 } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
+import { contarChequesEmitidosPendientesCaja } from "@/services/tesoreriaChequesEmitidos.service";
 import {
   saldosPendientesAcreditacionPorCaja,
   saldosPorCajaDesdeMovimientos,
@@ -42,6 +43,8 @@ export interface CajaTesoreriaItem {
   recibeCheque: boolean;
   /** Destino posible al depositar un cheque. */
   depositaCheque: boolean;
+  /** Origen posible de eCheq propios (pago a proveedores). */
+  emiteCheque: boolean;
   /** Caché legacy en `tesoreria_cajas.monto`. La UI usa `montoDisponible`. */
   monto: number;
   /**
@@ -68,6 +71,7 @@ export interface CrearCajaTesoreriaInput {
   monto: number;
   recibeCheque: boolean;
   depositaCheque: boolean;
+  emiteCheque: boolean;
 }
 
 export interface EditarCajaTesoreriaInput {
@@ -80,6 +84,7 @@ export interface EditarCajaTesoreriaInput {
   monto: number;
   recibeCheque: boolean;
   depositaCheque: boolean;
+  emiteCheque: boolean;
 }
 
 export interface SucursalTesoreriaOption {
@@ -106,6 +111,7 @@ function mapCaja(
     supervisionFiscal: row.supervisionFiscal,
     recibeCheque: row.recibeCheque,
     depositaCheque: row.depositaCheque,
+    emiteCheque: row.emiteCheque,
     monto: montoDisponible,
     montoDisponible,
     montoAAcreditar,
@@ -315,6 +321,7 @@ export async function crearCajaTesoreria(
         monto: input.monto,
         recibeCheque: input.recibeCheque,
         depositaCheque: input.depositaCheque,
+        emiteCheque: input.emiteCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
@@ -362,6 +369,14 @@ export async function editarCajaTesoreria(
         };
       }
     }
+    if (!input.emiteCheque) {
+      if ((await contarChequesEmitidosPendientesCaja(input.id)) > 0) {
+        return {
+          success: false,
+          error: "La caja tiene eCheqs emitidos sin debitar: no se puede quitar EMITE CHEQUE.",
+        };
+      }
+    }
     if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
       return {
         success: false,
@@ -388,6 +403,7 @@ export async function editarCajaTesoreria(
         monto: input.monto,
         recibeCheque: input.recibeCheque,
         depositaCheque: input.depositaCheque,
+        emiteCheque: input.emiteCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });

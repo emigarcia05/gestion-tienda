@@ -31,6 +31,21 @@ enum EstadoChequeTesoreria {
 }
 
 /**
+ * Tipo de cheque propio emitido (`tesoreria_cheques_emitidos`). Por ahora solo eCheq.
+ */
+enum TipoChequeEmitido {
+  ECHEQ
+}
+
+/**
+ * EMITIDO: vigente (se debita en `fecha_pago`). ANULADO: revertido (sin movimiento ni imputación).
+ */
+enum EstadoChequeEmitido {
+  EMITIDO
+  ANULADO
+}
+
+/**
  * Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo.
  */
 enum SentidoMovimientoTesoreria {
@@ -191,6 +206,7 @@ model Proveedor {
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
   chequesRecibidos              TesoreriaCheque[]
+  chequesEmitidos               TesoreriaChequeEmitido[]
 
   @@index([proveedorMercaderia], map: "proveedores_proveedor_mercaderia_idx")
   @@index([esFabrica], map: "proveedores_es_fabrica_idx")
@@ -354,6 +370,7 @@ model ComprobanteProveedor {
   pedidoHistoria  PedidoHistoria?        @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
   comprobanteAsoc ComprobanteProveedor?  @relation("ComprobanteProveedorNotaCredito", fields: [comprobanteAsocId], references: [id], onDelete: Restrict)
   notasCredito    ComprobanteProveedor[] @relation("ComprobanteProveedorNotaCredito")
+  imputacionesChequesEmitidos TesoreriaChequeEmitidoImputacion[]
 
   @@unique([idSucursalEmpresa, tipoComp, comprobante, fechaComp, idProveedor], map: "fin_compras_comprobante_natural_ux")
   @@index([fechaComp])
@@ -544,6 +561,7 @@ model GlobalPersonal {
   stockTransferenciasCreadas   StockTransferencia[]  @relation("StockTransferenciaCreadaPor")
   stockTransferenciasResueltas StockTransferencia[]  @relation("StockTransferenciaResueltaPor")
   notificacionesLeidas         Notificacion[]
+  chequesEmitidos              TesoreriaChequeEmitido[]
 
   @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
   @@map("usuarios")
@@ -613,6 +631,10 @@ model CajaTesoreria {
    * Se puede elegir como destino al depositar un cheque (pasa a ser valor monetario).
    */
   depositaCheque    Boolean                     @default(false) @map("deposita_cheque")
+  /**
+   * Cuenta desde la que se emiten cheques propios (eCheq) para pagar a proveedores.
+   */
+  emiteCheque       Boolean                     @default(false) @map("emite_cheque")
   monto             Int                         @default(0)
   ultActualizacion  DateTime                    @default(now()) @map("ult_actualizacion")
   createdAt         DateTime                    @default(now()) @map("created_at")
@@ -623,6 +645,7 @@ model CajaTesoreria {
   movimientosComoContraparte TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
   cheques                    TesoreriaCheque[]     @relation("ChequeCaja")
   chequesDepositados         TesoreriaCheque[]     @relation("ChequeCajaDestino")
+  chequesEmitidos            TesoreriaChequeEmitido[]
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
@@ -737,6 +760,11 @@ model TesoreriaMovimiento {
    */
   chequeId             String?                      @map("cheque_id")
   cheque               TesoreriaCheque?             @relation(fields: [chequeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * Cheque propio emitido: egreso PAGO_PROVEEDOR con `fecha_acreditacion` = fecha de pago.
+   */
+  chequeEmitidoId      String?                      @map("cheque_emitido_id")
+  chequeEmitido        TesoreriaChequeEmitido?      @relation(fields: [chequeEmitidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
@@ -757,7 +785,62 @@ model TesoreriaMovimiento {
   @@index([clienteCobroId], map: "tesoreria_movimientos_cliente_cobro_idx")
   @@index([notaCreditoId], map: "tesoreria_movimientos_nota_credito_idx")
   @@index([chequeId], map: "tesoreria_movimientos_cheque_idx")
+  @@index([chequeEmitidoId], map: "tesoreria_movimientos_cheque_emitido_idx")
   @@map("tesoreria_movimientos")
+}
+
+/**
+ * Cheques propios emitidos a proveedores (Comp. Compras → Pago Cuenta Corriente).
+ * Al emitir: imputa FIFO a los comprobantes del proveedor y crea un EGRESO PAGO_PROVEEDOR
+ * en la caja con `fecha_acreditacion = fecha_pago` (la caja baja ese día).
+ * Flujo de Fondos lo muestra en VENCIMIENTOS en `fecha_pago` mientras esté EMITIDO.
+ */
+model TesoreriaChequeEmitido {
+  id             String              @id @default(cuid())
+  /** Caja con `emite_cheque` (cuenta bancaria). */
+  cajaId         String              @map("caja_id")
+  caja           CajaTesoreria       @relation(fields: [cajaId], references: [id], onDelete: Restrict)
+  proveedorId    String              @map("proveedor_id")
+  proveedor      Proveedor           @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  tipo           TipoChequeEmitido   @default(ECHEQ)
+  /** Número del eCheq (opcional, para conciliar con el banco). */
+  numero         String              @default("")
+  monto          Decimal             @db.Decimal(14, 2)
+  fechaEmision   DateTime            @map("fecha_emision") @db.Date
+  /** Día en que se debita de la caja (CHECK ≥ `fecha_emision`). */
+  fechaPago      DateTime            @map("fecha_pago") @db.Date
+  estado         EstadoChequeEmitido @default(EMITIDO)
+  fechaAnulacion DateTime?           @map("fecha_anulacion") @db.Date
+  observacion    String              @default("") @db.Text
+  personalId     Int?                @map("personal_id")
+  personal       GlobalPersonal?     @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  imputaciones TesoreriaChequeEmitidoImputacion[]
+  movimientos  TesoreriaMovimiento[]
+
+  @@index([estado, fechaPago], map: "tesoreria_cheques_emitidos_estado_fecha_pago_idx")
+  @@index([cajaId], map: "tesoreria_cheques_emitidos_caja_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_emitidos_proveedor_idx")
+  @@index([personalId], map: "tesoreria_cheques_emitidos_personal_idx")
+  @@map("tesoreria_cheques_emitidos")
+}
+
+/**
+ * Monto del cheque emitido aplicado a cada comprobante de compra (se revierte al anular).
+ */
+model TesoreriaChequeEmitidoImputacion {
+  id              String                 @id @default(cuid())
+  chequeEmitidoId String                 @map("cheque_emitido_id")
+  chequeEmitido   TesoreriaChequeEmitido @relation(fields: [chequeEmitidoId], references: [id], onDelete: Cascade, map: "tesoreria_cheques_emitidos_imp_cheque_fkey")
+  comprobanteId   String                 @map("comprobante_id")
+  comprobante     ComprobanteProveedor   @relation(fields: [comprobanteId], references: [id], onDelete: Restrict, map: "tesoreria_cheques_emitidos_imp_comprobante_fkey")
+  monto           Decimal                @db.Decimal(14, 2)
+
+  @@index([chequeEmitidoId], map: "tesoreria_cheques_emitidos_imp_cheque_idx")
+  @@index([comprobanteId], map: "tesoreria_cheques_emitidos_imp_comprobante_idx")
+  @@map("tesoreria_cheques_emitidos_imputaciones")
 }
 
 /**

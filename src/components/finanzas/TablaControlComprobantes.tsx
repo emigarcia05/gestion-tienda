@@ -56,9 +56,10 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-interface ControlComprobanteRow {
+export interface ControlComprobanteRow {
   id: string;
   fechaComp: string;
+  idProveedor: string;
   proveedorNombre: string;
   proveedorPrefijo: string;
   sucursalNombre: string;
@@ -146,13 +147,17 @@ function TarjetaResumenCompras({
 export default function TablaControlComprobantes({
   filas,
   esEditor,
+  filtroProveedor,
+  onFiltroProveedorChange,
 }: {
   filas: ControlComprobanteRow[];
   esEditor: boolean;
+  /** `idProveedor` (DUX) filtrado; vacío = todos. */
+  filtroProveedor: string;
+  onFiltroProveedorChange: (idProveedor: string) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [filtroProveedor, setFiltroProveedor] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
   const [filtroPagado, setFiltroPagado] = useState("");
   const [filtroVencido, setFiltroVencido] = useState("");
@@ -170,9 +175,10 @@ export default function TablaControlComprobantes({
     plazo4: "",
   });
 
-  const proveedores = [...new Set(filas.map((f) => f.proveedorPrefijo))]
-    .filter((v) => v.trim().length > 0)
-    .sort((a, b) => a.localeCompare(b, "es"));
+  const proveedores = [...new Map(filas.map((f) => [f.idProveedor, f.proveedorPrefijo])).entries()]
+    .filter(([id, prefijo]) => id.trim().length > 0 && prefijo.trim().length > 0)
+    .map(([id, prefijo]) => ({ id, prefijo }))
+    .sort((a, b) => a.prefijo.localeCompare(b.prefijo, "es"));
   const sucursales = [...new Set(filas.map((f) => f.sucursalNombre))]
     .filter((v) => v.trim().length > 0)
     .sort((a, b) => a.localeCompare(b, "es"));
@@ -180,7 +186,7 @@ export default function TablaControlComprobantes({
   const hoyIso = dateToIsoYmdArgentina(new Date());
 
   const filasFiltradas = filas.filter((fila) => {
-    if (filtroProveedor && fila.proveedorPrefijo !== filtroProveedor) return false;
+    if (filtroProveedor && fila.idProveedor !== filtroProveedor) return false;
     if (filtroSucursal && fila.sucursalNombre !== filtroSucursal) return false;
     if (filtroPagado === "pendiente" && !(Number(fila.total) > Number(fila.montoAplicado))) return false;
     if (filtroVencido === "vencido" && !(Number(fila.vencimientoSaldo) > 0)) return false;
@@ -306,19 +312,19 @@ export default function TablaControlComprobantes({
             <FiltroIndividualContainer
               className={FILTER_SELECT_WRAPPER_CLASS}
               activo={Boolean(filtroProveedor)}
-              onLimpiar={() => setFiltroProveedor("")}
+              onLimpiar={() => onFiltroProveedorChange("")}
             >
               <Select
-                value={filtroProveedor ?? ""}
-                onValueChange={(v) => setFiltroProveedor(v)}
+                value={filtroProveedor}
+                onValueChange={onFiltroProveedorChange}
               >
                 <SelectTrigger className="input-filtro-unificado">
                   <SelectValue placeholder="PROVEEDOR" />
                 </SelectTrigger>
                 <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
                   {proveedores.map((proveedor) => (
-                    <SelectItem key={proveedor} value={proveedor}>
-                      {proveedor}
+                    <SelectItem key={proveedor.id} value={proveedor.id}>
+                      {proveedor.prefijo}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -400,7 +406,7 @@ export default function TablaControlComprobantes({
               </FiltroIndividualContainer>
               <LimpiarFiltrosButton
                 onClick={() => {
-                  setFiltroProveedor("");
+                  onFiltroProveedorChange("");
                   setFiltroSucursal("");
                   setFiltroPagado("");
                   setFiltroVencido("");

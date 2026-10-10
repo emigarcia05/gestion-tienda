@@ -70,6 +70,7 @@ const cajaTesoreriaCamposSchema = z.object({
   monto: montoCajaTesoreriaSchema.optional().default(0),
   recibeCheque: z.boolean().default(false),
   depositaCheque: z.boolean().default(false),
+  emiteCheque: z.boolean().default(false),
 });
 
 export const crearCajaTesoreriaSchema = cajaTesoreriaCamposSchema.superRefine(

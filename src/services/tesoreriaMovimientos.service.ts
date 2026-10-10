@@ -359,6 +359,27 @@ export async function crearMovimientoTesoreria(
   return { success: true, data: { ...created, cajaId: input.cajaId } };
 }
 
+/** Sucursal del movimiento: la del operador; si no tiene, la de la caja. */
+export async function sucursalIdMovimientoOperador(
+  personalId: number,
+  sucursalCajaId: string | null
+): Promise<ServiceResult<string>> {
+  const personal = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: personalId },
+    select: { sucursalPorDefecto: true },
+  });
+  if (!personal) return { success: false, error: "Usuario inválido." };
+  if (personal.sucursalPorDefecto) {
+    const sucursal = await prisma.sucursal.findUnique({
+      where: { codigo: personal.sucursalPorDefecto },
+      select: { id: true },
+    });
+    if (sucursal) return { success: true, data: sucursal.id };
+  }
+  if (sucursalCajaId) return { success: true, data: sucursalCajaId };
+  return { success: false, error: "El usuario no tiene sucursal para registrar el movimiento." };
+}
+
 const CAJA_TRANSFERENCIA_SELECT = {
   id: true,
   sucursalId: true,
@@ -533,6 +554,7 @@ export type PendienteAcreditacionFila = {
   fechaAcreditacionIso: string;
   origen: OrigenPendienteAcreditacion;
   origenEtiqueta: string;
+  formaPago: string;
   detalle: string;
   montoAcreditado: number;
 };
@@ -599,12 +621,13 @@ export async function listarPendientesAcreditacionCaja(
     const entidad = row.entidad?.nombre?.trim()
       ? row.entidad.nombre.toLocaleUpperCase("es-AR")
       : "";
-    const detalle = [cliente, forma, entidad].filter((p) => p.length > 0).join(" · ");
+    const detalle = [cliente, entidad].filter((p) => p.length > 0).join(" · ");
     return {
       id: row.id,
       fechaAcreditacionIso: isoYmdFromPrismaDateOnly(row.fechaAcreditacion),
       origen,
       origenEtiqueta: ETIQUETA_ORIGEN_PENDIENTE[origen],
+      formaPago: forma,
       detalle,
       montoAcreditado: row.montoAcreditado,
     };
@@ -847,10 +870,17 @@ export async function eliminarMovimientoTesoreria(
       notaCreditoId: true,
       catMovimiento: true,
       chequeId: true,
+      chequeEmitidoId: true,
     },
   });
   if (!row) {
     return { success: false, error: "Movimiento inexistente." };
+  }
+  if (row.chequeEmitidoId) {
+    return {
+      success: false,
+      error: "Este movimiento es un eCheq emitido: anulalo desde TESORERIA → Cajas → eCheqs emitidos.",
+    };
   }
   if (row.comprobanteId || row.clienteCobroId || row.notaCreditoId) {
     return {
