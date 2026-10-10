@@ -11,6 +11,7 @@ import {
   actualizarPlazoPagoComprobanteSchema,
   actualizarPlazosPagosMercaderiaSchema,
   comprobantesPendientesProveedorSchema,
+  registrarNotaCreditoBonificacionSchema,
   registrarPagoCuentaCorrienteProveedoresSchema,
   toggleControladoSchema,
 } from "@/lib/validations/controlComprobantes";
@@ -19,6 +20,7 @@ import {
   actualizarPlazoPagoComprobante,
   listarCajasPagoProveedor,
   listarComprobantesCompraPendientesPago,
+  registrarNotaCreditoBonificacion,
   registrarPagoCuentaCorrienteProveedores,
   type CajaPagoProveedorOpcion,
 } from "@/services/controlComprobantes.service";
@@ -166,6 +168,18 @@ export async function registrarPagoCuentaCorrienteProveedoresAction(
   const parsed = registrarPagoCuentaCorrienteProveedoresSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
   const res = await registrarPagoCuentaCorrienteProveedores(parsed.data);
+  if (res.success) revalidateComprobantesFinanzas();
+  return fromServiceResult(res);
+}
+
+export async function registrarNotaCreditoBonificacionAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await requireEditorFinanzas();
+  if (gate) return gate;
+  const parsed = registrarNotaCreditoBonificacionSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+  const res = await registrarNotaCreditoBonificacion(parsed.data);
   if (res.success) revalidateComprobantesFinanzas();
   return fromServiceResult(res);
 }

@@ -20,7 +20,11 @@ import {
   saldosPorCajaDesdeMovimientos,
   sucursalIdMovimientoOperador,
 } from "@/services/tesoreriaMovimientos.service";
-import type { RegistrarPagoCuentaCorrienteProveedoresInput } from "@/lib/validations/controlComprobantes";
+import type {
+  RegistrarNotaCreditoBonificacionInput,
+  RegistrarPagoCuentaCorrienteProveedoresInput,
+} from "@/lib/validations/controlComprobantes";
+import { TIPO_COMP_COMPRA } from "@/lib/numeroComprobanteCompra";
 import type { ServiceResult } from "@/types/service.types";
 
 export interface ControlComprobanteFila {
@@ -305,6 +309,8 @@ export type CajaPagoProveedorOpcion = {
   id: string;
   etiqueta: string;
   montoDisponible: number;
+  /** Habilita GENERAR ECHEQ (débito diferido; no exige disponible). */
+  emiteCheque: boolean;
 };
 
 const CAJA_PAGO_PROVEEDOR_SELECT = {
@@ -313,13 +319,14 @@ const CAJA_PAGO_PROVEEDOR_SELECT = {
   titular: true,
   tipoCaja: true,
   tipoValor: true,
+  emiteCheque: true,
   entidad: { select: { nombre: true } },
   sucursal: { select: { nombre: true } },
 } as const;
 
 /**
- * Cajas de tesorería desde las que se puede pagar a proveedores: saldo disponible > 0
- * y `tipo_valor` ≠ CHEQUE (los cheques en cartera se entregan desde Cajas → CHEQUES).
+ * Cajas de tesorería desde las que se puede pagar a proveedores: `tipo_valor` ≠ CHEQUE (su saldo
+ * son cheques en cartera, no dinero) y saldo disponible > 0 o `emite_cheque` (eCheq diferido).
  */
 export async function listarCajasPagoProveedor(): Promise<CajaPagoProveedorOpcion[]> {
   const [cajas, saldos] = await Promise.all([
@@ -334,8 +341,9 @@ export async function listarCajasPagoProveedor(): Promise<CajaPagoProveedorOpcio
       id: caja.id,
       etiqueta: etiquetaCajaTesoreria(caja),
       montoDisponible: saldos.get(caja.id) ?? 0,
+      emiteCheque: caja.emiteCheque,
     }))
-    .filter((caja) => caja.montoDisponible > 0)
+    .filter((caja) => caja.montoDisponible > 0 || caja.emiteCheque)
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
 }
 
@@ -368,7 +376,7 @@ export async function registrarPagoCuentaCorrienteProveedores(
       return {
         success: false,
         error:
-          "Para pagar con cheques en cartera usá TESORERIA → Cajas → CHEQUES (Pagar A Proveedor); para un cheque propio elegí eCheq.",
+          "No se paga desde una caja de cheques; para un cheque propio elegí eCheq.",
       };
     }
     const saldoCaja = (await saldosPorCajaDesdeMovimientos([caja.id])).get(caja.id) ?? 0;
@@ -421,3 +429,72 @@ export async function registrarPagoCuentaCorrienteProveedores(
   }
 }
 
+/**
+ * Nota de crédito del proveedor por bonificación comercial: crea `fin_compras_comprobante`
+ * `NOTA_CREDITO` (`monto_aplicado` = total, `comprobante_asoc_id` = comprobante) y suma el monto
+ * a `monto_aplicado` del comprobante. Sin stock ni `tesoreria_movimientos`.
+ */
+export async function registrarNotaCreditoBonificacion(
+  input: RegistrarNotaCreditoBonificacionInput
+): Promise<ServiceResult<void>> {
+  try {
+    const monto = roundArs2(input.montoCents / 100);
+    const original = await prisma.comprobanteProveedor.findUnique({
+      where: { id: input.comprobanteId },
+      select: {
+        id: true,
+        idSucursalEmpresa: true,
+        idProveedor: true,
+        tipoComp: true,
+        total: true,
+        montoAplicado: true,
+      },
+    });
+    if (
+      !original ||
+      original.idProveedor !== input.idProveedorDux ||
+      original.tipoComp === TIPO_COMP_COMPRA.NOTA_CREDITO
+    ) {
+      return { success: false, error: "Comprobante inválido para este proveedor." };
+    }
+    const saldo = roundArs2(Number(original.total) - Number(original.montoAplicado));
+    if (monto > saldo) {
+      return {
+        success: false,
+        error: `El monto supera el saldo del comprobante ($${saldo.toLocaleString("es-AR", { minimumFractionDigits: 2 })}).`,
+      };
+    }
+    const fecha = prismaDateOnlyFromIsoYmd(input.fecha);
+    if (!fecha) return { success: false, error: "Fecha inválida." };
+
+    const montoDec = new Prisma.Decimal(monto.toFixed(2));
+    await prisma.$transaction(async (tx) => {
+      await aplicarImputacionesCompra(tx, [{ id: original.id, asignado: monto }]);
+      await tx.comprobanteProveedor.create({
+        data: {
+          idSucursalEmpresa: original.idSucursalEmpresa,
+          tipoComp: TIPO_COMP_COMPRA.NOTA_CREDITO,
+          comprobante: input.numero,
+          fechaComp: fecha,
+          idProveedor: original.idProveedor,
+          total: montoDec,
+          montoAplicado: montoDec,
+          comprobanteAsocId: original.id,
+        },
+      });
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    if (e instanceof Error && e.message === "saldo-cambio") {
+      return {
+        success: false,
+        error: "El saldo del comprobante cambió. Recargá e intentá de nuevo.",
+      };
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { success: false, error: "Ya existe una nota de crédito con ese número y fecha." };
+    }
+    console.error("[registrarNotaCreditoBonificacion]", e);
+    return { success: false, error: "No se pudo registrar la nota de crédito." };
+  }
+}

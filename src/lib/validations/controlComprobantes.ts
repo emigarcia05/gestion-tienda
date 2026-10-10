@@ -4,6 +4,7 @@ import {
   PLAZOS_PAGO_DIAS_PERMITIDOS,
   PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL,
 } from "@/lib/comprobanteCuotasPlazoPago";
+import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
 import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 const plazoOpcionalSchema = z
@@ -142,6 +143,22 @@ export const emitirEcheqPagoProveedorSchema = z
   });
 
 export type EmitirEcheqPagoProveedorInput = z.infer<typeof emitirEcheqPagoProveedorSchema>;
+
+/** NC del proveedor por bonificación comercial: cancela saldo de un comprobante; sin stock ni tesorería. */
+export const registrarNotaCreditoBonificacionSchema = z.object({
+  idProveedorDux: idProveedorDuxSchema,
+  comprobanteId: prismaCuidSchema,
+  numero: z
+    .string()
+    .trim()
+    .regex(NUMERO_COMPROBANTE_COMPRA_REGEX, "Ingresá el N° de la nota de crédito (0000-00000000)."),
+  fecha: isoYmdSchema,
+  montoCents: z.number().int().positive("Ingresá el monto de la nota de crédito."),
+});
+
+export type RegistrarNotaCreditoBonificacionInput = z.infer<
+  typeof registrarNotaCreditoBonificacionSchema
+>;
 
 export const chequeEmitidoIdSchema = z.object({ id: prismaCuidSchema });
 

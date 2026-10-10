@@ -11,7 +11,6 @@ import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarM
 import TransferenciaCajaTesoreriaModal from "@/components/finanzas/TransferenciaCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
-import ChequesCajaTesoreriaModal from "@/components/finanzas/ChequesCajaTesoreriaModal";
 import ChequesEmitidosCajaTesoreriaModal from "@/components/finanzas/ChequesEmitidosCajaTesoreriaModal";
 import ResumenAcreditacionCajaModal from "@/components/finanzas/ResumenAcreditacionCajaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
@@ -54,7 +53,6 @@ export default function FinanzasTesoreriaPageClient({
   const [cajaParaTransferir, setCajaParaTransferir] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
-  const [cajaCheques, setCajaCheques] = useState<TesoreriaCajaFila | null>(null);
   const [cajaChequesEmitidos, setCajaChequesEmitidos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaResumenAcreditacion, setCajaResumenAcreditacion] =
     useState<TesoreriaCajaFila | null>(null);
@@ -264,7 +262,6 @@ export default function FinanzasTesoreriaPageClient({
           onTransferenciaClick={esEditor ? (fila) => setCajaParaTransferir(fila) : undefined}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
           onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
-          onChequesClick={(fila) => setCajaCheques(fila)}
           onChequesEmitidosClick={(fila) => setCajaChequesEmitidos(fila)}
           onResumenAcreditacionClick={(fila) => setCajaResumenAcreditacion(fila)}
         />
@@ -283,15 +280,6 @@ export default function FinanzasTesoreriaPageClient({
             if (!open) setCajaResumenAcreditacion(null);
           }}
           caja={cajaResumenAcreditacion}
-        />
-        <ChequesCajaTesoreriaModal
-          open={cajaCheques != null}
-          onOpenChange={(open) => {
-            if (!open) setCajaCheques(null);
-          }}
-          caja={cajaCheques}
-          esEditor={esEditor}
-          onChanged={refreshCatalogos}
         />
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}
