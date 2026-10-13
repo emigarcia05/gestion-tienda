@@ -16,11 +16,6 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import {
   AlertCircle,
-<<<<<<< HEAD
-  CheckCircle2,
-=======
-  ChevronDown,
->>>>>>> facturacion
   Loader2,
   Send,
 } from "lucide-react";
