@@ -10,7 +10,7 @@ import {
 import type { EmitirEcheqPagoProveedorInput } from "@/lib/validations/controlComprobantes";
 import {
   aplicarImputacionesCompra,
-  listarComprobantesCompraPendientesPago,
+  pendientesParaImputarProveedor,
   validarMontoContraSaldoProveedor,
 } from "@/services/controlComprobantes.service";
 import { sucursalIdMovimientoOperador } from "@/services/tesoreriaMovimientos.service";
@@ -118,10 +118,14 @@ export async function emitirEcheqPagoProveedor(
     const montoLedger = Math.round(montoPesos);
     if (montoLedger <= 0) return { success: false, error: "Ingresá un monto a pagar." };
 
-    const pendientes = await listarComprobantesCompraPendientesPago(input.idProveedorDux);
-    const saldoOk = validarMontoContraSaldoProveedor(pendientes, montoPesos);
+    const pendientes = await pendientesParaImputarProveedor(
+      input.idProveedorDux,
+      input.comprobanteIds
+    );
+    if (!pendientes.success) return pendientes;
+    const saldoOk = validarMontoContraSaldoProveedor(pendientes.data, montoPesos);
     if (!saldoOk.success) return saldoOk;
-    const imputaciones = imputarPagoFifoVentas(pendientes, montoPesos).filter(
+    const imputaciones = imputarPagoFifoVentas(pendientes.data, montoPesos).filter(
       (fila) => fila.asignado > 0
     );
 

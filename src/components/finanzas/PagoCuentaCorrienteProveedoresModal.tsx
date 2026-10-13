@@ -51,6 +51,11 @@ import { cn } from "@/lib/utils";
 import type { CajaPagoProveedorOpcion } from "@/services/controlComprobantes.service";
 
 const VACIO = "none";
+type ModoImputacion = "fifo" | "seleccion";
+const OPCIONES_MODO_IMPUTACION: ReadonlyArray<{ value: ModoImputacion; label: string }> = [
+  { value: "fifo", label: "PAGAR DESDE MÁS ANTIGUO" },
+  { value: "seleccion", label: "PAGAR COMPROBANTES SELECCIONADOS" },
+];
 /** Opción fija junto a las cajas: NC del proveedor por bonificación (sin stock ni tesorería). */
 const ORIGEN_NOTA_CREDITO = "__nota_credito__";
 const BOTON_CAJA_PAGO_CLASS =
@@ -86,6 +91,8 @@ export default function PagoCuentaCorrienteProveedoresModal({
   const [ncNumero, setNcNumero] = useState("");
   const [ncFecha, setNcFecha] = useState("");
   const [ncComprobanteId, setNcComprobanteId] = useState("");
+  const [modoImputacion, setModoImputacion] = useState<ModoImputacion>("fifo");
+  const [seleccionIds, setSeleccionIds] = useState<ReadonlySet<string>>(new Set());
 
   /** `cajaId` también puede valer `ORIGEN_NOTA_CREDITO`. */
   const esNotaCredito = cajaId === ORIGEN_NOTA_CREDITO;
@@ -98,13 +105,27 @@ export default function PagoCuentaCorrienteProveedoresModal({
     cajaSel != null && !esEcheq && montoPesos > cajaSel.montoDisponible;
   const ncComprobante = comprobantes.find((c) => c.id === ncComprobanteId) ?? null;
   const superaSaldoNc = ncComprobante != null && montoPesos > ncComprobante.saldoPendiente;
+  /** La NC elige su comprobante en el Select: no usa la selección de la tabla. */
+  const porSeleccion = modoImputacion === "seleccion" && !esNotaCredito;
   const filas = useMemo(() => {
-    if (!esNotaCredito) return imputarPagoFifoVentas(comprobantes, montoPesos);
-    return comprobantes.map((c) => ({
-      ...c,
-      asignado: c.id === ncComprobanteId ? Math.min(montoPesos, c.saldoPendiente) : 0,
-    }));
-  }, [comprobantes, montoPesos, esNotaCredito, ncComprobanteId]);
+    if (esNotaCredito) {
+      return comprobantes.map((c) => ({
+        ...c,
+        asignado: c.id === ncComprobanteId ? Math.min(montoPesos, c.saldoPendiente) : 0,
+      }));
+    }
+    if (!porSeleccion) return imputarPagoFifoVentas(comprobantes, montoPesos);
+    const asignados = new Map(
+      imputarPagoFifoVentas(
+        comprobantes.filter((c) => seleccionIds.has(c.id)),
+        montoPesos
+      ).map((f) => [f.id, f.asignado])
+    );
+    return comprobantes.map((c) => ({ ...c, asignado: asignados.get(c.id) ?? 0 }));
+  }, [comprobantes, montoPesos, esNotaCredito, ncComprobanteId, porSeleccion, seleccionIds]);
+  const totalSeleccionado = comprobantes
+    .filter((c) => seleccionIds.has(c.id))
+    .reduce((acc, c) => acc + c.saldoPendiente, 0);
   const origenElegido = cajaSel != null || esNotaCredito;
 
   useEffect(() => {
@@ -123,6 +144,8 @@ export default function PagoCuentaCorrienteProveedoresModal({
       setNcNumero("");
       setNcFecha(hoy);
       setNcComprobanteId("");
+      setModoImputacion("fifo");
+      setSeleccionIds(new Set());
     });
     void Promise.all([
       listarComprobantesCompraPendientesPagoAction({ idProveedorDux }),
@@ -157,6 +180,24 @@ export default function PagoCuentaCorrienteProveedoresModal({
     toast.success(mensaje);
     onOpenChange(false);
     onRegistrado();
+  }
+
+  function cambiarModoImputacion(modo: ModoImputacion) {
+    setModoImputacion(modo);
+    setSeleccionIds(new Set());
+    setMontoNorm("");
+  }
+
+  /** Tildar suma el saldo del comprobante al MONTO (se puede bajar a mano: imputa FIFO entre los tildados). */
+  function toggleSeleccion(id: string) {
+    const next = new Set(seleccionIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSeleccionIds(next);
+    const total = comprobantes
+      .filter((c) => next.has(c.id))
+      .reduce((acc, c) => acc + c.saldoPendiente, 0);
+    setMontoNorm(total > 0 ? total.toFixed(2) : "");
   }
 
   function seleccionarComprobanteNc(id: string) {
@@ -211,6 +252,11 @@ export default function PagoCuentaCorrienteProveedoresModal({
       toast.error("Seleccioná la caja de la que sale el pago.");
       return;
     }
+    if (porSeleccion && seleccionIds.size === 0) {
+      toast.error("Tildá al menos un comprobante.");
+      return;
+    }
+    const comprobanteIds = porSeleccion ? [...seleccionIds] : undefined;
     if (esEcheq) {
       if (!fechaEmision || !fechaPago) {
         toast.error("Completá la fecha de emisión y la fecha de pago.");
@@ -223,6 +269,7 @@ export default function PagoCuentaCorrienteProveedoresModal({
       setGuardando(true);
       const res = await emitirEcheqPagoProveedorAction({
         idProveedorDux,
+        comprobanteIds,
         cajaId: cajaSel.id,
         montoCents,
         fechaEmision,
@@ -249,6 +296,7 @@ export default function PagoCuentaCorrienteProveedoresModal({
     setGuardando(true);
     const res = await registrarPagoCuentaCorrienteProveedoresAction({
       idProveedorDux,
+      comprobanteIds,
       cajaId: cajaSel.id,
       montoCents,
       personalId: usuario.idPersonal,
@@ -266,7 +314,7 @@ export default function PagoCuentaCorrienteProveedoresModal({
       <AppModal
         size="lg"
         padding="sm"
-        className="max-w-[43.2rem]"
+        className="max-w-[64.8rem]"
         title={`PAGO CUENTA CORRIENTE — ${proveedorNombre}`}
         actions={
           <>
@@ -281,7 +329,8 @@ export default function PagoCuentaCorrienteProveedoresModal({
                 montoCents <= 0 ||
                 !origenElegido ||
                 superaDisponible ||
-                superaSaldoNc
+                superaSaldoNc ||
+                (porSeleccion && seleccionIds.size === 0)
               }
               onClick={() => void confirmar()}
             >
@@ -294,6 +343,35 @@ export default function PagoCuentaCorrienteProveedoresModal({
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : (
           <div className="flex min-h-0 flex-col gap-3">
+            <div className="flex justify-center">
+              <Select
+                value={modoImputacion}
+                onValueChange={(v) => {
+                  const opcion = OPCIONES_MODO_IMPUTACION.find((o) => o.value === v);
+                  if (opcion) cambiarModoImputacion(opcion.value);
+                }}
+                disabled={guardando || esNotaCredito}
+              >
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-[18rem]")}
+                  aria-label="Forma de imputar el pago"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  {OPCIONES_MODO_IMPUTACION.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div
               role="radiogroup"
               aria-label="Origen del pago"
@@ -481,16 +559,26 @@ export default function PagoCuentaCorrienteProveedoresModal({
                 ) : null}
               </div>
             )}
+            {porSeleccion ? (
+              <p className="text-center text-xs text-muted-foreground tabular-nums">
+                {seleccionIds.size} SELECCIONADO{seleccionIds.size === 1 ? "" : "S"} — TOTAL $
+                {fmtPrecio(totalSeleccionado)}
+              </p>
+            ) : null}
             <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
               <Table className="w-full table-fixed text-center">
                 <colgroup>
+                  <col className="w-[8%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[28%]" />
                   <col className="w-[22%]" />
-                  <col className="w-[30%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[24%]" />
+                  <col className="w-[22%]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-center">
+                      <span className="sr-only">SELECCIONAR</span>
+                    </TableHead>
                     <TableHead className="text-center">FECHA</TableHead>
                     <TableHead className="text-center">COMPROBANTE</TableHead>
                     <TableHead className="text-center">SALDO</TableHead>
@@ -500,12 +588,22 @@ export default function PagoCuentaCorrienteProveedoresModal({
                 <TableBody>
                   {filas.length === 0 ? (
                     <EmptyTableRow
-                      colSpan={4}
+                      colSpan={5}
                       message="El proveedor no tiene comprobantes con saldo."
                     />
                   ) : (
                     filas.map((fila) => (
                       <TableRow key={fila.id}>
+                        <TableCell className="celda-datos text-center">
+                          <input
+                            type="checkbox"
+                            checked={porSeleccion ? seleccionIds.has(fila.id) : fila.asignado > 0}
+                            onChange={() => toggleSeleccion(fila.id)}
+                            disabled={guardando || !porSeleccion}
+                            className="h-4 w-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label={`Seleccionar ${fila.nroComprobante}`}
+                          />
+                        </TableCell>
                         <TableCell className="celda-datos text-center tabular-nums">
                           {formatIsoYmdDdMmYyyyArgentina(fila.fechaIso)}
                         </TableCell>

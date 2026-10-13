@@ -255,6 +255,27 @@ export async function listarComprobantesCompraPendientesPago(
     .filter((r) => r.saldoPendiente > 0);
 }
 
+/**
+ * Pendientes del proveedor a imputar: todos (FIFO) o solo `comprobanteIds` (misma orden FIFO).
+ * Error si algún seleccionado ya no está pendiente o no es del proveedor.
+ */
+export async function pendientesParaImputarProveedor(
+  idProveedorDux: string,
+  comprobanteIds?: readonly string[]
+): Promise<ServiceResult<FacturaVentaPendientePago[]>> {
+  const pendientes = await listarComprobantesCompraPendientesPago(idProveedorDux);
+  if (!comprobanteIds) return { success: true, data: pendientes };
+  const elegidos = new Set(comprobanteIds);
+  const filtrados = pendientes.filter((p) => elegidos.has(p.id));
+  if (filtrados.length !== elegidos.size) {
+    return {
+      success: false,
+      error: "Un comprobante seleccionado ya no tiene saldo. Recargá e intentá de nuevo.",
+    };
+  }
+  return { success: true, data: filtrados };
+}
+
 /** Saldo total pendiente; error si `montoPesos` lo supera o no hay saldo. */
 export function validarMontoContraSaldoProveedor(
   pendientes: readonly FacturaVentaPendientePago[],
@@ -267,7 +288,7 @@ export function validarMontoContraSaldoProveedor(
   if (montoPesos > saldo) {
     return {
       success: false,
-      error: `El monto supera el saldo pendiente del proveedor ($${saldo.toLocaleString("es-AR", { minimumFractionDigits: 2 })}).`,
+      error: `El monto supera el saldo pendiente a imputar ($${saldo.toLocaleString("es-AR", { minimumFractionDigits: 2 })}).`,
     };
   }
   return { success: true, data: undefined };
@@ -387,10 +408,14 @@ export async function registrarPagoCuentaCorrienteProveedores(
       };
     }
 
-    const pendientes = await listarComprobantesCompraPendientesPago(input.idProveedorDux);
-    const saldoOk = validarMontoContraSaldoProveedor(pendientes, montoPesos);
+    const pendientes = await pendientesParaImputarProveedor(
+      input.idProveedorDux,
+      input.comprobanteIds
+    );
+    if (!pendientes.success) return pendientes;
+    const saldoOk = validarMontoContraSaldoProveedor(pendientes.data, montoPesos);
     if (!saldoOk.success) return saldoOk;
-    const imputaciones = imputarPagoFifoVentas(pendientes, montoPesos).filter(
+    const imputaciones = imputarPagoFifoVentas(pendientes.data, montoPesos).filter(
       (fila) => fila.asignado > 0
     );
 

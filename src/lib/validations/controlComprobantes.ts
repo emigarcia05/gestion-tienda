@@ -105,9 +105,20 @@ export const comprobantesPendientesProveedorSchema = z.object({
   idProveedorDux: idProveedorDuxSchema,
 });
 
+/**
+ * Comprobantes elegidos en «Pagar comprobantes seleccionados». Ausente = FIFO sobre todos los
+ * pendientes del proveedor; presente = FIFO solo sobre esos.
+ */
+const comprobanteIdsSeleccionSchema = z
+  .array(prismaCuidSchema)
+  .min(1, "Seleccioná al menos un comprobante.")
+  .max(500)
+  .optional();
+
 /** Pago CC desde una caja de tesorería con saldo disponible (egreso inmediato). */
 export const registrarPagoCuentaCorrienteProveedoresSchema = z.object({
   idProveedorDux: idProveedorDuxSchema,
+  comprobanteIds: comprobanteIdsSeleccionSchema,
   cajaId: prismaCuidSchema,
   montoCents: z.number().int().positive("Ingresá un monto a pagar."),
   personalId: idPersonalSchema,
@@ -125,6 +136,7 @@ const isoYmdSchema = z
 export const emitirEcheqPagoProveedorSchema = z
   .object({
     idProveedorDux: idProveedorDuxSchema,
+    comprobanteIds: comprobanteIdsSeleccionSchema,
     cajaId: prismaCuidSchema,
     montoCents: z.number().int().positive("Ingresá un monto a pagar."),
     fechaEmision: isoYmdSchema,
