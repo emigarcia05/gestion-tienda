@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
+import MontoArInput from "@/components/shared/MontoArInput";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import { PRODUCTO_TIENDA_GRID_CLASS } from "@/components/tienda/ProductoTiendaCampos";
 import SeleccionarProductoModal, {
@@ -23,6 +24,7 @@ import { setProductoPropioTiendaAction } from "@/actions/tienda";
 import {
   desvincularProducto,
   establecerCostoListaTiendaAction,
+  establecerCostoManualTiendaAction,
   getVinculos,
   vincularProducto,
 } from "@/actions/vinculos";
@@ -54,9 +56,14 @@ function TextoVariacion({ px, pxBase, esBase }: { px: number; pxBase: number | n
   );
 }
 
+function costoManualANormalizado(costo: number | null): string {
+  return costo == null ? "" : costo.toFixed(2);
+}
+
 /**
- * Editar producto · VINCULACIÓN CON COSTO: producto propio, vínculos con líneas de proveedor y cuál
- * define el CX COMPRA. Cada cambio se guarda al instante (mismas actions que usaba Cx Compra).
+ * Editar producto · VINCULACIÓN CON COSTO. CX COMPRA = proveedor elegido en la columna CX (con un único
+ * vínculo se toma por defecto); sin vínculos (PROD. PROPIO o sin vincular) = COSTO MANUAL.
+ * Cada cambio se guarda al instante.
  */
 export default function VinculosCostoProductoTienda({
   codTienda,
@@ -83,6 +90,8 @@ export default function VinculosCostoProductoTienda({
   const [cargando, setCargando] = useState(true);
   const [vinculados, setVinculados] = useState<ProductoVinculoTienda[]>([]);
   const [codExtBase, setCodExtBase] = useState<string | null>(null);
+  const [costoManual, setCostoManual] = useState("");
+  const [costoManualGuardado, setCostoManualGuardado] = useState("");
   const [esPropio, setEsPropio] = useState(esProductoPropioInicial);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [recarga, setRecarga] = useState(0);
@@ -95,6 +104,9 @@ export default function VinculosCostoProductoTienda({
       if (result.success) {
         setVinculados(result.data.productos as ProductoVinculoTienda[]);
         setCodExtBase(result.data.costoCompraCodExt);
+        const manual = costoManualANormalizado(result.data.costoManual);
+        setCostoManual(manual);
+        setCostoManualGuardado(manual);
         setEsPropio(result.data.esProductoPropio);
       } else {
         toast.error(result.error);
@@ -111,12 +123,9 @@ export default function VinculosCostoProductoTienda({
     [vinculados, prefijoProveedor]
   );
   const pxBase = calcPxBaseVinculosTienda(filas, codExtBase);
-  const pxConValor = filas.map((f) => f.px).filter((px) => px > 0);
-  const costoPromedio = pxConValor.length
-    ? pxConValor.reduce((acc, px) => acc + px, 0) / pxConValor.length
-    : null;
   const filaBase = filas.find((f) => f.producto.codigoExterno === codExtBase) ?? null;
-  const costoCompra = filaBase ? filaBase.px : costoPromedio;
+  const usaCostoManual = esPropio || filas.length === 0;
+  const faltaElegirCx = !usaCostoManual && !filaBase;
 
   function terminar(mensaje: string) {
     toast.success(mensaje);
@@ -159,15 +168,31 @@ export default function VinculosCostoProductoTienda({
     });
   }
 
-  function cambiarBase(producto: ProductoVinculoTienda) {
-    const nuevo = codExtBase === producto.codigoExterno ? null : producto.codigoExterno;
+  function elegirCx(producto: ProductoVinculoTienda) {
+    if (codExtBase === producto.codigoExterno) return;
     startTransition(async () => {
-      const res = await establecerCostoListaTiendaAction(codTienda, nuevo);
+      const res = await establecerCostoListaTiendaAction(codTienda, producto.codigoExterno);
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
-      setCodExtBase(nuevo);
+      setCodExtBase(producto.codigoExterno);
+      router.refresh();
+    });
+  }
+
+  function guardarCostoManual() {
+    if (costoManual === costoManualGuardado) return;
+    const costo = costoManual.trim() === "" ? null : Number(costoManual);
+    startTransition(async () => {
+      const res = await establecerCostoManualTiendaAction({ codTienda, costo });
+      if (!res.ok) {
+        toast.error(res.error);
+        setCostoManual(costoManualGuardado);
+        return;
+      }
+      setCostoManualGuardado(costoManual);
+      toast.success("Costo manual guardado.");
       router.refresh();
     });
   }
@@ -192,19 +217,42 @@ export default function VinculosCostoProductoTienda({
           Vincular Cx Proveedor
         </Button>
       </div>
+      {usaCostoManual && !cargando ? (
+        <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-center")}>
+          <label htmlFor={`costo-manual-${codTienda}`} className="text-sm font-medium uppercase text-foreground">
+            COSTO MANUAL
+          </label>
+          <div onBlur={guardarCostoManual}>
+            <MontoArInput
+              id={`costo-manual-${codTienda}`}
+              valueNormalized={costoManual}
+              onValueNormalizedChange={setCostoManual}
+              treatEmptyNormalizedAsBlank
+              placeholder="—"
+              disabled={!puedeEditarCosto || isPending}
+            />
+          </div>
+        </div>
+      ) : null}
       {esPropio ? (
         <p className="text-center text-sm text-muted-foreground">
           Producto propio TiendaColor: sin vínculos con proveedores.
         </p>
       ) : (
         <>
-          <p className="text-sm font-medium uppercase text-foreground">
-            CX COMPRA:{" "}
-            <span className="tabular-nums">{costoCompra != null ? `$${fmtPrecio(costoCompra)}` : "—"}</span>{" "}
-            <span className="text-xs text-muted-foreground">
-              {filaBase ? `(${filaBase.producto.proveedor.prefijo})` : costoPromedio != null ? "(CX. PROM.)" : ""}
-            </span>
-          </p>
+          {usaCostoManual ? null : (
+            <p className="text-sm font-medium uppercase text-foreground">
+              CX COMPRA:{" "}
+              {filaBase ? (
+                <>
+                  <span className="tabular-nums">${fmtPrecio(filaBase.px)}</span>{" "}
+                  <span className="text-xs text-muted-foreground">({filaBase.producto.proveedor.prefijo})</span>
+                </>
+              ) : (
+                <span className="text-xs text-destructive">ELEGÍ EL PROVEEDOR EN LA COLUMNA CX</span>
+              )}
+            </p>
+          )}
           <Table variant="compact" scrollX={false} className="table-fixed w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -212,7 +260,7 @@ export default function VinculosCostoProductoTienda({
                 <TableHead>DESCRIPCIÓN</TableHead>
                 <TableHead className="w-28 text-center">COSTO</TableHead>
                 <TableHead className="w-20 text-center">VAR.</TableHead>
-                <TableHead className="w-16 text-center">CX</TableHead>
+                <TableHead className={cn("w-16 text-center", faltaElegirCx && "text-destructive")}>CX</TableHead>
                 <TableHead className="w-14 text-center" aria-label="Desvincular" />
               </TableRow>
             </TableHeader>
@@ -253,16 +301,13 @@ export default function VinculosCostoProductoTienda({
                       </TableCell>
                       <TableCell className="celda-datos text-center">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name={`cx-compra-${codTienda}`}
                           checked={esBase}
-                          onChange={() => cambiarBase(producto)}
+                          onChange={() => elegirCx(producto)}
                           disabled={!puedeEditarCosto || isPending}
-                          className="cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-60"
-                          aria-label={
-                            esBase
-                              ? `Quitar ${producto.proveedor.prefijo} como CX COMPRA (vuelve a CX. PROM.)`
-                              : `Usar ${producto.proveedor.prefijo} como CX COMPRA`
-                          }
+                          className="h-4 w-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={`Usar ${producto.proveedor.prefijo} como CX COMPRA`}
                         />
                       </TableCell>
                       <TableCell className="text-center">

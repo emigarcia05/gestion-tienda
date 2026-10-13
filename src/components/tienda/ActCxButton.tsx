@@ -6,27 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { exportarCostoCxDiffAction } from "@/actions/cxPxTienda";
-import { exportarResumenAumentosPxAction } from "@/actions/pxCompetencia";
 import { descargarExcelCostoCx } from "@/lib/exportCostoCxExcelClient";
-import { descargarPdfResumenAumentosPx } from "@/lib/exportPxPdfClient";
 import { DUX_NUEVO_IMPORTADOR_URL } from "@/lib/duxImportador";
 import ModalSinProductosExportar from "@/components/tienda/ModalSinProductosExportar";
-import ModalExportarInformeAumento from "@/components/tienda/ModalExportarInformeAumento";
 
 export default function ActCxButton() {
   const [exportando, setExportando] = useState(false);
   const [modalSinProductos, setModalSinProductos] = useState(false);
-  const [modalInformeAumento, setModalInformeAumento] = useState(false);
-
-  async function handleExportarInformeAumento() {
-    const res = await exportarResumenAumentosPxAction();
-    if (!res.ok) {
-      toast.error(res.error ?? "No se pudo generar el informe de aumentos.");
-      return;
-    }
-    await descargarPdfResumenAumentosPx(res.data.informeAumentos);
-    toast.success("Informe de aumentos exportado.");
-  }
 
   async function handleActCx() {
     window.open(DUX_NUEVO_IMPORTADOR_URL, "_blank", "noopener,noreferrer");
@@ -45,10 +31,9 @@ export default function ActCxButton() {
       const n = res.data.filas.length;
       toast.success(
         n === 1
-          ? "Excel exportado: 1 ítem con diferencia de costo."
-          : `Excel exportado: ${n.toLocaleString("es-AR")} ítems con diferencia de costo.`
+          ? "Excel exportado: 1 ítem."
+          : `Excel exportado: ${n.toLocaleString("es-AR")} ítems.`
       );
-      setModalInformeAumento(true);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Error inesperado al exportar costos."
@@ -63,11 +48,6 @@ export default function ActCxButton() {
       <ModalSinProductosExportar
         open={modalSinProductos}
         onOpenChange={setModalSinProductos}
-      />
-      <ModalExportarInformeAumento
-        open={modalInformeAumento}
-        onOpenChange={setModalInformeAumento}
-        onConfirmExport={handleExportarInformeAumento}
       />
       <Tooltip>
         <TooltipTrigger asChild>
@@ -84,7 +64,7 @@ export default function ActCxButton() {
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          Exporta Excel (CODIGO + COSTO) con diferencias respecto al proveedor BASE
+          Exporta Excel (CODIGO + COSTO) con el costo del proveedor elegido (CX) de cada ítem
           para importar en DUX y abre el importador DUX
         </TooltipContent>
       </Tooltip>

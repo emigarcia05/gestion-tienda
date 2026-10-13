@@ -26,6 +26,10 @@ import {
 } from "@/services/pxListasCompetenciaRef.service";
 import { listarFinAnaMcCategorias } from "@/services/finAnaMcCategorias.service";
 import {
+  resolverCostoCompraTienda,
+  SELECT_COSTO_COMPRA_TIENDA,
+} from "@/services/costoListaTienda.service";
+import {
   listarNombresCatalogoProdPropios,
   whereCatalogoProdPropio,
 } from "@/services/prodPropiosCatalogos.service";
@@ -213,18 +217,13 @@ async function cargarMapsPreciosYEdicion(
 }
 
 function buildItemDesdeFila(
-  row: {
-    codTienda: string;
-    descripcionTienda: string | null;
-    costoCompra: { toString(): string };
-    competenciaIdPxListaGeneral: string | null;
-  },
+  row: FilaListadoPxListas,
   listas: ListaPrecioPxListasColumna[],
   duxMap: Map<string, number>,
   pxEdicionMap: Map<string, number>,
   opcionesPorCod: Map<string, OpcionCompetenciaRefPxListas[]>
 ): ItemPxListasPreciosTabla {
-  const costoCompra = Number(row.costoCompra);
+  const costoCompra = resolverCostoCompraTienda(row);
   return {
     codTienda: row.codTienda,
     descripcion: row.descripcionTienda ?? "",
@@ -243,19 +242,14 @@ function buildItemDesdeFila(
   };
 }
 
-type FilaListadoPxListas = {
-  codTienda: string;
-  descripcionTienda: string | null;
-  costoCompra: { toString(): string };
-  competenciaIdPxListaGeneral: string | null;
-};
-
 const SELECT_FILA_LISTADO = {
   codTienda: true,
   descripcionTienda: true,
-  costoCompra: true,
+  ...SELECT_COSTO_COMPRA_TIENDA,
   competenciaIdPxListaGeneral: true,
-} as const;
+} as const satisfies Prisma.ProdPropioSelect;
+
+type FilaListadoPxListas = Prisma.ProdPropioGetPayload<{ select: typeof SELECT_FILA_LISTADO }>;
 
 async function listarPaginaProdTiendaPxListas(
   where: Prisma.ProdPropioWhereInput,

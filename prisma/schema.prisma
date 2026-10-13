@@ -1438,7 +1438,7 @@ model ProdPropioListaPrecioNombre {
   preciosPorProducto ProdPropioListaPrecio[]
   preciosEdicion     ProdPropioListaPrecioEdicion[]
 
-  @@map("prod_propios_listas_precios_nombres")
+  @@map("prod_listas_precios_nombres")
 }
 
 /**
@@ -1454,12 +1454,12 @@ model ProdPropioListaPrecio {
   lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
 
   @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_propios_listas_precios_id_lista_idx")
-  @@map("prod_propios_listas_precios")
+  @@index([idLista], map: "prod_listas_precios_id_lista_idx")
+  @@map("prod_listas_precios")
 }
 
 /**
- * Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_propios_listas_precios`.
+ * Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_listas_precios`.
  */
 model ProdPropioListaPrecioEdicion {
   codTienda String   @map("cod_tienda")
@@ -1471,8 +1471,8 @@ model ProdPropioListaPrecioEdicion {
   lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
 
   @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_propios_listas_precios_edicion_id_lista_idx")
-  @@map("prod_propios_listas_precios_edicion")
+  @@index([idLista], map: "prod_listas_precios_edicion_id_lista_idx")
+  @@map("prod_listas_precios_edicion")
 }
 
 /// Catálogo de productos propios (alta/edición en Lista Productos). Rubro, sub-rubro, marca, color y
@@ -1491,9 +1491,14 @@ model ProdPropio {
   descripcionTienda           String?   @map("descripcion")
   /**
    * FK a `proveedores_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
+   * Costo resuelto: `resolverCostoCompraTienda` (`costoListaTienda.service.ts`).
    */
   costoCompraCodExt           String?   @map("costo_compra_cod_ext")
-  costoCompra                 Decimal   @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
+  /**
+   * Costo manual: solo se usa si el ítem no tiene vínculos (PROD. PROPIO o sin vincular). Al vincular pasa a null.
+   * El sync DUX solo lo inicializa al crear el ítem.
+   */
+  costoManual                 Decimal?  @map("costo_manual") @db.Decimal(14, 4)
   lastSync                    DateTime  @default(now()) @map("last_sync")
   /**
    * Legacy export Excel de Control Stock (ya no se lee ni escribe).

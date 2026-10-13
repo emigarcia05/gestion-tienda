@@ -367,7 +367,6 @@ export async function sincronizarPxGeneralDesdeCompetenciaRef(
     select: {
       codTienda: true,
       competenciaIdPxListaGeneral: true,
-      costoCompra: true,
     },
   });
   if (rows.length === 0) return;

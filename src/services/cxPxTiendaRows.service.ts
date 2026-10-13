@@ -5,7 +5,6 @@ import {
   type OpcionCostoCxProdProveedor,
 } from "@/lib/cxPxTienda";
 import {
-  calcularCostoPromedioVinculos,
   costoDesdeCandidato,
   etiquetaProveedorCosto,
   listarCandidatosCostoPorCodTienda,
@@ -13,7 +12,7 @@ import {
 
 export type FilaCxProdDb = {
   codTienda: string;
-  costoCompra: unknown;
+  costoManual: unknown;
   costoCompraCodExt: string | null;
 };
 
@@ -45,15 +44,15 @@ async function cargarVinculosCostoPorCodTienda(codTiendas: string[]) {
   return vinculosPorTienda;
 }
 
-/** Mapeo de CX PROD. para Cx Compra y exportación de costos. */
+/**
+ * CX PROD. para Cx Compra: proveedor elegido (`costo_compra_cod_ext`); sin vínculos → `costo_manual`;
+ * con vínculos y sin elección → 0.
+ */
 export function mapCxProdDesdeCandidatos(
-  costoCompra: unknown,
+  costoManual: unknown,
   costoCompraCodExt: string | null,
   candidatos: CandidatoCostoVinculo[]
 ): CxProdDatosFila {
-  const costoDux = Number(costoCompra) || 0;
-  const costoPromedio = calcularCostoPromedioVinculos(candidatos);
-
   const opcionesProveedor: OpcionCostoCxProdProveedor[] = candidatos.map((c) => ({
     tipo: "proveedor",
     codExt: c.codExt,
@@ -61,24 +60,16 @@ export function mapCxProdDesdeCandidatos(
     costo: costoDesdeCandidato(c.pxCompraFinalSinIva),
   }));
 
-  let seleccion: typeof CX_PROD_SELECCION_PROM | string = CX_PROD_SELECCION_PROM;
-  let costoMostrado = costoPromedio ?? costoDux;
-
-  if (costoCompraCodExt && opcionesProveedor.some((o) => o.codExt === costoCompraCodExt)) {
-    seleccion = costoCompraCodExt;
-    const op = opcionesProveedor.find((o) => o.codExt === costoCompraCodExt);
-    costoMostrado = op && op.costo > 0 ? op.costo : costoDux;
-  } else if (opcionesProveedor.length === 1) {
-    seleccion = opcionesProveedor[0].codExt;
-    costoMostrado =
-      opcionesProveedor[0].costo > 0 ? opcionesProveedor[0].costo : costoDux;
+  const elegido = costoCompraCodExt
+    ? opcionesProveedor.find((o) => o.codExt === costoCompraCodExt)
+    : undefined;
+  if (elegido) {
+    return { opcionesProveedor, seleccion: elegido.codExt, costoMostrado: elegido.costo };
   }
-
   return {
     opcionesProveedor,
-    seleccion,
-    costoPromedio,
-    costoMostrado,
+    seleccion: CX_PROD_SELECCION_PROM,
+    costoMostrado: opcionesProveedor.length === 0 ? Number(costoManual) || 0 : 0,
   };
 }
 
@@ -93,7 +84,7 @@ export async function buildCxProdMapDesdeFilas(
     map.set(
       r.codTienda,
       mapCxProdDesdeCandidatos(
-        r.costoCompra,
+        r.costoManual,
         r.costoCompraCodExt,
         vinculosPorTienda.get(r.codTienda) ?? []
       )

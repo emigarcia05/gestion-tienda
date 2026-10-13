@@ -1,3 +1,4 @@
+/** Sin CX elegido (ítem con varios vínculos pendiente de selección o sin vínculos). */
 export const CX_PROD_SELECCION_PROM = "prom" as const;
 
 export interface OpcionCostoCxProdProveedor {
@@ -10,17 +11,12 @@ export interface OpcionCostoCxProdProveedor {
 /** Datos de columna CX PROD. (Cx Compra). */
 export type CxProdDatosFila = {
   opcionesProveedor: OpcionCostoCxProdProveedor[];
-  /** `prom` = Cx. Prom.; si no, `cod_ext` del proveedor persistido o elegido. */
+  /** `prom` = sin CX elegido; si no, `cod_ext` del proveedor persistido. */
   seleccion: typeof CX_PROD_SELECCION_PROM | string;
-  costoPromedio: number | null;
+  /** Costo resuelto: proveedor elegido, o `costo_manual` si el ítem no tiene vínculos. */
   costoMostrado: number;
 };
 
-/** Costo CX PROD. mostrado según selección persistida en la fila. */
 export function costoCxProdMostrado(item: CxProdDatosFila): number {
-  if (item.seleccion === CX_PROD_SELECCION_PROM) {
-    return item.costoPromedio ?? item.costoMostrado;
-  }
-  const op = item.opcionesProveedor.find((o) => o.codExt === item.seleccion);
-  return op?.costo ?? item.costoMostrado;
+  return item.costoMostrado;
 }

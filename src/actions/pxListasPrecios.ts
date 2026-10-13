@@ -30,7 +30,7 @@ function revalidatePxListasPaths() {
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
 }
 
-/** Persiste PX staging en `prod_propios_listas_precios_edicion` desde margen % (o elimina con `margenManual: null`). */
+/** Persiste PX staging en `prod_listas_precios_edicion` desde margen % (o elimina con `margenManual: null`). */
 export async function guardarPxListaMargenEdicionAction(
   raw: unknown
 ): Promise<
@@ -82,7 +82,7 @@ export async function guardarPxListaMargenEdicionAction(
   }
 }
 
-/** Persiste PX staging en `prod_propios_listas_precios_edicion` desde precio entero (o elimina con `pxEdicion: null`). */
+/** Persiste PX staging en `prod_listas_precios_edicion` desde precio entero (o elimina con `pxEdicion: null`). */
 export async function guardarPxListaPrecioEdicionAction(
   raw: unknown
 ): Promise<

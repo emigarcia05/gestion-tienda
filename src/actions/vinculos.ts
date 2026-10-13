@@ -9,10 +9,11 @@ import type { ActionResult } from "@/lib/types";
 import type { ServiceResult } from "@/types";
 import type { ProductoCompleto } from "@/types";
 import {
-  autoAsignarCodExtCostoListaTrasVincular,
   establecerCodExtCostoLista,
+  establecerCostoManualTienda,
   limpiarCodExtCostoLista,
   limpiarCodExtCostoListaSiCoincide,
+  sincronizarCostoTiendaTrasVinculos,
 } from "@/services/costoListaTienda.service";
 import { getProductosVinculadosPorItemTienda } from "@/services/producto.service";
 import { listarProductosProveedoresParaVincular, type ProductoProveedorParaVincular } from "@/services/listaPrecios.service";
@@ -28,6 +29,8 @@ const listarParaVincularFiltrosSchema = z.object({
 export type VinculosItemTiendaPayload = {
   productos: ProductoCompleto[];
   costoCompraCodExt: string | null;
+  /** Solo vale si el ítem no tiene vínculos. */
+  costoManual: number | null;
   esProductoPropio: boolean;
 };
 
@@ -46,7 +49,7 @@ export async function getVinculos(
       getProductosVinculadosPorItemTienda(parsedId.data),
       prisma.prodPropio.findUnique({
         where: { codTienda: parsedId.data },
-        select: { costoCompraCodExt: true, esProductoPropio: true },
+        select: { costoCompraCodExt: true, costoManual: true, esProductoPropio: true },
       }),
     ]);
     if (!productosRes.success) return productosRes;
@@ -56,6 +59,7 @@ export async function getVinculos(
       data: {
         productos: productosRes.data,
         costoCompraCodExt: tienda.costoCompraCodExt,
+        costoManual: tienda.costoManual == null ? null : Number(tienda.costoManual),
         esProductoPropio: tienda.esProductoPropio,
       },
     };
@@ -148,7 +152,7 @@ export async function vincularProducto(
       where: { codExt: parsedProducto.data },
       data: { codTiendaVinculo: parsedItem.data },
     });
-    await autoAsignarCodExtCostoListaTrasVincular(parsedItem.data);
+    await sincronizarCostoTiendaTrasVinculos(parsedItem.data);
     revalidatePath("/administrador/productos/cx-compra");
     return { ok: true, data: undefined };
   } catch (e: unknown) {
@@ -192,6 +196,7 @@ export async function desvincularProducto(
       where: { codExt: parsed.data },
       data: { codTiendaVinculo: null },
     });
+    await sincronizarCostoTiendaTrasVinculos(itemTienda.codTienda);
     revalidatePath("/administrador/productos/cx-compra");
     return { ok: true, data: undefined };
   } catch (e: unknown) {
@@ -203,7 +208,7 @@ export async function desvincularProducto(
 /**
  * Define qué fila `proveedores_prod_lista` alimenta CX. COMPRA / costo base de comparación.
  * - `productoListaCodExt = string` → fija FK `costo_compra_cod_ext` al `codExt` indicado.
- * - `productoListaCodExt = null` → destilda: limpia la FK (vuelve a Cx. Prom. / sin base).
+ * - `productoListaCodExt = null` → limpia la FK (sin CX elegido: costo 0 hasta elegir).
  */
 export async function establecerCostoListaTiendaAction(
   itemTiendaCod: string,
@@ -229,6 +234,27 @@ export async function establecerCostoListaTiendaAction(
     const res = await establecerCodExtCostoLista(parsedItem.data, parsedProducto.data);
     if (!res.success) return { ok: false, error: res.error };
   }
+  revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
+  revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
+  return { ok: true, data: undefined };
+}
+
+const costoManualTiendaSchema = z.object({
+  codTienda: listaPreciosCodTiendaSchema,
+  costo: z.number().finite().min(0).max(9_999_999_999).nullable(),
+});
+
+/** Costo manual (`prod_lista.costo_manual`) de un ítem sin vínculos (PROD. PROPIO o sin vincular). */
+export async function establecerCostoManualTiendaAction(raw: unknown): Promise<ActionResult> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.tienda.acceso)) {
+    return { ok: false, error: "Sin acceso a tienda." };
+  }
+  if (!(await esEditor())) return { ok: false, error: "Sin permisos de editor." };
+  const parsed = costoManualTiendaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Costo inválido." };
+  const res = await establecerCostoManualTienda(parsed.data.codTienda, parsed.data.costo);
+  if (!res.success) return { ok: false, error: res.error };
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
   revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
   return { ok: true, data: undefined };

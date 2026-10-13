@@ -1,4 +1,4 @@
-/** Query `actualizar`: ítems con PX pendiente en `prod_propios_listas_precios_edicion` (hasta Act. Px). */
+/** Query `actualizar`: ítems con PX pendiente en `prod_listas_precios_edicion` (hasta Act. Px). */
 export const FILTRO_ACTUALIZAR_SI = "si" as const;
 export const FILTRO_ACTUALIZAR_NO = "no" as const;
 

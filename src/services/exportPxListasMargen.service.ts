@@ -3,6 +3,7 @@ import { roundPorcUtilidadPxListaExport } from "@/lib/pxListasPreciosFormat";
 import { sincronizarTodosPxGeneralDesdeCompetenciaRef } from "@/services/pxListasCompetenciaRef.service";
 import { type ClavePrecioListaEdicion } from "@/services/pxListasPrecioEdicion.service";
 import { prisma } from "@/lib/prisma";
+import { mapCostoCompraPorCodTienda } from "@/services/costoListaTienda.service";
 
 export type FilaExportPxListaMargen = {
   codigo: string;
@@ -36,7 +37,7 @@ export function clavesDesdeGruposExportPxListas(
 }
 
 /**
- * Por cada `nombre_lista`: ítems con PX en `prod_propios_listas_precios_edicion` (pendientes de Act. Px).
+ * Por cada `nombre_lista`: ítems con PX en `prod_listas_precios_edicion` (pendientes de Act. Px).
  */
 export async function listarExportPxListasMargenPorLista(): Promise<
   ExportPxListaMargenGrupo[]
@@ -53,21 +54,14 @@ export async function listarExportPxListasMargenPorLista(): Promise<
 
   const idListas = listas.map((l) => l.idLista);
 
-  const [edicionRows, productos] = await Promise.all([
-    prisma.prodPropioListaPrecioEdicion.findMany({
-      where: { idLista: { in: idListas } },
-      select: { codTienda: true, idLista: true, precio: true },
-      orderBy: [{ codTienda: "asc" }],
-    }),
-    prisma.prodPropio.findMany({
-      select: { codTienda: true, costoCompra: true },
-    }),
+  const edicionRows = await prisma.prodPropioListaPrecioEdicion.findMany({
+    where: { idLista: { in: idListas } },
+    select: { codTienda: true, idLista: true, precio: true },
+    orderBy: [{ codTienda: "asc" }],
+  });
+  const costoMap = await mapCostoCompraPorCodTienda([
+    ...new Set(edicionRows.map((r) => r.codTienda)),
   ]);
-
-  const costoMap = new Map<string, number>();
-  for (const p of productos) {
-    costoMap.set(p.codTienda, toNum(p.costoCompra));
-  }
 
   const filasPorLista = new Map<number, FilaExportPxListaMargen[]>();
   for (const lista of listas) {
