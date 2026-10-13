@@ -16,11 +16,13 @@ import {
 import { editarCajaTesoreriaAction, listarEntidadesFinTesoreriaAction, listarSucursalesTesoreriaAction } from "@/actions/cajasTesoreria";
 import { cn } from "@/lib/utils";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import type { TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import {
   OPCIONES_TIPO_CAJA_TESORERIA_UI,
   OPCIONES_TIPO_VALOR_CAJA_MODAL_UI,
   cajaTesoreriaUsaSucursal,
+  etiquetaCajaTesoreria,
   siguienteTipoValorAlCambiarTipoCaja,
 } from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
@@ -52,10 +54,34 @@ export default function EditarCajaTesoreriaModal({
   const [sucursalId, setSucursalId] = useState("");
   const [tipoCaja, setTipoCaja] = useState<TipoCajaTesoreria>("EFECTIVO");
   const [tipoValor, setTipoValor] = useState<TipoValorTesoreria>("EFECTIVO");
+  const [recibeCheque, setRecibeCheque] = useState(false);
+  const [depositaCheque, setDepositaCheque] = useState(false);
+  const [emiteCheque, setEmiteCheque] = useState(false);
   const [saving, setSaving] = useState(false);
   const [openEliminar, setOpenEliminar] = useState(false);
   const titulares = useTitularesFinancierosTesoreria(open, caja?.titular);
   const muestraTipoValor = cajaTesoreriaUsaSucursal(tipoCaja);
+
+  const tituloCaja = useMemo(() => {
+    const entidadNombre =
+      entidades.find((entidad) => entidad.id === entidadId)?.nombre ??
+      (caja && entidadId !== "" && entidadId === (caja.entidadId ?? "")
+        ? caja.entidadNombre
+        : "");
+    const sucursalNombre = cajaTesoreriaUsaSucursal(tipoCaja)
+      ? (sucursales.find((sucursal) => sucursal.id === sucursalId)?.nombre ??
+        (caja && sucursalId !== "" && sucursalId === (caja.sucursalId ?? "")
+          ? caja.sucursalNombre
+          : ""))
+      : "";
+    return etiquetaCajaTesoreria({
+      tipoCaja,
+      titular,
+      entidad: entidadNombre.trim() ? { nombre: entidadNombre } : null,
+      sucursal: sucursalNombre.trim() ? { nombre: sucursalNombre } : null,
+      tipoValor,
+    });
+  }, [caja, entidadId, entidades, sucursalId, sucursales, tipoCaja, tipoValor, titular]);
 
   const cargarCatalogos = useCallback(async () => {
     const [resEntidades, resSucursales] = await Promise.all([
@@ -88,6 +114,9 @@ export default function EditarCajaTesoreriaModal({
     setEntidadId(caja.entidadId ?? "");
     setTipoCaja(caja.tipoCaja as TipoCajaTesoreria);
     setTipoValor(caja.tipoValor as TipoValorTesoreria);
+    setRecibeCheque(caja.recibeCheque);
+    setDepositaCheque(caja.depositaCheque);
+    setEmiteCheque(caja.emiteCheque);
   }, [open, caja]);
 
   function resetForm() {
@@ -96,6 +125,9 @@ export default function EditarCajaTesoreriaModal({
     setSucursalId("");
     setTipoCaja("EFECTIVO");
     setTipoValor("EFECTIVO");
+    setRecibeCheque(false);
+    setDepositaCheque(false);
+    setEmiteCheque(false);
     setOpenEliminar(false);
   }
 
@@ -106,9 +138,12 @@ export default function EditarCajaTesoreriaModal({
       sucursalId !== (caja.sucursalId ?? "") ||
       titular.trim() !== caja.titular ||
       tipoCaja !== caja.tipoCaja ||
-      tipoValor !== caja.tipoValor
+      tipoValor !== caja.tipoValor ||
+      recibeCheque !== caja.recibeCheque ||
+      depositaCheque !== caja.depositaCheque ||
+      emiteCheque !== caja.emiteCheque
     );
-  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor]);
+  }, [caja, entidadId, sucursalId, titular, tipoCaja, tipoValor, recibeCheque, depositaCheque, emiteCheque]);
 
   const disabledSubmit = useMemo(
     () =>
@@ -131,6 +166,9 @@ export default function EditarCajaTesoreriaModal({
         tipoCaja,
         tipoValor,
         monto: caja.monto,
+        recibeCheque,
+        depositaCheque,
+        emiteCheque,
       });
 
       if (!res.ok) {
@@ -184,6 +222,9 @@ export default function EditarCajaTesoreriaModal({
           }
         >
           <div className="grid min-h-0 grid-cols-1 gap-3">
+            <p className="text-center text-sm font-semibold uppercase leading-snug text-foreground">
+              {tituloCaja}
+            </p>
             <label className="flex flex-col gap-1">
               <ModalMicroLabel>TIPO DE CAJA</ModalMicroLabel>
               <Select
@@ -295,6 +336,25 @@ export default function EditarCajaTesoreriaModal({
               </Select>
             </label>
             ) : null}
+
+            <ModalSiNoChoice
+              label="RECIBE CHEQUE"
+              value={recibeCheque}
+              onChange={setRecibeCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="DEPOSITA CHEQUE"
+              value={depositaCheque}
+              onChange={setDepositaCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="EMITE CHEQUE"
+              value={emiteCheque}
+              onChange={setEmiteCheque}
+              disabled={saving}
+            />
           </div>
         </AppModal>
       </Dialog>

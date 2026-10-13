@@ -1,6 +1,6 @@
 /**
  * Resolución de proveedor para pedido REPOSICIÓN por `cod_tienda` (vínculos manuales en
- * `proveedor_prod_lista.cod_tienda`) y menor costo comparable según Posición IVA.
+ * `proveedores_prod_lista.cod_tienda`) y menor costo comparable según Posición IVA.
  *
  * Desde 2026-05-28 se eliminó el fallback legacy por `cod_ext` (cuando el sync DUX
  * todavía poblaba `prod_lista.cod_ext`). La única fuente de verdad es el vínculo
@@ -104,7 +104,7 @@ export async function cargarListaPrecioReposicionPorCodTiendas(
 
 /**
  * Elige la fila de lista proveedor para un `cod_tienda`: requiere al menos un vínculo
- * manual habilitado en `proveedor_prod_lista.cod_tienda`; entre todos los vínculos, gana
+ * manual habilitado en `proveedores_prod_lista.cod_tienda`; entre todos los vínculos, gana
  * el menor costo comparable según Posición IVA. Sin vínculos manuales, devuelve `null`.
  */
 export function elegirListaPrecioProveedorReposicion(params: {

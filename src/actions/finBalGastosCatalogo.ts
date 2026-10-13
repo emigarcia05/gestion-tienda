@@ -50,7 +50,7 @@ function firstZodErrorMessage(error: {
 function revalidateBalancePaths(): void {
   revalidatePath("/finanzas");
   revalidatePath("/finanzas/balance/gastos");
-  revalidatePath("/finanzas/balance/gastos/catalogo");
+  revalidatePath("/finanzas/balance/catalogo-gastos");
   revalidatePedidoUrgenteTrasCambioIvaSaldo();
 }
 

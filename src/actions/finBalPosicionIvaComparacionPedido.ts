@@ -33,7 +33,7 @@ export async function guardarIvaComparacionPedidoAction(
       usarValorConfigurado: parsed.data.usarValorConfigurado,
       saldoPesos: parsed.data.saldoPesos,
     });
-    revalidatePath("/finanzas/posicion-iva");
+    revalidatePath("/finanzas/impuestos/posicion-iva");
     revalidatePedidoUrgenteTrasCambioIvaSaldo();
     return { ok: true, data: estado };
   } catch (e) {

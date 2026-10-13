@@ -8,6 +8,8 @@ import {
 
 export interface SesionData {
   rol: Rol;
+  /** Usuario que ingresó con contraseña (`usuarios.id_personal`). Sin valor = sin ingreso. */
+  idPersonal?: number;
 }
 
 /** Fallback dev (≥32) para iron-session. */
@@ -108,6 +110,22 @@ export async function getRol(): Promise<Rol> {
     }
     console.error("[sesion][getRol] cookie inválida o sesion no recuperable:", msg);
     return "simple";
+  }
+}
+
+/** `id_personal` del usuario ingresado, o null (sin ingreso / cookie inválida / arranque). */
+export async function getIdPersonalSesion(): Promise<number | null> {
+  const h = await headers();
+  if (h.get(SESION_FORZAR_ROL_SIMPLE_HEADER) === "1") return null;
+  try {
+    const sesion = await getSesion();
+    return typeof sesion.idPersonal === "number" ? sesion.idPersonal : null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!(msg.includes("Dynamic server usage") && msg.includes("cookies"))) {
+      console.error("[sesion][getIdPersonalSesion] cookie inválida:", msg);
+    }
+    return null;
   }
 }
 

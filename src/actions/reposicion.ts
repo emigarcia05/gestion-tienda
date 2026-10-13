@@ -517,7 +517,7 @@ export async function upsertReglaReposicion(raw: unknown): Promise<ActionResult<
       cantConf: cant,
     });
     if (!result.ok) return { ok: false, error: result.error };
-    revalidatePath("/pedidos/reposicion");
+    revalidatePath("/ventas/compras/pedir-mercaderia");
     if (formaPedir === "POR_BULTO" && unidadesPorBulto != null) {
       for (const path of REVALIDATE_CX_COMPRA) {
         revalidatePath(path);
@@ -550,7 +550,7 @@ export async function deleteReglaReposicion(raw: unknown): Promise<ActionResult<
     await prisma.prodPedMerc2.deleteMany({
       where: { id: parsed.data.id, tipoDePedido: "REPOSICION" },
     });
-    revalidatePath("/pedidos/reposicion");
+    revalidatePath("/ventas/compras/pedir-mercaderia");
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al eliminar la regla.";

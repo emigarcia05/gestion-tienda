@@ -37,10 +37,12 @@ import { cn } from "@/lib/utils";
 import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
+import type { UsuarioSesion } from "@/lib/usuarioSesion";
 import type { Rol } from "@/lib/permisos";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getMainAppAreaIdFromPathname } from "@/lib/main-app-areas";
-import { GP_ROUTES, isGpRouteActive } from "@/lib/gestionProductosRoutes";
+import { pathnameEnPrefijo } from "@/lib/appRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { MARKETING_ROUTES } from "@/lib/marketingRoutes";
 import { FACTURA_CREAR_QUERY_CLASE, FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import AdministracionAccordionNav from "@/components/layout/AdministracionAccordionNav";
@@ -117,44 +119,6 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "clientes",
-    label: "CLIENTES",
-    icon: <Users className={iconClass} />,
-    submodules: [
-      {
-        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
-        label: "Cuentas Corrientes",
-        icon: <Wallet className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
-        href: FACTURACION_ROUTES.clientes.lista,
-        label: "Lista Clientes",
-        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-    ],
-  },
-  {
-    id: "envios",
-    label: "ENVIOS",
-    icon: <Truck className={iconClass} />,
-    submodules: [
-      {
-        href: GP_ROUTES.envios.programados,
-        label: "Programados",
-        icon: <CalendarClock className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
-      },
-      {
-        href: GP_ROUTES.envios.conductor,
-        label: "Conductor",
-        icon: <CircleUser className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
-      },
-    ],
-  },
-  {
     id: "pedidos",
     label: "COMPRAS",
     icon: <ClipboardList className={iconClass} />,
@@ -181,27 +145,40 @@ const MODULES: NavModule[] = [
     ],
   },
   {
-    id: "control-stock",
-    label: "STOCK",
-    icon: <Boxes className={iconClass} />,
+    id: "envios",
+    label: "ENVIOS",
+    icon: <Truck className={iconClass} />,
     submodules: [
       {
-        href: GP_ROUTES.ayudaVendedor.controlStock,
-        label: "Control Stock",
-        icon: <Boxes className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: GP_ROUTES.envios.programados,
+        label: "Programados",
+        icon: <CalendarClock className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.envios.acceso,
       },
       {
-        href: GP_ROUTES.ayudaVendedor.transfDepositos,
-        label: "Trans. Depósitos",
-        icon: <ArrowLeftRight className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: GP_ROUTES.envios.conductor,
+        label: "Conductor",
+        icon: <CircleUser className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.envios.acceso,
+      },
+    ],
+  },
+  {
+    id: "clientes",
+    label: "CLIENTES",
+    icon: <Users className={iconClass} />,
+    submodules: [
+      {
+        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
+        label: "Cuentas Corrientes",
+        icon: <Wallet className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
       },
       {
-        href: GP_ROUTES.ayudaVendedor.movimientosStock,
-        label: "Movimientos",
-        icon: <History className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.stock.acceso,
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Lista Clientes",
+        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
       },
     ],
   },
@@ -227,6 +204,31 @@ const MODULES: NavModule[] = [
         label: "Diseñar",
         icon: <Paintbrush className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.asistenteIa.acceso,
+      },
+    ],
+  },
+  {
+    id: "control-stock",
+    label: "STOCK",
+    icon: <Boxes className={iconClass} />,
+    submodules: [
+      {
+        href: GP_ROUTES.ayudaVendedor.controlStock,
+        label: "Control Stock",
+        icon: <Boxes className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.transfDepositos,
+        label: "Trans. Depósitos",
+        icon: <ArrowLeftRight className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.movimientosStock,
+        label: "Movimientos",
+        icon: <History className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.stock.acceso,
       },
     ],
   },
@@ -284,46 +286,19 @@ function isSubmoduleActive(
   href: string,
   crearClase: string | null
 ): boolean {
-  if (href.startsWith("/gestion-productos") || href.startsWith("/asistente-ia")) {
-    return isGpRouteActive(pathname, href);
-  }
-  if (href === MARKETING_ROUTES.publicaciones.calendario) {
-    return pathname === MARKETING_ROUTES.publicaciones.calendario;
-  }
-  if (href === MARKETING_ROUTES.publicaciones.ideas) {
-    return pathname === MARKETING_ROUTES.publicaciones.ideas;
-  }
-  if (href === MARKETING_ROUTES.publicaciones.objetivos) {
-    return pathname === MARKETING_ROUTES.publicaciones.objetivos;
-  }
-  if (href === MARKETING_ROUTES.baseMultimedia.contenido) {
-    return pathname === MARKETING_ROUTES.baseMultimedia.contenido;
-  }
-  if (href === MARKETING_ROUTES.baseMultimedia.coloresMarca) {
-    return pathname === MARKETING_ROUTES.baseMultimedia.coloresMarca;
-  }
   if (href === FACTURACION_ROUTES.factura.crear) {
     return (
       pathname === FACTURACION_ROUTES.factura.crear && crearClase !== "presupuesto"
     );
   }
-  if (href === FACTURACION_ROUTES.factura.facturas) {
-    return pathname === FACTURACION_ROUTES.factura.facturas;
-  }
   if (href === FACTURACION_ROUTES.factura.presupuestos) {
     return (
-      pathname === FACTURACION_ROUTES.factura.presupuestos ||
+      pathnameEnPrefijo(pathname, href) ||
       (pathname === FACTURACION_ROUTES.factura.crear &&
         crearClase === "presupuesto")
     );
   }
-  if (href === FACTURACION_ROUTES.clientes.lista) {
-    return pathname === FACTURACION_ROUTES.clientes.lista;
-  }
-  if (href === FACTURACION_ROUTES.clientes.cuentaCorriente) {
-    return pathname === FACTURACION_ROUTES.clientes.cuentaCorriente;
-  }
-  return pathname === href;
+  return pathnameEnPrefijo(pathname, href);
 }
 
 function submoduleVisible(sub: SubmoduleItem, rol: Rol): boolean {
@@ -341,7 +316,7 @@ function isNavModuleActive(
   );
 }
 
-export default function Sidebar({ rol }: { rol: Rol }) {
+export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSesion }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -477,7 +452,7 @@ export default function Sidebar({ rol }: { rol: Rol }) {
           )}
           aria-label="Sesión"
         >
-          <SidebarAreaSwitcher rolActual={rol} />
+          <SidebarAreaSwitcher usuario={usuario} />
         </div>
         <img
           src="/logo_tiendacolor_letras_blancas.png"

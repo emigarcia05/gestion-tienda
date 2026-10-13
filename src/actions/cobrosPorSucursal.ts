@@ -52,6 +52,7 @@ export async function crearCobroPorSucursalAction(
   }
 
   revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  revalidatePath(VTAS_COBROS_ROUTES.cxFinCobros);
   return { ok: true, data: res.data };
 }
 
@@ -72,6 +73,7 @@ export async function actualizarCobroPorSucursalAction(
   }
 
   revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  revalidatePath(VTAS_COBROS_ROUTES.cxFinCobros);
   return { ok: true, data: res.data };
 }
 
@@ -92,6 +94,7 @@ export async function eliminarCobroPorSucursalAction(
   }
 
   revalidatePath(VTAS_COBROS_ROUTES.cobrosPorSucursal);
+  revalidatePath(VTAS_COBROS_ROUTES.cxFinCobros);
   return { ok: true, data: res.data };
 }
 

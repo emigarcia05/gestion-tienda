@@ -2,7 +2,7 @@ import { z } from "zod";
 import { PX_LISTAS_COMP_REF_NINGUNO } from "@/lib/pxListasCompetenciaRef";
 import { listaPreciosCodTiendaSchema, prismaCuidSchema } from "@/lib/validations/common";
 
-/** Parámetros de URL del listado Px Listas (`/gestion-productos/tienda/px-listas`). */
+/** Parámetros de URL del listado Px Listas (`/administrador/productos/px-listas`). */
 export const getPxListasPreciosPageParamsSchema = z.object({
   q: z.string().max(500).optional(),
   rubro: z.string().max(200).optional(),

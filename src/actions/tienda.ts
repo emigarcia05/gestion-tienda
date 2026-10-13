@@ -105,7 +105,7 @@ async function getTiendaEmptyWithOpciones() {
   };
 }
 
-/** Tipo de ítem que espera la tabla /tienda (mapeado desde ProdTienda). */
+/** Tipo de ítem que espera la tabla /administrador/productos/cx-compra (mapeado desde ProdTienda). */
 export interface ItemTiendaParaTabla {
   id: string;
   codItem: string;
@@ -177,7 +177,7 @@ export async function getProveedoresTintoLts(): Promise<ProveedorTintoLts[]> {
 }
 
 /**
- * Datos para la página /tienda desde prod_lista.
+ * Datos para la página /administrador/productos/cx-compra desde prod_lista.
  * Mapeo: cod_tienda → codItem, prod_lista.descripcion → descripcion, costo_compra → costo,
  * proveedor → proveedorDux (resuelto a prefijo de proveedores cuando hay match).
  */
@@ -375,7 +375,7 @@ export async function setProductoPropioTiendaAction(
       parsed.data.codTienda,
       parsed.data.esProductoPropio
     );
-    revalidatePath("/tienda");
+    revalidatePath("/administrador/productos/cx-compra");
     revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.cxCompra);
     revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
     return { ok: true, data };

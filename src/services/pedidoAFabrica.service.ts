@@ -44,11 +44,11 @@ export type DatosSucursalProductoPedidoAFabrica = {
 export type ProductoPedidoAFabricaItem = {
   codExt: string;
   /**
-   * Vinculado (`proveedor_prod_lista.cod_tienda` → `prod_lista`): `descripcion`.
+   * Vinculado (`proveedores_prod_lista.cod_tienda` → `prod_lista`): `descripcion`.
    * Sin vínculo: `descripcion_proveedor`.
    */
   descripcion: string;
-  /** `proveedor_prod_lista.cod_tienda` si hay fila en `prod_lista`; si no, `null`. */
+  /** `proveedores_prod_lista.cod_tienda` si hay fila en `prod_lista`; si no, `null`. */
   codTienda: string | null;
   /**
    * Vinculado: unidades de `prod_lista.bulto` (`null` = sin configurar).
@@ -271,8 +271,8 @@ async function opcionesCampoTienda(
 }
 
 /**
- * Lista productos de `proveedor_prod_lista` del proveedor, solo si `es_fabrica = true`.
- * Vínculo con tienda: `proveedor_prod_lista.cod_tienda` → `prod_lista.cod_tienda`.
+ * Lista productos de `proveedores_prod_lista` del proveedor, solo si `es_fabrica = true`.
+ * Vínculo con tienda: `proveedores_prod_lista.cod_tienda` → `prod_lista.cod_tienda`.
  * Descripción: vinculada → `descripcion`; si no → `descripcion_proveedor`.
  * BULTO: vinculado → `prod_lista.bulto`; si no → vacío.
  * Solo filas `habilitado = true`. Filtros opcionales: marca / rubro / sub_rubro (tienda) + q + **PROD. VINCULADO** + **PEDIDO** (CANT. PED. persistida > 0).

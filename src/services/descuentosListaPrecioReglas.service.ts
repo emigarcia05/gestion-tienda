@@ -528,7 +528,7 @@ async function persistirDescuentosBatch(
 
   const actualizados = await prisma.$executeRawUnsafe(
     `
-    UPDATE proveedor_prod_lista AS p
+    UPDATE proveedores_prod_lista AS p
     SET
       dto_proveedor = v.dto_proveedor,
       dto_marca = v.dto_marca,

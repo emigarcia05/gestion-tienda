@@ -95,16 +95,16 @@ export interface ProveedorListItem {
   tiempoEntregaEnDias: number | null;
   /**
    * Flag "proveedor de mercadería". Solo los TRUE se listan en
-   * /gestion-productos/proveedores/lista (ver `getProveedoresMercaderia`).
+   * /administrador/proveedores/proveedores (ver `getProveedoresMercaderia`).
    */
   proveedorMercaderia: boolean;
   /** True si el proveedor es fábrica (Pedido A Fábrica). */
   esFabrica: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA (default BD: PREGUNTA). */
   iva: IvaProveedor;
-  /** Cantidad de ítems en proveedor_prod_lista. */
+  /** Cantidad de ítems en proveedores_prod_lista. */
   cantProductos: number;
-  /** Cantidad de ítems de `proveedor_prod_lista` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_lista`). */
+  /** Cantidad de ítems de `proveedores_prod_lista` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_lista`). */
   cantVinculados: number;
 }
 
@@ -128,7 +128,7 @@ async function generarCodigoUnicoDisponible(): Promise<string> {
 }
 
 /**
- * Lista de proveedores desde la base de datos con conteos en proveedor_prod_lista y prod_lista.
+ * Lista de proveedores desde la base de datos con conteos en proveedores_prod_lista y prod_lista.
  *
  * Devuelve TODOS los proveedores (sin filtrar por `proveedorMercaderia`).
  * Este método alimenta vistas transversales (Px Sugeridos, Lista Px Proveedores,
@@ -141,7 +141,7 @@ export async function getProveedores(): Promise<ProveedorListItem[]> {
 
 /**
  * Lista únicamente los proveedores con `proveedor_mercaderia = true`.
- * Alimenta /gestion-productos/proveedores/lista (tabla "Lista Proveedores").
+ * Alimenta /administrador/proveedores/proveedores (tabla "Lista Proveedores").
  * Usa el índice `proveedores_proveedor_mercaderia_idx` para el filtro.
  */
 export async function getProveedoresMercaderia(): Promise<ProveedorListItem[]> {
@@ -217,7 +217,7 @@ export async function actualizarPlazosPagosProveedoresMercaderia(
 /**
  * Lista únicamente los proveedores con `proveedor_mercaderia = false`
  * (contraparte de `getProveedoresMercaderia`). Alimenta la columna
- * "PROVEEDORES" de `/finanzas/balance/gastos/catalogo`, donde se gestiona
+ * "PROVEEDORES" de `/finanzas/balance/catalogo-gastos`, donde se gestiona
  * el catálogo maestro de proveedores "no de mercadería" (gastos operativos,
  * servicios, impuestos, etc.). Usa el mismo índice
  * `proveedores_proveedor_mercaderia_idx`.

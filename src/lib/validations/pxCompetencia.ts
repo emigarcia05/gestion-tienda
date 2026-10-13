@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Parámetros de URL del listado Px Competencia (`/gestion-productos/tienda/cx-px-tienda`). */
+/** Parámetros de URL del listado Px Competencia (`/administrador/productos/px-competencia`). */
 export const getPxCompetenciaPageParamsSchema = z.object({
   q: z.string().max(500).optional(),
   rubro: z.string().max(200).optional(),

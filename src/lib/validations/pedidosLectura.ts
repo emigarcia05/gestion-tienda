@@ -14,7 +14,7 @@ export const tiposPedidoMercaderiaSchema = z
   .array(tipoPedidoMercaderiaSchema)
   .min(1, "Al menos un tipo de pedido.");
 
-/** Filtro proveedor en URL de `/pedidos/enviar`: vacío = sin filtro, o CUID válido. */
+/** Filtro proveedor en URL de `/ventas/compras/pedir-mercaderia`: vacío = sin filtro, o CUID válido. */
 export const proveedorFiltroPedidoSchema = z.union([z.literal(""), prismaCuidSchema]);
 
 export const getPedidoUrgenteDataParamsSchema = z.object({

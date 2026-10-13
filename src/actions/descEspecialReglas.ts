@@ -30,7 +30,7 @@ function revalidarListaPrecios(): void {
   for (const path of REVALIDATE_LISTA_PRECIOS) {
     revalidatePath(path);
   }
-  revalidatePath("/gestion-productos/analisis-precios/comp-categorias/comparacion");
+  revalidatePath("/administrador/productos/analisis-cat");
 }
 
 async function requireGestionReglasDescuentos(): Promise<{ ok: false; error: string } | null> {

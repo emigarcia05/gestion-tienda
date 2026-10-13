@@ -46,6 +46,9 @@ export const MIN_CARACTERES_BUSQUEDA_PEDIDO_URGENTE = 3;
 export const MENSAJE_SIN_SUCURSAL_PEDIDO_URGENTE =
   "Seleccioná una sucursal para ver los productos.";
 
+export const MENSAJE_SIN_USUARIO_PEDIDO_MERCADERIA =
+  "Seleccioná un usuario en el slidenav.";
+
 export const MENSAJE_SIN_FILTRO_EXTRA_PEDIDO_URGENTE =
   "Seleccioná un segundo filtro (Proveedor, Pedido o búsqueda de al menos 3 caracteres) para ver productos.";
 

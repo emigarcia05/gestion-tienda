@@ -38,6 +38,7 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     enCostosFinancieros: row.enCostosFinancieros,
     enMargenContribucion: row.enMargenContribucion,
     fechaAcreditacionVariable: row.fechaAcreditacionVariable,
+    esCheque: false,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
   };

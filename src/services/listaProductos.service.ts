@@ -288,7 +288,7 @@ export async function crearMarca(input: CrearMarcaInput): Promise<ServiceResult<
 }
 
 /**
- * Renombrar actualiza también el texto `marca` de `proveedor_prod_lista`
+ * Renombrar actualiza también el texto `marca` de `proveedores_prod_lista`
  * (las reglas de descuento comparan por nombre contra ese texto). `prod_lista` solo guarda `id_marca`.
  */
 export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResult<{ id: string }>> {
@@ -391,7 +391,7 @@ export async function crearRubro(input: CrearRubroInput): Promise<ServiceResult<
   }
 }
 
-/** Renombrar actualiza también el texto `proveedor_prod_lista.rubro` (listas de proveedor). */
+/** Renombrar actualiza también el texto `proveedores_prod_lista.rubro` (listas de proveedor). */
 export async function editarRubro(input: EditarRubroInput): Promise<ServiceResult<{ id: string }>> {
   const nombre = normalizarNombreCatalogo(input.nombre);
   const actual = await prisma.prodRubro.findUnique({

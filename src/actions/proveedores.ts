@@ -35,7 +35,7 @@ export async function getProveedores() {
 
 /**
  * Lista únicamente los proveedores con `proveedor_mercaderia = true`.
- * Usada por /gestion-productos/proveedores/lista (tabla "Lista Proveedores").
+ * Usada por /administrador/proveedores/proveedores (tabla "Lista Proveedores").
  */
 export async function getProveedoresMercaderia() {
   const rol = await getRol();

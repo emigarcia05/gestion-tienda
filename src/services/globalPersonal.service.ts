@@ -16,6 +16,10 @@ export interface GlobalPersonalItem {
   sucursalPorDefecto: SucursalPreferida | null;
   modulosPermitidos: MainAppAreaId[];
   titularFinanciero: boolean;
+  /** Modo SUPER: `modulosPermitidos` guardados se ignoran; ver `modulosEfectivosUsuario`. */
+  superUsuario: boolean;
+  /** Hay hash en `usuarios.contrasena` (el hash nunca sale del servicio). */
+  tieneContrasena: boolean;
 }
 
 const PERSONAL_SELECT = {
@@ -25,6 +29,8 @@ const PERSONAL_SELECT = {
   sucursalPorDefecto: true,
   modulosPermitidos: true,
   titularFinanciero: true,
+  superUsuario: true,
+  contrasena: true,
 } as const;
 
 function normalizarNombrePersonal(nombre: string): string {
@@ -70,21 +76,6 @@ function prismaErrorTable(error: unknown): string | null {
   return null;
 }
 
-function describeErrorForUi(error: unknown, fallback: string): string {
-  const mapped = mapDbError(error, fallback);
-  if (mapped !== fallback) return mapped;
-  if (error && typeof error === "object" && "code" in error) {
-    const code = (error as { code?: string }).code;
-    const table = prismaErrorTable(error);
-    if (typeof code === "string" && code) {
-      return table ? `${fallback} (${code}: ${table})` : `${fallback} (${code})`;
-    }
-  }
-  const msg = error instanceof Error ? error.message.trim() : "";
-  if (msg) return `${fallback} ${msg.slice(0, 180)}`;
-  return fallback;
-}
-
 async function validarSucursalOpcional(
   codigo: SucursalPreferida | null
 ): Promise<ServiceResult<void>> {
@@ -104,6 +95,8 @@ function mapRow(row: {
   sucursalPorDefecto: string | null;
   modulosPermitidos: string[];
   titularFinanciero: boolean;
+  superUsuario: boolean;
+  contrasena: string | null;
 }): GlobalPersonalItem {
   return {
     idPersonal: row.idPersonal,
@@ -112,6 +105,8 @@ function mapRow(row: {
     sucursalPorDefecto: parseSucursalPreferida(row.sucursalPorDefecto),
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
     titularFinanciero: row.titularFinanciero,
+    superUsuario: row.superUsuario,
+    tieneContrasena: row.contrasena != null,
   };
 }
 
@@ -167,27 +162,6 @@ export async function listGlobalPersonal(): Promise<GlobalPersonalItem[]> {
   return rows.map(mapRow);
 }
 
-/** Usuarios con sucursal por defecto y al menos un módulo (modal de inicio). */
-export async function listUsuariosParaInicioSesion(): Promise<
-  ServiceResult<GlobalPersonalItem[]>
-> {
-  try {
-    const items = await listGlobalPersonal();
-    return {
-      success: true,
-      data: items.filter(
-        (item) => item.sucursalPorDefecto != null && item.modulosPermitidos.length > 0
-      ),
-    };
-  } catch (e: unknown) {
-    console.error("[globalPersonal][listUsuariosParaInicioSesion]", e);
-    return {
-      success: false,
-      error: describeErrorForUi(e, "Error al listar usuarios."),
-    };
-  }
-}
-
 export async function crearUsuarioPersonal(
   input: CrearUsuarioPersonalInput
 ): Promise<ServiceResult<GlobalPersonalItem>> {
@@ -207,6 +181,7 @@ export async function crearUsuarioPersonal(
         sucursalPorDefecto: input.sucursalPorDefecto,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
+        superUsuario: input.superUsuario,
       },
       select: PERSONAL_SELECT,
     });
@@ -239,6 +214,7 @@ export async function actualizarUsuarioPersonal(
         idDux: input.idDux,
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
+        superUsuario: input.superUsuario,
       },
       select: PERSONAL_SELECT,
     });

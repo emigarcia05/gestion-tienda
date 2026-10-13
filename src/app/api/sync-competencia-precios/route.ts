@@ -169,10 +169,7 @@ export async function POST(request: Request) {
       vacios: result.vacios,
       errores: result.errores,
     });
-    revalidatePath("/precios-competencia");
     revalidatePath(GP_ROUTES.analisisPrecios.pxCompetencia);
-    revalidatePath(GP_ROUTES.analisisPrecios.pxCompetencia);
-    revalidatePath("/tienda/cx-px");
     const competenciaNombre =
       parsed.data.todos === true
         ? `Todos (${competidoresSync.length} competidores)`

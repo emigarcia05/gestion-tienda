@@ -365,7 +365,7 @@ export default function FinAnaMargenContribucionPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Finanzas"
+        title="Productos"
         subtitle="Margen Contribución"
         actions={
           <div className="flex items-center gap-2">

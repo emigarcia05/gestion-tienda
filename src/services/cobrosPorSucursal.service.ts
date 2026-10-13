@@ -26,6 +26,7 @@ export type CobrosPorSucursalCajaOption = {
   titular: string;
   /** `TIPO CAJA - ENTIDAD - SUCURSAL - TITULAR`. Omite el tramo si el dato es null. */
   etiqueta: string;
+  recibeCheque: boolean;
 };
 
 export type CobrosPorSucursalCatalogoItem = {
@@ -58,6 +59,8 @@ export type CobrosPorSucursalFila = {
   cajaEtiqueta: string;
   /** TRUE = acreditar con CX TOTAL S/ IVA; FALSE = CX TOTAL C/ IVA. */
   discriminaIva: boolean;
+  /** De esta fila; no se hereda a otras sucursales. */
+  esCheque: boolean;
   observacion: string;
 };
 
@@ -167,7 +170,8 @@ export async function listarSucursalesCobrosPorSucursal(): Promise<
 }
 
 async function validarCajaDestino(
-  cajaDestinoId: string
+  cajaDestinoId: string,
+  pagoEsCheque: boolean
 ): Promise<
   ServiceResult<{
     id: string;
@@ -184,12 +188,19 @@ async function validarCajaDestino(
       sucursalId: true,
       titular: true,
       tipoCaja: true,
+      recibeCheque: true,
       entidad: { select: { nombre: true } },
       sucursal: { select: { nombre: true } },
     },
   });
   if (!caja) {
     return { success: false, error: "Caja vinculada inválida." };
+  }
+  if (pagoEsCheque && !caja.recibeCheque) {
+    return {
+      success: false,
+      error: "Este cobro es cheque: elegí una caja que reciba cheques.",
+    };
   }
   return {
     success: true,
@@ -214,6 +225,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           sucursalId: true,
           titular: true,
           tipoCaja: true,
+          recibeCheque: true,
           entidad: { select: { nombre: true } },
           sucursal: { select: { nombre: true } },
         },
@@ -226,6 +238,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           sucursalId: true,
           cajaDestinoId: true,
           discriminaIva: true,
+          esCheque: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
           cajaDestino: {
@@ -270,6 +283,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       cajaDestinoId: d.cajaDestinoId,
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       discriminaIva: d.discriminaIva,
+      esCheque: d.esCheque,
       observacion: d.observacion,
     }))
     .sort(sortFilas);
@@ -283,6 +297,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     sucursalNombre: textoEtiqueta(row.sucursal?.nombre) ?? "",
     titular: textoEtiqueta(row.titular) ?? "",
     etiqueta: etiquetaCajaLista(row),
+    recibeCheque: row.recibeCheque,
   }));
 
   return {
@@ -337,9 +352,7 @@ export async function crearCobroPorSucursal(
       entidadNombre = vinculo.entidad.nombre.toLocaleUpperCase("es-AR");
     }
 
-    const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId
-    );
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
     const sucursal = await prisma.sucursal.findUnique({
@@ -366,6 +379,7 @@ export async function crearCobroPorSucursal(
         sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
         discriminaIva: input.discriminaIva,
+        esCheque: input.esCheque,
         observacion,
       },
       select: { id: true },
@@ -384,6 +398,7 @@ export async function crearCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         discriminaIva: input.discriminaIva,
+        esCheque: input.esCheque,
         observacion,
       },
     };
@@ -417,9 +432,7 @@ export async function actualizarCobroPorSucursal(
       return { success: false, error: "Cobro no encontrado." };
     }
 
-    const cajaRes = await validarCajaDestino(
-      input.cajaDestinoId
-    );
+    const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
     await prisma.cobrosPorSucursal.update({
@@ -427,6 +440,7 @@ export async function actualizarCobroPorSucursal(
       data: {
         cajaDestinoId: cajaRes.data.id,
         discriminaIva: input.discriminaIva,
+        esCheque: input.esCheque,
         observacion,
       },
     });
@@ -446,6 +460,7 @@ export async function actualizarCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         discriminaIva: input.discriminaIva,
+        esCheque: input.esCheque,
         observacion,
       },
     };
@@ -481,14 +496,16 @@ export async function listarPagosCobroHabilitadosSucursal(
     listarFinAnaCosFinaPagos(),
     prisma.cobrosPorSucursal.findMany({
       where: { sucursal: { codigo: sucursalCodigo } },
-      select: { pagoId: true, entidadId: true },
+      select: { pagoId: true, entidadId: true, esCheque: true },
     }),
   ]);
 
   const pagosConFila = new Set<string>();
   const entidadesPorPago = new Map<string, Set<string>>();
+  const chequePorPago = new Map<string, boolean>();
   for (const vinculo of vinculos) {
     pagosConFila.add(vinculo.pagoId);
+    if (vinculo.esCheque) chequePorPago.set(vinculo.pagoId, true);
     if (!vinculo.entidadId) continue;
     const entidades = entidadesPorPago.get(vinculo.pagoId) ?? new Set<string>();
     entidades.add(vinculo.entidadId);
@@ -497,9 +514,18 @@ export async function listarPagosCobroHabilitadosSucursal(
 
   return pagos.flatMap((pago) => {
     if (!pagosConFila.has(pago.id)) return [];
+    const esCheque = chequePorPago.get(pago.id) === true;
     const permitidas = entidadesPorPago.get(pago.id);
     if (!permitidas || permitidas.size === 0) {
-      return [{ ...pago, entidadIds: [], entidadNombres: [] }];
+      return [
+        {
+          ...pago,
+          entidadIds: [],
+          entidadNombres: [],
+          esCheque,
+          fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
+        },
+      ];
     }
     const pares = pago.entidadIds
       .map((id, indice) => ({ id, nombre: pago.entidadNombres[indice] ?? "" }))
@@ -509,6 +535,8 @@ export async function listarPagosCobroHabilitadosSucursal(
         ...pago,
         entidadIds: pares.map((entidad) => entidad.id),
         entidadNombres: pares.map((entidad) => entidad.nombre),
+        esCheque,
+        fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
       },
     ];
   });

@@ -26,15 +26,8 @@ import {
 } from "@/services/exportPxListasMargen.service";
 import { limpiarPreciosEdicionTrasActPx } from "@/services/pxListasPrecioEdicion.service";
 
-const PX_LISTAS_PATHS = [
-  GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas,
-  "/tienda/px-listas",
-] as const;
-
 function revalidatePxListasPaths() {
-  for (const p of PX_LISTAS_PATHS) {
-    revalidatePath(p);
-  }
+  revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
 }
 
 /** Persiste PX staging en `prod_propios_listas_precios_edicion` desde margen % (o elimina con `margenManual: null`). */

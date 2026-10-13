@@ -19,8 +19,13 @@ export type FinAnaCosFinaPagoItem = {
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
   entidadNombres: string[];
-  /** El cobro pide la fecha de acreditación a mano. */
+  /** El cobro pide la fecha de acreditación a mano (también true si el vínculo de esa sucursal es cheque). */
   fechaAcreditacionVariable: boolean;
+  /**
+   * Overlay de `cobros_vinc_cajas.es_cheque` al listar formas de una sucursal.
+   * En el catálogo global queda false.
+   */
+  esCheque: boolean;
 };
 
 /** Id de forma de pago en simuladores (FK `cobros_forma_pago`). */

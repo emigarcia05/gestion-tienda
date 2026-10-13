@@ -176,7 +176,7 @@ export default function FinanzasVencPorFechaPageClient({
           {totalPaginas > 1 ? (
             <div className="flex shrink-0 justify-end pt-2">
               <PaginacionTabla
-                basePath="/finanzas/venc-por-fecha"
+                basePath="/finanzas/tesoreria/flujo-de-fondos"
                 params={{}}
                 paginaActual={paginaActual}
                 totalPaginas={totalPaginas}

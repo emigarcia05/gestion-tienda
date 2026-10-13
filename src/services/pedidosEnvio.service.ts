@@ -1,6 +1,6 @@
 /**
  * Pedidos de mercadería: lectura/escritura en `prod_ped_merc` (urgente, tintométrico, reposición).
- * Resolución de proveedor y textos vía `prod_lista` / `proveedor_prod_lista` según tipo.
+ * Resolución de proveedor y textos vía `prod_lista` / `proveedores_prod_lista` según tipo.
  */
 
 import type { Prisma } from "@prisma/client";
@@ -131,7 +131,7 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
       return {
         ok: false,
         error:
-          "No hay proveedor vinculado al producto en proveedor_prod_lista. Vinculá al menos un proveedor desde Vínculos Con Proveedores.",
+          "No hay proveedor vinculado al producto en proveedores_prod_lista. Vinculá al menos un proveedor desde Vínculos Con Proveedores.",
       };
     }
 
@@ -1269,7 +1269,7 @@ export interface ReposicionProveedorPrioritarioItem {
 /**
  * Reposición con cantidad a pedir > 0 cuyo proveedor ganador (menor costo comparable) no es el
  * proveedor elegido en el modal Generar Pedido, pero el producto **sí** tiene vínculo habilitado
- * con ese proveedor en `proveedor_prod_lista.cod_tienda`.
+ * con ese proveedor en `proveedores_prod_lista.cod_tienda`.
  */
 export async function getReposicionItemsProveedorPrioritarioAlternativo(params: {
   proveedorSeleccionadoId: string;

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
-import { PLAZOS_PAGO_DIAS_PERMITIDOS } from "@/lib/comprobanteCuotasPlazoPago";
+import {
+  PLAZOS_PAGO_DIAS_PERMITIDOS,
+  PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL,
+} from "@/lib/comprobanteCuotasPlazoPago";
+import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
+import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
 const plazoOpcionalSchema = z
   .union([z.literal(""), z.literal("none"), z.null(), z.coerce.number().int()])
@@ -12,7 +17,7 @@ const plazoOpcionalSchema = z
     (v) =>
       v === null ||
       PLAZOS_PAGO_DIAS_PERMITIDOS.includes(v as (typeof PLAZOS_PAGO_DIAS_PERMITIDOS)[number]),
-    { message: "Plazo inválido (30, 60, 90, 120 o 150)." }
+    { message: `Plazo inválido (${PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL}).` }
   );
 
 const plazoObligatorioSchema = z.coerce
@@ -20,7 +25,7 @@ const plazoObligatorioSchema = z.coerce
   .int()
   .refine(
     (v) => PLAZOS_PAGO_DIAS_PERMITIDOS.includes(v as (typeof PLAZOS_PAGO_DIAS_PERMITIDOS)[number]),
-    { message: "El 1.er plazo es obligatorio (30, 60, 90, 120 o 150)." }
+    { message: `El 1.er plazo es obligatorio (${PLAZOS_PAGO_DIAS_PERMITIDOS_LABEL}).` }
   );
 
 function refinePlanCreciente(
@@ -92,3 +97,81 @@ export const actualizarPlazosPagosMercaderiaSchema = z.object({
     )
     .min(1),
 });
+
+/** `fin_compras_comprobante.id_proveedor` = `proveedores.id_proveedor_dux`. */
+const idProveedorDuxSchema = z.string().trim().min(1, "Filtrá un proveedor.").max(100);
+
+export const comprobantesPendientesProveedorSchema = z.object({
+  idProveedorDux: idProveedorDuxSchema,
+});
+
+/**
+ * Comprobantes elegidos en «Pagar comprobantes seleccionados». Ausente = FIFO sobre todos los
+ * pendientes del proveedor; presente = FIFO solo sobre esos.
+ */
+const comprobanteIdsSeleccionSchema = z
+  .array(prismaCuidSchema)
+  .min(1, "Seleccioná al menos un comprobante.")
+  .max(500)
+  .optional();
+
+/** Pago CC desde una caja de tesorería con saldo disponible (egreso inmediato). */
+export const registrarPagoCuentaCorrienteProveedoresSchema = z.object({
+  idProveedorDux: idProveedorDuxSchema,
+  comprobanteIds: comprobanteIdsSeleccionSchema,
+  cajaId: prismaCuidSchema,
+  montoCents: z.number().int().positive("Ingresá un monto a pagar."),
+  personalId: idPersonalSchema,
+});
+
+export type RegistrarPagoCuentaCorrienteProveedoresInput = z.infer<
+  typeof registrarPagoCuentaCorrienteProveedoresSchema
+>;
+
+const isoYmdSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (use YYYY-MM-DD).");
+
+/** Pago CC con eCheq propio: imputa al proveedor y se debita de la caja en `fechaPago`. */
+export const emitirEcheqPagoProveedorSchema = z
+  .object({
+    idProveedorDux: idProveedorDuxSchema,
+    comprobanteIds: comprobanteIdsSeleccionSchema,
+    cajaId: prismaCuidSchema,
+    montoCents: z.number().int().positive("Ingresá un monto a pagar."),
+    fechaEmision: isoYmdSchema,
+    fechaPago: isoYmdSchema,
+    numero: z.string().trim().max(50).default(""),
+    observacion: z.string().trim().max(2000).default(""),
+  })
+  .superRefine((data, ctx) => {
+    if (data.fechaPago < data.fechaEmision) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["fechaPago"],
+        message: "La fecha de pago no puede ser anterior a la de emisión.",
+      });
+    }
+  });
+
+export type EmitirEcheqPagoProveedorInput = z.infer<typeof emitirEcheqPagoProveedorSchema>;
+
+/** NC del proveedor por bonificación comercial: cancela saldo de un comprobante; sin stock ni tesorería. */
+export const registrarNotaCreditoBonificacionSchema = z.object({
+  idProveedorDux: idProveedorDuxSchema,
+  comprobanteId: prismaCuidSchema,
+  numero: z
+    .string()
+    .trim()
+    .regex(NUMERO_COMPROBANTE_COMPRA_REGEX, "Ingresá el N° de la nota de crédito (0000-00000000)."),
+  fecha: isoYmdSchema,
+  montoCents: z.number().int().positive("Ingresá el monto de la nota de crédito."),
+});
+
+export type RegistrarNotaCreditoBonificacionInput = z.infer<
+  typeof registrarNotaCreditoBonificacionSchema
+>;
+
+export const chequeEmitidoIdSchema = z.object({ id: prismaCuidSchema });
+
+export const chequesEmitidosCajaSchema = z.object({ cajaId: prismaCuidSchema });

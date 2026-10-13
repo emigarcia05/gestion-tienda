@@ -120,8 +120,8 @@ export default function ListaPreciosPageClient({
 
   return (
     <ClassicFilteredTableLayout
-      title="Lista Proveedores"
-      subtitle="Lista Precios"
+      title="Proveedores"
+      subtitle="Lista Prod. Prov."
       actions={actions}
     >
       <ListaPreciosTablaConFiltros

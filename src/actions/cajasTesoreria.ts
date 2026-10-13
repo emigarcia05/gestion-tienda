@@ -39,7 +39,7 @@ function firstZodErrorMessage(error: {
 
 function revalidateCajasTesoreriaPaths(): void {
   revalidatePath("/finanzas");
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath("/finanzas/tesoreria/cajas");
 }
 
 /** Catálogo `cobros_entidades` para alta/edición de cajas. */

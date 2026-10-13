@@ -1,12 +1,8 @@
-/** Rutas canónicas del módulo Finanzas **COBROS**. */
-export const VTAS_COBROS_ROUTES = {
-  hub: "/vtas-cobros",
-  ptosVenta: "/vtas-cobros/ptos-venta",
-  cobros: "/vtas-cobros/cobros",
-  cxFinCobros: "/vtas-cobros/cx-fin-cobros",
-  cobrosPorSucursal: "/vtas-cobros/cobros-por-sucursal",
-} as const;
+import { APP_ROUTES } from "./appRoutes";
 
-export const VTAS_COBROS_LEGACY_FACT_COBROS_PATH = "/finanzas/fact-cobros";
-export const VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH =
-  "/finanzas/analisis-mc/costos-financieros";
+/** Rutas del módulo **COBROS** (área Finanzas). */
+export const VTAS_COBROS_ROUTES = {
+  ptosVenta: APP_ROUTES.finanzas.cobros.ptosVtas,
+  cxFinCobros: APP_ROUTES.finanzas.cobros.cobrosCxFin,
+  cobrosPorSucursal: APP_ROUTES.finanzas.cobros.cobrosCajas,
+} as const;

@@ -1,34 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Wallet } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import GestionarVencimientosProveedorModal from "@/components/finanzas/GestionarVencimientosProveedorModal";
-import TablaControlComprobantes from "@/components/finanzas/TablaControlComprobantes";
-import { Button } from "@/components/ui/button";
+import PagoCuentaCorrienteProveedoresModal from "@/components/finanzas/PagoCuentaCorrienteProveedoresModal";
+import TablaControlComprobantes, {
+  type ControlComprobanteRow,
+} from "@/components/finanzas/TablaControlComprobantes";
 import type { ProveedorMercaderiaPlazosFila } from "@/services/proveedor.service";
-
-interface ControlComprobanteRow {
-  id: string;
-  fechaComp: string;
-  proveedorNombre: string;
-  proveedorPrefijo: string;
-  sucursalNombre: string;
-  comprobante: string;
-  total: string;
-  montoAplicado: string;
-  vencimientoSaldo: string;
-  controlado: boolean;
-  plazoPago1Dias: number | null;
-  plazoPago2Dias: number | null;
-  plazoPago3Dias: number | null;
-  plazoPago4Dias: number | null;
-  proveedorPlazo1Dias: number | null;
-  proveedorPlazo2Dias: number | null;
-  proveedorPlazo3Dias: number | null;
-  proveedorPlazo4Dias: number | null;
-  planPlazosLabel: string;
-  fechaVenc: string;
-}
 
 export default function ControlComprobantesPageClient({
   filas,
@@ -39,28 +21,61 @@ export default function ControlComprobantesPageClient({
   proveedoresMercaderia: ProveedorMercaderiaPlazosFila[];
   esEditor: boolean;
 }) {
+  const router = useRouter();
   const [openGestionarVenc, setOpenGestionarVenc] = useState(false);
+  const [openPagoCc, setOpenPagoCc] = useState(false);
+  const [filtroProveedor, setFiltroProveedor] = useState("");
+  const proveedorFiltrado = filtroProveedor
+    ? (filas.find((f) => f.idProveedor === filtroProveedor) ?? null)
+    : null;
 
   return (
     <div className="area-page-shell">
       <ClassicFilteredTableLayout
         title="Finanzas"
-        subtitle="Comprobantes"
+        subtitle="Comp. Compras"
         actions={
           esEditor ? (
-            <Button type="button" onClick={() => setOpenGestionarVenc(true)}>
-              Gestionar Venc.
-            </Button>
+            <>
+              <ToolbarActionButton
+                label="Pago Cuenta Corriente"
+                icon={<Wallet />}
+                className="w-full justify-start"
+                disabled={!proveedorFiltrado}
+                title={proveedorFiltrado ? undefined : "Filtrá un proveedor para registrar el pago."}
+                onClick={() => setOpenPagoCc(true)}
+              />
+              <ToolbarActionButton
+                label="Gestionar Venc."
+                icon={<CalendarClock />}
+                className="w-full justify-start"
+                onClick={() => setOpenGestionarVenc(true)}
+              />
+            </>
           ) : null
         }
       >
-        <TablaControlComprobantes filas={filas} esEditor={esEditor} />
+        <TablaControlComprobantes
+          filas={filas}
+          esEditor={esEditor}
+          filtroProveedor={filtroProveedor}
+          onFiltroProveedorChange={setFiltroProveedor}
+        />
       </ClassicFilteredTableLayout>
 
       {openGestionarVenc ? (
         <GestionarVencimientosProveedorModal
           onClose={() => setOpenGestionarVenc(false)}
           proveedores={proveedoresMercaderia}
+        />
+      ) : null}
+      {proveedorFiltrado ? (
+        <PagoCuentaCorrienteProveedoresModal
+          open={openPagoCc}
+          onOpenChange={setOpenPagoCc}
+          idProveedorDux={proveedorFiltrado.idProveedor}
+          proveedorNombre={proveedorFiltrado.proveedorNombre}
+          onRegistrado={() => router.refresh()}
         />
       ) : null}
     </div>

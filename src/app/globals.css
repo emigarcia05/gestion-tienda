@@ -1505,17 +1505,6 @@
   --tabla-row-bg: var(--muted);
   background-color: var(--muted);
 }
-.tabla-gestion-compacta.tabla-deuda-proveedores tbody td.celda-proveedor-deuda {
-  white-space: nowrap !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
-  text-align: center;
-}
-.tabla-gestion-compacta.tabla-deuda-proveedores tfoot td.celda-proveedor-deuda {
-  vertical-align: middle;
-  text-align: center;
-}
 /* Modal vínculos (Tienda): conserva ancho y densidad de celdas; encabezado usa la misma regla global. */
 .tabla-gestion-compacta.tabla-vinculos-modal {
   width: 100% !important;
@@ -1560,7 +1549,7 @@
   background-color: color-mix(in oklab, var(--accent2) 30%, var(--tabla-row-bg, var(--card)));
 }
 
-/* Flujo de fondo (`/finanzas/venc-por-fecha`): **thead** = centrado global. **FECHA** en cuerpo
+/* Flujo de fondo (`/finanzas/tesoreria/flujo-de-fondos`): **thead** = centrado global. **FECHA** en cuerpo
  * centrada en la columna (`text-center` en `TablaFlujoDeFondo`); modal detalle: **PROVEEDOR** con
  * `text-left` en JSX. Importes: `TD_NUM`. **SALDO** negativo: `text-destructive` en la celda. */
 

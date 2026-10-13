@@ -10,7 +10,7 @@ import {
   editarGlobalPtoVtaSchema,
   eliminarGlobalPtoVtaSchema,
 } from "@/lib/validations/globalPtoVtas";
-import { VTAS_COBROS_LEGACY_FACT_COBROS_PATH, VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
+import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 import {
   crearGlobalPtoVta,
   editarGlobalPtoVta,
@@ -21,7 +21,6 @@ import {
 
 function revalidateFactCobros(): void {
   revalidatePath(VTAS_COBROS_ROUTES.ptosVenta);
-  revalidatePath(VTAS_COBROS_LEGACY_FACT_COBROS_PATH);
 }
 
 export async function listarPtoVentasCodArcaAction(): Promise<

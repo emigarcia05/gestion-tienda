@@ -17,9 +17,10 @@ import {
   crearUsuarioPersonal,
   eliminarUsuarioPersonal,
   listNombresTitularesFinancieros,
-  listUsuariosParaInicioSesion,
   type GlobalPersonalItem,
 } from "@/services/globalPersonal.service";
+import { restablecerContrasenaUsuario } from "@/services/ingreso.service";
+import { restablecerContrasenaUsuarioSchema } from "@/lib/validations/ingreso";
 
 /** Titulares de caja/cheque: `personal` con `titular_financiero = true`. */
 export async function listTitularesFinancierosAction(): Promise<ActionResult<string[]>> {
@@ -35,20 +36,26 @@ export async function listTitularesFinancierosAction(): Promise<ActionResult<str
   }
 }
 
-export async function listUsuariosParaInicioSesionAction(): Promise<
-  ActionResult<GlobalPersonalItem[]>
-> {
+/** Borra la contraseña: el usuario crea una nueva en su próximo ingreso. */
+export async function restablecerContrasenaUsuarioAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
   const rol = await getRol();
-  if (!puede(rol, PERMISOS.usuarios.inicioSesion)) {
-    return { ok: false, error: "Sin permisos." };
+  if (!puede(rol, PERMISOS.usuarios.acceso)) {
+    return { ok: false, error: "Sin permisos para usuarios." };
   }
-  try {
-    return fromServiceResult(await listUsuariosParaInicioSesion());
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e);
-    console.error("[globalPersonal][action][listUsuariosParaInicioSesion]", message, e);
-    return { ok: false, error: `Error al listar usuarios. ${message.slice(0, 180)}` };
+  if (!(await esEditor())) {
+    return { ok: false, error: "Sin permisos de editor." };
   }
+
+  const parsed = restablecerContrasenaUsuarioSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const result = await restablecerContrasenaUsuario(parsed.data);
+  if (result.success) revalidatePath(USUARIOS_PATH);
+  return fromServiceResult(result);
 }
 
 export async function crearUsuarioPersonalAction(

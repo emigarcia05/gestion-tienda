@@ -10,7 +10,8 @@ import {
   editarTesoreriaTitularSchema,
   eliminarTesoreriaTitularSchema,
 } from "@/lib/validations/tesoreriaTitulares";
-import { VTAS_COBROS_LEGACY_FACT_COBROS_PATH, VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
+import { APP_ROUTES } from "@/lib/appRoutes";
+import { VTAS_COBROS_ROUTES } from "@/lib/vtasCobrosRoutes";
 import {
   crearTesoreriaTitular,
   editarTesoreriaTitular,
@@ -20,8 +21,7 @@ import {
 
 function revalidateTesoreriaTitularesPaths(): void {
   revalidatePath(VTAS_COBROS_ROUTES.ptosVenta);
-  revalidatePath(VTAS_COBROS_LEGACY_FACT_COBROS_PATH);
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.cajas);
 }
 
 export async function listarTesoreriaTitularesAction(): Promise<

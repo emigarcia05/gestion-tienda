@@ -1188,7 +1188,7 @@ export async function registrarNotaCreditoCompraPedido(params: {
 
 /**
  * Arma los datos para regenerar la nota de pedido PDF desde el snapshot (`prod_ped_historial` + ítems)
- * y el catálogo vigente (`proveedor_prod_lista` por `cod_ext`).
+ * y el catálogo vigente (`proveedores_prod_lista` por `cod_ext`).
  */
 export async function getPedidoHistoriaPdfPayload(params: {
   pedidoHistoriaId: string;

@@ -37,9 +37,9 @@ export async function POST(request: Request) {
     if (!res.success) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
-    revalidatePath("/estadisticas-productos");
-    revalidatePath("/estadisticas-productos/ventas-por-producto");
-    revalidatePath("/estadisticas-productos/categorizacion");
+    revalidatePath("/administrador/estadisticas");
+    revalidatePath("/administrador/estadisticas/carga-de-datos");
+    revalidatePath("/administrador/estadisticas/configuracion");
     return NextResponse.json({ ok: true, data: res.data });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "No se pudo eliminar el periodo.";

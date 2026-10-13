@@ -1,18 +1,15 @@
-/**
- * Rutas canónicas del área Facturación.
- * Prefijo: `/facturacion/{módulo}/{submódulo?}`.
- */
+import { APP_ROUTES } from "./appRoutes";
 
+/** Rutas de los módulos **VENTAS** (comprobantes) y **CLIENTES** del área Ventas. */
 export const FACTURACION_ROUTES = {
-  defaultEntry: "/facturacion/factura/facturas",
   factura: {
-    crear: "/facturacion/factura/crear",
-    facturas: "/facturacion/factura/facturas",
-    presupuestos: "/facturacion/factura/presupuestos",
+    crear: APP_ROUTES.ventas.ventas.crear,
+    facturas: APP_ROUTES.ventas.ventas.comprobantes,
+    presupuestos: APP_ROUTES.ventas.ventas.presupuestos,
   },
   clientes: {
-    lista: "/facturacion/clientes/lista",
-    cuentaCorriente: "/facturacion/clientes/cuenta-corriente",
+    lista: APP_ROUTES.ventas.clientes.listaClientes,
+    cuentaCorriente: APP_ROUTES.ventas.clientes.cuentasCorrientes,
   },
 } as const;
 

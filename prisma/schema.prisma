@@ -22,6 +22,30 @@ enum TipoValorTesoreria {
 }
 
 /**
+ * Estado del cheque físico en cartera (`tesoreria_cheques`).
+ */
+enum EstadoChequeTesoreria {
+  EN_CARTERA
+  DEPOSITADO
+  ENTREGADO_PROVEEDOR
+}
+
+/**
+ * Tipo de cheque propio emitido (`tesoreria_cheques_emitidos`). Por ahora solo eCheq.
+ */
+enum TipoChequeEmitido {
+  ECHEQ
+}
+
+/**
+ * EMITIDO: vigente (se debita en `fecha_pago`). ANULADO: revertido (sin movimiento ni imputación).
+ */
+enum EstadoChequeEmitido {
+  EMITIDO
+  ANULADO
+}
+
+/**
  * Ingreso o egreso. El saldo es la suma de `monto` con este signo; `monto` es siempre positivo.
  */
 enum SentidoMovimientoTesoreria {
@@ -181,6 +205,8 @@ model Proveedor {
   preciosRex                    ProdPrecioRex[]
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
+  chequesRecibidos              TesoreriaCheque[]
+  chequesEmitidos               TesoreriaChequeEmitido[]
 
   @@index([proveedorMercaderia], map: "proveedores_proveedor_mercaderia_idx")
   @@index([esFabrica], map: "proveedores_es_fabrica_idx")
@@ -199,7 +225,7 @@ model GlobalCotizacionUsd {
 }
 
 /**
- * Campo materializable en `proveedor_prod_lista` gobernado por reglas de descuento.
+ * Campo materializable en `proveedores_prod_lista` gobernado por reglas de descuento.
  */
 enum CampoReglaDescuentoListaPrecio {
   dto_proveedor
@@ -248,7 +274,7 @@ model ProdSubRubro {
 }
 
 /**
- * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en proveedor_prod_lista.
+ * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en proveedores_prod_lista.
  */
 model ProdPrecioProveeRegla {
   id          String                         @id @default(cuid())
@@ -344,6 +370,7 @@ model ComprobanteProveedor {
   pedidoHistoria  PedidoHistoria?        @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
   comprobanteAsoc ComprobanteProveedor?  @relation("ComprobanteProveedorNotaCredito", fields: [comprobanteAsocId], references: [id], onDelete: Restrict)
   notasCredito    ComprobanteProveedor[] @relation("ComprobanteProveedorNotaCredito")
+  imputacionesChequesEmitidos TesoreriaChequeEmitidoImputacion[]
 
   @@unique([idSucursalEmpresa, tipoComp, comprobante, fechaComp, idProveedor], map: "fin_compras_comprobante_natural_ux")
   @@index([fechaComp])
@@ -515,6 +542,16 @@ model GlobalPersonal {
    */
   modulosPermitidos  String[] @default([]) @map("modulos_permitidos")
   titularFinanciero  Boolean  @default(false) @map("titular_financiero")
+  /**
+   * Modo SUPER: acceso a todos los módulos de `MAIN_APP_AREAS` (incluye los que se agreguen).
+   * `modulos_permitidos` se conserva pero se ignora mientras esté activo.
+   */
+  superUsuario       Boolean  @default(false) @map("super_usuario")
+  /**
+   * Hash de la contraseña (scrypt, `src/lib/contrasena.ts`); **nunca** texto plano. Null = sin contraseña.
+   * Omitido por defecto en el cliente Prisma (`src/lib/prisma.ts`): leer solo con `omit: { contrasena: false }`.
+   */
+  contrasena         String?  @map("contrasena")
 
   sucursalDefault              Sucursal?             @relation("PersonalSucursalPorDefecto", fields: [sucursalPorDefecto], references: [codigo], onDelete: SetNull)
   comprobantesVtas             ComprobanteVta[]
@@ -524,6 +561,7 @@ model GlobalPersonal {
   stockTransferenciasCreadas   StockTransferencia[]  @relation("StockTransferenciaCreadaPor")
   stockTransferenciasResueltas StockTransferencia[]  @relation("StockTransferenciaResueltaPor")
   notificacionesLeidas         Notificacion[]
+  chequesEmitidos              TesoreriaChequeEmitido[]
 
   @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
   @@map("usuarios")
@@ -585,6 +623,18 @@ model CajaTesoreria {
    * Supervisión fiscal (TRUE/FALSE).
    */
   supervisionFiscal Boolean                     @default(false) @map("supervision_fiscal")
+  /**
+   * Los cobros que llegan acá crean un cheque (`tesoreria_cheques`) que vive en esta caja.
+   */
+  recibeCheque      Boolean                     @default(false) @map("recibe_cheque")
+  /**
+   * Se puede elegir como destino al depositar un cheque (pasa a ser valor monetario).
+   */
+  depositaCheque    Boolean                     @default(false) @map("deposita_cheque")
+  /**
+   * Cuenta desde la que se emiten cheques propios (eCheq) para pagar a proveedores.
+   */
+  emiteCheque       Boolean                     @default(false) @map("emite_cheque")
   monto             Int                         @default(0)
   ultActualizacion  DateTime                    @default(now()) @map("ult_actualizacion")
   createdAt         DateTime                    @default(now()) @map("created_at")
@@ -593,6 +643,9 @@ model CajaTesoreria {
   cobrosPorSucursalDestino   CobrosPorSucursal[]
   movimientos                TesoreriaMovimiento[] @relation("MovimientoCaja")
   movimientosComoContraparte TesoreriaMovimiento[] @relation("MovimientoCajaContraparte")
+  cheques                    TesoreriaCheque[]     @relation("ChequeCaja")
+  chequesDepositados         TesoreriaCheque[]     @relation("ChequeCajaDestino")
+  chequesEmitidos            TesoreriaChequeEmitido[]
 
   @@index([tipoCaja], map: "tesoreria_cajas_tipo_caja_idx")
   @@index([tipoValor], map: "tesoreria_cajas_tipo_valor_idx")
@@ -701,6 +754,17 @@ model TesoreriaMovimiento {
    */
   notaCreditoId        String?                      @map("nota_credito_id")
   notaCredito          ComprobanteVta?              @relation("MovimientoNotaCredito", fields: [notaCreditoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * Cheque físico: cobro de entrada (puede partirse en varias filas por imputación CC)
+   * y piernas de salida (depósito / pago a proveedor).
+   */
+  chequeId             String?                      @map("cheque_id")
+  cheque               TesoreriaCheque?             @relation(fields: [chequeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
+   * Cheque propio emitido: egreso PAGO_PROVEEDOR con `fecha_acreditacion` = fecha de pago.
+   */
+  chequeEmitidoId      String?                      @map("cheque_emitido_id")
+  chequeEmitido        TesoreriaChequeEmitido?      @relation(fields: [chequeEmitidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
@@ -720,7 +784,113 @@ model TesoreriaMovimiento {
   @@index([comprobanteId], map: "tesoreria_movimientos_comprobante_idx")
   @@index([clienteCobroId], map: "tesoreria_movimientos_cliente_cobro_idx")
   @@index([notaCreditoId], map: "tesoreria_movimientos_nota_credito_idx")
+  @@index([chequeId], map: "tesoreria_movimientos_cheque_idx")
+  @@index([chequeEmitidoId], map: "tesoreria_movimientos_cheque_emitido_idx")
   @@map("tesoreria_movimientos")
+}
+
+/**
+ * Cheques propios emitidos a proveedores (Comp. Compras → Pago Cuenta Corriente).
+ * Al emitir: imputa FIFO a los comprobantes del proveedor y crea un EGRESO PAGO_PROVEEDOR
+ * en la caja con `fecha_acreditacion = fecha_pago` (la caja baja ese día).
+ * Flujo de Fondos lo muestra en VENCIMIENTOS en `fecha_pago` mientras esté EMITIDO.
+ */
+model TesoreriaChequeEmitido {
+  id             String              @id @default(cuid())
+  /** Caja con `emite_cheque` (cuenta bancaria). */
+  cajaId         String              @map("caja_id")
+  caja           CajaTesoreria       @relation(fields: [cajaId], references: [id], onDelete: Restrict)
+  proveedorId    String              @map("proveedor_id")
+  proveedor      Proveedor           @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  tipo           TipoChequeEmitido   @default(ECHEQ)
+  /** Número del eCheq (opcional, para conciliar con el banco). */
+  numero         String              @default("")
+  monto          Decimal             @db.Decimal(14, 2)
+  fechaEmision   DateTime            @map("fecha_emision") @db.Date
+  /** Día en que se debita de la caja (CHECK ≥ `fecha_emision`). */
+  fechaPago      DateTime            @map("fecha_pago") @db.Date
+  estado         EstadoChequeEmitido @default(EMITIDO)
+  fechaAnulacion DateTime?           @map("fecha_anulacion") @db.Date
+  observacion    String              @default("") @db.Text
+  personalId     Int?                @map("personal_id")
+  personal       GlobalPersonal?     @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  imputaciones TesoreriaChequeEmitidoImputacion[]
+  movimientos  TesoreriaMovimiento[]
+
+  @@index([estado, fechaPago], map: "tesoreria_cheques_emitidos_estado_fecha_pago_idx")
+  @@index([cajaId], map: "tesoreria_cheques_emitidos_caja_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_emitidos_proveedor_idx")
+  @@index([personalId], map: "tesoreria_cheques_emitidos_personal_idx")
+  @@map("tesoreria_cheques_emitidos")
+}
+
+/**
+ * Monto del cheque emitido aplicado a cada comprobante de compra (se revierte al anular).
+ */
+model TesoreriaChequeEmitidoImputacion {
+  id              String                 @id @default(cuid())
+  chequeEmitidoId String                 @map("cheque_emitido_id")
+  chequeEmitido   TesoreriaChequeEmitido @relation(fields: [chequeEmitidoId], references: [id], onDelete: Cascade, map: "tesoreria_cheques_emitidos_imp_cheque_fkey")
+  comprobanteId   String                 @map("comprobante_id")
+  comprobante     ComprobanteProveedor   @relation(fields: [comprobanteId], references: [id], onDelete: Restrict, map: "tesoreria_cheques_emitidos_imp_comprobante_fkey")
+  monto           Decimal                @db.Decimal(14, 2)
+
+  @@index([chequeEmitidoId], map: "tesoreria_cheques_emitidos_imp_cheque_idx")
+  @@index([comprobanteId], map: "tesoreria_cheques_emitidos_imp_comprobante_idx")
+  @@map("tesoreria_cheques_emitidos_imputaciones")
+}
+
+/**
+ * Cartera de cheques (físicos o eCheq; se distinguen por configuración/nombre de forma de pago).
+ * Nace con el cobro a una caja con `recibe_cheque = true` (cliente = venta o pago CC).
+ * Su monto suma a esa caja desde `fecha_acreditacion`.
+ */
+model TesoreriaCheque {
+  id                String                @id @default(cuid())
+  /** Caja (recibe_cheque) donde vive el cheque. */
+  cajaId            String                @map("caja_id")
+  caja              CajaTesoreria         @relation("ChequeCaja", fields: [cajaId], references: [id], onDelete: Restrict)
+  /** Importe del cheque (bruto del cobro). */
+  monto             Int
+  /** Neto que sumó a la caja; es lo que sale al depositar / pagar. */
+  montoAcreditado   Int                   @map("monto_acreditado")
+  fechaRecepcion    DateTime              @map("fecha_recepcion") @db.Date
+  /** Desde este día suma a la caja y se puede depositar. */
+  fechaAcreditacion DateTime              @map("fecha_acreditacion") @db.Date
+  clienteId       String?               @map("cliente_id")
+  cliente         Cliente?              @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  /** Snapshot del nombre del cliente al recibir. */
+  clienteNombre   String                @default("") @map("cliente_nombre")
+  /** Venta del cobro directo. Null en pago CC. */
+  comprobanteId   String?               @map("comprobante_id")
+  comprobante     ComprobanteVta?       @relation(fields: [comprobanteId], references: [id], onDelete: SetNull)
+  /** Pago CC padre. Null en cobro directo de venta. */
+  clienteCobroId  String?               @map("cliente_cobro_id")
+  clienteCobro    ClienteCobro?         @relation(fields: [clienteCobroId], references: [id], onDelete: Restrict)
+  estado          EstadoChequeTesoreria @default(EN_CARTERA)
+  fechaSalida     DateTime?             @map("fecha_salida") @db.Date
+  /** DEPOSITADO: caja (deposita_cheque) que lo recibió; puede ser la misma `caja_id`. */
+  cajaDestinoId   String?               @map("caja_destino_id")
+  cajaDestino     CajaTesoreria?        @relation("ChequeCajaDestino", fields: [cajaDestinoId], references: [id], onDelete: Restrict)
+  /** ENTREGADO_PROVEEDOR: proveedor que lo recibió. */
+  proveedorId     String?               @map("proveedor_id")
+  proveedor       Proveedor?            @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  movimientos TesoreriaMovimiento[]
+
+  @@index([estado, fechaAcreditacion], map: "tesoreria_cheques_estado_fecha_acred_idx")
+  @@index([cajaId], map: "tesoreria_cheques_caja_idx")
+  @@index([clienteId], map: "tesoreria_cheques_cliente_idx")
+  @@index([comprobanteId], map: "tesoreria_cheques_comprobante_idx")
+  @@index([clienteCobroId], map: "tesoreria_cheques_cliente_cobro_idx")
+  @@index([cajaDestinoId], map: "tesoreria_cheques_caja_destino_idx")
+  @@index([proveedorId], map: "tesoreria_cheques_proveedor_idx")
+  @@map("tesoreria_cheques")
 }
 
 // Catálogo raíz de la jerarquía Finanzas → Balance → Gastos: Tipo (1) ─→ Rubros (N) ─→ Gastos (N).
@@ -1138,9 +1308,9 @@ model ListaPrecioProveedor {
    */
   costoListaEnTiendas ProdPropio[]                         @relation("CostoListaEnTienda")
 
-  @@unique([idProveedor, codProdProveedor], map: "proveedor_prod_lista_id_proveedor_cod_prod_prov_key")
-  @@index([idPrecioRex], map: "proveedor_prod_lista_id_precio_rex_idx")
-  @@map("proveedor_prod_lista")
+  @@unique([idProveedor, codProdProveedor], map: "proveedores_prod_lista_id_proveedor_cod_prod_prov_key")
+  @@index([idPrecioRex], map: "proveedores_prod_lista_id_precio_rex_idx")
+  @@map("proveedores_prod_lista")
 }
 
 /**
@@ -1320,7 +1490,7 @@ model ProdPropio {
   proveedor                   String?
   descripcionTienda           String?   @map("descripcion")
   /**
-   * FK a `proveedor_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
+   * FK a `proveedores_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
    */
   costoCompraCodExt           String?   @map("costo_compra_cod_ext")
   costoCompra                 Decimal   @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
@@ -1329,7 +1499,7 @@ model ProdPropio {
    * Legacy export Excel de Control Stock (ya no se lee ni escribe).
    */
   ultimaExportacionExcel      DateTime? @map("ultima_exportacion_excel")
-  /// Producto propio TiendaColor: no admite vínculos con `proveedor_prod_lista`; el sync DUX no modifica este flag.
+  /// Producto propio TiendaColor: no admite vínculos con `proveedores_prod_lista`; el sync DUX no modifica este flag.
   esProductoPropio            Boolean   @default(false) @map("es_producto_propio")
   /// Incluido en Px Competencia (`/gestion-productos/tienda/cx-px-tienda`); el sync DUX no modifica este flag.
   compararCompetencia         Boolean   @default(false) @map("comparar_competencia")
@@ -1348,7 +1518,7 @@ model ProdPropio {
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
   presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
   color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
-  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedor_prod_lista.cod_tienda → esta PK
+  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedores_prod_lista.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
   preciosCompetencia        ProdPrecioCompetencia[]
@@ -1547,7 +1717,7 @@ model ProdCompetencia {
   nombre              String    @unique(map: "prod_competencia_nombre_key")
   /// Sitio principal del competidor (opcional; las fichas van en prod_precios_competencia.url_producto).
   web                 String?
-  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `proveedor_prod_lista` (mismo `cod_tienda`) sin scraping.
+  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `proveedores_prod_lista` (mismo `cod_tienda`) sin scraping.
   idProveedor         String?   @map("id_proveedor")
   /// Última ejecución de relevamiento masivo para este competidor.
   ultimaComparacionAt DateTime? @map("ultima_comparacion_at")
@@ -1893,6 +2063,11 @@ model CobrosPorSucursal {
    * FALSE → Cx Fin al acreditar = CX TOTAL C/ IVA.
    */
   discriminaIva Boolean                     @default(false) @map("discrimina_iva")
+  /**
+   * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
+   * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
+   */
+  esCheque      Boolean                     @default(false) @map("es_cheque")
   /**
    * Texto libre de la fila.
    */
@@ -2268,7 +2443,7 @@ model ProdIaDisenoCatalogo {
 }
 
 /**
- * Forma de cobro del envío. `PAGADO` implica `envios_final.pagado = true`.
+ * Forma de cobro del envío. `PAGADO` implica `envios.pagado = true`.
  */
 enum EnviosFormaPagado {
   PAGADO
@@ -2322,6 +2497,7 @@ model Cliente {
   direcciones            EnviosDireccion[]
   comprobantesVtas       ComprobanteVta[]
   cobros                 ClienteCobro[]
+  cheques                TesoreriaCheque[]
 
   @@index([esPintor], map: "clientes_es_pintor_idx")
   @@index([nombreCompleto], map: "clientes_nombre_completo_idx")
@@ -2403,14 +2579,14 @@ model EnviosFinal {
   pintor       Cliente?        @relation("EnviosFinalPintor", fields: [pintorId], references: [id], onDelete: Restrict)
   direccion    EnviosDireccion @relation(fields: [direccionId], references: [id], onDelete: Restrict)
 
-  @@index([sucursalId], map: "envios_final_sucursal_id_idx")
-  @@index([clienteFinalId], map: "envios_final_cliente_final_id_idx")
-  @@index([pintorId], map: "envios_final_pintor_id_idx")
-  @@index([direccionId], map: "envios_final_direccion_id_idx")
-  @@index([fechaEnvio], map: "envios_final_fecha_envio_idx")
-  @@index([pagado], map: "envios_final_pagado_idx")
-  @@index([entregado], map: "envios_final_entregado_idx")
-  @@map("envios_final")
+  @@index([sucursalId], map: "envios_sucursal_id_idx")
+  @@index([clienteFinalId], map: "envios_cliente_final_id_idx")
+  @@index([pintorId], map: "envios_pintor_id_idx")
+  @@index([direccionId], map: "envios_direccion_id_idx")
+  @@index([fechaEnvio], map: "envios_fecha_envio_idx")
+  @@index([pagado], map: "envios_pagado_idx")
+  @@index([entregado], map: "envios_entregado_idx")
+  @@map("envios")
 }
 
 /**
@@ -2581,6 +2757,7 @@ model ComprobanteVta {
    */
   movimientosComoNotaCredito TesoreriaMovimiento[]         @relation("MovimientoNotaCredito")
   stockComprobantes          StockComprobante[]
+  cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")
   @@index([ptoVtaId], map: "vtas_comprobantes_pto_vta_idx")
@@ -2608,6 +2785,7 @@ model ClienteCobro {
 
   cliente      Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   imputaciones TesoreriaMovimiento[]
+  cheques      TesoreriaCheque[]
 
   @@index([clienteId], map: "clientes_cobros_cliente_id_idx")
   @@map("clientes_cobros")

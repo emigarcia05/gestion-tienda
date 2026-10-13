@@ -41,27 +41,46 @@ const idDuxPersonalOpcionalSchema = z.preprocess((value) => {
 
 const modulosPermitidosSchema = z
   .array(moduloPermitidoUsuarioSchema)
-  .min(1, "Elegí al menos un módulo.")
   .max(4)
   .refine((mods) => new Set(mods).size === mods.length, {
     message: "Módulos duplicados.",
   });
 
-export const crearUsuarioPersonalSchema = z.object({
-  nombrePersonal: nombrePersonalSchema,
-  idDux: idDuxPersonalOpcionalSchema,
-  sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
-  modulosPermitidos: modulosPermitidosSchema,
-  titularFinanciero: z.boolean(),
-});
+/** SUPER no exige módulos (los tiene todos); sin SUPER, al menos uno. */
+function exigirModuloSiNoSuper(
+  data: { modulosPermitidos: string[]; superUsuario: boolean },
+  ctx: z.RefinementCtx
+) {
+  if (!data.superUsuario && data.modulosPermitidos.length === 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["modulosPermitidos"],
+      message: "Elegí al menos un módulo.",
+    });
+  }
+}
 
-export const actualizarUsuarioPersonalSchema = z.object({
-  idPersonal: idPersonalSchema,
-  idDux: idDuxPersonalOpcionalSchema,
-  sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
-  modulosPermitidos: modulosPermitidosSchema,
-  titularFinanciero: z.boolean(),
-});
+export const crearUsuarioPersonalSchema = z
+  .object({
+    nombrePersonal: nombrePersonalSchema,
+    idDux: idDuxPersonalOpcionalSchema,
+    sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
+    modulosPermitidos: modulosPermitidosSchema,
+    titularFinanciero: z.boolean(),
+    superUsuario: z.boolean(),
+  })
+  .superRefine(exigirModuloSiNoSuper);
+
+export const actualizarUsuarioPersonalSchema = z
+  .object({
+    idPersonal: idPersonalSchema,
+    idDux: idDuxPersonalOpcionalSchema,
+    sucursalPorDefecto: sucursalPorDefectoOpcionalSchema,
+    modulosPermitidos: modulosPermitidosSchema,
+    titularFinanciero: z.boolean(),
+    superUsuario: z.boolean(),
+  })
+  .superRefine(exigirModuloSiNoSuper);
 
 export const eliminarUsuarioPersonalSchema = z.object({
   idPersonal: idPersonalSchema,

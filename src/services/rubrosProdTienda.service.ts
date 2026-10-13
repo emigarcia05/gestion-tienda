@@ -28,7 +28,7 @@ export async function listarSubRubrosPorRubroProdTienda(): Promise<
 
 /**
  * Opciones de rubro para UI de lista precios (edición masiva / filtros).
- * `id` y `nombre` = nombre del rubro (se persiste como texto en `proveedor_prod_lista.rubro`).
+ * `id` y `nombre` = nombre del rubro (se persiste como texto en `proveedores_prod_lista.rubro`).
  */
 export async function listarRubrosOpcionesDesdeProdTienda(): Promise<
   { id: string; nombre: string }[]

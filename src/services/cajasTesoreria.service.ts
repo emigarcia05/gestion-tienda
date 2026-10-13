@@ -5,10 +5,17 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
-import { tipoValorCompatibleConTipoCaja } from "@/lib/cajasTesoreriaTipos";
+import {
+  compararCajasTesoreriaListado,
+  tipoValorCompatibleConTipoCaja,
+} from "@/lib/cajasTesoreriaTipos";
 import type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 import { resolverNombreTitularFinanciero } from "@/services/globalPersonal.service";
-import { saldosPorCajaDesdeMovimientos } from "@/services/tesoreriaMovimientos.service";
+import { contarChequesEmitidosPendientesCaja } from "@/services/tesoreriaChequesEmitidos.service";
+import {
+  saldosPendientesAcreditacionPorCaja,
+  saldosPorCajaDesdeMovimientos,
+} from "@/services/tesoreriaMovimientos.service";
 
 export type { FinTesoreriaEntidadItem } from "@/lib/cajasTesoreriaEntidades";
 
@@ -32,13 +39,21 @@ export interface CajaTesoreriaItem {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   supervisionFiscal: boolean;
+  /** Los cobros a esta caja crean cheques que viven acá. */
+  recibeCheque: boolean;
+  /** Destino posible al depositar un cheque. */
+  depositaCheque: boolean;
+  /** Origen posible de eCheq propios (pago a proveedores). */
+  emiteCheque: boolean;
   /** Caché legacy en `tesoreria_cajas.monto`. La UI usa `montoDisponible`. */
   monto: number;
   /**
-   * Saldo de la caja = Σ `tesoreria_movimientos.monto` con signo de `tipo_movimiento`
-   * (INGRESO +, EGRESO −). Sin movimientos → 0.
+   * Saldo de la caja = Σ `tesoreria_movimientos.monto_acreditado` con signo de `tipo_movimiento`
+   * (INGRESO +, EGRESO −; `fecha_acreditacion` ≤ hoy AR). Sin movimientos acreditados → 0.
    */
   montoDisponible: number;
+  /** INGRESO con `fecha_acreditacion` posterior a hoy AR (aún no suma al disponible). */
+  montoAAcreditar: number;
   /**
    * Última actualización registrada en la caja (campo legacy de ordenado local).
    */
@@ -54,6 +69,9 @@ export interface CrearCajaTesoreriaInput {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   monto: number;
+  recibeCheque: boolean;
+  depositaCheque: boolean;
+  emiteCheque: boolean;
 }
 
 export interface EditarCajaTesoreriaInput {
@@ -64,6 +82,9 @@ export interface EditarCajaTesoreriaInput {
   tipoCaja: TipoCajaTesoreria;
   tipoValor: TipoValorTesoreria;
   monto: number;
+  recibeCheque: boolean;
+  depositaCheque: boolean;
+  emiteCheque: boolean;
 }
 
 export interface SucursalTesoreriaOption {
@@ -73,7 +94,8 @@ export interface SucursalTesoreriaOption {
 
 function mapCaja(
   row: CajaTesoreriaRowLista,
-  montoDisponible: number
+  montoDisponible: number,
+  montoAAcreditar = 0
 ): CajaTesoreriaItem {
   return {
     id: row.id,
@@ -87,8 +109,12 @@ function mapCaja(
     tipoCaja: row.tipoCaja,
     tipoValor: row.tipoValor,
     supervisionFiscal: row.supervisionFiscal,
+    recibeCheque: row.recibeCheque,
+    depositaCheque: row.depositaCheque,
+    emiteCheque: row.emiteCheque,
     monto: montoDisponible,
     montoDisponible,
+    montoAAcreditar,
     ultActualizacion: row.ultActualizacion,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -237,14 +263,17 @@ export async function eliminarFinTesoreriaEntidad(id: string): Promise<ServiceRe
 export async function listarCajasTesoreria(): Promise<CajaTesoreriaItem[]> {
   const rows = await prisma.cajaTesoreria.findMany({
     include: CAJA_TESORERIA_LIST_INCLUDE,
-    orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const ids = rows.map((row) => row.id);
-  const saldos = await saldosPorCajaDesdeMovimientos(ids);
-  return rows.map((row) => {
-    const saldo = saldos.get(row.id) ?? 0;
-    return mapCaja(row, saldo);
-  });
+  const [saldos, pendientes] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
+    saldosPendientesAcreditacionPorCaja(ids),
+  ]);
+  return rows
+    .map((row) =>
+      mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0)
+    )
+    .sort(compararCajasTesoreriaListado);
 }
 
 /** Cajas con un `tipo_caja` dado (p. ej. **BANCO**). */
@@ -254,14 +283,17 @@ export async function listarCajasTesoreriaPorTipoCaja(
   const rows = await prisma.cajaTesoreria.findMany({
     where: { tipoCaja },
     include: CAJA_TESORERIA_LIST_INCLUDE,
-    orderBy: [{ entidad: { nombre: "asc" } }],
   });
   const ids = rows.map((row) => row.id);
-  const saldos = await saldosPorCajaDesdeMovimientos(ids);
-  return rows.map((row) => {
-    const saldo = saldos.get(row.id) ?? 0;
-    return mapCaja(row, saldo);
-  });
+  const [saldos, pendientes] = await Promise.all([
+    saldosPorCajaDesdeMovimientos(ids),
+    saldosPendientesAcreditacionPorCaja(ids),
+  ]);
+  return rows
+    .map((row) =>
+      mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0)
+    )
+    .sort(compararCajasTesoreriaListado);
 }
 
 export async function crearCajaTesoreria(
@@ -287,6 +319,9 @@ export async function crearCajaTesoreria(
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         monto: input.monto,
+        recibeCheque: input.recibeCheque,
+        depositaCheque: input.depositaCheque,
+        emiteCheque: input.emiteCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
@@ -313,6 +348,35 @@ export async function editarCajaTesoreria(
     if (!existing) {
       return { success: false, error: "Caja no encontrada." };
     }
+    if (!input.recibeCheque) {
+      const enCartera = await prisma.tesoreriaCheque.count({
+        where: { cajaId: input.id, estado: "EN_CARTERA" },
+      });
+      if (enCartera > 0) {
+        return {
+          success: false,
+          error: "La caja tiene cheques en cartera: no se puede quitar RECIBE CHEQUE.",
+        };
+      }
+      const vinculoCheque = await prisma.cobrosPorSucursal.findFirst({
+        where: { cajaDestinoId: input.id, esCheque: true },
+        select: { pago: { select: { nombre: true } } },
+      });
+      if (vinculoCheque) {
+        return {
+          success: false,
+          error: `Hay un cobro cheque (${vinculoCheque.pago.nombre.toLocaleUpperCase("es-AR")}) en esta caja: no se puede quitar RECIBE CHEQUE.`,
+        };
+      }
+    }
+    if (!input.emiteCheque) {
+      if ((await contarChequesEmitidosPendientesCaja(input.id)) > 0) {
+        return {
+          success: false,
+          error: "La caja tiene eCheqs emitidos sin debitar: no se puede quitar EMITE CHEQUE.",
+        };
+      }
+    }
     if (!tipoValorCompatibleConTipoCaja(input.tipoCaja, input.tipoValor)) {
       return {
         success: false,
@@ -337,12 +401,20 @@ export async function editarCajaTesoreria(
         tipoCaja: input.tipoCaja,
         tipoValor: input.tipoValor,
         monto: input.monto,
+        recibeCheque: input.recibeCheque,
+        depositaCheque: input.depositaCheque,
+        emiteCheque: input.emiteCheque,
       },
       include: CAJA_TESORERIA_LIST_INCLUDE,
     });
-    const saldos = await saldosPorCajaDesdeMovimientos([row.id]);
-    const saldo = saldos.get(row.id) ?? 0;
-    return { success: true, data: mapCaja(row, saldo) };
+    const [saldos, pendientes] = await Promise.all([
+      saldosPorCajaDesdeMovimientos([row.id]),
+      saldosPendientesAcreditacionPorCaja([row.id]),
+    ]);
+    return {
+      success: true,
+      data: mapCaja(row, saldos.get(row.id) ?? 0, pendientes.get(row.id) ?? 0),
+    };
   } catch (error: unknown) {
     return {
       success: false,

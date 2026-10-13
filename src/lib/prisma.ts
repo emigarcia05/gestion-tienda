@@ -6,8 +6,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
-
 function normalizeConnectionString(url: string): string {
   try {
     const u = new URL(url);
@@ -22,15 +20,22 @@ function normalizeConnectionString(url: string): string {
   }
 }
 
-function createPrisma(): PrismaClient {
+function createPrisma() {
   const raw = process.env.DATABASE_URL;
   if (!raw) {
     throw new Error("DATABASE_URL no está definida. Configurala en .env o en las variables de entorno.");
   }
   const connectionString = normalizeConnectionString(raw);
   const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    omit: { globalPersonal: { contrasena: true } },
+  });
 }
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: ReturnType<typeof createPrisma> | undefined;
+};
 
 export const prisma = globalForPrisma.prisma ?? createPrisma();
 

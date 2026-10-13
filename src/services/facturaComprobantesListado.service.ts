@@ -262,12 +262,15 @@ export async function listarUsuariosFiltroFacturas(): Promise<
       nombrePersonal: true,
       sucursalPorDefecto: true,
       modulosPermitidos: true,
+      superUsuario: true,
     },
     orderBy: { nombrePersonal: "asc" },
   });
   return rows
     .filter(
-      (r) => r.sucursalPorDefecto != null && r.modulosPermitidos.length > 0
+      (r) =>
+        r.sucursalPorDefecto != null &&
+        (r.superUsuario || r.modulosPermitidos.length > 0)
     )
     .map((r) => ({
       idPersonal: r.idPersonal,

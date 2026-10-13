@@ -1,5 +1,5 @@
 /**
- * Cálculo de filas para **Flujo De Fondo** (`/finanzas/venc-por-fecha`).
+ * Cálculo de filas para **Flujo De Fondo** (`/finanzas/tesoreria/flujo-de-fondos`).
  *
  * - **INGRESOS** = suma de `monto_acreditado` de movimientos INGRESO con
  *   `fecha_acreditacion` ese día (misma fuente que el modal VER).

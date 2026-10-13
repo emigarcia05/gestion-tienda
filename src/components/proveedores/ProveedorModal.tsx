@@ -2,13 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ProveedorForm from "./ProveedorForm";
-import { eliminarProveedor } from "@/actions/proveedores";
-import { toast } from "sonner";
 
 const FORM_ID = "proveedor-form";
 
@@ -36,7 +33,7 @@ export interface ProveedorParaModal {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Si no se pasa, modo crear. Si se pasa, modo editar (con botón Eliminar). */
+  /** Si no se pasa, modo crear. Si se pasa, modo editar. El borrado es por fila en Lista Prov. */
   proveedor?: ProveedorParaModal | null;
   /** Llamado tras guardar o eliminar para que el padre refresque. */
   onSuccess?: () => void;
@@ -45,7 +42,6 @@ interface Props {
 export default function ProveedorModal({ open, onOpenChange, proveedor, onSuccess }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [mercaderiaListo, setMercaderiaListo] = useState(false);
   const isEdit = !!proveedor;
 
@@ -60,49 +56,18 @@ export default function ProveedorModal({ open, onOpenChange, proveedor, onSucces
     router.refresh();
   }
 
-  async function handleEliminar() {
-    if (!proveedor) return;
-    const ok = window.confirm(`¿Eliminar al proveedor "${proveedor.nombre}"? Esta acción no se puede deshacer.`);
-    if (!ok) return;
-    setDeleting(true);
-    try {
-      const result = await eliminarProveedor(proveedor.id);
-      if (result.ok) {
-        toast.success(`Proveedor "${proveedor.nombre}" eliminado.`);
-        handleSuccess();
-      } else {
-        toast.error(result.error);
-      }
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   return (
     <AppModal
       title={isEdit ? "Editar Proveedor" : "Nuevo Proveedor"}
       actions={
         <>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending || deleting}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancelar
           </Button>
-          {isEdit && (
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleEliminar}
-              disabled={pending || deleting}
-              className={cn("mr-auto gap-2")}
-            >
-              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Trash2 className="h-4 w-4" />
-              Eliminar
-            </Button>
-          )}
           <Button
             type="submit"
             form={FORM_ID}
-            disabled={pending || deleting || (!isEdit && !mercaderiaListo)}
+            disabled={pending || (!isEdit && !mercaderiaListo)}
             className="gap-2"
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}

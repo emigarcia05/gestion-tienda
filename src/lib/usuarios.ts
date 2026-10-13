@@ -1,3 +1,4 @@
+import { APP_ROUTES } from "@/lib/appRoutes";
 import {
   MAIN_APP_AREAS,
   areaLabelMayusculas,
@@ -8,7 +9,7 @@ import {
   type SucursalPreferida,
 } from "@/lib/sucursalPreferida";
 
-export const USUARIOS_PATH = "/finanzas/usuarios";
+export const USUARIOS_PATH = APP_ROUTES.administrador.usuarios.usuarios;
 
 export const MODULOS_PERMITIDOS_USUARIO: {
   id: MainAppAreaId;
@@ -25,6 +26,16 @@ export function ordenarModulosPermitidos(
     ids.map((id) => (id === "facturacion" ? "gestion-productos" : id))
   );
   return MODULOS_PERMITIDOS_USUARIO.map((m) => m.id).filter((id) => set.has(id));
+}
+
+/** Módulos que el usuario puede usar: SUPER = todos los de `MAIN_APP_AREAS` (incluye futuros). */
+export function modulosEfectivosUsuario(
+  modulos: readonly string[],
+  superUsuario: boolean
+): MainAppAreaId[] {
+  return superUsuario
+    ? MODULOS_PERMITIDOS_USUARIO.map((m) => m.id)
+    : ordenarModulosPermitidos(modulos);
 }
 
 export function etiquetaModulosPermitidos(ids: readonly string[]): string {

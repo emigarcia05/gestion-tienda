@@ -21,7 +21,7 @@ import {
 import { guardarFinAnaMcConfigSchema } from "@/lib/validations/finAnaMcConfig";
 import type { FinAnaMcConfigItem } from "@/lib/finAnaMcConfig";
 
-const RUTA_MARGEN_CONTRIBUCION = "/finanzas/analisis-mc/margen-contribucion";
+const RUTA_MARGEN_CONTRIBUCION = "/administrador/productos/margen-contribucion";
 
 
 

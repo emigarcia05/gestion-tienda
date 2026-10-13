@@ -8,8 +8,11 @@ import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTable
 import TablaTesoreriaCajas, { type TesoreriaCajaFila } from "@/components/finanzas/TablaTesoreriaCajas";
 import NuevaCajaTesoreriaModal from "@/components/finanzas/NuevaCajaTesoreriaModal";
 import ActualizarMontoCajaTesoreriaModal from "@/components/finanzas/ActualizarMontoCajaTesoreriaModal";
+import TransferenciaCajaTesoreriaModal from "@/components/finanzas/TransferenciaCajaTesoreriaModal";
 import EditarCajaTesoreriaModal from "@/components/finanzas/EditarCajaTesoreriaModal";
 import EliminarCajaTesoreriaModal from "@/components/finanzas/EliminarCajaTesoreriaModal";
+import ChequesEmitidosCajaTesoreriaModal from "@/components/finanzas/ChequesEmitidosCajaTesoreriaModal";
+import ResumenAcreditacionCajaModal from "@/components/finanzas/ResumenAcreditacionCajaModal";
 import GestionarTesoreriaTipoCajaModal from "@/components/finanzas/GestionarTesoreriaTipoCajaModal";
 import GestionarMarcasFinAnaCosFinaModal from "@/components/finanzas/GestionarMarcasFinAnaCosFinaModal";
 import GestionarTesoreriaTitularesModal from "@/components/vtas-cobros/GestionarTesoreriaTitularesModal";
@@ -27,7 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TipoCajaTesoreria } from "@prisma/client";
-import { etiquetaTipoCajaEnPantalla } from "@/lib/cajasTesoreriaTipos";
+import {
+  compararCajasTesoreriaListado,
+  etiquetaTipoCajaEnPantalla,
+} from "@/lib/cajasTesoreriaTipos";
 
 interface Props {
   filas: TesoreriaCajaFila[];
@@ -44,8 +50,12 @@ export default function FinanzasTesoreriaPageClient({
   const [openGestionarEntidades, setOpenGestionarEntidades] = useState(false);
   const [openGestionarTitulares, setOpenGestionarTitulares] = useState(false);
   const [cajaParaEditarMonto, setCajaParaEditarMonto] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaParaTransferir, setCajaParaTransferir] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEditarDatos, setCajaParaEditarDatos] = useState<TesoreriaCajaFila | null>(null);
   const [cajaParaEliminar, setCajaParaEliminar] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaChequesEmitidos, setCajaChequesEmitidos] = useState<TesoreriaCajaFila | null>(null);
+  const [cajaResumenAcreditacion, setCajaResumenAcreditacion] =
+    useState<TesoreriaCajaFila | null>(null);
   const [filtroTipoCaja, setFiltroTipoCaja] = useState("");
   const [filtroEntidad, setFiltroEntidad] = useState("");
   const [filtroSucursal, setFiltroSucursal] = useState("");
@@ -84,16 +94,7 @@ export default function FinanzasTesoreriaPageClient({
           if (filtroTitular && fila.titular !== filtroTitular) return false;
           return true;
         })
-        .sort((a, b) => {
-          const ta = Date.parse(a.ultActualizacionIso);
-          const tb = Date.parse(b.ultActualizacionIso);
-          const aOk = !Number.isNaN(ta);
-          const bOk = !Number.isNaN(tb);
-          if (!aOk && !bOk) return 0;
-          if (!aOk) return 1;
-          if (!bOk) return -1;
-          return ta - tb;
-        }),
+        .sort(compararCajasTesoreriaListado),
     [filas, filtroTipoCaja, filtroEntidad, filtroSucursal, filtroTitular]
   );
 
@@ -258,8 +259,27 @@ export default function FinanzasTesoreriaPageClient({
           filas={filasFiltradas}
           esEditor={esEditor}
           onEditMontoClick={esEditor ? (fila) => setCajaParaEditarMonto(fila) : undefined}
+          onTransferenciaClick={esEditor ? (fila) => setCajaParaTransferir(fila) : undefined}
           onEditDataClick={esEditor ? (fila) => setCajaParaEditarDatos(fila) : undefined}
           onDeleteClick={esEditor ? (fila) => setCajaParaEliminar(fila) : undefined}
+          onChequesEmitidosClick={(fila) => setCajaChequesEmitidos(fila)}
+          onResumenAcreditacionClick={(fila) => setCajaResumenAcreditacion(fila)}
+        />
+        <ChequesEmitidosCajaTesoreriaModal
+          open={cajaChequesEmitidos != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaChequesEmitidos(null);
+          }}
+          caja={cajaChequesEmitidos}
+          esEditor={esEditor}
+          onChanged={refreshCatalogos}
+        />
+        <ResumenAcreditacionCajaModal
+          open={cajaResumenAcreditacion != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaResumenAcreditacion(null);
+          }}
+          caja={cajaResumenAcreditacion}
         />
         <NuevaCajaTesoreriaModal
           open={openNuevaCaja}
@@ -273,6 +293,15 @@ export default function FinanzasTesoreriaPageClient({
           }}
           caja={cajaParaEditarMonto}
           onUpdated={refreshCatalogos}
+        />
+        <TransferenciaCajaTesoreriaModal
+          open={cajaParaTransferir != null}
+          onOpenChange={(open) => {
+            if (!open) setCajaParaTransferir(null);
+          }}
+          caja={cajaParaTransferir}
+          cajas={filas}
+          onTransferred={refreshCatalogos}
         />
         <EditarCajaTesoreriaModal
           open={cajaParaEditarDatos != null}

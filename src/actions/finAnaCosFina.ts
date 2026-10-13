@@ -45,23 +45,16 @@ import {
   eliminarCobrosCuota,
   listarCobrosCuotas,
 } from "@/services/cobrosCuotas.service";
-import {
-  VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH,
-  VTAS_COBROS_ROUTES,
-} from "@/lib/vtasCobrosRoutes";
-
-const RUTA_COSTOS_FINANCIEROS = VTAS_COBROS_ROUTES.cxFinCobros;
-const RUTA_MARGEN_CONTRIBUCION = "/finanzas/analisis-mc/margen-contribucion";
+import { APP_ROUTES } from "@/lib/appRoutes";
 
 function revalidateRutasAnalisisMc(): void {
-  revalidatePath(RUTA_COSTOS_FINANCIEROS);
-  revalidatePath(VTAS_COBROS_LEGACY_COSTOS_FINANCIEROS_PATH);
-  revalidatePath(RUTA_MARGEN_CONTRIBUCION);
+  revalidatePath(APP_ROUTES.finanzas.cobros.cobrosCxFin);
+  revalidatePath(APP_ROUTES.administrador.productos.margenContribucion);
 }
 
 function revalidateRutasEntidadesCompartidas(): void {
   revalidateRutasAnalisisMc();
-  revalidatePath("/finanzas/tesoreria");
+  revalidatePath(APP_ROUTES.finanzas.tesoreria.cajas);
 }
 
 export async function listarFinAnaCosFinaTerminalesMarcasAction(): Promise<
