@@ -225,7 +225,7 @@ model GlobalCotizacionUsd {
 }
 
 /**
- * Campo materializable en `proveedor_prod_lista` gobernado por reglas de descuento.
+ * Campo materializable en `proveedores_prod_lista` gobernado por reglas de descuento.
  */
 enum CampoReglaDescuentoListaPrecio {
   dto_proveedor
@@ -274,7 +274,7 @@ model ProdSubRubro {
 }
 
 /**
- * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en proveedor_prod_lista.
+ * Regla de descuento/cx para materializar columnas dto_* y cx_transporte en proveedores_prod_lista.
  */
 model ProdPrecioProveeRegla {
   id          String                         @id @default(cuid())
@@ -1308,9 +1308,9 @@ model ListaPrecioProveedor {
    */
   costoListaEnTiendas ProdPropio[]                         @relation("CostoListaEnTienda")
 
-  @@unique([idProveedor, codProdProveedor], map: "proveedor_prod_lista_id_proveedor_cod_prod_prov_key")
-  @@index([idPrecioRex], map: "proveedor_prod_lista_id_precio_rex_idx")
-  @@map("proveedor_prod_lista")
+  @@unique([idProveedor, codProdProveedor], map: "proveedores_prod_lista_id_proveedor_cod_prod_prov_key")
+  @@index([idPrecioRex], map: "proveedores_prod_lista_id_precio_rex_idx")
+  @@map("proveedores_prod_lista")
 }
 
 /**
@@ -1490,7 +1490,7 @@ model ProdPropio {
   proveedor                   String?
   descripcionTienda           String?   @map("descripcion")
   /**
-   * FK a `proveedor_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
+   * FK a `proveedores_prod_lista.cod_ext`: costo de compra elegido (CX PROD.); no lo pisa el sync DUX.
    */
   costoCompraCodExt           String?   @map("costo_compra_cod_ext")
   costoCompra                 Decimal   @map("costo_compra") @db.Decimal(14, 4) // espejo DUX (sync)
@@ -1499,7 +1499,7 @@ model ProdPropio {
    * Legacy export Excel de Control Stock (ya no se lee ni escribe).
    */
   ultimaExportacionExcel      DateTime? @map("ultima_exportacion_excel")
-  /// Producto propio TiendaColor: no admite vínculos con `proveedor_prod_lista`; el sync DUX no modifica este flag.
+  /// Producto propio TiendaColor: no admite vínculos con `proveedores_prod_lista`; el sync DUX no modifica este flag.
   esProductoPropio            Boolean   @default(false) @map("es_producto_propio")
   /// Incluido en Px Competencia (`/gestion-productos/tienda/cx-px-tienda`); el sync DUX no modifica este flag.
   compararCompetencia         Boolean   @default(false) @map("comparar_competencia")
@@ -1518,7 +1518,7 @@ model ProdPropio {
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
   presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
   color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
-  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedor_prod_lista.cod_tienda → esta PK
+  listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedores_prod_lista.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
   preciosCompetencia        ProdPrecioCompetencia[]
@@ -1717,7 +1717,7 @@ model ProdCompetencia {
   nombre              String    @unique(map: "prod_competencia_nombre_key")
   /// Sitio principal del competidor (opcional; las fichas van en prod_precios_competencia.url_producto).
   web                 String?
-  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `proveedor_prod_lista` (mismo `cod_tienda`) sin scraping.
+  /// Si está definido, el sync puede tomar `px_vta_sugerido` de `proveedores_prod_lista` (mismo `cod_tienda`) sin scraping.
   idProveedor         String?   @map("id_proveedor")
   /// Última ejecución de relevamiento masivo para este competidor.
   ultimaComparacionAt DateTime? @map("ultima_comparacion_at")

@@ -39,7 +39,7 @@ export const TABLAS_HUERFANOS_PROD_TIENDA: TablaHuerfanoProdTiendaConfig[] = [
     incluirPorDefecto: true,
   },
   {
-    tabla: "proveedor_prod_lista",
+    tabla: "proveedores_prod_lista",
     columna: "cod_tienda",
     accion: "null",
     descripcion: "Vínculos lista proveedor → tienda (limpia FK, conserva fila)",

@@ -39,7 +39,7 @@ export const globalSucursalIdSchema = z.union([
   z.literal("suc_corporativo"),
 ]);
 
-/** Clave natural `proveedor_prod_lista.cod_ext`. */
+/** Clave natural `proveedores_prod_lista.cod_ext`. */
 export const listaPreciosCodExtSchema = z
   .string()
   .min(1, "Cód. externo inválido.")

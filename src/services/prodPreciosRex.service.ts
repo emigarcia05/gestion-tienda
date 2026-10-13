@@ -12,7 +12,7 @@ import type { Prisma } from "@prisma/client";
 export interface UpsertPreciosRexResult {
   creados: number;
   actualizados: number;
-  /** Filas `proveedor_prod_lista` cuyo `px_lista_proveedor` se actualizó desde REX vinculado. */
+  /** Filas `proveedores_prod_lista` cuyo `px_lista_proveedor` se actualizó desde REX vinculado. */
   listaPreciosSincronizadas: number;
   errores: string[];
 }
@@ -20,7 +20,7 @@ export interface UpsertPreciosRexResult {
 const CHUNK_PREFETCH = 500;
 
 /**
- * Copia `prod_precios_rex.px_lista_proveedor` → `proveedor_prod_lista.px_lista_proveedor`
+ * Copia `prod_precios_rex.px_lista_proveedor` → `proveedores_prod_lista.px_lista_proveedor`
  * en todas las filas lista con `id_precio_rex` apuntando a esos REX.
  */
 export async function sincronizarPxListaProveedorDesdePreciosRex(
@@ -30,7 +30,7 @@ export async function sincronizarPxListaProveedorDesdePreciosRex(
   if (uniqueIds.length === 0) return { filasActualizadas: 0 };
 
   const filasActualizadas = await prisma.$executeRaw`
-    UPDATE proveedor_prod_lista AS lp
+    UPDATE proveedores_prod_lista AS lp
     SET px_lista_proveedor = r.px_lista_proveedor
     FROM prod_precios_rex AS r
     WHERE lp.id_precio_rex = r.id

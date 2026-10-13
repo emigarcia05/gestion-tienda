@@ -102,9 +102,9 @@ export interface ProveedorListItem {
   esFabrica: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA (default BD: PREGUNTA). */
   iva: IvaProveedor;
-  /** Cantidad de ítems en proveedor_prod_lista. */
+  /** Cantidad de ítems en proveedores_prod_lista. */
   cantProductos: number;
-  /** Cantidad de ítems de `proveedor_prod_lista` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_lista`). */
+  /** Cantidad de ítems de `proveedores_prod_lista` con `cod_tienda_vinculo` no nulo (vinculados manualmente a un `prod_lista`). */
   cantVinculados: number;
 }
 
@@ -128,7 +128,7 @@ async function generarCodigoUnicoDisponible(): Promise<string> {
 }
 
 /**
- * Lista de proveedores desde la base de datos con conteos en proveedor_prod_lista y prod_lista.
+ * Lista de proveedores desde la base de datos con conteos en proveedores_prod_lista y prod_lista.
  *
  * Devuelve TODOS los proveedores (sin filtrar por `proveedorMercaderia`).
  * Este método alimenta vistas transversales (Px Sugeridos, Lista Px Proveedores,

@@ -29,7 +29,7 @@ export interface ProductoPedidoUrgente {
   /** Prefijo proveedor en fila 1:1; vacío en fila agrupada por tienda (payload); con varios miembros Dux la columna PROVEEDOR muestra solo el número de miembros. */
   prefijo: string;
   descripcion: string;
-  /** `px_compra_final_sin_iva` desde proveedor_prod_lista (null si no está disponible). */
+  /** `px_compra_final_sin_iva` desde proveedores_prod_lista (null si no está disponible). */
   pxCompraFinalSinIva: number | null;
   /** Política IVA del proveedor; solo en filas 1:1 o en cada miembro del grupo. */
   ivaProveedor?: IvaProveedor;
