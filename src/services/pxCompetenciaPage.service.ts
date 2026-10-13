@@ -14,6 +14,10 @@ import {
   type CompetenciaParaCliente,
 } from "@/services/competencia.service";
 import { buildPxCompetenciaItemsDesdeFilas } from "@/services/pxCompetenciaRows.service";
+import {
+  resolverCostoCompraTienda,
+  SELECT_COSTO_COMPRA_TIENDA,
+} from "@/services/costoListaTienda.service";
 import type { ItemPxCompetenciaTabla } from "@/lib/pxCompetencia";
 import { buildMapPrecioListaPrincipal } from "@/services/prodTiendaPrecios.service";
 import {
@@ -29,17 +33,13 @@ type FilaPxCompetenciaBase = {
 };
 
 async function filasConPrecioListaPrincipal(
-  rows: Array<{
-    codTienda: string;
-    descripcionTienda: string | null;
-    costoCompra: { toString(): string };
-  }>
+  rows: Prisma.ProdPropioGetPayload<{ select: typeof selectBase }>[]
 ): Promise<FilaPxCompetenciaBase[]> {
   const pxMap = await buildMapPrecioListaPrincipal(rows.map((r) => r.codTienda));
   return rows.map((r) => ({
     codTienda: r.codTienda,
     descripcion: r.descripcionTienda ?? "",
-    costoCompra: Number(r.costoCompra),
+    costoCompra: resolverCostoCompraTienda(r),
     pxListaTienda: pxMap.get(r.codTienda) ?? 0,
   }));
 }
@@ -59,8 +59,8 @@ function buildWherePxListas(params: {
 const selectBase = {
   codTienda: true,
   descripcionTienda: true,
-  costoCompra: true,
-} as const;
+  ...SELECT_COSTO_COMPRA_TIENDA,
+} as const satisfies Prisma.ProdPropioSelect;
 
 async function getPxListasPageEmpty(): Promise<{
   items: ItemPxCompetenciaTabla[];

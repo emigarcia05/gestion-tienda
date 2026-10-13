@@ -71,6 +71,7 @@ export interface SyncListaPrecioTiendaResult {
 /**
  * Mapea ítem DUX a la fila de upsert prod_lista. `proveedor` queda fuera del sync (§1.4.2).
  * Rubro / sub-rubro no se sincronizan (se gestionan en Lista Productos); `marca` solo resuelve `id_marca`.
+ * El costo DUX solo inicializa `costo_manual` al crear el ítem (después lo gestiona la app).
  */
 function itemDuxToProdTiendaRecord(item: ItemDux) {
   const codTienda = (item.codItem ?? "").trim() || COD_TIENDA;
@@ -78,7 +79,7 @@ function itemDuxToProdTiendaRecord(item: ItemDux) {
     codTienda,
     marca: item.marca ?? null,
     descripcionTienda: item.descripcion ?? null,
-    costoCompra: Number(item.costo) || 0,
+    costoManual: Number(item.costo) || 0,
     precios: item.precios,
   };
 }
@@ -174,14 +175,13 @@ async function persistProdTiendaChunk(chunk: RecordProdTienda[]): Promise<void> 
                   codTienda: row.codTienda,
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
-                  costoCompra: new Prisma.Decimal(row.costoCompra),
+                  costoManual: new Prisma.Decimal(row.costoManual),
                   lastSync,
                 },
                 update: {
                   codTienda: row.codTienda,
                   idMarca,
                   descripcionTienda: row.descripcionTienda,
-                  costoCompra: new Prisma.Decimal(row.costoCompra),
                   lastSync,
                 },
               });

@@ -123,7 +123,6 @@ async function crearUnProductoTienda(
       codTienda: cod,
       esProductoPropio: item.esProductoPropio,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
-      costoCompra: 0,
     },
   });
   if (lineaProveedor) {

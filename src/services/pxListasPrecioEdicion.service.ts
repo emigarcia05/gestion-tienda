@@ -10,6 +10,10 @@ import {
   roundPxListaEntero,
 } from "@/lib/pxListasPreciosFormat";
 import { prisma } from "@/lib/prisma";
+import {
+  resolverCostoCompraTienda,
+  SELECT_COSTO_COMPRA_TIENDA,
+} from "@/services/costoListaTienda.service";
 import type { ServiceResult } from "@/types/service.types";
 
 export type ClavePrecioListaEdicion = {
@@ -44,7 +48,7 @@ async function obtenerContextoPrecioListaEdicion(
 
   const producto = await prisma.prodPropio.findUnique({
     where: { codTienda },
-    select: { codTienda: true, costoCompra: true },
+    select: { codTienda: true, ...SELECT_COSTO_COMPRA_TIENDA },
   });
   if (!producto) {
     return { ok: false, error: "Producto tienda no encontrado." };
@@ -58,7 +62,7 @@ async function obtenerContextoPrecioListaEdicion(
 
   return {
     ok: true,
-    costoCompra: Number(producto.costoCompra),
+    costoCompra: resolverCostoCompraTienda(producto),
     pxDux,
   };
 }
@@ -94,7 +98,7 @@ async function persistirStagingPrecioLista(
 }
 
 /**
- * Guarda el PX calculado desde el margen en `prod_propios_listas_precios_edicion` (staging hasta Act. Px).
+ * Guarda el PX calculado desde el margen en `prod_listas_precios_edicion` (staging hasta Act. Px).
  * `margenManual: null` elimina la fila pendiente.
  */
 export async function guardarPrecioListaEdicionDesdeMargen(

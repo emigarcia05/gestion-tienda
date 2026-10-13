@@ -35,7 +35,6 @@ import type { ActionResult } from "@/lib/types";
 const CX_PROD_FILA_VACIA: CxProdDatosFila = {
   opcionesProveedor: [],
   seleccion: CX_PROD_SELECCION_PROM,
-  costoPromedio: null,
   costoMostrado: 0,
 };
 
@@ -178,7 +177,7 @@ export async function getProveedoresTintoLts(): Promise<ProveedorTintoLts[]> {
 
 /**
  * Datos para la página /administrador/productos/cx-compra desde prod_lista.
- * Mapeo: cod_tienda → codItem, prod_lista.descripcion → descripcion, costo_compra → costo,
+ * Mapeo: cod_tienda → codItem, prod_lista.descripcion → descripcion, costo resuelto (CX PROD.) → costo,
  * proveedor → proveedorDux (resuelto a prefijo de proveedores cuando hay match).
  */
 export async function getTiendaPageData(params: {
@@ -293,7 +292,7 @@ export async function getTiendaPageData(params: {
   const cxProdMap = await buildCxProdMapDesdeFilas(
     rows.map((r) => ({
       codTienda: r.codTienda,
-      costoCompra: r.costoCompra,
+      costoManual: r.costoManual,
       costoCompraCodExt: r.costoCompraCodExt,
     }))
   );
@@ -316,7 +315,7 @@ export async function getTiendaPageData(params: {
       idSubRubro: r.idSubRubro,
       proveedorDux: prefijo,
       codigoExterno: null,
-      costo: Number(r.costoCompra),
+      costo: cxProdMap.get(r.codTienda)?.costoMostrado ?? 0,
       porcIva: 21,
       precioLista: pxListaMap.get(r.codTienda) ?? 0,
       precioMayorista: 0,

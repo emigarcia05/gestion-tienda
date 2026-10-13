@@ -8,7 +8,7 @@ export const DUX_BASE_URL = "https://erp.duxsoftware.com.ar/WSERP/rest/services/
 export const ID_PRECIO_LISTA      = 56994;
 export const ID_PRECIO_MAYORISTA  = 57160;
 
-/** Lista DUX “principal” (persistida en `prod_propios_listas_precios`). Override: `DUX_ID_PRECIO_LISTA`. */
+/** Lista DUX “principal” (persistida en `prod_listas_precios`). Override: `DUX_ID_PRECIO_LISTA`. */
 export function getIdPrecioListaPrincipal(): number {
   const raw = process.env.DUX_ID_PRECIO_LISTA;
   if (raw != null && raw !== "") {

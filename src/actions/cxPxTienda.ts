@@ -21,7 +21,7 @@ const guardarCostoCxProdSchema = z.object({
   seleccion: z.union([z.literal(CX_PROD_SELECCION_PROM), z.string().min(1).max(128)]),
 });
 
-/** Persiste costo CX PROD.: proveedor → `costo_compra_cod_ext`; Cx. Prom. → limpia FK. */
+/** Persiste costo CX PROD.: proveedor → `costo_compra_cod_ext`; `prom` → limpia FK (sin CX elegido). */
 export async function guardarCostoCxProdTiendaAction(
   raw: unknown
 ): Promise<ActionResult> {
@@ -54,7 +54,7 @@ export async function guardarCostoCxProdTiendaAction(
   return { ok: true, data: undefined };
 }
 
-/** Excel CODIGO + COSTO: diff `costo_compra` (DUX) vs `px_compra_final_sin_iva` vía `costo_compra_cod_ext`. */
+/** Excel CODIGO + COSTO: `px_compra_final_sin_iva` del proveedor elegido (`costo_compra_cod_ext`) de cada ítem. */
 export async function exportarCostoCxDiffAction(): Promise<
   ActionResult<{ filas: FilaExportCostoCx[] }>
 > {
