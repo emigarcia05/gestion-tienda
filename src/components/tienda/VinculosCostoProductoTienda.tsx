@@ -208,7 +208,7 @@ export default function VinculosCostoProductoTienda({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="default"
           className="w-full gap-2"
           disabled={!puedeVincular || esPropio || isPending || cargando}
           onClick={() => setSelectorAbierto(true)}
