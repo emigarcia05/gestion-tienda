@@ -1,6 +1,6 @@
 "use server";
 
-import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
+import { GP_ROUTES, REVALIDATE_CX_COMPRA } from "@/lib/gestionProductosRoutes";
 
 import { revalidatePath } from "next/cache";
 import { esEditor, getRol } from "@/lib/sesion";
@@ -18,7 +18,12 @@ import {
 import { getProductosVinculadosPorItemTienda } from "@/services/producto.service";
 import { listarProductosProveedoresParaVincular, type ProductoProveedorParaVincular } from "@/services/listaPrecios.service";
 import { getProveedoresMercaderia } from "@/services/proveedor.service";
-import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema, prismaCuidSchema } from "@/lib/validations/common";
+import {
+  listaPreciosCodExtListSchema,
+  listaPreciosCodExtSchema,
+  listaPreciosCodTiendaSchema,
+  prismaCuidSchema,
+} from "@/lib/validations/common";
 import { z } from "zod";
 
 const listarParaVincularFiltrosSchema = z.object({
@@ -101,24 +106,37 @@ export async function listarProductosParaVincular(
   }
 }
 
+const vincularProductosSchema = z.object({
+  itemTiendaCod: listaPreciosCodTiendaSchema,
+  productoListaCodExts: listaPreciosCodExtListSchema.max(50),
+});
+
 export async function vincularProducto(
   itemTiendaCod: string,
   productoListaCodExt: string
+): Promise<ActionResult> {
+  return vincularProductos(itemTiendaCod, [productoListaCodExt]);
+}
+
+/** Vincula una o más líneas de proveedor al mismo ítem tienda (un `idProveedor` por línea). */
+export async function vincularProductos(
+  itemTiendaCod: string,
+  productoListaCodExts: string[]
 ): Promise<ActionResult> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.tienda.acceso)) {
     return { ok: false, error: "Sin acceso a tienda." };
   }
   if (!(await esEditor())) return { ok: false, error: "Sin permisos de editor." };
-  const parsedItem = listaPreciosCodTiendaSchema.safeParse(itemTiendaCod);
-  const parsedProducto = listaPreciosCodExtSchema.safeParse(productoListaCodExt);
-  if (!parsedItem.success || !parsedProducto.success) {
+  const parsed = vincularProductosSchema.safeParse({ itemTiendaCod, productoListaCodExts });
+  if (!parsed.success) {
     return { ok: false, error: "Datos de vínculo inválidos." };
   }
+  const uniqueExts = [...new Set(parsed.data.productoListaCodExts)];
   try {
     const { prisma } = await import("@/lib/prisma");
     const tienda = await prisma.prodPropio.findUnique({
-      where: { codTienda: parsedItem.data },
+      where: { codTienda: parsed.data.itemTiendaCod },
       select: { esProductoPropio: true },
     });
     if (!tienda) return { ok: false, error: "Ítem de tienda no encontrado." };
@@ -129,16 +147,36 @@ export async function vincularProducto(
           "Este ítem está marcado como producto propio TiendaColor. Quitá esa marca antes de vincular proveedores.",
       };
     }
-    const producto = await prisma.listaPrecioProveedor.findUnique({
-      where: { codExt: parsedProducto.data },
-      select: { idProveedor: true },
+    const productos = await prisma.listaPrecioProveedor.findMany({
+      where: { codExt: { in: uniqueExts } },
+      select: { codExt: true, idProveedor: true, codTiendaVinculo: true },
     });
-    if (!producto) return { ok: false, error: "Producto no encontrado." };
+    if (productos.length !== uniqueExts.length) {
+      return { ok: false, error: "Producto no encontrado." };
+    }
+    const idsProveedor = productos.map((p) => p.idProveedor);
+    if (new Set(idsProveedor).size !== idsProveedor.length) {
+      return {
+        ok: false,
+        error:
+          "Ya existe un vínculo con ese proveedor. No se puede tener dos vinculaciones del mismo proveedor.",
+      };
+    }
+    const ocupado = productos.find(
+      (p) => p.codTiendaVinculo != null && p.codTiendaVinculo !== parsed.data.itemTiendaCod
+    );
+    if (ocupado) {
+      return {
+        ok: false,
+        error:
+          "Para vincularlo a otro ítem, primero desvinculá este producto desde su ítem tienda actual.",
+      };
+    }
     const yaVinculadoMismoProveedor = await prisma.listaPrecioProveedor.findFirst({
       where: {
-        codTiendaVinculo: parsedItem.data,
-        idProveedor: producto.idProveedor,
-        codExt: { not: parsedProducto.data },
+        codTiendaVinculo: parsed.data.itemTiendaCod,
+        idProveedor: { in: idsProveedor },
+        codExt: { notIn: uniqueExts },
       },
     });
     if (yaVinculadoMismoProveedor) {
@@ -148,12 +186,18 @@ export async function vincularProducto(
           "Ya existe un vínculo con ese proveedor. No se puede tener dos vinculaciones del mismo proveedor.",
       };
     }
-    await prisma.listaPrecioProveedor.update({
-      where: { codExt: parsedProducto.data },
-      data: { codTiendaVinculo: parsedItem.data },
-    });
-    await sincronizarCostoTiendaTrasVinculos(parsedItem.data);
-    revalidatePath("/administrador/productos/cx-compra");
+    await prisma.$transaction(
+      uniqueExts.map((codExt) =>
+        prisma.listaPrecioProveedor.update({
+          where: { codExt },
+          data: { codTiendaVinculo: parsed.data.itemTiendaCod },
+        })
+      )
+    );
+    await sincronizarCostoTiendaTrasVinculos(parsed.data.itemTiendaCod);
+    for (const path of REVALIDATE_CX_COMPRA) {
+      revalidatePath(path);
+    }
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al vincular el producto.";

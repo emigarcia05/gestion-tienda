@@ -190,7 +190,7 @@ function ModalTablaColGroup({ widthsPct }: { widthsPct: readonly number[] }) {
 
 /**
  * Modal reutilizable: título + filtros + tabla.
- * - single: doble clic en fila para seleccionar (ej. vincular producto), o clic simple si hay `onRowClick`.
+ * - single: doble clic en fila para seleccionar, o clic simple si hay `onRowClick`.
  * - multi: checkboxes para selección múltiple + botón confirmar (ej. asignar productos a categoría).
  * - multiQuantity: columna CANT con input entero positivo por fila + botón confirmar (ej. bases tintométricas).
  */

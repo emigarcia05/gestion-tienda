@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Lock, Tag } from "lucide-react";
+import { Check, Loader2, Lock, Tag } from "lucide-react";
 import { setProductoPropioTiendaAction } from "@/actions/tienda";
 import { FiltroIndividualContainer } from "@/components/FilterBar";
 import { getProveedores, listarProductosParaVincular } from "@/actions/vinculos";
@@ -37,6 +37,7 @@ import {
   tableEmptyStateContainerVariants,
   tableEmptyStateMessageVariants,
 } from "@/components/shared/TableEmptyState";
+import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 /** Forma que espera TablaTienda (Cx Compra) al seleccionar un producto proveedor. */
@@ -55,7 +56,9 @@ type ProveedorOption = { id: string; nombre: string; prefijo: string };
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSeleccionar: (producto: ProductoConProveedor) => void;
+  onSeleccionar: (productos: ProductoConProveedor[]) => void | Promise<void>;
+  /** En el alta, CX. VINC. admite una sola línea. En Editar se pueden tildar varias (un proveedor cada una). */
+  seleccionMultiple?: boolean;
   excluirItemTiendaId: string;
   /** IDs de proveedor (`proveedores`) ya vinculados; se excluyen filas de esos proveedores. */
   idsProveedoresYaVinculados?: string[];
@@ -74,6 +77,7 @@ export default function SeleccionarProductoModal({
   open,
   onClose,
   onSeleccionar,
+  seleccionMultiple = true,
   excluirItemTiendaId,
   idsProveedoresYaVinculados = [],
   itemDescripcion,
@@ -95,11 +99,23 @@ export default function SeleccionarProductoModal({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [esPropio, setEsPropio] = useState(esProductoPropio);
   const [togglePropioPending, startTogglePropio] = useTransition();
+  const [seleccionados, setSeleccionados] = useState<Map<string, ProductoProveedorParaVincular>>(
+    () => new Map()
+  );
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => setEsPropio(esProductoPropio));
   }, [open, esProductoPropio]);
+
+  useEffect(() => {
+    if (open) return;
+    queueMicrotask(() => {
+      setSeleccionados(new Map());
+      setGuardando(false);
+    });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -157,16 +173,17 @@ export default function SeleccionarProductoModal({
     );
   }
 
-  function handleRowDoubleClick(row: ProductoProveedorParaVincular) {
-    if (vinculadoOtraTienda(row) && row.tiendaVinculada) {
-      setInfoVinculo({
-        codTienda: row.tiendaVinculada.codTienda,
-        descripcion: row.tiendaVinculada.descripcion,
-        prefijo: row.proveedor.prefijo,
-      });
-      return;
-    }
-    const producto: ProductoConProveedor = {
+  function mostrarInfoVinculo(row: ProductoProveedorParaVincular) {
+    if (!row.tiendaVinculada) return;
+    setInfoVinculo({
+      codTienda: row.tiendaVinculada.codTienda,
+      descripcion: row.tiendaVinculada.descripcion,
+      prefijo: row.proveedor.prefijo,
+    });
+  }
+
+  function toProducto(row: ProductoProveedorParaVincular): ProductoConProveedor {
+    return {
       id: row.id,
       proveedorId: row.idProveedor,
       codigoExterno: row.codExt,
@@ -175,7 +192,72 @@ export default function SeleccionarProductoModal({
       precioLista: 0,
       proveedor: { nombre: row.proveedor.nombre, prefijo: row.proveedor.prefijo },
     };
-    onSeleccionar(producto);
+  }
+
+  function toggleSeleccion(row: ProductoProveedorParaVincular) {
+    if (vinculadoOtraTienda(row)) {
+      mostrarInfoVinculo(row);
+      return;
+    }
+    setSeleccionados((prev) => {
+      const next = new Map(prev);
+      if (next.has(row.id)) {
+        next.delete(row.id);
+        return next;
+      }
+      if (!seleccionMultiple) {
+        return new Map([[row.id, row]]);
+      }
+      for (const [id, actual] of next) {
+        if (actual.idProveedor === row.idProveedor) {
+          next.delete(id);
+        }
+      }
+      next.set(row.id, row);
+      return next;
+    });
+  }
+
+  const filasSeleccionables = rows.filter((row) => !vinculadoOtraTienda(row));
+  const idsSeleccionablesVisibles = filasSeleccionables.map((row) => row.id);
+  const todosVisiblesTildados =
+    filasSeleccionables.length > 0 &&
+    filasSeleccionables.every((row) => seleccionados.has(row.id));
+
+  function toggleSeleccionarVisibles() {
+    if (!seleccionMultiple) return;
+    setSeleccionados((prev) => {
+      const next = new Map(prev);
+      if (todosVisiblesTildados) {
+        for (const id of idsSeleccionablesVisibles) next.delete(id);
+        return next;
+      }
+      const porProveedor = new Map<string, ProductoProveedorParaVincular>();
+      for (const row of filasSeleccionables) {
+        if (!porProveedor.has(row.idProveedor)) {
+          porProveedor.set(row.idProveedor, row);
+        }
+      }
+      for (const [id, actual] of next) {
+        if (porProveedor.has(actual.idProveedor)) next.delete(id);
+      }
+      for (const row of porProveedor.values()) {
+        next.set(row.id, row);
+      }
+      return next;
+    });
+  }
+
+  async function handleGuardar() {
+    if (seleccionados.size === 0 || guardando) return;
+    setGuardando(true);
+    try {
+      await onSeleccionar(Array.from(seleccionados.values()).map(toProducto));
+    } catch {
+      /* El padre muestra toast; no cerramos. */
+    } finally {
+      setGuardando(false);
+    }
   }
 
   const MENSAJE_SIN_FILTRO =
@@ -321,8 +403,36 @@ export default function SeleccionarProductoModal({
                   {/* Encabezado fijo: fuera del contenedor con scroll */}
                   <div className="shrink-0">
                     <Table variant="compact" scrollX={false} className="table-fixed w-full">
+                      <colgroup>
+                        <col className="w-10" />
+                        <col className="w-28" />
+                        <col />
+                      </colgroup>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent border-b-0">
+                          <TableHead className="w-10 text-center">
+                            {seleccionMultiple ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="mx-auto size-7 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground"
+                                aria-label="Seleccionar Todos"
+                                disabled={filasSeleccionables.length === 0}
+                                onClick={toggleSeleccionarVisibles}
+                              >
+                                <Check className="h-4 w-4" aria-hidden />
+                              </Button>
+                            ) : (
+                              <>
+                                <Check
+                                  className="mx-auto h-4 w-4 text-primary-foreground"
+                                  aria-hidden
+                                />
+                                <span className="sr-only">Seleccionar</span>
+                              </>
+                            )}
+                          </TableHead>
                           <TableHead className="w-28 text-center">PROVEEDOR</TableHead>
                           <TableHead className="min-w-0">DESCRIPCIÓN</TableHead>
                         </TableRow>
@@ -332,26 +442,61 @@ export default function SeleccionarProductoModal({
                   {/* Cuerpo con scroll: solo tbody */}
                   <div className="flex-1 min-h-0 overflow-y-auto border-b border-border">
                     <Table variant="compact" scrollX={false} className="table-fixed w-full">
+                      <colgroup>
+                        <col className="w-10" />
+                        <col className="w-28" />
+                        <col />
+                      </colgroup>
                       <TableBody>
                         {rows.map((row) => {
                           const bloqueado = vinculadoOtraTienda(row);
+                          const tildado = seleccionados.has(row.id);
                           return (
                             <TableRow
                               key={row.id}
-                              onDoubleClick={() => handleRowDoubleClick(row)}
+                              onClick={() => toggleSeleccion(row)}
                               className={cn(
                                 "select-none",
                                 bloqueado
                                   ? "cursor-not-allowed opacity-60 bg-muted/40 hover:bg-muted/50"
-                                  : "cursor-pointer hover:bg-primary/5"
+                                  : "cursor-pointer hover:bg-primary/5",
+                                tildado && !bloqueado && "bg-primary/15 hover:bg-primary/20"
                               )}
                               title={
                                 bloqueado
-                                  ? "Producto ya vinculado a otro ítem. Doble clic para ver detalles."
-                                  : "Doble Clic Para Vincular"
+                                  ? "Producto ya vinculado a otro ítem. Clic para ver detalles."
+                                  : "Clic para tildar"
                               }
                               aria-disabled={bloqueado || undefined}
+                              data-state={tildado ? "selected" : undefined}
                             >
+                              <TableCell className="celda-datos celda-datos--accion-relleno-fila w-10 text-center">
+                                {bloqueado ? (
+                                  <Lock
+                                    className="mx-auto h-3.5 w-3.5 text-muted-foreground"
+                                    aria-hidden
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="tabla-check-toggle tabla-check-toggle--alto-fila shrink-0"
+                                      aria-pressed={tildado}
+                                      aria-label={`Seleccionar ${row.descripcionProveedor}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSeleccion(row);
+                                      }}
+                                    >
+                                      {tildado ? (
+                                        <Check className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                                      ) : null}
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
                               <TableCell className="celda-datos w-28 text-center">
                                 <Badge variant="secondary" className="font-mono text-xs">
                                   {row.proveedor.prefijo}
@@ -362,12 +507,6 @@ export default function SeleccionarProductoModal({
                                   className="flex items-center gap-2 min-w-0"
                                   title={row.descripcionProveedor}
                                 >
-                                  {bloqueado ? (
-                                    <Lock
-                                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                                      aria-hidden
-                                    />
-                                  ) : null}
                                   <span className="block truncate">
                                     {row.descripcionProveedor}
                                   </span>
@@ -390,12 +529,32 @@ export default function SeleccionarProductoModal({
                 <>
                   <strong className="text-primary font-semibold">{rows.length.toLocaleString()}</strong>
                   {" RESULTADO(S)"}
+                  {seleccionados.size > 0 ? (
+                    <>
+                      {" · "}
+                      <strong className="text-primary font-semibold">
+                        {seleccionados.size.toLocaleString()}
+                      </strong>
+                      {" SELECCIONADO(S)"}
+                    </>
+                  ) : null}
                 </>
               )}
             </p>
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Cancelar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={onClose} disabled={guardando}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => void handleGuardar()}
+                disabled={guardando || seleccionados.size === 0}
+              >
+                {guardando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Guardar"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -86,7 +86,12 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     if (siguiente) setVinculo(null);
   }
 
-  function elegirVinculo(producto: ProductoConProveedor) {
+  function elegirVinculo(productos: ProductoConProveedor[]) {
+    const producto = productos[0];
+    if (!producto || productos.length !== 1) {
+      toast.error("Elegí una sola línea de proveedor.");
+      return;
+    }
     if (items.some((i) => i.codExtVinculo === producto.codigoExterno)) {
       toast.error("Esa línea de proveedor ya está en la tabla para otro producto.");
       return;
@@ -255,6 +260,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         open={selectorAbierto}
         onClose={() => setSelectorAbierto(false)}
         onSeleccionar={elegirVinculo}
+        seleccionMultiple={false}
         excluirItemTiendaId=""
         itemDescripcion={campos.descripcion.trim().toLocaleUpperCase("es-AR") || "NUEVO PRODUCTO"}
         marca={marcaNombre}

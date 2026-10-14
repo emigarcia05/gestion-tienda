@@ -26,7 +26,7 @@ import {
   establecerCostoListaTiendaAction,
   establecerCostoManualTiendaAction,
   getVinculos,
-  vincularProducto,
+  vincularProductos,
 } from "@/actions/vinculos";
 import {
   calcPxBaseVinculosTienda,
@@ -145,16 +145,21 @@ export default function VinculosCostoProductoTienda({
     });
   }
 
-  function vincular(producto: ProductoConProveedor) {
-    startTransition(async () => {
-      const res = await vincularProducto(codTienda, producto.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setSelectorAbierto(false);
-      terminar(`Vinculado: ${producto.codigoExterno}`);
-    });
+  async function vincular(productos: ProductoConProveedor[]) {
+    const res = await vincularProductos(
+      codTienda,
+      productos.map((p) => p.id)
+    );
+    if (!res.ok) {
+      toast.error(res.error);
+      throw new Error(res.error);
+    }
+    setSelectorAbierto(false);
+    const detalle =
+      productos.length === 1
+        ? `Vinculado: ${productos[0].codigoExterno}`
+        : `${productos.length} vínculos guardados.`;
+    terminar(detalle);
   }
 
   function desvincular(producto: ProductoVinculoTienda) {
