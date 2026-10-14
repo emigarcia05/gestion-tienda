@@ -1,7 +1,11 @@
-import { getIdPrecioListaPrincipal } from "@/lib/duxApi";
 import { prisma } from "@/lib/prisma";
 
-export { getIdPrecioListaPrincipal };
+/** `id_lista` de la lista principal en `prod_listas_precios` (id heredado de DUX). */
+const ID_LISTA_PRECIO_PRINCIPAL = 56994;
+
+export function getIdPrecioListaPrincipal(): number {
+  return ID_LISTA_PRECIO_PRINCIPAL;
+}
 
 /** Mapa cod_tienda → precio de lista principal (0 si no hay fila). */
 export async function buildMapPrecioListaPrincipal(

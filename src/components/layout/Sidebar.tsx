@@ -34,7 +34,6 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import SyncStatusIndicator from "@/components/layout/SyncStatusIndicator";
 import ImportStatusIndicator from "@/components/layout/ImportStatusIndicator";
 import SidebarAreaSwitcher from "@/components/shared/SidebarAreaSwitcher";
 import type { UsuarioSesion } from "@/lib/usuarioSesion";
@@ -443,7 +442,6 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
           <div className="h-px w-[80%] shrink-0 bg-sidebar-foreground/85" />
         </div>
         <div className="flex flex-col gap-2">
-          <SyncStatusIndicator rol={rol} />
           <ImportStatusIndicator pollEnabled={rol === "editor"} />
         </div>
         <div

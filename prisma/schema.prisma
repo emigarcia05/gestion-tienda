@@ -2609,38 +2609,6 @@ model MktColoresMarca {
   @@map("mkt_colores_marca")
 }
 
-// ─── Estado de sincronización DUX (singleton) ─────────────────────────────
-// Persistencia para que el polling en sidebar sea consistente incluso en serverless.
-model SyncDuxStatus {
-  id String @id
-
-  running   Boolean @default(false)
-  phase     String?
-  processed Int     @default(0)
-  total     Int     @default(0)
-  error     String?
-
-  /**
-   * Offset paginado DUX para reanudar tras timeout serverless.
-   */
-  fetchOffset      Int       @default(0) @map("fetch_offset")
-  apiFetchComplete Boolean   @default(false) @map("api_fetch_complete")
-  /**
-   * Inicio de corrida; limpieza borra `prod_lista` con `last_sync` anterior.
-   */
-  startedAt        DateTime? @map("started_at")
-  /**
-   * Acumulados entre pasos: `{ depositosVistos, listasVistas, countBefore }`.
-   */
-  meta             Json?
-
-  lastCompletedAt DateTime? @map("last_completed_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  @@index([updatedAt])
-  @@map("sync_dux_status")
-}
-
 // ─── Facturación / ventas (comprobantes) ───────────────────────────────────
 
 /**

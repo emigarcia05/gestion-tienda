@@ -73,10 +73,6 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
     /** Calc. Tintométrico y Calc. Litros (/ventas/ventas/px-tintometrico, /ventas/herramientas/calculadora-lts). */
     tintoLts: { simple: true, editor: true },
-    acciones: {
-      /** Lista tienda DUX: sidebar y POST /api/sync-lista-precios-tienda; simple y editor pueden disparar. */
-      sincronizar: { simple: true, editor: true },
-    },
     tabla: {
       codItem:      { simple: false, editor: true },
       descripcion:  { simple: true,  editor: true },

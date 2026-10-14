@@ -20,15 +20,6 @@ export async function guardPedidosLectura(): Promise<NextResponse | null> {
   return null;
 }
 
-/** Lista tienda DUX: mismo gate que POST `/api/sync-lista-precios-tienda`. */
-export async function guardTiendaListaPreciosSincronizar(): Promise<NextResponse | null> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.tienda.acciones.sincronizar)) {
-    return NextResponse.json({ ok: false, error: "Sin permisos para sincronizar." }, { status: 403 });
-  }
-  return null;
-}
-
 /** Sync comprobantes DUX / tesorería: lectura del estado igual que uso en sidebar financiero. */
 export async function guardFinanzasLectura(): Promise<NextResponse | null> {
   const rol = await getRol();
