@@ -235,14 +235,15 @@ export async function getTiendaPageData(params: {
     });
   }
 
-  /* Filtro VINCULADO: sin vínculo vs. con vínculo; los productos propios no cuentan como «no vinculados». */
+  /* Filtro VINCULADO = hay CX (costo) elegido. SI = `costo_compra_cod_ext` no nulo.
+     NO = sin CX (aunque haya vínculos de proveedor); los productos propios no cuentan como «no vinculados». */
   if (vinculado === "no") {
     andParts.push({
       esProductoPropio: false,
-      listaPreciosProveedores: { none: {} },
+      costoCompraCodExt: null,
     });
   } else if (vinculado === "si") {
-    andParts.push({ listaPreciosProveedores: { some: {} } });
+    andParts.push({ costoCompraCodExt: { not: null } });
   }
 
   const where: Prisma.ProdPropioWhereInput = andParts.length ? { AND: andParts } : {};
