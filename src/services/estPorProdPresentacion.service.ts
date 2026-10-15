@@ -8,6 +8,7 @@ import type {
 import {
   extraerLiteralNumeroPresentacion,
   formatearPresentacionConUnidad,
+  literalNumeroDesdeTextoGuardado,
 } from "@/lib/estPorProdUnPresentacion";
 import type {
   CrearEstPorProdPresentacionInput,
@@ -167,6 +168,92 @@ async function derivarTextoPresentacion(
     return { ok: false, error: "No se pudo generar el texto de la presentación." };
   }
   return { ok: true, texto };
+}
+
+type UnidadTexto = Pick<EstPorProdUnPresentacionItem, "unidad" | "posicionUnidad">;
+
+export interface CambioTextoPresentacion {
+  id: string;
+  antes: string;
+  despues: string;
+}
+
+export interface ConflictoTextoPresentacion extends CambioTextoPresentacion {
+  /** `texto` actual de la otra presentación que terminaría con el mismo texto. */
+  conflictoCon: string;
+}
+
+export interface PlanTextosPresentaciones {
+  cambios: CambioTextoPresentacion[];
+  conflictos: ConflictoTextoPresentacion[];
+}
+
+/**
+ * Calcula el `texto` que corresponde a cada presentación según su unidad en `prod_un_medida`
+ * (conserva el literal escrito, p. ej. `080`). Con `unidadEditada` solo evalúa las presentaciones
+ * de esa unidad usando sus valores nuevos (antes de guardarlos). No escribe.
+ */
+export async function planificarTextosPresentaciones(
+  unidadEditada?: { id: string } & UnidadTexto,
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<PlanTextosPresentaciones> {
+  const rows = await db.prodPresentacion.findMany({
+    select: {
+      id: true,
+      texto: true,
+      presentacionNumerica: true,
+      unidadMedidaId: true,
+      unidadMedida: { select: { unidad: true, posicionUnidad: true } },
+    },
+    orderBy: { texto: "asc" },
+  });
+
+  const cambios: CambioTextoPresentacion[] = [];
+  for (const r of rows) {
+    if (unidadEditada && r.unidadMedidaId !== unidadEditada.id) continue;
+    const unidad: UnidadTexto = unidadEditada ?? {
+      unidad: r.unidadMedida.unidad,
+      posicionUnidad: r.unidadMedida.posicionUnidad as EstPorProdPosicionUnidad,
+    };
+    const valor = toNumber(r.presentacionNumerica);
+    const despues = normalizarTexto(
+      formatearPresentacionConUnidad(
+        literalNumeroDesdeTextoGuardado(r.texto, valor, unidad) ?? valor,
+        unidad
+      )
+    );
+    if (despues && despues !== r.texto) cambios.push({ id: r.id, antes: r.texto, despues });
+  }
+
+  const despuesPorId = new Map(cambios.map((c) => [c.id, c.despues]));
+  const idsPorTextoFinal = new Map<string, string[]>();
+  for (const r of rows) {
+    const final = despuesPorId.get(r.id) ?? r.texto;
+    idsPorTextoFinal.set(final, [...(idsPorTextoFinal.get(final) ?? []), r.id]);
+  }
+  const textoActualPorId = new Map(rows.map((r) => [r.id, r.texto]));
+  const conflictos: ConflictoTextoPresentacion[] = [];
+  for (const c of cambios) {
+    const otro = (idsPorTextoFinal.get(c.despues) ?? []).find((id) => id !== c.id);
+    if (otro) conflictos.push({ ...c, conflictoCon: textoActualPorId.get(otro) ?? "" });
+  }
+  return { cambios, conflictos };
+}
+
+/**
+ * Aplica los cambios de `texto` en dos pasos (temporal → final) para no chocar con el índice
+ * único cuando dos presentaciones intercambian texto. Llamar dentro de una transacción.
+ */
+export async function aplicarCambiosTextoPresentaciones(
+  tx: Prisma.TransactionClient,
+  cambios: CambioTextoPresentacion[]
+): Promise<void> {
+  for (const c of cambios) {
+    await tx.prodPresentacion.update({ where: { id: c.id }, data: { texto: `__TMP__${c.id}` } });
+  }
+  for (const c of cambios) {
+    await tx.prodPresentacion.update({ where: { id: c.id }, data: { texto: c.despues } });
+  }
 }
 
 function datosConversion(input: {

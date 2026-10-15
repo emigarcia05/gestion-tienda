@@ -8,6 +8,12 @@ import type {
   EditarEstPorProdUnPresentacionInput,
 } from "@/lib/validations/estPorProdUnPresentacion";
 import type { ServiceResult } from "@/types";
+import {
+  aplicarCambiosTextoPresentaciones,
+  planificarTextosPresentaciones,
+} from "@/services/estPorProdPresentacion.service";
+
+class ConflictoTextoUnidadError extends Error {}
 
 function normalizarUnidad(unidad: string): string {
   return unidad.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
@@ -95,14 +101,28 @@ export async function editarEstPorProdUnPresentacion(
     return { success: false, error: "La unidad no puede quedar vacía." };
   }
   try {
-    const updated = await prisma.prodPresentacionUnidad.update({
-      where: { id: input.id },
-      data: {
-        unidad,
-        posicionUnidad: input.posicionUnidad,
-        suma: input.suma,
-      },
-      select: { id: true, unidad: true, posicionUnidad: true, suma: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const plan = await planificarTextosPresentaciones(
+        { id: input.id, unidad, posicionUnidad: input.posicionUnidad },
+        tx
+      );
+      if (plan.conflictos.length > 0) {
+        const c = plan.conflictos[0];
+        throw new ConflictoTextoUnidadError(
+          `No se puede guardar: «${c.antes}» pasaría a «${c.despues}», que ya existe («${c.conflictoCon}»).`
+        );
+      }
+      const row = await tx.prodPresentacionUnidad.update({
+        where: { id: input.id },
+        data: {
+          unidad,
+          posicionUnidad: input.posicionUnidad,
+          suma: input.suma,
+        },
+        select: { id: true, unidad: true, posicionUnidad: true, suma: true },
+      });
+      await aplicarCambiosTextoPresentaciones(tx, plan.cambios);
+      return row;
     });
     return { success: true, data: mapRow(updated) };
   } catch (error) {

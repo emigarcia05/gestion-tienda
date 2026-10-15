@@ -49,6 +49,26 @@ export function extraerLiteralNumeroPresentacion(
 }
 
 /**
+ * Literal numérico de un `texto` ya guardado cuya unidad pudo haberse renombrado: primero con la
+ * unidad actual; si no, el único número del texto. Solo se acepta si vale `valor`
+ * (`presentacion_numerica`); si no, `null`.
+ */
+export function literalNumeroDesdeTextoGuardado(
+  texto: string,
+  valor: number,
+  unidad: Pick<EstPorProdUnPresentacionItem, "unidad" | "posicionUnidad">
+): string | null {
+  const coincide = (literal: string) =>
+    /^\d+(,\d+)?$/.test(literal) && Number(literal.replace(",", ".")) === valor;
+  const conUnidad = literalNumeroPresentacion(extraerLiteralNumeroPresentacion(texto, unidad));
+  if (coincide(conUnidad)) return conUnidad;
+  const numeros = texto.match(/\d+(?:[.,]\d+)?/g);
+  if (numeros?.length !== 1) return null;
+  const unico = literalNumeroPresentacion(numeros[0]);
+  return coincide(unico) ? unico : null;
+}
+
+/**
  * Formatea número + unidad según posición:
  * - PREFIJO: `Nº 20`
  * - SUFIJO: `20 LTS`
