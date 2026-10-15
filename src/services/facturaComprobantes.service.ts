@@ -1073,12 +1073,12 @@ function emitirResultadoDesdeRow(row: {
 }
 
 const PTO_VTA_EMITIR_SELECT = {
-      id: true,
-      ptoVenta: true,
-      cuit: true,
-      condicionIva: true,
-      concepto: true,
-      estado: true,
+  id: true,
+  ptoVenta: true,
+  cuit: true,
+  condicionIva: true,
+  concepto: true,
+  estado: true,
 } as const;
 
 async function ptoVtaActivoDeSucursalPersonal(

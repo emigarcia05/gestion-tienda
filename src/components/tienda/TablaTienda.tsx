@@ -30,7 +30,7 @@ import {
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 
 /** COD. · DESCRIPCIÓN · MARCA · RUBRO · COLOR · PRESENTACIÓN · COSTO · ACCIONES */
-const COL_WIDTHS = [5, 43, 8, 8, 8, 5, 8, 5] as const;
+const COL_WIDTHS = [5, 40, 10, 10, 10, 5, 10, 10] as const;
 const COL_COUNT = COL_WIDTHS.length;
 
 const MENSAJE_SIN_FILTRO =

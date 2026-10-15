@@ -1920,7 +1920,7 @@
   width: 100%;
 }
 
-/* Lista Productos: COD 5 · DESCRIPCIÓN 43 · MARCA 8 · RUBRO 8 · COLOR 8 · PRESENTACIÓN 5 · COSTO 8 · ACCIONES 5 (colgroup en TablaTienda). */
+/* Tabla Tienda / Cx Compra: 6 columnas 11/32/9/22/12/14 % (colgroup en TablaTienda). */
 .tabla-tienda-listado {
   table-layout: fixed;
   width: 100%;
