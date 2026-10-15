@@ -38,13 +38,13 @@ import { eliminarEnviosFinalAction, marcarEnviosFinalEntregadoAction } from "@/a
 import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   direccionEnvioTieneDato,
-  etiquetaClienteListado,
   etiquetaDepartamentoEnvio,
   etiquetaDireccionEnvio,
   etiquetaFormaPagadoEnvio,
   etiquetaHorarioEnvio,
   etiquetaSucursalEnvio,
-  nombreCompletoCliente,
+  nombreDestinatarioEnvio,
+  nombrePintorColumnaEnvio,
   telefonoEnvio,
   type ClienteItem,
   type EnviosDireccionItem,
@@ -143,9 +143,9 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         !matchByMultiTerm(
           [
             etiquetaSucursalEnvio(item.sucursal),
-            item.clienteFinal ? etiquetaClienteListado(item.clienteFinal) : "",
+            nombreDestinatarioEnvio(item),
             item.clienteFinal?.cel ?? "",
-            item.pintor ? nombreCompletoCliente(item.pintor) : "",
+            nombrePintorColumnaEnvio(item),
             item.pintor?.cel ?? "",
             telefonoEnvio(item),
             etiquetaDireccionEnvio(item.direccion),
@@ -358,12 +358,10 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
                       {etiquetaSucursalEnvio(item.sucursal)}
                     </TableCell>
                     <TableCell className="celda-datos">
-                      {item.clienteFinal
-                        ? etiquetaClienteListado(item.clienteFinal)
-                        : fmtCelda("")}
+                      {fmtCelda(nombreDestinatarioEnvio(item))}
                     </TableCell>
                     <TableCell className="celda-datos">
-                      {item.pintor ? nombreCompletoCliente(item.pintor) : fmtCelda("")}
+                      {fmtCelda(nombrePintorColumnaEnvio(item))}
                     </TableCell>
                     <TableCell className="celda-datos tabular-nums">
                       {formatIsoYmdDdMmYyyyArgentina(item.fechaEnvioIso)}

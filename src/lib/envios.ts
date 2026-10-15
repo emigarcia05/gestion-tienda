@@ -501,10 +501,17 @@ export function compararEnvioPorProximidad(
   return 0;
 }
 
+/** Columna CLIENTE en Programados: cliente final, o el pintor si el envío es al pintor. */
 export function nombreDestinatarioEnvio(item: EnviosFinalListItem): string {
   if (item.clienteFinal) return etiquetaClienteListado(item.clienteFinal);
   if (item.pintor) return nombreCompletoCliente(item.pintor);
   return "";
+}
+
+/** Columna PINTOR en Programados: solo si hay cliente final asociado a un pintor. */
+export function nombrePintorColumnaEnvio(item: EnviosFinalListItem): string {
+  if (!item.clienteFinal || !item.pintor) return "";
+  return nombreCompletoCliente(item.pintor);
 }
 
 export function telefonoEnvio(item: EnviosFinalListItem): string {
