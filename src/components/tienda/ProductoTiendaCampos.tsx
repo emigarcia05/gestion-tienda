@@ -13,7 +13,11 @@ import {
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
-/** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR). */
+import {
+  esTerminacionProdLista,
+  TERMINACIONES_PROD_LISTA,
+} from "@/lib/prodListaTerminacion";
+/** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR / TERMINACIÓN). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
 /** Grilla de dos columnas de los modales Agregar / Editar producto. */
@@ -27,6 +31,8 @@ export type CamposProductoTiendaForm = {
   idMarca: string;
   idPresentacion: string;
   idColor: string;
+  /** `SIN_VALOR_PRODUCTO_TIENDA` = sin terminación. */
+  terminacion: string;
   /** Texto del input UN. POR BULTO (solo dígitos; vacío = sin bulto). */
   bulto: string;
 };
@@ -38,6 +44,7 @@ export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
   idMarca: "",
   idPresentacion: SIN_VALOR_PRODUCTO_TIENDA,
   idColor: SIN_VALOR_PRODUCTO_TIENDA,
+  terminacion: SIN_VALOR_PRODUCTO_TIENDA,
   bulto: "",
 };
 
@@ -65,6 +72,10 @@ export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm)
     idMarca: campos.idMarca,
     idPresentacion: campos.idPresentacion === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idPresentacion,
     idColor: campos.idColor === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.idColor,
+    terminacion:
+      campos.terminacion !== SIN_VALOR_PRODUCTO_TIENDA && esTerminacionProdLista(campos.terminacion)
+        ? campos.terminacion
+        : null,
     bulto: parsearBultoProductoTienda(campos.bulto).bulto,
   };
 }
@@ -129,7 +140,7 @@ function SelectCatalogo({
 
 /**
  * Agregar / Editar producto:
- * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | UN. POR BULTO.
+ * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO.
  */
 export default function ProductoTiendaCampos({
   campos,
@@ -216,6 +227,16 @@ export default function ProductoTiendaCampos({
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("presentacion") : undefined}
           gestionarLabel="Gestionar presentaciones"
+        />
+        <SelectCatalogo
+          label="TERMINACIÓN"
+          value={campos.terminacion}
+          onChange={(v) => onChange({ terminacion: v })}
+          opciones={TERMINACIONES_PROD_LISTA.map((nombre) => ({ id: nombre, nombre }))}
+          placeholder="TERMINACIÓN"
+          opcionVacia="SIN TERMINACIÓN"
+          disabled={disabled}
+          gestionarLabel="Terminación"
         />
         <div className="flex min-w-0 flex-col gap-1">
           <ModalMicroLabel>UN. POR BULTO</ModalMicroLabel>

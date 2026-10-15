@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TERMINACIONES_PROD_LISTA } from "@/lib/prodListaTerminacion";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
 import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
 
@@ -24,6 +25,8 @@ const camposProductoTiendaSchema = z.object({
   idMarca: idCatalogoSchema,
   idPresentacion: idCatalogoSchema.nullable(),
   idColor: idCatalogoSchema.nullable(),
+  /** `null` = sin terminación. */
+  terminacion: z.enum(TERMINACIONES_PROD_LISTA).nullable(),
   bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
 });
 

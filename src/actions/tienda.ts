@@ -1,6 +1,7 @@
 "use server";
 
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
+import type { TerminacionProdListaValor } from "@/lib/prodListaTerminacion";
 
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
@@ -139,6 +140,8 @@ export interface ItemTiendaParaTabla {
   idColor: string | null;
   /** `prod_colores.nombre`. */
   color: string | null;
+  /** `prod_lista.terminacion`. `null` = vacío. */
+  terminacion: TerminacionProdListaValor | null;
 }
 
 export interface ProveedorTintoLts {
@@ -333,6 +336,7 @@ export async function getTiendaPageData(params: {
       presentacion: r.presentacion?.texto ?? null,
       idColor: r.idColor,
       color: r.color?.nombre ?? null,
+      terminacion: r.terminacion,
     };
   });
 

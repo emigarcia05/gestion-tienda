@@ -1475,6 +1475,16 @@ model ProdPropioListaPrecioEdicion {
   @@map("prod_listas_precios_edicion")
 }
 
+/**
+ * Acabado de `prod_lista.terminacion`. `null` = vacío. No es el catálogo de Estadísticas
+ * (`est_por_prod_terminacion`, match por descripción).
+ */
+enum TerminacionProdLista {
+  BRILLANTE
+  SATINADO
+  MATE
+}
+
 /// Catálogo de productos propios (alta/edición en Lista Productos). Rubro, sub-rubro, marca, color y
 /// presentación solo por FK a sus catálogos (sin columnas de texto espejo).
 model ProdPropio {
@@ -1517,6 +1527,8 @@ model ProdPropio {
   idPresentacion              String?   @map("id_presentacion")
   /// Color elegido al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
   idColor                     String?   @map("id_color")
+  /// Acabado: BRILLANTE / SATINADO / MATE. `null` = vacío. Sync DUX no escribe.
+  terminacion                 TerminacionProdLista?
 
   rubroRelation             ProdRubro?                     @relation(fields: [idRubro], references: [id], onDelete: Restrict)
   subRubroRelation          ProdSubRubro?                  @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)

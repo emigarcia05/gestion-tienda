@@ -51,7 +51,14 @@ async function siguienteCodTienda(tx: Prisma.TransactionClient): Promise<string>
 
 type CamposProductoTienda = Pick<
   CrearProductoTiendaItemInput,
-  "descripcion" | "idRubro" | "idSubRubro" | "idMarca" | "idPresentacion" | "idColor" | "bulto"
+  | "descripcion"
+  | "idRubro"
+  | "idSubRubro"
+  | "idMarca"
+  | "idPresentacion"
+  | "idColor"
+  | "terminacion"
+  | "bulto"
 >;
 
 /** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_lista`. */
@@ -89,6 +96,7 @@ async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos
       idMarca: marca.id,
       idPresentacion: presentacion?.id ?? null,
       idColor: color?.id ?? null,
+      terminacion: campos.terminacion,
       bulto: campos.bulto,
     },
   };

@@ -43,6 +43,7 @@ export default function EditarProductoTiendaModal({
     idMarca: item.idMarca ?? "",
     idPresentacion: item.idPresentacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     idColor: item.idColor ?? SIN_VALOR_PRODUCTO_TIENDA,
+    terminacion: item.terminacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     bulto: item.bulto != null ? String(item.bulto) : "",
   });
   const [pending, setPending] = useState(false);

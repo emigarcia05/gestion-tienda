@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import AppModal from "@/components/shared/AppModal";
 import EditarProductoTiendaModal from "@/components/tienda/EditarProductoTiendaModal";
+import VerProductoTiendaModal from "@/components/tienda/VerProductoTiendaModal";
 import { eliminarProductoTiendaAction } from "@/actions/listaProductos";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
 import type { ItemTiendaParaTabla } from "@/actions/tienda";
@@ -28,8 +29,8 @@ import {
 } from "@/lib/ui-classes";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 
-/** COD. · DESCRIPCIÓN · RUBRO · SUB-RUBRO · MARCA · PRESENTACIÓN · COLOR · COSTO · BULTO · ACCIONES */
-const COL_WIDTHS = [6, 26, 9, 9, 9, 9, 8, 8, 6, 10] as const;
+/** COD. · DESCRIPCIÓN · MARCA · RUBRO · COLOR · PRESENTACIÓN · COSTO · ACCIONES */
+const COL_WIDTHS = [5, 43, 8, 8, 8, 5, 8, 5] as const;
 const COL_COUNT = COL_WIDTHS.length;
 
 const MENSAJE_SIN_FILTRO =
@@ -51,6 +52,7 @@ export default function TablaTienda({
 }) {
   const router = useRouter();
   const puedeVincular = puede(rol, PERMISOS.tienda.tabla.vinculos);
+  const [viendo, setViendo] = useState<ItemTiendaParaTabla | null>(null);
   const [editando, setEditando] = useState<ItemTiendaParaTabla | null>(null);
   const [borrando, setBorrando] = useState<ItemTiendaParaTabla | null>(null);
   const [borrarPending, setBorrarPending] = useState(false);
@@ -84,13 +86,11 @@ export default function TablaTienda({
           <TableRow className="hover:bg-transparent">
             <TableHead>COD.</TableHead>
             <TableHead>DESCRIPCIÓN</TableHead>
-            <TableHead>RUBRO</TableHead>
-            <TableHead>SUB-RUBRO</TableHead>
             <TableHead>MARCA</TableHead>
-            <TableHead>PRESENTACIÓN</TableHead>
+            <TableHead>RUBRO</TableHead>
             <TableHead>COLOR</TableHead>
+            <TableHead>PRESENTACIÓN</TableHead>
             <TableHead className="text-center">COSTO</TableHead>
-            <TableHead className="text-center">BULTO</TableHead>
             <TableHead className="text-center">ACCIONES</TableHead>
           </TableRow>
         </TableHeader>
@@ -107,50 +107,72 @@ export default function TablaTienda({
                 <TableCell className="celda-datos celda-destacado min-w-0 overflow-hidden">
                   {item.descripcion}
                 </TableCell>
-                <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.rubro)}</TableCell>
-                <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.subRubro)}</TableCell>
                 <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.marca)}</TableCell>
-                <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.presentacion)}</TableCell>
+                <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.rubro)}</TableCell>
                 <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.color)}</TableCell>
+                <TableCell className="celda-datos min-w-0 truncate">{fmtCelda(item.presentacion)}</TableCell>
                 <TableCell className="celda-datos celda-numero tabular-nums text-center">
                   ${fmtPrecio(costoCxProdMostrado(item.cxProd))}
                 </TableCell>
-                <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                  {item.bulto ?? ""}
-                </TableCell>
                 <TableCell className="celda-datos celda-datos--accion-relleno-fila">
-                  {esEditor ? (
-                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                        aria-label={`Editar ${item.codItem}`}
-                        title="Editar"
-                        onClick={() => setEditando(item)}
-                      >
-                        <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                        aria-label={`Borrar ${item.codItem}`}
-                        title="Borrar"
-                        onClick={() => setBorrando(item)}
-                      >
-                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                    </div>
-                  ) : null}
+                  <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      aria-label={`Ver ${item.codItem}`}
+                      title="Ver"
+                      onClick={() => setViendo(item)}
+                    >
+                      <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                    {esEditor ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          aria-label={`Editar ${item.codItem}`}
+                          title="Editar"
+                          onClick={() => setEditando(item)}
+                        >
+                          <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          aria-label={`Borrar ${item.codItem}`}
+                          title="Borrar"
+                          onClick={() => setBorrando(item)}
+                        >
+                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
+
+      {viendo ? (
+        <VerProductoTiendaModal
+          item={viendo}
+          puedeEditar={esEditor}
+          onClose={() => setViendo(null)}
+          onEditar={() => {
+            const actual = viendo;
+            setViendo(null);
+            setEditando(actual);
+          }}
+        />
+      ) : null}
 
       {editando ? (
         <EditarProductoTiendaModal

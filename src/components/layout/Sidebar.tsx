@@ -438,11 +438,9 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
         )}
       </div>
       <div className="mt-auto flex flex-col gap-2 px-4 pb-3">
+        <ImportStatusIndicator pollEnabled={rol === "editor"} />
         <div className="flex justify-center" aria-hidden>
           <div className="h-px w-[80%] shrink-0 bg-sidebar-foreground/85" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <ImportStatusIndicator pollEnabled={rol === "editor"} />
         </div>
         <div
           className={cn(
