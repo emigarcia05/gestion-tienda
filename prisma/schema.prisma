@@ -1516,6 +1516,9 @@ model ProdPropio {
   ultimaExportacionExcel      DateTime? @map("ultima_exportacion_excel")
   /// Producto propio TiendaColor: no admite vínculos con `proveedores_prod_lista`; el sync DUX no modifica este flag.
   esProductoPropio            Boolean   @default(false) @map("es_producto_propio")
+  /// Producto compuesto (kit) armado con otros ítems de `prod_lista` (`prod_lista_compuestos`).
+  /// Siempre es PROD. PROPIO (CHECK `prod_lista_compuesto_es_propio`). Costo = Σ componentes.
+  esProductoCompuesto         Boolean   @default(false) @map("es_producto_compuesto")
   /// Incluido en Px Competencia (`/gestion-productos/tienda/cx-px-tienda`); el sync DUX no modifica este flag.
   compararCompetencia         Boolean   @default(false) @map("comparar_competencia")
   /// Competidor de referencia para PX de **1 - GENERAL** (Px Listas). Sync DUX no modifica.
@@ -1544,6 +1547,8 @@ model ProdPropio {
   estPorProd                EstPorProd[]
   stockMovimientos          StockMovimiento[]
   stockTransferenciaItems   StockTransferenciaItem[]
+  componentes               ProdListaCompuesto[]           @relation("CompuestoComponentes")
+  compuestosQueLoUsan       ProdListaCompuesto[]           @relation("ComponenteDeCompuestos")
 
   @@index([competenciaIdPxListaGeneral], map: "prod_lista_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_lista_descripcion_idx")
@@ -1553,6 +1558,26 @@ model ProdPropio {
   @@index([idPresentacion], map: "prod_lista_id_presentacion_idx")
   @@index([idColor], map: "prod_lista_id_color_idx")
   @@map("prod_lista")
+}
+
+/**
+ * Componentes de un producto compuesto: 1 compuesto → N componentes de `prod_lista`.
+ * `cantidad` = unidades del componente por 1 unidad del compuesto (hasta 1 decimal, > 0).
+ * Un componente no puede ser compuesto (servicio `productoCompuesto.service.ts`).
+ */
+model ProdListaCompuesto {
+  codTiendaCompuesto  String   @map("cod_tienda_compuesto")
+  codTiendaComponente String   @map("cod_tienda_componente")
+  cantidad            Decimal  @db.Decimal(12, 1)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  compuesto  ProdPropio @relation("CompuestoComponentes", fields: [codTiendaCompuesto], references: [codTienda], onDelete: Cascade)
+  componente ProdPropio @relation("ComponenteDeCompuestos", fields: [codTiendaComponente], references: [codTienda], onDelete: Restrict)
+
+  @@id([codTiendaCompuesto, codTiendaComponente], map: "prod_lista_compuestos_pkey")
+  @@index([codTiendaComponente], map: "prod_lista_compuestos_cod_tienda_componente_idx")
+  @@map("prod_lista_compuestos")
 }
 
 /**

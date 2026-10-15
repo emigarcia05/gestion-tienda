@@ -129,6 +129,8 @@ export interface ItemTiendaParaTabla {
   cxProd: CxProdDatosFila;
   /** Producto propio TiendaColor (sin vínculos a lista proveedor). */
   esProductoPropio: boolean;
+  /** Producto compuesto (kit de otros ítems; siempre propio). */
+  esProductoCompuesto: boolean;
   /** Unidades por bulto (`prod_lista.bulto`); `null` = vacío. */
   bulto: number | null;
   idRubro: string | null;
@@ -330,6 +332,7 @@ export async function getTiendaPageData(params: {
       _count: { productos: r._count.listaPreciosProveedores },
       cxProd: cxProdMap.get(r.codTienda) ?? CX_PROD_FILA_VACIA,
       esProductoPropio: r.esProductoPropio,
+      esProductoCompuesto: r.esProductoCompuesto,
       bulto: bultoProdTiendaValido(r.bulto),
       idMarca: r.idMarca,
       idPresentacion: r.idPresentacion,

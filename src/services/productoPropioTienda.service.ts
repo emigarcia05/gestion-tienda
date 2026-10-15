@@ -9,10 +9,13 @@ export async function setProductoPropioTienda(
 ): Promise<{ esProductoPropio: boolean }> {
   const existe = await prisma.prodPropio.findUnique({
     where: { codTienda },
-    select: { codTienda: true },
+    select: { esProductoCompuesto: true },
   });
   if (!existe) {
     throw new Error("Ítem de tienda no encontrado.");
+  }
+  if (!esProductoPropio && existe.esProductoCompuesto) {
+    throw new Error("Un producto compuesto siempre es PROD. PROPIO. Desmarcá PROD. COMPUESTO primero.");
   }
 
   if (esProductoPropio) {

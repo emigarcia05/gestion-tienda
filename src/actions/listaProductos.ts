@@ -40,6 +40,22 @@ import {
   listarPresentacionesOpciones,
   listarRubrosCatalogo,
 } from "@/services/listaProductos.service";
+import type {
+  ComponenteCandidatoItem,
+  ComposicionProductoTienda,
+} from "@/lib/productoCompuesto";
+import { listaPreciosCodTiendaSchema } from "@/lib/validations/common";
+import {
+  buscarComponentesCandidatosSchema,
+  guardarComponentesCompuestoSchema,
+  setProductoCompuestoSchema,
+} from "@/lib/validations/productoCompuesto";
+import {
+  buscarComponentesCandidatos,
+  getComposicionProductoTienda,
+  guardarComponentesCompuesto,
+  setProductoCompuestoTienda,
+} from "@/services/productoCompuesto.service";
 
 function revalidateListaProductos(): void {
   for (const path of REVALIDATE_LISTA_PRODUCTOS) revalidatePath(path);
@@ -221,4 +237,52 @@ export async function eliminarSubRubroAction(raw: unknown): Promise<ActionResult
   const out = fromServiceResult(await eliminarSubRubro(parsed.data.id));
   if (out.ok) revalidateListaProductos();
   return out;
+}
+
+// --- Producto compuesto (`prod_lista_compuestos`) ---
+
+export async function getComposicionProductoTiendaAction(
+  raw: unknown
+): Promise<ActionResult<ComposicionProductoTienda>> {
+  const gate = await requireTiendaLectura();
+  if (gate) return gate;
+  const parsed = listaPreciosCodTiendaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  return fromServiceResult(await getComposicionProductoTienda(parsed.data));
+}
+
+export async function setProductoCompuestoTiendaAction(
+  raw: unknown
+): Promise<ActionResult<{ esProductoCompuesto: boolean }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = setProductoCompuestoSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(
+    await setProductoCompuestoTienda(parsed.data.codTienda, parsed.data.esProductoCompuesto)
+  );
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function guardarComponentesCompuestoAction(
+  raw: unknown
+): Promise<ActionResult<{ componentes: number }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = guardarComponentesCompuestoSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await guardarComponentesCompuesto(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function buscarComponentesCandidatosAction(
+  raw: unknown
+): Promise<ActionResult<ComponenteCandidatoItem[]>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = buscarComponentesCandidatosSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  return fromServiceResult(await buscarComponentesCandidatos(parsed.data.codTienda, parsed.data.q));
 }

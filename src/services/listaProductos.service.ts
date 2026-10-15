@@ -208,14 +208,16 @@ export async function eliminarProductoTienda(
     await prisma.$transaction(async (tx) => {
       const existe = await tx.prodPropio.findUnique({ where: { codTienda }, select: { codTienda: true } });
       if (!existe) throw new ErrorNegocio("El producto ya no existe.");
-      const [movStock, transferencias, compras, ventas, estadisticas] = await Promise.all([
+      const [movStock, transferencias, compras, ventas, estadisticas, componenteDe] = await Promise.all([
         tx.stockMovimiento.count({ where: { codItem: codTienda } }),
         tx.stockTransferenciaItem.count({ where: { codItem: codTienda } }),
         tx.pedidoHistoriaItem.count({ where: { codTienda } }),
         tx.comprobanteVtaItem.count({ where: { codTienda } }),
         tx.estPorProd.count({ where: { codTienda } }),
+        tx.prodListaCompuesto.count({ where: { codTiendaComponente: codTienda } }),
       ]);
       const usos = [
+        componenteDe > 0 && "productos compuestos que lo usan como componente",
         movStock > 0 && "movimientos de stock",
         transferencias > 0 && "transferencias",
         compras > 0 && "pedidos / compras",
