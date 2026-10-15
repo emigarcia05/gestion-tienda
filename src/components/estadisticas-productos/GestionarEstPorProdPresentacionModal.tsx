@@ -21,6 +21,8 @@ import {
   eliminarEstPorProdPresentacionAction,
   listarEstPorProdPresentacionesAction,
 } from "@/actions/estPorProdPresentacion";
+import { listarEstPorProdUnPresentacionesAction } from "@/actions/estPorProdUnPresentacion";
+import GestionarEstPorProdUnPresentacionModal from "@/components/estadisticas-productos/GestionarEstPorProdUnPresentacionModal";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { EstPorProdPresentacionItem } from "@/lib/estPorProdPresentacion";
 import {
@@ -82,11 +84,18 @@ export default function GestionarEstPorProdPresentacionModal({
   open,
   onOpenChange,
   itemsIniciales,
-  unidades,
+  unidades: unidadesProp,
   esEditor,
   onCatalogoChanged,
 }: Props) {
   const [items, setItems] = useState<EstPorProdPresentacionItem[]>(itemsIniciales);
+  /** Unidades recargadas tras gestionar el catálogo; `null` = usar las del padre. */
+  const [unidadesRecargadas, setUnidadesRecargadas] = useState<
+    EstPorProdUnPresentacionItem[] | null
+  >(null);
+  const unidades = unidadesRecargadas ?? unidadesProp;
+  const [modalUnidadesOpen, setModalUnidadesOpen] = useState(false);
+  const [unidadesCambiaron, setUnidadesCambiaron] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -162,8 +171,32 @@ export default function GestionarEstPorProdPresentacionModal({
     setFormConversionAUnidadId("");
     setFormConversionAUnidadPresentacion("");
     setBorrarTarget(null);
+    setUnidadesRecargadas(null);
+    setModalUnidadesOpen(false);
+    setUnidadesCambiaron(false);
     void cargar();
   }, [open, cargar, itemsIniciales]);
+
+  async function recargarUnidades() {
+    const res = await listarEstPorProdUnPresentacionesAction();
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudieron cargar las unidades.");
+      return;
+    }
+    const ids = new Set(res.data.map((u) => u.id));
+    setUnidadesRecargadas(res.data);
+    if (!ids.has(formUnidadMedidaId)) setFormUnidadMedidaId("");
+    if (!ids.has(formConversionAUnidadId)) setFormConversionAUnidadId("");
+  }
+
+  function onChangeModalUnidades(next: boolean) {
+    setModalUnidadesOpen(next);
+    if (next || !unidadesCambiaron) return;
+    setUnidadesCambiaron(false);
+    void recargarUnidades();
+    void cargar();
+    onCatalogoChanged?.();
+  }
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -457,27 +490,45 @@ export default function GestionarEstPorProdPresentacionModal({
               </ModalMicroLabel>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>Unidad medida</ModalMicroLabel>
-                <Select
-                  value={formUnidadMedidaId ?? ""}
-                  onValueChange={onChangeUnidadMedida}
-                  disabled={pending}
-                >
-                  <SelectTrigger className={SELECT_TRIGGER_CLASS} aria-label="Unidad medida">
-                    <SelectValue placeholder="SELECCIONAR UNIDAD" />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro max-h-60"
-                  >
-                    {unidades.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.unidad}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Select
+                      value={formUnidadMedidaId ?? ""}
+                      onValueChange={onChangeUnidadMedida}
+                      disabled={pending}
+                    >
+                      <SelectTrigger className={SELECT_TRIGGER_CLASS} aria-label="Unidad medida">
+                        <SelectValue placeholder="SELECCIONAR UNIDAD" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        side="bottom"
+                        align="start"
+                        className="select-content-filtro max-h-60"
+                      >
+                        {unidades.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.unidad}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {esEditor ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={LIST_ROW_ICON_BTN_CLASS}
+                      aria-label="Gestionar unidades de medida"
+                      title="Gestionar unidades de medida"
+                      disabled={pending}
+                      onClick={() => setModalUnidadesOpen(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>Presentacion numerica</ModalMicroLabel>
@@ -612,6 +663,16 @@ export default function GestionarEstPorProdPresentacionModal({
           </p>
         </AppModal>
       </Dialog>
+
+      {esEditor ? (
+        <GestionarEstPorProdUnPresentacionModal
+          open={modalUnidadesOpen}
+          onOpenChange={onChangeModalUnidades}
+          itemsIniciales={unidades}
+          esEditor={esEditor}
+          onCatalogoChanged={() => setUnidadesCambiaron(true)}
+        />
+      ) : null}
     </>
   );
 }

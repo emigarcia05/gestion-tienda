@@ -1135,7 +1135,7 @@ model ProdPresentacionUnidad {
   /**
    * Texto de unidad en MAYÚSCULAS (único).
    */
-  unidad         String                   @unique(map: "prod_presentaciones_unidades_unidad_key")
+  unidad         String                   @unique(map: "prod_un_medida_unidad_key")
   posicionUnidad EstPorProdPosicionUnidad @map("posicion_unidad")
   suma           Boolean                  @default(false)
   createdAt      DateTime                 @default(now()) @map("created_at")
@@ -1144,7 +1144,7 @@ model ProdPresentacionUnidad {
   presentacionesComoMedida     ProdPresentacion[] @relation("PresentacionUnidadMedida")
   presentacionesComoConversion ProdPresentacion[] @relation("PresentacionConversionUnidad")
 
-  @@map("prod_presentaciones_unidades")
+  @@map("prod_un_medida")
 }
 
 enum EstPorProdPosicionUnidad {

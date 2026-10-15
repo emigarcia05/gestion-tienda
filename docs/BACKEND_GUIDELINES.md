@@ -298,7 +298,7 @@ PK, FK, índices y CHECK usan el prefijo nuevo (`prod_propios_*`; FKs entrantes 
 | — (nueva) | `prod_sub_rubros` | `ProdSubRubro` | `prisma.prodSubRubro` |
 | `est_por_prod_colores` | `prod_colores` | `ProdColor` | `prisma.prodColor` |
 | `est_por_prod_presentacion` | `prod_presentaciones` | `ProdPresentacion` | `prisma.prodPresentacion` |
-| `est_por_prod_un_presentacion` | `prod_presentaciones_unidades` | `ProdPresentacionUnidad` | `prisma.prodPresentacionUnidad` |
+| `est_por_prod_un_presentacion` → `prod_presentaciones_unidades` | `prod_un_medida` (migración `20261015120000_rename_prod_un_medida`) | `ProdPresentacionUnidad` | `prisma.prodPresentacionUnidad` |
 
 `prod_lista` referencia **todos** sus datos de catálogo por FK y **no** tiene columnas de texto espejo (se eliminaron `rubro`, `sub_rubro`, `marca`):
 
@@ -421,6 +421,7 @@ Lectura: `PERMISOS.finanzas.acceso`. Mutaciones de catálogo/tesorería/IVA: + `
 
 - Hechos `est_por_prod`: unique sucursal+mes+anio+cod_tienda. Sucursales `genera_est`. **Import/verificar/borrar periodo = API** (`guardEstPorProdImportarEsEditor`), no Actions. Grilla desde `EST_POR_PROD_CARGA_DESDE` (Mayo 2026).
 - Catálogos (Actions): colores, unidades, presentaciones, terminaciones. Match sobre `prod_lista.descripcion`.
+- **Unidades de medida (`prod_un_medida`)**: catálogo en BD (no hay unidades fijas en código): `unidad` (único, MAYÚSCULAS), `posicion_unidad` (`PREFIJO` / `SUFIJO` / `SUFIJO_SIN_ESPACIO`), `suma`. CRUD: `estPorProdUnPresentacion.service.ts` + actions `estPorProdUnPresentacion.ts`. Borrar falla (P2003) si alguna presentación la usa. Renombrar una unidad **no** recalcula el `texto` de las presentaciones existentes.
 - **`prod_presentaciones.texto`** se deriva en el servidor (`derivarTextoPresentacion` en `estPorProdPresentacion.service.ts`) con el **número tal como se escribió** + unidad (`Nº 080` se guarda `Nº 080`, no `Nº 80`). Zod (`presentacionCamposBaseSchema.presentacionNumerica`) devuelve `{ literal, valor }`: `literal` (sin espacios, coma decimal, `^\d+(,\d+)?$`) arma el `texto` vía `formatearPresentacionConUnidad(string, unidad)`; `valor` va a `presentacion_numerica` (Decimal, para sumas/conversión). `EstPorProdPresentacionItem.presentacionNumericaTexto` = literal recuperado del `texto` (`extraerLiteralNumeroPresentacion`); lo usan `etiquetaPresentacionMedida` y el precargado del modal de edición. Filas guardadas antes del cambio conservan su `texto` hasta que se vuelvan a editar.
 - Categorización / Estadísticas Vtas: servicios `estCategorizacion` / `estVtas`; agregaciones de gráficos en cliente. Filtros de producto (marca, rubro, sub rubro, color, terminación, presentación) son multi en cliente (`estFiltrosMulti`: OR dentro de la dimensión). Gráfico 1 y Top 10: % participación = Un. ítem / Un. total filtrado (`totalUnidadesGraficoEstVtas` / `agregarTopProductos.totalUnidades`).
 
