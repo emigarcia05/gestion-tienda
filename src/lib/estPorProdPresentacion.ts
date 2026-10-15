@@ -9,6 +9,8 @@ export type EstPorProdPresentacionItem = {
   texto: string;
   unidadMedidaId: string;
   presentacionNumerica: number;
+  /** Número tal como figura en `texto` (conserva ceros a la izquierda: `080`). */
+  presentacionNumericaTexto: string;
   /** Null si no hay conversión. */
   conversionAUnidadId: string | null;
   conversionAUnidadPresentacion: number | null;
@@ -18,7 +20,7 @@ export type EstPorProdPresentacionItem = {
 
 /** Etiqueta de la presentación medida (unidad + número). */
 export function etiquetaPresentacionMedida(item: EstPorProdPresentacionItem): string {
-  return formatearPresentacionConUnidad(item.presentacionNumerica, item.unidadMedida);
+  return formatearPresentacionConUnidad(item.presentacionNumericaTexto, item.unidadMedida);
 }
 
 /** Etiqueta de la conversión a otra unidad; vacío si no hay conversión. */

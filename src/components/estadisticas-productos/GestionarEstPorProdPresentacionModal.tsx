@@ -74,9 +74,8 @@ function previewUnidadCompleta(
   unidad: EstPorProdUnPresentacionItem | undefined
 ): string {
   if (!unidad) return "";
-  const n = parseNumeroPreview(numericaRaw);
-  if (n === null) return "";
-  return formatearPresentacionConUnidad(n, unidad).toLocaleUpperCase("es-AR");
+  if (parseNumeroPreview(numericaRaw) === null) return "";
+  return formatearPresentacionConUnidad(numericaRaw, unidad).toLocaleUpperCase("es-AR");
 }
 
 export default function GestionarEstPorProdPresentacionModal({
@@ -199,7 +198,7 @@ export default function GestionarEstPorProdPresentacionModal({
     if (!esEditor || pending || sinUnidades) return;
     setEditingItem(item);
     setFormUnidadMedidaId(item.unidadMedidaId);
-    setFormPresentacionNumerica(formatoNumeroInput(item.presentacionNumerica));
+    setFormPresentacionNumerica(item.presentacionNumericaTexto);
     setFormConversionAUnidadId(item.conversionAUnidadId ?? "");
     setFormConversionAUnidadPresentacion(
       item.conversionAUnidadPresentacion == null

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { literalNumeroPresentacion } from "@/lib/estPorProdUnPresentacion";
 import { prismaCuidSchema } from "@/lib/validations/common";
 
 /**
@@ -17,14 +18,21 @@ function parseNumeroPresentacion(value: unknown): unknown {
   return Number.isFinite(n) ? n : value;
 }
 
-const numeroPresentacionSchema = z.preprocess(
-  parseNumeroPresentacion,
-  z
-    .number({ error: "Ingresá un número válido." })
-    .finite("El valor debe ser un número válido.")
-    .min(0, "El valor no puede ser negativo.")
-    .max(100_000_000, "El valor es demasiado grande.")
-);
+/**
+ * Presentación medida: `valor` numérico (sumas / conversión) y `literal` tal como se escribió
+ * para armar `texto` (`080` → `Nº 080`, no `Nº 80`).
+ */
+const presentacionMedidaSchema = z
+  .union([z.string(), z.number()])
+  .transform((v) => (typeof v === "number" ? String(v) : v))
+  .pipe(
+    z
+      .string()
+      .transform((raw) => literalNumeroPresentacion(raw))
+      .refine((literal) => /^\d+(,\d+)?$/.test(literal), "Ingresá un número válido.")
+      .transform((literal) => ({ literal, valor: Number(literal.replace(",", ".")) }))
+      .refine((v) => v.valor <= 100_000_000, "El valor es demasiado grande.")
+  );
 
 /** CUID, vacío o null → null (sin conversión). */
 const conversionUnidadIdOpcionalSchema = z.preprocess(
@@ -48,7 +56,7 @@ const conversionPresentacionOpcionalSchema = z.preprocess((v) => {
 
 const presentacionCamposBaseSchema = z.object({
   unidadMedidaId: prismaCuidSchema,
-  presentacionNumerica: numeroPresentacionSchema,
+  presentacionNumerica: presentacionMedidaSchema,
   conversionAUnidadId: conversionUnidadIdOpcionalSchema,
   conversionAUnidadPresentacion: conversionPresentacionOpcionalSchema,
 });

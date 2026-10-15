@@ -5,7 +5,10 @@ import type {
   EstPorProdPosicionUnidad,
   EstPorProdUnPresentacionItem,
 } from "@/lib/estPorProdUnPresentacion";
-import { formatearPresentacionConUnidad } from "@/lib/estPorProdUnPresentacion";
+import {
+  extraerLiteralNumeroPresentacion,
+  formatearPresentacionConUnidad,
+} from "@/lib/estPorProdUnPresentacion";
 import type {
   CrearEstPorProdPresentacionInput,
   EditarEstPorProdPresentacionInput,
@@ -66,11 +69,15 @@ function mapRow(r: {
     suma: boolean;
   } | null;
 }): EstPorProdPresentacionItem {
+  const presentacionNumerica = toNumber(r.presentacionNumerica);
   return {
     id: r.id,
     texto: r.texto.toLocaleUpperCase("es-AR"),
     unidadMedidaId: r.unidadMedidaId,
-    presentacionNumerica: toNumber(r.presentacionNumerica),
+    presentacionNumerica,
+    presentacionNumericaTexto:
+      extraerLiteralNumeroPresentacion(r.texto, r.unidadMedida) ||
+      formatearPresentacionConUnidad(presentacionNumerica, { unidad: "", posicionUnidad: "SUFIJO" }),
     conversionAUnidadId: r.conversionAUnidadId,
     conversionAUnidadPresentacion:
       r.conversionAUnidadPresentacion == null
@@ -136,11 +143,11 @@ async function validarUnidadesPresentacion(
 }
 
 /**
- * `texto` de match = presentación numérica + unidad de medida (prefijo/sufijo), en MAYÚSCULAS.
- * No lo envía el cliente; se recalcula en create/update.
+ * `texto` de match = número literal escrito (conserva `080`) + unidad de medida (prefijo/sufijo),
+ * en MAYÚSCULAS. No lo envía el cliente; se recalcula en create/update.
  */
 async function derivarTextoPresentacion(
-  presentacionNumerica: number,
+  presentacionNumerica: string,
   unidadMedidaId: string
 ): Promise<{ ok: true; texto: string } | { ok: false; error: string }> {
   const unidad = await prisma.prodPresentacionUnidad.findUnique({
@@ -212,7 +219,7 @@ export async function crearEstPorProdPresentacion(
     return { success: false, error: unidadesOk.error };
   }
   const derivado = await derivarTextoPresentacion(
-    input.presentacionNumerica,
+    input.presentacionNumerica.literal,
     input.unidadMedidaId
   );
   if (!derivado.ok) {
@@ -224,7 +231,7 @@ export async function crearEstPorProdPresentacion(
       data: {
         texto: derivado.texto,
         unidadMedidaId: input.unidadMedidaId,
-        presentacionNumerica: new Prisma.Decimal(input.presentacionNumerica),
+        presentacionNumerica: new Prisma.Decimal(input.presentacionNumerica.valor),
         conversionAUnidadId: conversion.conversionAUnidadId,
         conversionAUnidadPresentacion: conversion.conversionAUnidadPresentacion,
       },
@@ -250,7 +257,7 @@ export async function editarEstPorProdPresentacion(
     return { success: false, error: unidadesOk.error };
   }
   const derivado = await derivarTextoPresentacion(
-    input.presentacionNumerica,
+    input.presentacionNumerica.literal,
     input.unidadMedidaId
   );
   if (!derivado.ok) {
@@ -263,7 +270,7 @@ export async function editarEstPorProdPresentacion(
       data: {
         texto: derivado.texto,
         unidadMedidaId: input.unidadMedidaId,
-        presentacionNumerica: new Prisma.Decimal(input.presentacionNumerica),
+        presentacionNumerica: new Prisma.Decimal(input.presentacionNumerica.valor),
         conversionAUnidadId: conversion.conversionAUnidadId,
         conversionAUnidadPresentacion: conversion.conversionAUnidadPresentacion,
       },
