@@ -30,8 +30,8 @@ export interface FilaPreviewImportPdf {
 
 export interface PreviewImportListaPdf {
   filas: FilaPreviewImportPdf[];
-  /** Ítems de la lista del proveedor que no recibieron precio de este PDF. */
-  listaSinPrecioEnPdf: number;
+  /** Ítems de la lista del proveedor que no recibieron precio de este PDF (se vinculan a mano en la vista previa). */
+  listaSinPrecio: ItemListaMatchPdf[];
 }
 
 export interface ResultadoImportListaPdf {
@@ -40,9 +40,3 @@ export interface ResultadoImportListaPdf {
   catalogoCreados: number;
   catalogoActualizados: number;
 }
-
-export const ETIQUETA_ESTADO_MATCH_PDF: Record<EstadoMatchItemPdf, string> = {
-  VINCULADO: "VINCULADO",
-  SUGERIDO: "SUGERIDO",
-  SIN_VINCULO: "SIN VÍNCULO",
-};

@@ -3,10 +3,21 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Upload, Loader2, ArrowRight, RefreshCw } from "lucide-react";
+import {
+  FileText,
+  Upload,
+  Loader2,
+  ArrowRight,
+  RefreshCw,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import {
   Select,
   SelectContent,
@@ -25,6 +36,7 @@ import {
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import { cn } from "@/lib/utils";
 import { fmtPrecio } from "@/lib/format";
+import { matchByMultiTerm } from "@/lib/busqueda";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import type { FilaPdfMatrizNormalizadaDto } from "@/lib/validations/parseListaPreciosPdfMatriz";
 import { PAGINA_INICIO_PDF_MATRIZ_DEFAULT } from "@/lib/validations/parseListaPreciosPdfMatriz";
@@ -32,33 +44,14 @@ import {
   aplicarImportListaPdfAction,
   previsualizarImportListaPdfAction,
 } from "@/actions/prodPreciosRex";
-import {
-  ETIQUETA_ESTADO_MATCH_PDF,
-  type EstadoMatchItemPdf,
-  type FilaPreviewImportPdf,
-  type ItemListaMatchPdf,
-  type PreviewImportListaPdf,
+import type {
+  FilaPreviewImportPdf,
+  ItemListaMatchPdf,
+  PreviewImportListaPdf,
 } from "@/lib/importListaPdf";
 
 const SELECT_NONE = "none";
-const CHECKBOX_CLASS =
-  "h-4 w-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-60";
-
-type FiltroEstado = "CON_VINCULO" | EstadoMatchItemPdf | "TODOS";
-
-const OPCIONES_FILTRO: { value: FiltroEstado; label: string }[] = [
-  { value: "CON_VINCULO", label: "CON VÍNCULO (A ACTUALIZAR)" },
-  { value: "VINCULADO", label: "VINCULADOS" },
-  { value: "SUGERIDO", label: "SUGERIDOS" },
-  { value: "SIN_VINCULO", label: "SIN VÍNCULO" },
-  { value: "TODOS", label: "TODOS" },
-];
-
-const CLASE_ESTADO: Record<EstadoMatchItemPdf, string> = {
-  VINCULADO: "text-foreground",
-  SUGERIDO: "text-primary",
-  SIN_VINCULO: "text-muted-foreground",
-};
+const MAX_RESULTADOS_PDF = 100;
 
 interface Proveedor {
   id: string;
@@ -71,25 +64,6 @@ interface Props {
 }
 
 type Estado = "idle" | "config" | "procesando" | "preview" | "aplicando" | "error";
-
-/** Fila de la vista previa: un ítem PDF × un ítem de lista (o sin ítem si no hay vínculo). */
-interface FilaVista {
-  key: string;
-  fila: FilaPreviewImportPdf;
-  item: ItemListaMatchPdf | null;
-}
-
-function claveSeleccion(clave: string, codExt: string): string {
-  return `${clave}\u0000${codExt}`;
-}
-
-function seleccionInicial(preview: PreviewImportListaPdf): Set<string> {
-  const out = new Set<string>();
-  for (const f of preview.filas) {
-    for (const it of f.items) out.add(claveSeleccion(f.clave, it.codExt));
-  }
-  return out;
-}
 
 function Variacion({ precio, pxActual }: { precio: number; pxActual: number }) {
   if (pxActual <= 0) return <span className="variacion-costo--neutra text-xs">—</span>;
@@ -105,6 +79,176 @@ function Variacion({ precio, pxActual }: { precio: number; pxActual: number }) {
   return <span className={cn(clase, "text-xs")}>{texto}</span>;
 }
 
+/** Primera palabra significativa de la descripción de lista: arranque de la búsqueda en el PDF. */
+function busquedaInicial(descripcion: string): string {
+  return descripcion.split(/\s+/).find((p) => p.length >= 3 && !/\d/.test(p)) ?? "";
+}
+
+interface BuscadorItemPdfProps {
+  item: ItemListaMatchPdf;
+  itemsPdf: FilaPreviewImportPdf[];
+  claveAsignada: string | undefined;
+  onElegir: (clave: string) => void;
+}
+
+function BuscadorItemPdf({ item, itemsPdf, claveAsignada, onElegir }: BuscadorItemPdfProps) {
+  const [busqueda, setBusqueda] = useState(() => busquedaInicial(item.descripcionProveedor));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const resultados = useMemo(
+    () => itemsPdf.filter((f) => matchByMultiTerm([f.descripcionBase, f.presentacion], busqueda)),
+    [itemsPdf, busqueda]
+  );
+  const visibles = resultados.slice(0, MAX_RESULTADOS_PDF);
+
+  return (
+    <div className="space-y-2 min-w-0">
+      <FiltroBusquedaInput
+        id="buscar-item-pdf"
+        placeholder="BUSCAR EN EL PDF (DESCRIPCIÓN O PRESENTACIÓN)…"
+        value={busqueda}
+        onChange={setBusqueda}
+        isDebouncing={false}
+        inputRef={inputRef}
+      />
+      <p className="text-xs text-muted-foreground">
+        {resultados.length > MAX_RESULTADOS_PDF
+          ? `Mostrando ${MAX_RESULTADOS_PDF} de ${resultados.length} ítems; refiná la búsqueda.`
+          : `${resultados.length} ítem(s) del PDF. Hacé clic en el que corresponde.`}
+      </p>
+      <div className="contenedor-tabla-gestion max-h-[min(24rem,50vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
+        <Table variant="compact" scrollX={false} className="table-fixed w-full">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>DESCRIPCIÓN PDF</TableHead>
+              <TableHead className="w-32 text-center">PRESENTACIÓN</TableHead>
+              <TableHead className="w-24 text-center">PX. PDF</TableHead>
+              <TableHead className="w-20 text-center">VAR.</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibles.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4}>
+                  <TableEmptyState message="NINGÚN ÍTEM DEL PDF COINCIDE CON LA BÚSQUEDA." placement="panel" />
+                </TableCell>
+              </TableRow>
+            ) : (
+              visibles.map((f) => (
+                <TableRow
+                  key={f.clave}
+                  className={cn("cursor-pointer", f.clave === claveAsignada && "bg-primary/10")}
+                  onClick={() => onElegir(f.clave)}
+                  aria-selected={f.clave === claveAsignada}
+                >
+                  <TableCell className="celda-datos min-w-0">
+                    <span className="block truncate text-xs" title={f.descripcionBase}>
+                      {f.descripcionBase}
+                    </span>
+                  </TableCell>
+                  <TableCell className="celda-datos text-center text-xs">{f.presentacion}</TableCell>
+                  <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                    ${fmtPrecio(f.precio)}
+                  </TableCell>
+                  <TableCell className="celda-datos text-center">
+                    <Variacion precio={f.precio} pxActual={item.pxActual} />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+interface VincularItemPdfModalProps {
+  itemsLista: ItemListaMatchPdf[];
+  itemsPdf: FilaPreviewImportPdf[];
+  indice: number | null;
+  manuales: Map<string, string>;
+  onIndice: (indice: number | null) => void;
+  onAsignar: (codExt: string, clave: string | null) => void;
+}
+
+/** Recorre los ítems de lista sin precio y permite elegir, para cada uno, el ítem del PDF. */
+function VincularItemPdfModal({
+  itemsLista,
+  itemsPdf,
+  indice,
+  manuales,
+  onIndice,
+  onAsignar,
+}: VincularItemPdfModalProps) {
+  const item = indice !== null ? itemsLista[indice] : undefined;
+  const claveAsignada = item ? manuales.get(item.codExt) : undefined;
+  const ultimo = itemsLista.length - 1;
+
+  function elegir(clave: string) {
+    if (!item || indice === null) return;
+    onAsignar(item.codExt, clave);
+    onIndice(indice < ultimo ? indice + 1 : null);
+  }
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onIndice(null)}>
+      {item && indice !== null && (
+        <AppModal
+          className="max-w-4xl"
+          bodyClassName="max-w-full min-w-0"
+          title="Vincular con ítem del PDF"
+          actions={
+            <>
+              <Button variant="outline" onClick={() => onIndice(indice - 1)} disabled={indice === 0} className="gap-1">
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => onIndice(indice + 1)}
+                disabled={indice >= ultimo}
+                className="gap-1"
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              {claveAsignada && (
+                <Button variant="outline" onClick={() => onAsignar(item.codExt, null)}>
+                  Quitar vínculo
+                </Button>
+              )}
+              <Button onClick={() => onIndice(null)}>Listo</Button>
+            </>
+          }
+        >
+          <div className="space-y-3 pt-2 min-w-0">
+            <div className="rounded-lg border border-primary/30 bg-muted/30 p-3 space-y-1 min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">
+                ÍTEM DE LISTA {indice + 1} DE {itemsLista.length}
+              </p>
+              <p className="text-sm font-medium text-foreground truncate" title={item.descripcionProveedor}>
+                <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                PX. ACTUAL: ${fmtPrecio(item.pxActual)}
+                {claveAsignada && <> · VINCULADO A: {claveAsignada}</>}
+              </p>
+            </div>
+            <BuscadorItemPdf
+              key={item.codExt}
+              item={item}
+              itemsPdf={itemsPdf}
+              claveAsignada={claveAsignada}
+              onElegir={elegir}
+            />
+          </div>
+        </AppModal>
+      )}
+    </Dialog>
+  );
+}
+
 export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -117,8 +261,9 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const [proveedorId, setProveedorId] = useState("");
   const [filasPdf, setFilasPdf] = useState<FilaPdfMatrizNormalizadaDto[]>([]);
   const [preview, setPreview] = useState<PreviewImportListaPdf | null>(null);
-  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("CON_VINCULO");
+  /** Vínculos elegidos a mano: `cod_ext` del ítem de lista → clave del ítem PDF. */
+  const [manuales, setManuales] = useState<Map<string, string>>(new Map());
+  const [indiceVincular, setIndiceVincular] = useState<number | null>(null);
   const [advertencias, setAdvertencias] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,8 +271,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const limpiarResultado = useCallback(() => {
     setFilasPdf([]);
     setPreview(null);
-    setSeleccion(new Set());
-    setFiltroEstado("CON_VINCULO");
+    setManuales(new Map());
+    setIndiceVincular(null);
     setAdvertencias([]);
     setErrorMsg(null);
   }, []);
@@ -231,7 +376,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       }
       setFilasPdf(filas);
       setPreview(prev.data);
-      setSeleccion(seleccionInicial(prev.data));
       setEstado("preview");
     } catch {
       const msg = "Error de conexión al procesar el PDF.";
@@ -241,13 +385,33 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     }
   }
 
+  const vinculosAuto = useMemo(
+    () => (preview?.filas ?? []).flatMap((f) => f.items.map((it) => ({ clave: f.clave, codExt: it.codExt }))),
+    [preview]
+  );
+
+  const pdfPorClave = useMemo(
+    () => new Map((preview?.filas ?? []).map((f) => [f.clave, f])),
+    [preview]
+  );
+
+  const totalVinculos = vinculosAuto.length + manuales.size;
+
+  function asignarManual(codExt: string, clave: string | null) {
+    setManuales((prev) => {
+      const next = new Map(prev);
+      if (clave) next.set(codExt, clave);
+      else next.delete(codExt);
+      return next;
+    });
+  }
+
   async function aplicar() {
-    if (!preview || seleccion.size === 0) return;
-    const vinculos = preview.filas.flatMap((f) =>
-      f.items
-        .filter((it) => seleccion.has(claveSeleccion(f.clave, it.codExt)))
-        .map((it) => ({ clave: f.clave, codExt: it.codExt }))
-    );
+    if (!preview || totalVinculos === 0) return;
+    const vinculos = [
+      ...vinculosAuto,
+      ...[...manuales].map(([codExt, clave]) => ({ clave, codExt })),
+    ];
     setEstado("aplicando");
     try {
       const res = await aplicarImportListaPdfAction({ proveedorId, filas: filasPdf, vinculos });
@@ -280,58 +444,10 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     [seleccionarArchivo]
   );
 
-  const conteos = useMemo(() => {
-    const c: Record<EstadoMatchItemPdf, number> = { VINCULADO: 0, SUGERIDO: 0, SIN_VINCULO: 0 };
-    for (const f of preview?.filas ?? []) c[f.estado]++;
-    return c;
-  }, [preview]);
-
-  const filasVista = useMemo<FilaVista[]>(() => {
-    if (!preview) return [];
-    const out: FilaVista[] = [];
-    for (const fila of preview.filas) {
-      const visible =
-        filtroEstado === "TODOS" ||
-        (filtroEstado === "CON_VINCULO" ? fila.estado !== "SIN_VINCULO" : fila.estado === filtroEstado);
-      if (!visible) continue;
-      if (fila.items.length === 0) {
-        out.push({ key: fila.clave, fila, item: null });
-        continue;
-      }
-      for (const item of fila.items) {
-        out.push({ key: claveSeleccion(fila.clave, item.codExt), fila, item });
-      }
-    }
-    return out;
-  }, [preview, filtroEstado]);
-
-  const seleccionablesVisibles = filasVista.filter((f) => f.item !== null).map((f) => f.key);
-  const todosVisiblesSeleccionados =
-    seleccionablesVisibles.length > 0 && seleccionablesVisibles.every((k) => seleccion.has(k));
-
-  function alternar(key: string) {
-    setSeleccion((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function alternarTodosVisibles() {
-    setSeleccion((prev) => {
-      const next = new Set(prev);
-      for (const k of seleccionablesVisibles) {
-        if (todosVisiblesSeleccionados) next.delete(k);
-        else next.add(k);
-      }
-      return next;
-    });
-  }
-
   const enConfig = (estado === "config" || estado === "error") && !!archivoPendiente;
   const mostrarBotonConversion =
     !!archivoPendiente && (estado === "config" || estado === "procesando" || estado === "error");
+  const sinPrecio = preview?.listaSinPrecio ?? [];
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -343,7 +459,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       </DialogTrigger>
 
       <AppModal
-        className={preview ? "max-w-5xl" : "max-w-3xl"}
+        className={sinPrecio.length > 0 ? "max-w-5xl" : "max-w-3xl"}
         bodyClassName="max-w-full min-w-0"
         title="Importar Lista PDF"
         actions={
@@ -365,14 +481,14 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
               <Button
                 onClick={() => void aplicar()}
                 className="gap-2 min-w-[150px]"
-                disabled={ocupado || seleccion.size === 0}
+                disabled={ocupado || totalVinculos === 0}
               >
                 {estado === "aplicando" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                Actualizar Precios ({seleccion.size})
+                Actualizar Precios ({totalVinculos})
               </Button>
             )}
           </>
@@ -511,107 +627,102 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
             <div className="space-y-2 min-h-0">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium uppercase text-foreground">
                 <span>ÍTEMS PDF: {preview.filas.length}</span>
-                <span>VINCULADOS: {conteos.VINCULADO}</span>
-                <span className="text-primary">SUGERIDOS: {conteos.SUGERIDO}</span>
-                <span className="text-muted-foreground">SIN VÍNCULO: {conteos.SIN_VINCULO}</span>
-                <span className="text-muted-foreground">
-                  ÍTEMS DE LISTA SIN PRECIO EN EL PDF: {preview.listaSinPrecioEnPdf}
+                <span>SE ACTUALIZAN SOLOS: {vinculosAuto.length}</span>
+                <span className={cn(sinPrecio.length > 0 ? "text-primary" : "text-muted-foreground")}>
+                  SIN PRECIO EN EL PDF: {sinPrecio.length}
                 </span>
+                {manuales.size > 0 && <span>VINCULADOS A MANO: {manuales.size}</span>}
               </div>
-              <div className="grid grid-cols-[1fr_16rem] items-center gap-3">
-                <p className="text-xs text-muted-foreground">
-                  SUGERIDO = la descripción de la lista coincide con descripción + presentación del PDF; al
-                  actualizar queda vinculado. Los SIN VÍNCULO se vinculan a mano desde la lista.
+
+              {sinPrecio.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Todos los ítems de la lista encontraron su precio en el PDF.
                 </p>
-                <Select value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as FiltroEstado)}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")} aria-label="Filtrar por estado">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent position="popper" side="bottom" align="end" className="select-content-filtro">
-                    {OPCIONES_FILTRO.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
-                <Table variant="compact" scrollX={false} className="table-fixed w-full">
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-10 text-center">
-                        <input
-                          type="checkbox"
-                          className={CHECKBOX_CLASS}
-                          checked={todosVisiblesSeleccionados}
-                          onChange={alternarTodosVisibles}
-                          disabled={ocupado || seleccionablesVisibles.length === 0}
-                          aria-label="Seleccionar todos los visibles"
-                        />
-                      </TableHead>
-                      <TableHead>DESCRIPCIÓN PDF</TableHead>
-                      <TableHead className="w-24 text-center">PX. PDF</TableHead>
-                      <TableHead className="w-24 text-center">ESTADO</TableHead>
-                      <TableHead>ÍTEM LISTA</TableHead>
-                      <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
-                      <TableHead className="w-20 text-center">VAR.</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filasVista.length === 0 ? (
-                      <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={7}>
-                          <TableEmptyState message="NINGÚN ÍTEM CON ESTE FILTRO." placement="panel" />
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filasVista.map(({ key, fila, item }) => (
-                        <TableRow key={key}>
-                          <TableCell className="text-center">
-                            {item ? (
-                              <input
-                                type="checkbox"
-                                className={CHECKBOX_CLASS}
-                                checked={seleccion.has(key)}
-                                onChange={() => alternar(key)}
-                                disabled={ocupado}
-                                aria-label={`Actualizar ${item.codProdProveedor}`}
-                              />
-                            ) : null}
-                          </TableCell>
-                          <TableCell className="celda-datos min-w-0">
-                            <span className="block truncate text-xs" title={fila.clave}>
-                              {fila.clave}
-                            </span>
-                          </TableCell>
-                          <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                            ${fmtPrecio(fila.precio)}
-                          </TableCell>
-                          <TableCell className={cn("celda-datos text-center text-xs font-semibold", CLASE_ESTADO[fila.estado])}>
-                            {ETIQUETA_ESTADO_MATCH_PDF[fila.estado]}
-                          </TableCell>
-                          <TableCell className="celda-datos min-w-0">
-                            {item ? (
-                              <span className="block truncate text-xs" title={item.descripcionProveedor}>
-                                <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                            {item ? `$${fmtPrecio(item.pxActual)}` : ""}
-                          </TableCell>
-                          <TableCell className="celda-datos text-center">
-                            {item ? <Variacion precio={fila.precio} pxActual={item.pxActual} /> : null}
-                          </TableCell>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Estos ítems de la lista no encontraron su precio en el PDF. Elegí el ítem del PDF que corresponde
+                    (queda vinculado para las próximas importaciones); los que dejes sin elegir conservan su precio.
+                  </p>
+                  <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
+                    <Table variant="compact" scrollX={false} className="table-fixed w-full">
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>ÍTEM LISTA</TableHead>
+                          <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
+                          <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
+                          <TableHead className="w-24 text-center">PX. PDF</TableHead>
+                          <TableHead className="w-20 text-center">VAR.</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {sinPrecio.map((item, i) => {
+                          const clave = manuales.get(item.codExt);
+                          const pdf = clave ? pdfPorClave.get(clave) : undefined;
+                          return (
+                            <TableRow key={item.codExt}>
+                              <TableCell className="celda-datos min-w-0">
+                                <span className="block truncate text-xs" title={item.descripcionProveedor}>
+                                  <span className="celda-mono">{item.codProdProveedor}</span> ·{" "}
+                                  {item.descripcionProveedor}
+                                </span>
+                              </TableCell>
+                              <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                                ${fmtPrecio(item.pxActual)}
+                              </TableCell>
+                              <TableCell className="celda-datos min-w-0">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className={cn(
+                                      "h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 text-xs font-normal",
+                                      !pdf && "text-muted-foreground"
+                                    )}
+                                    onClick={() => setIndiceVincular(i)}
+                                    disabled={ocupado}
+                                    title={pdf?.clave}
+                                  >
+                                    <Search className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">{pdf ? pdf.clave : "ELEGIR ÍTEM DEL PDF…"}</span>
+                                  </Button>
+                                  {pdf && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      onClick={() => asignarManual(item.codExt, null)}
+                                      disabled={ocupado}
+                                      aria-label={`Quitar vínculo de ${item.codProdProveedor}`}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                                {pdf ? `$${fmtPrecio(pdf.precio)}` : ""}
+                              </TableCell>
+                              <TableCell className="celda-datos text-center">
+                                {pdf ? <Variacion precio={pdf.precio} pxActual={item.pxActual} /> : null}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
+
+              <VincularItemPdfModal
+                itemsLista={sinPrecio}
+                itemsPdf={preview.filas}
+                indice={indiceVincular}
+                manuales={manuales}
+                onIndice={setIndiceVincular}
+                onAsignar={asignarManual}
+              />
             </div>
           )}
         </div>

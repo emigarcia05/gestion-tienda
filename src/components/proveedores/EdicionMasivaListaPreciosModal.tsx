@@ -48,7 +48,7 @@ interface RubroOption {
   nombre: string;
 }
 
-const FORM_GRID_CLASS = "grid grid-cols-[1.35fr_minmax(0,1fr)] gap-x-4 gap-y-2 items-center";
+const FORM_GRID_CLASS = "grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 items-center";
 const LABEL_CLASS = "text-right font-medium text-sm";
 const INPUT_CONTROL_CLASS = "tabular-nums border-primary w-full min-w-0";
 
@@ -457,6 +457,7 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
       <Dialog open={open} onOpenChange={setOpen}>
         <AppModal
           title={titulo}
+          size="xl"
           actions={
             <>
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>

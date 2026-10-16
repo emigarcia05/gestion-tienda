@@ -8,7 +8,9 @@
  *    con esa clave (vínculo persistente; sirve aunque los textos no coincidan).
  * 2. SUGERIDO: sin vínculo previo, `descripcion_proveedor` normalizada = descripción + presentación
  *    (`clavesMatchItemPdf`).
- * 3. SIN_VINCULO: ninguno de los anteriores (se vincula a mano desde Lista Prod. Prov.).
+ * 3. SIN_VINCULO: ninguno de los anteriores.
+ *
+ * Los ítems de lista que no reciben precio (`listaSinPrecio`) se vinculan a mano en la vista previa.
  *
  * Al aplicar: guarda todos los ítems del PDF en `prod_precios_rex` (catálogo para vincular a mano),
  * fija `id_precio_rex` en las filas confirmadas y copia el precio a `px_lista_proveedor`.
@@ -83,6 +85,7 @@ export async function previsualizarImportListaPdf(
 
     const vinculadosPorClave = new Map<string, ItemListaMatchPdf[]>();
     const sinVinculoPorDescripcion = new Map<string, ItemListaMatchPdf[]>();
+    const itemsLista: ItemListaMatchPdf[] = [];
     for (const l of lista) {
       const item: ItemListaMatchPdf = {
         codExt: l.codExt,
@@ -90,6 +93,7 @@ export async function previsualizarImportListaPdf(
         descripcionProveedor: l.descripcionProveedor,
         pxActual: Number(l.pxListaProveedor),
       };
+      itemsLista.push(item);
       const destino = l.precioRex
         ? { mapa: vinculadosPorClave, clave: normalizarDescripcionPrecioRex(l.precioRex.descripcion) }
         : { mapa: sinVinculoPorDescripcion, clave: normalizarDescripcionMatchPdf(l.descripcionProveedor) };
@@ -115,7 +119,10 @@ export async function previsualizarImportListaPdf(
 
     return {
       success: true,
-      data: { filas: filasPreview, listaSinPrecioEnPdf: lista.length - codExtConPrecio.size },
+      data: {
+        filas: filasPreview,
+        listaSinPrecio: itemsLista.filter((i) => !codExtConPrecio.has(i.codExt)),
+      },
     };
   } catch (e) {
     console.error("[importListaPdf.service] previsualizarImportListaPdf:", e);
