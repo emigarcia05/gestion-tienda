@@ -177,6 +177,102 @@ export function clavesMatchItemPdf(descripcionBase: string, presentacion: string
   return numeros.filter(Boolean).map((n) => `${base} ${n}`);
 }
 
+const RE_TOKEN_NUMERO = /^\d+(?:[./]\d+)?$/;
+const RE_TOKEN_ALFA = /^[A-Z]+$/;
+/** Largo mínimo para aceptar una palabra del PDF como abreviatura (`CRIST` → `CRISTAL`). */
+const MIN_LARGO_ABREVIATURA_PDF = 3;
+/** Palabras de la lista que pueden sobrar respecto del PDF (`BALANCE` en `CETOL CLASSIC BALANCE …`). */
+const MAX_PALABRAS_EXTRA_MATCH_PDF = 2;
+
+/**
+ * Patrón de similitud de un ítem del PDF. Las palabras unidas por guiones (`NAT-CAO-CRIST`,
+ * `CRIST - ROBLE`) son variantes: la lista debe tener una sola de ellas.
+ */
+export interface PatronSimilitudItemPdf {
+  fijos: string[];
+  variantes: string[][];
+  /** Números de presentación aceptados; vacío = `Un.` (la lista no debe traer número). */
+  numeros: string[];
+}
+
+export interface SimilitudItemPdf {
+  /** Palabras de la lista que el PDF no menciona (menos = mejor). */
+  extras: number;
+  /** Palabras del PDF que coincidieron (más = mejor). */
+  especificidad: number;
+}
+
+/** Palabras de una descripción de lista normalizada (los guiones separan palabras). */
+export function tokensListaMatchPdf(descripcion: string): string[] {
+  return normalizarDescripcionMatchPdf(descripcion)
+    .replace(/[^A-Z0-9./\s]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+}
+
+export function patronSimilitudItemPdf(descripcionBase: string, presentacion: string): PatronSimilitudItemPdf {
+  const fijos: string[] = [];
+  const variantes: string[][] = [];
+  const tokens = normalizarDescripcionMatchPdf(descripcionBase)
+    .replace(/\s*[-–]\s*/g, "-")
+    .replace(/[^A-Z0-9./\s-]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+  for (const t of tokens) {
+    const partes = t.split("-").filter(Boolean);
+    if (partes.length >= 2 && partes.every((p) => RE_TOKEN_ALFA.test(p))) variantes.push(partes);
+    else fijos.push(...partes);
+  }
+  if (esPresentacionUnidad(presentacion)) return { fijos, variantes, numeros: [] };
+  const pres = normalizarPresentacion(presentacion);
+  const numeros = NUMEROS_PRESENTACION_FRACCION[pres] ?? [normalizarDescripcionMatchPdf(pres)];
+  return { fijos, variantes, numeros: numeros.filter(Boolean) };
+}
+
+function coincidePalabraPdf(pdf: string, lista: string): boolean {
+  if (pdf === lista) return true;
+  return RE_TOKEN_ALFA.test(pdf) && pdf.length >= MIN_LARGO_ABREVIATURA_PDF && lista.startsWith(pdf);
+}
+
+/**
+ * Compara un ítem del PDF con las palabras de una descripción de lista. Cada palabra del PDF debe
+ * estar en la lista (igual o como abreviatura); de cada grupo de variantes, una; el único número
+ * libre de la lista debe ser la presentación; y pueden sobrar hasta 2 palabras. `null` = no coincide.
+ */
+export function similitudItemPdf(
+  patron: PatronSimilitudItemPdf,
+  tokensLista: string[]
+): SimilitudItemPdf | null {
+  const especificidad = patron.fijos.length + patron.variantes.length;
+  if (patron.fijos.length === 0 || especificidad < 2) return null;
+  const libres = [...tokensLista];
+  const tomar = (pred: (t: string) => boolean): boolean => {
+    const i = libres.findIndex(pred);
+    if (i < 0) return false;
+    libres.splice(i, 1);
+    return true;
+  };
+  const sinExacta = patron.fijos.filter((f) => !tomar((t) => t === f));
+  for (const f of sinExacta) if (!tomar((t) => coincidePalabraPdf(f, t))) return null;
+  for (const alts of patron.variantes) {
+    if (!tomar((t) => alts.some((a) => coincidePalabraPdf(a, t)))) return null;
+  }
+  const numerosLibres = libres.filter((t) => RE_TOKEN_NUMERO.test(t));
+  if (patron.numeros.length === 0) {
+    if (numerosLibres.length > 0) return null;
+  } else if (numerosLibres.length !== 1 || !patron.numeros.includes(numerosLibres[0])) {
+    return null;
+  }
+  const extras = libres.length - numerosLibres.length;
+  if (extras > MAX_PALABRAS_EXTRA_MATCH_PDF) return null;
+  return { extras, especificidad };
+}
+
+/** Clave de índice de una palabra: comparten clave una abreviatura del PDF y la palabra de lista completa. */
+export function claveIndicePalabraMatchPdf(palabra: string): string {
+  return RE_TOKEN_ALFA.test(palabra) ? palabra.slice(0, MIN_LARGO_ABREVIATURA_PDF) : `#${palabra}`;
+}
+
 /** Indica si una fila de celdas parece encabezado de presentaciones. */
 export function filaPareceEncabezadoPresentaciones(celdas: string[]): boolean {
   const normalizadas = celdas.map(normalizarPresentacion);

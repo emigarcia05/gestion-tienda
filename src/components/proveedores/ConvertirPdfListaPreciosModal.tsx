@@ -377,6 +377,11 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       }
       setFilasPdf(filas);
       setPreview(prev.data);
+      setManuales(
+        new Map(
+          prev.data.listaSinPrecio.flatMap((i) => (i.claveSugerida ? [[i.codExt, i.claveSugerida] as const] : []))
+        )
+      );
       setEstado("preview");
     } catch {
       const msg = "Error de conexión al procesar el PDF.";
@@ -484,6 +489,9 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const mostrarBotonConversion =
     !!archivoPendiente && (estado === "config" || estado === "procesando" || estado === "error");
   const sinPrecio = preview?.listaSinPrecio ?? [];
+  const sugeridosVigentes = sinPrecio.filter(
+    (i) => i.claveSugerida !== null && manuales.get(i.codExt) === i.claveSugerida
+  ).length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -647,7 +655,12 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 <span className={cn(sinPrecio.length > 0 ? "text-primary" : "text-muted-foreground")}>
                   SIN PRECIO EN EL PDF: {sinPrecio.length}
                 </span>
-                {manuales.size > 0 && <span>VINCULADOS A MANO: {manuales.size}</span>}
+                {sugeridosVigentes > 0 && (
+                  <span className="text-primary">SUGERIDOS POR SIMILITUD: {sugeridosVigentes}</span>
+                )}
+                {manuales.size - sugeridosVigentes > 0 && (
+                  <span>ELEGIDOS A MANO: {manuales.size - sugeridosVigentes}</span>
+                )}
               </div>
 
               {sinPrecio.length === 0 ? (
@@ -672,6 +685,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                         {sinPrecio.map((item, i) => {
                           const clave = manuales.get(item.codExt);
                           const pdf = clave ? pdfPorClave.get(clave) : undefined;
+                          const esSugerido = !!pdf && clave === item.claveSugerida;
                           return (
                             <TableRow key={item.codExt}>
                               <TableCell className="celda-datos min-w-0">
@@ -697,6 +711,9 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                                     title={pdf?.clave}
                                   >
                                     <Search className="h-3.5 w-3.5 shrink-0" />
+                                    {esSugerido && (
+                                      <span className="shrink-0 text-xs font-semibold text-primary">SUGERIDO</span>
+                                    )}
                                     <span className="truncate">{pdf ? pdf.clave : "ELEGIR ÍTEM DEL PDF…"}</span>
                                   </Button>
                                   {pdf && (

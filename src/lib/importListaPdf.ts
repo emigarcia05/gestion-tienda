@@ -28,10 +28,18 @@ export interface FilaPreviewImportPdf {
   items: ItemListaMatchPdf[];
 }
 
+export interface ItemListaSinPrecioPdf extends ItemListaMatchPdf {
+  /**
+   * Ítem del PDF parecido (variantes con guiones, abreviaturas, hasta 2 palabras de más en la lista).
+   * Se propone en la vista previa para revisar; no se aplica sin confirmación.
+   */
+  claveSugerida: string | null;
+}
+
 export interface PreviewImportListaPdf {
   filas: FilaPreviewImportPdf[];
   /** Ítems de la lista del proveedor que no recibieron precio de este PDF (se vinculan a mano en la vista previa). */
-  listaSinPrecio: ItemListaMatchPdf[];
+  listaSinPrecio: ItemListaSinPrecioPdf[];
 }
 
 export interface ResultadoImportListaPdf {

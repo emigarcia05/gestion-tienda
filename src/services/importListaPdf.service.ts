@@ -10,20 +10,27 @@
  *    (`clavesMatchItemPdf`).
  * 3. SIN_VINCULO: ninguno de los anteriores.
  *
- * Los ítems de lista que no reciben precio (`listaSinPrecio`) se vinculan a mano en la vista previa.
+ * Los ítems de lista que no reciben precio (`listaSinPrecio`) se vinculan a mano en la vista previa;
+ * cuando hay un ítem del PDF parecido (`sugerirPorSimilitud`) viene propuesto en `claveSugerida`.
  *
  * Al aplicar: guarda todos los ítems del PDF en `prod_precios_rex` (catálogo para vincular a mano),
  * fija `id_precio_rex` en las filas confirmadas y copia el precio a `px_lista_proveedor`.
  */
 import { prisma } from "@/lib/prisma";
 import {
+  claveIndicePalabraMatchPdf,
   clavesMatchItemPdf,
   normalizarDescripcionMatchPdf,
   normalizarDescripcionPrecioRex,
+  patronSimilitudItemPdf,
+  similitudItemPdf,
+  tokensListaMatchPdf,
+  type PatronSimilitudItemPdf,
 } from "@/lib/listaPreciosPdfMatriz";
 import type {
   FilaPreviewImportPdf,
   ItemListaMatchPdf,
+  ItemListaSinPrecioPdf,
   PreviewImportListaPdf,
   ResultadoImportListaPdf,
 } from "@/lib/importListaPdf";
@@ -53,6 +60,49 @@ function itemsUnicosPorClave(filas: FilaPdfMatrizNormalizadaDto[]): ItemPdfUnico
     });
   }
   return [...porClave.values()];
+}
+
+/**
+ * Para cada ítem de lista sin precio, el ítem del PDF más parecido (`similitudItemPdf`): menos palabras
+ * de más y, a igualdad, más palabras del PDF coincidentes. Empate entre ítems distintos = sin sugerencia.
+ */
+function sugerirPorSimilitud(
+  items: ItemPdfUnico[],
+  sinPrecio: ItemListaMatchPdf[]
+): ItemListaSinPrecioPdf[] {
+  const indice = new Map<string, { clave: string; patron: PatronSimilitudItemPdf }[]>();
+  for (const it of items) {
+    const patron = patronSimilitudItemPdf(it.descripcionBase, it.presentacion);
+    const primera = patron.fijos[0];
+    if (!primera) continue;
+    const k = claveIndicePalabraMatchPdf(primera);
+    indice.set(k, [...(indice.get(k) ?? []), { clave: it.clave, patron }]);
+  }
+
+  return sinPrecio.map((item) => {
+    const tokens = tokensListaMatchPdf(item.descripcionProveedor);
+    const candidatos = new Set(tokens.flatMap((t) => indice.get(claveIndicePalabraMatchPdf(t)) ?? []));
+    let mejor: { clave: string; extras: number; especificidad: number } | null = null;
+    let empate = false;
+    for (const c of candidatos) {
+      const s = similitudItemPdf(c.patron, tokens);
+      if (!s) continue;
+      const gana =
+        !mejor || s.extras < mejor.extras || (s.extras === mejor.extras && s.especificidad > mejor.especificidad);
+      if (gana) {
+        mejor = { clave: c.clave, ...s };
+        empate = false;
+      } else if (
+        mejor &&
+        s.extras === mejor.extras &&
+        s.especificidad === mejor.especificidad &&
+        c.clave !== mejor.clave
+      ) {
+        empate = true;
+      }
+    }
+    return { ...item, claveSugerida: mejor && !empate ? mejor.clave : null };
+  });
 }
 
 function trozos<T>(arr: T[], n: number): T[][] {
@@ -121,7 +171,10 @@ export async function previsualizarImportListaPdf(
       success: true,
       data: {
         filas: filasPreview,
-        listaSinPrecio: itemsLista.filter((i) => !codExtConPrecio.has(i.codExt)),
+        listaSinPrecio: sugerirPorSimilitud(
+          items,
+          itemsLista.filter((i) => !codExtConPrecio.has(i.codExt))
+        ),
       },
     };
   } catch (e) {
