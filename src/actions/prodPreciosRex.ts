@@ -5,25 +5,23 @@ import { esEditor, getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
 import { REVALIDATE_LISTA_PRECIOS } from "@/lib/gestionProductosRoutes";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { getProveedorById } from "@/services/proveedor.service";
-import { upsertPreciosRexDesdeFilasPdf, listarPreciosRexParaVincular, vincularListaPrecioConPrecioRex } from "@/services/prodPreciosRex.service";
+import { listarPreciosRexParaVincular, vincularListaPrecioConPrecioRex } from "@/services/prodPreciosRex.service";
 import type { PrecioRexParaVincular } from "@/services/prodPreciosRex.service";
 import {
-  guardarPreciosRexDesdePdfSchema,
+  aplicarImportListaPdf,
+  previsualizarImportListaPdf,
+} from "@/services/importListaPdf.service";
+import type { PreviewImportListaPdf, ResultadoImportListaPdf } from "@/lib/importListaPdf";
+import {
+  aplicarImportListaPdfSchema,
   listarPreciosRexParaVincularSchema,
+  previsualizarImportListaPdfSchema,
   vincularListaPrecioConPrecioRexSchema,
 } from "@/lib/validations/prodPreciosRex";
 
-export interface GuardarPreciosRexResult {
-  creados: number;
-  actualizados: number;
-  listaPreciosSincronizadas: number;
-  errores: string[];
-}
-
-export async function guardarPreciosRexDesdePdfAction(
-  raw: unknown
-): Promise<ActionResult<GuardarPreciosRexResult>> {
+async function requireImportarListaEditor(): Promise<ActionResult<never> | null> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.listaPrecios.acciones.importarLista)) {
     return { ok: false, error: "Sin permisos para importar lista de precios." };
@@ -31,40 +29,42 @@ export async function guardarPreciosRexDesdePdfAction(
   if (!(await esEditor())) {
     return { ok: false, error: "Sin permisos de editor." };
   }
+  return null;
+}
 
-  const parsed = guardarPreciosRexDesdePdfSchema.safeParse(raw);
-  if (!parsed.success) {
-    const flat = parsed.error.flatten();
-    const msg =
-      [...Object.values(flat.fieldErrors).flat(), ...flat.formErrors][0] ??
-      "Datos inválidos para guardar precios REX.";
-    return { ok: false, error: msg };
-  }
-
-  const { proveedorId, filas } = parsed.data;
-
-  const proveedor = await getProveedorById(proveedorId);
-  if (!proveedor) {
+/** Importar Lista PDF · paso 1 (sin escrituras): empareja ítems del PDF con la lista del proveedor. */
+export async function previsualizarImportListaPdfAction(
+  raw: unknown
+): Promise<ActionResult<PreviewImportListaPdf>> {
+  const gate = await requireImportarListaEditor();
+  if (gate) return gate;
+  const parsed = previsualizarImportListaPdfSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  if (!(await getProveedorById(parsed.data.proveedorId))) {
     return { ok: false, error: "Proveedor no encontrado." };
   }
+  return fromServiceResult(
+    await previsualizarImportListaPdf(parsed.data.proveedorId, parsed.data.filas)
+  );
+}
 
-  try {
-    const { creados, actualizados, listaPreciosSincronizadas, errores } =
-      await upsertPreciosRexDesdeFilasPdf(proveedorId, filas);
-
-    if (creados === 0 && actualizados === 0 && errores.length > 0) {
-      return { ok: false, error: errores[0] ?? "No se pudieron guardar los precios." };
-    }
-
-    for (const path of REVALIDATE_LISTA_PRECIOS) {
-      revalidatePath(path);
-    }
-
-    return { ok: true, data: { creados, actualizados, listaPreciosSincronizadas, errores } };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Error al guardar precios REX.";
-    return { ok: false, error: message };
+/** Importar Lista PDF · paso 2: actualiza `px_lista_proveedor` de los ítems confirmados. */
+export async function aplicarImportListaPdfAction(
+  raw: unknown
+): Promise<ActionResult<ResultadoImportListaPdf>> {
+  const gate = await requireImportarListaEditor();
+  if (gate) return gate;
+  const parsed = aplicarImportListaPdfSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const { proveedorId, filas, vinculos } = parsed.data;
+  if (!(await getProveedorById(proveedorId))) {
+    return { ok: false, error: "Proveedor no encontrado." };
   }
+  const out = fromServiceResult(await aplicarImportListaPdf(proveedorId, filas, vinculos));
+  if (out.ok) {
+    for (const path of REVALIDATE_LISTA_PRECIOS) revalidatePath(path);
+  }
+  return out;
 }
 
 export async function listarPreciosRexParaVincularAction(

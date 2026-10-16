@@ -141,6 +141,42 @@ export function aplanarMatrizListaPrecios(
   return { filas, meta: { filasOmitidasVacias, advertencias } };
 }
 
+/**
+ * Normaliza una descripción para emparejar PDF ↔ `proveedores_prod_lista.descripcion_proveedor`:
+ * MAYÚSCULAS sin tildes, coma decimal → punto, quita la unidad de litros pegada a un número
+ * (`4 L`, `4LTS` → `4`) y colapsa espacios.
+ */
+export function normalizarDescripcionMatchPdf(raw: string): string {
+  return limpiarTextoPdfMatriz(raw)
+    .toLocaleUpperCase("es-AR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/(\d),(\d)/g, "$1.$2")
+    .replace(/(\d)\s*(LTRS?|LTS?|L)\b/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Formas numéricas con que la lista del proveedor escribe cada presentación fraccionaria. */
+const NUMEROS_PRESENTACION_FRACCION: Record<string, string[]> = {
+  "¼": ["0.25", "1/4"],
+  "½": ["0.5", "1/2"],
+};
+
+/**
+ * Claves candidatas (normalizadas) de un ítem individualizado del PDF (descripción + presentación)
+ * para buscarlo en la lista del proveedor. Ej.: `FIJADOR ALBA` + `4 L` → `FIJADOR ALBA 4`;
+ * `FONDO BLANCO` + `½` → `FONDO BLANCO 0.5` / `FONDO BLANCO 1/2`; `Un.` → solo la descripción.
+ */
+export function clavesMatchItemPdf(descripcionBase: string, presentacion: string): string[] {
+  const base = normalizarDescripcionMatchPdf(descripcionBase);
+  if (!base) return [];
+  if (esPresentacionUnidad(presentacion)) return [base];
+  const pres = normalizarPresentacion(presentacion);
+  const numeros = NUMEROS_PRESENTACION_FRACCION[pres] ?? [normalizarDescripcionMatchPdf(pres)];
+  return numeros.filter(Boolean).map((n) => `${base} ${n}`);
+}
+
 /** Indica si una fila de celdas parece encabezado de presentaciones. */
 export function filaPareceEncabezadoPresentaciones(celdas: string[]): boolean {
   const normalizadas = celdas.map(normalizarPresentacion);

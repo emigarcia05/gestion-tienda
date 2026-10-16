@@ -10,8 +10,9 @@ export const maxDuration = 120;
 
 /**
  * POST multipart: file (PDF) + paginaInicio (opcional, default 9) + filasIgnorar (opcional, default 0).
- * Normaliza matriz a filas { descripcionExport, presentacion, precio }. La persistencia en
- * `prod_precios_rex` la hace `guardarPreciosRexDesdePdfAction` tras la conversión en UI.
+ * Normaliza matriz a filas { descripcionExport, presentacion, precio } (sin escrituras). Después,
+ * `previsualizarImportListaPdfAction` empareja con la lista del proveedor y
+ * `aplicarImportListaPdfAction` actualiza `px_lista_proveedor`.
  */
 export async function POST(request: Request) {
   const denied = await guardListaPreciosImportarEsEditor();
