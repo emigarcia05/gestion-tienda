@@ -7,8 +7,6 @@ import type { ActionResult } from "@/lib/types";
 import { REVALIDATE_LISTA_PRECIOS } from "@/lib/gestionProductosRoutes";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { getProveedorById } from "@/services/proveedor.service";
-import { listarPreciosRexParaVincular, vincularListaPrecioConPrecioRex } from "@/services/prodPreciosRex.service";
-import type { PrecioRexParaVincular } from "@/services/prodPreciosRex.service";
 import {
   aplicarImportListaPdf,
   previsualizarImportListaPdf,
@@ -16,9 +14,7 @@ import {
 import type { PreviewImportListaPdf, ResultadoImportListaPdf } from "@/lib/importListaPdf";
 import {
   aplicarImportListaPdfSchema,
-  listarPreciosRexParaVincularSchema,
   previsualizarImportListaPdfSchema,
-  vincularListaPrecioConPrecioRexSchema,
 } from "@/lib/validations/prodPreciosRex";
 
 async function requireImportarListaEditor(): Promise<ActionResult<never> | null> {
@@ -65,68 +61,4 @@ export async function aplicarImportListaPdfAction(
     for (const path of REVALIDATE_LISTA_PRECIOS) revalidatePath(path);
   }
   return out;
-}
-
-export async function listarPreciosRexParaVincularAction(
-  raw: unknown
-): Promise<ActionResult<PrecioRexParaVincular[]>> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.listaPrecios.acciones.edicionMasiva)) {
-    return { ok: false, error: "Sin permisos para vincular precios REX." };
-  }
-  if (!(await esEditor())) {
-    return { ok: false, error: "Sin permisos de editor." };
-  }
-
-  const parsed = listarPreciosRexParaVincularSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: "Parámetros inválidos para listar precios REX." };
-  }
-
-  try {
-    const rows = await listarPreciosRexParaVincular(
-      parsed.data.proveedorId,
-      parsed.data.codExtLista,
-      parsed.data.q
-    );
-    return { ok: true, data: rows };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Error al listar precios REX.";
-    return { ok: false, error: message };
-  }
-}
-
-export async function vincularListaPrecioConPrecioRexAction(
-  raw: unknown
-): Promise<ActionResult> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.listaPrecios.acciones.edicionMasiva)) {
-    return { ok: false, error: "Sin permisos para vincular precios REX." };
-  }
-  if (!(await esEditor())) {
-    return { ok: false, error: "Sin permisos de editor." };
-  }
-
-  const parsed = vincularListaPrecioConPrecioRexSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, error: "Datos inválidos para vincular." };
-  }
-
-  try {
-    const result = await vincularListaPrecioConPrecioRex(
-      parsed.data.codExtLista,
-      parsed.data.idPrecioRex
-    );
-    if (!result.ok) {
-      return { ok: false, error: result.error };
-    }
-
-    for (const path of REVALIDATE_LISTA_PRECIOS) {
-      revalidatePath(path);
-    }
-    return { ok: true, data: undefined };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Error al vincular precio REX.";
-    return { ok: false, error: message };
-  }
 }

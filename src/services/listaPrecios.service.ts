@@ -41,12 +41,6 @@ import {
 
 const TIPO_URGENTE_MERC2 = "URGENTE";
 
-export interface PrecioRexVinculoCliente {
-  id: string;
-  descripcion: string;
-  pxListaProveedor: number;
-}
-
 export type { DescuentoActivoListaPrecio } from "@/services/descuentosListaPrecioReglas.service";
 
 export interface FilaListaPrecioParaCliente {
@@ -76,7 +70,6 @@ export interface FilaListaPrecioParaCliente {
   pxCompraFinalSinIva: number | null;
   proveedor: { id: string; prefijo: string; nombre: string; codigoUnico: string } | null;
   idPrecioRex: string | null;
-  precioRex: PrecioRexVinculoCliente | null;
   /** Descuentos/costos > 0 con regla ganadora (modo «Desc. en fila»). */
   descuentosActivos?: DescuentoActivoListaPrecio[];
 }
@@ -84,7 +77,6 @@ export interface FilaListaPrecioParaCliente {
 const listaPrecioParaClienteInclude = {
   proveedor: true,
   prodTienda: { select: { descripcionTienda: true } },
-  precioRex: { select: { id: true, descripcion: true, pxListaProveedor: true } },
 } as const;
 
 type ListaPrecioProveedorParaCliente = Prisma.ListaPrecioProveedorGetPayload<{
@@ -124,13 +116,6 @@ function mapListaPrecioProveedorParaCliente(f: ListaPrecioProveedorParaCliente):
         }
       : null,
     idPrecioRex: f.idPrecioRex,
-    precioRex: f.precioRex
-      ? {
-          id: f.precioRex.id,
-          descripcion: f.precioRex.descripcion,
-          pxListaProveedor: Number(f.precioRex.pxListaProveedor),
-        }
-      : null,
   };
 }
 

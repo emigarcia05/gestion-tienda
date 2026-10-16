@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Link2, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -41,7 +41,6 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import EdicionMasivaListaPreciosModal from "@/components/proveedores/EdicionMasivaListaPreciosModal";
-import VincularPrecioRexModal from "@/components/proveedores/VincularPrecioRexModal";
 import EliminarListaPrecioModal from "@/components/proveedores/EliminarListaPrecioModal";
 import DescuentosListaPreciosCelda from "@/components/proveedores/DescuentosListaPreciosCelda";
 import DescuentosAplicadosListaPreciosModal from "@/components/proveedores/DescuentosAplicadosListaPreciosModal";
@@ -135,8 +134,6 @@ export default function ListaPreciosTablaConFiltros({
 }: ListaPreciosTablaConFiltrosProps) {
   const [filaEdit, setFilaEdit] = useState<FilaListaPrecioParaCliente | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [filaVincular, setFilaVincular] = useState<FilaListaPrecioParaCliente | null>(null);
-  const [vincularOpen, setVincularOpen] = useState(false);
   const [filaEliminar, setFilaEliminar] = useState<FilaListaPrecioParaCliente | null>(null);
   const [eliminarOpen, setEliminarOpen] = useState(false);
   const [descuentosModalOpen, setDescuentosModalOpen] = useState(false);
@@ -563,23 +560,6 @@ export default function ListaPreciosTablaConFiltros({
                             variant="ghost"
                             size="icon"
                             className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            aria-label={
-                              fila.precioRex
-                                ? `Cambiar vínculo REX de ${fila.codExt}`
-                                : `Vincular REX a ${fila.codExt}`
-                            }
-                            onClick={() => {
-                              setFilaVincular(fila);
-                              setVincularOpen(true);
-                            }}
-                          >
-                            <Link2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                             aria-label={`Eliminar ${fila.codExt}`}
                             onClick={() => {
                               setFilaEliminar(fila);
@@ -637,15 +617,6 @@ export default function ListaPreciosTablaConFiltros({
             marcas={marcas}
             rubros={rubros}
             onSuccess={onEdicionSuccess}
-          />
-          <VincularPrecioRexModal
-            open={vincularOpen}
-            onClose={() => {
-              setVincularOpen(false);
-              setFilaVincular(null);
-            }}
-            fila={filaVincular}
-            onVinculado={onEdicionSuccess}
           />
           <EliminarListaPrecioModal
             open={eliminarOpen}

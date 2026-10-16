@@ -260,7 +260,7 @@ Tabla `proveedores_prod_lista` (`ListaPrecioProveedor`). PK `cod_ext`. `px_compr
 
 **USD:** singleton `global_cotizacion_usd` id `USD`. No se edita por ítem. `cotizacionUsd.service.ts`. `COTIZACION_DOLAR` solo fallback si no hay fila.
 
-**REX** (`prod_precios_rex`): UNIQUE `(id_proveedor, descripcion)`. Vínculo N:1 desde lista (`id_precio_rex`). Catálogo de ítems individualizados del PDF (`descripcion` = clave normalizada descripción + presentación). Al vincular (`vincularListaPrecioConPrecioRex`) o al aplicar **Importar Lista PDF** se copia el precio a `px_lista_proveedor`. Gate import/edición masiva + editor.
+**REX** (`prod_precios_rex`): UNIQUE `(id_proveedor, descripcion)`. Vínculo N:1 desde lista (`id_precio_rex`). Catálogo de ítems individualizados del PDF (`descripcion` = clave normalizada descripción + presentación). El vínculo `id_precio_rex` solo lo escribe **Importar Lista PDF** (automático o elegido a mano en la vista previa), que además copia el precio a `px_lista_proveedor`. Ya no existe la vinculación manual desde la grilla (se eliminaron `VincularPrecioRexModal`, `prodPreciosRex.service` y las actions `listarPreciosRexParaVincular*` / `vincularListaPrecioConPrecioRex*`). El filtro **VINCULADO** de Lista Prod. Prov. sigue usando `id_precio_rex`. Gate: import + editor.
 
 ### 3.3 Cx Compra, vínculos, costo
 
@@ -291,7 +291,7 @@ PK, FK, índices y CHECK usan el prefijo nuevo (`prod_propios_*`; FKs entrantes 
 - PK, CHECK, FKs propias e índices pasaron al prefijo de la tabla nueva (`prod_lista_*`, `proveedores_*`, `proveedores_prod_lista_*`, `proveedores_precios_reglas_*`); la FK `cod_tienda` de `proveedores_prod_lista` quedó como `proveedores_prod_lista_cod_tienda_fkey`.
 - **Se conservan:** columnas `cod_ext_prod_precios_provee` (desc. especial), tablas `prod_propios_listas_precios*`, FK entrante `prod_precios_competencia_cod_tienda_prod_propios_fkey`, y los nombres de triggers.
 - **Función `trg_lista_precios_set_cod_ext`** (trigger BEFORE INSERT/UPDATE de `proveedores_prod_lista` que arma `cod_ext` = prefijo/código único del proveedor + `cod_prod_proveedor`) fue recreada para leer `proveedores`: al renombrar una tabla, PostgreSQL **no** reescribe el cuerpo de funciones plpgsql. Revisar `pg_proc.prosrc` ante cualquier renombre futuro. Lo mismo pasó con **`fn_uppercase_precios_tienda`** (trigger `trg_uppercase_precios_tienda` de `prod_lista`): seguía usando `NEW.descripcion_tienda` tras el renombre de columna y rompía todo INSERT/UPDATE de `prod_lista` hasta la migración `20261013130000_fix_fn_uppercase_prod_lista_descripcion` (usa `NEW.descripcion`). Renombrar **columnas** también exige revisar funciones.
-- SQL crudo actualizado: `listaProductos.service`, `limpiarHuerfanosProdTienda.service`, `listaPrecios.service`, `controlComprobantes.service`, `vencimientosPorFecha.service`, `comprobanteCuotasPlazoPago`, `prodPreciosRex.service`, `descEspecialReglas.service`, `descuentosListaPrecioReglas.service`, `cotizacionUsd.service`. Scripts `.sql` legados en `scripts/` mencionan nombres viejos (histórico).
+- SQL crudo actualizado: `listaProductos.service`, `limpiarHuerfanosProdTienda.service`, `listaPrecios.service`, `controlComprobantes.service`, `vencimientosPorFecha.service`, `comprobanteCuotasPlazoPago`, `descEspecialReglas.service`, `descuentosListaPrecioReglas.service`, `cotizacionUsd.service`. Scripts `.sql` legados en `scripts/` mencionan nombres viejos (histórico).
 
 **Catálogos del producto (migración `20261007220000_prod_catalogos_rubros_sub_rubros`):**
 

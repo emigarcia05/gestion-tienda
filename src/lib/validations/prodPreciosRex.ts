@@ -17,17 +17,3 @@ export const aplicarImportListaPdfSchema = z.object({
     .min(1, "Seleccioná al menos un ítem para actualizar.")
     .max(20_000),
 });
-
-export const listarPreciosRexParaVincularSchema = z.object({
-  proveedorId: prismaCuidSchema,
-  codExtLista: listaPreciosCodExtSchema,
-  q: z.string().max(500).optional(),
-});
-
-export const vincularListaPrecioConPrecioRexSchema = z.object({
-  codExtLista: listaPreciosCodExtSchema,
-  idPrecioRex: prismaCuidSchema,
-});
-
-export type ListarPreciosRexParaVincularInput = z.infer<typeof listarPreciosRexParaVincularSchema>;
-export type VincularListaPrecioConPrecioRexInput = z.infer<typeof vincularListaPrecioConPrecioRexSchema>;
