@@ -691,6 +691,7 @@ export async function eliminarListaPrecioProveedor(
 }
 
 export interface ActualizacionMasivaListaPrecios {
+  descripcionProveedor?: string;
   marca?: string | null;
   rubro?: string | null;
   pxListaProveedor?: number;
@@ -710,12 +711,14 @@ export async function actualizarListaPreciosMasivo(
   if (ids.length === 0) return { actualizados: 0 };
 
   const updatePayload: {
+    descripcionProveedor?: string;
     marca?: string | null;
     rubro?: string | null;
     pxListaProveedor?: number;
     habilitado?: boolean;
     pxPromoFijo?: number | null;
   } = {};
+  if (data.descripcionProveedor !== undefined) updatePayload.descripcionProveedor = data.descripcionProveedor;
   if (data.marca !== undefined) updatePayload.marca = data.marca;
   if (data.rubro !== undefined) updatePayload.rubro = data.rubro;
   if (data.pxListaProveedor !== undefined && data.pxListaProveedor >= 0)
@@ -727,6 +730,10 @@ export async function actualizarListaPreciosMasivo(
 
   const setClauses: string[] = [];
   const params: (number | string | string[] | boolean | null)[] = [];
+  if (updatePayload.descripcionProveedor !== undefined) {
+    setClauses.push(`descripcion_proveedor = $${params.length + 1}`);
+    params.push(updatePayload.descripcionProveedor);
+  }
   if (updatePayload.marca !== undefined) {
     setClauses.push(`marca = $${params.length + 1}`);
     params.push(updatePayload.marca ?? null);

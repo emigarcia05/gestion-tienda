@@ -30,6 +30,13 @@ export const pxPromoFijoListaPreciosSchema = z
 
 /** Campos permitidos en actualización masiva de lista de precios (dto_* / cx_transporte / cotización USD solo vía servicios). */
 export const actualizacionMasivaListaPreciosSchema = z.object({
+  /** Solo edición de una fila (`ids` con un único `cod_ext`). */
+  descripcionProveedor: z
+    .string()
+    .trim()
+    .min(1, "La descripción es obligatoria.")
+    .max(500)
+    .optional(),
   marca: z.string().nullable().optional(),
   rubro: z.string().nullable().optional(),
   /** Precio de lista del proveedor (`proveedores_prod_lista.px_lista_proveedor`). */

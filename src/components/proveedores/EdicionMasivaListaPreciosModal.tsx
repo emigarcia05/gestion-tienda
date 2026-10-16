@@ -8,6 +8,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -121,6 +122,7 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
 
   const [pending, setPending] = useState(false);
   const [proveedorId, setProveedorId] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const [marcaNombre, setMarcaNombre] = useState("");
   const [rubroNombre, setRubroNombre] = useState("");
   const [pxListaProveedorNorm, setPxListaProveedorNorm] = useState("");
@@ -133,6 +135,7 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
 
   useEffect(() => {
     if (!filaMode || !open || !filaActual) return;
+    setDescripcion(filaActual.descripcionProveedor);
     setMarcaNombre(filaActual.marca ?? "");
     setRubroNombre(filaActual.rubro ?? "");
     setPxListaProveedorNorm(montoArNumberToNormalizedString(Number(filaActual.pxListaProveedor) || 0));
@@ -177,6 +180,7 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
 
   function resetForm() {
     setProveedorId("");
+    setDescripcion("");
     setMarcaNombre("");
     setRubroNombre("");
     setPxListaProveedorNorm("");
@@ -186,6 +190,8 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
 
   function buildPayloadFila(): ActualizacionMasivaListaPrecios {
     const data: ActualizacionMasivaListaPrecios = {};
+    const desc = descripcion.trim();
+    if (filaActual && desc !== filaActual.descripcionProveedor) data.descripcionProveedor = desc;
     if (marcaNombre) data.marca = marcaNombre;
     if (rubroNombre) data.rubro = rubroNombre;
     const norm = pxListaProveedorNorm.trim();
@@ -196,6 +202,10 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
   }
 
   async function handleGuardarFila() {
+    if (!descripcion.trim()) {
+      toast.error("La descripción es obligatoria.");
+      return;
+    }
     const data = buildPayloadFila();
     if (Object.keys(data).length === 0) {
       toast.error("Ingresá al menos un valor para actualizar.");
@@ -277,12 +287,20 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
       {filaMode && props.fila && (
         <p className="text-sm">
           <strong>{props.fila.codExt}</strong>
-          {" — "}
-          {props.fila.descripcionProveedor}
         </p>
       )}
 
       <div className={cn(FORM_GRID_CLASS, "py-1")}>
+        <ModalFormRow id="descripcionProveedor" label="DESCRIPCIÓN">
+          <Input
+            id="descripcionProveedor"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            maxLength={500}
+            autoComplete="off"
+            className="border-primary w-full min-w-0"
+          />
+        </ModalFormRow>
         <ModalFormRow id="pxListaProveedor" label="PX. LISTA PROVEEDOR">
           <MontoArInput
             id="pxListaProveedor"

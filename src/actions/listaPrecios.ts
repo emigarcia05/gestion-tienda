@@ -272,6 +272,13 @@ const actualizarListaPreciosMasivoPayloadSchema = z
         path: ["filtros"],
       });
     }
+    if (val.data.descripcionProveedor !== undefined && (hasFiltros || (val.ids?.length ?? 0) !== 1)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "La descripción solo se edita de a un producto.",
+        path: ["data", "descripcionProveedor"],
+      });
+    }
   });
 
 export async function actualizarListaPreciosMasivoAction(
@@ -283,8 +290,7 @@ export async function actualizarListaPreciosMasivoAction(
   }
   const parsed = actualizarListaPreciosMasivoPayloadSchema.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.flatten().formErrors[0] ?? parsed.error.message;
-    return { ok: false, error: msg ?? "Datos inválidos." };
+    return { ok: false, error: primerErrorZod(parsed.error) };
   }
   try {
     let ids: string[];
