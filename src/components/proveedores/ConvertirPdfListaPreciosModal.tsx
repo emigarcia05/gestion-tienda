@@ -13,6 +13,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -44,6 +45,12 @@ import {
   aplicarImportListaPdfAction,
   previsualizarImportListaPdfAction,
 } from "@/actions/prodPreciosRex";
+import { eliminarListaPrecioAction } from "@/actions/listaPrecios";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import type {
   FilaPreviewImportPdf,
   ItemListaMatchPdf,
@@ -263,6 +270,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   /** Vínculos elegidos a mano: `cod_ext` del ítem de lista → clave del ítem PDF. */
   const [manuales, setManuales] = useState<Map<string, string>>(new Map());
   const [indiceVincular, setIndiceVincular] = useState<number | null>(null);
+  const [itemEliminar, setItemEliminar] = useState<ItemListaMatchPdf | null>(null);
+  const [pendingEliminar, setPendingEliminar] = useState(false);
   const [advertencias, setAdvertencias] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +281,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     setPreview(null);
     setManuales(new Map());
     setIndiceVincular(null);
+    setItemEliminar(null);
     setAdvertencias([]);
     setErrorMsg(null);
   }, []);
@@ -284,7 +294,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     setPaginaInicio(String(PAGINA_INICIO_PDF_MATRIZ_DEFAULT));
   }, [limpiarResultado]);
 
-  const ocupado = estado === "procesando" || estado === "aplicando";
+  const ocupado = estado === "procesando" || estado === "aplicando" || pendingEliminar;
 
   const handleClose = useCallback(
     (next: boolean) => {
@@ -397,6 +407,41 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     });
   }
 
+  function quitarItemDePreview(codExt: string) {
+    setPreview((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        listaSinPrecio: prev.listaSinPrecio.filter((it) => it.codExt !== codExt),
+      };
+    });
+    setManuales((prev) => {
+      if (!prev.has(codExt)) return prev;
+      const next = new Map(prev);
+      next.delete(codExt);
+      return next;
+    });
+    setIndiceVincular(null);
+  }
+
+  async function confirmarEliminarLista() {
+    if (!itemEliminar) return;
+    setPendingEliminar(true);
+    try {
+      const res = await eliminarListaPrecioAction({ codExt: itemEliminar.codExt });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudo eliminar el producto.");
+        return;
+      }
+      toast.success("Producto eliminado de la lista.");
+      quitarItemDePreview(itemEliminar.codExt);
+      setItemEliminar(null);
+      router.refresh();
+    } finally {
+      setPendingEliminar(false);
+    }
+  }
+
   async function aplicar() {
     if (!preview || totalVinculos === 0) return;
     const vinculos = [
@@ -505,9 +550,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Los ítems del PDF se buscan en la lista de este proveedor para actualizar su PX. LISTA.
-            </p>
           </div>
 
           {enConfig && (
@@ -527,37 +569,36 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
             </div>
           )}
 
-          <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
-            <span className="text-sm font-medium text-foreground min-w-0 truncate">
-              {fileName ? "CAMBIAR PDF" : "ADJUNTAR PDF"}
-            </span>
-            <div className="flex w-full min-w-0">
-              <Button
-                type="button"
-                variant="default"
-                size="default"
-                disabled={ocupado}
-                className="min-w-0 flex-1"
-                onClick={() => {
-                  if (fileName) resetForm();
-                  else fileInputRef.current?.click();
-                }}
-              >
-                <Upload className="h-4 w-4" />
-                {fileName ? "Cambiar PDF" : "Adjuntar PDF"}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) seleccionarArchivo(f);
-                }}
-              />
+          {!fileName ? (
+            <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
+              <span className="text-sm font-medium text-foreground min-w-0 truncate">
+                ADJUNTAR PDF
+              </span>
+              <div className="flex w-full min-w-0">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="default"
+                  disabled={ocupado}
+                  className="min-w-0 flex-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  Adjuntar PDF
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) seleccionarArchivo(f);
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {!fileName && (
             <div
@@ -615,10 +656,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 </p>
               ) : (
                 <>
-                  <p className="text-xs text-muted-foreground">
-                    Estos ítems de la lista no encontraron su precio en el PDF. Elegí el ítem del PDF que corresponde
-                    (queda vinculado para las próximas importaciones); los que dejes sin elegir conservan su precio.
-                  </p>
                   <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
                     <Table variant="compact" scrollX={false} className="table-fixed w-full">
                       <TableHeader>
@@ -628,6 +665,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                           <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
                           <TableHead className="w-24 text-center">PX. PDF</TableHead>
                           <TableHead className="w-20 text-center">VAR.</TableHead>
+                          <TableHead className="w-12 text-center">ACCIONES</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -681,6 +719,21 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                               <TableCell className="celda-datos text-center">
                                 {pdf ? <Variacion precio={pdf.precio} pxActual={item.pxActual} /> : null}
                               </TableCell>
+                              <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                                <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                    aria-label={`Eliminar ${item.codProdProveedor} de la lista`}
+                                    disabled={ocupado}
+                                    onClick={() => setItemEliminar(item)}
+                                  >
+                                    <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -698,6 +751,54 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 onIndice={setIndiceVincular}
                 onAsignar={asignarManual}
               />
+
+              <Dialog
+                open={itemEliminar !== null}
+                onOpenChange={(next) => {
+                  if (pendingEliminar && !next) return;
+                  if (!next) setItemEliminar(null);
+                }}
+              >
+                <AppModal
+                  title="Eliminar producto"
+                  size="sm"
+                  className="max-w-md"
+                  actions={
+                    <div className="flex w-full justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={pendingEliminar}
+                        onClick={() => setItemEliminar(null)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={pendingEliminar}
+                        onClick={() => void confirmarEliminarLista()}
+                      >
+                        Sí, Eliminar
+                      </Button>
+                    </div>
+                  }
+                >
+                  <p className="text-sm text-muted-foreground">
+                    ¿Confirmás eliminar{" "}
+                    <span className="font-medium text-foreground">
+                      {itemEliminar?.descripcionProveedor.trim() || itemEliminar?.codProdProveedor || "—"}
+                    </span>
+                    {itemEliminar?.codExt ? (
+                      <>
+                        {" "}
+                        (<span className="font-mono">{itemEliminar.codExt}</span>)
+                      </>
+                    ) : null}
+                    ? Se borrará de la lista del proveedor y no se puede deshacer.
+                  </p>
+                </AppModal>
+              </Dialog>
             </div>
           )}
         </div>
