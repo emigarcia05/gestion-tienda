@@ -17,6 +17,7 @@ import {
   esTerminacionProdLista,
   TERMINACIONES_PROD_LISTA,
 } from "@/lib/prodListaTerminacion";
+import { cn } from "@/lib/utils";
 /** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR / TERMINACIÓN). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
@@ -102,32 +103,48 @@ function SelectCatalogo({
   /** Texto de la opción sentinel; sin ella el campo es obligatorio. */
   opcionVacia?: string;
   disabled?: boolean;
-  /** Botón «+» a la derecha del input que abre el modal «GESTIONAR…». */
+  /** Botón «+» dentro del contorno del Select que abre el modal «GESTIONAR…». */
   onGestionar?: () => void;
   gestionarLabel: string;
 }) {
+  const select = (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger
+        className={cn(
+          "w-full min-w-0",
+          onGestionar &&
+            "h-full min-h-0 flex-1 rounded-none border-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+        )}
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {opcionVacia ? <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>{opcionVacia}</SelectItem> : null}
+        {opciones.map((o) => (
+          <SelectItem key={o.id} value={o.id}>
+            {o.nombre}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <ModalMicroLabel>{label}</ModalMicroLabel>
-      <div className="flex items-center gap-2">
-        <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger className="w-full min-w-0 flex-1">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {opcionVacia ? <SelectItem value={SIN_VALOR_PRODUCTO_TIENDA}>{opcionVacia}</SelectItem> : null}
-            {opciones.map((o) => (
-              <SelectItem key={o.id} value={o.id}>
-                {o.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {onGestionar ? (
+      {onGestionar ? (
+        <div
+          className={cn(
+            "flex h-9 w-full min-w-0 items-stretch overflow-hidden rounded-md border border-input bg-transparent shadow-xs",
+            "transition-[color,box-shadow]",
+            "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]"
+          )}
+        >
+          {select}
           <Button
             type="button"
             size="icon"
-            className="size-9 shrink-0"
+            className="h-auto w-9 shrink-0 rounded-none shadow-none focus-visible:ring-0"
             aria-label={gestionarLabel}
             title={gestionarLabel}
             disabled={disabled}
@@ -135,8 +152,10 @@ function SelectCatalogo({
           >
             <Plus className="h-4 w-4" aria-hidden />
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        select
+      )}
     </div>
   );
 }
