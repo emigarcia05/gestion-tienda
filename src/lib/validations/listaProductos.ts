@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TERMINACIONES_PROD_LISTA } from "@/lib/prodListaTerminacion";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
 import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
+import { componentesCompuestoSchema } from "@/lib/validations/productoCompuesto";
 
 /** `prod_marcas.id` / `prod_rubros.id` / `prod_sub_rubros.id`: CUID o UUID (backfill SQL). */
 const idCatalogoSchema = z.string().trim().min(1, "ID inválido.").max(64, "ID inválido.");
@@ -30,11 +31,16 @@ const camposProductoTiendaSchema = z.object({
   bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
 });
 
-/** Un ítem del alta en lote. Propio ⇒ sin vínculo; no propio ⇒ vínculo obligatorio (CX. VINCULADO). */
+/**
+ * Un ítem del alta en lote. Propio ⇒ sin vínculo; no propio ⇒ vínculo obligatorio (CX. VINCULADO).
+ * Compuesto ⇒ propio y ≥ 1 componente; no compuesto ⇒ sin componentes.
+ */
 export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
   .extend({
     esProductoPropio: z.boolean(),
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
+    esProductoCompuesto: z.boolean(),
+    componentes: componentesCompuestoSchema,
   })
   .superRefine((item, ctx) => {
     if (item.esProductoPropio && item.codExtVinculo) {
@@ -42,6 +48,15 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     }
     if (!item.esProductoPropio && !item.codExtVinculo) {
       ctx.addIssue({ code: "custom", message: "Elegí el CX. VINCULADO (o marcá producto propio)." });
+    }
+    if (item.esProductoCompuesto && !item.esProductoPropio) {
+      ctx.addIssue({ code: "custom", message: "Un producto compuesto siempre es PROD. PROPIO." });
+    }
+    if (item.esProductoCompuesto && item.componentes.length === 0) {
+      ctx.addIssue({ code: "custom", message: "Agregá al menos un componente al producto compuesto." });
+    }
+    if (!item.esProductoCompuesto && item.componentes.length > 0) {
+      ctx.addIssue({ code: "custom", message: "Solo un producto compuesto lleva componentes." });
     }
   });
 

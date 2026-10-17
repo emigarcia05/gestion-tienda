@@ -7,21 +7,26 @@ export const setProductoCompuestoSchema = z.object({
   esProductoCompuesto: z.boolean(),
 });
 
+/** Lista completa de componentes (`cod_tienda` + cantidad por kit). */
+export const componentesCompuestoSchema = z
+  .array(
+    z.object({
+      codTienda: listaPreciosCodTiendaSchema,
+      cantidad: cantidadUnDecimalPositivaSchema,
+    })
+  )
+  .max(100, "Máximo 100 componentes.");
+
 export const guardarComponentesCompuestoSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
-  componentes: z
-    .array(
-      z.object({
-        codTienda: listaPreciosCodTiendaSchema,
-        cantidad: cantidadUnDecimalPositivaSchema,
-      })
-    )
-    .max(100, "Máximo 100 componentes."),
+  componentes: componentesCompuestoSchema,
 });
 
+/** `codTienda` null = compuesto todavía sin crear (Agregar Item): no hay ítem que excluir. */
 export const buscarComponentesCandidatosSchema = z.object({
-  codTienda: listaPreciosCodTiendaSchema,
+  codTienda: listaPreciosCodTiendaSchema.nullable(),
   q: z.string().max(200).optional().default(""),
 });
 
+export type ComponentesCompuestoInput = z.infer<typeof componentesCompuestoSchema>;
 export type GuardarComponentesCompuestoInput = z.infer<typeof guardarComponentesCompuestoSchema>;

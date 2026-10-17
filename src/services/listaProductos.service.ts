@@ -17,6 +17,10 @@ import type {
   EditarSubRubroInput,
 } from "@/lib/validations/listaProductos";
 import type { ServiceResult } from "@/types";
+import {
+  ErrorNegocioCompuesto,
+  insertarComponentesCompuesto,
+} from "@/services/productoCompuesto.service";
 
 /** Clave de `pg_advisory_xact_lock` que serializa la asignación de `cod_tienda` correlativo. */
 const LOCK_COD_TIENDA = 72_431_001;
@@ -129,7 +133,8 @@ async function crearUnProductoTienda(
     data: {
       ...data,
       codTienda: cod,
-      esProductoPropio: item.esProductoPropio,
+      esProductoPropio: item.esProductoPropio || item.esProductoCompuesto,
+      esProductoCompuesto: item.esProductoCompuesto,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
     },
   });
@@ -139,11 +144,20 @@ async function crearUnProductoTienda(
       data: { codTiendaVinculo: cod },
     });
   }
+  if (item.esProductoCompuesto) {
+    try {
+      await insertarComponentesCompuesto(tx, cod, item.componentes);
+    } catch (error) {
+      if (error instanceof ErrorNegocioCompuesto) throw new ErrorNegocio(`${etiqueta}: ${error.message}`);
+      throw error;
+    }
+  }
 }
 
 /**
  * Alta en lote (Agregar Item): todo o nada. Cada ítem toma el siguiente `cod_tienda` correlativo y,
  * si no es propio, queda vinculado a su línea de proveedor, que además pasa a ser su CX COMPRA.
+ * Si es compuesto (siempre propio), se insertan sus componentes (ítems ya existentes de `prod_lista`).
  */
 export async function crearProductosTiendaLote(
   input: CrearProductosTiendaLoteInput

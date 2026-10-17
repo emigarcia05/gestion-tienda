@@ -19,6 +19,7 @@ const BUSQUEDA_DEBOUNCE_MS = 300;
 /**
  * Buscador de componentes para un producto compuesto: ítems de `prod_lista` que no son compuestos,
  * distintos del compuesto y no agregados todavía. Montar solo con el modal abierto.
+ * `codTienda` null = compuesto todavía sin crear (Agregar Item).
  */
 export default function SeleccionarComponenteCompuestoModal({
   codTienda,
@@ -26,7 +27,7 @@ export default function SeleccionarComponenteCompuestoModal({
   onSeleccionar,
   onClose,
 }: {
-  codTienda: string;
+  codTienda: string | null;
   excluir: string[];
   onSeleccionar: (item: ComponenteCandidatoItem) => void;
   onClose: () => void;

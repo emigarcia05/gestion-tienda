@@ -204,8 +204,8 @@ export default function GenerarPedidoToolbarButton({
               : "";
         const elegido = lista.find((p) => p.id === nextId);
         setProveedor(nextId);
-        setTipos(
-          tiposCatalogoParaModulo(modulo).filter((t) => elegido?.tipos.includes(t))
+        setTipos((prev) =>
+          nextId && nextId === pid ? prev.filter((t) => elegido?.tipos.includes(t)) : []
         );
       })();
     }, 280);
@@ -235,9 +235,7 @@ export default function GenerarPedidoToolbarButton({
 
   function seleccionarProveedor(id: string) {
     setProveedor(id);
-    const p = proveedoresActivos.find((x) => x.id === id);
-    const next = tiposCatalogoParaModulo(modulo).filter((t) => p?.tipos.includes(t));
-    setTipos(next);
+    setTipos([]);
   }
 
   function toggleTipo(tipo: TipoPedido) {
