@@ -6,6 +6,13 @@ import {
   SESION_CC_VISOR_COOKIE,
   tokenCuentaCorrienteDesdePath,
 } from "@/lib/cuentaCorrientePublica";
+import {
+  esRutaEnviosConductorPublica,
+  rutaEnviosConductorPublica,
+  SESION_CONDUCTOR_VISOR_COOKIE,
+  tokenEnviosConductorDesdePath,
+  tokenEnviosConductorFormatoValido,
+} from "@/lib/enviosConductorPublico";
 import { esRutaIngreso, RUTA_INGRESO } from "@/lib/ingreso";
 import {
   SESION_APP_BOOT_COOKIE,
@@ -25,11 +32,30 @@ function cookieVisorOptions() {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const tokenConductorEnPath = tokenEnviosConductorDesdePath(pathname);
+  const conductorCookieRaw = request.cookies.get(SESION_CONDUCTOR_VISOR_COOKIE)?.value;
+  const conductorCookie =
+    conductorCookieRaw && tokenEnviosConductorFormatoValido(conductorCookieRaw) ? conductorCookieRaw : null;
+  // `/ingresar` libera el visor (p. ej. quien probó el link en una PC de la tienda); igual pide contraseña.
+  const liberarConductor = esRutaIngreso(pathname) && !!conductorCookieRaw;
+  const conductorToken = liberarConductor ? null : (tokenConductorEnPath ?? conductorCookie);
+  const esRutaConductor = esRutaEnviosConductorPublica(pathname);
+
+  if (conductorToken && !esRutaConductor) {
+    const url = request.nextUrl.clone();
+    url.pathname = rutaEnviosConductorPublica(conductorToken);
+    url.search = "";
+    const redir = NextResponse.redirect(url);
+    redir.cookies.set(SESION_CONDUCTOR_VISOR_COOKIE, conductorToken, cookieVisorOptions());
+    return redir;
+  }
+
   const tokenEnPath = tokenCuentaCorrienteDesdePath(pathname);
   const visorCookie = request.cookies.get(SESION_CC_VISOR_COOKIE)?.value;
   const visorToken = tokenEnPath ?? visorCookie ?? null;
 
-  if (visorToken && !esRutaCuentaCorrientePublica(pathname)) {
+  if (visorToken && !esRutaCuentaCorrientePublica(pathname) && !esRutaConductor) {
     const url = request.nextUrl.clone();
     url.pathname = rutaCuentaCorrientePublica(visorToken);
     url.search = "";
@@ -40,7 +66,8 @@ export function middleware(request: NextRequest) {
 
   const hasBoot = request.cookies.has(SESION_APP_BOOT_COOKIE);
   const hadRolCookie = request.cookies.has(SESION_ROL_IRON_COOKIE);
-  const esPublica = esRutaIngreso(pathname) || esRutaCuentaCorrientePublica(pathname);
+  const esPublica =
+    esRutaIngreso(pathname) || esRutaCuentaCorrientePublica(pathname) || esRutaConductor;
   const sinSesion = !hasBoot || !hadRolCookie;
 
   const requestHeaders = new Headers(request.headers);
@@ -68,6 +95,12 @@ export function middleware(request: NextRequest) {
 
   if (tokenEnPath) {
     res.cookies.set(SESION_CC_VISOR_COOKIE, tokenEnPath, cookieVisorOptions());
+  }
+  if (tokenConductorEnPath) {
+    res.cookies.set(SESION_CONDUCTOR_VISOR_COOKIE, tokenConductorEnPath, cookieVisorOptions());
+  }
+  if (liberarConductor) {
+    res.cookies.delete(SESION_CONDUCTOR_VISOR_COOKIE);
   }
 
   return res;

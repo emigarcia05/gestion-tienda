@@ -350,6 +350,12 @@ export const enviosFinalEntregadoSchema = z.object({
   entregado: z.boolean(),
 });
 
+/** Visor público del Conductor: solo marca entregado (no desmarca). */
+export const enviosFinalEntregadoConductorPublicoSchema = z.object({
+  token: z.string().min(1).max(200),
+  id: prismaCuidSchema,
+});
+
 export type CrearClienteInput = z.infer<typeof crearClienteSchema>;
 export type EditarClienteInput = z.infer<typeof editarClienteSchema>;
 export type CrearEnviosDireccionInput = z.infer<typeof crearEnviosDireccionSchema>;

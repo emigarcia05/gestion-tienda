@@ -4,7 +4,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
-import { marcarEnviosFinalEntregadoAction } from "@/actions/envios";
+import {
+  marcarEnvioEntregadoConductorPublicoAction,
+  marcarEnviosFinalEntregadoAction,
+} from "@/actions/envios";
 import EnviosConductorDireccionesModal from "@/components/envios/EnviosConductorDireccionesModal";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
@@ -47,6 +50,8 @@ interface Props {
   clientes: ClienteItem[];
   direcciones: EnviosDireccionItem[];
   sucursales: EnviosSucursalOption[];
+  /** Token del link público (`/conductor/{token}`); sin sesión, marca entregado con ese token. */
+  tokenPublico?: string;
 }
 
 export default function EnviosConductorPageClient({
@@ -54,6 +59,7 @@ export default function EnviosConductorPageClient({
   clientes,
   direcciones,
   sucursales,
+  tokenPublico,
 }: Props) {
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const [modalDireccionesOpen, setModalDireccionesOpen] = useState(false);
@@ -94,10 +100,9 @@ export default function EnviosConductorPageClient({
     if (!modalEntregar.open || entregando) return;
     setEntregando(true);
     try {
-      const res = await marcarEnviosFinalEntregadoAction({
-        id: modalEntregar.id,
-        entregado: true,
-      });
+      const res = tokenPublico
+        ? await marcarEnvioEntregadoConductorPublicoAction({ token: tokenPublico, id: modalEntregar.id })
+        : await marcarEnviosFinalEntregadoAction({ id: modalEntregar.id, entregado: true });
       if (!res.ok) {
         toast.error(res.error ?? "No se pudo marcar como entregado.");
         return;

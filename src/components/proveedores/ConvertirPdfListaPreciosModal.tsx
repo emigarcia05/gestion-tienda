@@ -178,6 +178,9 @@ interface VincularItemPdfModalProps {
   manuales: Map<string, string>;
   onIndice: (indice: number | null) => void;
   onAsignar: (codExt: string, clave: string | null) => Promise<boolean>;
+  /** Abre la confirmación para borrar el ítem de `proveedores_prod_lista`. */
+  onEliminar: (item: ItemListaMatchPdf) => void;
+  eliminarDeshabilitado: boolean;
 }
 
 /** Recorre los ítems de lista sin precio y permite elegir, para cada uno, el ítem del PDF. */
@@ -188,6 +191,8 @@ function VincularItemPdfModal({
   manuales,
   onIndice,
   onAsignar,
+  onEliminar,
+  eliminarDeshabilitado,
 }: VincularItemPdfModalProps) {
   const item = indice !== null ? itemsLista[indice] : undefined;
   const claveAsignada = item ? manuales.get(item.codExt) : undefined;
@@ -232,17 +237,30 @@ function VincularItemPdfModal({
           }
         >
           <div className="space-y-3 pt-2 min-w-0">
-            <div className="rounded-lg border border-primary/30 bg-muted/30 p-3 space-y-1 min-w-0">
-              <p className="text-xs font-medium text-muted-foreground">
-                ÍTEM DE LISTA {indice + 1} DE {itemsLista.length}
-              </p>
-              <p className="text-sm font-medium text-foreground truncate" title={item.descripcionProveedor}>
-                <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
-              </p>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                PX. ACTUAL: ${fmtPrecio(item.pxActual)}
-                {claveAsignada && <> · VINCULADO A: {claveAsignada}</>}
-              </p>
+            <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-muted/30 p-3 min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  ÍTEM DE LISTA {indice + 1} DE {itemsLista.length}
+                </p>
+                <p className="text-sm font-medium text-foreground truncate" title={item.descripcionProveedor}>
+                  <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  PX. ACTUAL: ${fmtPrecio(item.pxActual)}
+                  {claveAsignada && <> · VINCULADO A: {claveAsignada}</>}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                aria-label={`Eliminar ${item.codProdProveedor} de la lista`}
+                disabled={eliminarDeshabilitado}
+                onClick={() => onEliminar(item)}
+              >
+                <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+              </Button>
             </div>
             <BuscadorItemPdf
               key={item.codExt}
@@ -452,7 +470,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       next.delete(codExt);
       return next;
     });
-    setIndiceVincular(null);
+    const restantes = (preview?.listaSinPrecio.length ?? 1) - 1;
+    setIndiceVincular((prev) => (prev === null || restantes <= 0 ? null : Math.min(prev, restantes - 1)));
   }
 
   async function confirmarEliminarLista() {
@@ -785,6 +804,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 manuales={manuales}
                 onIndice={setIndiceVincular}
                 onAsignar={asignarManual}
+                onEliminar={setItemEliminar}
+                eliminarDeshabilitado={ocupado}
               />
 
               <Dialog

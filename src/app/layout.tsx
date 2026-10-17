@@ -9,6 +9,7 @@ import { ImportResultProvider } from "@/components/import/ImportResultContext";
 import { getIdPersonalSesion, getRol } from "@/lib/sesion";
 import { SESION_PATHNAME_HEADER } from "@/lib/sesion-arranque";
 import { esRutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
+import { esRutaEnviosConductorPublica } from "@/lib/enviosConductorPublico";
 import { esRutaIngreso, RUTA_INGRESO } from "@/lib/ingreso";
 import { obtenerUsuarioSesion } from "@/services/ingreso.service";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = (await headers()).get(SESION_PATHNAME_HEADER) ?? "";
-  const esPublica = esRutaIngreso(pathname) || esRutaCuentaCorrientePublica(pathname);
+  const esPublica =
+    esRutaIngreso(pathname) ||
+    esRutaCuentaCorrientePublica(pathname) ||
+    esRutaEnviosConductorPublica(pathname);
   const [rol, idPersonal] = await Promise.all([getRol(), getIdPersonalSesion()]);
   const usuario =
     esPublica || idPersonal == null ? null : await obtenerUsuarioSesion(idPersonal);

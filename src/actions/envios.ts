@@ -18,6 +18,7 @@ import {
   editarClienteSchema,
   editarEnviosDireccionSchema,
   editarEnviosFinalSchema,
+  enviosFinalEntregadoConductorPublicoSchema,
   enviosFinalEntregadoSchema,
   eliminarClienteSchema,
   eliminarEnviosDireccionSchema,
@@ -37,6 +38,7 @@ import {
   listarSucursalesParaEnvios,
   marcarEnviosFinalEntregado,
 } from "@/services/enviosFinal.service";
+import { tokenEnviosConductorValido } from "@/services/enviosConductorPublico.service";
 
 function firstZodErrorMessage(error: {
   flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
@@ -227,6 +229,26 @@ export async function marcarEnviosFinalEntregadoAction(
     return { ok: true, data: res.data };
   } catch (e) {
     console.error("[marcarEnviosFinalEntregadoAction]", e);
+    return { ok: false, error: "No se pudo marcar el envío como entregado." };
+  }
+}
+
+/** Visor público del Conductor (`/conductor/{token}`, sin sesión): el gate es el token del link. */
+export async function marcarEnvioEntregadoConductorPublicoAction(
+  raw: unknown
+): Promise<ActionResult<EnviosFinalListItem>> {
+  const parsed = enviosFinalEntregadoConductorPublicoSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  if (!tokenEnviosConductorValido(parsed.data.token)) {
+    return { ok: false, error: "El link no es válido." };
+  }
+  try {
+    const res = await marcarEnviosFinalEntregado(parsed.data.id, true);
+    if (!res.success) return { ok: false, error: res.error };
+    revalidateEnvios();
+    return { ok: true, data: res.data };
+  } catch (e) {
+    console.error("[marcarEnvioEntregadoConductorPublicoAction]", e);
     return { ok: false, error: "No se pudo marcar el envío como entregado." };
   }
 }
