@@ -44,6 +44,7 @@ import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 const ROW_ICON_BTN_CLASS = cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, "h-8 w-8 min-h-8 max-h-8");
+const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 
 type ItemPendiente = CrearProductoTiendaItemInput & { key: string; vinculoEtiqueta: string | null };
 
@@ -196,7 +197,8 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <AppModal
         title="AGREGAR ITEM"
-        size="lg"
+        size="xl"
+        className="max-w-[56rem]"
         actions={
           <div className="flex w-full justify-end gap-2">
             <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
@@ -208,32 +210,58 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
           </div>
         }
       >
-        <div className="flex flex-col gap-3">
-          <ProductoTiendaCampos
-            campos={campos}
-            onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
-            catalogos={catalogos}
-            disabled={pending}
-            autoFocus
-            onGestionar={setGestionando}
-          />
-          <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>
-            <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
-            {esPropio ? (
-              <ModalSiNoChoice
-                label="PROD. COMPUESTO"
-                value={esCompuesto}
-                onChange={cambiarCompuesto}
-                disabled={pending}
-              />
-            ) : (
+        <div className="flex flex-col gap-4">
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>DESCRIPCIÓN Y DATOS</h3>
+            <ProductoTiendaCampos
+              campos={campos}
+              onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
+              catalogos={catalogos}
+              disabled={pending}
+              autoFocus
+              onGestionar={setGestionando}
+            />
+          </section>
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>TIPO DE PRODUCTO</h3>
+            <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>
+              <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
+              {esPropio ? (
+                <ModalSiNoChoice
+                  label="PROD. COMPUESTO"
+                  value={esCompuesto}
+                  onChange={cambiarCompuesto}
+                  disabled={pending}
+                />
+              ) : null}
+            </div>
+            {esPropio && esCompuesto ? (
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  disabled={pending}
+                  onClick={() => setSelectorComponenteAbierto(true)}
+                >
+                  <Plus aria-hidden />
+                  Agregar Componente
+                </Button>
+                <TablaComponentesCompuesto
+                  filas={componentes}
+                  bloqueado={pending}
+                  onCantidadChange={editarCantidadComponente}
+                  onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
+                />
+              </div>
+            ) : esPropio ? null : (
               <div className="flex min-w-0 flex-col gap-1">
                 <ModalMicroLabel>CX. VINC.</ModalMicroLabel>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-9 min-w-0 flex-1 justify-start gap-2"
+                    className="h-10 min-w-0 flex-1 justify-start gap-2"
                     disabled={pending}
                     onClick={() => setSelectorAbierto(true)}
                   >
@@ -250,7 +278,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9"
+                      className="h-10 w-10"
                       aria-label="Quitar CX. VINC."
                       disabled={pending}
                       onClick={() => setVinculo(null)}
@@ -261,32 +289,14 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 </div>
               </div>
             )}
-          </div>
-          {esPropio && esCompuesto ? (
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full gap-2"
-                disabled={pending}
-                onClick={() => setSelectorComponenteAbierto(true)}
-              >
-                <Plus aria-hidden />
-                Agregar Componente
-              </Button>
-              <TablaComponentesCompuesto
-                filas={componentes}
-                bloqueado={pending}
-                onCantidadChange={editarCantidadComponente}
-                onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
-              />
-            </div>
-          ) : null}
-          <Button type="button" className="w-full gap-2" disabled={!puedeAgregar} onClick={agregar}>
-            <Plus aria-hidden />
-            Agregar
-          </Button>
-          <Table variant="compact" scrollX={false} className="table-fixed w-full">
+          </section>
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>ÍTEMS A CREAR</h3>
+            <Button type="button" className="w-full gap-2" disabled={!puedeAgregar} onClick={agregar}>
+              <Plus aria-hidden />
+              Agregar
+            </Button>
+            <Table variant="compact" scrollX={false} className="table-fixed w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>DESCRIPCIÓN</TableHead>
@@ -327,6 +337,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
               )}
             </TableBody>
           </Table>
+          </section>
         </div>
       </AppModal>
       <SeleccionarProductoModal

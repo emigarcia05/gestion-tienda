@@ -20,8 +20,11 @@ import {
 /** Sentinel de los Select opcionales (SUB-RUBRO / PRESENTACIÓN / COLOR / TERMINACIÓN). */
 export const SIN_VALOR_PRODUCTO_TIENDA = "none";
 
-/** Grilla de dos columnas de los modales Agregar / Editar producto. */
+/** Grilla de dos columnas (switches / acciones) en Agregar / Editar producto. */
 export const PRODUCTO_TIENDA_GRID_CLASS = "grid grid-cols-2 gap-3";
+
+/** Campos RUBRO…BULTO: hasta 3 columnas por fila (modal `xl`). */
+export const PRODUCTO_TIENDA_CAMPOS_GRID_CLASS = "grid grid-cols-3 gap-3";
 
 export type CamposProductoTiendaForm = {
   descripcion: string;
@@ -172,7 +175,7 @@ export default function ProductoTiendaCampos({
           autoFocus={autoFocus}
         />
       </div>
-      <div className={PRODUCTO_TIENDA_GRID_CLASS}>
+      <div className={PRODUCTO_TIENDA_CAMPOS_GRID_CLASS}>
         <SelectCatalogo
           label="RUBRO"
           value={campos.idRubro}

@@ -83,6 +83,7 @@ export default function EditarProductoTiendaModal({
       <AppModal
         title="EDITAR PRODUCTO"
         size="xl"
+        className="max-w-[56rem]"
         actions={
           <div className="flex w-full justify-end gap-2">
             <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
