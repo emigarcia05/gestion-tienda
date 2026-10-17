@@ -9,11 +9,13 @@ import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { getProveedorById } from "@/services/proveedor.service";
 import {
   aplicarImportListaPdf,
+  guardarVinculoListaPdf,
   previsualizarImportListaPdf,
 } from "@/services/importListaPdf.service";
 import type { PreviewImportListaPdf, ResultadoImportListaPdf } from "@/lib/importListaPdf";
 import {
   aplicarImportListaPdfSchema,
+  guardarVinculoListaPdfSchema,
   previsualizarImportListaPdfSchema,
 } from "@/lib/validations/prodPreciosRex";
 
@@ -61,4 +63,19 @@ export async function aplicarImportListaPdfAction(
     for (const path of REVALIDATE_LISTA_PRECIOS) revalidatePath(path);
   }
   return out;
+}
+
+/** Importar Lista PDF: guarda o quita `id_precio_rex` sin actualizar PX. LISTA. */
+export async function guardarVinculoListaPdfAction(
+  raw: unknown
+): Promise<ActionResult<{ codExt: string; clave: string | null }>> {
+  const gate = await requireImportarListaEditor();
+  if (gate) return gate;
+  const parsed = guardarVinculoListaPdfSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const { proveedorId, codExt, clave, precio } = parsed.data;
+  if (!(await getProveedorById(proveedorId))) {
+    return { ok: false, error: "Proveedor no encontrado." };
+  }
+  return fromServiceResult(await guardarVinculoListaPdf(proveedorId, codExt, clave, precio));
 }

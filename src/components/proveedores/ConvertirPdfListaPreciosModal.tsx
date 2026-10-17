@@ -43,6 +43,7 @@ import type { FilaPdfMatrizNormalizadaDto } from "@/lib/validations/parseListaPr
 import { PAGINA_INICIO_PDF_MATRIZ_DEFAULT } from "@/lib/validations/parseListaPreciosPdfMatriz";
 import {
   aplicarImportListaPdfAction,
+  guardarVinculoListaPdfAction,
   previsualizarImportListaPdfAction,
 } from "@/actions/prodPreciosRex";
 import { eliminarListaPrecioAction } from "@/actions/listaPrecios";
@@ -95,7 +96,7 @@ interface BuscadorItemPdfProps {
   item: ItemListaMatchPdf;
   itemsPdf: FilaPreviewImportPdf[];
   claveAsignada: string | undefined;
-  onElegir: (clave: string) => void;
+  onElegir: (clave: string) => void | Promise<void>;
 }
 
 function BuscadorItemPdf({ item, itemsPdf, claveAsignada, onElegir }: BuscadorItemPdfProps) {
@@ -145,7 +146,7 @@ function BuscadorItemPdf({ item, itemsPdf, claveAsignada, onElegir }: BuscadorIt
                 <TableRow
                   key={f.clave}
                   className={cn("cursor-pointer", f.clave === claveAsignada && "bg-primary/10")}
-                  onClick={() => onElegir(f.clave)}
+                  onClick={() => void onElegir(f.clave)}
                   aria-selected={f.clave === claveAsignada}
                 >
                   <TableCell className="celda-datos min-w-0">
@@ -176,7 +177,7 @@ interface VincularItemPdfModalProps {
   indice: number | null;
   manuales: Map<string, string>;
   onIndice: (indice: number | null) => void;
-  onAsignar: (codExt: string, clave: string | null) => void;
+  onAsignar: (codExt: string, clave: string | null) => Promise<boolean>;
 }
 
 /** Recorre los ítems de lista sin precio y permite elegir, para cada uno, el ítem del PDF. */
@@ -192,9 +193,10 @@ function VincularItemPdfModal({
   const claveAsignada = item ? manuales.get(item.codExt) : undefined;
   const ultimo = itemsLista.length - 1;
 
-  function elegir(clave: string) {
+  async function elegir(clave: string) {
     if (!item || indice === null) return;
-    onAsignar(item.codExt, clave);
+    const ok = await onAsignar(item.codExt, clave);
+    if (!ok) return;
     onIndice(indice < ultimo ? indice + 1 : null);
   }
 
@@ -221,7 +223,7 @@ function VincularItemPdfModal({
                 <ChevronRight className="h-4 w-4" />
               </Button>
               {claveAsignada && (
-                <Button variant="outline" onClick={() => onAsignar(item.codExt, null)}>
+                <Button variant="outline" onClick={() => void onAsignar(item.codExt, null)}>
                   Quitar vínculo
                 </Button>
               )}
@@ -403,13 +405,37 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
 
   const totalVinculos = vinculosAuto.length + manuales.size;
 
-  function asignarManual(codExt: string, clave: string | null) {
+  async function asignarManual(codExt: string, clave: string | null): Promise<boolean> {
+    if (clave) {
+      const pdf = pdfPorClave.get(clave);
+      if (!pdf) {
+        toast.error("Ese ítem del PDF ya no está disponible.");
+        return false;
+      }
+      const res = await guardarVinculoListaPdfAction({
+        proveedorId,
+        codExt,
+        clave,
+        precio: pdf.precio,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudo guardar el vínculo.");
+        return false;
+      }
+    } else {
+      const res = await guardarVinculoListaPdfAction({ proveedorId, codExt, clave: null });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudo quitar el vínculo.");
+        return false;
+      }
+    }
     setManuales((prev) => {
       const next = new Map(prev);
       if (clave) next.set(codExt, clave);
       else next.delete(codExt);
       return next;
     });
+    return true;
   }
 
   function quitarItemDePreview(codExt: string) {
@@ -673,11 +699,9 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                     <Table variant="compact" scrollX={false} className="table-fixed w-full">
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead>ÍTEM LISTA</TableHead>
+                          <TableHead className="w-[48%]">ÍTEM LISTA</TableHead>
                           <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
                           <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
-                          <TableHead className="w-24 text-center">PX. PDF</TableHead>
-                          <TableHead className="w-20 text-center">VAR.</TableHead>
                           <TableHead className="w-12 text-center">ACCIONES</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -721,7 +745,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                                       type="button"
                                       variant="ghost"
                                       size="icon-sm"
-                                      onClick={() => asignarManual(item.codExt, null)}
+                                      onClick={() => void asignarManual(item.codExt, null)}
                                       disabled={ocupado}
                                       aria-label={`Quitar vínculo de ${item.codProdProveedor}`}
                                     >
@@ -729,12 +753,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                                     </Button>
                                   )}
                                 </div>
-                              </TableCell>
-                              <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                                {pdf ? `$${fmtPrecio(pdf.precio)}` : ""}
-                              </TableCell>
-                              <TableCell className="celda-datos text-center">
-                                {pdf ? <Variacion precio={pdf.precio} pxActual={item.pxActual} /> : null}
                               </TableCell>
                               <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
                                 <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

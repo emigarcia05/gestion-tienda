@@ -12,6 +12,8 @@
  *
  * Los ítems de lista que no reciben precio (`listaSinPrecio`) se vinculan a mano en la vista previa;
  * cuando hay un ítem del PDF parecido (`sugerirPorSimilitud`) viene propuesto en `claveSugerida`.
+ * Elegir (o quitar) un ítem del PDF persiste `id_precio_rex` al momento (`guardarVinculoListaPdf`),
+ * sin tocar `px_lista_proveedor`, para que la próxima importación lo tome como VINCULADO.
  *
  * Al aplicar: guarda todos los ítems del PDF en `prod_precios_rex` (catálogo para vincular a mano),
  * fija `id_precio_rex` en las filas confirmadas y copia el precio a `px_lista_proveedor`.
@@ -293,5 +295,66 @@ export async function aplicarImportListaPdf(
   } catch (e) {
     console.error("[importListaPdf.service] aplicarImportListaPdf:", e);
     return { success: false, error: "No se pudieron actualizar los precios." };
+  }
+}
+
+/**
+ * Persiste o quita el vínculo lista ↔ ítem del PDF (`id_precio_rex`) sin cambiar `px_lista_proveedor`.
+ * La próxima previsualización lo trata como VINCULADO si el PDF trae la misma clave.
+ */
+export async function guardarVinculoListaPdf(
+  proveedorId: string,
+  codExt: string,
+  clave: string | null,
+  precio?: number
+): Promise<ServiceResult<{ codExt: string; clave: string | null }>> {
+  try {
+    const lista = await prisma.listaPrecioProveedor.findFirst({
+      where: { codExt, idProveedor: proveedorId },
+      select: { codExt: true },
+    });
+    if (!lista) {
+      return { success: false, error: "El ítem de la lista no existe o es de otro proveedor." };
+    }
+
+    if (clave === null) {
+      await prisma.listaPrecioProveedor.update({
+        where: { codExt },
+        data: { idPrecioRex: null },
+      });
+      return { success: true, data: { codExt, clave: null } };
+    }
+
+    const claveNorm = normalizarDescripcionPrecioRex(clave);
+    if (!claveNorm) {
+      return { success: false, error: "La descripción del ítem del PDF no es válida." };
+    }
+    if (precio == null || !(precio > 0)) {
+      return { success: false, error: "Falta el precio del ítem del PDF para guardar el vínculo." };
+    }
+
+    let rex = await prisma.prodPrecioRex.findFirst({
+      where: { idProveedor: proveedorId, descripcion: claveNorm },
+      select: { id: true },
+    });
+    if (!rex) {
+      rex = await prisma.prodPrecioRex.create({
+        data: {
+          idProveedor: proveedorId,
+          descripcion: claveNorm,
+          pxListaProveedor: precio,
+        },
+        select: { id: true },
+      });
+    }
+
+    await prisma.listaPrecioProveedor.update({
+      where: { codExt },
+      data: { idPrecioRex: rex.id },
+    });
+    return { success: true, data: { codExt, clave: claveNorm } };
+  } catch (e) {
+    console.error("[importListaPdf.service] guardarVinculoListaPdf:", e);
+    return { success: false, error: "No se pudo guardar el vínculo con el ítem del PDF." };
   }
 }

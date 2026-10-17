@@ -32,6 +32,7 @@ export interface ItemListaSinPrecioPdf extends ItemListaMatchPdf {
   /**
    * Ítem del PDF parecido (variantes con guiones, abreviaturas, hasta 2 palabras de más en la lista).
    * Se propone en la vista previa para revisar; no se aplica sin confirmación.
+   * Si el usuario elige un ítem (esta sugerencia u otra), se persiste `id_precio_rex` al momento.
    */
   claveSugerida: string | null;
 }

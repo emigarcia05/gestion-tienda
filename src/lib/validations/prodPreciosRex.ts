@@ -17,3 +17,16 @@ export const aplicarImportListaPdfSchema = z.object({
     .min(1, "Seleccioná al menos un ítem para actualizar.")
     .max(20_000),
 });
+
+export const guardarVinculoListaPdfSchema = z
+  .object({
+    proveedorId: prismaCuidSchema,
+    codExt: listaPreciosCodExtSchema,
+    clave: z.string().min(1).max(560).nullable(),
+    precio: z.number().positive().max(999_999_999).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.clave != null && v.precio == null) {
+      ctx.addIssue({ code: "custom", message: "Falta el precio del ítem del PDF.", path: ["precio"] });
+    }
+  });
