@@ -71,7 +71,7 @@ export default function ListaProductosPageClient({
       {esEditor ? (
         <Button type="button" size="sm" onClick={() => setAgregarAbierto(true)}>
           <Plus className="h-4 w-4" aria-hidden />
-          Agregar Item
+          Nuevo Item
         </Button>
       ) : null}
       {puedeEditarCxProd ? <ActCxButton /> : null}

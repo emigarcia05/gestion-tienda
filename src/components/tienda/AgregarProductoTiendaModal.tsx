@@ -1,22 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Plus, Trash2, X } from "lucide-react";
+import { Link2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
-import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
@@ -40,13 +31,9 @@ import { parseCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import type { ComponenteCandidatoItem } from "@/lib/productoCompuesto";
 import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import type { CrearProductoTiendaItemInput } from "@/lib/validations/listaProductos";
-import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-const ROW_ICON_BTN_CLASS = cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, "h-8 w-8 min-h-8 max-h-8");
 const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
-
-type ItemPendiente = CrearProductoTiendaItemInput & { key: string; vinculoEtiqueta: string | null };
 
 interface Props {
   open: boolean;
@@ -66,7 +53,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [esCompuesto, setEsCompuesto] = useState(false);
   const [componentes, setComponentes] = useState<FilaComponente[]>([]);
   const [selectorComponenteAbierto, setSelectorComponenteAbierto] = useState(false);
-  const [items, setItems] = useState<ItemPendiente[]>([]);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
@@ -83,7 +69,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setEsPropio(false);
     setEsCompuesto(false);
     setComponentes([]);
-    setItems([]);
   }, [open]);
 
   const componentesValidos =
@@ -93,7 +78,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     (esPropio || !!vinculo) &&
     (!esCompuesto || componentesValidos) &&
     !pending;
-  const puedeGuardar = items.length > 0 && !pending;
 
   const rubroSel = catalogos.rubros.find((r) => r.id === campos.idRubro);
   const rubroNombre = rubroSel?.nombre ?? null;
@@ -126,68 +110,47 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
       toast.error("Elegí una sola línea de proveedor.");
       return;
     }
-    if (items.some((i) => i.codExtVinculo === producto.codigoExterno)) {
-      toast.error("Esa línea de proveedor ya está en la tabla para otro producto.");
-      return;
-    }
     setVinculo(producto);
     setSelectorAbierto(false);
   }
 
-  function agregar() {
-    if (!puedeAgregar) return;
+  function itemActual(): CrearProductoTiendaItemInput | null {
+    if (!puedeAgregar) return null;
     const base = camposProductoTiendaParaAction(campos);
-    setItems((prev) => [
-      ...prev,
-      {
-        ...base,
-        key: crypto.randomUUID(),
-        descripcion: base.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
-        esProductoPropio: esPropio,
-        codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
-        vinculoEtiqueta: esPropio || !vinculo ? null : etiquetaVinculo(vinculo),
-        esProductoCompuesto: esPropio && esCompuesto,
-        componentes:
-          esPropio && esCompuesto
-            ? componentes.map((c) => ({
-                codTienda: c.codTienda,
-                cantidad: parseCantidadUnDecimal(c.cantidadInput) ?? c.cantidad,
-              }))
-            : [],
-      },
-    ]);
-    // Una línea de proveedor solo puede vincularse a un producto: se elige de nuevo para el siguiente.
-    setVinculo(null);
-    setComponentes([]);
+    return {
+      ...base,
+      descripcion: base.descripcion.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR"),
+      esProductoPropio: esPropio,
+      codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
+      esProductoCompuesto: esPropio && esCompuesto,
+      componentes:
+        esPropio && esCompuesto
+          ? componentes.map((c) => ({
+              codTienda: c.codTienda,
+              cantidad: parseCantidadUnDecimal(c.cantidadInput) ?? c.cantidad,
+            }))
+          : [],
+    };
   }
 
-  function subtituloItem(item: ItemPendiente): string | null {
-    if (item.esProductoCompuesto) {
-      const n = item.componentes.length;
-      return `PRODUCTO COMPUESTO · ${n} ${n === 1 ? "COMPONENTE" : "COMPONENTES"}`;
-    }
-    return item.esProductoPropio ? "PRODUCTO PROPIO" : item.vinculoEtiqueta;
-  }
-
-  async function guardar() {
-    if (!puedeGuardar) return;
+  async function guardar(mantenerAbierto: boolean) {
+    const item = itemActual();
+    if (!item || pending) return;
     setPending(true);
     try {
-      const res = await crearProductosTiendaLoteAction({
-        items: items.map(({ key: _key, vinculoEtiqueta: _etiqueta, ...item }) => item),
-      });
+      const res = await crearProductosTiendaLoteAction({ items: [item] });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
-      const { codTiendas } = res.data;
+      const codigo = res.data.codTiendas[0];
       toast.success(
-        codTiendas.length === 1
-          ? `Producto creado con código ${codTiendas[0]}.`
-          : `${codTiendas.length} productos creados (${codTiendas[0]} a ${codTiendas[codTiendas.length - 1]}).`
+        mantenerAbierto
+          ? `Producto creado con código ${codigo}. El formulario sigue con los mismos datos.`
+          : `Producto creado con código ${codigo}.`
       );
-      onOpenChange(false);
-      onCreado(codTiendas);
+      onCreado(res.data.codTiendas);
+      if (!mantenerAbierto) onOpenChange(false);
     } finally {
       setPending(false);
     }
@@ -196,16 +159,19 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <AppModal
-        title="AGREGAR ITEM"
+        title="NUEVO ITEM"
         size="xl"
         className="max-w-[56rem]"
         actions={
-          <div className="flex w-full justify-end gap-2">
+          <div className="flex w-full flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="button" disabled={!puedeGuardar} onClick={() => void guardar()}>
+            <Button type="button" disabled={!puedeAgregar} onClick={() => void guardar(false)}>
               Guardar
+            </Button>
+            <Button type="button" disabled={!puedeAgregar} onClick={() => void guardar(true)}>
+              Guardar y crear similar
             </Button>
           </div>
         }
@@ -262,12 +228,11 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                     type="button"
                     variant="outline"
                     className="h-10 min-w-0 flex-1 justify-start gap-2"
-                    disabled={pending}
                     onClick={() => setSelectorAbierto(true)}
                   >
                     <Link2 className="shrink-0" aria-hidden />
                     <span
-                      className={cn("truncate", !vinculo && "uppercase text-muted-foreground")}
+                      className="truncate uppercase text-foreground"
                       title={vinculo ? etiquetaVinculo(vinculo) : undefined}
                     >
                       {vinculo ? etiquetaVinculo(vinculo) : "Elegir línea (obligatorio)"}
@@ -289,54 +254,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 </div>
               </div>
             )}
-          </section>
-          <section className="modal-seccion-formulario flex flex-col gap-3">
-            <h3 className={SECCION_TITULO_CLASS}>ÍTEMS A CREAR</h3>
-            <Button type="button" className="w-full gap-2" disabled={!puedeAgregar} onClick={agregar}>
-              <Plus aria-hidden />
-              Agregar
-            </Button>
-            <Table variant="compact" scrollX={false} className="table-fixed w-full">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>DESCRIPCIÓN</TableHead>
-                <TableHead className="w-14 text-center" aria-label="Acciones" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={2}>
-                    <TableEmptyState message="TODAVÍA NO AGREGASTE PRODUCTOS." placement="panel" />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((item) => (
-                  <TableRow key={item.key}>
-                    <TableCell className="celda-datos min-w-0">
-                      <span className="block truncate" title={item.descripcion}>
-                        {item.descripcion}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">{subtituloItem(item)}</span>
-                    </TableCell>
-                    <TableCell className="w-14 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={ROW_ICON_BTN_CLASS}
-                        aria-label={`Quitar ${item.descripcion}`}
-                        disabled={pending}
-                        onClick={() => setItems((prev) => prev.filter((i) => i.key !== item.key))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
           </section>
         </div>
       </AppModal>
