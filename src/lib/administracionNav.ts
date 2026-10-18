@@ -15,6 +15,7 @@ export type AdmPillarId =
   | "impuestos"
   | "vtas-cobros"
   | "lista-propia"
+  | "desc-promos"
   | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
@@ -222,6 +223,16 @@ const productosScreens: AdmScreenDef[] = [
   },
 ];
 
+const descPromosScreens: AdmScreenDef[] = [
+  {
+    id: "descuentos",
+    label: "Descuentos",
+    href: A.descPromos.descuentos,
+    icon: "percent",
+    permiso: PERMISOS.descPromos.acceso,
+  },
+];
+
 const proveedoresScreens: AdmScreenDef[] = [
   {
     id: "lista-precios",
@@ -328,6 +339,13 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     icon: "store",
     basePath: `${A.hub}/productos`,
     screens: productosScreens,
+  },
+  {
+    id: "desc-promos",
+    label: "DESC. & PROMOS",
+    icon: "percent",
+    basePath: `${A.hub}/desc-promos`,
+    screens: descPromosScreens,
   },
   {
     id: "lista-proveedores",

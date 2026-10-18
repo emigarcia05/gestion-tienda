@@ -136,6 +136,12 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
   },
 
+  // ─── Administración · DESC. & PROMOS (`/administrador/desc-promos/descuentos`) ──────────
+  descPromos: {
+    /** Catálogo `desc_promo`. Solo editor. */
+    acceso: { simple: false, editor: true },
+  },
+
   // ─── Módulo Asistente IA (Vendedor) ────────────────────────────────────────
   asistenteIa: {
     /** Acceso al módulo (vendedor/`simple` + editor). CRUD de prompts: solo editor (`esEditor`). */

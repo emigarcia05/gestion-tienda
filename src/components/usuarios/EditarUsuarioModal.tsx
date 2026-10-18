@@ -99,7 +99,7 @@ export default function EditarUsuarioModal({
         : item
           ? await actualizarUsuarioPersonalAction({
               idPersonal: item.idPersonal,
-              idDux: idDuxValor,
+              idDux: item.idDux,
               sucursalPorDefecto,
               modulosPermitidos: modulos,
               titularFinanciero,
@@ -172,17 +172,19 @@ export default function EditarUsuarioModal({
               </p>
             </div>
           )}
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>ID DUX</ModalMicroLabel>
-            <Input
-              value={idDux}
-              onChange={(e) => setIdDux(e.target.value)}
-              placeholder="ID DUX (OPCIONAL)"
-              inputMode="numeric"
-              disabled={saving}
-              aria-label="ID DUX"
-            />
-          </div>
+          {esAlta ? (
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>ID DUX</ModalMicroLabel>
+              <Input
+                value={idDux}
+                onChange={(e) => setIdDux(e.target.value)}
+                placeholder="ID DUX (OPCIONAL)"
+                inputMode="numeric"
+                disabled={saving}
+                aria-label="ID DUX"
+              />
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Sucursal Por Defecto</ModalMicroLabel>
             <Select
@@ -213,16 +215,14 @@ export default function EditarUsuarioModal({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
+            <ModalMicroLabel>Módulos Permitidos</ModalMicroLabel>
             <ModalSiNoChoice
               label="SUPER (TODOS LOS MÓDULOS)"
               value={superUsuario}
               onChange={setSuperUsuario}
               disabled={saving}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <ModalMicroLabel>Módulos Permitidos</ModalMicroLabel>
             <div className="flex flex-col gap-2">
               {MODULOS_PERMITIDOS_USUARIO.map((m) => {
                 const activo = superUsuario || modulos.includes(m.id);

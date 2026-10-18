@@ -55,6 +55,9 @@ export const APP_ROUTES = {
       /** Fuera del sidenav: Cx. compra / comparación de proveedores. */
       cxCompra: `${ADMINISTRADOR}/productos/cx-compra`,
     },
+    descPromos: {
+      descuentos: `${ADMINISTRADOR}/desc-promos/descuentos`,
+    },
     proveedores: {
       listaProdProv: `${ADMINISTRADOR}/proveedores/lista-prod-prov`,
       reglasDescuentos: `${ADMINISTRADOR}/proveedores/lista-prod-prov/reglas-descuentos`,
@@ -215,6 +218,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
 
   // Administrador · módulos sin función propia
   ["/administrador/productos", R.administrador.productos.listaProductos],
+  ["/administrador/desc-promos", R.administrador.descPromos.descuentos],
   ["/administrador/proveedores", R.administrador.proveedores.listaProdProv],
   ["/administrador/pedidos-a-fabrica", R.administrador.pedidosAFabrica.pedidosAFabrica],
   ["/administrador/estadisticas", R.administrador.estadisticas.ventas],

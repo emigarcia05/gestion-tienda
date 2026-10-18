@@ -65,6 +65,21 @@ export function requireEditorEstadisticas(): Promise<ActionGateFail | null> {
   );
 }
 
+/** Administrador · DESC. & PROMOS (`PERMISOS.descPromos.acceso`). */
+export function requireDescPromosLectura(): Promise<ActionGateFail | null> {
+  return requirePermiso(
+    PERMISOS.descPromos.acceso,
+    "Sin permisos para descuentos y promociones."
+  );
+}
+
+export function requireEditorDescPromos(): Promise<ActionGateFail | null> {
+  return requirePermisoEditor(
+    PERMISOS.descPromos.acceso,
+    "Sin permisos para descuentos y promociones."
+  );
+}
+
 /** Lista Propia · Lista Productos (`PERMISOS.tienda.acceso`). */
 export function requireTiendaLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(PERMISOS.tienda.acceso, "Sin permisos para lista de productos.");

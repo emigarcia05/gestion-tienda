@@ -14,7 +14,7 @@ import {
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { fmtCantidad } from "@/lib/format";
-import { evaluarCoberturaStock, type AporteStockSucursal } from "@/lib/facturaStockCobertura";
+import { evaluarCoberturaStock } from "@/lib/facturaStockCobertura";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 
@@ -22,46 +22,25 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   producto: ProductoFacturaBusquedaItem | null;
-  /** Sucursal de la sesión. Su fila se separa del resto. */
+  /** Sucursal de la sesión. Su fila se destaca del resto. */
   sucursalCodigo: string | null;
   /**
-   * Cantidad de la línea del remito. Si viene, el modal explica cómo completar
-   * el faltante de la sucursal activa.
+   * Cantidad de la línea del remito. Si viene, el modal muestra SOLICITADO
+   * y, si la sucursal activa no alcanza, MOVIMIENTOS.
    */
   cantidadSolicitada?: number | null;
 }
 
-function PlanAportes({ aportes }: { aportes: AporteStockSucursal[] }) {
-  return (
-    <div className="contenedor-tabla-gestion min-h-0 overflow-auto">
-      <Table className="w-full table-fixed">
-        <TableHeader>
-          <TableRow>
-            <TableHead>SUCURSAL</TableHead>
-            <TableHead className="w-[8rem] text-right">A TRAER</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {aportes.map((a) => (
-            <TableRow key={a.codigo}>
-              <TableCell className="celda-datos text-left">
-                {a.nombre.toLocaleUpperCase("es")}
-              </TableCell>
-              <TableCell className="celda-datos text-right tabular-nums">
-                {fmtCantidad(a.aTraer)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+const SECCION_TITULO_CLASS =
+  "text-center text-xs font-bold uppercase tracking-wide text-foreground";
+
+function mismoCodigo(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 /**
  * Detalle de stock por sucursal (ícono Store del typeahead y del remito).
- * Título fijo. El ítem va en el cuerpo. La sucursal activa queda aparte de las demás.
- * Con `cantidadSolicitada`, indica cómo completar el faltante.
+ * Tres secciones: SOLICITADO, MOVIMIENTOS (solo si la sucursal activa no cubre) y STOCK.
  */
 export default function FacturaProductoStockModal({
   open,
@@ -82,9 +61,13 @@ export default function FacturaProductoStockModal({
         });
   const activa =
     sucursalCodigo != null
-      ? (filas.find((f) => f.codigo === sucursalCodigo) ?? null)
+      ? (filas.find((f) => mismoCodigo(f.codigo, sucursalCodigo)) ?? null)
       : null;
-  const otras = filas.filter((f) => f.codigo !== activa?.codigo);
+  const otras = filas.filter((f) => activa == null || !mismoCodigo(f.codigo, activa.codigo));
+  const mostrarMovimientos = cobertura != null && cobertura.estado !== "sucursal_activa";
+  const unidadesTrasladar = cobertura
+    ? cobertura.aportes.reduce((acc, a) => acc + a.aTraer, 0)
+    : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,50 +82,54 @@ export default function FacturaProductoStockModal({
         }
       >
         <div className="flex flex-col gap-4">
-          <p className="text-center text-sm font-semibold uppercase leading-snug text-foreground">
-            {nombreItem}
-          </p>
-          {cobertura ? (
-            <section className="flex flex-col gap-2">
-              <ModalMicroLabel>CANT. SOLICITADA</ModalMicroLabel>
-              <p className="text-sm font-bold tabular-nums text-foreground">
-                {fmtCantidad(cobertura.cantidad)}
+          <section className="modal-seccion-formulario flex flex-col gap-2">
+            <h3 className={SECCION_TITULO_CLASS}>SOLICITADO</h3>
+            <div className="flex flex-col items-center gap-0.5 text-center">
+              <p className="text-sm font-semibold uppercase leading-snug text-foreground">
+                {nombreItem}
               </p>
-              <ModalMicroLabel>COMPLETAR STOCK</ModalMicroLabel>
-              {cobertura.estado === "sucursal_activa" ? (
-                <p className="text-sm text-foreground">
-                  La sucursal activa cubre la cantidad.
-                </p>
-              ) : cobertura.estado === "otras_sucursales" ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm text-foreground">
-                    {`Faltan ${fmtCantidad(cobertura.faltanteActiva)} en ${
-                      cobertura.nombreActiva?.toLocaleUpperCase("es") ?? "la sucursal activa"
-                    }. Se puede completar así:`}
+              {cobertura ? (
+                <>
+                  <ModalMicroLabel align="center">CANT. SOLICITADA</ModalMicroLabel>
+                  <p className="text-sm font-bold tabular-nums text-foreground">
+                    {fmtCantidad(cobertura.cantidad)}
                   </p>
-                  <PlanAportes aportes={cobertura.aportes} />
+                </>
+              ) : null}
+            </div>
+          </section>
+
+          {mostrarMovimientos && cobertura ? (
+            <section className="modal-seccion-formulario flex flex-col gap-2">
+              <h3 className={SECCION_TITULO_CLASS}>MOVIMIENTOS</h3>
+              <p className="text-sm text-foreground">
+                <span className="font-semibold uppercase">Unidades a comprar: </span>
+                <span className="font-bold tabular-nums">{fmtCantidad(cobertura.faltanteTotal)}</span>
+              </p>
+              <p className="text-sm text-foreground">
+                <span className="font-semibold uppercase">Unidades a trasladar: </span>
+                <span className="font-bold tabular-nums">{fmtCantidad(unidadesTrasladar)}</span>
+              </p>
+              {cobertura.aportes.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold uppercase text-foreground">Traslados</p>
+                  {cobertura.aportes.map((a) => (
+                    <div
+                      key={a.codigo}
+                      className="flex items-center justify-between gap-3 text-sm text-foreground"
+                    >
+                      <span className="min-w-0 truncate uppercase">{a.nombre}</span>
+                      <span className="shrink-0 font-bold tabular-nums">{fmtCantidad(a.aTraer)}</span>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm text-foreground">
-                    {`Faltan ${fmtCantidad(cobertura.faltanteTotal)} unidades entre todas las sucursales.`}
-                  </p>
-                  {cobertura.aportes.length > 0 ? (
-                    <>
-                      <p className="text-sm text-foreground">
-                        Con lo disponible en otras sucursales se puede traer:
-                      </p>
-                      <PlanAportes aportes={cobertura.aportes} />
-                    </>
-                  ) : null}
-                </div>
-              )}
+              ) : null}
             </section>
           ) : null}
 
-          {activa ? (
-            <section className="flex flex-col gap-2">
-              <ModalMicroLabel>SUCURSAL ACTIVA</ModalMicroLabel>
+          <section className="modal-seccion-formulario flex flex-col gap-2">
+            <h3 className={SECCION_TITULO_CLASS}>STOCK</h3>
+            {activa ? (
               <div
                 className={cn(
                   "flex min-h-10 items-center justify-between gap-3 rounded-md border border-primary bg-primary/10 px-3"
@@ -155,13 +142,7 @@ export default function FacturaProductoStockModal({
                   {fmtCantidad(activa.stock)}
                 </span>
               </div>
-            </section>
-          ) : null}
-
-          <section className={cn("flex flex-col gap-2", activa && "border-t border-border pt-4")}>
-            <ModalMicroLabel>
-              {activa ? "OTRAS SUCURSALES" : "SUCURSALES"}
-            </ModalMicroLabel>
+            ) : null}
             <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
               <Table className="w-full table-fixed">
                 <TableHeader>

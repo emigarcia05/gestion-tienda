@@ -1549,6 +1549,7 @@ model ProdPropio {
   stockTransferenciaItems   StockTransferenciaItem[]
   componentes               ProdListaCompuesto[]           @relation("CompuestoComponentes")
   compuestosQueLoUsan       ProdListaCompuesto[]           @relation("ComponenteDeCompuestos")
+  descPromos                DescPromoItem[]
 
   @@index([competenciaIdPxListaGeneral], map: "prod_lista_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_lista_descripcion_idx")
@@ -1997,6 +1998,7 @@ model FinAnaCosFinaPagoCat {
   cuotaVinculos        CobrosCuotaVinculo[]
   cobrosPorSucursal    CobrosPorSucursal[]
   movimientosTesoreria TesoreriaMovimiento[]
+  descPromos           DescPromoFormaPago[]
 
   @@map("cobros_forma_pago")
 }
@@ -2015,6 +2017,64 @@ model CobrosFormaPagoEntidad {
   @@id([pagoId, entidadId], map: "cobros_forma_pago_entidades_pkey")
   @@index([entidadId], map: "cobros_forma_pago_entidades_entidad_id_idx")
   @@map("cobros_forma_pago_entidades")
+}
+
+/**
+ * Tipo de promoción de `desc_promo`. En pantalla: POR ITEM / POR FORMA PAGO.
+ */
+enum TipoDescPromo {
+  POR_ITEM
+  POR_FORMA_PAGO
+
+  @@map("desc_promo_tipo")
+}
+
+/**
+ * Descuento promocional (%). POR_ITEM → N productos `prod_lista`.
+ * POR_FORMA_PAGO → N formas `cobros_forma_pago`.
+ */
+model DescPromo {
+  id         String        @id @default(cuid())
+  tipo       TipoDescPromo
+  nombre     String
+  /**
+   * Porcentaje 0–100. Columna SQL `desc`.
+   */
+  descuento  Int           @map("desc")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  items      DescPromoItem[]
+  formasPago DescPromoFormaPago[]
+
+  @@index([tipo], map: "desc_promo_tipo_idx")
+  @@map("desc_promo")
+}
+
+/** N:M `desc_promo` (POR_ITEM) ↔ `prod_lista`. */
+model DescPromoItem {
+  promoId   String @map("promo_id")
+  codTienda String @map("cod_tienda")
+
+  promo    DescPromo  @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  producto ProdPropio @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
+
+  @@id([promoId, codTienda], map: "desc_promo_items_pkey")
+  @@index([codTienda], map: "desc_promo_items_cod_tienda_idx")
+  @@map("desc_promo_items")
+}
+
+/** N:M `desc_promo` (POR_FORMA_PAGO) ↔ `cobros_forma_pago`. */
+model DescPromoFormaPago {
+  promoId String @map("promo_id")
+  pagoId  String @map("pago_id")
+
+  promo DescPromo            @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  pago  FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@id([promoId, pagoId], map: "desc_promo_formas_pago_pkey")
+  @@index([pagoId], map: "desc_promo_formas_pago_pago_id_idx")
+  @@map("desc_promo_formas_pago")
 }
 
 /**

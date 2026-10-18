@@ -1,0 +1,78 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import {
+  requireDescPromosLectura,
+  requireEditorDescPromos,
+} from "@/lib/actionGates";
+import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
+import { DESC_PROMOS_PATH, type DescPromoFila } from "@/lib/descPromo";
+import type { ActionResult } from "@/lib/types";
+import {
+  crearDescPromoSchema,
+  editarDescPromoSchema,
+  eliminarDescPromoSchema,
+} from "@/lib/validations/descPromo";
+import {
+  crearDescPromo,
+  editarDescPromo,
+  eliminarDescPromo,
+  listarDescPromos,
+} from "@/services/descPromo.service";
+
+function revalidateDescPromos() {
+  revalidatePath(DESC_PROMOS_PATH);
+}
+
+export async function listarDescPromosAction(): Promise<ActionResult<DescPromoFila[]>> {
+  const gate = await requireDescPromosLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarDescPromos() };
+  } catch (e) {
+    console.error("[listarDescPromosAction]", e);
+    return { ok: false, error: "No se pudieron listar los descuentos." };
+  }
+}
+
+export async function crearDescPromoAction(
+  raw: unknown
+): Promise<ActionResult<DescPromoFila>> {
+  const gate = await requireEditorDescPromos();
+  if (gate) return gate;
+  const parsed = crearDescPromoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+  const result = fromServiceResult(await crearDescPromo(parsed.data));
+  if (result.ok) revalidateDescPromos();
+  return result;
+}
+
+export async function editarDescPromoAction(
+  raw: unknown
+): Promise<ActionResult<DescPromoFila>> {
+  const gate = await requireEditorDescPromos();
+  if (gate) return gate;
+  const parsed = editarDescPromoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+  const result = fromServiceResult(await editarDescPromo(parsed.data));
+  if (result.ok) revalidateDescPromos();
+  return result;
+}
+
+export async function eliminarDescPromoAction(
+  raw: unknown
+): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorDescPromos();
+  if (gate) return gate;
+  const parsed = eliminarDescPromoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+  const result = fromServiceResult(await eliminarDescPromo(parsed.data.id));
+  if (result.ok) revalidateDescPromos();
+  return result;
+}
