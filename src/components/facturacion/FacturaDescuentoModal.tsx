@@ -9,7 +9,7 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import {
-  etiquetaReglaDescPromoFactura,
+  etiquetasCuerpoPromoFormaPagoFactura,
   tituloFormasPagoDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
@@ -107,6 +107,7 @@ function estadoInicial(
 
 function reglasPromoParaEstado(promo: DescPromoFila): FacturaDescuentoPromoRegla[] {
   return promo.reglas.map((regla) => ({
+    idMarca: regla.idMarca,
     idRubro: regla.idRubro,
     idSubRubro: regla.idSubRubro,
     descuento: regla.descuento,
@@ -170,7 +171,7 @@ export default function FacturaDescuentoModal({
       }
       onAplicar({
         fuente: "promo_forma_pago",
-        porcentaje: 0,
+        porcentaje: promo.descuento ?? 0,
         totalFacObjetivo: null,
         promoId: promo.id,
         promoReglas: reglasPromoParaEstado(promo),
@@ -289,14 +290,16 @@ export default function FacturaDescuentoModal({
                       {tituloFormasPagoDescPromo(promo)}
                     </span>
                     <span className="flex w-full flex-col gap-0.5">
-                      {promo.reglas.map((regla) => (
-                        <span
-                          key={regla.id}
-                          className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
-                        >
-                          {etiquetaReglaDescPromoFactura(regla)}
-                        </span>
-                      ))}
+                      {etiquetasCuerpoPromoFormaPagoFactura(promo).map(
+                        (texto, i) => (
+                          <span
+                            key={`${promo.id}-${i}`}
+                            className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
+                          >
+                            {texto}
+                          </span>
+                        )
+                      )}
                     </span>
                   </Button>
                 </div>

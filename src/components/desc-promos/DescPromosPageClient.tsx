@@ -45,7 +45,7 @@ import {
   textoVinculosDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
-import type { RubroCatalogoItem } from "@/lib/listaProductos";
+import type { MarcaCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
 import { fmtCelda } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -61,6 +61,7 @@ interface Props {
   productos: DescPromoOpcionProductoUi[];
   pagos: DescPromoOpcionPago[];
   rubros: RubroCatalogoItem[];
+  marcas: MarcaCatalogoItem[];
   esEditor: boolean;
 }
 
@@ -69,6 +70,7 @@ export default function DescPromosPageClient({
   productos,
   pagos,
   rubros,
+  marcas,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -282,6 +284,7 @@ export default function DescPromosPageClient({
         productos={productos}
         pagos={pagos}
         rubros={rubros}
+        marcas={marcas}
         onOpenChange={(open) => {
           if (!open) {
             setItemEditar(null);

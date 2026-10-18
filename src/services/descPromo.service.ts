@@ -26,12 +26,18 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
     },
   },
   reglas: {
-    orderBy: [{ rubro: { nombre: "asc" } }, { subRubro: { nombre: "asc" } }],
+    orderBy: [
+      { marca: { nombre: "asc" } },
+      { rubro: { nombre: "asc" } },
+      { subRubro: { nombre: "asc" } },
+    ],
     select: {
       id: true,
+      idMarca: true,
       idRubro: true,
       idSubRubro: true,
       descuento: true,
+      marca: { select: { nombre: true } },
       rubro: { select: { nombre: true } },
       subRubro: { select: { nombre: true } },
     },
@@ -57,8 +63,14 @@ function mapPromo(row: PromoRow): DescPromoFila {
     })),
     reglas: row.reglas.map((regla) => ({
       id: regla.id,
+      idMarca: regla.idMarca,
+      marcaNombre: regla.marca
+        ? regla.marca.nombre.toLocaleUpperCase("es-AR")
+        : null,
       idRubro: regla.idRubro,
-      rubroNombre: regla.rubro.nombre.toLocaleUpperCase("es-AR"),
+      rubroNombre: regla.rubro
+        ? regla.rubro.nombre.toLocaleUpperCase("es-AR")
+        : null,
       idSubRubro: regla.idSubRubro,
       subRubroNombre: regla.subRubro
         ? regla.subRubro.nombre.toLocaleUpperCase("es-AR")
@@ -80,8 +92,8 @@ function mapDbError(error: unknown, fallback: string): string {
     typeof (error as { code?: unknown }).code === "string"
   ) {
     const code = (error as { code: string }).code;
-    if (code === "P2002") return "Hay reglas duplicadas de rubro y sub-rubro.";
-    if (code === "P2003") return "Hay un producto, forma de pago o rubro inválido.";
+    if (code === "P2002") return "Hay excepciones duplicadas.";
+    if (code === "P2003") return "Hay un producto, forma de pago, marca o rubro inválido.";
     if (code === "P2025") return "La promoción no existe.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -110,19 +122,35 @@ async function validarVinculos(input: InputVinculos): Promise<ServiceResult<void
     return { success: false, error: "Hay formas de pago que ya no existen." };
   }
 
-  const rubroIds = [...new Set(input.reglas.map((r) => r.idRubro))];
-  const nRubros = await prisma.prodRubro.count({
-    where: { id: { in: rubroIds } },
-  });
-  if (nRubros !== rubroIds.length) {
-    return { success: false, error: "Hay rubros que ya no existen." };
+  const marcaIds = [...new Set(input.reglas.map((r) => r.idMarca).filter((id): id is string => Boolean(id)))];
+  if (marcaIds.length > 0) {
+    const nMarcas = await prisma.marca.count({
+      where: { id: { in: marcaIds } },
+    });
+    if (nMarcas !== marcaIds.length) {
+      return { success: false, error: "Hay marcas que ya no existen." };
+    }
+  }
+
+  const rubroIds = [...new Set(input.reglas.map((r) => r.idRubro).filter((id): id is string => Boolean(id)))];
+  if (rubroIds.length > 0) {
+    const nRubros = await prisma.prodRubro.count({
+      where: { id: { in: rubroIds } },
+    });
+    if (nRubros !== rubroIds.length) {
+      return { success: false, error: "Hay rubros que ya no existen." };
+    }
   }
 
   for (const regla of input.reglas) {
     const idSubRubro = regla.idSubRubro ?? null;
+    const idRubro = regla.idRubro ?? null;
     if (!idSubRubro) continue;
+    if (!idRubro) {
+      return { success: false, error: "El sub-rubro requiere un rubro." };
+    }
     const sub = await prisma.prodSubRubro.findUnique({
-      where: { id_idRubro: { id: idSubRubro, idRubro: regla.idRubro } },
+      where: { id_idRubro: { id: idSubRubro, idRubro } },
       select: { id: true },
     });
     if (!sub) {
@@ -142,7 +170,8 @@ function dataVinculos(input: InputVinculos) {
     formasPago: { create: input.pagoIds.map((pagoId) => ({ pagoId })) },
     reglas: {
       create: input.reglas.map((regla) => ({
-        idRubro: regla.idRubro,
+        idMarca: regla.idMarca ?? null,
+        idRubro: regla.idRubro ?? null,
         idSubRubro: regla.idSubRubro ?? null,
         descuento: regla.descuento,
       })),
@@ -215,7 +244,7 @@ export async function crearDescPromo(
       data: {
         tipo: input.tipo,
         nombre,
-        descuento: input.tipo === "POR_ITEM" ? input.descuento : null,
+        descuento: input.descuento,
         ...dataVinculos(input),
       },
       include: promoInclude,
@@ -252,7 +281,7 @@ export async function editarDescPromo(
       data: {
         tipo: input.tipo,
         nombre,
-        descuento: input.tipo === "POR_ITEM" ? input.descuento : null,
+        descuento: input.descuento,
         ...dataVinculos(input),
       },
       include: promoInclude,

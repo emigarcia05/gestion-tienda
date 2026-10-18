@@ -12,6 +12,7 @@ import {
   addDaysToIsoYmdArgentina,
   diffCalendarDaysIsoYmdArgentina,
 } from "@/lib/fechaArgentina";
+import { descuentoPctDesdeReglasPromo as pctDesdeExcepcionesDescPromo } from "@/lib/descPromo";
 
 export const FACTURA_TIPOS = [
   "presupuesto",
@@ -869,6 +870,8 @@ export type FacturaLineaLocal = {
   codColor: string | null;
   /** Marca del COD. COLOR (puede diferir de la marca del producto). */
   codColorIdMarca: string | null;
+  /** FK `prod_lista.id_marca` para excepciones de `desc_promo_reglas`. */
+  idMarca: string | null;
   /** FK `prod_lista.id_rubro`; null si el ítem no tiene rubro (p. ej. duplicado sin match). */
   idRubro: string | null;
   /** FK `prod_lista.id_sub_rubro`; null = sin sub-rubro. */
@@ -877,7 +880,8 @@ export type FacturaLineaLocal = {
 
 /** Regla de `desc_promo_reglas` usada al aplicar un desc. POR FORMA DE PAGO. */
 export type FacturaDescuentoPromoRegla = {
-  idRubro: string;
+  idMarca: string | null;
+  idRubro: string | null;
   idSubRubro: string | null;
   descuento: number;
 };
@@ -886,11 +890,11 @@ export type FacturaDescuentoPromoRegla = {
  * Descuento de comprobante (Crear, estado local).
  * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
- * - `promo_forma_pago`: % por línea según `desc_promo_reglas` (rubro / sub-rubro).
+ * - `promo_forma_pago`: % por línea según excepciones (marca/rubro/sub) o el general.
  */
 export type FacturaDescuentoEstado = {
   fuente: "porcentaje" | "total_fac" | "promo_forma_pago";
-  /** 0–100; en `promo_forma_pago` queda 0 (el % vive en `descuentoPctEspecial`). */
+  /** 0–100; en `promo_forma_pago` es el % general del header. */
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
@@ -1065,34 +1069,29 @@ export function totalFacDesdeDescuentoPct(
 }
 
 /**
- * % de una promo POR FORMA DE PAGO para un ítem: gana el sub-rubro exacto;
- * si no hay, la regla del rubro con sub nulo (todos); si no hay match, 0.
+ * % de una promo POR FORMA DE PAGO: excepción más específica, o el % general.
  */
 export function descuentoPctDesdeReglasPromo(
   reglas: readonly FacturaDescuentoPromoRegla[],
-  idRubro: string | null,
-  idSubRubro: string | null
+  item: Pick<FacturaLineaLocal, "idMarca" | "idRubro" | "idSubRubro">,
+  generalPct: number
 ): number {
-  if (!idRubro) return 0;
-  const exacta = reglas.find(
-    (r) => r.idRubro === idRubro && r.idSubRubro != null && r.idSubRubro === idSubRubro
+  return clampDescuentoPct(
+    pctDesdeExcepcionesDescPromo(reglas, item, generalPct)
   );
-  if (exacta) return clampDescuentoPct(exacta.descuento);
-  const todos = reglas.find((r) => r.idRubro === idRubro && r.idSubRubro == null);
-  if (todos) return clampDescuentoPct(todos.descuento);
-  return 0;
 }
 
 export function aplicarPromoFormaPagoALineas(
   lineas: readonly FacturaLineaLocal[],
-  reglas: readonly FacturaDescuentoPromoRegla[]
+  reglas: readonly FacturaDescuentoPromoRegla[],
+  generalPct: number
 ): FacturaLineaLocal[] {
   return lineas.map((l) => ({
     ...l,
     descuentoPctEspecial: descuentoPctDesdeReglasPromo(
       reglas,
-      l.idRubro,
-      l.idSubRubro
+      { idMarca: l.idMarca, idRubro: l.idRubro, idSubRubro: l.idSubRubro },
+      generalPct
     ),
   }));
 }
@@ -1161,14 +1160,14 @@ export function cobrosViolanPromoFormaPago(
 /**
  * Al agregar una línea:
  * - `porcentaje`: hereda el % global (`descuentoPctEspecial = null`).
- * - `promo_forma_pago`: % de las reglas por rubro/sub-rubro del ítem.
+ * - `promo_forma_pago`: % de excepciones (marca/rubro/sub) o el general del header.
  * - `total_fac`: congela el DESC. % PROMEDIO actual como global `porcentaje`
  *   (deja de perseguir el objetivo al crecer el remito); la línea nueva hereda ese %.
  */
 export function prepararDescuentoAlAgregarLinea(
   lineas: readonly FacturaLineaLocal[],
   descuento: FacturaDescuentoEstado | null,
-  lineaNueva?: Pick<FacturaLineaLocal, "idRubro" | "idSubRubro">
+  lineaNueva?: Pick<FacturaLineaLocal, "idMarca" | "idRubro" | "idSubRubro">
 ): {
   descuentoPctEspecial: number | null;
   descuentoSiguiente: FacturaDescuentoEstado | null;
@@ -1180,8 +1179,12 @@ export function prepararDescuentoAlAgregarLinea(
     return {
       descuentoPctEspecial: descuentoPctDesdeReglasPromo(
         descuento.promoReglas ?? [],
-        lineaNueva?.idRubro ?? null,
-        lineaNueva?.idSubRubro ?? null
+        {
+          idMarca: lineaNueva?.idMarca ?? null,
+          idRubro: lineaNueva?.idRubro ?? null,
+          idSubRubro: lineaNueva?.idSubRubro ?? null,
+        },
+        descuento.porcentaje
       ),
       descuentoSiguiente: descuento,
     };

@@ -1406,6 +1406,7 @@ model Marca {
   prodTiendas                   ProdPropio[]
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
+  descPromoReglas               DescPromoRegla[]
   codColorVtasItems             ComprobanteVtaItem[]
   codColorPedidosMerc           ProdPedMerc2[]
   codColorPedidosHistoriaItems  PedidoHistoriaItem[]
@@ -2040,7 +2041,7 @@ model DescPromo {
   tipo       TipoDescPromo
   nombre     String
   /**
-   * Porcentaje 0–100. Columna SQL `desc`. Obligatorio en POR_ITEM; null en POR_FORMA_PAGO.
+   * Porcentaje 0–100. Columna SQL `desc`. Obligatorio en POR_ITEM y POR_FORMA_PAGO (regla general).
    */
   descuento  Int?          @map("desc")
   createdAt  DateTime      @default(now()) @map("created_at")
@@ -2081,21 +2082,25 @@ model DescPromoFormaPago {
 }
 
 /**
- * % por rubro / sub-rubro de un descuento POR_FORMA_PAGO.
- * `id_sub_rubro` null = todos los sub-rubros de ese rubro.
+ * Excepción de un descuento POR_FORMA_PAGO sobre la regla general (`desc_promo.desc`).
+ * Ejes nulos = todos. Al menos marca o rubro. `id_sub_rubro` exige `id_rubro`.
+ * Gana la fila más específica; el cruce mismo nivel lo define el usuario al guardar.
  */
 model DescPromoRegla {
   id         String  @id @default(cuid())
   promoId    String  @map("promo_id")
-  idRubro    String  @map("id_rubro")
+  idMarca    String? @map("id_marca")
+  idRubro    String? @map("id_rubro")
   idSubRubro String? @map("id_sub_rubro")
   descuento  Int     @map("desc")
 
   promo    DescPromo     @relation(fields: [promoId], references: [id], onDelete: Cascade)
-  rubro    ProdRubro     @relation(fields: [idRubro], references: [id], onDelete: Restrict)
+  marca    Marca?        @relation(fields: [idMarca], references: [id], onDelete: Restrict)
+  rubro    ProdRubro?    @relation(fields: [idRubro], references: [id], onDelete: Restrict)
   subRubro ProdSubRubro? @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)
 
   @@index([promoId], map: "desc_promo_reglas_promo_id_idx")
+  @@index([idMarca], map: "desc_promo_reglas_id_marca_idx")
   @@index([idRubro], map: "desc_promo_reglas_id_rubro_idx")
   @@map("desc_promo_reglas")
 }

@@ -569,6 +569,7 @@ export async function obtenerFacturaComprobantePdfDatos(
       comentario: l.comentario,
       codColor: l.codColor,
       codColorIdMarca: l.codColorIdMarca,
+      idMarca: null,
       idRubro: null,
       idSubRubro: null,
     }));
@@ -642,6 +643,7 @@ export async function obtenerBorradorDuplicarComprobante(
         comentario: l.comentario,
         codColor: l.codColor,
         codColorIdMarca: l.codColorIdMarca,
+        idMarca: rubro?.idMarca ?? null,
         idRubro: rubro?.idRubro ?? null,
         idSubRubro: rubro?.idSubRubro ?? null,
       };
@@ -709,6 +711,7 @@ export async function obtenerBorradorNotaCreditoComprobante(
         comentario: l.comentario,
         codColor: l.codColor,
         codColorIdMarca: l.codColorIdMarca,
+        idMarca: rubro?.idMarca ?? null,
         idRubro: rubro?.idRubro ?? null,
         idSubRubro: rubro?.idSubRubro ?? null,
       };
@@ -955,6 +958,7 @@ function calcularLineas(
     comentario: l.comentario ?? "",
     codColor: codColores[i]?.codColor ?? null,
     codColorIdMarca: codColores[i]?.codColorIdMarca ?? null,
+    idMarca: null,
     idRubro: null,
     idSubRubro: null,
   }));
@@ -1286,6 +1290,7 @@ export async function emitirFacturaComprobante(
       comentario: l.comentario ?? "",
       codColor: codColorRes.data[i]?.codColor ?? null,
       codColorIdMarca: codColorRes.data[i]?.codColorIdMarca ?? null,
+      idMarca: null,
       idRubro: null,
       idSubRubro: null,
     })),

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { TIPOS_DESC_PROMO } from "@/lib/descPromo";
+import {
+  claveReglaDescPromo,
+  reglaDescPromoTieneEje,
+  TIPOS_DESC_PROMO,
+} from "@/lib/descPromo";
 import {
   listaPreciosCodTiendaSchema,
   prismaCuidOrUuidSchema,
@@ -26,11 +30,31 @@ function idsUnicos(mensaje: string) {
   };
 }
 
-const reglaDescPromoSchema = z.object({
-  idRubro: prismaCuidOrUuidSchema,
-  idSubRubro: prismaIdOptionalNullableSchema,
-  descuento: descuentoDescPromoSchema,
-});
+const reglaDescPromoSchema = z
+  .object({
+    idMarca: prismaIdOptionalNullableSchema,
+    idRubro: prismaIdOptionalNullableSchema,
+    idSubRubro: prismaIdOptionalNullableSchema,
+    descuento: descuentoDescPromoSchema,
+  })
+  .superRefine((regla, ctx) => {
+    if (!reglaDescPromoTieneEje({
+      idMarca: regla.idMarca ?? null,
+      idRubro: regla.idRubro ?? null,
+      idSubRubro: regla.idSubRubro ?? null,
+    })) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Cada excepción necesita marca o rubro.",
+      });
+    }
+    if (regla.idSubRubro && !regla.idRubro) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El sub-rubro requiere un rubro.",
+      });
+    }
+  });
 
 const camposDescPromoSchema = z.object({
   tipo: z.enum(TIPOS_DESC_PROMO),
@@ -45,25 +69,21 @@ const camposDescPromoSchema = z.object({
   reglas: z.array(reglaDescPromoSchema),
 });
 
-function claveRegla(regla: { idRubro: string; idSubRubro?: string | null }) {
-  return `${regla.idRubro}::${regla.idSubRubro ?? ""}`;
-}
-
 function refineTipoVinculos(
-  data: {
-    tipo: string;
-    descuento: number | null;
-    codTiendas: string[];
-    pagoIds: string[];
-    reglas: { idRubro: string; idSubRubro?: string | null; descuento: number }[];
-  },
+  data: z.infer<typeof camposDescPromoSchema>,
   ctx: z.RefinementCtx
 ) {
-  const claves = data.reglas.map(claveRegla);
+  const claves = data.reglas.map((regla) =>
+    claveReglaDescPromo({
+      idMarca: regla.idMarca ?? null,
+      idRubro: regla.idRubro ?? null,
+      idSubRubro: regla.idSubRubro ?? null,
+    })
+  );
   if (new Set(claves).size !== claves.length) {
     ctx.addIssue({
       code: "custom",
-      message: "Hay reglas duplicadas de rubro y sub-rubro.",
+      message: "Hay excepciones duplicadas.",
     });
   }
 
@@ -83,17 +103,14 @@ function refineTipoVinculos(
     if (data.reglas.length > 0) {
       ctx.addIssue({
         code: "custom",
-        message: "Una promo POR ITEM no puede tener reglas por rubro.",
+        message: "Una promo POR ITEM no puede tener excepciones.",
       });
     }
     return;
   }
 
-  if (data.descuento != null) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Una promo POR FORMA PAGO no usa un descuento único.",
-    });
+  if (data.descuento == null) {
+    ctx.addIssue({ code: "custom", message: "Ingresá el descuento general." });
   }
   if (data.pagoIds.length === 0) {
     ctx.addIssue({ code: "custom", message: "Elegí al menos una forma de pago." });
@@ -102,12 +119,6 @@ function refineTipoVinculos(
     ctx.addIssue({
       code: "custom",
       message: "Una promo POR FORMA PAGO no puede tener productos.",
-    });
-  }
-  if (data.reglas.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Agregá al menos un descuento por rubro.",
     });
   }
 }

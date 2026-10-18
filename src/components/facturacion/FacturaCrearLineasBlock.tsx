@@ -316,6 +316,7 @@ export default function FacturaCrearLineasBlock({
     pendingScrollAlFinalRef.current = true;
     const { descuentoPctEspecial, descuentoSiguiente } =
       prepararDescuentoAlAgregarLinea(lineas, descuento, {
+        idMarca: item.idMarca,
         idRubro: item.idRubro,
         idSubRubro: item.idSubRubro,
       });
@@ -334,6 +335,7 @@ export default function FacturaCrearLineasBlock({
         comentario: "",
         codColor: tintometrico?.codColor ?? null,
         codColorIdMarca: tintometrico?.codColorIdMarca ?? null,
+        idMarca: item.idMarca,
         idRubro: item.idRubro,
         idSubRubro: item.idSubRubro,
       },
@@ -424,7 +426,11 @@ export default function FacturaCrearLineasBlock({
   function aplicarDescuentoDesdeModal(next: FacturaDescuentoEstado | null) {
     if (next?.fuente === "promo_forma_pago") {
       setLineas((prev) =>
-        aplicarPromoFormaPagoALineas(prev, next.promoReglas ?? [])
+        aplicarPromoFormaPagoALineas(
+          prev,
+          next.promoReglas ?? [],
+          next.porcentaje
+        )
       );
       setDescuento(next);
       return;
@@ -730,6 +736,7 @@ export default function FacturaCrearLineasBlock({
                                     )?.stock ?? 0,
                                   stockPorSucursal: filasStock,
                                   tintometrico: null,
+                                  idMarca: linea.idMarca,
                                   idRubro: linea.idRubro,
                                   idSubRubro: linea.idSubRubro,
                                 });

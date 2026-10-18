@@ -32,6 +32,8 @@ export interface ProductoFacturaBusquedaItem {
    * `null` = producto común.
    */
   tintometrico: { idMarca: string | null } | null;
+  /** FK `prod_lista.id_marca` para excepciones de `desc_promo_reglas`. */
+  idMarca: string | null;
   /** FK `prod_lista.id_rubro` para resolver `desc_promo_reglas`. */
   idRubro: string | null;
   /** FK `prod_lista.id_sub_rubro`. */
@@ -165,6 +167,7 @@ export async function buscarProductosParaFactura(params: {
         tintometrico: esRubroTintometrico(r.rubroRelation?.nombre)
           ? { idMarca: r.idMarca }
           : null,
+        idMarca: r.idMarca,
         idRubro: r.idRubro,
         idSubRubro: r.idSubRubro,
       };
@@ -213,19 +216,31 @@ export async function listarStockSucursalesItemsFactura(
   }
 }
 
-/** Rubro / sub-rubro actuales de `prod_lista` para aplicar promos al duplicar o NC. */
+/** Marca / rubro / sub-rubro actuales de `prod_lista` para aplicar promos al duplicar o NC. */
 export async function rubrosPorCodigosTienda(
   codigos: readonly string[]
-): Promise<Map<string, { idRubro: string | null; idSubRubro: string | null }>> {
+): Promise<
+  Map<
+    string,
+    { idMarca: string | null; idRubro: string | null; idSubRubro: string | null }
+  >
+> {
   const unicos = [...new Set(codigos.map((c) => c.trim()).filter(Boolean))];
-  const out = new Map<string, { idRubro: string | null; idSubRubro: string | null }>();
+  const out = new Map<
+    string,
+    { idMarca: string | null; idRubro: string | null; idSubRubro: string | null }
+  >();
   if (unicos.length === 0) return out;
   const rows = await prisma.prodPropio.findMany({
     where: { codTienda: { in: unicos } },
-    select: { codTienda: true, idRubro: true, idSubRubro: true },
+    select: { codTienda: true, idMarca: true, idRubro: true, idSubRubro: true },
   });
   for (const r of rows) {
-    out.set(r.codTienda, { idRubro: r.idRubro, idSubRubro: r.idSubRubro });
+    out.set(r.codTienda, {
+      idMarca: r.idMarca,
+      idRubro: r.idRubro,
+      idSubRubro: r.idSubRubro,
+    });
   }
   return out;
 }
