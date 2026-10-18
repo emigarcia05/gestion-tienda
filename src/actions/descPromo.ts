@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   requireDescPromosLectura,
   requireEditorDescPromos,
+  requireFacturacionLectura,
 } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { DESC_PROMOS_PATH, type DescPromoFila } from "@/lib/descPromo";
@@ -18,6 +19,7 @@ import {
   editarDescPromo,
   eliminarDescPromo,
   listarDescPromos,
+  listarDescPromosPorFormaPago,
 } from "@/services/descPromo.service";
 
 function revalidateDescPromos() {
@@ -32,6 +34,19 @@ export async function listarDescPromosAction(): Promise<ActionResult<DescPromoFi
   } catch (e) {
     console.error("[listarDescPromosAction]", e);
     return { ok: false, error: "No se pudieron listar los descuentos." };
+  }
+}
+
+export async function listarDescPromosFormaPagoFacturaAction(): Promise<
+  ActionResult<DescPromoFila[]>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarDescPromosPorFormaPago() };
+  } catch (e) {
+    console.error("[listarDescPromosFormaPagoFacturaAction]", e);
+    return { ok: false, error: "No se pudieron listar los descuentos por forma de pago." };
   }
 }
 

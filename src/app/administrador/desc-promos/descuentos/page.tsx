@@ -8,6 +8,7 @@ import {
   listarDescPromos,
   listarOpcionesProductoDescPromo,
 } from "@/services/descPromo.service";
+import { listarRubrosCatalogo } from "@/services/listaProductos.service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,11 @@ export default async function DescPromosDescuentosPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [items, productos, pagosCat] = await Promise.all([
+  const [items, productos, pagosCat, rubros] = await Promise.all([
     listarDescPromos(),
     listarOpcionesProductoDescPromo(),
     listarFinAnaCosFinaPagos(),
+    listarRubrosCatalogo(),
   ]);
 
   const pagos = pagosCat.map((pago) => ({
@@ -34,6 +36,7 @@ export default async function DescPromosDescuentosPage() {
         items={items}
         productos={productos}
         pagos={pagos}
+        rubros={rubros}
         esEditor={rol === "editor"}
       />
     </div>

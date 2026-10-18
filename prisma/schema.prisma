@@ -247,6 +247,7 @@ model ProdRubro {
 
   reglasDescuentos   ProdPrecioProveeRegla[]
   reglasDescEspecial ProdPrecioDescEspecialRegla[]
+  descPromoReglas    DescPromoRegla[]
   subRubros          ProdSubRubro[]
   prodPropios        ProdPropio[]
 
@@ -264,8 +265,9 @@ model ProdSubRubro {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  rubro       ProdRubro    @relation(fields: [idRubro], references: [id], onDelete: Cascade)
-  prodPropios ProdPropio[]
+  rubro           ProdRubro       @relation(fields: [idRubro], references: [id], onDelete: Cascade)
+  prodPropios     ProdPropio[]
+  descPromoReglas DescPromoRegla[]
 
   @@unique([idRubro, nombre], map: "prod_sub_rubros_id_rubro_nombre_key")
   @@unique([id, idRubro], map: "prod_sub_rubros_id_id_rubro_key")
@@ -2030,22 +2032,23 @@ enum TipoDescPromo {
 }
 
 /**
- * Descuento promocional (%). POR_ITEM → N productos `prod_lista`.
- * POR_FORMA_PAGO → N formas `cobros_forma_pago`.
+ * Descuento promocional (%). POR_ITEM → N productos `prod_lista` + `desc` en cabecera.
+ * POR_FORMA_PAGO → N formas `cobros_forma_pago` + reglas `desc_promo_reglas` (rubro / sub-rubro / %).
  */
 model DescPromo {
   id         String        @id @default(cuid())
   tipo       TipoDescPromo
   nombre     String
   /**
-   * Porcentaje 0–100. Columna SQL `desc`.
+   * Porcentaje 0–100. Columna SQL `desc`. Obligatorio en POR_ITEM; null en POR_FORMA_PAGO.
    */
-  descuento  Int           @map("desc")
+  descuento  Int?          @map("desc")
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
 
   items      DescPromoItem[]
   formasPago DescPromoFormaPago[]
+  reglas     DescPromoRegla[]
 
   @@index([tipo], map: "desc_promo_tipo_idx")
   @@map("desc_promo")
@@ -2075,6 +2078,26 @@ model DescPromoFormaPago {
   @@id([promoId, pagoId], map: "desc_promo_formas_pago_pkey")
   @@index([pagoId], map: "desc_promo_formas_pago_pago_id_idx")
   @@map("desc_promo_formas_pago")
+}
+
+/**
+ * % por rubro / sub-rubro de un descuento POR_FORMA_PAGO.
+ * `id_sub_rubro` null = todos los sub-rubros de ese rubro.
+ */
+model DescPromoRegla {
+  id         String  @id @default(cuid())
+  promoId    String  @map("promo_id")
+  idRubro    String  @map("id_rubro")
+  idSubRubro String? @map("id_sub_rubro")
+  descuento  Int     @map("desc")
+
+  promo    DescPromo     @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  rubro    ProdRubro     @relation(fields: [idRubro], references: [id], onDelete: Restrict)
+  subRubro ProdSubRubro? @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)
+
+  @@index([promoId], map: "desc_promo_reglas_promo_id_idx")
+  @@index([idRubro], map: "desc_promo_reglas_id_rubro_idx")
+  @@map("desc_promo_reglas")
 }
 
 /**

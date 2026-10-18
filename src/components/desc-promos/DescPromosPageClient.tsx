@@ -41,9 +41,11 @@ import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   ETIQUETA_TIPO_DESC_PROMO,
   TIPOS_DESC_PROMO,
+  textoDescuentosDescPromo,
   textoVinculosDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
+import type { RubroCatalogoItem } from "@/lib/listaProductos";
 import { fmtCelda } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -58,6 +60,7 @@ interface Props {
   items: DescPromoFila[];
   productos: DescPromoOpcionProductoUi[];
   pagos: DescPromoOpcionPago[];
+  rubros: RubroCatalogoItem[];
   esEditor: boolean;
 }
 
@@ -65,6 +68,7 @@ export default function DescPromosPageClient({
   items,
   productos,
   pagos,
+  rubros,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -88,7 +92,7 @@ export default function DescPromosPageClient({
         [
           item.nombre,
           item.tipoEtiqueta,
-          String(item.descuento),
+          textoDescuentosDescPromo(item),
           textoVinculosDescPromo(item),
         ],
         qDebounced
@@ -212,6 +216,7 @@ export default function DescPromosPageClient({
               ) : (
                 itemsFiltrados.map((item) => {
                   const vinculos = textoVinculosDescPromo(item);
+                  const descuentos = textoDescuentosDescPromo(item);
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="celda-datos font-medium uppercase">
@@ -220,8 +225,11 @@ export default function DescPromosPageClient({
                       <TableCell className="celda-datos text-center">
                         {item.tipoEtiqueta}
                       </TableCell>
-                      <TableCell className="celda-datos text-center tabular-nums">
-                        {`${item.descuento} %`}
+                      <TableCell
+                        className="celda-datos truncate text-center tabular-nums"
+                        title={descuentos}
+                      >
+                        {fmtCelda(descuentos)}
                       </TableCell>
                       <TableCell className="celda-datos truncate" title={vinculos}>
                         {fmtCelda(vinculos)}
@@ -273,6 +281,7 @@ export default function DescPromosPageClient({
         item={openCrear ? null : itemEditar}
         productos={productos}
         pagos={pagos}
+        rubros={rubros}
         onOpenChange={(open) => {
           if (!open) {
             setItemEditar(null);

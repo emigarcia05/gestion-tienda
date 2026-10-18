@@ -869,19 +869,39 @@ export type FacturaLineaLocal = {
   codColor: string | null;
   /** Marca del COD. COLOR (puede diferir de la marca del producto). */
   codColorIdMarca: string | null;
+  /** FK `prod_lista.id_rubro`; null si el ítem no tiene rubro (p. ej. duplicado sin match). */
+  idRubro: string | null;
+  /** FK `prod_lista.id_sub_rubro`; null = sin sub-rubro. */
+  idSubRubro: string | null;
+};
+
+/** Regla de `desc_promo_reglas` usada al aplicar un desc. POR FORMA DE PAGO. */
+export type FacturaDescuentoPromoRegla = {
+  idRubro: string;
+  idSubRubro: string | null;
+  descuento: number;
 };
 
 /**
  * Descuento de comprobante (Crear, estado local).
  * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
+ * - `promo_forma_pago`: % por línea según `desc_promo_reglas` (rubro / sub-rubro).
  */
 export type FacturaDescuentoEstado = {
-  fuente: "porcentaje" | "total_fac";
-  /** 0–100 */
+  fuente: "porcentaje" | "total_fac" | "promo_forma_pago";
+  /** 0–100; en `promo_forma_pago` queda 0 (el % vive en `descuentoPctEspecial`). */
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
+  /** Id de `desc_promo` si `fuente === "promo_forma_pago"`. */
+  promoId?: string | null;
+  /** Snapshot de reglas al aplicar la promo. */
+  promoReglas?: FacturaDescuentoPromoRegla[];
+  /** Formas de `desc_promo_formas_pago` (ids) que admite el cobro. */
+  promoPagoIds?: string[];
+  /** Nombres MAYÚSCULAS de esas formas (validación al emitir). */
+  promoPagoNombres?: string[];
 };
 
 /** Borrador para Duplicar → Crear (sin nro/CAE; la fecha de Crear es hoy AR). */
@@ -942,6 +962,7 @@ export function porcentajeDescuentoGlobal(
   descuento: FacturaDescuentoEstado | null
 ): number {
   if (descuento == null) return 0;
+  if (descuento.fuente === "promo_forma_pago") return 0;
   if (descuento.fuente === "porcentaje") {
     return clampDescuentoPct(descuento.porcentaje);
   }
@@ -1044,20 +1065,126 @@ export function totalFacDesdeDescuentoPct(
 }
 
 /**
+ * % de una promo POR FORMA DE PAGO para un ítem: gana el sub-rubro exacto;
+ * si no hay, la regla del rubro con sub nulo (todos); si no hay match, 0.
+ */
+export function descuentoPctDesdeReglasPromo(
+  reglas: readonly FacturaDescuentoPromoRegla[],
+  idRubro: string | null,
+  idSubRubro: string | null
+): number {
+  if (!idRubro) return 0;
+  const exacta = reglas.find(
+    (r) => r.idRubro === idRubro && r.idSubRubro != null && r.idSubRubro === idSubRubro
+  );
+  if (exacta) return clampDescuentoPct(exacta.descuento);
+  const todos = reglas.find((r) => r.idRubro === idRubro && r.idSubRubro == null);
+  if (todos) return clampDescuentoPct(todos.descuento);
+  return 0;
+}
+
+export function aplicarPromoFormaPagoALineas(
+  lineas: readonly FacturaLineaLocal[],
+  reglas: readonly FacturaDescuentoPromoRegla[]
+): FacturaLineaLocal[] {
+  return lineas.map((l) => ({
+    ...l,
+    descuentoPctEspecial: descuentoPctDesdeReglasPromo(
+      reglas,
+      l.idRubro,
+      l.idSubRubro
+    ),
+  }));
+}
+
+/** Payload de emitir: la promo se persiste como % por línea + `fuente` porcentaje. */
+export function descuentoEstadoParaEmitir(
+  lineas: readonly FacturaLineaLocal[],
+  descuento: FacturaDescuentoEstado | null
+): FacturaDescuentoEstado | null {
+  if (descuento == null) return null;
+  if (descuento.fuente !== "promo_forma_pago") {
+    return {
+      fuente: descuento.fuente,
+      porcentaje: descuento.porcentaje,
+      totalFacObjetivo: descuento.totalFacObjetivo,
+    };
+  }
+  const resumen = resumenTotalesFactura(lineas, descuento);
+  if (!resumen.hayDescuento) return null;
+  return {
+    fuente: "porcentaje",
+    porcentaje: resumen.descPctPromedio,
+    totalFacObjetivo: null,
+    promoPagoIds: descuento.promoPagoIds,
+    promoPagoNombres: descuento.promoPagoNombres,
+  };
+}
+
+export function nombresPagoPromoFormaPago(
+  descuento: FacturaDescuentoEstado | null
+): string[] {
+  return (descuento?.promoPagoNombres ?? [])
+    .map((n) => n.trim().toLocaleUpperCase("es-AR"))
+    .filter(Boolean);
+}
+
+/** Catálogo de cobro: sin NC; si hay promo POR FORMA DE PAGO, solo esas formas. */
+export function filtrarPagosCatalogoPorDescPromo<
+  T extends { id: string; nombre: string },
+>(pagos: readonly T[], descuento: FacturaDescuentoEstado | null): T[] {
+  const sinNc = pagos.filter((p) => !esCobroNotaCreditoNombre(p.nombre));
+  const ids = new Set(descuento?.promoPagoIds ?? []);
+  const nombres = new Set(nombresPagoPromoFormaPago(descuento));
+  if (ids.size === 0 && nombres.size === 0) return sinNc;
+  return sinNc.filter(
+    (p) =>
+      (ids.size > 0 && ids.has(p.id)) ||
+      nombres.has(p.nombre.trim().toLocaleUpperCase("es-AR"))
+  );
+}
+
+export function cobrosViolanPromoFormaPago(
+  cobros: readonly { pagoNombre: string }[],
+  descuento: FacturaDescuentoEstado | null
+): string | null {
+  const permitidos = nombresPagoPromoFormaPago(descuento);
+  if (permitidos.length === 0) return null;
+  const set = new Set(permitidos);
+  const hayInvalido = cobros.some(
+    (c) => !set.has(c.pagoNombre.trim().toLocaleUpperCase("es-AR"))
+  );
+  if (!hayInvalido) return null;
+  return `Con este descuento solo se admite: ${permitidos.join(" / ")}.`;
+}
+
+/**
  * Al agregar una línea:
  * - `porcentaje`: hereda el % global (`descuentoPctEspecial = null`).
+ * - `promo_forma_pago`: % de las reglas por rubro/sub-rubro del ítem.
  * - `total_fac`: congela el DESC. % PROMEDIO actual como global `porcentaje`
  *   (deja de perseguir el objetivo al crecer el remito); la línea nueva hereda ese %.
  */
 export function prepararDescuentoAlAgregarLinea(
   lineas: readonly FacturaLineaLocal[],
-  descuento: FacturaDescuentoEstado | null
+  descuento: FacturaDescuentoEstado | null,
+  lineaNueva?: Pick<FacturaLineaLocal, "idRubro" | "idSubRubro">
 ): {
   descuentoPctEspecial: number | null;
   descuentoSiguiente: FacturaDescuentoEstado | null;
 } {
   if (descuento == null) {
     return { descuentoPctEspecial: null, descuentoSiguiente: null };
+  }
+  if (descuento.fuente === "promo_forma_pago") {
+    return {
+      descuentoPctEspecial: descuentoPctDesdeReglasPromo(
+        descuento.promoReglas ?? [],
+        lineaNueva?.idRubro ?? null,
+        lineaNueva?.idSubRubro ?? null
+      ),
+      descuentoSiguiente: descuento,
+    };
   }
   if (descuento.fuente === "porcentaje") {
     return {

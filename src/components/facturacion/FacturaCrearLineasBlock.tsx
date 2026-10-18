@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { listarDescPromosFormaPagoFacturaAction } from "@/actions/descPromo";
 import {
   buscarProductosFacturaAction,
   listarStockSucursalesFacturaAction,
@@ -26,6 +27,7 @@ import {
   EmptyTableRow,
 } from "@/components/ui/table";
 import {
+  aplicarPromoFormaPagoALineas,
   clampDescuentoPct,
   FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
   FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
@@ -39,6 +41,7 @@ import {
   type FacturaDescuentoEstado,
   type FacturaLineaLocal,
 } from "@/lib/factura";
+import type { DescPromoFila } from "@/lib/descPromo";
 import {
   esBorradorCantidadUnDecimal,
   formatCantidadInputValor,
@@ -139,6 +142,8 @@ export default function FacturaCrearLineasBlock({
     () => initialRemito?.descuento ?? null
   );
   const [descuentoModalOpen, setDescuentoModalOpen] = useState(false);
+  const [promosFormaPago, setPromosFormaPago] = useState<DescPromoFila[]>([]);
+  const [promosFormaPagoCargadas, setPromosFormaPagoCargadas] = useState(false);
   const [comentarioLineaKey, setComentarioLineaKey] = useState<string | null>(
     null
   );
@@ -310,7 +315,10 @@ export default function FacturaCrearLineasBlock({
     const keyFoco = nuevaKeyLinea();
     pendingScrollAlFinalRef.current = true;
     const { descuentoPctEspecial, descuentoSiguiente } =
-      prepararDescuentoAlAgregarLinea(lineas, descuento);
+      prepararDescuentoAlAgregarLinea(lineas, descuento, {
+        idRubro: item.idRubro,
+        idSubRubro: item.idSubRubro,
+      });
     if (descuentoSiguiente !== descuento) {
       setDescuento(descuentoSiguiente);
     }
@@ -326,6 +334,8 @@ export default function FacturaCrearLineasBlock({
         comentario: "",
         codColor: tintometrico?.codColor ?? null,
         codColorIdMarca: tintometrico?.codColorIdMarca ?? null,
+        idRubro: item.idRubro,
+        idSubRubro: item.idSubRubro,
       },
     ]);
     if (!opts?.mantenerBusqueda) {
@@ -412,12 +422,34 @@ export default function FacturaCrearLineasBlock({
   }
 
   function aplicarDescuentoDesdeModal(next: FacturaDescuentoEstado | null) {
-    if (next?.fuente === "total_fac") {
+    if (next?.fuente === "promo_forma_pago") {
+      setLineas((prev) =>
+        aplicarPromoFormaPagoALineas(prev, next.promoReglas ?? [])
+      );
+      setDescuento(next);
+      return;
+    }
+    const saliendoDePromo = descuento?.fuente === "promo_forma_pago";
+    if (next?.fuente === "total_fac" || saliendoDePromo) {
       setLineas((prev) =>
         prev.map((l) => ({ ...l, descuentoPctEspecial: null }))
       );
     }
     setDescuento(next);
+  }
+
+  async function abrirDescuentoModal() {
+    if (!promosFormaPagoCargadas) {
+      const res = await listarDescPromosFormaPagoFacturaAction();
+      if (res.ok) {
+        setPromosFormaPago(res.data);
+      } else {
+        toast.error(res.error);
+        setPromosFormaPago([]);
+      }
+      setPromosFormaPagoCargadas(true);
+    }
+    setDescuentoModalOpen(true);
   }
 
   function confirmarCantidadYVolverABuscar() {
@@ -438,7 +470,9 @@ export default function FacturaCrearLineasBlock({
           disabled={lineas.length === 0}
           title="Aplicar descuento"
           aria-label="Aplicar descuento"
-          onClick={() => setDescuentoModalOpen(true)}
+          onClick={() => {
+            void abrirDescuentoModal();
+          }}
         >
           <Percent className="h-3 w-3 shrink-0" aria-hidden />
           Desc.
@@ -696,6 +730,8 @@ export default function FacturaCrearLineasBlock({
                                     )?.stock ?? 0,
                                   stockPorSucursal: filasStock,
                                   tintometrico: null,
+                                  idRubro: linea.idRubro,
+                                  idSubRubro: linea.idSubRubro,
                                 });
                               }}
                             >
@@ -898,6 +934,7 @@ export default function FacturaCrearLineasBlock({
         onOpenChange={setDescuentoModalOpen}
         totalLista={resumen.totalLista}
         descuentoActual={descuento}
+        promosFormaPago={promosFormaPago}
         onAplicar={aplicarDescuentoDesdeModal}
       />
 

@@ -25,6 +25,7 @@ import {
   obtenerClienteListaPorId,
   saldosCuentaCorrientePorCliente,
 } from "@/services/clientes.service";
+import { rubrosPorCodigosTienda } from "@/services/facturaProductos.service";
 import {
   listarVentasPendientesPagoCuentaCorriente,
   listarVistaCobroNotaCredito,
@@ -40,6 +41,7 @@ import {
 import {
   efectoStockPorTipo,
   diasVencimientoPorSaldoPendiente,
+  cobrosViolanPromoFormaPago,
   esCobroNotaCreditoNombre,
   esFacturaTipo,
   esFacturaTipoFiscal,
@@ -322,6 +324,7 @@ function resolverCobrosYVencimiento(args: {
   impTotal: number;
   cobros: EmitirFacturaComprobanteInput["cobros"];
   plazoCliente: number | null;
+  descuento: FacturaDescuentoEstado | null;
 }): ServiceResult<{
   cobros: EmitirFacturaComprobanteInput["cobros"];
   impCobrado: number;
@@ -334,6 +337,10 @@ function resolverCobrosYVencimiento(args: {
       success: false,
       error: "La nota de crédito se imputa desde el comprobante NC.",
     };
+  }
+  const promoPago = cobrosViolanPromoFormaPago(cobros, args.descuento);
+  if (promoPago) {
+    return { success: false, error: promoPago };
   }
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const totalCents = Math.round(args.impTotal * 100);
@@ -562,6 +569,8 @@ export async function obtenerFacturaComprobantePdfDatos(
       comentario: l.comentario,
       codColor: l.codColor,
       codColorIdMarca: l.codColorIdMarca,
+      idRubro: null,
+      idSubRubro: null,
     }));
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
@@ -620,17 +629,23 @@ export async function obtenerBorradorDuplicarComprobante(
     const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
       ? row.tipoComprobante
       : "factura_no_fiscal";
-    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
-      key: `dup-${idx}-${l.id}`,
-      codTienda: l.codTienda,
-      descripcion: l.descripcion,
-      cantidad: decimalToNumber(l.cantidad),
-      pxLista: decimalToNumber(l.px),
-      descuentoPctEspecial: decimalToNumber(l.descuentoPct),
-      comentario: l.comentario,
-      codColor: l.codColor,
-      codColorIdMarca: l.codColorIdMarca,
-    }));
+    const rubros = await rubrosPorCodigosTienda(row.items.map((l) => l.codTienda));
+    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => {
+      const rubro = rubros.get(l.codTienda);
+      return {
+        key: `dup-${idx}-${l.id}`,
+        codTienda: l.codTienda,
+        descripcion: l.descripcion,
+        cantidad: decimalToNumber(l.cantidad),
+        pxLista: decimalToNumber(l.px),
+        descuentoPctEspecial: decimalToNumber(l.descuentoPct),
+        comentario: l.comentario,
+        codColor: l.codColor,
+        codColorIdMarca: l.codColorIdMarca,
+        idRubro: rubro?.idRubro ?? null,
+        idSubRubro: rubro?.idSubRubro ?? null,
+      };
+    });
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
       descPct > 0
@@ -681,17 +696,23 @@ export async function obtenerBorradorNotaCreditoComprobante(
         error: "Solo se puede cargar nota de crédito desde una venta.",
       };
     }
-    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => ({
-      key: `nc-${idx}-${l.id}`,
-      codTienda: l.codTienda,
-      descripcion: l.descripcion,
-      cantidad: decimalToNumber(l.cantidad),
-      pxLista: decimalToNumber(l.px),
-      descuentoPctEspecial: decimalToNumber(l.descuentoPct),
-      comentario: l.comentario,
-      codColor: l.codColor,
-      codColorIdMarca: l.codColorIdMarca,
-    }));
+    const rubros = await rubrosPorCodigosTienda(row.items.map((l) => l.codTienda));
+    const lineas: FacturaLineaLocal[] = row.items.map((l, idx) => {
+      const rubro = rubros.get(l.codTienda);
+      return {
+        key: `nc-${idx}-${l.id}`,
+        codTienda: l.codTienda,
+        descripcion: l.descripcion,
+        cantidad: decimalToNumber(l.cantidad),
+        pxLista: decimalToNumber(l.px),
+        descuentoPctEspecial: decimalToNumber(l.descuentoPct),
+        comentario: l.comentario,
+        codColor: l.codColor,
+        codColorIdMarca: l.codColorIdMarca,
+        idRubro: rubro?.idRubro ?? null,
+        idSubRubro: rubro?.idSubRubro ?? null,
+      };
+    });
     const descPct = decimalToNumber(row.descPct);
     const descuento: FacturaDescuentoEstado | null =
       descPct > 0
@@ -934,6 +955,8 @@ function calcularLineas(
     comentario: l.comentario ?? "",
     codColor: codColores[i]?.codColor ?? null,
     codColorIdMarca: codColores[i]?.codColorIdMarca ?? null,
+    idRubro: null,
+    idSubRubro: null,
   }));
   const descuento: FacturaDescuentoEstado | null = input.descuento ?? null;
   const pctGlobal = porcentajeDescuentoGlobal(lineasLocales, descuento);
@@ -1263,6 +1286,8 @@ export async function emitirFacturaComprobante(
       comentario: l.comentario ?? "",
       codColor: codColorRes.data[i]?.codColor ?? null,
       codColorIdMarca: codColorRes.data[i]?.codColorIdMarca ?? null,
+      idRubro: null,
+      idSubRubro: null,
     })),
     input.descuento ?? null
   );
@@ -1318,6 +1343,7 @@ export async function emitirFacturaComprobante(
     impTotal,
     cobros: input.cobros ?? [],
     plazoCliente,
+    descuento: input.descuento ?? null,
   });
   if (!cobrosRes.success) return cobrosRes;
   const { cobros, impCobrado, diasVencimiento } = cobrosRes.data;

@@ -21,10 +21,11 @@ import {
 } from "@/components/ui/select";
 import { cuotasParaFormaYEntidad, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
-  esCobroNotaCreditoNombre,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
   FACTURA_TIPO_LABELS,
+  filtrarPagosCatalogoPorDescPromo,
+  nombresPagoPromoFormaPago,
   resumenTotalesFactura,
 } from "@/lib/factura";
 import { ARCA_CF_MAX_SIN_DOC_DEFAULT } from "@/lib/facturaFiscal";
@@ -168,8 +169,12 @@ export default function FacturaGenerarComprobanteModal({
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
   const pagosDisponibles = useMemo(
-    () => pagos.filter((p) => !esCobroNotaCreditoNombre(p.nombre)),
-    [pagos]
+    () => filtrarPagosCatalogoPorDescPromo(pagos, comprobante?.descuento ?? null),
+    [pagos, comprobante?.descuento]
+  );
+  const nombresPagoPromo = useMemo(
+    () => nombresPagoPromoFormaPago(comprobante?.descuento ?? null),
+    [comprobante?.descuento]
   );
 
   const pagoSel = useMemo(
@@ -231,6 +236,20 @@ export default function FacturaGenerarComprobanteModal({
       cancelled = true;
     };
   }, [open, esVenta]);
+
+  useEffect(() => {
+    if (!open || !esVenta) return;
+    if (pagosDisponibles.length !== 1 || pagoId !== "") return;
+    const unico = pagosDisponibles[0];
+    setPagoId(unico.id);
+    setEntidadId(unico.entidadIds.length === 1 ? unico.entidadIds[0] : "");
+    setCuotaId("");
+    setFechaAcreditacionDdMmYyyy(
+      unico.fechaAcreditacionVariable
+        ? formatIsoYmdDdMmYyyyArgentina(dateToIsoYmdArgentina(new Date()))
+        : ""
+    );
+  }, [open, esVenta, pagosDisponibles, pagoId]);
 
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
@@ -444,7 +463,9 @@ export default function FacturaGenerarComprobanteModal({
                 <div className="flex flex-col gap-3">
                   {pagosDisponibles.length === 0 ? (
                     <p className="text-center text-sm text-muted-foreground">
-                      No hay formas de pago cargadas.
+                      {nombresPagoPromo.length > 0
+                        ? `Este descuento solo admite ${nombresPagoPromo.join(" / ")}.`
+                        : "No hay formas de pago cargadas."}
                     </p>
                   ) : (
                     <div

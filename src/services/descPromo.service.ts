@@ -10,22 +10,33 @@ import type {
 } from "@/lib/validations/descPromo";
 import type { ServiceResult } from "@/types";
 
-const promoInclude = {
+const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
   items: {
-    orderBy: { producto: { descripcionTienda: "asc" as const } },
+    orderBy: { producto: { descripcionTienda: "asc" } },
     select: {
       codTienda: true,
       producto: { select: { descripcionTienda: true } },
     },
   },
   formasPago: {
-    orderBy: { pago: { nombre: "asc" as const } },
+    orderBy: { pago: { nombre: "asc" } },
     select: {
       pagoId: true,
       pago: { select: { nombre: true } },
     },
   },
-} as const;
+  reglas: {
+    orderBy: [{ rubro: { nombre: "asc" } }, { subRubro: { nombre: "asc" } }],
+    select: {
+      id: true,
+      idRubro: true,
+      idSubRubro: true,
+      descuento: true,
+      rubro: { select: { nombre: true } },
+      subRubro: { select: { nombre: true } },
+    },
+  },
+});
 
 type PromoRow = Prisma.DescPromoGetPayload<{ include: typeof promoInclude }>;
 
@@ -44,6 +55,16 @@ function mapPromo(row: PromoRow): DescPromoFila {
       pagoId: fp.pagoId,
       nombre: fp.pago.nombre.toLocaleUpperCase("es-AR"),
     })),
+    reglas: row.reglas.map((regla) => ({
+      id: regla.id,
+      idRubro: regla.idRubro,
+      rubroNombre: regla.rubro.nombre.toLocaleUpperCase("es-AR"),
+      idSubRubro: regla.idSubRubro,
+      subRubroNombre: regla.subRubro
+        ? regla.subRubro.nombre.toLocaleUpperCase("es-AR")
+        : null,
+      descuento: regla.descuento,
+    })),
   };
 }
 
@@ -59,15 +80,19 @@ function mapDbError(error: unknown, fallback: string): string {
     typeof (error as { code?: unknown }).code === "string"
   ) {
     const code = (error as { code: string }).code;
-    if (code === "P2003") return "Hay un producto o forma de pago inválido.";
+    if (code === "P2002") return "Hay reglas duplicadas de rubro y sub-rubro.";
+    if (code === "P2003") return "Hay un producto, forma de pago o rubro inválido.";
     if (code === "P2025") return "La promoción no existe.";
   }
   return error instanceof Error ? error.message : fallback;
 }
 
-async function validarVinculos(
-  input: Pick<CrearDescPromoInput, "tipo" | "codTiendas" | "pagoIds">
-): Promise<ServiceResult<void>> {
+type InputVinculos = Pick<
+  CrearDescPromoInput,
+  "tipo" | "codTiendas" | "pagoIds" | "reglas"
+>;
+
+async function validarVinculos(input: InputVinculos): Promise<ServiceResult<void>> {
   if (input.tipo === "POR_ITEM") {
     const n = await prisma.prodPropio.count({
       where: { codTienda: { in: input.codTiendas } },
@@ -77,19 +102,51 @@ async function validarVinculos(
     }
     return { success: true, data: undefined };
   }
-  const n = await prisma.finAnaCosFinaPagoCat.count({
+
+  const nPagos = await prisma.finAnaCosFinaPagoCat.count({
     where: { id: { in: input.pagoIds } },
   });
-  if (n !== input.pagoIds.length) {
+  if (nPagos !== input.pagoIds.length) {
     return { success: false, error: "Hay formas de pago que ya no existen." };
   }
+
+  const rubroIds = [...new Set(input.reglas.map((r) => r.idRubro))];
+  const nRubros = await prisma.prodRubro.count({
+    where: { id: { in: rubroIds } },
+  });
+  if (nRubros !== rubroIds.length) {
+    return { success: false, error: "Hay rubros que ya no existen." };
+  }
+
+  for (const regla of input.reglas) {
+    const idSubRubro = regla.idSubRubro ?? null;
+    if (!idSubRubro) continue;
+    const sub = await prisma.prodSubRubro.findUnique({
+      where: { id_idRubro: { id: idSubRubro, idRubro: regla.idRubro } },
+      select: { id: true },
+    });
+    if (!sub) {
+      return {
+        success: false,
+        error: "Hay un sub-rubro que no corresponde al rubro elegido.",
+      };
+    }
+  }
+
   return { success: true, data: undefined };
 }
 
-function dataVinculos(input: Pick<CrearDescPromoInput, "codTiendas" | "pagoIds">) {
+function dataVinculos(input: InputVinculos) {
   return {
     items: { create: input.codTiendas.map((codTienda) => ({ codTienda })) },
     formasPago: { create: input.pagoIds.map((pagoId) => ({ pagoId })) },
+    reglas: {
+      create: input.reglas.map((regla) => ({
+        idRubro: regla.idRubro,
+        idSubRubro: regla.idSubRubro ?? null,
+        descuento: regla.descuento,
+      })),
+    },
   };
 }
 
@@ -129,6 +186,21 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
   }
 }
 
+/** Catálogo POR FORMA DE PAGO para Factura · Crear (sin gate de Administrador). */
+export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
+  try {
+    const rows = await prisma.descPromo.findMany({
+      where: { tipo: "POR_FORMA_PAGO" },
+      include: promoInclude,
+      orderBy: [{ nombre: "asc" }, { id: "asc" }],
+    });
+    return rows.map(mapPromo);
+  } catch (e: unknown) {
+    console.error("[descPromo.service] listarDescPromosPorFormaPago:", e);
+    return [];
+  }
+}
+
 export async function crearDescPromo(
   input: CrearDescPromoInput
 ): Promise<ServiceResult<DescPromoFila>> {
@@ -143,7 +215,7 @@ export async function crearDescPromo(
       data: {
         tipo: input.tipo,
         nombre,
-        descuento: input.descuento,
+        descuento: input.tipo === "POR_ITEM" ? input.descuento : null,
         ...dataVinculos(input),
       },
       include: promoInclude,
@@ -174,12 +246,13 @@ export async function editarDescPromo(
     if (!existe) return { success: false, error: "La promoción no existe." };
     await prisma.descPromoItem.deleteMany({ where: { promoId: input.id } });
     await prisma.descPromoFormaPago.deleteMany({ where: { promoId: input.id } });
+    await prisma.descPromoRegla.deleteMany({ where: { promoId: input.id } });
     const updated = await prisma.descPromo.update({
       where: { id: input.id },
       data: {
         tipo: input.tipo,
         nombre,
-        descuento: input.descuento,
+        descuento: input.tipo === "POR_ITEM" ? input.descuento : null,
         ...dataVinculos(input),
       },
       include: promoInclude,

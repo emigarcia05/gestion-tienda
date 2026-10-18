@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -22,11 +23,18 @@ import {
   editarDescPromoAction,
 } from "@/actions/descPromo";
 import {
+  DESC_PROMO_SUBRUBRO_TODOS,
   ETIQUETA_TIPO_DESC_PROMO,
   TIPOS_DESC_PROMO,
   type DescPromoFila,
   type TipoDescPromoValor,
 } from "@/lib/descPromo";
+import type { RubroCatalogoItem } from "@/lib/listaProductos";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
+import { cn } from "@/lib/utils";
 
 export type DescPromoOpcionPago = {
   id: string;
@@ -38,14 +46,26 @@ export type DescPromoOpcionProductoUi = {
   descripcion: string;
 };
 
+type ReglaDraft = {
+  key: string;
+  idRubro: string;
+  idSubRubro: string;
+  descuentoTexto: string;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: DescPromoFila | null;
   productos: DescPromoOpcionProductoUi[];
   pagos: DescPromoOpcionPago[];
+  rubros: RubroCatalogoItem[];
   onSuccess?: () => void;
 }
+
+const RUBRO_VACIO = "none";
+const REGLAS_GRID_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem_auto] items-end gap-2";
 
 function parseDescuento(texto: string): number | null {
   if (!texto.trim()) return null;
@@ -55,12 +75,29 @@ function parseDescuento(texto: string): number | null {
   return n;
 }
 
+function digitsDescuento(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 3);
+  if (digits === "") return "";
+  const n = Number.parseInt(digits, 10);
+  return n > 100 ? "100" : String(n);
+}
+
+function nuevaRegla(): ReglaDraft {
+  return {
+    key: crypto.randomUUID(),
+    idRubro: "",
+    idSubRubro: DESC_PROMO_SUBRUBRO_TODOS,
+    descuentoTexto: "",
+  };
+}
+
 export default function CrearEditarDescPromoModal({
   open,
   onOpenChange,
   item,
   productos,
   pagos,
+  rubros,
   onSuccess,
 }: Props) {
   const esAlta = item == null;
@@ -69,6 +106,7 @@ export default function CrearEditarDescPromoModal({
   const [descuentoTexto, setDescuentoTexto] = useState("");
   const [codTiendas, setCodTiendas] = useState<string[]>([]);
   const [pagoIds, setPagoIds] = useState<string[]>([]);
+  const [reglas, setReglas] = useState<ReglaDraft[]>([nuevaRegla()]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -76,9 +114,23 @@ export default function CrearEditarDescPromoModal({
     if (item) {
       setTipo(item.tipo);
       setNombre(item.nombre);
-      setDescuentoTexto(String(item.descuento));
+      setDescuentoTexto(
+        item.tipo === "POR_ITEM" && item.descuento != null
+          ? String(item.descuento)
+          : ""
+      );
       setCodTiendas(item.items.map((i) => i.codTienda));
       setPagoIds(item.formasPago.map((fp) => fp.pagoId));
+      setReglas(
+        item.tipo === "POR_FORMA_PAGO" && item.reglas.length > 0
+          ? item.reglas.map((regla) => ({
+              key: regla.id,
+              idRubro: regla.idRubro,
+              idSubRubro: regla.idSubRubro ?? DESC_PROMO_SUBRUBRO_TODOS,
+              descuentoTexto: String(regla.descuento),
+            }))
+          : [nuevaRegla()]
+      );
       return;
     }
     setTipo("POR_ITEM");
@@ -86,6 +138,7 @@ export default function CrearEditarDescPromoModal({
     setDescuentoTexto("");
     setCodTiendas([]);
     setPagoIds([]);
+    setReglas([nuevaRegla()]);
   }, [open, item]);
 
   const opcionesProducto = useMemo<FiltroMultiSelectOpcion[]>(
@@ -105,40 +158,61 @@ export default function CrearEditarDescPromoModal({
   );
 
   const descuento = parseDescuento(descuentoTexto);
+  const reglasPayload = reglas.map((regla) => ({
+    idRubro: regla.idRubro,
+    idSubRubro:
+      regla.idSubRubro === DESC_PROMO_SUBRUBRO_TODOS ? null : regla.idSubRubro,
+    descuento: parseDescuento(regla.descuentoTexto),
+  }));
+  const reglasOk =
+    reglasPayload.length > 0 &&
+    reglasPayload.every(
+      (regla) => regla.idRubro !== "" && regla.descuento != null
+    );
   const vinculosOk =
     tipo === "POR_ITEM" ? codTiendas.length > 0 : pagoIds.length > 0;
-  const puedeGuardar = nombre.trim() !== "" && descuento != null && vinculosOk;
+  const puedeGuardar =
+    nombre.trim() !== "" &&
+    vinculosOk &&
+    (tipo === "POR_ITEM" ? descuento != null : reglasOk);
 
   function handleTipoChange(next: string) {
     if (next !== "POR_ITEM" && next !== "POR_FORMA_PAGO") return;
     setTipo(next);
     if (next === "POR_ITEM") {
       setPagoIds([]);
+      setReglas([nuevaRegla()]);
       return;
     }
     setCodTiendas([]);
+    setDescuentoTexto("");
+    setReglas((prev) => (prev.length > 0 ? prev : [nuevaRegla()]));
   }
 
-  function handleDescuentoChange(value: string) {
-    const digits = value.replace(/\D/g, "").slice(0, 3);
-    if (digits === "") {
-      setDescuentoTexto("");
-      return;
-    }
-    const n = Number.parseInt(digits, 10);
-    setDescuentoTexto(n > 100 ? "100" : String(n));
+  function actualizarRegla(key: string, patch: Partial<ReglaDraft>) {
+    setReglas((prev) =>
+      prev.map((regla) => (regla.key === key ? { ...regla, ...patch } : regla))
+    );
   }
 
   async function handleSubmit() {
-    if (!puedeGuardar || saving || descuento == null) return;
+    if (!puedeGuardar || saving) return;
     setSaving(true);
     try {
       const payload = {
         tipo,
         nombre,
-        descuento,
+        descuento: tipo === "POR_ITEM" ? descuento : null,
         codTiendas: tipo === "POR_ITEM" ? codTiendas : [],
         pagoIds: tipo === "POR_FORMA_PAGO" ? pagoIds : [],
+        reglas:
+          tipo === "POR_FORMA_PAGO"
+            ? reglasPayload.map((regla) => ({
+                idRubro: regla.idRubro,
+                idSubRubro: regla.idSubRubro,
+                descuento: regla.descuento ?? 0,
+              }))
+            : [],
       };
       const res = esAlta
         ? await crearDescPromoAction(payload)
@@ -165,7 +239,7 @@ export default function CrearEditarDescPromoModal({
     >
       <AppModal
         title={esAlta ? "NUEVO DESCUENTO" : "EDITAR DESCUENTO"}
-        size="lg"
+        size="xl"
         scrollBody
         hideBodyScrollbars
         actions={
@@ -215,17 +289,6 @@ export default function CrearEditarDescPromoModal({
               className="uppercase"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Desc. (%)</ModalMicroLabel>
-            <Input
-              value={descuentoTexto}
-              onChange={(e) => handleDescuentoChange(e.target.value)}
-              placeholder="0 A 100"
-              inputMode="numeric"
-              disabled={saving}
-              aria-label="Descuento"
-            />
-          </div>
           {tipo === "POR_ITEM" ? (
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>Productos</ModalMicroLabel>
@@ -240,16 +303,131 @@ export default function CrearEditarDescPromoModal({
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Formas De Pago</ModalMicroLabel>
+              <ModalMicroLabel>Forma De Pago</ModalMicroLabel>
               <FiltroMultiSelect
                 opciones={opcionesPago}
                 selected={pagoIds}
                 onChange={setPagoIds}
-                placeholder="FORMAS DE PAGO"
+                placeholder="FORMA DE PAGO"
                 ariaLabel="Formas de pago"
                 disabled={saving}
               />
             </div>
+          )}
+          {tipo === "POR_ITEM" ? (
+            <div className="flex flex-col gap-1">
+              <ModalMicroLabel>Desc. (%)</ModalMicroLabel>
+              <Input
+                value={descuentoTexto}
+                onChange={(e) => setDescuentoTexto(digitsDescuento(e.target.value))}
+                placeholder="0 A 100"
+                inputMode="numeric"
+                disabled={saving}
+                aria-label="Descuento"
+              />
+            </div>
+          ) : (
+            <section className="modal-seccion-formulario flex flex-col gap-3">
+              <h3 className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
+                Descuentos
+              </h3>
+              <div className={REGLAS_GRID_CLASS}>
+                <ModalMicroLabel>Rubro</ModalMicroLabel>
+                <ModalMicroLabel>Sub-Rubro</ModalMicroLabel>
+                <ModalMicroLabel>% Desc.</ModalMicroLabel>
+                <span />
+              </div>
+              {reglas.map((regla) => {
+                const subRubros =
+                  rubros.find((r) => r.id === regla.idRubro)?.subRubros ?? [];
+                return (
+                  <div key={regla.key} className={REGLAS_GRID_CLASS}>
+                    <Select
+                      value={regla.idRubro || RUBRO_VACIO}
+                      onValueChange={(v) =>
+                        actualizarRegla(regla.key, {
+                          idRubro: v === RUBRO_VACIO ? "" : v,
+                          idSubRubro: DESC_PROMO_SUBRUBRO_TODOS,
+                        })
+                      }
+                      disabled={saving}
+                    >
+                      <SelectTrigger className="w-full" aria-label="Rubro">
+                        <SelectValue placeholder="RUBRO" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={RUBRO_VACIO}>RUBRO</SelectItem>
+                        {rubros.map((rubro) => (
+                          <SelectItem key={rubro.id} value={rubro.id}>
+                            {rubro.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={regla.idSubRubro}
+                      onValueChange={(v) =>
+                        actualizarRegla(regla.key, { idSubRubro: v })
+                      }
+                      disabled={saving || !regla.idRubro}
+                    >
+                      <SelectTrigger className="w-full" aria-label="Sub-rubro">
+                        <SelectValue placeholder="SUB-RUBRO" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DESC_PROMO_SUBRUBRO_TODOS}>
+                          TODOS
+                        </SelectItem>
+                        {subRubros.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>
+                            {sub.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={regla.descuentoTexto}
+                      onChange={(e) =>
+                        actualizarRegla(regla.key, {
+                          descuentoTexto: digitsDescuento(e.target.value),
+                        })
+                      }
+                      placeholder="%"
+                      inputMode="numeric"
+                      disabled={saving}
+                      aria-label="Porcentaje de descuento"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                      title="Quitar"
+                      aria-label="Quitar descuento"
+                      disabled={saving || reglas.length === 1}
+                      onClick={() =>
+                        setReglas((prev) => prev.filter((r) => r.key !== regla.key))
+                      }
+                    >
+                      <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                  </div>
+                );
+              })}
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className={cn("h-9 w-9")}
+                  aria-label="Agregar descuento"
+                  disabled={saving}
+                  onClick={() => setReglas((prev) => [...prev, nuevaRegla()])}
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            </section>
           )}
         </div>
       </AppModal>

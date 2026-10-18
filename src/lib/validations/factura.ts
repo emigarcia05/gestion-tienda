@@ -167,6 +167,8 @@ const descuentoEmitirSchema = z
     fuente: z.enum(["porcentaje", "total_fac"]),
     porcentaje: z.number().min(0).max(100),
     totalFacObjetivo: z.number().nonnegative().nullable(),
+    promoPagoIds: z.array(z.string().trim().min(1)).optional(),
+    promoPagoNombres: z.array(z.string().trim().min(1).max(200)).optional(),
   })
   .nullable();
 

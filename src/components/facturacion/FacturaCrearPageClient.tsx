@@ -56,6 +56,7 @@ import {
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   ptoVtaIdParaSucursal,
+  descuentoEstadoParaEmitir,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaClase,
@@ -513,7 +514,7 @@ export default function FacturaCrearPageClient({
         codColor: l.codColor ?? null,
         codColorIdMarca: l.codColorIdMarca ?? null,
       })),
-      descuento: draft.descuento,
+      descuento: descuentoEstadoParaEmitir(draft.lineas, draft.descuento),
       cobros,
       documentoReceptor: documentoReceptor?.trim() || undefined,
     });
