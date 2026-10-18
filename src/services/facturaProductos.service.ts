@@ -170,3 +170,37 @@ export async function buscarProductosParaFactura(params: {
     return { success: false, error: msg };
   }
 }
+
+/** Stock por sucursal de los ítems ya cargados en el remito de Crear. */
+export async function listarStockSucursalesItemsFactura(
+  codTiendas: readonly string[]
+): Promise<
+  ServiceResult<{ items: { codTienda: string; stockPorSucursal: ProductoFacturaStockSucursal[] }[] }>
+> {
+  const codigos = [...new Set(codTiendas.map((c) => c.trim()).filter(Boolean))];
+  if (codigos.length === 0) return { success: true, data: { items: [] } };
+
+  try {
+    const sucursales = await prisma.sucursal.findMany({
+      select: { id: true, codigo: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    });
+    const saldos = await buildMapSaldoStockItemsSucursales(
+      codigos,
+      sucursales.map((s) => s.id)
+    );
+    const items = codigos.map((codTienda) => ({
+      codTienda,
+      stockPorSucursal: sucursales.map((s) => ({
+        codigo: s.codigo,
+        nombre: s.nombre,
+        stock: saldos.get(claveSaldoStock(codTienda, s.id)) ?? 0,
+      })),
+    }));
+    return { success: true, data: { items } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error al consultar el stock por sucursal.";
+    console.error("[facturacion][listarStockSucursalesItemsFactura]", e);
+    return { success: false, error: msg };
+  }
+}

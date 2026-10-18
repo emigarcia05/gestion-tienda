@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Loader2, MessageSquare, Percent, Search, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { buscarProductosFacturaAction } from "@/actions/factura";
+import {
+  buscarProductosFacturaAction,
+  listarStockSucursalesFacturaAction,
+} from "@/actions/factura";
 import FacturaBusquedaAvanzadaModal from "@/components/facturacion/FacturaBusquedaAvanzadaModal";
 import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
@@ -42,9 +45,13 @@ import {
   parseCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
+import { evaluarCoberturaStock } from "@/lib/facturaStockCobertura";
 import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
+  FACTURA_LINEA_STOCK_BTN_ACTIVA_CLASS,
+  FACTURA_LINEA_STOCK_BTN_INSUFICIENTE_CLASS,
+  FACTURA_LINEA_STOCK_BTN_OTRAS_CLASS,
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
@@ -53,7 +60,10 @@ import {
 } from "@/lib/ui-classes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { cn } from "@/lib/utils";
-import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
+import type {
+  ProductoFacturaBusquedaItem,
+  ProductoFacturaStockSucursal,
+} from "@/services/facturaProductos.service";
 
 const DESC_INPUT_CLASS =
   "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
@@ -85,9 +95,9 @@ function parseCantidadDraft(raw: string): number | null {
 
 /** Anchos de columnas del remito (suma 100 %). */
 const REMITO_COL_PCT = {
-  acciones: 7,
+  acciones: 11,
   cod: 7,
-  descripcion: 40,
+  descripcion: 36,
   cant: 8,
   pxLista: 10,
   desc: 8,
@@ -140,6 +150,11 @@ export default function FacturaCrearLineasBlock({
     mantenerBusqueda: boolean;
   } | null>(null);
   const [stockDesdeAvanzada, setStockDesdeAvanzada] = useState(false);
+  /** Cantidad de la línea cuando el modal de stock se abre desde el remito. */
+  const [stockCantidadLinea, setStockCantidadLinea] = useState<number | null>(null);
+  const [stockPorCod, setStockPorCod] = useState<
+    Record<string, ProductoFacturaStockSucursal[]>
+  >({});
   const [cantidadDrafts, setCantidadDrafts] = useState<Record<string, string>>(
     {}
   );
@@ -190,6 +205,38 @@ export default function FacturaCrearLineasBlock({
       : (lineas.find((l) => l.key === comentarioLineaKey) ?? null);
   const comentarioModalOpen = comentarioLinea != null;
   const sucursalUsuario = leerUsuarioSesion()?.sucursalPorDefecto ?? null;
+  const codigosStockKey = useMemo(
+    () => [...new Set(lineas.map((l) => l.codTienda))].sort().join("\n"),
+    [lineas]
+  );
+
+  useEffect(() => {
+    const codTiendas = codigosStockKey ? codigosStockKey.split("\n") : [];
+    if (codTiendas.length === 0) return;
+    let cancelado = false;
+    void listarStockSucursalesFacturaAction({ codTiendas }).then((res) => {
+      if (cancelado) return;
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setStockPorCod(
+        Object.fromEntries(res.data.items.map((item) => [item.codTienda, item.stockPorSucursal]))
+      );
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [codigosStockKey]);
+
+  function cantidadDeLinea(linea: FacturaLineaLocal): number {
+    const draft = cantidadDrafts[linea.key];
+    if (draft != null) {
+      const parsed = parseCantidadDraft(draft);
+      if (parsed != null) return parsed;
+    }
+    return linea.cantidad;
+  }
   const resumen = useMemo(
     () => resumenTotalesFactura(lineas, descuento),
     [lineas, descuento]
@@ -585,13 +632,77 @@ export default function FacturaCrearLineasBlock({
                           )}
                           title="Comentario"
                           aria-label={`Comentario de ${linea.descripcion}`}
-                          onClick={() => setComentarioLineaKey(linea.key)}
+                          onClick={() => {
+                            setStockModalItem(null);
+                            setStockCantidadLinea(null);
+                            setComentarioLineaKey(linea.key);
+                          }}
                         >
                           <MessageSquare
                             className={TABLE_ROW_ACTION_ICON_CLASS}
                             aria-hidden
                           />
                         </Button>
+                        {(() => {
+                          const filasStock = stockPorCod[linea.codTienda];
+                          const stockListo = filasStock != null;
+                          const cobertura = stockListo
+                            ? evaluarCoberturaStock({
+                                cantidad: cantidadDeLinea(linea),
+                                sucursalCodigo: sucursalUsuario,
+                                stockPorSucursal: filasStock,
+                              })
+                            : null;
+                          const claseStock =
+                            cobertura?.estado === "otras_sucursales"
+                              ? FACTURA_LINEA_STOCK_BTN_OTRAS_CLASS
+                              : cobertura?.estado === "insuficiente"
+                                ? FACTURA_LINEA_STOCK_BTN_INSUFICIENTE_CLASS
+                                : FACTURA_LINEA_STOCK_BTN_ACTIVA_CLASS;
+                          const tituloStock = !stockListo
+                            ? "Consultando stock"
+                            : cobertura?.estado === "sucursal_activa"
+                              ? "Hay stock en la sucursal activa"
+                              : cobertura?.estado === "otras_sucursales"
+                                ? "El stock alcanza entre sucursales"
+                                : "No alcanza el stock";
+                          return (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                claseStock,
+                                "!h-7 !w-7 min-h-7 min-w-7 shrink-0 !p-0"
+                              )}
+                              disabled={!stockListo}
+                              title={tituloStock}
+                              aria-label={`${tituloStock} de ${linea.descripcion}`}
+                              onClick={() => {
+                                if (!filasStock) return;
+                                setComentarioLineaKey(null);
+                                setStockDesdeAvanzada(false);
+                                setStockCantidadLinea(cantidadDeLinea(linea));
+                                setStockModalItem({
+                                  codTienda: linea.codTienda,
+                                  descripcion: descripcionVisible,
+                                  pxLista: linea.pxLista,
+                                  stock:
+                                    filasStock.find(
+                                      (f) =>
+                                        sucursalUsuario != null &&
+                                        f.codigo.trim().toLowerCase() ===
+                                          sucursalUsuario.trim().toLowerCase()
+                                    )?.stock ?? 0,
+                                  stockPorSucursal: filasStock,
+                                  tintometrico: null,
+                                });
+                              }}
+                            >
+                              <Store className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
@@ -725,6 +836,7 @@ export default function FacturaCrearLineasBlock({
                 onVerStock={(item) => {
                   setAbierto(false);
                   setStockDesdeAvanzada(false);
+                  setStockCantidadLinea(null);
                   setStockModalItem(item);
                 }}
                 className="min-h-0 flex-1"
@@ -750,6 +862,7 @@ export default function FacturaCrearLineasBlock({
         }}
         onVerStock={(item) => {
           setStockDesdeAvanzada(true);
+          setStockCantidadLinea(null);
           setStockModalItem(item);
         }}
       />
@@ -759,9 +872,11 @@ export default function FacturaCrearLineasBlock({
         onOpenChange={(open) => {
           if (!open) {
             const volverAvanzada = stockDesdeAvanzada;
+            const desdeLinea = stockCantidadLinea != null;
             setStockModalItem(null);
             setStockDesdeAvanzada(false);
-            if (volverAvanzada) return;
+            setStockCantidadLinea(null);
+            if (volverAvanzada || desdeLinea) return;
             const qActual = q.trim();
             if (qActual.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
               void fetchSugerencias(qActual);
@@ -774,6 +889,7 @@ export default function FacturaCrearLineasBlock({
         }}
         producto={stockModalItem}
         sucursalCodigo={sucursalUsuario}
+        cantidadSolicitada={stockCantidadLinea}
       />
 
       <FacturaDescuentoModal

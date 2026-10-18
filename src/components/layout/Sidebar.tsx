@@ -87,7 +87,7 @@ const MODULES: NavModule[] = [
     submodules: [
       {
         href: FACTURACION_ROUTES.factura.crear,
-        label: "Crear",
+        label: "Nueva Venta",
         icon: <Plus className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },

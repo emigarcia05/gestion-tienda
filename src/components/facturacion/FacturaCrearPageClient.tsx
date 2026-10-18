@@ -114,6 +114,9 @@ const CABECERA_EDITOR_FILA2_CLASS =
 
 const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
 
+/** Misma altura que el input CLIENTE. Gana a `main button` (2.5rem) y a `.input-filtro-unificado`. */
+const CABECERA_CAMPO_ALTO_CLASS = "!h-9 !min-h-9 !max-h-9";
+
 function emisorPdfDePtoVta(
   ptoVtas: readonly FacturaPtoVtaOpcion[],
   ptoVtaId: string
@@ -390,7 +393,8 @@ export default function FacturaCrearPageClient({
       variant="ghost"
       size="icon"
       className={cn(
-        "h-9 w-9 shrink-0 hover:bg-muted",
+        CABECERA_CAMPO_ALTO_CLASS,
+        "!w-9 shrink-0 !p-0 hover:bg-muted",
         hayComentarioCabecera
           ? "text-primary hover:text-primary"
           : "text-muted-foreground hover:text-foreground"
@@ -609,7 +613,7 @@ export default function FacturaCrearPageClient({
                   type="text"
                   readOnly
                   value={formatIsoYmdDdMmYyyyArgentina(fechaIso)}
-                  className={cn("h-10 min-h-10", "tabular-nums", "pr-10", "cursor-pointer")}
+                  className={cn(CABECERA_CAMPO_ALTO_CLASS, "tabular-nums", "pr-10", "cursor-pointer")}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   title="Clic para abrir el calendario"
                   aria-label="Fecha del comprobante. Clic para abrir el calendario."
@@ -619,7 +623,8 @@ export default function FacturaCrearPageClient({
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "absolute right-0 top-0 h-10 w-9 shrink-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    CABECERA_CAMPO_ALTO_CLASS,
+                    "absolute right-0 top-0 !w-9 shrink-0 !p-0 rounded-r-md text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                   onClick={() => abrirSelectorFechaNativo(hiddenFechaRef.current)}
                   aria-label="Abrir calendario"
@@ -656,7 +661,7 @@ export default function FacturaCrearPageClient({
                   }
                 }}
               >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -684,7 +689,7 @@ export default function FacturaCrearPageClient({
                     }
                   }}
                 >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

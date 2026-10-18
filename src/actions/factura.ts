@@ -20,6 +20,7 @@ import {
   buscarClientesFacturaSchema,
   buscarProductosFacturaAvanzadaSchema,
   buscarProductosFacturaSchema,
+  listarStockSucursalesFacturaSchema,
   compartirLinkCuentaCorrienteSchema,
   obtenerCuentaCorrienteClienteSchema,
   emitirFacturaComprobanteSchema,
@@ -42,7 +43,9 @@ import {
 } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
+  listarStockSucursalesItemsFactura,
   type ProductoFacturaBusquedaItem,
+  type ProductoFacturaStockSucursal,
 } from "@/services/facturaProductos.service";
 import {
   listarMarcasCodColorTintometrico,
@@ -131,6 +134,21 @@ export async function buscarProductosFacturaAction(
     sucursalCodigo: parsed.data.sucursalCodigo,
   });
   return fromServiceResult(res);
+}
+
+/** Stock por sucursal de los ítems cargados en el remito. */
+export async function listarStockSucursalesFacturaAction(
+  raw: unknown
+): Promise<
+  ActionResult<{ items: { codTienda: string; stockPorSucursal: ProductoFacturaStockSucursal[] }[] }>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = listarStockSucursalesFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  return fromServiceResult(await listarStockSucursalesItemsFactura(parsed.data.codTiendas));
 }
 
 /** Modal tintométrico de Factura · Crear: marcas de COD. COLOR + proveedores con COEF. TINTOMÉTRICO > 1. */

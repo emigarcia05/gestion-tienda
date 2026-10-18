@@ -7,7 +7,11 @@ import {
 } from "@/lib/factura";
 import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
 import { codColorSchema } from "@/lib/codColorTintometrico";
-import { prismaCuidSchema, prismaIdOptionalNullableSchema } from "@/lib/validations/common";
+import {
+  listaPreciosCodTiendaSchema,
+  prismaCuidSchema,
+  prismaIdOptionalNullableSchema,
+} from "@/lib/validations/common";
 import {
   idPersonalSchema,
   sucursalPorDefectoSchema,
@@ -61,6 +65,16 @@ export const buscarProductosFacturaSchema = z.object({
 });
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
+
+/** Stock por sucursal de los ítems del remito (Factura · Crear). */
+export const listarStockSucursalesFacturaSchema = z.object({
+  codTiendas: z
+    .array(listaPreciosCodTiendaSchema)
+    .min(1, "Falta el código de tienda.")
+    .max(200, "Demasiados ítems."),
+});
+
+export type ListarStockSucursalesFacturaInput = z.infer<typeof listarStockSucursalesFacturaSchema>;
 
 const filtroCatalogoFacturaSchema = z.string().trim().max(200);
 

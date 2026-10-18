@@ -77,6 +77,17 @@ export const IMPORT_STAT_BADGE_CLASSES = {
 export const TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS =
   "tabla-row-btn-filled-brand aspect-square !h-full max-h-full !w-auto max-w-full min-h-0 min-w-0 self-center shrink-0 rounded-md border-0 bg-[#0072BB] text-white shadow-none hover:bg-[#0072BB]/90 hover:text-white focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
+/** Remito Crear · stock: la cantidad entra en la sucursal activa. */
+export const FACTURA_LINEA_STOCK_BTN_ACTIVA_CLASS = TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS;
+
+/** Remito Crear · stock: la cantidad entra sumando otras sucursales (`accent2`). */
+export const FACTURA_LINEA_STOCK_BTN_OTRAS_CLASS =
+  `${TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS} !bg-accent2 !text-foreground hover:!bg-accent2/90 hover:!text-foreground`;
+
+/** Remito Crear · stock: no alcanza entre todas las sucursales. */
+export const FACTURA_LINEA_STOCK_BTN_INSUFICIENTE_CLASS =
+  `${TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS} !bg-destructive !text-white hover:!bg-destructive/90 hover:!text-white`;
+
 /**
  * Contenedor flex en celdas con botones {@link TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}.
  * `p-1.5` + `items-center` dejan aire respecto del borde de la celda; el botón cuadrado usa el alto interno.
