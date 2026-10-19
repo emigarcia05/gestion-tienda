@@ -9,6 +9,7 @@ import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
 import { codColorSchema } from "@/lib/codColorTintometrico";
 import {
   listaPreciosCodTiendaSchema,
+  prismaCuidOrUuidSchema,
   prismaCuidSchema,
   prismaIdOptionalNullableSchema,
 } from "@/lib/validations/common";
@@ -174,8 +175,14 @@ const descuentoEmitirSchema = z
         z.object({
           pagoId: z.string().trim().min(1),
           nombre: z.string().trim().min(1).max(200),
-          cuotaId: z.string().trim().min(1).nullable().optional(),
-          cuotaEtiqueta: z.string().trim().max(100).nullable().optional(),
+          cuotaId: z.preprocess(
+            (value) => (value === "" || value === undefined ? null : value),
+            prismaCuidOrUuidSchema.nullable()
+          ),
+          cuotaEtiqueta: z.preprocess(
+            (value) => (value === "" || value === undefined ? null : value),
+            z.string().trim().max(100).nullable()
+          ),
         })
       )
       .optional(),

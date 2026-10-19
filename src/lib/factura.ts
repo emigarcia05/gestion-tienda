@@ -1124,7 +1124,12 @@ export function descuentoEstadoParaEmitir(
     totalFacObjetivo: null,
     promoPagoIds: descuento.promoPagoIds,
     promoPagoNombres: descuento.promoPagoNombres,
-    promoVinculos: descuento.promoVinculos,
+    promoVinculos: descuento.promoVinculos?.map((v) => ({
+      pagoId: v.pagoId,
+      nombre: v.nombre,
+      cuotaId: v.cuotaId ?? null,
+      cuotaEtiqueta: v.cuotaEtiqueta ?? null,
+    })),
   };
 }
 

@@ -29,6 +29,7 @@ import {
   type DescPromoFila,
 } from "@/lib/descPromo";
 import type { MarcaCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
+import type { CrearDescPromoInput } from "@/lib/validations/descPromo";
 
 export type DescPromoOpcionPago = {
   id: string;
@@ -166,14 +167,18 @@ export default function CrearEditarDescPromoModal({
   async function handleSubmit() {
     if (!puedeGuardar || saving || descuento == null) return;
     setSaving(true);
-    const vinculosCobro = pagoIds.flatMap((pagoId) => {
-      const opciones = cuotasParaFormaPago(cuotas, pagoId);
-      if (opciones.length === 0) return [{ pagoId, cuotaId: null }];
-      return (cuotaIdsPorPago[pagoId] ?? []).map((cuotaId) => ({
-        pagoId,
-        cuotaId,
-      }));
-    });
+    const vinculosCobro = pagoIds.flatMap(
+      (pagoId): CrearDescPromoInput["vinculosCobro"] => {
+        const opciones = cuotasParaFormaPago(cuotas, pagoId);
+        if (opciones.length === 0) {
+          return [{ pagoId, cuotaId: null }];
+        }
+        return (cuotaIdsPorPago[pagoId] ?? []).map((cuotaId) => ({
+          pagoId,
+          cuotaId,
+        }));
+      }
+    );
     const payload = {
       alcance,
       nombre: nombre.trim(),
