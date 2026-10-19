@@ -24,6 +24,7 @@ import {
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
   FACTURA_TIPO_LABELS,
+  filtrarCuotasCatalogoPorDescPromo,
   filtrarPagosCatalogoPorDescPromo,
   nombresPagoPromoFormaPago,
   resumenTotalesFactura,
@@ -181,8 +182,16 @@ export default function FacturaGenerarComprobanteModal({
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
     [pagosDisponibles, pagoId]
   );
-  const muestraCuotas =
-    cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
+  const cuotasOpciones = useMemo(
+    () =>
+      filtrarCuotasCatalogoPorDescPromo(
+        cuotasParaFormaYEntidad(cuotas, pagoId, entidadId),
+        pagoId,
+        comprobante?.descuento ?? null
+      ),
+    [cuotas, pagoId, entidadId, comprobante?.descuento]
+  );
+  const muestraCuotas = cuotasOpciones.length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const fechaAcreditacionIso = useMemo(
     () => parseDdMmYyyyToIsoYmdArgentina(fechaAcreditacionDdMmYyyy),
@@ -545,7 +554,7 @@ export default function FacturaGenerarComprobanteModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
+                          {cuotasOpciones.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

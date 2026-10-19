@@ -169,6 +169,16 @@ const descuentoEmitirSchema = z
     totalFacObjetivo: z.number().nonnegative().nullable(),
     promoPagoIds: z.array(z.string().trim().min(1)).optional(),
     promoPagoNombres: z.array(z.string().trim().min(1).max(200)).optional(),
+    promoVinculos: z
+      .array(
+        z.object({
+          pagoId: z.string().trim().min(1),
+          nombre: z.string().trim().min(1).max(200),
+          cuotaId: z.string().trim().min(1).nullable().optional(),
+          cuotaEtiqueta: z.string().trim().max(100).nullable().optional(),
+        })
+      )
+      .optional(),
   })
   .nullable();
 

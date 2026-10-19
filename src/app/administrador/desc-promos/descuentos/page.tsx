@@ -3,6 +3,7 @@ import DescPromosPageClient from "@/components/desc-promos/DescPromosPageClient"
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
+import { listarCobrosCuotas } from "@/services/cobrosCuotas.service";
 import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
 import {
   listarDescPromos,
@@ -21,10 +22,11 @@ export default async function DescPromosDescuentosPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [items, productos, pagosCat, rubros, marcas] = await Promise.all([
+  const [items, productos, pagosCat, cuotas, rubros, marcas] = await Promise.all([
     listarDescPromos(),
     listarOpcionesProductoDescPromo(),
     listarFinAnaCosFinaPagos(),
+    listarCobrosCuotas(),
     listarRubrosCatalogo(),
     listarMarcasCatalogo(),
   ]);
@@ -40,6 +42,7 @@ export default async function DescPromosDescuentosPage() {
         items={items}
         productos={productos}
         pagos={pagos}
+        cuotas={cuotas}
         rubros={rubros}
         marcas={marcas}
         esEditor={rol === "editor"}

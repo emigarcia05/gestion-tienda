@@ -12,9 +12,12 @@ import {
   addDaysToIsoYmdArgentina,
   diffCalendarDaysIsoYmdArgentina,
 } from "@/lib/fechaArgentina";
+import type { CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   descuentoPctPorPrioridad,
+  etiquetaFormaPagoCuotaDescPromo,
   type DescPromoCandidataFactura,
+  type DescPromoFormaPagoRef,
 } from "@/lib/descPromo";
 
 export const FACTURA_TIPOS = [
@@ -885,8 +888,8 @@ export type FacturaLineaLocal = {
  * Descuento de comprobante (Crear, estado local).
  * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
- * - `promo_forma_pago`: el cajero eligió una forma de pago; cada línea toma la regla
- *   de mayor `prioridad` cuyo alcance matchea (sin match = 0 %).
+ * - `promo_forma_pago`: el cajero eligió una forma de pago o una regla; cada línea
+ *   toma la de mayor `prioridad` cuyo alcance matchea (sin match = 0 %).
  */
 export type FacturaDescuentoEstado = {
   fuente: "porcentaje" | "total_fac" | "promo_forma_pago";
@@ -894,9 +897,20 @@ export type FacturaDescuentoEstado = {
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
-  /** Snapshot de reglas de esa forma de pago. */
+  /** Vista del modal: columna por regla o por forma de pago. */
+  promoAgrupacion?: "descuento" | "forma_pago";
+  /** Snapshot de reglas aplicables. */
   promoCandidatas?: DescPromoCandidataFactura[];
-  /** Forma de pago elegida (una) que admite el cobro. */
+  /** Columna de forma de pago elegida en la vista POR FORMA PAGO (cálculo); el cobro usa `promoVinculos`. */
+  promoPagoIdSeleccionado?: string | null;
+  /** Cuota de esa columna (`null` = forma sin CANT. CUOTAS). */
+  promoCuotaIdSeleccionado?: string | null;
+  /**
+   * Pares forma × cuota que admite el cobro: unión de las reglas candidatas
+   * (si eligió TERMINAL · 3 CUOTAS y esas reglas también cubren EFECTIVO, salen ambos).
+   */
+  promoVinculos?: DescPromoFormaPagoRef[];
+  /** Formas (ids) derivadas de `promoVinculos` (filtro de cuadrados FORMA DE PAGO). */
   promoPagoIds?: string[];
   /** Nombres MAYÚSCULAS de esas formas (validación al emitir). */
   promoPagoNombres?: string[];
@@ -1110,6 +1124,7 @@ export function descuentoEstadoParaEmitir(
     totalFacObjetivo: null,
     promoPagoIds: descuento.promoPagoIds,
     promoPagoNombres: descuento.promoPagoNombres,
+    promoVinculos: descuento.promoVinculos,
   };
 }
 
@@ -1121,7 +1136,7 @@ export function nombresPagoPromoFormaPago(
     .filter(Boolean);
 }
 
-/** Catálogo de cobro: sin NC; si hay desc. por forma de pago, solo esa forma. */
+/** Catálogo de cobro: sin NC; si hay desc. promo, las formas de las reglas candidatas. */
 export function filtrarPagosCatalogoPorDescPromo<
   T extends { id: string; nombre: string },
 >(pagos: readonly T[], descuento: FacturaDescuentoEstado | null): T[] {
@@ -1136,10 +1151,31 @@ export function filtrarPagosCatalogoPorDescPromo<
   );
 }
 
+function claveCobroPromo(
+  pagoNombre: string,
+  cuotaEtiqueta: string | null | undefined
+): string {
+  const pago = pagoNombre.trim().toLocaleUpperCase("es-AR");
+  const cuota = (cuotaEtiqueta ?? "").trim().toLocaleUpperCase("es-AR");
+  return cuota ? `${pago}·${cuota}` : pago;
+}
+
 export function cobrosViolanPromoFormaPago(
-  cobros: readonly { pagoNombre: string }[],
+  cobros: readonly { pagoNombre: string; cuotaEtiqueta?: string | null }[],
   descuento: FacturaDescuentoEstado | null
 ): string | null {
+  const vinculos = descuento?.promoVinculos ?? [];
+  if (vinculos.length > 0) {
+    const set = new Set(
+      vinculos.map((v) => claveCobroPromo(v.nombre, v.cuotaEtiqueta))
+    );
+    const hayInvalido = cobros.some(
+      (c) => !set.has(claveCobroPromo(c.pagoNombre, c.cuotaEtiqueta))
+    );
+    if (!hayInvalido) return null;
+    const etiquetas = vinculos.map(etiquetaFormaPagoCuotaDescPromo);
+    return `Con este descuento solo se admite: ${etiquetas.join(" / ")}.`;
+  }
   const permitidos = nombresPagoPromoFormaPago(descuento);
   if (permitidos.length === 0) return null;
   const set = new Set(permitidos);
@@ -1148,6 +1184,25 @@ export function cobrosViolanPromoFormaPago(
   );
   if (!hayInvalido) return null;
   return `Con este descuento solo se admite: ${permitidos.join(" / ")}.`;
+}
+
+/** Cuotas del par forma+entidad restringidas a las CANT. CUOTAS de la promo. */
+export function filtrarCuotasCatalogoPorDescPromo(
+  cuotasPar: readonly CobrosCuotaItem[],
+  pagoId: string,
+  descuento: FacturaDescuentoEstado | null
+): CobrosCuotaItem[] {
+  const vinculos = descuento?.promoVinculos ?? [];
+  if (vinculos.length === 0) return [...cuotasPar];
+  const dePago = vinculos.filter((v) => v.pagoId === pagoId);
+  if (dePago.length === 0) return [];
+  const ids = new Set(
+    dePago
+      .map((v) => v.cuotaId)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+  );
+  if (ids.size === 0) return [...cuotasPar];
+  return cuotasPar.filter((c) => ids.has(c.id));
 }
 
 /**

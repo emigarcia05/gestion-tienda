@@ -29,6 +29,8 @@ export type DescPromoItemRef = {
 export type DescPromoFormaPagoRef = {
   pagoId: string;
   nombre: string;
+  cuotaId: string | null;
+  cuotaEtiqueta: string | null;
 };
 
 export type DescPromoFila = {
@@ -66,8 +68,19 @@ export function etiquetaAlcanceDescPromo(alcance: AlcanceDescPromo): string {
   return ETIQUETA_ALCANCE_DESC_PROMO[alcance];
 }
 
+export function claveFormaPagoCuotaDescPromo(
+  pagoId: string,
+  cuotaId: string | null
+): string {
+  return `${pagoId}:${cuotaId ?? ""}`;
+}
+
+export function etiquetaFormaPagoCuotaDescPromo(fp: DescPromoFormaPagoRef): string {
+  return fp.cuotaEtiqueta ? `${fp.nombre} · ${fp.cuotaEtiqueta}` : fp.nombre;
+}
+
 export function textoVinculosDescPromo(fila: DescPromoFila): string {
-  const formas = fila.formasPago.map((fp) => fp.nombre).join(" · ");
+  const formas = fila.formasPago.map(etiquetaFormaPagoCuotaDescPromo).join(" · ");
   if (fila.alcance === "ITEMS") {
     const items = fila.items
       .map((item) => item.descripcion || item.codTienda)
@@ -105,7 +118,11 @@ export function etiquetaAlcanceCondicion(fila: {
 }
 
 export function etiquetaReglaDescPromoFactura(fila: DescPromoFila): string {
-  return `${etiquetaAlcanceCondicion(fila)} - ${fila.descuento}%`;
+  return `DESC. ${fila.descuento}% - ${etiquetaAlcanceCondicion(fila)}`;
+}
+
+export function tituloPctDescPromoFactura(fila: DescPromoFila): string {
+  return `DESC. ${fila.descuento}%`;
 }
 
 export function alcanceDescPromoMatcheaItem(
@@ -162,44 +179,95 @@ export function aCandidataFactura(fila: DescPromoFila): DescPromoCandidataFactur
 
 export function promosParaFormaPago(
   filas: readonly DescPromoFila[],
-  pagoId: string
+  pagoId: string,
+  cuotaId?: string | null
 ): DescPromoFila[] {
   return filas
-    .filter((fila) => fila.formasPago.some((fp) => fp.pagoId === pagoId))
+    .filter((fila) =>
+      fila.formasPago.some((fp) => {
+        if (fp.pagoId !== pagoId) return false;
+        if (cuotaId === undefined) return true;
+        return (fp.cuotaId ?? null) === (cuotaId ?? null);
+      })
+    )
     .slice()
     .sort((a, b) => b.prioridad - a.prioridad);
 }
 
 export type DescPromoFormaPagoColumna = {
   pagoId: string;
+  cuotaId: string | null;
   nombre: string;
+  etiqueta: string;
   promos: DescPromoFila[];
 };
+
+export function snapshotCobroDescPromo(formas: readonly DescPromoFormaPagoRef[]): {
+  promoVinculos: DescPromoFormaPagoRef[];
+  promoPagoIds: string[];
+  promoPagoNombres: string[];
+} {
+  const unicas = [...formas];
+  const pagoIds: string[] = [];
+  const nombres: string[] = [];
+  for (const fp of unicas) {
+    if (!pagoIds.includes(fp.pagoId)) pagoIds.push(fp.pagoId);
+    const nom = fp.nombre.trim().toLocaleUpperCase("es-AR");
+    if (nom && !nombres.includes(nom)) nombres.push(nom);
+  }
+  return {
+    promoVinculos: [...unicas],
+    promoPagoIds: pagoIds,
+    promoPagoNombres: nombres,
+  };
+}
+
+/** Pares forma × cuota únicos de un conjunto de reglas (para el cobro). */
+export function formasPagoUnicasDescPromo(
+  filas: readonly DescPromoFila[]
+): DescPromoFormaPagoRef[] {
+  const vistos = new Map<string, DescPromoFormaPagoRef>();
+  for (const fila of filas) {
+    for (const fp of fila.formasPago) {
+      const clave = claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId);
+      if (!vistos.has(clave)) vistos.set(clave, fp);
+    }
+  }
+  return [...vistos.values()].sort((a, b) =>
+    etiquetaFormaPagoCuotaDescPromo(a).localeCompare(
+      etiquetaFormaPagoCuotaDescPromo(b),
+      "es"
+    )
+  );
+}
 
 export function columnasFormaPagoDescPromo(
   filas: readonly DescPromoFila[]
 ): DescPromoFormaPagoColumna[] {
-  const porPago = new Map<string, DescPromoFormaPagoColumna>();
+  const porPar = new Map<string, DescPromoFormaPagoColumna>();
   for (const fila of filas) {
     for (const fp of fila.formasPago) {
-      const actual = porPago.get(fp.pagoId);
+      const clave = claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId);
+      const actual = porPar.get(clave);
       if (actual) {
         if (!actual.promos.some((p) => p.id === fila.id)) {
           actual.promos.push(fila);
         }
       } else {
-        porPago.set(fp.pagoId, {
+        porPar.set(clave, {
           pagoId: fp.pagoId,
+          cuotaId: fp.cuotaId,
           nombre: fp.nombre,
+          etiqueta: etiquetaFormaPagoCuotaDescPromo(fp),
           promos: [fila],
         });
       }
     }
   }
-  return [...porPago.values()]
+  return [...porPar.values()]
     .map((col) => ({
       ...col,
       promos: col.promos.slice().sort((a, b) => b.prioridad - a.prioridad),
     }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
 }

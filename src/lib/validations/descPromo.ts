@@ -35,19 +35,34 @@ const camposDescPromoSchema = z.object({
   codTiendas: z
     .array(listaPreciosCodTiendaSchema)
     .superRefine(idsUnicos("Hay productos duplicados.")),
-  pagoIds: z
-    .array(prismaCuidOrUuidSchema)
-    .superRefine(idsUnicos("Hay formas de pago duplicadas.")),
+  vinculosCobro: z
+    .array(
+      z.object({
+        pagoId: prismaCuidOrUuidSchema,
+        cuotaId: prismaIdOptionalNullableSchema,
+      })
+    )
+    .superRefine((vinculos, ctx) => {
+      const claves = vinculos.map(
+        (v) => `${v.pagoId}:${v.cuotaId ?? ""}`
+      );
+      if (new Set(claves).size !== claves.length) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Hay formas de cobro duplicadas.",
+        });
+      }
+    }),
 });
 
 function refineAlcance(
   data: z.infer<typeof camposDescPromoSchema>,
   ctx: z.RefinementCtx
 ) {
-  if (data.pagoIds.length === 0) {
+  if (data.vinculosCobro.length === 0) {
     ctx.addIssue({
       code: "custom",
-      message: "Elegí al menos una forma de pago.",
+      message: "Elegí al menos una forma de cobro.",
     });
   }
 

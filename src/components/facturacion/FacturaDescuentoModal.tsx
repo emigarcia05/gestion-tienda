@@ -10,8 +10,14 @@ import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import {
   aCandidataFactura,
+  claveFormaPagoCuotaDescPromo,
   columnasFormaPagoDescPromo,
+  etiquetaAlcanceCondicion,
+  etiquetaFormaPagoCuotaDescPromo,
   etiquetaReglaDescPromoFactura,
+  formasPagoUnicasDescPromo,
+  snapshotCobroDescPromo,
+  tituloPctDescPromoFactura,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import {
@@ -25,8 +31,19 @@ import { cn } from "@/lib/utils";
 
 const INPUT_CONTROL_CLASS = "tabular-nums border-primary w-full min-w-0";
 const SELECCION_PERSONALIZADO = "personalizado";
+type VistaDescPromo = "descuento" | "forma_pago";
 const COLUMNA_PROMO_CLASS =
   "h-auto min-h-[5.5rem] min-w-0 flex-1 flex-col gap-1.5 whitespace-normal rounded-none border-0 px-2 py-2 shadow-none !h-auto";
+const VISTA_BTN_CLASS =
+  "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
+
+function clavePago(pagoId: string, cuotaId: string | null): string {
+  return `pago:${claveFormaPagoCuotaDescPromo(pagoId, cuotaId)}`;
+}
+
+function clavePromo(promoId: string): string {
+  return `promo:${promoId}`;
+}
 
 interface Props {
   open: boolean;
@@ -68,22 +85,40 @@ function estadoInicial(
   totalNorm: string;
   lastEdited: "pct" | "total" | null;
   seleccion: string;
+  vista: VistaDescPromo;
 } {
-  const pagoId = descuentoActual?.promoPagoIds?.[0];
-  if (descuentoActual?.fuente === "promo_forma_pago" && pagoId) {
-    return {
-      pctNorm: "",
-      totalNorm: totalLista > 0 ? pesosToNorm(totalLista) : "",
-      lastEdited: null,
-      seleccion: pagoId,
-    };
+  const vacioLista = {
+    pctNorm: "",
+    totalNorm: totalLista > 0 ? pesosToNorm(totalLista) : "",
+    lastEdited: null as "pct" | "total" | null,
+  };
+  if (descuentoActual?.fuente === "promo_forma_pago") {
+    const agrupacion = descuentoActual.promoAgrupacion ?? "forma_pago";
+    const promoId = descuentoActual.promoCandidatas?.[0]?.id;
+    const pagoId =
+      descuentoActual.promoPagoIdSeleccionado ??
+      descuentoActual.promoPagoIds?.[0];
+    const cuotaId = descuentoActual.promoCuotaIdSeleccionado ?? null;
+    if (agrupacion === "descuento" && promoId) {
+      return {
+        ...vacioLista,
+        seleccion: clavePromo(promoId),
+        vista: "descuento",
+      };
+    }
+    if (pagoId) {
+      return {
+        ...vacioLista,
+        seleccion: clavePago(pagoId, cuotaId),
+        vista: "forma_pago",
+      };
+    }
   }
   if (descuentoActual == null || descuentoActual.porcentaje <= 0) {
     return {
-      pctNorm: "",
-      totalNorm: totalLista > 0 ? pesosToNorm(totalLista) : "",
-      lastEdited: null,
+      ...vacioLista,
       seleccion: SELECCION_PERSONALIZADO,
+      vista: "descuento",
     };
   }
   const pct = descuentoActual.porcentaje;
@@ -96,6 +131,7 @@ function estadoInicial(
       totalNorm: pesosToNorm(descuentoActual.totalFacObjetivo),
       lastEdited: "total",
       seleccion: SELECCION_PERSONALIZADO,
+      vista: "descuento",
     };
   }
   return {
@@ -103,11 +139,12 @@ function estadoInicial(
     totalNorm: pesosToNorm(totalFacDesdeDescuentoPct(totalLista, pct)),
     lastEdited: "pct",
     seleccion: SELECCION_PERSONALIZADO,
+    vista: "descuento",
   };
 }
 
 /**
- * Modal de descuento de Factura · Crear: columnas por forma de pago + PERSONALIZADO.
+ * Modal de descuento de Factura · Crear: vistas POR DESCUENTO / POR FORMA PAGO + PERSONALIZADO.
  * El padre remonta con `key` al abrir.
  */
 export default function FacturaDescuentoModal({
@@ -125,11 +162,26 @@ export default function FacturaDescuentoModal({
     inicial.lastEdited
   );
   const [seleccion, setSeleccion] = useState(inicial.seleccion);
-  const columnas = useMemo(
+  const [vista, setVista] = useState<VistaDescPromo>(inicial.vista);
+  const columnasPago = useMemo(
     () => columnasFormaPagoDescPromo(promosFormaPago),
     [promosFormaPago]
   );
+  const columnasDesc = useMemo(
+    () =>
+      promosFormaPago
+        .slice()
+        .sort((a, b) => b.prioridad - a.prioridad || a.nombre.localeCompare(b.nombre, "es")),
+    [promosFormaPago]
+  );
   const mostrarPersonalizado = seleccion === SELECCION_PERSONALIZADO;
+
+  function cambiarVista(next: VistaDescPromo) {
+    setVista(next);
+    if (seleccion !== SELECCION_PERSONALIZADO) {
+      setSeleccion(SELECCION_PERSONALIZADO);
+    }
+  }
 
   function handlePctChange(next: string) {
     setPctNorm(next);
@@ -160,18 +212,40 @@ export default function FacturaDescuentoModal({
     }
 
     if (!mostrarPersonalizado) {
-      const col = columnas.find((c) => c.pagoId === seleccion);
+      if (vista === "descuento") {
+        const promo = columnasDesc.find((p) => clavePromo(p.id) === seleccion);
+        if (!promo) {
+          toast.error("Elegí un descuento.");
+          return;
+        }
+        onAplicar({
+          fuente: "promo_forma_pago",
+          porcentaje: 0,
+          totalFacObjetivo: null,
+          promoAgrupacion: "descuento",
+          promoCandidatas: [aCandidataFactura(promo)],
+          ...snapshotCobroDescPromo(promo.formasPago),
+        });
+        onOpenChange(false);
+        return;
+      }
+      const col = columnasPago.find(
+        (c) => clavePago(c.pagoId, c.cuotaId) === seleccion
+      );
       if (!col) {
         toast.error("Elegí una forma de pago.");
         return;
       }
+      const formasCobro = formasPagoUnicasDescPromo(col.promos);
       onAplicar({
         fuente: "promo_forma_pago",
         porcentaje: 0,
         totalFacObjetivo: null,
+        promoAgrupacion: "forma_pago",
         promoCandidatas: col.promos.map(aCandidataFactura),
-        promoPagoIds: [col.pagoId],
-        promoPagoNombres: [col.nombre],
+        promoPagoIdSeleccionado: col.pagoId,
+        promoCuotaIdSeleccionado: col.cuotaId,
+        ...snapshotCobroDescPromo(formasCobro),
       });
       onOpenChange(false);
       return;
@@ -261,44 +335,122 @@ export default function FacturaDescuentoModal({
           <div
             className="flex w-full min-w-0 overflow-hidden rounded-md border border-primary"
             role="radiogroup"
-            aria-label="Descuento por forma de pago"
+            aria-label="Vista del descuento"
           >
-            {columnas.map((col, i) => {
-              const activo = seleccion === col.pagoId;
-              return (
-                <div key={col.pagoId} className="flex min-w-0 flex-1">
-                  {i > 0 ? (
-                    <div
-                      className="w-px shrink-0 self-stretch bg-primary"
-                      aria-hidden
-                    />
-                  ) : null}
-                  <Button
-                    type="button"
-                    role="radio"
-                    aria-checked={activo}
-                    variant={activo ? "default" : "outline"}
-                    className={COLUMNA_PROMO_CLASS}
-                    onClick={() => setSeleccion(col.pagoId)}
-                  >
-                    <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
-                      {col.nombre}
-                    </span>
-                    <span className="flex w-full flex-col gap-0.5">
-                      {col.promos.map((promo) => (
-                        <span
-                          key={promo.id}
-                          className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
-                        >
-                          {etiquetaReglaDescPromoFactura(promo)}
+            <Button
+              type="button"
+              role="radio"
+              aria-checked={vista === "descuento"}
+              variant={vista === "descuento" ? "default" : "outline"}
+              className={VISTA_BTN_CLASS}
+              onClick={() => cambiarVista("descuento")}
+            >
+              Por Descuento
+            </Button>
+            <div className="w-px shrink-0 self-stretch bg-primary" aria-hidden />
+            <Button
+              type="button"
+              role="radio"
+              aria-checked={vista === "forma_pago"}
+              variant={vista === "forma_pago" ? "default" : "outline"}
+              className={VISTA_BTN_CLASS}
+              onClick={() => cambiarVista("forma_pago")}
+            >
+              Por Forma Pago
+            </Button>
+          </div>
+
+          <div
+            className="flex w-full min-w-0 overflow-hidden rounded-md border border-primary"
+            role="radiogroup"
+            aria-label={
+              vista === "descuento"
+                ? "Descuento por regla"
+                : "Descuento por forma de pago"
+            }
+          >
+            {vista === "descuento"
+              ? columnasDesc.map((promo, i) => {
+                  const activo = seleccion === clavePromo(promo.id);
+                  return (
+                    <div key={promo.id} className="flex min-w-0 flex-1">
+                      {i > 0 ? (
+                        <div
+                          className="w-px shrink-0 self-stretch bg-primary"
+                          aria-hidden
+                        />
+                      ) : null}
+                      <Button
+                        type="button"
+                        role="radio"
+                        aria-checked={activo}
+                        variant={activo ? "default" : "outline"}
+                        className={COLUMNA_PROMO_CLASS}
+                        onClick={() => setSeleccion(clavePromo(promo.id))}
+                      >
+                        <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
+                          {tituloPctDescPromoFactura(promo)}
                         </span>
-                      ))}
-                    </span>
-                  </Button>
-                </div>
-              );
-            })}
-            {columnas.length > 0 ? (
+                        <span className="w-full text-center text-[0.65rem] font-medium uppercase leading-tight">
+                          {etiquetaAlcanceCondicion(promo)}
+                        </span>
+                        <span className="flex w-full flex-col gap-0.5">
+                          {promo.formasPago.map((fp) => (
+                            <span
+                              key={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
+                              className="text-center text-[0.65rem] font-medium uppercase leading-tight"
+                            >
+                              {etiquetaFormaPagoCuotaDescPromo(fp)}
+                            </span>
+                          ))}
+                        </span>
+                      </Button>
+                    </div>
+                  );
+                })
+              : columnasPago.map((col, i) => {
+                  const activo =
+                    seleccion === clavePago(col.pagoId, col.cuotaId);
+                  return (
+                    <div
+                      key={claveFormaPagoCuotaDescPromo(col.pagoId, col.cuotaId)}
+                      className="flex min-w-0 flex-1"
+                    >
+                      {i > 0 ? (
+                        <div
+                          className="w-px shrink-0 self-stretch bg-primary"
+                          aria-hidden
+                        />
+                      ) : null}
+                      <Button
+                        type="button"
+                        role="radio"
+                        aria-checked={activo}
+                        variant={activo ? "default" : "outline"}
+                        className={COLUMNA_PROMO_CLASS}
+                        onClick={() =>
+                          setSeleccion(clavePago(col.pagoId, col.cuotaId))
+                        }
+                      >
+                        <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
+                          {col.etiqueta}
+                        </span>
+                        <span className="flex w-full flex-col gap-0.5">
+                          {col.promos.map((promo) => (
+                            <span
+                              key={promo.id}
+                              className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
+                            >
+                              {etiquetaReglaDescPromoFactura(promo)}
+                            </span>
+                          ))}
+                        </span>
+                      </Button>
+                    </div>
+                  );
+                })}
+            {(vista === "descuento" ? columnasDesc.length : columnasPago.length) >
+            0 ? (
               <div
                 className="w-px shrink-0 self-stretch bg-primary"
                 aria-hidden

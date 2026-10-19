@@ -21,6 +21,7 @@ import {
   crearDescPromoAction,
   editarDescPromoAction,
 } from "@/actions/descPromo";
+import { cuotasParaFormaPago, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   ALCANCES_DESC_PROMO,
   ETIQUETA_ALCANCE_DESC_PROMO,
@@ -45,6 +46,7 @@ interface Props {
   item: DescPromoFila | null;
   productos: DescPromoOpcionProductoUi[];
   pagos: DescPromoOpcionPago[];
+  cuotas: CobrosCuotaItem[];
   rubros: RubroCatalogoItem[];
   marcas: MarcaCatalogoItem[];
   onSuccess?: () => void;
@@ -65,12 +67,30 @@ function digitsDescuento(value: string): string {
   return n > 100 ? "100" : String(n);
 }
 
+function pagoIdsDesdeItem(item: DescPromoFila | null): string[] {
+  if (item == null) return [];
+  return [...new Set(item.formasPago.map((fp) => fp.pagoId))];
+}
+
+function cuotaIdsPorPagoDesdeItem(item: DescPromoFila | null): Record<string, string[]> {
+  if (item == null) return {};
+  const map: Record<string, string[]> = {};
+  for (const fp of item.formasPago) {
+    if (!fp.cuotaId) continue;
+    const actual = map[fp.pagoId] ?? [];
+    if (!actual.includes(fp.cuotaId)) actual.push(fp.cuotaId);
+    map[fp.pagoId] = actual;
+  }
+  return map;
+}
+
 export default function CrearEditarDescPromoModal({
   open,
   onOpenChange,
   item,
   productos,
   pagos,
+  cuotas,
   rubros,
   marcas,
   onSuccess,
@@ -84,8 +104,9 @@ export default function CrearEditarDescPromoModal({
   const [codTiendas, setCodTiendas] = useState<string[]>(
     item?.items.map((i) => i.codTienda) ?? []
   );
-  const [pagoIds, setPagoIds] = useState<string[]>(
-    item?.formasPago.map((fp) => fp.pagoId) ?? []
+  const [pagoIds, setPagoIds] = useState<string[]>(() => pagoIdsDesdeItem(item));
+  const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
+    () => cuotaIdsPorPagoDesdeItem(item)
   );
   const [idMarca, setIdMarca] = useState(item?.idMarca ?? "");
   const [idRubro, setIdRubro] = useState(item?.idRubro ?? "");
@@ -105,11 +126,27 @@ export default function CrearEditarDescPromoModal({
     [pagos]
   );
 
+  const pagosConCuotas = useMemo(
+    () =>
+      pagoIds
+        .map((pagoId) => {
+          const pago = pagos.find((p) => p.id === pagoId);
+          const opciones = cuotasParaFormaPago(cuotas, pagoId);
+          return { pagoId, nombre: pago?.nombre ?? "", opciones };
+        })
+        .filter((row) => row.opciones.length > 0),
+    [pagoIds, pagos, cuotas]
+  );
+
   const descuento = parseDescuento(descuentoTexto);
   const pideMarca = alcance === "MARCA" || alcance === "MARCA_RUBRO";
   const pideRubro = alcance === "RUBRO" || alcance === "MARCA_RUBRO";
   const pideItems = alcance === "ITEMS";
-  const vinculosOk = pagoIds.length > 0;
+  const vinculosOk =
+    pagoIds.length > 0 &&
+    pagosConCuotas.every(
+      (row) => (cuotaIdsPorPago[row.pagoId]?.length ?? 0) > 0
+    );
   const alcanceOk =
     (!pideMarca || idMarca !== "") &&
     (!pideRubro || idRubro !== "") &&
@@ -129,6 +166,14 @@ export default function CrearEditarDescPromoModal({
   async function handleSubmit() {
     if (!puedeGuardar || saving || descuento == null) return;
     setSaving(true);
+    const vinculosCobro = pagoIds.flatMap((pagoId) => {
+      const opciones = cuotasParaFormaPago(cuotas, pagoId);
+      if (opciones.length === 0) return [{ pagoId, cuotaId: null }];
+      return (cuotaIdsPorPago[pagoId] ?? []).map((cuotaId) => ({
+        pagoId,
+        cuotaId,
+      }));
+    });
     const payload = {
       alcance,
       nombre: nombre.trim(),
@@ -136,7 +181,7 @@ export default function CrearEditarDescPromoModal({
       idMarca: pideMarca ? idMarca : null,
       idRubro: pideRubro ? idRubro : null,
       codTiendas: pideItems ? codTiendas : [],
-      pagoIds,
+      vinculosCobro,
     };
     const res = item
       ? await editarDescPromoAction({ ...payload, id: item.id })
@@ -208,12 +253,46 @@ export default function CrearEditarDescPromoModal({
             <FiltroMultiSelect
               opciones={opcionesPago}
               selected={pagoIds}
-              onChange={setPagoIds}
+              onChange={(next) => {
+                setPagoIds(next);
+                setCuotaIdsPorPago((prev) => {
+                  const keep: Record<string, string[]> = {};
+                  for (const id of next) {
+                    if (prev[id]) keep[id] = prev[id];
+                  }
+                  return keep;
+                });
+              }}
               placeholder="FORMA DE PAGO"
               ariaLabel="Formas de pago"
               disabled={saving}
             />
           </div>
+          {pagosConCuotas.map((row) => (
+            <div key={row.pagoId} className="flex flex-col gap-1">
+              <ModalMicroLabel>
+                {pagosConCuotas.length === 1
+                  ? "Cant. Cuotas"
+                  : `Cant. Cuotas · ${row.nombre}`}
+              </ModalMicroLabel>
+              <FiltroMultiSelect
+                opciones={row.opciones.map((c) => ({
+                  value: c.id,
+                  label: c.cuotas,
+                }))}
+                selected={cuotaIdsPorPago[row.pagoId] ?? []}
+                onChange={(next) =>
+                  setCuotaIdsPorPago((prev) => ({
+                    ...prev,
+                    [row.pagoId]: next,
+                  }))
+                }
+                placeholder="CANT. CUOTAS"
+                ariaLabel={`Cantidad de cuotas ${row.nombre}`}
+                disabled={saving}
+              />
+            </div>
+          ))}
           {pideMarca ? (
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>Marca</ModalMicroLabel>

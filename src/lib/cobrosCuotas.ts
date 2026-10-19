@@ -24,3 +24,12 @@ export function cuotasParaFormaYEntidad(
     cuota.vinculos.some((vinculo) => vinculo.pagoId === pagoId && vinculo.entidadId === entidadId)
   );
 }
+
+/** Cuotas del catálogo vinculadas a una forma de pago (cualquier entidad). */
+export function cuotasParaFormaPago(
+  cuotas: readonly CobrosCuotaItem[],
+  pagoId: string
+): CobrosCuotaItem[] {
+  if (!pagoId) return [];
+  return cuotas.filter((cuota) => cuota.vinculos.some((vinculo) => vinculo.pagoId === pagoId));
+}

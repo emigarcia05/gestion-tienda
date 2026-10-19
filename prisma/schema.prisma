@@ -2075,16 +2075,24 @@ model DescPromoItem {
   @@map("desc_promo_items")
 }
 
-/** N:M `desc_promo` ↔ `cobros_forma_pago`. */
+/**
+ * Vínculo `desc_promo` ↔ forma de cobro × CANT. CUOTAS.
+ * `cuota_id` null = la forma no tiene cuotas en `cobros_cuota_vinculos` (p. ej. EFECTIVO).
+ * Uniques parciales solo en SQL (NULL de cuota).
+ */
 model DescPromoFormaPago {
-  promoId String @map("promo_id")
-  pagoId  String @map("pago_id")
+  id      String  @id @default(cuid())
+  promoId String  @map("promo_id")
+  pagoId  String  @map("pago_id")
+  cuotaId String? @map("cuota_id")
 
   promo DescPromo            @relation(fields: [promoId], references: [id], onDelete: Cascade)
   pago  FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  cuota CobrosCuota?         @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
 
-  @@id([promoId, pagoId], map: "desc_promo_formas_pago_pkey")
   @@index([pagoId], map: "desc_promo_formas_pago_pago_id_idx")
+  @@index([cuotaId], map: "desc_promo_formas_pago_cuota_id_idx")
+  @@index([promoId], map: "desc_promo_formas_pago_promo_id_idx")
   @@map("desc_promo_formas_pago")
 }
 
@@ -2101,6 +2109,7 @@ model CobrosCuota {
   vinculos             CobrosCuotaVinculo[]
   filasCostos          FinAnaCosFina[]
   movimientosTesoreria TesoreriaMovimiento[]
+  descPromoFormasPago  DescPromoFormaPago[]
 
   @@map("cobros_cuotas")
 }

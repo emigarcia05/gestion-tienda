@@ -19,10 +19,12 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
     },
   },
   formasPago: {
-    orderBy: { pago: { nombre: "asc" } },
+    orderBy: { id: "asc" },
     select: {
       pagoId: true,
+      cuotaId: true,
       pago: { select: { nombre: true } },
+      cuota: { select: { cuotas: true } },
     },
   },
   marca: { select: { nombre: true } },
@@ -51,10 +53,24 @@ function mapPromo(row: PromoRow): DescPromoFila {
       codTienda: item.codTienda,
       descripcion: (item.producto.descripcionTienda ?? "").toLocaleUpperCase("es-AR"),
     })),
-    formasPago: row.formasPago.map((fp) => ({
-      pagoId: fp.pagoId,
-      nombre: fp.pago.nombre.toLocaleUpperCase("es-AR"),
-    })),
+    formasPago: row.formasPago
+      .map((fp) => ({
+        pagoId: fp.pagoId,
+        nombre: fp.pago.nombre.toLocaleUpperCase("es-AR"),
+        cuotaId: fp.cuotaId,
+        cuotaEtiqueta: fp.cuota
+          ? fp.cuota.cuotas.toLocaleUpperCase("es-AR")
+          : null,
+      }))
+      .sort((a, b) => {
+        const na = a.cuotaEtiqueta
+          ? `${a.nombre} · ${a.cuotaEtiqueta}`
+          : a.nombre;
+        const nb = b.cuotaEtiqueta
+          ? `${b.nombre} · ${b.cuotaEtiqueta}`
+          : b.nombre;
+        return na.localeCompare(nb, "es");
+      }),
   };
 }
 
@@ -95,7 +111,7 @@ function mapDbError(error: unknown, fallback: string): string {
   ) {
     const code = (error as { code: string }).code;
     if (code === "P2002") return "La prioridad ya está en uso. Reintentá.";
-    if (code === "P2003") return "Hay un producto, forma de pago, marca o rubro inválido.";
+    if (code === "P2003") return "Hay un producto, forma de cobro, marca o rubro inválido.";
     if (code === "P2025") return "La promoción no existe.";
   }
   return error instanceof Error ? error.message : fallback;
@@ -104,11 +120,69 @@ function mapDbError(error: unknown, fallback: string): string {
 async function validarVinculos(
   input: CrearDescPromoInput
 ): Promise<ServiceResult<void>> {
+  const pagoIds = [...new Set(input.vinculosCobro.map((v) => v.pagoId))];
+  if (pagoIds.length === 0) {
+    return { success: false, error: "Elegí al menos una forma de cobro." };
+  }
   const nPagos = await prisma.finAnaCosFinaPagoCat.count({
-    where: { id: { in: input.pagoIds } },
+    where: { id: { in: pagoIds } },
   });
-  if (nPagos !== input.pagoIds.length) {
+  if (nPagos !== pagoIds.length) {
     return { success: false, error: "Hay formas de pago que ya no existen." };
+  }
+
+  const cuotaIds = [
+    ...new Set(
+      input.vinculosCobro
+        .map((v) => v.cuotaId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    ),
+  ];
+  if (cuotaIds.length > 0) {
+    const nCuotas = await prisma.cobrosCuota.count({
+      where: { id: { in: cuotaIds } },
+    });
+    if (nCuotas !== cuotaIds.length) {
+      return { success: false, error: "Hay cantidades de cuotas que ya no existen." };
+    }
+  }
+
+  const pagosConCuotas = await prisma.cobrosCuotaVinculo.findMany({
+    where: { pagoId: { in: pagoIds } },
+    select: { pagoId: true, cuotaId: true },
+  });
+  const cuotasPorPago = new Map<string, Set<string>>();
+  for (const row of pagosConCuotas) {
+    const set = cuotasPorPago.get(row.pagoId) ?? new Set<string>();
+    set.add(row.cuotaId);
+    cuotasPorPago.set(row.pagoId, set);
+  }
+
+  for (const pagoId of pagoIds) {
+    const catalogo = cuotasPorPago.get(pagoId);
+    const filas = input.vinculosCobro.filter((v) => v.pagoId === pagoId);
+    if (catalogo && catalogo.size > 0) {
+      for (const fila of filas) {
+        const cuotaId = fila.cuotaId ?? null;
+        if (cuotaId == null) {
+          return {
+            success: false,
+            error: "Elegí al menos una CANT. CUOTAS para cada forma que las tiene.",
+          };
+        }
+        if (!catalogo.has(cuotaId)) {
+          return {
+            success: false,
+            error: "Hay una CANT. CUOTAS que no corresponde a esa forma de pago.",
+          };
+        }
+      }
+    } else if (filas.some((f) => f.cuotaId)) {
+      return {
+        success: false,
+        error: "Esa forma de pago no tiene CANT. CUOTAS.",
+      };
+    }
   }
 
   const ejes = ejesSegunAlcance(input);
@@ -145,7 +219,12 @@ function dataVinculos(input: CrearDescPromoInput) {
     idMarca: ejes.idMarca,
     idRubro: ejes.idRubro,
     items: { create: ejes.codTiendas.map((codTienda) => ({ codTienda })) },
-    formasPago: { create: input.pagoIds.map((pagoId) => ({ pagoId })) },
+    formasPago: {
+      create: input.vinculosCobro.map((v) => ({
+        pagoId: v.pagoId,
+        cuotaId: v.cuotaId ?? null,
+      })),
+    },
   };
 }
 
