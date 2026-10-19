@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
@@ -18,9 +19,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  EmptyTableRow,
+} from "@/components/ui/table";
+import {
   crearDescPromoAction,
   editarDescPromoAction,
 } from "@/actions/descPromo";
+import DescPromoAgregarProductosModal from "@/components/desc-promos/DescPromoAgregarProductosModal";
 import { cuotasParaFormaPago, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   ALCANCES_DESC_PROMO,
@@ -28,7 +39,14 @@ import {
   type AlcanceDescPromoValor,
   type DescPromoFila,
 } from "@/lib/descPromo";
+import { fmtCelda } from "@/lib/format";
 import type { MarcaCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
+import { cn } from "@/lib/utils";
 import type { CrearDescPromoInput } from "@/lib/validations/descPromo";
 
 export type DescPromoOpcionPago = {
@@ -105,9 +123,14 @@ export default function CrearEditarDescPromoModal({
   const [descuentoTexto, setDescuentoTexto] = useState(
     item != null ? String(item.descuento) : ""
   );
-  const [codTiendas, setCodTiendas] = useState<string[]>(
-    item?.items.map((i) => i.codTienda) ?? []
+  const [itemsElegidos, setItemsElegidos] = useState<DescPromoOpcionProductoUi[]>(
+    () =>
+      item?.items.map((i) => ({
+        codTienda: i.codTienda,
+        descripcion: i.descripcion,
+      })) ?? []
   );
+  const [agregarProductosOpen, setAgregarProductosOpen] = useState(false);
   const [pagoIds, setPagoIds] = useState<string[]>(() => pagoIdsDesdeItem(item));
   const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
     () => cuotaIdsPorPagoDesdeItem(item)
@@ -115,15 +138,6 @@ export default function CrearEditarDescPromoModal({
   const [idMarca, setIdMarca] = useState(item?.idMarca ?? "");
   const [idRubro, setIdRubro] = useState(item?.idRubro ?? "");
   const [saving, setSaving] = useState(false);
-
-  const opcionesProducto = useMemo<FiltroMultiSelectOpcion[]>(
-    () =>
-      productos.map((p) => ({
-        value: p.codTienda,
-        label: p.descripcion ? `${p.codTienda} · ${p.descripcion}` : p.codTienda,
-      })),
-    [productos]
-  );
 
   const opcionesPago = useMemo<FiltroMultiSelectOpcion[]>(
     () => pagos.map((p) => ({ value: p.id, label: p.nombre })),
@@ -146,6 +160,7 @@ export default function CrearEditarDescPromoModal({
   const pideMarca = alcance === "MARCA" || alcance === "MARCA_RUBRO";
   const pideRubro = alcance === "RUBRO" || alcance === "MARCA_RUBRO";
   const pideItems = alcance === "ITEMS";
+  const codTiendas = itemsElegidos.map((i) => i.codTienda);
   const vinculosOk =
     pagoIds.length > 0 &&
     pagosConCuotas.every(
@@ -162,7 +177,7 @@ export default function CrearEditarDescPromoModal({
     if (!ALCANCES_DESC_PROMO.includes(next as AlcanceDescPromoValor)) return;
     const valor = next as AlcanceDescPromoValor;
     setAlcance(valor);
-    if (valor !== "ITEMS") setCodTiendas([]);
+    if (valor !== "ITEMS") setItemsElegidos([]);
     if (valor !== "MARCA" && valor !== "MARCA_RUBRO") setIdMarca("");
     if (valor !== "RUBRO" && valor !== "MARCA_RUBRO") setIdRubro("");
   }
@@ -205,8 +220,20 @@ export default function CrearEditarDescPromoModal({
     onSuccess?.();
   }
 
+  function quitarItem(codTienda: string) {
+    setItemsElegidos((prev) => prev.filter((i) => i.codTienda !== codTienda));
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
+    <>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (saving) return;
+        if (!next && agregarProductosOpen) return;
+        onOpenChange(next);
+      }}
+    >
       <AppModal
         size="xl"
         title={esAlta ? "NUEVO DESCUENTO" : "EDITAR DESCUENTO"}
@@ -356,20 +383,101 @@ export default function CrearEditarDescPromoModal({
             </div>
           ) : null}
           {pideItems ? (
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>Productos</ModalMicroLabel>
-              <FiltroMultiSelect
-                opciones={opcionesProducto}
-                selected={codTiendas}
-                onChange={setCodTiendas}
-                placeholder="PRODUCTOS"
-                ariaLabel="Productos"
-                disabled={saving}
-              />
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <ModalMicroLabel>Productos</ModalMicroLabel>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="h-10 w-10"
+                  disabled={saving}
+                  aria-label="Agregar productos"
+                  onClick={() => setAgregarProductosOpen(true)}
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+              <div className="contenedor-tabla-gestion min-h-0 max-h-[min(18rem,40vh)] overflow-auto rounded-md border border-primary">
+                <Table variant="compact" className="tabla-gestion-compacta w-full">
+                  <colgroup>
+                    <col className="w-[88%]" />
+                    <col className="w-[12%]" />
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>DESCRIPCIÓN</TableHead>
+                      <TableHead className="text-center">ACCIONES</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itemsElegidos.length === 0 ? (
+                      <EmptyTableRow colSpan={2} message="NO HAY PRODUCTOS." />
+                    ) : (
+                      itemsElegidos.map((producto) => (
+                        <TableRow key={producto.codTienda}>
+                          <TableCell className="celda-datos min-w-0">
+                            <span
+                              className="block truncate"
+                              title={producto.descripcion || producto.codTienda}
+                            >
+                              {fmtCelda(
+                                producto.descripcion || producto.codTienda
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                            <div
+                              className={cn(
+                                TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                                "justify-center"
+                              )}
+                            >
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                disabled={saving}
+                                aria-label={`Quitar ${producto.descripcion || producto.codTienda}`}
+                                onClick={() => quitarItem(producto.codTienda)}
+                              >
+                                <Trash2
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ) : null}
         </div>
       </AppModal>
     </Dialog>
+    <DescPromoAgregarProductosModal
+      key={agregarProductosOpen ? "abierto" : "cerrado"}
+      open={agregarProductosOpen}
+      onOpenChange={setAgregarProductosOpen}
+      productos={productos}
+      codigosSeleccionados={codTiendas}
+      onConfirm={(nuevos) => {
+        setItemsElegidos((prev) => {
+          const existentes = new Set(prev.map((p) => p.codTienda));
+          const merged = [...prev];
+          for (const p of nuevos) {
+            if (!existentes.has(p.codTienda)) merged.push(p);
+          }
+          return merged;
+        });
+        setAgregarProductosOpen(false);
+      }}
+    />
+    </>
   );
 }

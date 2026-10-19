@@ -1,4 +1,5 @@
 import type { AlcanceDescPromo } from "@prisma/client";
+import { matchByMultiTerm } from "./busqueda";
 import { APP_ROUTES } from "./appRoutes";
 
 export const DESC_PROMOS_PATH = APP_ROUTES.administrador.descPromos.descuentos;
@@ -24,6 +25,8 @@ export const ETIQUETA_ALCANCE_DESC_PROMO: Record<AlcanceDescPromoValor, string> 
 export type DescPromoItemRef = {
   codTienda: string;
   descripcion: string;
+  idRubro: string | null;
+  rubroNombre: string | null;
 };
 
 export type DescPromoFormaPagoRef = {
@@ -299,4 +302,81 @@ export function gruposPorPctDescPromo(
     descuento,
     promos,
   }));
+}
+
+export function claveAlcanceGrupoDescPromo(fila: DescPromoFila): string {
+  if (fila.alcance === "ITEMS") {
+    return `ITEMS:${fila.items
+      .map((item) => item.codTienda)
+      .slice()
+      .sort()
+      .join(",")}`;
+  }
+  return `${fila.alcance}:${fila.idMarca ?? ""}:${fila.idRubro ?? ""}`;
+}
+
+export type GrupoDescPromoPorAlcance = {
+  clave: string;
+  etiqueta: string;
+  promos: DescPromoFila[];
+};
+
+/** Agrupa reglas por rubro / ítems (etiqueta de alcance). */
+export function gruposPorAlcanceDescPromo(
+  filas: readonly DescPromoFila[]
+): GrupoDescPromoPorAlcance[] {
+  const porClave = new Map<string, GrupoDescPromoPorAlcance>();
+  const ordenadas = filas
+    .slice()
+    .sort(
+      (a, b) =>
+        etiquetaAlcanceCondicion(a).localeCompare(etiquetaAlcanceCondicion(b), "es") ||
+        b.prioridad - a.prioridad
+    );
+  for (const fila of ordenadas) {
+    const clave = claveAlcanceGrupoDescPromo(fila);
+    const actual = porClave.get(clave);
+    if (actual) {
+      actual.promos.push(fila);
+    } else {
+      porClave.set(clave, {
+        clave,
+        etiqueta: etiquetaAlcanceCondicion(fila),
+        promos: [fila],
+      });
+    }
+  }
+  return [...porClave.values()];
+}
+
+export function filtrarPromosDescPromoFactura(
+  filas: readonly DescPromoFila[],
+  filtros: {
+    pagoId: string;
+    cuotaId: string | null;
+    idRubro: string;
+    qDescripcion: string;
+  }
+): DescPromoFila[] {
+  const q = filtros.qDescripcion.trim();
+  return filas.filter((fila) => {
+    if (filtros.pagoId) {
+      const coincidePago = fila.formasPago.some((fp) => {
+        if (fp.pagoId !== filtros.pagoId) return false;
+        return (fp.cuotaId ?? null) === filtros.cuotaId;
+      });
+      if (!coincidePago) return false;
+    }
+    if (filtros.idRubro) {
+      const porRegla = fila.idRubro === filtros.idRubro;
+      const porItem = fila.items.some((item) => item.idRubro === filtros.idRubro);
+      const todos = fila.alcance === "TODOS";
+      if (!todos && !porRegla && !porItem) return false;
+    }
+    if (q) {
+      const textos = fila.items.map((item) => item.descripcion);
+      if (textos.length === 0 || !matchByMultiTerm(textos, q)) return false;
+    }
+    return true;
+  });
 }

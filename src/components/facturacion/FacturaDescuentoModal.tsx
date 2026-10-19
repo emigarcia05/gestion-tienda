@@ -47,6 +47,20 @@ const VISTA_BTN_CLASS =
 const FILA_PROMO_CLASS = "cursor-pointer";
 const FILA_PROMO_ACTIVA_CLASS = "bg-primary text-primary-foreground hover:bg-primary";
 
+function FilaSeparadorGrupo() {
+  return (
+    <TableRow
+      aria-hidden
+      className="pointer-events-none border-0 hover:bg-transparent"
+    >
+      <TableCell
+        colSpan={3}
+        className="h-0.5 p-0 leading-none border-0 bg-primary"
+      />
+    </TableRow>
+  );
+}
+
 function clavePago(pagoId: string, cuotaId: string | null): string {
   return `pago:${claveFormaPagoCuotaDescPromo(pagoId, cuotaId)}`;
 }
@@ -411,8 +425,8 @@ export default function FacturaDescuentoModal({
                   gruposPct.length === 0 ? (
                     <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
                   ) : (
-                    gruposPct.flatMap((grupo) =>
-                      grupo.promos.map((promo, i) => {
+                    gruposPct.flatMap((grupo) => {
+                      const filas = grupo.promos.map((promo, i) => {
                         const activo = seleccion === clavePromo(promo.id);
                         const formas = promo.formasPago
                           .map(etiquetaFormaPagoCuotaDescPromo)
@@ -451,8 +465,12 @@ export default function FacturaDescuentoModal({
                             </TableCell>
                           </TableRow>
                         );
-                      })
-                    )
+                      });
+                      filas.push(
+                        <FilaSeparadorGrupo key={`sep-pct-${grupo.descuento}`} />
+                      );
+                      return filas;
+                    })
                   )
                 ) : columnasPago.length === 0 ? (
                   <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
@@ -460,7 +478,7 @@ export default function FacturaDescuentoModal({
                   columnasPago.flatMap((col) => {
                     const clave = clavePago(col.pagoId, col.cuotaId);
                     const grupoActivo = seleccion === clave;
-                    return col.promos.map((promo, i) => (
+                    const filas = col.promos.map((promo, i) => (
                       <TableRow
                         key={`${clave}-${promo.id}`}
                         role="radio"
@@ -494,6 +512,10 @@ export default function FacturaDescuentoModal({
                         </TableCell>
                       </TableRow>
                     ));
+                    filas.push(
+                      <FilaSeparadorGrupo key={`sep-pago-${clave}`} />
+                    );
+                    return filas;
                   })
                 )}
                 <TableRow
