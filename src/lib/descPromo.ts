@@ -1,19 +1,25 @@
-import type { TipoDescPromo } from "@prisma/client";
+import type { AlcanceDescPromo } from "@prisma/client";
 import { APP_ROUTES } from "./appRoutes";
 
 export const DESC_PROMOS_PATH = APP_ROUTES.administrador.descPromos.descuentos;
 
-export const TIPOS_DESC_PROMO = ["POR_ITEM", "POR_FORMA_PAGO"] as const;
+export const ALCANCES_DESC_PROMO = [
+  "TODOS",
+  "MARCA",
+  "RUBRO",
+  "MARCA_RUBRO",
+  "ITEMS",
+] as const;
 
-export type TipoDescPromoValor = (typeof TIPOS_DESC_PROMO)[number];
+export type AlcanceDescPromoValor = (typeof ALCANCES_DESC_PROMO)[number];
 
-export const ETIQUETA_TIPO_DESC_PROMO: Record<TipoDescPromoValor, string> = {
-  POR_ITEM: "POR ITEM",
-  POR_FORMA_PAGO: "POR FORMA PAGO",
+export const ETIQUETA_ALCANCE_DESC_PROMO: Record<AlcanceDescPromoValor, string> = {
+  TODOS: "TODOS LOS ÍTEMS",
+  MARCA: "MARCA",
+  RUBRO: "RUBRO",
+  MARCA_RUBRO: "MARCA Y RUBRO",
+  ITEMS: "ÍTEMS",
 };
-
-export const DESC_PROMO_EJE_TODOS = "todos";
-export const DESC_PROMO_SUBRUBRO_TODOS = DESC_PROMO_EJE_TODOS;
 
 export type DescPromoItemRef = {
   codTienda: string;
@@ -25,225 +31,175 @@ export type DescPromoFormaPagoRef = {
   nombre: string;
 };
 
-export type DescPromoReglaCondicion = {
+export type DescPromoFila = {
+  id: string;
+  alcance: AlcanceDescPromo;
+  alcanceEtiqueta: string;
+  nombre: string;
+  descuento: number;
+  prioridad: number;
   idMarca: string | null;
+  marcaNombre: string | null;
   idRubro: string | null;
-  idSubRubro: string | null;
+  rubroNombre: string | null;
+  items: DescPromoItemRef[];
+  formasPago: DescPromoFormaPagoRef[];
 };
 
-export type DescPromoReglaRef = DescPromoReglaCondicion & {
+export type DescPromoItemMatch = {
+  codTienda: string;
+  idMarca: string | null;
+  idRubro: string | null;
+};
+
+export type DescPromoCandidataFactura = {
   id: string;
-  marcaNombre: string | null;
-  rubroNombre: string | null;
-  subRubroNombre: string | null;
+  prioridad: number;
+  alcance: AlcanceDescPromo;
+  idMarca: string | null;
+  idRubro: string | null;
+  codTiendas: string[];
   descuento: number;
 };
 
-export type DescPromoFila = {
-  id: string;
-  tipo: TipoDescPromo;
-  tipoEtiqueta: string;
-  nombre: string;
-  descuento: number | null;
-  items: DescPromoItemRef[];
-  formasPago: DescPromoFormaPagoRef[];
-  reglas: DescPromoReglaRef[];
-};
-
-export type DescPromoItemMatch = DescPromoReglaCondicion;
-
-export function etiquetaTipoDescPromo(tipo: TipoDescPromo): string {
-  return ETIQUETA_TIPO_DESC_PROMO[tipo];
+export function etiquetaAlcanceDescPromo(alcance: AlcanceDescPromo): string {
+  return ETIQUETA_ALCANCE_DESC_PROMO[alcance];
 }
 
 export function textoVinculosDescPromo(fila: DescPromoFila): string {
-  if (fila.tipo === "POR_ITEM") {
-    return fila.items
+  const formas = fila.formasPago.map((fp) => fp.nombre).join(" · ");
+  if (fila.alcance === "ITEMS") {
+    const items = fila.items
       .map((item) => item.descripcion || item.codTienda)
       .join(" · ");
+    return [formas, items].filter(Boolean).join(" · ");
   }
-  return fila.formasPago.map((fp) => fp.nombre).join(" · ");
-}
-
-/** Encabezado de columna en Factura · Desc.: nombres de formas de pago. */
-export function tituloFormasPagoDescPromo(fila: DescPromoFila): string {
-  return fila.formasPago.map((fp) => fp.nombre).join(" / ");
-}
-
-export function claveReglaDescPromo(c: DescPromoReglaCondicion): string {
-  return `${c.idMarca ?? ""}::${c.idRubro ?? ""}::${c.idSubRubro ?? ""}`;
-}
-
-export function especificidadReglaDescPromo(c: DescPromoReglaCondicion): number {
-  return (c.idMarca ? 1 : 0) + (c.idRubro ? 1 : 0) + (c.idSubRubro ? 1 : 0);
-}
-
-export function reglaDescPromoTieneEje(c: DescPromoReglaCondicion): boolean {
-  return c.idMarca != null || c.idRubro != null;
-}
-
-export function reglasDescPromoSeSolapan(
-  a: DescPromoReglaCondicion,
-  b: DescPromoReglaCondicion
-): boolean {
-  const marcaOk = a.idMarca == null || b.idMarca == null || a.idMarca === b.idMarca;
-  const rubroOk = a.idRubro == null || b.idRubro == null || a.idRubro === b.idRubro;
-  const subOk =
-    a.idSubRubro == null || b.idSubRubro == null || a.idSubRubro === b.idSubRubro;
-  return marcaOk && rubroOk && subOk;
-}
-
-export function interseccionReglaDescPromo(
-  a: DescPromoReglaCondicion,
-  b: DescPromoReglaCondicion
-): DescPromoReglaCondicion {
-  return {
-    idMarca: a.idMarca ?? b.idMarca,
-    idRubro: a.idRubro ?? b.idRubro,
-    idSubRubro: a.idSubRubro ?? b.idSubRubro,
-  };
-}
-
-export function condicionesReglaDescPromoIguales(
-  a: DescPromoReglaCondicion,
-  b: DescPromoReglaCondicion
-): boolean {
-  return claveReglaDescPromo(a) === claveReglaDescPromo(b);
-}
-
-function reglaCubreInterseccion(
-  regla: DescPromoReglaCondicion,
-  cruce: DescPromoReglaCondicion
-): boolean {
-  return claveReglaDescPromo(regla) === claveReglaDescPromo(cruce);
-}
-
-/**
- * Pares de excepciones del mismo nivel que se solapan y aún no tienen
- * una fila más específica para el cruce.
- */
-export function conflictosReglasDescPromo(
-  reglas: readonly DescPromoReglaCondicion[]
-): { i: number; j: number; cruce: DescPromoReglaCondicion }[] {
-  const out: { i: number; j: number; cruce: DescPromoReglaCondicion }[] = [];
-  const vistos = new Set<string>();
-  for (let i = 0; i < reglas.length; i += 1) {
-    for (let j = i + 1; j < reglas.length; j += 1) {
-      const a = reglas[i];
-      const b = reglas[j];
-      if (condicionesReglaDescPromoIguales(a, b)) continue;
-      if (!reglasDescPromoSeSolapan(a, b)) continue;
-      if (especificidadReglaDescPromo(a) !== especificidadReglaDescPromo(b)) {
-        continue;
-      }
-      const cruce = interseccionReglaDescPromo(a, b);
-      if (especificidadReglaDescPromo(cruce) <= especificidadReglaDescPromo(a)) {
-        continue;
-      }
-      if (reglas.some((r) => reglaCubreInterseccion(r, cruce))) continue;
-      const clave = claveReglaDescPromo(cruce);
-      if (vistos.has(clave)) continue;
-      vistos.add(clave);
-      out.push({ i, j, cruce });
-    }
-  }
-  return out;
-}
-
-export function reglaDescPromoMatcheaItem(
-  regla: DescPromoReglaCondicion,
-  item: DescPromoItemMatch
-): boolean {
-  if (regla.idMarca != null && regla.idMarca !== item.idMarca) return false;
-  if (regla.idRubro != null && regla.idRubro !== item.idRubro) return false;
-  if (regla.idSubRubro != null && regla.idSubRubro !== item.idSubRubro) {
-    return false;
-  }
-  return true;
-}
-
-/** Gana la excepción más específica; si no hay match, el % general. */
-export function descuentoPctDesdeReglasPromo(
-  reglas: readonly (DescPromoReglaCondicion & { descuento: number })[],
-  item: DescPromoItemMatch,
-  generalPct: number
-): number {
-  let mejor: { spec: number; descuento: number } | null = null;
-  for (const regla of reglas) {
-    if (!reglaDescPromoMatcheaItem(regla, item)) continue;
-    const spec = especificidadReglaDescPromo(regla);
-    if (mejor == null || spec > mejor.spec) {
-      mejor = { spec, descuento: regla.descuento };
-    }
-  }
-  if (mejor == null) return generalPct;
-  return mejor.descuento;
-}
-
-function partesEtiquetaRegla(regla: {
-  marcaNombre?: string | null;
-  rubroNombre?: string | null;
-  subRubroNombre?: string | null;
-  idMarca?: string | null;
-  idRubro?: string | null;
-  idSubRubro?: string | null;
-}): string[] {
-  const partes: string[] = [];
-  if (regla.marcaNombre) partes.push(regla.marcaNombre);
-  else if (regla.idMarca) partes.push("MARCA");
-  if (regla.rubroNombre) {
-    partes.push(
-      regla.subRubroNombre
-        ? `${regla.rubroNombre} / ${regla.subRubroNombre}`
-        : regla.rubroNombre
-    );
-  } else if (regla.idRubro) {
-    partes.push(regla.subRubroNombre ? `RUBRO / ${regla.subRubroNombre}` : "RUBRO");
-  }
-  return partes;
-}
-
-export function etiquetaCondicionDescPromo(regla: {
-  marcaNombre?: string | null;
-  rubroNombre?: string | null;
-  subRubroNombre?: string | null;
-  idMarca?: string | null;
-  idRubro?: string | null;
-  idSubRubro?: string | null;
-}): string {
-  const partes = partesEtiquetaRegla(regla);
-  return partes.join(" · ");
-}
-
-export function etiquetaGeneralDescPromoFactura(descuento: number | null): string {
-  return `GENERAL - ${descuento ?? 0}%`;
-}
-
-/** Cuerpo de columna: `GENERAL - 25%` / `MARCA · RUBRO - 20%`. */
-export function etiquetaReglaDescPromoFactura(
-  regla: DescPromoReglaRef
-): string {
-  const cuerpo = etiquetaCondicionDescPromo(regla) || "EXCEPCIÓN";
-  return `${cuerpo} - ${regla.descuento}%`;
-}
-
-export function etiquetasCuerpoPromoFormaPagoFactura(
-  fila: DescPromoFila
-): string[] {
-  return [
-    etiquetaGeneralDescPromoFactura(fila.descuento),
-    ...fila.reglas.map(etiquetaReglaDescPromoFactura),
-  ];
+  const cond = etiquetaAlcanceCondicion(fila);
+  return [formas, cond].filter(Boolean).join(" · ");
 }
 
 export function textoDescuentosDescPromo(fila: DescPromoFila): string {
-  if (fila.tipo === "POR_ITEM") {
-    return fila.descuento == null ? "" : `${fila.descuento} %`;
+  return `${fila.descuento} %`;
+}
+
+export function etiquetaAlcanceCondicion(fila: {
+  alcance: AlcanceDescPromo;
+  marcaNombre?: string | null;
+  rubroNombre?: string | null;
+  items?: DescPromoItemRef[];
+}): string {
+  if (fila.alcance === "TODOS") return ETIQUETA_ALCANCE_DESC_PROMO.TODOS;
+  if (fila.alcance === "MARCA") {
+    return fila.marcaNombre || ETIQUETA_ALCANCE_DESC_PROMO.MARCA;
   }
-  const general = `${fila.descuento ?? 0} %`;
-  const extras = fila.reglas.map((regla) => {
-    const cond = etiquetaCondicionDescPromo(regla);
-    return cond ? `${cond} ${regla.descuento} %` : `${regla.descuento} %`;
-  });
-  return [general, ...extras].join(" · ");
+  if (fila.alcance === "RUBRO") {
+    return fila.rubroNombre || ETIQUETA_ALCANCE_DESC_PROMO.RUBRO;
+  }
+  if (fila.alcance === "MARCA_RUBRO") {
+    const marca = fila.marcaNombre || "MARCA";
+    const rubro = fila.rubroNombre || "RUBRO";
+    return `${marca} · ${rubro}`;
+  }
+  const n = fila.items?.length ?? 0;
+  return n === 1 ? "1 ÍTEM" : `${n} ÍTEMS`;
+}
+
+export function etiquetaReglaDescPromoFactura(fila: DescPromoFila): string {
+  return `${etiquetaAlcanceCondicion(fila)} - ${fila.descuento}%`;
+}
+
+export function alcanceDescPromoMatcheaItem(
+  promo: Pick<
+    DescPromoCandidataFactura,
+    "alcance" | "idMarca" | "idRubro" | "codTiendas"
+  >,
+  item: DescPromoItemMatch
+): boolean {
+  if (promo.alcance === "TODOS") return true;
+  if (promo.alcance === "MARCA") {
+    return promo.idMarca != null && promo.idMarca === item.idMarca;
+  }
+  if (promo.alcance === "RUBRO") {
+    return promo.idRubro != null && promo.idRubro === item.idRubro;
+  }
+  if (promo.alcance === "MARCA_RUBRO") {
+    return (
+      promo.idMarca != null &&
+      promo.idRubro != null &&
+      promo.idMarca === item.idMarca &&
+      promo.idRubro === item.idRubro
+    );
+  }
+  return promo.codTiendas.includes(item.codTienda);
+}
+
+/** Entre las reglas que matchean el ítem, gana la de mayor `prioridad`. Sin match = 0 %. */
+export function descuentoPctPorPrioridad(
+  promos: readonly DescPromoCandidataFactura[],
+  item: DescPromoItemMatch
+): number {
+  let mejor: DescPromoCandidataFactura | null = null;
+  for (const promo of promos) {
+    if (!alcanceDescPromoMatcheaItem(promo, item)) continue;
+    if (mejor == null || promo.prioridad > mejor.prioridad) {
+      mejor = promo;
+    }
+  }
+  return mejor?.descuento ?? 0;
+}
+
+export function aCandidataFactura(fila: DescPromoFila): DescPromoCandidataFactura {
+  return {
+    id: fila.id,
+    prioridad: fila.prioridad,
+    alcance: fila.alcance,
+    idMarca: fila.idMarca,
+    idRubro: fila.idRubro,
+    codTiendas: fila.items.map((i) => i.codTienda),
+    descuento: fila.descuento,
+  };
+}
+
+export function promosParaFormaPago(
+  filas: readonly DescPromoFila[],
+  pagoId: string
+): DescPromoFila[] {
+  return filas
+    .filter((fila) => fila.formasPago.some((fp) => fp.pagoId === pagoId))
+    .slice()
+    .sort((a, b) => b.prioridad - a.prioridad);
+}
+
+export type DescPromoFormaPagoColumna = {
+  pagoId: string;
+  nombre: string;
+  promos: DescPromoFila[];
+};
+
+export function columnasFormaPagoDescPromo(
+  filas: readonly DescPromoFila[]
+): DescPromoFormaPagoColumna[] {
+  const porPago = new Map<string, DescPromoFormaPagoColumna>();
+  for (const fila of filas) {
+    for (const fp of fila.formasPago) {
+      const actual = porPago.get(fp.pagoId);
+      if (actual) {
+        if (!actual.promos.some((p) => p.id === fila.id)) {
+          actual.promos.push(fila);
+        }
+      } else {
+        porPago.set(fp.pagoId, {
+          pagoId: fp.pagoId,
+          nombre: fp.nombre,
+          promos: [fila],
+        });
+      }
+    }
+  }
+  return [...porPago.values()]
+    .map((col) => ({
+      ...col,
+      promos: col.promos.slice().sort((a, b) => b.prioridad - a.prioridad),
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }

@@ -13,6 +13,7 @@ import {
   crearDescPromoSchema,
   editarDescPromoSchema,
   eliminarDescPromoSchema,
+  moverPrioridadDescPromoSchema,
 } from "@/lib/validations/descPromo";
 import {
   crearDescPromo,
@@ -20,6 +21,7 @@ import {
   eliminarDescPromo,
   listarDescPromos,
   listarDescPromosPorFormaPago,
+  moverPrioridadDescPromo,
 } from "@/services/descPromo.service";
 
 function revalidateDescPromos() {
@@ -88,6 +90,22 @@ export async function eliminarDescPromoAction(
     return { ok: false, error: firstZodErrorMessage(parsed.error) };
   }
   const result = fromServiceResult(await eliminarDescPromo(parsed.data.id));
+  if (result.ok) revalidateDescPromos();
+  return result;
+}
+
+export async function moverPrioridadDescPromoAction(
+  raw: unknown
+): Promise<ActionResult<DescPromoFila>> {
+  const gate = await requireEditorDescPromos();
+  if (gate) return gate;
+  const parsed = moverPrioridadDescPromoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+  const result = fromServiceResult(
+    await moverPrioridadDescPromo(parsed.data.id, parsed.data.direccion)
+  );
   if (result.ok) revalidateDescPromos();
   return result;
 }

@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  claveReglaDescPromo,
-  reglaDescPromoTieneEje,
-  TIPOS_DESC_PROMO,
-} from "@/lib/descPromo";
+import { ALCANCES_DESC_PROMO } from "@/lib/descPromo";
 import {
   listaPreciosCodTiendaSchema,
   prismaCuidOrUuidSchema,
@@ -30,109 +26,131 @@ function idsUnicos(mensaje: string) {
   };
 }
 
-const reglaDescPromoSchema = z
-  .object({
-    idMarca: prismaIdOptionalNullableSchema,
-    idRubro: prismaIdOptionalNullableSchema,
-    idSubRubro: prismaIdOptionalNullableSchema,
-    descuento: descuentoDescPromoSchema,
-  })
-  .superRefine((regla, ctx) => {
-    if (!reglaDescPromoTieneEje({
-      idMarca: regla.idMarca ?? null,
-      idRubro: regla.idRubro ?? null,
-      idSubRubro: regla.idSubRubro ?? null,
-    })) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Cada excepción necesita marca o rubro.",
-      });
-    }
-    if (regla.idSubRubro && !regla.idRubro) {
-      ctx.addIssue({
-        code: "custom",
-        message: "El sub-rubro requiere un rubro.",
-      });
-    }
-  });
-
 const camposDescPromoSchema = z.object({
-  tipo: z.enum(TIPOS_DESC_PROMO),
+  alcance: z.enum(ALCANCES_DESC_PROMO),
   nombre: nombreDescPromoSchema,
-  descuento: descuentoDescPromoSchema.nullable(),
+  descuento: descuentoDescPromoSchema,
+  idMarca: prismaIdOptionalNullableSchema,
+  idRubro: prismaIdOptionalNullableSchema,
   codTiendas: z
     .array(listaPreciosCodTiendaSchema)
     .superRefine(idsUnicos("Hay productos duplicados.")),
   pagoIds: z
     .array(prismaCuidOrUuidSchema)
     .superRefine(idsUnicos("Hay formas de pago duplicadas.")),
-  reglas: z.array(reglaDescPromoSchema),
 });
 
-function refineTipoVinculos(
+function refineAlcance(
   data: z.infer<typeof camposDescPromoSchema>,
   ctx: z.RefinementCtx
 ) {
-  const claves = data.reglas.map((regla) =>
-    claveReglaDescPromo({
-      idMarca: regla.idMarca ?? null,
-      idRubro: regla.idRubro ?? null,
-      idSubRubro: regla.idSubRubro ?? null,
-    })
-  );
-  if (new Set(claves).size !== claves.length) {
+  if (data.pagoIds.length === 0) {
     ctx.addIssue({
       code: "custom",
-      message: "Hay excepciones duplicadas.",
+      message: "Elegí al menos una forma de pago.",
     });
   }
 
-  if (data.tipo === "POR_ITEM") {
-    if (data.descuento == null) {
-      ctx.addIssue({ code: "custom", message: "Ingresá el descuento." });
-    }
-    if (data.codTiendas.length === 0) {
-      ctx.addIssue({ code: "custom", message: "Elegí al menos un producto." });
-    }
-    if (data.pagoIds.length > 0) {
+  const marca = data.idMarca ?? null;
+  const rubro = data.idRubro ?? null;
+
+  if (data.alcance === "TODOS") {
+    if (marca || rubro) {
       ctx.addIssue({
         code: "custom",
-        message: "Una promo POR ITEM no puede tener formas de pago.",
+        message: "TODOS LOS ÍTEMS no lleva marca ni rubro.",
       });
     }
-    if (data.reglas.length > 0) {
+    if (data.codTiendas.length > 0) {
       ctx.addIssue({
         code: "custom",
-        message: "Una promo POR ITEM no puede tener excepciones.",
+        message: "TODOS LOS ÍTEMS no lleva productos puntuales.",
       });
     }
     return;
   }
 
-  if (data.descuento == null) {
-    ctx.addIssue({ code: "custom", message: "Ingresá el descuento general." });
+  if (data.alcance === "MARCA") {
+    if (!marca) {
+      ctx.addIssue({ code: "custom", message: "Elegí una marca." });
+    }
+    if (rubro) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El alcance MARCA no lleva rubro.",
+      });
+    }
+    if (data.codTiendas.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El alcance MARCA no lleva productos puntuales.",
+      });
+    }
+    return;
   }
-  if (data.pagoIds.length === 0) {
-    ctx.addIssue({ code: "custom", message: "Elegí al menos una forma de pago." });
+
+  if (data.alcance === "RUBRO") {
+    if (!rubro) {
+      ctx.addIssue({ code: "custom", message: "Elegí un rubro." });
+    }
+    if (marca) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El alcance RUBRO no lleva marca.",
+      });
+    }
+    if (data.codTiendas.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El alcance RUBRO no lleva productos puntuales.",
+      });
+    }
+    return;
   }
-  if (data.codTiendas.length > 0) {
+
+  if (data.alcance === "MARCA_RUBRO") {
+    if (!marca) {
+      ctx.addIssue({ code: "custom", message: "Elegí una marca." });
+    }
+    if (!rubro) {
+      ctx.addIssue({ code: "custom", message: "Elegí un rubro." });
+    }
+    if (data.codTiendas.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "El alcance MARCA Y RUBRO no lleva productos puntuales.",
+      });
+    }
+    return;
+  }
+
+  if (data.codTiendas.length === 0) {
+    ctx.addIssue({ code: "custom", message: "Elegí al menos un producto." });
+  }
+  if (marca || rubro) {
     ctx.addIssue({
       code: "custom",
-      message: "Una promo POR FORMA PAGO no puede tener productos.",
+      message: "El alcance ÍTEMS no lleva marca ni rubro.",
     });
   }
 }
 
-export const crearDescPromoSchema = camposDescPromoSchema.superRefine(refineTipoVinculos);
+export const crearDescPromoSchema = camposDescPromoSchema.superRefine(refineAlcance);
 
 export const editarDescPromoSchema = camposDescPromoSchema
   .extend({ id: prismaCuidOrUuidSchema })
-  .superRefine(refineTipoVinculos);
+  .superRefine(refineAlcance);
 
 export const eliminarDescPromoSchema = z.object({
   id: prismaCuidOrUuidSchema,
 });
 
+export const moverPrioridadDescPromoSchema = z.object({
+  id: prismaCuidOrUuidSchema,
+  direccion: z.enum(["up", "down"]),
+});
+
 export type CrearDescPromoInput = z.infer<typeof crearDescPromoSchema>;
 export type EditarDescPromoInput = z.infer<typeof editarDescPromoSchema>;
 export type EliminarDescPromoInput = z.infer<typeof eliminarDescPromoSchema>;
+export type MoverPrioridadDescPromoInput = z.infer<typeof moverPrioridadDescPromoSchema>;

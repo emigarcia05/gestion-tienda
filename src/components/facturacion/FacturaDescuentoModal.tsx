@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -9,8 +9,9 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import {
-  etiquetasCuerpoPromoFormaPagoFactura,
-  tituloFormasPagoDescPromo,
+  aCandidataFactura,
+  columnasFormaPagoDescPromo,
+  etiquetaReglaDescPromoFactura,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import {
@@ -18,7 +19,6 @@ import {
   FACTURA_DESCUENTO_MAX_CENTS,
   totalFacDesdeDescuentoPct,
   type FacturaDescuentoEstado,
-  type FacturaDescuentoPromoRegla,
 } from "@/lib/factura";
 import { montoArNormalizedStringToCents } from "@/lib/montoArMask";
 import { cn } from "@/lib/utils";
@@ -69,12 +69,13 @@ function estadoInicial(
   lastEdited: "pct" | "total" | null;
   seleccion: string;
 } {
-  if (descuentoActual?.fuente === "promo_forma_pago" && descuentoActual.promoId) {
+  const pagoId = descuentoActual?.promoPagoIds?.[0];
+  if (descuentoActual?.fuente === "promo_forma_pago" && pagoId) {
     return {
       pctNorm: "",
       totalNorm: totalLista > 0 ? pesosToNorm(totalLista) : "",
       lastEdited: null,
-      seleccion: descuentoActual.promoId,
+      seleccion: pagoId,
     };
   }
   if (descuentoActual == null || descuentoActual.porcentaje <= 0) {
@@ -105,18 +106,9 @@ function estadoInicial(
   };
 }
 
-function reglasPromoParaEstado(promo: DescPromoFila): FacturaDescuentoPromoRegla[] {
-  return promo.reglas.map((regla) => ({
-    idMarca: regla.idMarca,
-    idRubro: regla.idRubro,
-    idSubRubro: regla.idSubRubro,
-    descuento: regla.descuento,
-  }));
-}
-
 /**
- * Modal de descuento de Factura · Crear: columnas POR FORMA DE PAGO + PERSONALIZADO
- * (DESC. % y DESC. TOTAL sincronizados). El padre remonta con `key` al abrir.
+ * Modal de descuento de Factura · Crear: columnas por forma de pago + PERSONALIZADO.
+ * El padre remonta con `key` al abrir.
  */
 export default function FacturaDescuentoModal({
   open,
@@ -133,6 +125,10 @@ export default function FacturaDescuentoModal({
     inicial.lastEdited
   );
   const [seleccion, setSeleccion] = useState(inicial.seleccion);
+  const columnas = useMemo(
+    () => columnasFormaPagoDescPromo(promosFormaPago),
+    [promosFormaPago]
+  );
   const mostrarPersonalizado = seleccion === SELECCION_PERSONALIZADO;
 
   function handlePctChange(next: string) {
@@ -164,19 +160,18 @@ export default function FacturaDescuentoModal({
     }
 
     if (!mostrarPersonalizado) {
-      const promo = promosFormaPago.find((p) => p.id === seleccion);
-      if (!promo) {
-        toast.error("Elegí un descuento por forma de pago.");
+      const col = columnas.find((c) => c.pagoId === seleccion);
+      if (!col) {
+        toast.error("Elegí una forma de pago.");
         return;
       }
       onAplicar({
         fuente: "promo_forma_pago",
-        porcentaje: promo.descuento ?? 0,
+        porcentaje: 0,
         totalFacObjetivo: null,
-        promoId: promo.id,
-        promoReglas: reglasPromoParaEstado(promo),
-        promoPagoIds: promo.formasPago.map((fp) => fp.pagoId),
-        promoPagoNombres: promo.formasPago.map((fp) => fp.nombre),
+        promoCandidatas: col.promos.map(aCandidataFactura),
+        promoPagoIds: [col.pagoId],
+        promoPagoNombres: [col.nombre],
       });
       onOpenChange(false);
       return;
@@ -268,10 +263,10 @@ export default function FacturaDescuentoModal({
             role="radiogroup"
             aria-label="Descuento por forma de pago"
           >
-            {promosFormaPago.map((promo, i) => {
-              const activo = seleccion === promo.id;
+            {columnas.map((col, i) => {
+              const activo = seleccion === col.pagoId;
               return (
-                <div key={promo.id} className="flex min-w-0 flex-1">
+                <div key={col.pagoId} className="flex min-w-0 flex-1">
                   {i > 0 ? (
                     <div
                       className="w-px shrink-0 self-stretch bg-primary"
@@ -284,28 +279,26 @@ export default function FacturaDescuentoModal({
                     aria-checked={activo}
                     variant={activo ? "default" : "outline"}
                     className={COLUMNA_PROMO_CLASS}
-                    onClick={() => setSeleccion(promo.id)}
+                    onClick={() => setSeleccion(col.pagoId)}
                   >
                     <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
-                      {tituloFormasPagoDescPromo(promo)}
+                      {col.nombre}
                     </span>
                     <span className="flex w-full flex-col gap-0.5">
-                      {etiquetasCuerpoPromoFormaPagoFactura(promo).map(
-                        (texto, i) => (
-                          <span
-                            key={`${promo.id}-${i}`}
-                            className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
-                          >
-                            {texto}
-                          </span>
-                        )
-                      )}
+                      {col.promos.map((promo) => (
+                        <span
+                          key={promo.id}
+                          className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
+                        >
+                          {etiquetaReglaDescPromoFactura(promo)}
+                        </span>
+                      ))}
                     </span>
                   </Button>
                 </div>
               );
             })}
-            {promosFormaPago.length > 0 ? (
+            {columnas.length > 0 ? (
               <div
                 className="w-px shrink-0 self-stretch bg-primary"
                 aria-hidden

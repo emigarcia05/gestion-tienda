@@ -247,7 +247,7 @@ model ProdRubro {
 
   reglasDescuentos   ProdPrecioProveeRegla[]
   reglasDescEspecial ProdPrecioDescEspecialRegla[]
-  descPromoReglas    DescPromoRegla[]
+  descPromos         DescPromo[]
   subRubros          ProdSubRubro[]
   prodPropios        ProdPropio[]
 
@@ -267,7 +267,6 @@ model ProdSubRubro {
 
   rubro           ProdRubro       @relation(fields: [idRubro], references: [id], onDelete: Cascade)
   prodPropios     ProdPropio[]
-  descPromoReglas DescPromoRegla[]
 
   @@unique([idRubro, nombre], map: "prod_sub_rubros_id_rubro_nombre_key")
   @@unique([id, idRubro], map: "prod_sub_rubros_id_id_rubro_key")
@@ -1406,7 +1405,7 @@ model Marca {
   prodTiendas                   ProdPropio[]
   reglasDescuentosListaPrecio   ProdPrecioProveeRegla[]
   reglasDescEspecialListaPrecio ProdPrecioDescEspecialRegla[]
-  descPromoReglas               DescPromoRegla[]
+  descPromos                    DescPromo[]
   codColorVtasItems             ComprobanteVtaItem[]
   codColorPedidosMerc           ProdPedMerc2[]
   codColorPedidosHistoriaItems  PedidoHistoriaItem[]
@@ -2023,39 +2022,47 @@ model CobrosFormaPagoEntidad {
 }
 
 /**
- * Tipo de promoción de `desc_promo`. En pantalla: POR ITEM / POR FORMA PAGO.
+ * Alcance de una regla `desc_promo`. En pantalla: TODOS LOS ÍTEMS / MARCA / RUBRO / MARCA Y RUBRO / ÍTEMS.
  */
-enum TipoDescPromo {
-  POR_ITEM
-  POR_FORMA_PAGO
+enum AlcanceDescPromo {
+  TODOS
+  MARCA
+  RUBRO
+  MARCA_RUBRO
+  ITEMS
 
-  @@map("desc_promo_tipo")
+  @@map("desc_promo_alcance")
 }
 
 /**
- * Descuento promocional (%). POR_ITEM → N productos `prod_lista` + `desc` en cabecera.
- * POR_FORMA_PAGO → N formas `cobros_forma_pago` + reglas `desc_promo_reglas` (rubro / sub-rubro / %).
+ * Una regla de descuento (%). Siempre 1+ formas `desc_promo_formas_pago`.
+ * Alcance ITEMS → N `desc_promo_items`. Mayor `prioridad` gana. Secuencia 1…N sin huecos.
  */
 model DescPromo {
-  id         String        @id @default(cuid())
-  tipo       TipoDescPromo
+  id         String           @id @default(cuid())
+  alcance    AlcanceDescPromo
   nombre     String
-  /**
-   * Porcentaje 0–100. Columna SQL `desc`. Obligatorio en POR_ITEM y POR_FORMA_PAGO (regla general).
-   */
-  descuento  Int?          @map("desc")
-  createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+  /** Porcentaje 0–100. Columna SQL `desc`. */
+  descuento  Int              @map("desc")
+  /** Entero único 1…N. El más alto tiene más prioridad. */
+  prioridad  Int              @unique(map: "desc_promo_prioridad_key")
+  idMarca    String?          @map("id_marca")
+  idRubro    String?          @map("id_rubro")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
 
   items      DescPromoItem[]
   formasPago DescPromoFormaPago[]
-  reglas     DescPromoRegla[]
+  marca      Marca?     @relation(fields: [idMarca], references: [id], onDelete: Restrict)
+  rubro      ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Restrict)
 
-  @@index([tipo], map: "desc_promo_tipo_idx")
+  @@index([alcance], map: "desc_promo_alcance_idx")
+  @@index([idMarca], map: "desc_promo_id_marca_idx")
+  @@index([idRubro], map: "desc_promo_id_rubro_idx")
   @@map("desc_promo")
 }
 
-/** N:M `desc_promo` (POR_ITEM) ↔ `prod_lista`. */
+/** N:M `desc_promo` (alcance ITEMS) ↔ `prod_lista`. */
 model DescPromoItem {
   promoId   String @map("promo_id")
   codTienda String @map("cod_tienda")
@@ -2068,7 +2075,7 @@ model DescPromoItem {
   @@map("desc_promo_items")
 }
 
-/** N:M `desc_promo` (POR_FORMA_PAGO) ↔ `cobros_forma_pago`. */
+/** N:M `desc_promo` ↔ `cobros_forma_pago`. */
 model DescPromoFormaPago {
   promoId String @map("promo_id")
   pagoId  String @map("pago_id")
@@ -2079,30 +2086,6 @@ model DescPromoFormaPago {
   @@id([promoId, pagoId], map: "desc_promo_formas_pago_pkey")
   @@index([pagoId], map: "desc_promo_formas_pago_pago_id_idx")
   @@map("desc_promo_formas_pago")
-}
-
-/**
- * Excepción de un descuento POR_FORMA_PAGO sobre la regla general (`desc_promo.desc`).
- * Ejes nulos = todos. Al menos marca o rubro. `id_sub_rubro` exige `id_rubro`.
- * Gana la fila más específica; el cruce mismo nivel lo define el usuario al guardar.
- */
-model DescPromoRegla {
-  id         String  @id @default(cuid())
-  promoId    String  @map("promo_id")
-  idMarca    String? @map("id_marca")
-  idRubro    String? @map("id_rubro")
-  idSubRubro String? @map("id_sub_rubro")
-  descuento  Int     @map("desc")
-
-  promo    DescPromo     @relation(fields: [promoId], references: [id], onDelete: Cascade)
-  marca    Marca?        @relation(fields: [idMarca], references: [id], onDelete: Restrict)
-  rubro    ProdRubro?    @relation(fields: [idRubro], references: [id], onDelete: Restrict)
-  subRubro ProdSubRubro? @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)
-
-  @@index([promoId], map: "desc_promo_reglas_promo_id_idx")
-  @@index([idMarca], map: "desc_promo_reglas_id_marca_idx")
-  @@index([idRubro], map: "desc_promo_reglas_id_rubro_idx")
-  @@map("desc_promo_reglas")
 }
 
 /**

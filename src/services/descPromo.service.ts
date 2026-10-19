@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  etiquetaTipoDescPromo,
+  etiquetaAlcanceDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import type {
@@ -25,23 +25,8 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
       pago: { select: { nombre: true } },
     },
   },
-  reglas: {
-    orderBy: [
-      { marca: { nombre: "asc" } },
-      { rubro: { nombre: "asc" } },
-      { subRubro: { nombre: "asc" } },
-    ],
-    select: {
-      id: true,
-      idMarca: true,
-      idRubro: true,
-      idSubRubro: true,
-      descuento: true,
-      marca: { select: { nombre: true } },
-      rubro: { select: { nombre: true } },
-      subRubro: { select: { nombre: true } },
-    },
-  },
+  marca: { select: { nombre: true } },
+  rubro: { select: { nombre: true } },
 });
 
 type PromoRow = Prisma.DescPromoGetPayload<{ include: typeof promoInclude }>;
@@ -49,10 +34,19 @@ type PromoRow = Prisma.DescPromoGetPayload<{ include: typeof promoInclude }>;
 function mapPromo(row: PromoRow): DescPromoFila {
   return {
     id: row.id,
-    tipo: row.tipo,
-    tipoEtiqueta: etiquetaTipoDescPromo(row.tipo),
+    alcance: row.alcance,
+    alcanceEtiqueta: etiquetaAlcanceDescPromo(row.alcance),
     nombre: row.nombre,
     descuento: row.descuento,
+    prioridad: row.prioridad,
+    idMarca: row.idMarca,
+    marcaNombre: row.marca
+      ? row.marca.nombre.toLocaleUpperCase("es-AR")
+      : null,
+    idRubro: row.idRubro,
+    rubroNombre: row.rubro
+      ? row.rubro.nombre.toLocaleUpperCase("es-AR")
+      : null,
     items: row.items.map((item) => ({
       codTienda: item.codTienda,
       descripcion: (item.producto.descripcionTienda ?? "").toLocaleUpperCase("es-AR"),
@@ -61,27 +55,35 @@ function mapPromo(row: PromoRow): DescPromoFila {
       pagoId: fp.pagoId,
       nombre: fp.pago.nombre.toLocaleUpperCase("es-AR"),
     })),
-    reglas: row.reglas.map((regla) => ({
-      id: regla.id,
-      idMarca: regla.idMarca,
-      marcaNombre: regla.marca
-        ? regla.marca.nombre.toLocaleUpperCase("es-AR")
-        : null,
-      idRubro: regla.idRubro,
-      rubroNombre: regla.rubro
-        ? regla.rubro.nombre.toLocaleUpperCase("es-AR")
-        : null,
-      idSubRubro: regla.idSubRubro,
-      subRubroNombre: regla.subRubro
-        ? regla.subRubro.nombre.toLocaleUpperCase("es-AR")
-        : null,
-      descuento: regla.descuento,
-    })),
   };
 }
 
 function normalizarNombre(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+}
+
+function ejesSegunAlcance(input: CrearDescPromoInput): {
+  idMarca: string | null;
+  idRubro: string | null;
+  codTiendas: string[];
+} {
+  if (input.alcance === "MARCA") {
+    return { idMarca: input.idMarca ?? null, idRubro: null, codTiendas: [] };
+  }
+  if (input.alcance === "RUBRO") {
+    return { idMarca: null, idRubro: input.idRubro ?? null, codTiendas: [] };
+  }
+  if (input.alcance === "MARCA_RUBRO") {
+    return {
+      idMarca: input.idMarca ?? null,
+      idRubro: input.idRubro ?? null,
+      codTiendas: [],
+    };
+  }
+  if (input.alcance === "ITEMS") {
+    return { idMarca: null, idRubro: null, codTiendas: input.codTiendas };
+  }
+  return { idMarca: null, idRubro: null, codTiendas: [] };
 }
 
 function mapDbError(error: unknown, fallback: string): string {
@@ -92,29 +94,16 @@ function mapDbError(error: unknown, fallback: string): string {
     typeof (error as { code?: unknown }).code === "string"
   ) {
     const code = (error as { code: string }).code;
-    if (code === "P2002") return "Hay excepciones duplicadas.";
+    if (code === "P2002") return "La prioridad ya está en uso. Reintentá.";
     if (code === "P2003") return "Hay un producto, forma de pago, marca o rubro inválido.";
     if (code === "P2025") return "La promoción no existe.";
   }
   return error instanceof Error ? error.message : fallback;
 }
 
-type InputVinculos = Pick<
-  CrearDescPromoInput,
-  "tipo" | "codTiendas" | "pagoIds" | "reglas"
->;
-
-async function validarVinculos(input: InputVinculos): Promise<ServiceResult<void>> {
-  if (input.tipo === "POR_ITEM") {
-    const n = await prisma.prodPropio.count({
-      where: { codTienda: { in: input.codTiendas } },
-    });
-    if (n !== input.codTiendas.length) {
-      return { success: false, error: "Hay productos que ya no existen." };
-    }
-    return { success: true, data: undefined };
-  }
-
+async function validarVinculos(
+  input: CrearDescPromoInput
+): Promise<ServiceResult<void>> {
   const nPagos = await prisma.finAnaCosFinaPagoCat.count({
     where: { id: { in: input.pagoIds } },
   });
@@ -122,61 +111,62 @@ async function validarVinculos(input: InputVinculos): Promise<ServiceResult<void
     return { success: false, error: "Hay formas de pago que ya no existen." };
   }
 
-  const marcaIds = [...new Set(input.reglas.map((r) => r.idMarca).filter((id): id is string => Boolean(id)))];
-  if (marcaIds.length > 0) {
-    const nMarcas = await prisma.marca.count({
-      where: { id: { in: marcaIds } },
+  const ejes = ejesSegunAlcance(input);
+  if (ejes.codTiendas.length > 0) {
+    const n = await prisma.prodPropio.count({
+      where: { codTienda: { in: ejes.codTiendas } },
     });
-    if (nMarcas !== marcaIds.length) {
-      return { success: false, error: "Hay marcas que ya no existen." };
+    if (n !== ejes.codTiendas.length) {
+      return { success: false, error: "Hay productos que ya no existen." };
     }
   }
-
-  const rubroIds = [...new Set(input.reglas.map((r) => r.idRubro).filter((id): id is string => Boolean(id)))];
-  if (rubroIds.length > 0) {
-    const nRubros = await prisma.prodRubro.count({
-      where: { id: { in: rubroIds } },
-    });
-    if (nRubros !== rubroIds.length) {
-      return { success: false, error: "Hay rubros que ya no existen." };
-    }
-  }
-
-  for (const regla of input.reglas) {
-    const idSubRubro = regla.idSubRubro ?? null;
-    const idRubro = regla.idRubro ?? null;
-    if (!idSubRubro) continue;
-    if (!idRubro) {
-      return { success: false, error: "El sub-rubro requiere un rubro." };
-    }
-    const sub = await prisma.prodSubRubro.findUnique({
-      where: { id_idRubro: { id: idSubRubro, idRubro } },
+  if (ejes.idMarca) {
+    const marca = await prisma.marca.findUnique({
+      where: { id: ejes.idMarca },
       select: { id: true },
     });
-    if (!sub) {
-      return {
-        success: false,
-        error: "Hay un sub-rubro que no corresponde al rubro elegido.",
-      };
-    }
+    if (!marca) return { success: false, error: "La marca ya no existe." };
   }
-
+  if (ejes.idRubro) {
+    const rubro = await prisma.prodRubro.findUnique({
+      where: { id: ejes.idRubro },
+      select: { id: true },
+    });
+    if (!rubro) return { success: false, error: "El rubro ya no existe." };
+  }
   return { success: true, data: undefined };
 }
 
-function dataVinculos(input: InputVinculos) {
+function dataVinculos(input: CrearDescPromoInput) {
+  const ejes = ejesSegunAlcance(input);
   return {
-    items: { create: input.codTiendas.map((codTienda) => ({ codTienda })) },
+    alcance: input.alcance,
+    descuento: input.descuento,
+    idMarca: ejes.idMarca,
+    idRubro: ejes.idRubro,
+    items: { create: ejes.codTiendas.map((codTienda) => ({ codTienda })) },
     formasPago: { create: input.pagoIds.map((pagoId) => ({ pagoId })) },
-    reglas: {
-      create: input.reglas.map((regla) => ({
-        idMarca: regla.idMarca ?? null,
-        idRubro: regla.idRubro ?? null,
-        idSubRubro: regla.idSubRubro ?? null,
-        descuento: regla.descuento,
-      })),
-    },
   };
+}
+
+async function siguientePrioridad(): Promise<number> {
+  const agg = await prisma.descPromo.aggregate({ _max: { prioridad: true } });
+  return (agg._max.prioridad ?? 0) + 1;
+}
+
+async function compactarPrioridad(): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE desc_promo SET prioridad = prioridad + 100000
+  `;
+  await prisma.$executeRaw`
+    UPDATE desc_promo AS d
+    SET prioridad = s.rn
+    FROM (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY prioridad ASC, id ASC) AS rn
+      FROM desc_promo
+    ) AS s
+    WHERE d.id = s.id
+  `;
 }
 
 export type DescPromoOpcionProducto = {
@@ -206,7 +196,7 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
   try {
     const rows = await prisma.descPromo.findMany({
       include: promoInclude,
-      orderBy: [{ nombre: "asc" }, { id: "asc" }],
+      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
     });
     return rows.map(mapPromo);
   } catch (e: unknown) {
@@ -215,13 +205,13 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
   }
 }
 
-/** Catálogo POR FORMA DE PAGO para Factura · Crear (sin gate de Administrador). */
+/** Reglas con al menos una forma de pago, para Factura · Crear. */
 export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
   try {
     const rows = await prisma.descPromo.findMany({
-      where: { tipo: "POR_FORMA_PAGO" },
+      where: { formasPago: { some: {} } },
       include: promoInclude,
-      orderBy: [{ nombre: "asc" }, { id: "asc" }],
+      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
     });
     return rows.map(mapPromo);
   } catch (e: unknown) {
@@ -240,17 +230,42 @@ export async function crearDescPromo(
   const vinculos = await validarVinculos(input);
   if (!vinculos.success) return vinculos;
   try {
+    const prioridad = await siguientePrioridad();
     const created = await prisma.descPromo.create({
       data: {
-        tipo: input.tipo,
         nombre,
-        descuento: input.descuento,
+        prioridad,
         ...dataVinculos(input),
       },
       include: promoInclude,
     });
     return { success: true, data: mapPromo(created) };
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      try {
+        await compactarPrioridad();
+        const prioridad = await siguientePrioridad();
+        const created = await prisma.descPromo.create({
+          data: {
+            nombre,
+            prioridad,
+            ...dataVinculos(input),
+          },
+          include: promoInclude,
+        });
+        return { success: true, data: mapPromo(created) };
+      } catch (retryError) {
+        return {
+          success: false,
+          error: mapDbError(retryError, "No se pudo crear la promoción."),
+        };
+      }
+    }
     return {
       success: false,
       error: mapDbError(error, "No se pudo crear la promoción."),
@@ -275,13 +290,10 @@ export async function editarDescPromo(
     if (!existe) return { success: false, error: "La promoción no existe." };
     await prisma.descPromoItem.deleteMany({ where: { promoId: input.id } });
     await prisma.descPromoFormaPago.deleteMany({ where: { promoId: input.id } });
-    await prisma.descPromoRegla.deleteMany({ where: { promoId: input.id } });
     const updated = await prisma.descPromo.update({
       where: { id: input.id },
       data: {
-        tipo: input.tipo,
         nombre,
-        descuento: input.descuento,
         ...dataVinculos(input),
       },
       include: promoInclude,
@@ -300,11 +312,62 @@ export async function eliminarDescPromo(
 ): Promise<ServiceResult<{ id: string }>> {
   try {
     await prisma.descPromo.delete({ where: { id } });
+    await compactarPrioridad();
     return { success: true, data: { id } };
   } catch (error) {
     return {
       success: false,
       error: mapDbError(error, "No se pudo eliminar la promoción."),
+    };
+  }
+}
+
+export async function moverPrioridadDescPromo(
+  id: string,
+  direccion: "up" | "down"
+): Promise<ServiceResult<DescPromoFila>> {
+  try {
+    const rows = await prisma.descPromo.findMany({
+      select: { id: true, prioridad: true },
+      orderBy: { prioridad: "asc" },
+    });
+    const i = rows.findIndex((r) => r.id === id);
+    if (i < 0) return { success: false, error: "La promoción no existe." };
+    const j = direccion === "up" ? i + 1 : i - 1;
+    if (j < 0 || j >= rows.length) {
+      const actual = await prisma.descPromo.findUnique({
+        where: { id },
+        include: promoInclude,
+      });
+      if (!actual) return { success: false, error: "La promoción no existe." };
+      return { success: true, data: mapPromo(actual) };
+    }
+    const a = rows[i];
+    const b = rows[j];
+    const offset = 100000;
+    await prisma.descPromo.update({
+      where: { id: a.id },
+      data: { prioridad: a.prioridad + offset },
+    });
+    await prisma.descPromo.update({
+      where: { id: b.id },
+      data: { prioridad: a.prioridad },
+    });
+    await prisma.descPromo.update({
+      where: { id: a.id },
+      data: { prioridad: b.prioridad },
+    });
+    await compactarPrioridad();
+    const updated = await prisma.descPromo.findUnique({
+      where: { id },
+      include: promoInclude,
+    });
+    if (!updated) return { success: false, error: "La promoción no existe." };
+    return { success: true, data: mapPromo(updated) };
+  } catch (error) {
+    return {
+      success: false,
+      error: mapDbError(error, "No se pudo cambiar la prioridad."),
     };
   }
 }

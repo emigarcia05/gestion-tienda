@@ -316,9 +316,9 @@ export default function FacturaCrearLineasBlock({
     pendingScrollAlFinalRef.current = true;
     const { descuentoPctEspecial, descuentoSiguiente } =
       prepararDescuentoAlAgregarLinea(lineas, descuento, {
+        codTienda: item.codTienda,
         idMarca: item.idMarca,
         idRubro: item.idRubro,
-        idSubRubro: item.idSubRubro,
       });
     if (descuentoSiguiente !== descuento) {
       setDescuento(descuentoSiguiente);
@@ -426,11 +426,7 @@ export default function FacturaCrearLineasBlock({
   function aplicarDescuentoDesdeModal(next: FacturaDescuentoEstado | null) {
     if (next?.fuente === "promo_forma_pago") {
       setLineas((prev) =>
-        aplicarPromoFormaPagoALineas(
-          prev,
-          next.promoReglas ?? [],
-          next.porcentaje
-        )
+        aplicarPromoFormaPagoALineas(prev, next.promoCandidatas ?? [])
       );
       setDescuento(next);
       return;

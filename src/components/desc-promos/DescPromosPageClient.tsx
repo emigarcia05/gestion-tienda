@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import CrearEditarDescPromoModal, {
@@ -37,10 +38,11 @@ import {
   TableRow,
   EmptyTableRow,
 } from "@/components/ui/table";
+import { moverPrioridadDescPromoAction } from "@/actions/descPromo";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import {
-  ETIQUETA_TIPO_DESC_PROMO,
-  TIPOS_DESC_PROMO,
+  ALCANCES_DESC_PROMO,
+  ETIQUETA_ALCANCE_DESC_PROMO,
   textoDescuentosDescPromo,
   textoVinculosDescPromo,
   type DescPromoFila,
@@ -54,7 +56,7 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 
-const TIPO_TODOS = "todos";
+const ALCANCE_TODOS = "todos";
 
 interface Props {
   items: DescPromoFila[];
@@ -81,34 +83,50 @@ export default function DescPromosPageClient({
       debounceMs: 300,
       onDebouncedSearch: setQDebounced,
     });
-  const [filtroTipo, setFiltroTipo] = useState("");
+  const [filtroAlcance, setFiltroAlcance] = useState("");
   const [itemEditar, setItemEditar] = useState<DescPromoFila | null>(null);
   const [itemEliminar, setItemEliminar] = useState<DescPromoFila | null>(null);
   const [openCrear, setOpenCrear] = useState(false);
+  const [moviendoId, setMoviendoId] = useState<string | null>(null);
+
+  const maxPrioridad = items.reduce((m, i) => Math.max(m, i.prioridad), 0);
 
   const itemsFiltrados = useMemo(() => {
     return items.filter((item) => {
-      if (filtroTipo && item.tipo !== filtroTipo) return false;
+      if (filtroAlcance && item.alcance !== filtroAlcance) return false;
       if (!qDebounced.trim()) return true;
       return matchByMultiTerm(
         [
           item.nombre,
-          item.tipoEtiqueta,
+          item.alcanceEtiqueta,
           textoDescuentosDescPromo(item),
           textoVinculosDescPromo(item),
+          String(item.prioridad),
         ],
         qDebounced
       );
     });
-  }, [items, filtroTipo, qDebounced]);
+  }, [items, filtroAlcance, qDebounced]);
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
-    setFiltroTipo("");
+    setFiltroAlcance("");
   }
 
-  const colSpan = esEditor ? 5 : 4;
+  async function mover(item: DescPromoFila, direccion: "up" | "down") {
+    if (moviendoId) return;
+    setMoviendoId(item.id);
+    const res = await moverPrioridadDescPromoAction({ id: item.id, direccion });
+    setMoviendoId(null);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  const colSpan = esEditor ? 6 : 5;
 
   return (
     <>
@@ -135,20 +153,20 @@ export default function DescPromosPageClient({
               <FilaFiltrosDesplegables columnas={5}>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtroTipo)}
-                  onLimpiar={() => setFiltroTipo("")}
+                  activo={Boolean(filtroAlcance)}
+                  onLimpiar={() => setFiltroAlcance("")}
                 >
                   <Select
-                    value={filtroTipo || TIPO_TODOS}
+                    value={filtroAlcance || ALCANCE_TODOS}
                     onValueChange={(v) =>
-                      setFiltroTipo(v === TIPO_TODOS ? "" : v)
+                      setFiltroAlcance(v === ALCANCE_TODOS ? "" : v)
                     }
                   >
                     <SelectTrigger
                       className={SELECT_TRIGGER_FILTER_CLASS}
-                      aria-label="Tipo"
+                      aria-label="Alcance"
                     >
-                      <SelectValue placeholder="TIPO" />
+                      <SelectValue placeholder="ALCANCE" />
                     </SelectTrigger>
                     <SelectContent
                       className="select-content-filtro"
@@ -156,10 +174,10 @@ export default function DescPromosPageClient({
                       side="bottom"
                       align="start"
                     >
-                      <SelectItem value={TIPO_TODOS}>TIPO</SelectItem>
-                      {TIPOS_DESC_PROMO.map((valor) => (
+                      <SelectItem value={ALCANCE_TODOS}>ALCANCE</SelectItem>
+                      {ALCANCES_DESC_PROMO.map((valor) => (
                         <SelectItem key={valor} value={valor}>
-                          {ETIQUETA_TIPO_DESC_PROMO[valor]}
+                          {ETIQUETA_ALCANCE_DESC_PROMO[valor]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -171,7 +189,7 @@ export default function DescPromosPageClient({
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-desc-promos-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, TIPO, DESC. O VÍNCULOS..."
+                  placeholder="BUSCAR POR NOMBRE, ALCANCE, DESC. O VÍNCULOS..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -186,16 +204,18 @@ export default function DescPromosPageClient({
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[28%]" />
+              <col className="w-[8%]" />
+              <col className="w-[24%]" />
               <col className="w-[16%]" />
               <col className="w-[10%]" />
-              <col className={esEditor ? "w-[34%]" : "w-[46%]"} />
+              <col className={esEditor ? "w-[30%]" : "w-[42%]"} />
               {esEditor ? <col className="w-[12%]" /> : null}
             </colgroup>
             <TableHeader>
               <TableRow>
+                <TableHead className="text-center">PRIORIDAD</TableHead>
                 <TableHead>NOMBRE</TableHead>
-                <TableHead className="text-center">TIPO</TableHead>
+                <TableHead className="text-center">ALCANCE</TableHead>
                 <TableHead className="text-center">DESC.</TableHead>
                 <TableHead>VÍNCULOS</TableHead>
                 {esEditor ? (
@@ -219,13 +239,17 @@ export default function DescPromosPageClient({
                 itemsFiltrados.map((item) => {
                   const vinculos = textoVinculosDescPromo(item);
                   const descuentos = textoDescuentosDescPromo(item);
+                  const bloqueado = moviendoId != null;
                   return (
                     <TableRow key={item.id}>
+                      <TableCell className="celda-datos text-center tabular-nums">
+                        {item.prioridad}
+                      </TableCell>
                       <TableCell className="celda-datos font-medium uppercase">
                         {item.nombre}
                       </TableCell>
                       <TableCell className="celda-datos text-center">
-                        {item.tipoEtiqueta}
+                        {item.alcanceEtiqueta}
                       </TableCell>
                       <TableCell
                         className="celda-datos truncate text-center tabular-nums"
@@ -244,8 +268,39 @@ export default function DescPromosPageClient({
                               variant="ghost"
                               size="icon"
                               className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              title="Subir prioridad"
+                              aria-label={`Subir prioridad de ${item.nombre}`}
+                              disabled={bloqueado || item.prioridad >= maxPrioridad}
+                              onClick={() => void mover(item, "up")}
+                            >
+                              <ChevronUp
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              title="Bajar prioridad"
+                              aria-label={`Bajar prioridad de ${item.nombre}`}
+                              disabled={bloqueado || item.prioridad <= 1}
+                              onClick={() => void mover(item, "down")}
+                            >
+                              <ChevronDown
+                                className={TABLE_ROW_ACTION_ICON_CLASS}
+                                aria-hidden
+                              />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                               title="Editar"
                               aria-label={`Editar ${item.nombre}`}
+                              disabled={bloqueado}
                               onClick={() => setItemEditar(item)}
                             >
                               <Pencil
@@ -260,6 +315,7 @@ export default function DescPromosPageClient({
                               className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                               title="Eliminar"
                               aria-label={`Eliminar ${item.nombre}`}
+                              disabled={bloqueado}
                               onClick={() => setItemEliminar(item)}
                             >
                               <Trash2
@@ -279,6 +335,7 @@ export default function DescPromosPageClient({
         </div>
       </ClassicFilteredTableLayout>
       <CrearEditarDescPromoModal
+        key={openCrear ? "alta" : (itemEditar?.id ?? "cerrado")}
         open={openCrear || itemEditar != null}
         item={openCrear ? null : itemEditar}
         productos={productos}

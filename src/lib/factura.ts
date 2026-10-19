@@ -12,7 +12,10 @@ import {
   addDaysToIsoYmdArgentina,
   diffCalendarDaysIsoYmdArgentina,
 } from "@/lib/fechaArgentina";
-import { descuentoPctDesdeReglasPromo as pctDesdeExcepcionesDescPromo } from "@/lib/descPromo";
+import {
+  descuentoPctPorPrioridad,
+  type DescPromoCandidataFactura,
+} from "@/lib/descPromo";
 
 export const FACTURA_TIPOS = [
   "presupuesto",
@@ -870,7 +873,7 @@ export type FacturaLineaLocal = {
   codColor: string | null;
   /** Marca del COD. COLOR (puede diferir de la marca del producto). */
   codColorIdMarca: string | null;
-  /** FK `prod_lista.id_marca` para excepciones de `desc_promo_reglas`. */
+  /** FK `prod_lista.id_marca` para alcance MARCA / MARCA_RUBRO de `desc_promo`. */
   idMarca: string | null;
   /** FK `prod_lista.id_rubro`; null si el ítem no tiene rubro (p. ej. duplicado sin match). */
   idRubro: string | null;
@@ -878,31 +881,22 @@ export type FacturaLineaLocal = {
   idSubRubro: string | null;
 };
 
-/** Regla de `desc_promo_reglas` usada al aplicar un desc. POR FORMA DE PAGO. */
-export type FacturaDescuentoPromoRegla = {
-  idMarca: string | null;
-  idRubro: string | null;
-  idSubRubro: string | null;
-  descuento: number;
-};
-
 /**
  * Descuento de comprobante (Crear, estado local).
  * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
- * - `promo_forma_pago`: % por línea según excepciones (marca/rubro/sub) o el general.
+ * - `promo_forma_pago`: el cajero eligió una forma de pago; cada línea toma la regla
+ *   de mayor `prioridad` cuyo alcance matchea (sin match = 0 %).
  */
 export type FacturaDescuentoEstado = {
   fuente: "porcentaje" | "total_fac" | "promo_forma_pago";
-  /** 0–100; en `promo_forma_pago` es el % general del header. */
+  /** 0–100; en `promo_forma_pago` no se usa como % global (va por línea). */
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
-  /** Id de `desc_promo` si `fuente === "promo_forma_pago"`. */
-  promoId?: string | null;
-  /** Snapshot de reglas al aplicar la promo. */
-  promoReglas?: FacturaDescuentoPromoRegla[];
-  /** Formas de `desc_promo_formas_pago` (ids) que admite el cobro. */
+  /** Snapshot de reglas de esa forma de pago. */
+  promoCandidatas?: DescPromoCandidataFactura[];
+  /** Forma de pago elegida (una) que admite el cobro. */
   promoPagoIds?: string[];
   /** Nombres MAYÚSCULAS de esas formas (validación al emitir). */
   promoPagoNombres?: string[];
@@ -1068,31 +1062,30 @@ export function totalFacDesdeDescuentoPct(
   return Math.round(totalLista * (1 - pct / 100));
 }
 
-/**
- * % de una promo POR FORMA DE PAGO: excepción más específica, o el % general.
- */
 export function descuentoPctDesdeReglasPromo(
-  reglas: readonly FacturaDescuentoPromoRegla[],
-  item: Pick<FacturaLineaLocal, "idMarca" | "idRubro" | "idSubRubro">,
-  generalPct: number
+  candidatas: readonly DescPromoCandidataFactura[],
+  item: Pick<FacturaLineaLocal, "codTienda" | "idMarca" | "idRubro">
 ): number {
   return clampDescuentoPct(
-    pctDesdeExcepcionesDescPromo(reglas, item, generalPct)
+    descuentoPctPorPrioridad(candidatas, {
+      codTienda: item.codTienda,
+      idMarca: item.idMarca,
+      idRubro: item.idRubro,
+    })
   );
 }
 
 export function aplicarPromoFormaPagoALineas(
   lineas: readonly FacturaLineaLocal[],
-  reglas: readonly FacturaDescuentoPromoRegla[],
-  generalPct: number
+  candidatas: readonly DescPromoCandidataFactura[]
 ): FacturaLineaLocal[] {
   return lineas.map((l) => ({
     ...l,
-    descuentoPctEspecial: descuentoPctDesdeReglasPromo(
-      reglas,
-      { idMarca: l.idMarca, idRubro: l.idRubro, idSubRubro: l.idSubRubro },
-      generalPct
-    ),
+    descuentoPctEspecial: descuentoPctDesdeReglasPromo(candidatas, {
+      codTienda: l.codTienda,
+      idMarca: l.idMarca,
+      idRubro: l.idRubro,
+    }),
   }));
 }
 
@@ -1128,7 +1121,7 @@ export function nombresPagoPromoFormaPago(
     .filter(Boolean);
 }
 
-/** Catálogo de cobro: sin NC; si hay promo POR FORMA DE PAGO, solo esas formas. */
+/** Catálogo de cobro: sin NC; si hay desc. por forma de pago, solo esa forma. */
 export function filtrarPagosCatalogoPorDescPromo<
   T extends { id: string; nombre: string },
 >(pagos: readonly T[], descuento: FacturaDescuentoEstado | null): T[] {
@@ -1160,14 +1153,14 @@ export function cobrosViolanPromoFormaPago(
 /**
  * Al agregar una línea:
  * - `porcentaje`: hereda el % global (`descuentoPctEspecial = null`).
- * - `promo_forma_pago`: % de excepciones (marca/rubro/sub) o el general del header.
+ * - `promo_forma_pago`: % de la regla de mayor prioridad que matchea el ítem.
  * - `total_fac`: congela el DESC. % PROMEDIO actual como global `porcentaje`
  *   (deja de perseguir el objetivo al crecer el remito); la línea nueva hereda ese %.
  */
 export function prepararDescuentoAlAgregarLinea(
   lineas: readonly FacturaLineaLocal[],
   descuento: FacturaDescuentoEstado | null,
-  lineaNueva?: Pick<FacturaLineaLocal, "idMarca" | "idRubro" | "idSubRubro">
+  lineaNueva?: Pick<FacturaLineaLocal, "codTienda" | "idMarca" | "idRubro">
 ): {
   descuentoPctEspecial: number | null;
   descuentoSiguiente: FacturaDescuentoEstado | null;
@@ -1178,13 +1171,12 @@ export function prepararDescuentoAlAgregarLinea(
   if (descuento.fuente === "promo_forma_pago") {
     return {
       descuentoPctEspecial: descuentoPctDesdeReglasPromo(
-        descuento.promoReglas ?? [],
+        descuento.promoCandidatas ?? [],
         {
+          codTienda: lineaNueva?.codTienda ?? "",
           idMarca: lineaNueva?.idMarca ?? null,
           idRubro: lineaNueva?.idRubro ?? null,
-          idSubRubro: lineaNueva?.idSubRubro ?? null,
-        },
-        descuento.porcentaje
+        }
       ),
       descuentoSiguiente: descuento,
     };
