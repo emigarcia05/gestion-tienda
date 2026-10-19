@@ -45,6 +45,7 @@ import {
   textoDescuentosDescPromo,
   type DescPromoFila,
   type DescPromoFormaPagoColumna,
+  type DescPromoItemRef,
 } from "@/lib/descPromo";
 import { fmtCelda } from "@/lib/format";
 import {
@@ -68,8 +69,7 @@ const FILTRO_TODOS = "todos";
 type VistaDescPromo = "forma_pago" | "personalizado";
 const VISTA_BTN_CLASS =
   "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
-const FILA_PROMO_ACTIVA_CLASS =
-  "tabla-desc-factura-fila-activa bg-primary text-primary-foreground hover:bg-primary [&_td]:text-primary-foreground";
+const FILA_PROMO_ACTIVA_CLASS = "tabla-desc-factura-fila-activa";
 const FILA_PROMO_HOVER_CLASS = "tabla-desc-factura-fila-hover";
 
 function CeldaAccionesPromo({
@@ -131,6 +131,10 @@ function CeldaAccionesPromo({
       </div>
     </TableCell>
   );
+}
+
+function promoTieneItems(promo: DescPromoFila): boolean {
+  return promo.alcance === "ITEMS" && promo.items.length > 0;
 }
 
 function clavePago(pagoId: string, cuotaId: string | null): string {
@@ -260,6 +264,7 @@ export default function FacturaDescuentoModal({
   const [verColumna, setVerColumna] = useState<DescPromoFormaPagoColumna | null>(
     null
   );
+  const [verItems, setVerItems] = useState<DescPromoItemRef[] | null>(null);
   const [hoverGrupo, setHoverGrupo] = useState<string | null>(null);
   const [hoverFila, setHoverFila] = useState<string | null>(null);
   const [filtroPago, setFiltroPago] = useState(FILTRO_TODOS);
@@ -343,6 +348,7 @@ export default function FacturaDescuentoModal({
     activo: boolean;
     hoverGrupoActivo: boolean;
     hoverFilaActiva: boolean;
+    esInicioGrupo: boolean;
     esFinGrupo: boolean;
   }): string {
     return cn(
@@ -350,6 +356,7 @@ export default function FacturaDescuentoModal({
       !opts.activo &&
         (opts.hoverGrupoActivo || opts.hoverFilaActiva) &&
         FILA_PROMO_HOVER_CLASS,
+      opts.esInicioGrupo && "tabla-desc-factura-grupo-inicio",
       opts.esFinGrupo && "tabla-desc-factura-grupo-fin"
     );
   }
@@ -490,7 +497,7 @@ export default function FacturaDescuentoModal({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next && verColumna != null) return;
+        if (!next && (verColumna != null || verItems != null)) return;
         onOpenChange(next);
       }}
     >
@@ -714,6 +721,7 @@ export default function FacturaDescuentoModal({
                             activo: grupoActivo,
                             hoverGrupoActivo: hoverGrupo === clave,
                             hoverFilaActiva: hoverFila === claveFila,
+                            esInicioGrupo: i === 0,
                             esFinGrupo: i === col.promos.length - 1,
                           })}
                         >
@@ -764,6 +772,7 @@ export default function FacturaDescuentoModal({
     <Dialog
       open={verColumna != null}
       onOpenChange={(next) => {
+        if (!next && verItems != null) return;
         if (!next) setVerColumna(null);
       }}
     >
@@ -786,6 +795,7 @@ export default function FacturaDescuentoModal({
               <Table variant="compact" className="tabla-gestion-compacta w-full">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-center">ACCIONES</TableHead>
                     <TableHead>ALCANCE</TableHead>
                     <TableHead className="text-center">DESC.</TableHead>
                   </TableRow>
@@ -793,6 +803,28 @@ export default function FacturaDescuentoModal({
                 <TableBody>
                   {verColumna.promos.map((promo) => (
                     <TableRow key={promo.id}>
+                      <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                        {promoTieneItems(promo) ? (
+                          <div
+                            className={cn(
+                              TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                              "justify-center"
+                            )}
+                          >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              title="Ver"
+                              aria-label={`Ver ${etiquetaAlcanceCondicion(promo)}`}
+                              onClick={() => setVerItems(promo.items)}
+                            >
+                              <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="celda-datos uppercase">
                         {fmtCelda(etiquetaAlcanceCondicion(promo))}
                       </TableCell>
@@ -806,6 +838,45 @@ export default function FacturaDescuentoModal({
             </div>
           </div>
         ) : null}
+      </AppModal>
+    </Dialog>
+    <Dialog
+      open={verItems != null}
+      onOpenChange={(next) => {
+        if (!next) setVerItems(null);
+      }}
+    >
+      <AppModal
+        title="VER ÍTEMS"
+        size="md"
+        actions={
+          <Button type="button" variant="outline" onClick={() => setVerItems(null)}>
+            Cerrar
+          </Button>
+        }
+      >
+        <div className="contenedor-tabla-gestion min-h-0 max-h-[min(20rem,40vh)] overflow-auto rounded-md border border-primary">
+          <Table variant="compact" className="tabla-gestion-compacta w-full">
+            <TableHeader>
+              <TableRow>
+                <TableHead>DESCRIPCIÓN</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(verItems ?? []).length === 0 ? (
+                <EmptyTableRow colSpan={1} message="NO HAY ÍTEMS." />
+              ) : (
+                (verItems ?? []).map((item) => (
+                  <TableRow key={item.codTienda}>
+                    <TableCell className="celda-datos uppercase">
+                      {fmtCelda(item.descripcion || item.codTienda)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </AppModal>
     </Dialog>
     </>

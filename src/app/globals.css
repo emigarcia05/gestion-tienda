@@ -1488,7 +1488,10 @@
 .tabla-gestion-compacta tbody tr:hover td {
   color: var(--foreground) !important;
 }
-/* Factura · DESCUENTO: hover de grupo (rowSpan) vs fila; línea azul entre grupos. */
+/* Factura · DESCUENTO: hover de grupo vs fila; aplicada = recuadro celeste; línea entre grupos. */
+.tabla-gestion-compacta.tabla-desc-factura {
+  --tabla-desc-factura-activa-bg: color-mix(in oklab, var(--primary) 35%, var(--card));
+}
 .tabla-gestion-compacta.tabla-desc-factura tbody tr:hover {
   background-color: var(--tabla-row-bg);
 }
@@ -1502,8 +1505,39 @@
 .tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-hover:not(.tabla-desc-factura-fila-activa) td {
   background-color: color-mix(in oklab, var(--primary) 20%, var(--card));
 }
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-activa {
+  --tabla-row-bg: var(--tabla-desc-factura-activa-bg);
+  background-color: var(--tabla-desc-factura-activa-bg);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-activa td {
+  background-color: var(--tabla-desc-factura-activa-bg);
+  color: var(--foreground);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-activa:hover,
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-activa:hover td {
+  background-color: var(--tabla-desc-factura-activa-bg);
+  color: var(--foreground);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-inicio.tabla-desc-factura-fila-activa td {
+  border-top: 2px solid var(--primary);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-fin.tabla-desc-factura-fila-activa td {
+  border-bottom: 2px solid var(--primary);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-inicio.tabla-desc-factura-fila-activa td:first-child {
+  border-left: 2px solid var(--primary);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-fila-activa td:last-child {
+  border-right: 2px solid var(--primary);
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-inicio.tabla-desc-factura-fila-activa:not(.tabla-desc-factura-grupo-fin) td[rowspan] {
+  border-bottom: 2px solid var(--primary);
+}
 .tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-fin {
   border-bottom: 1px solid var(--primary) !important;
+}
+.tabla-gestion-compacta.tabla-desc-factura tbody tr.tabla-desc-factura-grupo-fin.tabla-desc-factura-fila-activa {
+  border-bottom: 2px solid var(--primary) !important;
 }
 /* Listbox typeahead (clientes y productos): sin línea entre ítems.
    Mismos fondos que el cebra y el hover de `.tabla-gestion-compacta`. */

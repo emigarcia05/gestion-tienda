@@ -341,18 +341,18 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     screens: productosScreens,
   },
   {
-    id: "desc-promos",
-    label: "DESC. & PROMOS",
-    icon: "percent",
-    basePath: `${A.hub}/desc-promos`,
-    screens: descPromosScreens,
-  },
-  {
     id: "lista-proveedores",
     label: "PROVEEDORES",
     icon: "handshake",
     basePath: `${A.hub}/proveedores`,
     screens: proveedoresScreens,
+  },
+  {
+    id: "desc-promos",
+    label: "DESC. & PROMOS",
+    icon: "percent",
+    basePath: `${A.hub}/desc-promos`,
+    screens: descPromosScreens,
   },
   {
     id: "pedido-a-fabrica",
