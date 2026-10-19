@@ -2,6 +2,12 @@
 
 import { fmtPrecio } from "@/lib/format";
 import {
+  porcentajeDescuentoParaProductoBusqueda,
+  pxConDescuento,
+  type FacturaDescuentoEstado,
+  type FacturaLineaLocal,
+} from "@/lib/factura";
+import {
   TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
   TYPEAHEAD_LISTBOX_CELL_CLASS,
   TYPEAHEAD_LISTBOX_HEADER_CLASS,
@@ -13,7 +19,7 @@ import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.se
 import FacturaProductoStockCelda from "@/components/facturacion/FacturaProductoStockCelda";
 
 export const FILA_BUSQUEDA_PRODUCTOS_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_6.5rem_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
+  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_9.5rem_4rem] items-center justify-items-stretch gap-1.5 px-2";
 
 interface FacturaProductoBusquedaListaProps {
   items: readonly ProductoFacturaBusquedaItem[];
@@ -25,6 +31,8 @@ interface FacturaProductoBusquedaListaProps {
   className?: string;
   /** Alto de fila. El typeahead en `main` crece a 2.5rem por `main button`; el modal (portal) hay que fijarlo. */
   filaClassName?: string;
+  descuento?: FacturaDescuentoEstado | null;
+  lineas?: readonly FacturaLineaLocal[];
 }
 
 /** Misma grilla COD. / DESCRIPCIÓN / PRECIOS / STOCK del buscador de Factura · Crear. */
@@ -37,6 +45,8 @@ export default function FacturaProductoBusquedaLista({
   onVerStock,
   className,
   filaClassName = "min-h-5",
+  descuento = null,
+  lineas = [],
 }: FacturaProductoBusquedaListaProps) {
   return (
     <div className={cn(TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS, className)}>
@@ -52,6 +62,14 @@ export default function FacturaProductoBusquedaLista({
       <ul className={cn(TYPEAHEAD_LISTBOX_UL_CLASS, "flex-none overflow-visible")}>
         {items.map((item, idx) => {
           const activo = idx === activoIndex;
+          const pct = porcentajeDescuentoParaProductoBusqueda(
+            item,
+            descuento,
+            lineas
+          );
+          const pxLista = item.pxLista;
+          const pxDesc = pxConDescuento(pxLista, pct);
+          const mostrarDesc = pct > 0 && pxDesc !== pxLista;
           return (
             <li key={item.codTienda} role="option" aria-selected={activo}>
               <div
@@ -80,10 +98,19 @@ export default function FacturaProductoBusquedaLista({
                 <span
                   className={cn(
                     TYPEAHEAD_LISTBOX_CELL_CLASS,
-                    "tabular-nums text-foreground"
+                    "flex items-center justify-center gap-1.5 tabular-nums text-foreground"
                   )}
                 >
-                  {`$${fmtPrecio(item.pxLista)}`}
+                  {mostrarDesc ? (
+                    <>
+                      <span className="line-through decoration-primary/50 decoration-1">
+                        {`$${fmtPrecio(pxLista)}`}
+                      </span>
+                      <span>{`$${fmtPrecio(pxDesc)}`}</span>
+                    </>
+                  ) : (
+                    `$${fmtPrecio(pxLista)}`
+                  )}
                 </span>
                 <FacturaProductoStockCelda
                   item={item}

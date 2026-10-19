@@ -298,6 +298,19 @@
     opacity: 0.5;
   }
 
+  /**
+   * Factura · Crear visor de cabecera: dos secciones fijas en una fila
+   * (tipo/fiscal | formas de pago del desc.).
+   */
+  .boton-encubierto--cabecera-visor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+    align-items: center;
+    justify-content: stretch;
+    gap: 0.75rem;
+    text-align: left;
+  }
+
   /* ─── Clase maestra inputs y selects de filtro (SSOT): misma apariencia para desplegables y filtro descripción ───
    * Un solo estilo: mismo contorno (border primary), fondo, tipografía y altura para todos los filtros.
    */
@@ -2451,6 +2464,15 @@ main button.boton-encubierto:active:not(:disabled) {
 }
 main button.boton-encubierto:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent) !important;
+}
+main button.boton-encubierto.boton-encubierto--cabecera-visor {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) !important;
+  justify-content: stretch !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  text-align: left !important;
+  white-space: nowrap !important;
 }
 
 /*

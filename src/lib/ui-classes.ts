@@ -282,3 +282,11 @@ export const TYPEAHEAD_STORE_BTN_STOCK_OTRA_CLASS =
 /** No hay stock en otras sucursales: relleno `destructive`. */
 export const TYPEAHEAD_STORE_BTN_SIN_STOCK_OTRA_CLASS =
   `${TYPEAHEAD_STORE_BTN_BASE_CLASS} [&_svg]:fill-destructive`;
+
+/** Cantidad de stock en buscador de Factura: el número abre STOCK POR SUCURSALES. */
+export const TYPEAHEAD_STOCK_CANT_BTN_CLASS = [
+  "!h-5 !min-h-0 !w-auto max-w-full px-1 py-0",
+  "tabular-nums text-sm font-normal leading-none text-foreground",
+  "rounded-sm border-0 bg-transparent shadow-none",
+  "hover:bg-transparent hover:text-primary hover:underline underline-offset-2",
+].join(" ");

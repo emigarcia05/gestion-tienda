@@ -878,6 +878,8 @@ export default function FacturaCrearLineasBlock({
                   setStockCantidadLinea(null);
                   setStockModalItem(item);
                 }}
+                descuento={descuento}
+                lineas={lineas}
                 className="min-h-0 flex-1"
               />
             )}
@@ -894,6 +896,8 @@ export default function FacturaCrearLineasBlock({
           if (!open) setStockDesdeAvanzada(false);
         }}
         sucursalCodigo={sucursalUsuario}
+        descuento={descuento}
+        lineas={lineas}
         onElegir={(item) => {
           setBusquedaAvanzadaOpen(false);
           setStockDesdeAvanzada(false);

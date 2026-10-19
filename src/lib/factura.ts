@@ -1089,6 +1089,19 @@ export function descuentoPctDesdeReglasPromo(
   );
 }
 
+/** % que aplicaría el descuento actual a un ítem del buscador (aún no está en el remito). */
+export function porcentajeDescuentoParaProductoBusqueda(
+  item: Pick<FacturaLineaLocal, "codTienda" | "idMarca" | "idRubro">,
+  descuento: FacturaDescuentoEstado | null,
+  lineas: readonly FacturaLineaLocal[]
+): number {
+  if (descuento == null) return 0;
+  if (descuento.fuente === "promo_forma_pago") {
+    return descuentoPctDesdeReglasPromo(descuento.promoCandidatas ?? [], item);
+  }
+  return porcentajeDescuentoGlobal(lineas, descuento);
+}
+
 export function aplicarPromoFormaPagoALineas(
   lineas: readonly FacturaLineaLocal[],
   candidatas: readonly DescPromoCandidataFactura[]
@@ -1139,6 +1152,17 @@ export function nombresPagoPromoFormaPago(
   return (descuento?.promoPagoNombres ?? [])
     .map((n) => n.trim().toLocaleUpperCase("es-AR"))
     .filter(Boolean);
+}
+
+/** Formas (× cuota) que el cobro debe respetar por el desc. promo aplicado. */
+export function textoFormasPagoRestringidasDescPromo(
+  descuento: FacturaDescuentoEstado | null
+): string {
+  const vinculos = descuento?.promoVinculos ?? [];
+  if (vinculos.length > 0) {
+    return vinculos.map(etiquetaFormaPagoCuotaDescPromo).join(" · ");
+  }
+  return nombresPagoPromoFormaPago(descuento).join(" · ");
 }
 
 /** Catálogo de cobro: sin NC; si hay desc. promo, las formas de las reglas candidatas. */

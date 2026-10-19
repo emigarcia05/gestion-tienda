@@ -51,12 +51,12 @@ import {
   esFacturaTipoNotaCredito,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
-  etiquetaFacturaTipoVisor,
   facturaTipoDesdeClaseYFiscal,
   mensajeClienteFacturaNoSeleccionado,
   nombreClienteFactura,
   ptoVtaIdParaSucursal,
   descuentoEstadoParaEmitir,
+  textoFormasPagoRestringidasDescPromo,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaClase,
@@ -231,8 +231,13 @@ export default function FacturaCrearPageClient({
   const [clientesAbierto, setClientesAbierto] = useState(false);
   const [clienteHighlight, setClienteHighlight] = useState(0);
 
+  const [descuentoVisor, setDescuentoVisor] = useState(
+    () => duplicarBorrador?.descuento ?? null
+  );
+
   const handleRemitoChange = useCallback((snapshot: FacturaRemitoSnapshot) => {
     remitoRef.current = snapshot;
+    setDescuentoVisor(snapshot.descuento);
   }, []);
 
   const fetchSugerenciasClientes = useCallback(async (value: string) => {
@@ -349,13 +354,8 @@ export default function FacturaCrearPageClient({
     };
   }
 
-  const etiquetaClienteVisor = (() => {
-    const nombre = cliente.trim();
-    if (!nombre) return "";
-    const display = nombreClienteFactura(nombre);
-    if (!proyectoElegido) return display;
-    return `${display} - ${etiquetaNombreProyecto(proyectoElegido)}`;
-  })();
+  const etiquetaFormasPagoVisor =
+    textoFormasPagoRestringidasDescPromo(descuentoVisor);
   const mostrarBotonConsumidorFinal =
     !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
@@ -586,21 +586,29 @@ export default function FacturaCrearPageClient({
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
-                className="boton-encubierto min-w-0 flex-1"
+                className="boton-encubierto boton-encubierto--cabecera-visor min-w-0 flex-1"
                 onClick={() => setCabeceraModo("editor")}
                 aria-label="Editar cabecera del comprobante"
                 title="Editar cabecera"
               >
-                <Pencil className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="shrink-0 tabular-nums">
-                  {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
+                <span className="grid min-w-0 w-full grid-cols-[1.25rem_6.75rem_auto_minmax(9rem,1fr)_auto_7.5rem] items-center gap-2">
+                  <Pencil className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="tabular-nums">
+                    {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
+                  </span>
+                  <Separator orientation="vertical" className="h-6" />
+                  <span className="min-w-0 truncate">
+                    {FACTURA_CLASE_LABELS[claseActual]}
+                  </span>
+                  <Separator orientation="vertical" className="h-6" />
+                  <span className="truncate">
+                    {FACTURA_CONDICION_FISCAL_LABELS[fiscalActual ?? "no_fiscal"]}
+                  </span>
                 </span>
-                <Separator orientation="vertical" className="h-6" />
-                <span className="shrink-0">
-                  {etiquetaFacturaTipoVisor(tipo)}
+                <span className="h-6 w-px shrink-0 self-center bg-primary" aria-hidden />
+                <span className="min-w-0 truncate uppercase">
+                  {etiquetaFormasPagoVisor}
                 </span>
-                <Separator orientation="vertical" className="h-6" />
-                <span className="min-w-0 truncate">{etiquetaClienteVisor}</span>
               </button>
               {botonComentariosCabecera}
             </div>

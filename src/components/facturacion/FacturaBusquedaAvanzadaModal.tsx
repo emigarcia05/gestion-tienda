@@ -19,7 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS } from "@/lib/factura";
+import {
+  FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
+  type FacturaDescuentoEstado,
+  type FacturaLineaLocal,
+} from "@/lib/factura";
 import type { SucursalPreferida } from "@/lib/sucursalPreferida";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
@@ -40,6 +44,8 @@ interface FacturaBusquedaAvanzadaModalProps {
   sucursalCodigo: SucursalPreferida | null;
   onElegir: (item: ProductoFacturaBusquedaItem) => void;
   onVerStock: (item: ProductoFacturaBusquedaItem) => void;
+  descuento?: FacturaDescuentoEstado | null;
+  lineas?: readonly FacturaLineaLocal[];
 }
 
 export default function FacturaBusquedaAvanzadaModal({
@@ -48,6 +54,8 @@ export default function FacturaBusquedaAvanzadaModal({
   sucursalCodigo,
   onElegir,
   onVerStock,
+  descuento = null,
+  lineas = [],
 }: FacturaBusquedaAvanzadaModalProps) {
   const [catalogo, setCatalogo] = useState<CatalogoBusqueda | null>(null);
   const [rubro, setRubro] = useState(FILTRO_TODOS);
@@ -303,6 +311,8 @@ export default function FacturaBusquedaAvanzadaModal({
               onActivar={setActivo}
               onElegir={onElegir}
               onVerStock={onVerStock}
+              descuento={descuento}
+              lineas={lineas}
               className="min-h-0 flex-1"
               filaClassName="min-h-10"
             />
