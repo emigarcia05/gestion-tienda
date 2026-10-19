@@ -2,12 +2,26 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import FilterBar, {
+  FILTER_SELECT_WRAPPER_CLASS,
+  FiltroIndividualContainer,
+  FilterRowSelection,
+  SELECT_TRIGGER_FILTER_CLASS,
+} from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,7 +37,9 @@ import {
   columnasFormaPagoDescPromo,
   etiquetaAlcanceCondicion,
   etiquetaFormaPagoCuotaDescPromo,
+  filtrarPromosDescPromoFactura,
   formasPagoUnicasDescPromo,
+  gruposPorAlcanceDescPromo,
   gruposPorPctDescPromo,
   snapshotCobroDescPromo,
   textoDescuentosDescPromo,
@@ -36,26 +52,29 @@ import {
   totalFacDesdeDescuentoPct,
   type FacturaDescuentoEstado,
 } from "@/lib/factura";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { montoArNormalizedStringToCents } from "@/lib/montoArMask";
 import { cn } from "@/lib/utils";
 
 const INPUT_CONTROL_CLASS = "tabular-nums border-primary w-full min-w-0";
 const SELECCION_PERSONALIZADO = "personalizado";
-type VistaDescPromo = "descuento" | "forma_pago";
+const FILTRO_TODOS = "todos";
+type VistaDescPromo = "forma_pago" | "descuento" | "alcance";
 const VISTA_BTN_CLASS =
   "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
 const FILA_PROMO_CLASS = "cursor-pointer";
-const FILA_PROMO_ACTIVA_CLASS = "bg-primary text-primary-foreground hover:bg-primary";
+const FILA_PROMO_ACTIVA_CLASS =
+  "bg-primary text-primary-foreground hover:bg-primary [&_td]:text-primary-foreground";
 
 function FilaSeparadorGrupo() {
   return (
     <TableRow
       aria-hidden
-      className="pointer-events-none border-0 hover:bg-transparent"
+      className="tabla-fila-altura-auto pointer-events-none h-px border-0 hover:bg-transparent"
     >
       <TableCell
         colSpan={3}
-        className="h-0.5 p-0 leading-none border-0 bg-primary"
+        className="h-px min-h-0 max-h-px p-0 leading-none border-0 bg-primary"
       />
     </TableRow>
   );
@@ -67,6 +86,21 @@ function clavePago(pagoId: string, cuotaId: string | null): string {
 
 function clavePromo(promoId: string): string {
   return `promo:${promoId}`;
+}
+
+function textoFormasPago(promo: DescPromoFila): string {
+  return promo.formasPago.map(etiquetaFormaPagoCuotaDescPromo).join(" · ");
+}
+
+function parseClaveFiltroPago(valor: string): {
+  pagoId: string;
+  cuotaId: string | null;
+} {
+  if (!valor || valor === FILTRO_TODOS) return { pagoId: "", cuotaId: null };
+  const sep = valor.indexOf(":");
+  if (sep < 0) return { pagoId: valor, cuotaId: null };
+  const cuota = valor.slice(sep + 1);
+  return { pagoId: valor.slice(0, sep), cuotaId: cuota === "" ? null : cuota };
 }
 
 interface Props {
@@ -130,6 +164,13 @@ function estadoInicial(
         vista: "descuento",
       };
     }
+    if (agrupacion === "alcance" && promoId) {
+      return {
+        ...vacioLista,
+        seleccion: clavePromo(promoId),
+        vista: "alcance",
+      };
+    }
     if (pagoId) {
       return {
         ...vacioLista,
@@ -142,7 +183,7 @@ function estadoInicial(
     return {
       ...vacioLista,
       seleccion: SELECCION_PERSONALIZADO,
-      vista: "descuento",
+      vista: "forma_pago",
     };
   }
   const pct = descuentoActual.porcentaje;
@@ -155,7 +196,7 @@ function estadoInicial(
       totalNorm: pesosToNorm(descuentoActual.totalFacObjetivo),
       lastEdited: "total",
       seleccion: SELECCION_PERSONALIZADO,
-      vista: "descuento",
+      vista: "forma_pago",
     };
   }
   return {
@@ -163,12 +204,12 @@ function estadoInicial(
     totalNorm: pesosToNorm(totalFacDesdeDescuentoPct(totalLista, pct)),
     lastEdited: "pct",
     seleccion: SELECCION_PERSONALIZADO,
-    vista: "descuento",
+    vista: "forma_pago",
   };
 }
 
 /**
- * Modal de descuento de Factura · Crear: vistas POR DESCUENTO / POR FORMA PAGO + PERSONALIZADO.
+ * Modal de descuento de Factura · Crear: tres vistas + filtros + PERSONALIZADO.
  * El padre remonta con `key` al abrir.
  */
 export default function FacturaDescuentoModal({
@@ -187,20 +228,65 @@ export default function FacturaDescuentoModal({
   );
   const [seleccion, setSeleccion] = useState(inicial.seleccion);
   const [vista, setVista] = useState<VistaDescPromo>(inicial.vista);
-  const columnasPago = useMemo(
-    () => columnasFormaPagoDescPromo(promosFormaPago),
+  const [filtroPago, setFiltroPago] = useState(FILTRO_TODOS);
+  const [filtroRubro, setFiltroRubro] = useState(FILTRO_TODOS);
+  const [qDebounced, setQDebounced] = useState("");
+  const { q, handleQChange, isDebouncing, ref: searchRef } = useFiltrosConBusqueda({
+    qActual: "",
+    debounceMs: 300,
+    onDebouncedSearch: setQDebounced,
+  });
+
+  const opcionesPago = useMemo(
+    () => formasPagoUnicasDescPromo(promosFormaPago),
     [promosFormaPago]
   );
-  const columnasDesc = useMemo(
+  const opcionesRubro = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const fila of promosFormaPago) {
+      if (fila.idRubro && fila.rubroNombre) {
+        map.set(fila.idRubro, fila.rubroNombre);
+      }
+      for (const item of fila.items) {
+        if (item.idRubro && item.rubroNombre && !map.has(item.idRubro)) {
+          map.set(item.idRubro, item.rubroNombre);
+        }
+      }
+    }
+    return [...map.entries()]
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [promosFormaPago]);
+
+  const filtroPagoParsed = parseClaveFiltroPago(filtroPago);
+  const promosFiltradas = useMemo(
     () =>
-      promosFormaPago
-        .slice()
-        .sort((a, b) => b.prioridad - a.prioridad || a.nombre.localeCompare(b.nombre, "es")),
-    [promosFormaPago]
+      filtrarPromosDescPromoFactura(promosFormaPago, {
+        pagoId: filtroPagoParsed.pagoId,
+        cuotaId: filtroPagoParsed.cuotaId,
+        idRubro: filtroRubro === FILTRO_TODOS ? "" : filtroRubro,
+        qDescripcion: qDebounced,
+      }),
+    [
+      promosFormaPago,
+      filtroPagoParsed.pagoId,
+      filtroPagoParsed.cuotaId,
+      filtroRubro,
+      qDebounced,
+    ]
+  );
+
+  const columnasPago = useMemo(
+    () => columnasFormaPagoDescPromo(promosFiltradas),
+    [promosFiltradas]
   );
   const gruposPct = useMemo(
-    () => gruposPorPctDescPromo(promosFormaPago),
-    [promosFormaPago]
+    () => gruposPorPctDescPromo(promosFiltradas),
+    [promosFiltradas]
+  );
+  const gruposAlcance = useMemo(
+    () => gruposPorAlcanceDescPromo(promosFiltradas),
+    [promosFiltradas]
   );
   const mostrarPersonalizado = seleccion === SELECCION_PERSONALIZADO;
 
@@ -233,6 +319,21 @@ export default function FacturaDescuentoModal({
     setPctNorm(pctToNorm(descuentoPctDesdeTotalFac(totalLista, pesos)));
   }
 
+  function aplicarPromoUnica(
+    promo: DescPromoFila,
+    agrupacion: "descuento" | "alcance"
+  ) {
+    onAplicar({
+      fuente: "promo_forma_pago",
+      porcentaje: 0,
+      totalFacObjetivo: null,
+      promoAgrupacion: agrupacion,
+      promoCandidatas: [aCandidataFactura(promo)],
+      ...snapshotCobroDescPromo(promo.formasPago),
+    });
+    onOpenChange(false);
+  }
+
   function handleAplicar() {
     if (totalLista <= 0) {
       toast.error("Agregá ítems antes de aplicar un descuento.");
@@ -240,21 +341,13 @@ export default function FacturaDescuentoModal({
     }
 
     if (!mostrarPersonalizado) {
-      if (vista === "descuento") {
-        const promo = columnasDesc.find((p) => clavePromo(p.id) === seleccion);
+      if (vista === "descuento" || vista === "alcance") {
+        const promo = promosFormaPago.find((p) => clavePromo(p.id) === seleccion);
         if (!promo) {
           toast.error("Elegí un descuento.");
           return;
         }
-        onAplicar({
-          fuente: "promo_forma_pago",
-          porcentaje: 0,
-          totalFacObjetivo: null,
-          promoAgrupacion: "descuento",
-          promoCandidatas: [aCandidataFactura(promo)],
-          ...snapshotCobroDescPromo(promo.formasPago),
-        });
-        onOpenChange(false);
+        aplicarPromoUnica(promo, vista);
         return;
       }
       const col = columnasPago.find(
@@ -339,6 +432,13 @@ export default function FacturaDescuentoModal({
     onOpenChange(false);
   }
 
+  const ariaTabla =
+    vista === "descuento"
+      ? "Descuento por porcentaje"
+      : vista === "alcance"
+        ? "Descuento por rubro o ítem"
+        : "Descuento por forma de pago";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
@@ -368,17 +468,6 @@ export default function FacturaDescuentoModal({
             <Button
               type="button"
               role="radio"
-              aria-checked={vista === "descuento"}
-              variant={vista === "descuento" ? "default" : "outline"}
-              className={VISTA_BTN_CLASS}
-              onClick={() => cambiarVista("descuento")}
-            >
-              Por Descuento
-            </Button>
-            <div className="w-px shrink-0 self-stretch bg-primary" aria-hidden />
-            <Button
-              type="button"
-              role="radio"
               aria-checked={vista === "forma_pago"}
               variant={vista === "forma_pago" ? "default" : "outline"}
               className={VISTA_BTN_CLASS}
@@ -386,21 +475,114 @@ export default function FacturaDescuentoModal({
             >
               Por Forma Pago
             </Button>
+            <div className="w-px shrink-0 self-stretch bg-primary" aria-hidden />
+            <Button
+              type="button"
+              role="radio"
+              aria-checked={vista === "descuento"}
+              variant={vista === "descuento" ? "default" : "outline"}
+              className={VISTA_BTN_CLASS}
+              onClick={() => cambiarVista("descuento")}
+            >
+              Por % Desc.
+            </Button>
+            <div className="w-px shrink-0 self-stretch bg-primary" aria-hidden />
+            <Button
+              type="button"
+              role="radio"
+              aria-checked={vista === "alcance"}
+              variant={vista === "alcance" ? "default" : "outline"}
+              className={VISTA_BTN_CLASS}
+              onClick={() => cambiarVista("alcance")}
+            >
+              Por Rubro/Item
+            </Button>
           </div>
+
+          <FilterBar className="filtros-contenedor-tienda shrink-0 bg-card">
+            <FilterRowSelection>
+              <FiltroIndividualContainer
+                className={FILTER_SELECT_WRAPPER_CLASS}
+                activo={filtroPago !== FILTRO_TODOS}
+                onLimpiar={() => setFiltroPago(FILTRO_TODOS)}
+              >
+                <Select value={filtroPago} onValueChange={setFiltroPago}>
+                  <SelectTrigger
+                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                    aria-label="Forma pago"
+                  >
+                    <SelectValue placeholder="FORMA PAGO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                    className="select-content-filtro"
+                  >
+                    <SelectItem value={FILTRO_TODOS}>FORMA PAGO</SelectItem>
+                    {opcionesPago.map((fp) => (
+                      <SelectItem
+                        key={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
+                        value={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
+                      >
+                        {etiquetaFormaPagoCuotaDescPromo(fp)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <FiltroIndividualContainer
+                className={FILTER_SELECT_WRAPPER_CLASS}
+                activo={filtroRubro !== FILTRO_TODOS}
+                onLimpiar={() => setFiltroRubro(FILTRO_TODOS)}
+              >
+                <Select value={filtroRubro} onValueChange={setFiltroRubro}>
+                  <SelectTrigger
+                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                    aria-label="Rubro"
+                  >
+                    <SelectValue placeholder="RUBRO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                    className="select-content-filtro"
+                  >
+                    <SelectItem value={FILTRO_TODOS}>RUBRO</SelectItem>
+                    {opcionesRubro.map((rubro) => (
+                      <SelectItem key={rubro.id} value={rubro.id}>
+                        {rubro.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <div className={FILTER_SELECT_WRAPPER_CLASS}>
+                <FiltroBusquedaInput
+                  id="factura-desc-filtro-descripcion"
+                  placeholder="DESCRIPCIÓN"
+                  value={q}
+                  onChange={(value) => {
+                    handleQChange(value);
+                    if (value.trim() === "") setQDebounced("");
+                  }}
+                  isDebouncing={isDebouncing}
+                  inputRef={searchRef}
+                />
+              </div>
+            </FilterRowSelection>
+          </FilterBar>
 
           <div
             className="contenedor-tabla-gestion min-h-0 max-h-[min(28rem,50vh)] overflow-auto rounded-md border border-primary"
             role="radiogroup"
-            aria-label={
-              vista === "descuento"
-                ? "Descuento por porcentaje"
-                : "Descuento por forma de pago"
-            }
+            aria-label={ariaTabla}
           >
             <Table variant="compact" className="tabla-gestion-compacta w-full">
               <colgroup>
-                <col className="w-[22%]" />
-                <col className="w-[48%]" />
+                <col className="w-[34%]" />
+                <col className="w-[36%]" />
                 <col className="w-[30%]" />
               </colgroup>
               <TableHeader>
@@ -414,110 +596,155 @@ export default function FacturaDescuentoModal({
                   ) : (
                     <>
                       <TableHead>FORMA PAGO</TableHead>
-                      <TableHead className="text-center">DESC.</TableHead>
                       <TableHead>ALCANCE</TableHead>
+                      <TableHead className="text-center">DESC.</TableHead>
                     </>
                   )}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vista === "descuento" ? (
-                  gruposPct.length === 0 ? (
-                    <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
-                  ) : (
-                    gruposPct.flatMap((grupo) => {
-                      const filas = grupo.promos.map((promo, i) => {
-                        const activo = seleccion === clavePromo(promo.id);
-                        const formas = promo.formasPago
-                          .map(etiquetaFormaPagoCuotaDescPromo)
-                          .join(" · ");
-                        return (
-                          <TableRow
-                            key={promo.id}
-                            role="radio"
-                            aria-checked={activo}
-                            tabIndex={0}
-                            className={cn(
-                              FILA_PROMO_CLASS,
-                              activo && FILA_PROMO_ACTIVA_CLASS
-                            )}
-                            onClick={() => setSeleccion(clavePromo(promo.id))}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                setSeleccion(clavePromo(promo.id));
-                              }
-                            }}
-                          >
-                            {i === 0 ? (
-                              <TableCell
-                                rowSpan={grupo.promos.length}
-                                className="celda-datos text-center font-bold tabular-nums"
+                {vista === "descuento"
+                  ? gruposPct.length === 0
+                    ? (
+                      <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
+                    )
+                    : gruposPct.flatMap((grupo) => {
+                        const filas = grupo.promos.map((promo, i) => {
+                          const activo = seleccion === clavePromo(promo.id);
+                          return (
+                            <TableRow
+                              key={promo.id}
+                              role="radio"
+                              aria-checked={activo}
+                              tabIndex={0}
+                              className={cn(
+                                FILA_PROMO_CLASS,
+                                activo && FILA_PROMO_ACTIVA_CLASS
+                              )}
+                              onClick={() => setSeleccion(clavePromo(promo.id))}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setSeleccion(clavePromo(promo.id));
+                                }
+                              }}
+                            >
+                              {i === 0 ? (
+                                <TableCell
+                                  rowSpan={grupo.promos.length}
+                                  className="celda-datos text-center font-bold tabular-nums"
+                                >
+                                  {fmtCelda(textoDescuentosDescPromo(promo))}
+                                </TableCell>
+                              ) : null}
+                              <TableCell className="celda-datos uppercase">
+                                {fmtCelda(textoFormasPago(promo))}
+                              </TableCell>
+                              <TableCell className="celda-datos uppercase">
+                                {fmtCelda(etiquetaAlcanceCondicion(promo))}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                        filas.push(
+                          <FilaSeparadorGrupo key={`sep-pct-${grupo.descuento}`} />
+                        );
+                        return filas;
+                      })
+                  : vista === "alcance"
+                    ? gruposAlcance.length === 0
+                      ? (
+                        <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
+                      )
+                      : gruposAlcance.flatMap((grupo) => {
+                          const filas = grupo.promos.map((promo, i) => {
+                            const activo = seleccion === clavePromo(promo.id);
+                            return (
+                              <TableRow
+                                key={promo.id}
+                                role="radio"
+                                aria-checked={activo}
+                                tabIndex={0}
+                                className={cn(
+                                  FILA_PROMO_CLASS,
+                                  activo && FILA_PROMO_ACTIVA_CLASS
+                                )}
+                                onClick={() => setSeleccion(clavePromo(promo.id))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setSeleccion(clavePromo(promo.id));
+                                  }
+                                }}
                               >
+                                <TableCell className="celda-datos uppercase">
+                                  {fmtCelda(textoFormasPago(promo))}
+                                </TableCell>
+                                {i === 0 ? (
+                                  <TableCell
+                                    rowSpan={grupo.promos.length}
+                                    className="celda-datos font-bold uppercase"
+                                  >
+                                    {fmtCelda(grupo.etiqueta)}
+                                  </TableCell>
+                                ) : null}
+                                <TableCell className="celda-datos text-center tabular-nums">
+                                  {fmtCelda(textoDescuentosDescPromo(promo))}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          });
+                          filas.push(
+                            <FilaSeparadorGrupo key={`sep-alc-${grupo.clave}`} />
+                          );
+                          return filas;
+                        })
+                    : columnasPago.length === 0
+                      ? (
+                        <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
+                      )
+                      : columnasPago.flatMap((col) => {
+                          const clave = clavePago(col.pagoId, col.cuotaId);
+                          const grupoActivo = seleccion === clave;
+                          const filas = col.promos.map((promo, i) => (
+                            <TableRow
+                              key={`${clave}-${promo.id}`}
+                              role="radio"
+                              aria-checked={grupoActivo}
+                              tabIndex={0}
+                              className={cn(
+                                FILA_PROMO_CLASS,
+                                grupoActivo && FILA_PROMO_ACTIVA_CLASS
+                              )}
+                              onClick={() => setSeleccion(clave)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setSeleccion(clave);
+                                }
+                              }}
+                            >
+                              {i === 0 ? (
+                                <TableCell
+                                  rowSpan={col.promos.length}
+                                  className="celda-datos font-bold uppercase"
+                                >
+                                  {fmtCelda(col.etiqueta)}
+                                </TableCell>
+                              ) : null}
+                              <TableCell className="celda-datos uppercase">
+                                {fmtCelda(etiquetaAlcanceCondicion(promo))}
+                              </TableCell>
+                              <TableCell className="celda-datos text-center tabular-nums">
                                 {fmtCelda(textoDescuentosDescPromo(promo))}
                               </TableCell>
-                            ) : null}
-                            <TableCell className="celda-datos uppercase">
-                              {fmtCelda(formas)}
-                            </TableCell>
-                            <TableCell className="celda-datos uppercase">
-                              {fmtCelda(etiquetaAlcanceCondicion(promo))}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      });
-                      filas.push(
-                        <FilaSeparadorGrupo key={`sep-pct-${grupo.descuento}`} />
-                      );
-                      return filas;
-                    })
-                  )
-                ) : columnasPago.length === 0 ? (
-                  <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
-                ) : (
-                  columnasPago.flatMap((col) => {
-                    const clave = clavePago(col.pagoId, col.cuotaId);
-                    const grupoActivo = seleccion === clave;
-                    const filas = col.promos.map((promo, i) => (
-                      <TableRow
-                        key={`${clave}-${promo.id}`}
-                        role="radio"
-                        aria-checked={grupoActivo}
-                        tabIndex={0}
-                        className={cn(
-                          FILA_PROMO_CLASS,
-                          grupoActivo && FILA_PROMO_ACTIVA_CLASS
-                        )}
-                        onClick={() => setSeleccion(clave)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setSeleccion(clave);
-                          }
-                        }}
-                      >
-                        {i === 0 ? (
-                          <TableCell
-                            rowSpan={col.promos.length}
-                            className="celda-datos font-bold uppercase"
-                          >
-                            {fmtCelda(col.etiqueta)}
-                          </TableCell>
-                        ) : null}
-                        <TableCell className="celda-datos text-center tabular-nums">
-                          {fmtCelda(textoDescuentosDescPromo(promo))}
-                        </TableCell>
-                        <TableCell className="celda-datos uppercase">
-                          {fmtCelda(etiquetaAlcanceCondicion(promo))}
-                        </TableCell>
-                      </TableRow>
-                    ));
-                    filas.push(
-                      <FilaSeparadorGrupo key={`sep-pago-${clave}`} />
-                    );
-                    return filas;
-                  })
-                )}
+                            </TableRow>
+                          ));
+                          filas.push(
+                            <FilaSeparadorGrupo key={`sep-pago-${clave}`} />
+                          );
+                          return filas;
+                        })}
                 <TableRow
                   role="radio"
                   aria-checked={mostrarPersonalizado}
