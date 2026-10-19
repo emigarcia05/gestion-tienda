@@ -223,21 +223,6 @@ export default function CrearEditarDescPromoModal({
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Alcance</ModalMicroLabel>
-            <Select value={alcance} onValueChange={handleAlcanceChange}>
-              <SelectTrigger className="w-full" aria-label="Alcance">
-                <SelectValue placeholder="ALCANCE" />
-              </SelectTrigger>
-              <SelectContent>
-                {ALCANCES_DESC_PROMO.map((valor) => (
-                  <SelectItem key={valor} value={valor}>
-                    {ETIQUETA_ALCANCE_DESC_PROMO[valor]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
             <ModalMicroLabel>Nombre</ModalMicroLabel>
             <Input
               value={nombre}
@@ -246,6 +231,17 @@ export default function CrearEditarDescPromoModal({
               disabled={saving}
               aria-label="Nombre"
               className="uppercase"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Desc. (%)</ModalMicroLabel>
+            <Input
+              value={descuentoTexto}
+              onChange={(e) => setDescuentoTexto(digitsDescuento(e.target.value))}
+              placeholder="0 A 100"
+              inputMode="numeric"
+              disabled={saving}
+              aria-label="Descuento"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -293,6 +289,21 @@ export default function CrearEditarDescPromoModal({
               />
             </div>
           ))}
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Alcance</ModalMicroLabel>
+            <Select value={alcance} onValueChange={handleAlcanceChange}>
+              <SelectTrigger className="w-full" aria-label="Alcance">
+                <SelectValue placeholder="ALCANCE" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALCANCES_DESC_PROMO.map((valor) => (
+                  <SelectItem key={valor} value={valor}>
+                    {ETIQUETA_ALCANCE_DESC_PROMO[valor]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {pideMarca ? (
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>Marca</ModalMicroLabel>
@@ -348,17 +359,6 @@ export default function CrearEditarDescPromoModal({
               />
             </div>
           ) : null}
-          <div className="flex flex-col gap-1">
-            <ModalMicroLabel>Desc. (%)</ModalMicroLabel>
-            <Input
-              value={descuentoTexto}
-              onChange={(e) => setDescuentoTexto(digitsDescuento(e.target.value))}
-              placeholder="0 A 100"
-              inputMode="numeric"
-              disabled={saving}
-              aria-label="Descuento"
-            />
-          </div>
         </div>
       </AppModal>
     </Dialog>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
@@ -11,6 +11,7 @@ import CrearEditarDescPromoModal, {
   type DescPromoOpcionProductoUi,
 } from "@/components/desc-promos/CrearEditarDescPromoModal";
 import EliminarDescPromoModal from "@/components/desc-promos/EliminarDescPromoModal";
+import VerDescPromoModal from "@/components/desc-promos/VerDescPromoModal";
 import FilterBar, {
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -88,6 +89,7 @@ export default function DescPromosPageClient({
     });
   const [filtroAlcance, setFiltroAlcance] = useState("");
   const [itemEditar, setItemEditar] = useState<DescPromoFila | null>(null);
+  const [itemVer, setItemVer] = useState<DescPromoFila | null>(null);
   const [itemEliminar, setItemEliminar] = useState<DescPromoFila | null>(null);
   const [openCrear, setOpenCrear] = useState(false);
   const [moviendoId, setMoviendoId] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export default function DescPromosPageClient({
     router.refresh();
   }
 
-  const colSpan = esEditor ? 6 : 5;
+  const colSpan = 6;
 
   return (
     <>
@@ -208,11 +210,11 @@ export default function DescPromosPageClient({
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
               <col className="w-[8%]" />
-              <col className="w-[24%]" />
-              <col className="w-[16%]" />
-              <col className="w-[10%]" />
-              <col className={esEditor ? "w-[30%]" : "w-[42%]"} />
-              {esEditor ? <col className="w-[12%]" /> : null}
+              <col className="w-[22%]" />
+              <col className="w-[14%]" />
+              <col className="w-[8%]" />
+              <col className={esEditor ? "w-[28%]" : "w-[34%]"} />
+              <col className={esEditor ? "w-[20%]" : "w-[14%]"} />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -221,11 +223,9 @@ export default function DescPromosPageClient({
                 <TableHead className="text-center">ALCANCE</TableHead>
                 <TableHead className="text-center">DESC.</TableHead>
                 <TableHead>VÍNCULOS</TableHead>
-                {esEditor ? (
-                  <TableHead className="tabla-bloque-secundario-head-divider text-center">
-                    ACCIONES
-                  </TableHead>
-                ) : null}
+                <TableHead className="tabla-bloque-secundario-head-divider text-center">
+                  ACCIONES
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -263,72 +263,86 @@ export default function DescPromosPageClient({
                       <TableCell className="celda-datos truncate" title={vinculos}>
                         {fmtCelda(vinculos)}
                       </TableCell>
-                      {esEditor ? (
-                        <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
-                          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Subir prioridad"
-                              aria-label={`Subir prioridad de ${item.nombre}`}
-                              disabled={bloqueado || item.prioridad >= maxPrioridad}
-                              onClick={() => void mover(item, "up")}
-                            >
-                              <ChevronUp
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Bajar prioridad"
-                              aria-label={`Bajar prioridad de ${item.nombre}`}
-                              disabled={bloqueado || item.prioridad <= 1}
-                              onClick={() => void mover(item, "down")}
-                            >
-                              <ChevronDown
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Editar"
-                              aria-label={`Editar ${item.nombre}`}
-                              disabled={bloqueado}
-                              onClick={() => setItemEditar(item)}
-                            >
-                              <Pencil
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              title="Eliminar"
-                              aria-label={`Eliminar ${item.nombre}`}
-                              disabled={bloqueado}
-                              onClick={() => setItemEliminar(item)}
-                            >
-                              <Trash2
-                                className={TABLE_ROW_ACTION_ICON_CLASS}
-                                aria-hidden
-                              />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      ) : null}
+                      <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
+                        <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            title="Ver"
+                            aria-label={`Ver ${item.nombre}`}
+                            disabled={bloqueado}
+                            onClick={() => setItemVer(item)}
+                          >
+                            <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                          </Button>
+                          {esEditor ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title="Subir prioridad"
+                                aria-label={`Subir prioridad de ${item.nombre}`}
+                                disabled={bloqueado || item.prioridad >= maxPrioridad}
+                                onClick={() => void mover(item, "up")}
+                              >
+                                <ChevronUp
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title="Bajar prioridad"
+                                aria-label={`Bajar prioridad de ${item.nombre}`}
+                                disabled={bloqueado || item.prioridad <= 1}
+                                onClick={() => void mover(item, "down")}
+                              >
+                                <ChevronDown
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title="Editar"
+                                aria-label={`Editar ${item.nombre}`}
+                                disabled={bloqueado}
+                                onClick={() => setItemEditar(item)}
+                              >
+                                <Pencil
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title="Eliminar"
+                                aria-label={`Eliminar ${item.nombre}`}
+                                disabled={bloqueado}
+                                onClick={() => setItemEliminar(item)}
+                              >
+                                <Trash2
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -353,6 +367,13 @@ export default function DescPromosPageClient({
           }
         }}
         onSuccess={() => router.refresh()}
+      />
+      <VerDescPromoModal
+        open={itemVer != null}
+        item={itemVer}
+        onOpenChange={(open) => {
+          if (!open) setItemVer(null);
+        }}
       />
       <EliminarDescPromoModal
         open={itemEliminar != null}
