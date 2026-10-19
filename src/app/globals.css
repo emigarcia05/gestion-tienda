@@ -300,7 +300,7 @@
 
   /**
    * Factura · Crear visor de cabecera: dos secciones fijas en una fila
-   * (tipo/fiscal | formas de pago del desc.).
+   * (tipo/fiscal | formas de pago del desc.). Hover no cambia el layout.
    */
   .boton-encubierto--cabecera-visor {
     display: grid;
@@ -2465,7 +2465,10 @@ main button.boton-encubierto:active:not(:disabled) {
 main button.boton-encubierto:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent) !important;
 }
-main button.boton-encubierto.boton-encubierto--cabecera-visor {
+main button.boton-encubierto.boton-encubierto--cabecera-visor,
+main button.boton-encubierto.boton-encubierto--cabecera-visor:hover:not(:disabled),
+main button.boton-encubierto.boton-encubierto--cabecera-visor:focus-visible,
+main button.boton-encubierto.boton-encubierto--cabecera-visor:active:not(:disabled) {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) !important;
   justify-content: stretch !important;

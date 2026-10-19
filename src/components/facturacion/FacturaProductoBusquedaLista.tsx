@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtPrecio } from "@/lib/format";
+import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import {
   porcentajeDescuentoParaProductoBusqueda,
   pxConDescuento,
@@ -18,8 +18,20 @@ import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 import FacturaProductoStockCelda from "@/components/facturacion/FacturaProductoStockCelda";
 
-export const FILA_BUSQUEDA_PRODUCTOS_GRID =
-  "grid w-full grid-cols-[5.5rem_minmax(0,1fr)_9.5rem_4rem] items-center justify-items-stretch gap-1.5 px-2";
+const FILA_BUSQUEDA_GRID_BASE =
+  "grid w-full items-center justify-items-stretch gap-1.5 px-2";
+
+/** COD. | DESCRIPCIÓN | PX. LISTA | STOCK */
+export const FILA_BUSQUEDA_PRODUCTOS_GRID = cn(
+  FILA_BUSQUEDA_GRID_BASE,
+  "grid-cols-[5.5rem_minmax(0,1fr)_6.75rem_4rem]"
+);
+
+/** COD. | DESCRIPCIÓN | PX. LISTA | DESC. | PX C/ DESC. | STOCK */
+export const FILA_BUSQUEDA_PRODUCTOS_GRID_CON_DESC = cn(
+  FILA_BUSQUEDA_GRID_BASE,
+  "grid-cols-[5.5rem_minmax(0,1fr)_6.75rem_4.5rem_6.75rem_4rem]"
+);
 
 interface FacturaProductoBusquedaListaProps {
   items: readonly ProductoFacturaBusquedaItem[];
@@ -35,7 +47,7 @@ interface FacturaProductoBusquedaListaProps {
   lineas?: readonly FacturaLineaLocal[];
 }
 
-/** Misma grilla COD. / DESCRIPCIÓN / PRECIOS / STOCK del buscador de Factura · Crear. */
+/** Misma grilla COD. / DESCRIPCIÓN / precios / STOCK del buscador de Factura · Crear. */
 export default function FacturaProductoBusquedaLista({
   items,
   sucursalCodigo,
@@ -48,15 +60,26 @@ export default function FacturaProductoBusquedaLista({
   descuento = null,
   lineas = [],
 }: FacturaProductoBusquedaListaProps) {
+  const mostrarColumnasDesc = descuento != null;
+  const filaGrid = mostrarColumnasDesc
+    ? FILA_BUSQUEDA_PRODUCTOS_GRID_CON_DESC
+    : FILA_BUSQUEDA_PRODUCTOS_GRID;
+
   return (
     <div className={cn(TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS, className)}>
       <div
-        className={cn(FILA_BUSQUEDA_PRODUCTOS_GRID, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
+        className={cn(filaGrid, TYPEAHEAD_LISTBOX_HEADER_CLASS)}
         aria-hidden
       >
         <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>COD.</span>
         <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESCRIPCIÓN</span>
-        <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PRECIOS</span>
+        <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PX. LISTA</span>
+        {mostrarColumnasDesc ? (
+          <>
+            <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>DESC.</span>
+            <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>PX C/ DESC.</span>
+          </>
+        ) : null}
         <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>STOCK</span>
       </div>
       <ul className={cn(TYPEAHEAD_LISTBOX_UL_CLASS, "flex-none overflow-visible")}>
@@ -69,14 +92,14 @@ export default function FacturaProductoBusquedaLista({
           );
           const pxLista = item.pxLista;
           const pxDesc = pxConDescuento(pxLista, pct);
-          const mostrarDesc = pct > 0 && pxDesc !== pxLista;
+          const mostrarDescFila = pct > 0 && pxDesc !== pxLista;
           return (
             <li key={item.codTienda} role="option" aria-selected={activo}>
               <div
                 role="button"
                 tabIndex={-1}
                 className={cn(
-                  FILA_BUSQUEDA_PRODUCTOS_GRID,
+                  filaGrid,
                   filaClassName,
                   "cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
                   activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
@@ -98,20 +121,31 @@ export default function FacturaProductoBusquedaLista({
                 <span
                   className={cn(
                     TYPEAHEAD_LISTBOX_CELL_CLASS,
-                    "flex items-center justify-center gap-1.5 tabular-nums text-foreground"
+                    "tabular-nums text-foreground"
                   )}
                 >
-                  {mostrarDesc ? (
-                    <>
-                      <span className="line-through decoration-primary/50 decoration-1">
-                        {`$${fmtPrecio(pxLista)}`}
-                      </span>
-                      <span>{`$${fmtPrecio(pxDesc)}`}</span>
-                    </>
-                  ) : (
-                    `$${fmtPrecio(pxLista)}`
-                  )}
+                  {`$${fmtPrecio(pxLista)}`}
                 </span>
+                {mostrarColumnasDesc ? (
+                  <>
+                    <span
+                      className={cn(
+                        TYPEAHEAD_LISTBOX_CELL_CLASS,
+                        "tabular-nums text-foreground"
+                      )}
+                    >
+                      {mostrarDescFila ? fmtPorcentajeTabla(pct) : ""}
+                    </span>
+                    <span
+                      className={cn(
+                        TYPEAHEAD_LISTBOX_CELL_CLASS,
+                        "tabular-nums text-foreground"
+                      )}
+                    >
+                      {mostrarDescFila ? `$${fmtPrecio(pxDesc)}` : ""}
+                    </span>
+                  </>
+                ) : null}
                 <FacturaProductoStockCelda
                   item={item}
                   sucursalCodigo={sucursalCodigo}
