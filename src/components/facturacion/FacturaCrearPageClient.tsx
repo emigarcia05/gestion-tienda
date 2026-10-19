@@ -22,7 +22,6 @@ import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -117,6 +116,12 @@ const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
 
 /** Misma altura que el input CLIENTE. Gana a `main button` (2.5rem) y a `.input-filtro-unificado`. */
 const CABECERA_CAMPO_ALTO_CLASS = "!h-9 !min-h-9 !max-h-9";
+
+/** Lápiz + fecha | tipo | fiscal, tres columnas iguales centradas. */
+const CABECERA_VISOR_TIPO_GRID_CLASS =
+  "grid min-w-0 w-full grid-cols-[1.25rem_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2";
+
+const CABECERA_VISOR_SEP_CLASS = "h-6 w-0.5 shrink-0 self-center bg-primary";
 
 function emisorPdfDePtoVta(
   ptoVtas: readonly FacturaPtoVtaOpcion[],
@@ -591,22 +596,22 @@ export default function FacturaCrearPageClient({
                 aria-label="Editar cabecera del comprobante"
                 title="Editar cabecera"
               >
-                <span className="grid min-w-0 w-full grid-cols-[1.25rem_6.75rem_auto_minmax(9rem,1fr)_auto_7.5rem] items-center gap-2">
-                  <Pencil className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="tabular-nums">
+                <span className={CABECERA_VISOR_TIPO_GRID_CLASS}>
+                  <Pencil className="size-4 shrink-0 justify-self-start text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 truncate text-center tabular-nums">
                     {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
                   </span>
-                  <Separator orientation="vertical" className="h-6" />
-                  <span className="min-w-0 truncate">
+                  <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                  <span className="min-w-0 truncate text-center">
                     {FACTURA_CLASE_LABELS[claseActual]}
                   </span>
-                  <Separator orientation="vertical" className="h-6" />
-                  <span className="truncate">
+                  <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                  <span className="min-w-0 truncate text-center">
                     {FACTURA_CONDICION_FISCAL_LABELS[fiscalActual ?? "no_fiscal"]}
                   </span>
                 </span>
-                <span className="h-6 w-px shrink-0 self-center bg-primary" aria-hidden />
-                <span className="min-w-0 truncate uppercase">
+                <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                <span className="min-w-0 truncate text-center uppercase">
                   {etiquetaFormasPagoVisor}
                 </span>
               </button>

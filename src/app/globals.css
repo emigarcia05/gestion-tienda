@@ -304,7 +304,7 @@
    */
   .boton-encubierto--cabecera-visor {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     justify-content: stretch;
     gap: 0.75rem;
@@ -2470,7 +2470,7 @@ main button.boton-encubierto.boton-encubierto--cabecera-visor:hover:not(:disable
 main button.boton-encubierto.boton-encubierto--cabecera-visor:focus-visible,
 main button.boton-encubierto.boton-encubierto--cabecera-visor:active:not(:disabled) {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
   justify-content: stretch !important;
   align-items: center !important;
   gap: 0.75rem !important;

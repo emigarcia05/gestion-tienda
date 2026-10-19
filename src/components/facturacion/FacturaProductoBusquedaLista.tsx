@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import { fmtPrecio } from "@/lib/format";
 import {
   porcentajeDescuentoParaProductoBusqueda,
   pxConDescuento,
@@ -60,7 +60,14 @@ export default function FacturaProductoBusquedaLista({
   descuento = null,
   lineas = [],
 }: FacturaProductoBusquedaListaProps) {
-  const mostrarColumnasDesc = descuento != null;
+  const mostrarColumnasDesc = items.some((item) => {
+    const pct = porcentajeDescuentoParaProductoBusqueda(
+      item,
+      descuento,
+      lineas
+    );
+    return pct > 0 && pxConDescuento(item.pxLista, pct) !== item.pxLista;
+  });
   const filaGrid = mostrarColumnasDesc
     ? FILA_BUSQUEDA_PRODUCTOS_GRID_CON_DESC
     : FILA_BUSQUEDA_PRODUCTOS_GRID;
@@ -134,7 +141,7 @@ export default function FacturaProductoBusquedaLista({
                         "tabular-nums text-foreground"
                       )}
                     >
-                      {mostrarDescFila ? fmtPorcentajeTabla(pct) : ""}
+                      {mostrarDescFila ? `${Math.round(pct)}%` : ""}
                     </span>
                     <span
                       className={cn(
