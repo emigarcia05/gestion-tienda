@@ -45,6 +45,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: DescPromoFila | null;
+  /** Precarga el formulario como alta (no edita el original). */
+  duplicar?: boolean;
   productos: DescPromoOpcionProductoUi[];
   pagos: DescPromoOpcionPago[];
   cuotas: CobrosCuotaItem[];
@@ -89,6 +91,7 @@ export default function CrearEditarDescPromoModal({
   open,
   onOpenChange,
   item,
+  duplicar = false,
   productos,
   pagos,
   cuotas,
@@ -96,7 +99,7 @@ export default function CrearEditarDescPromoModal({
   marcas,
   onSuccess,
 }: Props) {
-  const esAlta = item == null;
+  const esAlta = item == null || duplicar;
   const [alcance, setAlcance] = useState<AlcanceDescPromoValor>(item?.alcance ?? "TODOS");
   const [nombre, setNombre] = useState(item?.nombre ?? "");
   const [descuentoTexto, setDescuentoTexto] = useState(
@@ -188,9 +191,10 @@ export default function CrearEditarDescPromoModal({
       codTiendas: pideItems ? codTiendas : [],
       vinculosCobro,
     };
-    const res = item
-      ? await editarDescPromoAction({ ...payload, id: item.id })
-      : await crearDescPromoAction(payload);
+    const res =
+      item != null && !duplicar
+        ? await editarDescPromoAction({ ...payload, id: item.id })
+        : await crearDescPromoAction(payload);
     setSaving(false);
     if (!res.ok) {
       toast.error(res.error);

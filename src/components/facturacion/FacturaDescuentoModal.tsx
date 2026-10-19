@@ -9,17 +9,27 @@ import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  EmptyTableRow,
+} from "@/components/ui/table";
+import {
   aCandidataFactura,
   claveFormaPagoCuotaDescPromo,
   columnasFormaPagoDescPromo,
   etiquetaAlcanceCondicion,
   etiquetaFormaPagoCuotaDescPromo,
-  etiquetaReglaDescPromoFactura,
   formasPagoUnicasDescPromo,
+  gruposPorPctDescPromo,
   snapshotCobroDescPromo,
-  tituloPctDescPromoFactura,
+  textoDescuentosDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
+import { fmtCelda } from "@/lib/format";
 import {
   descuentoPctDesdeTotalFac,
   FACTURA_DESCUENTO_MAX_CENTS,
@@ -32,10 +42,10 @@ import { cn } from "@/lib/utils";
 const INPUT_CONTROL_CLASS = "tabular-nums border-primary w-full min-w-0";
 const SELECCION_PERSONALIZADO = "personalizado";
 type VistaDescPromo = "descuento" | "forma_pago";
-const COLUMNA_PROMO_CLASS =
-  "h-auto min-h-[5.5rem] min-w-0 flex-1 flex-col gap-1.5 whitespace-normal rounded-none border-0 px-2 py-2 shadow-none !h-auto";
 const VISTA_BTN_CLASS =
   "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
+const FILA_PROMO_CLASS = "cursor-pointer";
+const FILA_PROMO_ACTIVA_CLASS = "bg-primary text-primary-foreground hover:bg-primary";
 
 function clavePago(pagoId: string, cuotaId: string | null): string {
   return `pago:${claveFormaPagoCuotaDescPromo(pagoId, cuotaId)}`;
@@ -172,6 +182,10 @@ export default function FacturaDescuentoModal({
       promosFormaPago
         .slice()
         .sort((a, b) => b.prioridad - a.prioridad || a.nombre.localeCompare(b.nombre, "es")),
+    [promosFormaPago]
+  );
+  const gruposPct = useMemo(
+    () => gruposPorPctDescPromo(promosFormaPago),
     [promosFormaPago]
   );
   const mostrarPersonalizado = seleccion === SELECCION_PERSONALIZADO;
@@ -361,113 +375,152 @@ export default function FacturaDescuentoModal({
           </div>
 
           <div
-            className="flex w-full min-w-0 overflow-hidden rounded-md border border-primary"
+            className="contenedor-tabla-gestion min-h-0 max-h-[min(28rem,50vh)] overflow-auto rounded-md border border-primary"
             role="radiogroup"
             aria-label={
               vista === "descuento"
-                ? "Descuento por regla"
+                ? "Descuento por porcentaje"
                 : "Descuento por forma de pago"
             }
           >
-            {vista === "descuento"
-              ? columnasDesc.map((promo, i) => {
-                  const activo = seleccion === clavePromo(promo.id);
-                  return (
-                    <div key={promo.id} className="flex min-w-0 flex-1">
-                      {i > 0 ? (
-                        <div
-                          className="w-px shrink-0 self-stretch bg-primary"
-                          aria-hidden
-                        />
-                      ) : null}
-                      <Button
-                        type="button"
+            <Table variant="compact" className="tabla-gestion-compacta w-full">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[48%]" />
+                <col className="w-[30%]" />
+              </colgroup>
+              <TableHeader>
+                <TableRow>
+                  {vista === "descuento" ? (
+                    <>
+                      <TableHead className="text-center">DESC.</TableHead>
+                      <TableHead>FORMA PAGO</TableHead>
+                      <TableHead>ALCANCE</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead>FORMA PAGO</TableHead>
+                      <TableHead className="text-center">DESC.</TableHead>
+                      <TableHead>ALCANCE</TableHead>
+                    </>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vista === "descuento" ? (
+                  gruposPct.length === 0 ? (
+                    <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
+                  ) : (
+                    gruposPct.flatMap((grupo) =>
+                      grupo.promos.map((promo, i) => {
+                        const activo = seleccion === clavePromo(promo.id);
+                        const formas = promo.formasPago
+                          .map(etiquetaFormaPagoCuotaDescPromo)
+                          .join(" · ");
+                        return (
+                          <TableRow
+                            key={promo.id}
+                            role="radio"
+                            aria-checked={activo}
+                            tabIndex={0}
+                            className={cn(
+                              FILA_PROMO_CLASS,
+                              activo && FILA_PROMO_ACTIVA_CLASS
+                            )}
+                            onClick={() => setSeleccion(clavePromo(promo.id))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setSeleccion(clavePromo(promo.id));
+                              }
+                            }}
+                          >
+                            {i === 0 ? (
+                              <TableCell
+                                rowSpan={grupo.promos.length}
+                                className="celda-datos text-center font-bold tabular-nums"
+                              >
+                                {fmtCelda(textoDescuentosDescPromo(promo))}
+                              </TableCell>
+                            ) : null}
+                            <TableCell className="celda-datos uppercase">
+                              {fmtCelda(formas)}
+                            </TableCell>
+                            <TableCell className="celda-datos uppercase">
+                              {fmtCelda(etiquetaAlcanceCondicion(promo))}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )
+                  )
+                ) : columnasPago.length === 0 ? (
+                  <EmptyTableRow colSpan={3} message="NO HAY DESCUENTOS." />
+                ) : (
+                  columnasPago.flatMap((col) => {
+                    const clave = clavePago(col.pagoId, col.cuotaId);
+                    const grupoActivo = seleccion === clave;
+                    return col.promos.map((promo, i) => (
+                      <TableRow
+                        key={`${clave}-${promo.id}`}
                         role="radio"
-                        aria-checked={activo}
-                        variant={activo ? "default" : "outline"}
-                        className={COLUMNA_PROMO_CLASS}
-                        onClick={() => setSeleccion(clavePromo(promo.id))}
+                        aria-checked={grupoActivo}
+                        tabIndex={0}
+                        className={cn(
+                          FILA_PROMO_CLASS,
+                          grupoActivo && FILA_PROMO_ACTIVA_CLASS
+                        )}
+                        onClick={() => setSeleccion(clave)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSeleccion(clave);
+                          }
+                        }}
                       >
-                        <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
-                          {tituloPctDescPromoFactura(promo)}
-                        </span>
-                        <span className="w-full text-center text-[0.65rem] font-medium uppercase leading-tight">
-                          {etiquetaAlcanceCondicion(promo)}
-                        </span>
-                        <span className="flex w-full flex-col gap-0.5">
-                          {promo.formasPago.map((fp) => (
-                            <span
-                              key={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
-                              className="text-center text-[0.65rem] font-medium uppercase leading-tight"
-                            >
-                              {etiquetaFormaPagoCuotaDescPromo(fp)}
-                            </span>
-                          ))}
-                        </span>
-                      </Button>
-                    </div>
-                  );
-                })
-              : columnasPago.map((col, i) => {
-                  const activo =
-                    seleccion === clavePago(col.pagoId, col.cuotaId);
-                  return (
-                    <div
-                      key={claveFormaPagoCuotaDescPromo(col.pagoId, col.cuotaId)}
-                      className="flex min-w-0 flex-1"
-                    >
-                      {i > 0 ? (
-                        <div
-                          className="w-px shrink-0 self-stretch bg-primary"
-                          aria-hidden
-                        />
-                      ) : null}
-                      <Button
-                        type="button"
-                        role="radio"
-                        aria-checked={activo}
-                        variant={activo ? "default" : "outline"}
-                        className={COLUMNA_PROMO_CLASS}
-                        onClick={() =>
-                          setSeleccion(clavePago(col.pagoId, col.cuotaId))
-                        }
-                      >
-                        <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
-                          {col.etiqueta}
-                        </span>
-                        <span className="flex w-full flex-col gap-0.5">
-                          {col.promos.map((promo) => (
-                            <span
-                              key={promo.id}
-                              className="text-center text-[0.65rem] font-medium uppercase leading-tight tabular-nums"
-                            >
-                              {etiquetaReglaDescPromoFactura(promo)}
-                            </span>
-                          ))}
-                        </span>
-                      </Button>
-                    </div>
-                  );
-                })}
-            {(vista === "descuento" ? columnasDesc.length : columnasPago.length) >
-            0 ? (
-              <div
-                className="w-px shrink-0 self-stretch bg-primary"
-                aria-hidden
-              />
-            ) : null}
-            <Button
-              type="button"
-              role="radio"
-              aria-checked={mostrarPersonalizado}
-              variant={mostrarPersonalizado ? "default" : "outline"}
-              className={COLUMNA_PROMO_CLASS}
-              onClick={() => setSeleccion(SELECCION_PERSONALIZADO)}
-            >
-              <span className="w-full text-center text-xs font-bold uppercase leading-tight tracking-wide">
-                PERSONALIZADO
-              </span>
-            </Button>
+                        {i === 0 ? (
+                          <TableCell
+                            rowSpan={col.promos.length}
+                            className="celda-datos font-bold uppercase"
+                          >
+                            {fmtCelda(col.etiqueta)}
+                          </TableCell>
+                        ) : null}
+                        <TableCell className="celda-datos text-center tabular-nums">
+                          {fmtCelda(textoDescuentosDescPromo(promo))}
+                        </TableCell>
+                        <TableCell className="celda-datos uppercase">
+                          {fmtCelda(etiquetaAlcanceCondicion(promo))}
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })
+                )}
+                <TableRow
+                  role="radio"
+                  aria-checked={mostrarPersonalizado}
+                  tabIndex={0}
+                  className={cn(
+                    FILA_PROMO_CLASS,
+                    mostrarPersonalizado && FILA_PROMO_ACTIVA_CLASS
+                  )}
+                  onClick={() => setSeleccion(SELECCION_PERSONALIZADO)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSeleccion(SELECCION_PERSONALIZADO);
+                    }
+                  }}
+                >
+                  <TableCell
+                    colSpan={3}
+                    className="celda-datos text-center font-bold uppercase"
+                  >
+                    PERSONALIZADO
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
 
           {mostrarPersonalizado ? (

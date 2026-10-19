@@ -271,3 +271,32 @@ export function columnasFormaPagoDescPromo(
     }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
 }
+
+export type GrupoDescPromoPorPct = {
+  descuento: number;
+  promos: DescPromoFila[];
+};
+
+/** Agrupa reglas por % (mayor primero; dentro, mayor prioridad). */
+export function gruposPorPctDescPromo(
+  filas: readonly DescPromoFila[]
+): GrupoDescPromoPorPct[] {
+  const ordenadas = filas
+    .slice()
+    .sort(
+      (a, b) =>
+        b.descuento - a.descuento ||
+        b.prioridad - a.prioridad ||
+        a.nombre.localeCompare(b.nombre, "es")
+    );
+  const porPct = new Map<number, DescPromoFila[]>();
+  for (const fila of ordenadas) {
+    const actual = porPct.get(fila.descuento);
+    if (actual) actual.push(fila);
+    else porPct.set(fila.descuento, [fila]);
+  }
+  return [...porPct.entries()].map(([descuento, promos]) => ({
+    descuento,
+    promos,
+  }));
+}

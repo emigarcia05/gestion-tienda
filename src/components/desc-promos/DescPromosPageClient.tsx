@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
@@ -89,6 +89,7 @@ export default function DescPromosPageClient({
     });
   const [filtroAlcance, setFiltroAlcance] = useState("");
   const [itemEditar, setItemEditar] = useState<DescPromoFila | null>(null);
+  const [itemDuplicar, setItemDuplicar] = useState<DescPromoFila | null>(null);
   const [itemVer, setItemVer] = useState<DescPromoFila | null>(null);
   const [itemEliminar, setItemEliminar] = useState<DescPromoFila | null>(null);
   const [openCrear, setOpenCrear] = useState(false);
@@ -146,7 +147,9 @@ export default function DescPromosPageClient({
               icon={<Plus />}
               label="Nuevo Descuento"
               onClick={() => {
+                setItemVer(null);
                 setItemEditar(null);
+                setItemDuplicar(null);
                 setOpenCrear(true);
               }}
             />
@@ -213,8 +216,8 @@ export default function DescPromosPageClient({
               <col className="w-[22%]" />
               <col className="w-[14%]" />
               <col className="w-[8%]" />
-              <col className={esEditor ? "w-[28%]" : "w-[34%]"} />
-              <col className={esEditor ? "w-[20%]" : "w-[14%]"} />
+              <col className={esEditor ? "w-[24%]" : "w-[34%]"} />
+              <col className={esEditor ? "w-[24%]" : "w-[14%]"} />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -314,10 +317,35 @@ export default function DescPromosPageClient({
                                 variant="ghost"
                                 size="icon"
                                 className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                title="Duplicar"
+                                aria-label={`Duplicar ${item.nombre}`}
+                                disabled={bloqueado}
+                                onClick={() => {
+                                  setItemVer(null);
+                                  setOpenCrear(false);
+                                  setItemEditar(null);
+                                  setItemDuplicar(item);
+                                }}
+                              >
+                                <Copy
+                                  className={TABLE_ROW_ACTION_ICON_CLASS}
+                                  aria-hidden
+                                />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                                 title="Editar"
                                 aria-label={`Editar ${item.nombre}`}
                                 disabled={bloqueado}
-                                onClick={() => setItemEditar(item)}
+                                onClick={() => {
+                                  setItemVer(null);
+                                  setOpenCrear(false);
+                                  setItemDuplicar(null);
+                                  setItemEditar(item);
+                                }}
                               >
                                 <Pencil
                                   className={TABLE_ROW_ACTION_ICON_CLASS}
@@ -352,9 +380,16 @@ export default function DescPromosPageClient({
         </div>
       </ClassicFilteredTableLayout>
       <CrearEditarDescPromoModal
-        key={openCrear ? "alta" : (itemEditar?.id ?? "cerrado")}
-        open={openCrear || itemEditar != null}
-        item={openCrear ? null : itemEditar}
+        key={
+          openCrear
+            ? "alta"
+            : itemDuplicar
+              ? `dup-${itemDuplicar.id}`
+              : (itemEditar?.id ?? "cerrado")
+        }
+        open={openCrear || itemEditar != null || itemDuplicar != null}
+        item={openCrear ? null : (itemDuplicar ?? itemEditar)}
+        duplicar={itemDuplicar != null}
         productos={productos}
         pagos={pagos}
         cuotas={cuotas}
@@ -363,6 +398,7 @@ export default function DescPromosPageClient({
         onOpenChange={(open) => {
           if (!open) {
             setItemEditar(null);
+            setItemDuplicar(null);
             setOpenCrear(false);
           }
         }}
