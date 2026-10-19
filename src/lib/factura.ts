@@ -897,7 +897,7 @@ export type FacturaDescuentoEstado = {
   porcentaje: number;
   /** Objetivo de TOTAL C/ DESC. cuando `fuente === "total_fac"`. */
   totalFacObjetivo: number | null;
-  /** Vista del modal: por % , por forma de pago o por rubro/ítem. */
+  /** Vista del modal al aplicar (`forma_pago`; `descuento`/`alcance` quedan por estados viejos). */
   promoAgrupacion?: "descuento" | "forma_pago" | "alcance";
   /** Snapshot de reglas aplicables. */
   promoCandidatas?: DescPromoCandidataFactura[];

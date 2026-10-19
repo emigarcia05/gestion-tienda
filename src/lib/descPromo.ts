@@ -355,6 +355,7 @@ export function filtrarPromosDescPromoFactura(
     pagoId: string;
     cuotaId: string | null;
     idRubro: string;
+    descuento: number | null;
     qDescripcion: string;
   }
 ): DescPromoFila[] {
@@ -372,6 +373,9 @@ export function filtrarPromosDescPromoFactura(
       const porItem = fila.items.some((item) => item.idRubro === filtros.idRubro);
       const todos = fila.alcance === "TODOS";
       if (!todos && !porRegla && !porItem) return false;
+    }
+    if (filtros.descuento != null && fila.descuento !== filtros.descuento) {
+      return false;
     }
     if (q) {
       const textos = fila.items.map((item) => item.descripcion);
