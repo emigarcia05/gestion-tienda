@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
-import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
@@ -210,16 +209,12 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 </div>
               )}
             </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <ModalMicroLabel className={esPropio ? "invisible" : undefined}>
-                CX. VINC.
-              </ModalMicroLabel>
-              <div className="flex min-h-10 gap-2">
+            <div className="flex min-h-10 gap-2">
                 {!esPropio ? (
                   <>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       className="h-10 min-w-0 flex-1 gap-2"
                       disabled={pending}
                       onClick={() => setSelectorAbierto(true)}
@@ -229,7 +224,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                         className={cn("truncate", vinculo && "uppercase")}
                         title={vinculo ? etiquetaVinculo(vinculo) : undefined}
                       >
-                        {vinculo ? etiquetaVinculo(vinculo) : "Elegir Línea (Obligatorio)"}
+                        {vinculo ? etiquetaVinculo(vinculo) : "VINCULAR PROD. PROVEEDOR"}
                       </span>
                     </Button>
                     {vinculo ? (
@@ -249,7 +244,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 ) : esCompuesto ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="default"
                     className="h-10 min-w-0 flex-1 gap-2"
                     disabled={pending}
                     onClick={() => setSelectorComponenteAbierto(true)}
@@ -260,7 +255,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 ) : (
                   <div className="h-10 min-w-0 flex-1" aria-hidden />
                 )}
-              </div>
             </div>
             {esPropio && esCompuesto ? (
               <TablaComponentesCompuesto
