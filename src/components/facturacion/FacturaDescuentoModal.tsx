@@ -265,6 +265,16 @@ export default function FacturaDescuentoModal({
     }
   }
 
+  function seleccionarMedioPago(pagoId: string) {
+    setVista("descuentos");
+    setFiltroPago(pagoId);
+    setFiltroCuota("");
+  }
+
+  function seleccionarCuota(cuotaId: string) {
+    setFiltroCuota((actual) => (actual === cuotaId ? "" : cuotaId));
+  }
+
   function aplicarMedioPago(pagoId: string, cuotaId?: string) {
     setVista("descuentos");
     setFiltroPago(pagoId);
@@ -275,6 +285,11 @@ export default function FacturaDescuentoModal({
       cuotaId
     );
     if (filas.length === 0) return;
+    const especiales = filtrarPromosDescPromoFactura(
+      promosFormaPago.filter(esDescPromoEspecial),
+      pagoId,
+      cuotaId
+    );
     const formas = formasPagoUnicasDescPromo(filas);
     const elegida = cuotaId
       ? formas.find((fp) => fp.pagoId === pagoId && fp.cuotaId === cuotaId)
@@ -284,7 +299,9 @@ export default function FacturaDescuentoModal({
       porcentaje: 0,
       totalFacObjetivo: null,
       promoAgrupacion: "forma_pago",
-      promoCandidatas: filas.map(aCandidataFactura),
+      // Especiales (alcance ITEMS) compiten por prioridad en cada línea; van al final porque
+      // `estadoInicial` toma la primera candidata como selección del catálogo.
+      promoCandidatas: [...filas, ...especiales].map(aCandidataFactura),
       promoPagoIdSeleccionado: pagoId,
       promoCuotaIdSeleccionado: elegida?.cuotaId ?? cuotaId ?? null,
       ...snapshotCobroDescPromo(formas),
@@ -385,6 +402,9 @@ export default function FacturaDescuentoModal({
       handleAplicar();
       return;
     }
+    if (filtroPago) {
+      aplicarMedioPago(filtroPago, filtroCuota || undefined);
+    }
     cierreConfirmadoRef.current = true;
     onOpenChange(false);
   }
@@ -452,7 +472,8 @@ export default function FacturaDescuentoModal({
           </div>
 
           {esVistaPersonalizada ? null : (
-          <>
+          <div className="grid grid-cols-[minmax(0,9fr)_minmax(0,1fr)] items-stretch gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
           <div
             role="radiogroup"
             aria-label="Forma de pago"
@@ -474,7 +495,7 @@ export default function FacturaDescuentoModal({
                     aria-checked={seleccionado}
                     variant={seleccionado ? "default" : "outline"}
                     className={BOTON_FORMA_PAGO_CLASS}
-                    onClick={() => aplicarMedioPago(pago.pagoId)}
+                    onClick={() => seleccionarMedioPago(pago.pagoId)}
                   >
                     <Icono className="size-5 shrink-0" aria-hidden />
                     <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
@@ -503,14 +524,7 @@ export default function FacturaDescuentoModal({
                   aria-checked={seleccionado}
                   variant={seleccionado ? "default" : "outline"}
                   className={BOTON_CUOTA_CLASS}
-                  onClick={() => {
-                    const cuotaId = cuota.cuotaId ?? "";
-                    if (filtroCuota === cuotaId) {
-                      aplicarMedioPago(filtroPago);
-                      return;
-                    }
-                    aplicarMedioPago(filtroPago, cuotaId);
-                  }}
+                  onClick={() => seleccionarCuota(cuota.cuotaId ?? "")}
                 >
                   <span className="text-center text-sm font-semibold tabular-nums leading-none">
                     {lineas.linea1}
@@ -524,7 +538,18 @@ export default function FacturaDescuentoModal({
               );
             })}
           </div>
-          </>
+            </div>
+            <Button
+              type="button"
+              className="h-full min-h-0 w-full px-1 whitespace-normal"
+              disabled={!filtroPago}
+              onClick={() =>
+                aplicarMedioPago(filtroPago, filtroCuota || undefined)
+              }
+            >
+              Aplicar
+            </Button>
+          </div>
           )}
           {esVistaPersonalizada ? (
             <div className="flex flex-col gap-4">
