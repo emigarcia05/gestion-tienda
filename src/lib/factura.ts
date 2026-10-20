@@ -906,7 +906,7 @@ export type FacturaLineaLocal = {
  * - `porcentaje`: aplica el % a todos los PX. LISTA (salvo override de línea).
  * - `total_fac`: mantiene un TOTAL C/ DESC. objetivo y recalcula el % si cambian líneas/cantidades.
  * - `promo_forma_pago`: el cajero eligió una forma de pago o una regla; cada línea
- *   toma la de mayor `prioridad` cuyo alcance matchea (sin match = 0 %).
+ *   toma la de menor `prioridad` (1 = máxima) cuyo alcance matchea (sin match = 0 %).
  */
 export type FacturaDescuentoEstado = {
   fuente: "porcentaje" | "total_fac" | "promo_forma_pago";
@@ -1254,7 +1254,7 @@ export function filtrarCuotasCatalogoPorDescPromo(
 /**
  * Al agregar una línea:
  * - `porcentaje`: hereda el % global (`descuentoPctEspecial = null`).
- * - `promo_forma_pago`: % de la regla de mayor prioridad que matchea el ítem.
+ * - `promo_forma_pago`: % de la regla de mayor prioridad (número menor) que matchea el ítem.
  * - `total_fac`: congela el DESC. % PROMEDIO actual como global `porcentaje`
  *   (deja de perseguir el objetivo al crecer el remito); la línea nueva hereda ese %.
  */

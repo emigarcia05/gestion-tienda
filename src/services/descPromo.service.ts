@@ -246,6 +246,7 @@ function dataVinculos(input: CrearDescPromoInput) {
   };
 }
 
+/** Prioridad 1 = la que gana. Una promo nueva va al final (máximo + 1 = la de menor peso). */
 async function siguientePrioridad(): Promise<number> {
   const agg = await prisma.descPromo.aggregate({ _max: { prioridad: true } });
   return (agg._max.prioridad ?? 0) + 1;
@@ -293,7 +294,7 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
   try {
     const rows = await prisma.descPromo.findMany({
       include: promoInclude,
-      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
+      orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
     return rows.map(mapPromo);
   } catch (e: unknown) {
@@ -304,7 +305,7 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
 
 /**
  * Promos de alcance ITEMS (DESC. ESPECIAL) indexadas por `cod_tienda`
- * pedido. Un código puede tener varias; orden: prioridad desc.
+ * pedido. Un código puede tener varias; orden: prioridad asc (1 = la que gana).
  */
 export async function listarDescPromosEspecialesPorCodigos(
   codigos: readonly string[]
@@ -320,7 +321,7 @@ export async function listarDescPromosEspecialesPorCodigos(
         items: { some: { codTienda: { in: unicos } } },
       },
       include: promoInclude,
-      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
+      orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
     for (const row of rows) {
       const mapped = mapPromo(row);
@@ -356,7 +357,7 @@ export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
     const rows = await prisma.descPromo.findMany({
       where: { formasPago: { some: {} } },
       include: promoInclude,
-      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
+      orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
     return rows.map(mapPromo);
   } catch (e: unknown) {
@@ -467,6 +468,7 @@ export async function eliminarDescPromo(
   }
 }
 
+/** `up` = sube prioridad (número menor, hacia 1); `down` = baja prioridad (número mayor). */
 export async function moverPrioridadDescPromo(
   id: string,
   direccion: "up" | "down"
@@ -478,7 +480,7 @@ export async function moverPrioridadDescPromo(
     });
     const i = rows.findIndex((r) => r.id === id);
     if (i < 0) return { success: false, error: "La promoción no existe." };
-    const j = direccion === "up" ? i + 1 : i - 1;
+    const j = direccion === "up" ? i - 1 : i + 1;
     if (j < 0 || j >= rows.length) {
       const actual = await prisma.descPromo.findUnique({
         where: { id },

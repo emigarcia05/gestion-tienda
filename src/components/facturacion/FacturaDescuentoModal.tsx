@@ -66,28 +66,19 @@ const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
 const BOTON_CUOTA_CLASS =
   "h-12 w-[5.25rem] shrink-0 flex-col gap-0.5 whitespace-normal border border-primary px-1 py-1";
-const FILA_PROMO_ACTIVA_CLASS = "tabla-desc-factura-fila-activa";
-const FILA_PROMO_HOVER_CLASS = "tabla-desc-factura-fila-hover";
-
 function CeldaAccionesPromo({
   etiqueta,
   onVer,
   rowSpan,
-  hoverHandlers,
 }: {
   etiqueta: string;
   onVer?: () => void;
   rowSpan?: number;
-  hoverHandlers?: {
-    onMouseEnter: () => void;
-    onMouseLeave: () => void;
-  };
 }) {
   return (
     <TableCell
       rowSpan={rowSpan}
       className="celda-datos celda-datos--accion-relleno-fila p-0"
-      {...hoverHandlers}
     >
       <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-center")}>
         {onVer ? (
@@ -227,8 +218,6 @@ export default function FacturaDescuentoModal({
   const [vista, setVista] = useState<VistaDescPromo>(inicial.vista);
   const [verPromo, setVerPromo] = useState<DescPromoFila | null>(null);
   const [verItems, setVerItems] = useState<DescPromoItemRef[] | null>(null);
-  const [hoverGrupo, setHoverGrupo] = useState<string | null>(null);
-  const [hoverFila, setHoverFila] = useState<string | null>(null);
   const [filtroPago, setFiltroPago] = useState(
     descuentoActual?.fuente === "promo_forma_pago"
       ? descuentoActual.promoPagoIdSeleccionado ?? ""
@@ -267,8 +256,6 @@ export default function FacturaDescuentoModal({
 
   function cambiarVista(next: VistaDescPromo) {
     setVista(next);
-    setHoverGrupo(null);
-    setHoverFila(null);
     if (next === "personalizado") {
       setSeleccion(SELECCION_PERSONALIZADO);
       return;
@@ -278,53 +265,10 @@ export default function FacturaDescuentoModal({
     }
   }
 
-  function classFilaPromo(opts: {
-    activo: boolean;
-    hoverGrupoActivo: boolean;
-    hoverFilaActiva: boolean;
-    esInicioGrupo: boolean;
-    esFinGrupo: boolean;
-  }): string {
-    return cn(
-      opts.activo && FILA_PROMO_ACTIVA_CLASS,
-      !opts.activo &&
-        (opts.hoverGrupoActivo || opts.hoverFilaActiva) &&
-        FILA_PROMO_HOVER_CLASS,
-      opts.esInicioGrupo && "tabla-desc-factura-grupo-inicio",
-      opts.esFinGrupo && "tabla-desc-factura-grupo-fin"
-    );
-  }
-
-  function handlersHoverGrupo(clave: string) {
-    return {
-      onMouseEnter: () => {
-        setHoverFila(null);
-        setHoverGrupo(clave);
-      },
-      onMouseLeave: () => {
-        setHoverGrupo((actual) => (actual === clave ? null : actual));
-      },
-    };
-  }
-
-  function handlersHoverFila(claveFila: string) {
-    return {
-      onMouseEnter: () => {
-        setHoverGrupo(null);
-        setHoverFila(claveFila);
-      },
-      onMouseLeave: () => {
-        setHoverFila((actual) => (actual === claveFila ? null : actual));
-      },
-    };
-  }
-
   function aplicarMedioPago(pagoId: string, cuotaId?: string) {
     setVista("descuentos");
     setFiltroPago(pagoId);
     setFiltroCuota(cuotaId ?? "");
-    setHoverGrupo(null);
-    setHoverFila(null);
     const filas = filtrarPromosDescPromoFactura(
       promosCatalogo,
       pagoId,
@@ -617,7 +561,7 @@ export default function FacturaDescuentoModal({
           >
             <Table
               variant="compact"
-              className="tabla-gestion-compacta tabla-desc-factura w-full"
+              className="tabla-gestion-compacta w-full"
             >
               <colgroup>
                 <col className="w-[12%]" />
@@ -648,30 +592,18 @@ export default function FacturaDescuentoModal({
                 ) : (
                   promosOrdenadas.flatMap((promo) => {
                     const clave = clavePromo(promo.id);
-                    const hoverGrupoH = handlersHoverGrupo(clave);
                     const formas: DescPromoFormaPagoRef[] =
                       promo.formasPago.length > 0 ? promo.formasPago : [];
                     const nFilas = Math.max(formas.length, 1);
                     return Array.from({ length: nFilas }, (_, i) => {
                       const fp = formas[i] ?? null;
                       const claveFila = `${clave}-${fp ? claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId) : i}`;
-                      const hoverFilaH = handlersHoverFila(claveFila);
                       return (
-                        <TableRow
-                          key={claveFila}
-                          className={classFilaPromo({
-                            activo: Boolean(filtroPago),
-                            hoverGrupoActivo: hoverGrupo === clave,
-                            hoverFilaActiva: hoverFila === claveFila,
-                            esInicioGrupo: i === 0,
-                            esFinGrupo: i === nFilas - 1,
-                          })}
-                        >
+                        <TableRow key={claveFila}>
                           {i === 0 ? (
                             <CeldaAccionesPromo
                               etiqueta={promo.nombre}
                               rowSpan={nFilas}
-                              hoverHandlers={hoverGrupoH}
                               onVer={() => setVerPromo(promo)}
                             />
                           ) : null}
@@ -679,7 +611,6 @@ export default function FacturaDescuentoModal({
                             <TableCell
                               rowSpan={nFilas}
                               className="celda-datos font-bold uppercase"
-                              {...hoverGrupoH}
                             >
                               {fmtCelda(promo.nombre)}
                             </TableCell>
@@ -688,15 +619,11 @@ export default function FacturaDescuentoModal({
                             <TableCell
                               rowSpan={nFilas}
                               className="celda-datos text-center tabular-nums"
-                              {...hoverGrupoH}
                             >
                               {fmtCelda(textoDescuentosDescPromo(promo))}
                             </TableCell>
                           ) : null}
-                          <TableCell
-                            className="celda-datos uppercase"
-                            {...hoverFilaH}
-                          >
+                          <TableCell className="celda-datos uppercase">
                             {fmtCelda(
                               fp ? etiquetaFormaPagoCuotaDescPromo(fp) : ""
                             )}
@@ -705,7 +632,6 @@ export default function FacturaDescuentoModal({
                             <TableCell
                               rowSpan={nFilas}
                               className="celda-datos uppercase"
-                              {...hoverGrupoH}
                             >
                               {fmtCelda(etiquetaAlcanceCondicion(promo))}
                             </TableCell>

@@ -1,7 +1,8 @@
 "use client";
 
+import { Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TYPEAHEAD_STOCK_CANT_BTN_CLASS } from "@/lib/ui-classes";
+import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 
@@ -10,7 +11,7 @@ interface FacturaProductoDescEspecialCeldaProps {
   onVerEspeciales: (item: ProductoFacturaBusquedaItem) => void;
 }
 
-/** Botón VER de DESC. ESPECIAL: no agrega el ítem al remito. */
+/** Ícono DESC. de DESC. ESPECIAL: no agrega el ítem al remito. */
 export default function FacturaProductoDescEspecialCelda({
   item,
   onVerEspeciales,
@@ -20,9 +21,13 @@ export default function FacturaProductoDescEspecialCelda({
       <Button
         type="button"
         variant="ghost"
-        className={cn(TYPEAHEAD_STOCK_CANT_BTN_CLASS, "uppercase")}
-        title="Ver promociones especiales"
-        aria-label={`Ver promociones especiales de ${item.descripcion}`}
+        size="icon"
+        className={cn(
+          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+          "!h-5 !w-5 min-h-5 min-w-5"
+        )}
+        title="Desc. Especial"
+        aria-label={`Ver desc. especial de ${item.descripcion}`}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.preventDefault();
@@ -30,7 +35,7 @@ export default function FacturaProductoDescEspecialCelda({
           onVerEspeciales(item);
         }}
       >
-        Ver
+        <Percent className="h-3 w-3 shrink-0" aria-hidden />
       </Button>
     </div>
   );

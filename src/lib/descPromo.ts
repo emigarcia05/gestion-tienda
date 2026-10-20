@@ -169,7 +169,7 @@ export function alcanceDescPromoMatcheaItem(
   return promo.codTiendas.includes(item.codTienda);
 }
 
-/** Entre las reglas que matchean el ítem, gana la de mayor `prioridad`. Sin match = 0 %. */
+/** Entre las reglas que matchean el ítem, gana la de menor `prioridad` (1 = máxima). Sin match = 0 %. */
 export function descuentoPctPorPrioridad(
   promos: readonly DescPromoCandidataFactura[],
   item: DescPromoItemMatch
@@ -177,7 +177,7 @@ export function descuentoPctPorPrioridad(
   let mejor: DescPromoCandidataFactura | null = null;
   for (const promo of promos) {
     if (!alcanceDescPromoMatcheaItem(promo, item)) continue;
-    if (mejor == null || promo.prioridad > mejor.prioridad) {
+    if (mejor == null || promo.prioridad < mejor.prioridad) {
       mejor = promo;
     }
   }
@@ -210,7 +210,7 @@ export function promosParaFormaPago(
       })
     )
     .slice()
-    .sort((a, b) => b.prioridad - a.prioridad);
+    .sort((a, b) => a.prioridad - b.prioridad);
 }
 
 export type DescPromoFormaPagoColumna = {
@@ -339,7 +339,7 @@ export function columnasFormaPagoDescPromo(
   return [...porPar.values()]
     .map((col) => ({
       ...col,
-      promos: col.promos.slice().sort((a, b) => b.prioridad - a.prioridad),
+      promos: col.promos.slice().sort((a, b) => a.prioridad - b.prioridad),
     }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
 }
@@ -349,7 +349,7 @@ export type GrupoDescPromoPorPct = {
   promos: DescPromoFila[];
 };
 
-/** Agrupa reglas por % (mayor primero; dentro, mayor prioridad). */
+/** Agrupa reglas por % (mayor primero; dentro, mayor prioridad = número menor). */
 export function gruposPorPctDescPromo(
   filas: readonly DescPromoFila[]
 ): GrupoDescPromoPorPct[] {
@@ -358,7 +358,7 @@ export function gruposPorPctDescPromo(
     .sort(
       (a, b) =>
         b.descuento - a.descuento ||
-        b.prioridad - a.prioridad ||
+        a.prioridad - b.prioridad ||
         a.nombre.localeCompare(b.nombre, "es")
     );
   const porPct = new Map<number, DescPromoFila[]>();
@@ -400,7 +400,7 @@ export function gruposPorAlcanceDescPromo(
     .sort(
       (a, b) =>
         etiquetaAlcanceCondicion(a).localeCompare(etiquetaAlcanceCondicion(b), "es") ||
-        b.prioridad - a.prioridad
+        a.prioridad - b.prioridad
     );
   for (const fila of ordenadas) {
     const clave = claveAlcanceGrupoDescPromo(fila);
@@ -418,14 +418,14 @@ export function gruposPorAlcanceDescPromo(
   return [...porClave.values()];
 }
 
-/** Mayor % primero; empate: mayor prioridad, luego nombre. */
+/** Mayor % primero; empate: mayor prioridad (número menor), luego nombre. */
 export function ordenarPromosPorDescFactura(
   filas: readonly DescPromoFila[]
 ): DescPromoFila[] {
   return filas.slice().sort(
     (a, b) =>
       b.descuento - a.descuento ||
-      b.prioridad - a.prioridad ||
+      a.prioridad - b.prioridad ||
       a.nombre.localeCompare(b.nombre, "es")
   );
 }

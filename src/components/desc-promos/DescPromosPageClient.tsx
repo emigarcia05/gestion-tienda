@@ -289,7 +289,7 @@ export default function DescPromosPageClient({
                                 className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                                 title="Subir prioridad"
                                 aria-label={`Subir prioridad de ${item.nombre}`}
-                                disabled={bloqueado || item.prioridad >= maxPrioridad}
+                                disabled={bloqueado || item.prioridad <= 1}
                                 onClick={() => void mover(item, "up")}
                               >
                                 <ChevronUp
@@ -304,7 +304,7 @@ export default function DescPromosPageClient({
                                 className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                                 title="Bajar prioridad"
                                 aria-label={`Bajar prioridad de ${item.nombre}`}
-                                disabled={bloqueado || item.prioridad <= 1}
+                                disabled={bloqueado || item.prioridad >= maxPrioridad}
                                 onClick={() => void mover(item, "down")}
                               >
                                 <ChevronDown
