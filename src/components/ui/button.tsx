@@ -11,11 +11,11 @@ const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground shadow-sm hover:brightness-90",
         /**
-         * Formato 2: fondo card, contorno/texto/ícono `--primary` y brillo (`.btn-outline-brand`).
+         * Formato 2: tinte `--primary`, banda izquierda, texto/ícono `--primary` (`.btn-outline-brand`).
          * Formato 1 = `default`.
          */
         outlineBrand:
-          "btn-outline-brand border-2 border-primary bg-card text-primary hover:text-primary [&_svg]:text-primary",
+          "btn-outline-brand border-2 border-primary font-semibold text-primary hover:text-primary [&_svg]:text-primary",
         /** Botón de acción principal solo icono (ej. Limpiar filtros): primary, icono blanco, rounded-lg, shadow-sm → shadow-md en hover */
         primaryIcon:
           "bg-primary text-primary-foreground rounded-lg shadow-sm font-semibold hover:brightness-90 hover:shadow-md transition-[box-shadow] duration-150 [&_svg]:text-primary-foreground",
