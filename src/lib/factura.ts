@@ -378,6 +378,23 @@ export const FACTURA_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
 
 export const FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL = "CONSUMIDOR FINAL";
 
+export const FACTURA_CLIENTE_SIN_DEFINIR = "CLIENTE SIN DEFINIR";
+
+/** Visor cabecera: CF, nombre de cliente elegido, o sin definir. */
+export function etiquetaClienteVisorFactura(
+  raw: string,
+  clienteId: string | null | undefined
+): string {
+  if (esClienteConsumidorFinalCargado(raw)) {
+    return FACTURA_CLIENTE_CONSUMIDOR_FINAL;
+  }
+  if (clienteId) {
+    const nombre = raw.trim().toLocaleUpperCase("es-AR");
+    return nombre || FACTURA_CLIENTE_SIN_DEFINIR;
+  }
+  return FACTURA_CLIENTE_SIN_DEFINIR;
+}
+
 export function nombreClienteFactura(raw: string): string {
   const nombre = raw.trim().toLocaleUpperCase("es-AR");
   return nombre || FACTURA_CLIENTE_CONSUMIDOR_FINAL;

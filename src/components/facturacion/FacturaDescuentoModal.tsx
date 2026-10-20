@@ -12,7 +12,6 @@ import FilterBar, {
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
-import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
@@ -42,7 +41,7 @@ import {
   etiquetaFormaPagoCuotaDescPromo,
   filtrarItemsDescPromoEspeciales,
   filtrarPromosDescPromoFactura,
-  formasPagoUnicasDescPromo,
+  mediosPagoUnicosDescPromo,
   ordenarPromosPorDescFactura,
   snapshotCobroDescPromo,
   textoDescuentosDescPromo,
@@ -58,7 +57,7 @@ import {
   totalFacDesdeDescuentoPct,
   type FacturaDescuentoEstado,
 } from "@/lib/factura";
-import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import { iconoFormaPagoDesdeNombre } from "@/lib/finAnaCosFinaPagos";
 import { montoArNormalizedStringToCents } from "@/lib/montoArMask";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -78,6 +77,8 @@ const VISTAS_DESC_PROMO: { id: VistaDescPromo; etiqueta: string }[] = [
 ];
 const VISTA_BTN_CLASS =
   "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
+const BOTON_FORMA_PAGO_CLASS =
+  "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
 const FILA_PROMO_ACTIVA_CLASS = "tabla-desc-factura-fila-activa";
 const FILA_PROMO_HOVER_CLASS = "tabla-desc-factura-fila-hover";
 
@@ -150,17 +151,6 @@ function promoTieneItems(promo: DescPromoFila): boolean {
 
 function clavePromo(promoId: string): string {
   return `promo:${promoId}`;
-}
-
-function parseClaveFiltroPago(valor: string): {
-  pagoId: string;
-  cuotaId: string | null;
-} {
-  if (!valor || valor === FILTRO_TODOS) return { pagoId: "", cuotaId: null };
-  const sep = valor.indexOf(":");
-  if (sep < 0) return { pagoId: valor, cuotaId: null };
-  const cuota = valor.slice(sep + 1);
-  return { pagoId: valor.slice(0, sep), cuotaId: cuota === "" ? null : cuota };
 }
 
 interface Props {
@@ -275,18 +265,14 @@ export default function FacturaDescuentoModal({
     useState<ItemDescPromoEspecialFactura | null>(null);
   const [hoverGrupo, setHoverGrupo] = useState<string | null>(null);
   const [hoverFila, setHoverFila] = useState<string | null>(null);
-  const [filtroPago, setFiltroPago] = useState(FILTRO_TODOS);
-  const [filtroDesc, setFiltroDesc] = useState(FILTRO_TODOS);
-  const [filtroRubro, setFiltroRubro] = useState(FILTRO_TODOS);
+  const [filtroPago, setFiltroPago] = useState(
+    descuentoActual?.fuente === "promo_forma_pago"
+      ? descuentoActual.promoPagoIdSeleccionado ?? ""
+      : ""
+  );
   const [filtroMarcaEspecial, setFiltroMarcaEspecial] = useState(FILTRO_TODOS);
   const [filtroRubroEspecial, setFiltroRubroEspecial] = useState(FILTRO_TODOS);
   const [filtroDescEspecial, setFiltroDescEspecial] = useState(FILTRO_TODOS);
-  const [qDebounced, setQDebounced] = useState("");
-  const { q, handleQChange, isDebouncing, ref: searchRef } = useFiltrosConBusqueda({
-    qActual: "",
-    debounceMs: 300,
-    onDebouncedSearch: setQDebounced,
-  });
 
   const promosCatalogo = useMemo(
     () => promosFormaPago.filter((fila) => !esDescPromoEspecial(fila)),
@@ -298,25 +284,9 @@ export default function FacturaDescuentoModal({
   );
 
   const opcionesPago = useMemo(
-    () => formasPagoUnicasDescPromo(promosCatalogo),
+    () => mediosPagoUnicosDescPromo(promosCatalogo),
     [promosCatalogo]
   );
-  const opcionesRubro = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const fila of promosCatalogo) {
-      if (fila.idRubro && fila.rubroNombre) {
-        map.set(fila.idRubro, fila.rubroNombre);
-      }
-    }
-    return [...map.entries()]
-      .map(([id, nombre]) => ({ id, nombre }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [promosCatalogo]);
-  const opcionesDesc = useMemo(() => {
-    const vistos = new Set<number>();
-    for (const fila of promosCatalogo) vistos.add(fila.descuento);
-    return [...vistos].sort((a, b) => b - a);
-  }, [promosCatalogo]);
   const opcionesMarcaEspecial = useMemo(() => {
     const map = new Map<string, string>();
     for (const fila of itemsEspeciales) {
@@ -350,26 +320,9 @@ export default function FacturaDescuentoModal({
     [itemsEspeciales]
   );
 
-  const filtroPagoParsed = parseClaveFiltroPago(filtroPago);
-  const descFiltro =
-    filtroDesc === FILTRO_TODOS ? null : Number.parseInt(filtroDesc, 10);
   const promosFiltradas = useMemo(
-    () =>
-      filtrarPromosDescPromoFactura(promosCatalogo, {
-        pagoId: filtroPagoParsed.pagoId,
-        cuotaId: filtroPagoParsed.cuotaId,
-        idRubro: filtroRubro === FILTRO_TODOS ? "" : filtroRubro,
-        descuento: Number.isFinite(descFiltro) ? descFiltro : null,
-        qDescripcion: qDebounced,
-      }),
-    [
-      promosCatalogo,
-      filtroPagoParsed.pagoId,
-      filtroPagoParsed.cuotaId,
-      filtroRubro,
-      descFiltro,
-      qDebounced,
-    ]
+    () => filtrarPromosDescPromoFactura(promosCatalogo, filtroPago),
+    [promosCatalogo, filtroPago]
   );
 
   const promosOrdenadas = useMemo(
@@ -465,15 +418,18 @@ export default function FacturaDescuentoModal({
   }
 
   function aplicarPromo(promo: DescPromoFila) {
-    const primera = promo.formasPago[0] ?? null;
+    const elegida =
+      promo.formasPago.find((fp) => fp.pagoId === filtroPago) ??
+      promo.formasPago[0] ??
+      null;
     onAplicar({
       fuente: "promo_forma_pago",
       porcentaje: 0,
       totalFacObjetivo: null,
       promoAgrupacion: "forma_pago",
       promoCandidatas: [aCandidataFactura(promo)],
-      promoPagoIdSeleccionado: primera?.pagoId ?? null,
-      promoCuotaIdSeleccionado: primera?.cuotaId ?? null,
+      promoPagoIdSeleccionado: elegida?.pagoId ?? null,
+      promoCuotaIdSeleccionado: elegida?.cuotaId ?? null,
       ...snapshotCobroDescPromo(promo.formasPago),
     });
     onOpenChange(false);
@@ -838,107 +794,38 @@ export default function FacturaDescuentoModal({
             </>
           ) : (
             <>
-          <FilterBar className="filtros-contenedor-tienda shrink-0 bg-card">
-            <FilaFiltrosDesplegables columnas={4}>
-              <FiltroIndividualContainer
-                className={FILTER_SELECT_WRAPPER_CLASS}
-                activo={filtroPago !== FILTRO_TODOS}
-                onLimpiar={() => setFiltroPago(FILTRO_TODOS)}
-              >
-                <Select value={filtroPago} onValueChange={setFiltroPago}>
-                  <SelectTrigger
-                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                    aria-label="Forma pago"
+          <div
+            role="radiogroup"
+            aria-label="Forma de pago"
+            className="flex flex-wrap justify-center gap-2"
+          >
+            {opcionesPago.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">
+                No hay formas de pago en los descuentos.
+              </p>
+            ) : (
+              opcionesPago.map((pago) => {
+                const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
+                const seleccionado = pago.pagoId === filtroPago;
+                return (
+                  <Button
+                    key={pago.pagoId}
+                    type="button"
+                    role="radio"
+                    aria-checked={seleccionado}
+                    variant={seleccionado ? "default" : "outline"}
+                    className={BOTON_FORMA_PAGO_CLASS}
+                    onClick={() => setFiltroPago(pago.pagoId)}
                   >
-                    <SelectValue placeholder="FORMA PAGO" />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro"
-                  >
-                    <SelectItem value={FILTRO_TODOS}>FORMA PAGO</SelectItem>
-                    {opcionesPago.map((fp) => (
-                      <SelectItem
-                        key={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
-                        value={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
-                      >
-                        {etiquetaFormaPagoCuotaDescPromo(fp)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <FiltroIndividualContainer
-                className={FILTER_SELECT_WRAPPER_CLASS}
-                activo={filtroDesc !== FILTRO_TODOS}
-                onLimpiar={() => setFiltroDesc(FILTRO_TODOS)}
-              >
-                <Select value={filtroDesc} onValueChange={setFiltroDesc}>
-                  <SelectTrigger
-                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                    aria-label="Porcentaje descuento"
-                  >
-                    <SelectValue placeholder="% DESC." />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro"
-                  >
-                    <SelectItem value={FILTRO_TODOS}>% DESC.</SelectItem>
-                    {opcionesDesc.map((pct) => (
-                      <SelectItem key={pct} value={String(pct)}>
-                        {`${pct} %`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <FiltroIndividualContainer
-                className={FILTER_SELECT_WRAPPER_CLASS}
-                activo={filtroRubro !== FILTRO_TODOS}
-                onLimpiar={() => setFiltroRubro(FILTRO_TODOS)}
-              >
-                <Select value={filtroRubro} onValueChange={setFiltroRubro}>
-                  <SelectTrigger
-                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                    aria-label="Rubro"
-                  >
-                    <SelectValue placeholder="RUBRO" />
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="bottom"
-                    align="start"
-                    className="select-content-filtro"
-                  >
-                    <SelectItem value={FILTRO_TODOS}>RUBRO</SelectItem>
-                    {opcionesRubro.map((rubro) => (
-                      <SelectItem key={rubro.id} value={rubro.id}>
-                        {rubro.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <div className={FILTER_SELECT_WRAPPER_CLASS}>
-                <FiltroBusquedaInput
-                  id="factura-desc-filtro-descripcion"
-                  placeholder="DESCRIPCIÓN"
-                  value={q}
-                  onChange={(value) => {
-                    handleQChange(value);
-                    if (value.trim() === "") setQDebounced("");
-                  }}
-                  isDebouncing={isDebouncing}
-                  inputRef={searchRef}
-                />
-              </div>
-            </FilaFiltrosDesplegables>
-          </FilterBar>
+                    <Icono className="size-5 shrink-0" aria-hidden />
+                    <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                      {pago.nombre}
+                    </span>
+                  </Button>
+                );
+              })
+            )}
+          </div>
 
           <div
             className="contenedor-tabla-gestion min-h-0 max-h-[min(28rem,50vh)] overflow-auto rounded-md border border-primary"
@@ -966,14 +853,21 @@ export default function FacturaDescuentoModal({
               </TableHeader>
               <TableBody>
                 {promosOrdenadas.length === 0 ? (
-                  <EmptyTableRow colSpan={5} message="NO HAY DESCUENTOS." />
+                  <EmptyTableRow
+                    colSpan={5}
+                    message={
+                      filtroPago
+                        ? "NO HAY DESCUENTOS."
+                        : "ELEGÍ UNA FORMA DE PAGO."
+                    }
+                  />
                 ) : (
                   promosOrdenadas.flatMap((promo) => {
                     const clave = clavePromo(promo.id);
                     const grupoActivo = seleccion === clave;
                     const hoverGrupoH = handlersHoverGrupo(clave);
                     const formas: DescPromoFormaPagoRef[] =
-                      promo.formasPago.length > 0 ? promo.formasPago : [];
+                      promo.formasPago.filter((fp) => fp.pagoId === filtroPago);
                     const nFilas = Math.max(formas.length, 1);
                     return Array.from({ length: nFilas }, (_, i) => {
                       const fp = formas[i] ?? null;

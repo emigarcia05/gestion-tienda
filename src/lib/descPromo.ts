@@ -1,5 +1,4 @@
 import type { AlcanceDescPromo } from "@prisma/client";
-import { matchByMultiTerm } from "./busqueda";
 import { APP_ROUTES } from "./appRoutes";
 
 export const DESC_PROMOS_PATH = APP_ROUTES.administrador.descPromos.descuentos;
@@ -261,6 +260,21 @@ export function formasPagoUnicasDescPromo(
   );
 }
 
+/** Medios de pago únicos (sin cuota) para el filtro de Factura · DESCUENTOS. */
+export function mediosPagoUnicosDescPromo(
+  filas: readonly DescPromoFila[]
+): { pagoId: string; nombre: string }[] {
+  const vistos = new Map<string, string>();
+  for (const fila of filas) {
+    for (const fp of fila.formasPago) {
+      if (!vistos.has(fp.pagoId)) vistos.set(fp.pagoId, fp.nombre);
+    }
+  }
+  return [...vistos.entries()]
+    .map(([pagoId, nombre]) => ({ pagoId, nombre }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
 export function columnasFormaPagoDescPromo(
   filas: readonly DescPromoFila[]
 ): DescPromoFormaPagoColumna[] {
@@ -432,36 +446,10 @@ export function filtrarItemsDescPromoEspeciales(
 
 export function filtrarPromosDescPromoFactura(
   filas: readonly DescPromoFila[],
-  filtros: {
-    pagoId: string;
-    cuotaId: string | null;
-    idRubro: string;
-    descuento: number | null;
-    qDescripcion: string;
-  }
+  pagoId: string
 ): DescPromoFila[] {
-  const q = filtros.qDescripcion.trim();
-  return filas.filter((fila) => {
-    if (filtros.pagoId) {
-      const coincidePago = fila.formasPago.some((fp) => {
-        if (fp.pagoId !== filtros.pagoId) return false;
-        return (fp.cuotaId ?? null) === filtros.cuotaId;
-      });
-      if (!coincidePago) return false;
-    }
-    if (filtros.idRubro) {
-      const porRegla = fila.idRubro === filtros.idRubro;
-      const porItem = fila.items.some((item) => item.idRubro === filtros.idRubro);
-      const todos = fila.alcance === "TODOS";
-      if (!todos && !porRegla && !porItem) return false;
-    }
-    if (filtros.descuento != null && fila.descuento !== filtros.descuento) {
-      return false;
-    }
-    if (q) {
-      const textos = fila.items.map((item) => item.descripcion);
-      if (textos.length === 0 || !matchByMultiTerm(textos, q)) return false;
-    }
-    return true;
-  });
+  if (!pagoId) return [];
+  return filas.filter((fila) =>
+    fila.formasPago.some((fp) => fp.pagoId === pagoId)
+  );
 }

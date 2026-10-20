@@ -47,6 +47,7 @@ import {
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
   esClienteConsumidorFinalCargado,
+  etiquetaClienteVisorFactura,
   esFacturaTipoNotaCredito,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
@@ -175,6 +176,7 @@ export default function FacturaCrearPageClient({
     () => duplicarBorrador?.tipo ?? tipoInicial ?? FACTURA_TIPO_DEFAULT
   );
   const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
+  const [focoClientePendiente, setFocoClientePendiente] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(
     () => duplicarBorrador?.clienteId ?? null
   );
@@ -285,6 +287,12 @@ export default function FacturaCrearPageClient({
     },
   });
 
+  useEffect(() => {
+    if (!focoClientePendiente || cabeceraModo !== "editor") return;
+    clienteInputRef.current?.focus();
+    setFocoClientePendiente(false);
+  }, [focoClientePendiente, cabeceraModo, clienteInputRef]);
+
   const clienteTrim = cliente.trim();
   const puedeBuscarClientes =
     clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
@@ -365,6 +373,7 @@ export default function FacturaCrearPageClient({
 
   const etiquetaFormasPagoVisor =
     textoFormasPagoRestringidasDescPromo(descuentoVisor);
+  const etiquetaClienteVisor = etiquetaClienteVisorFactura(cliente, clienteId);
   const mostrarBotonConsumidorFinal =
     !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
@@ -436,6 +445,8 @@ export default function FacturaCrearPageClient({
     const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
     if (clienteNoSel) {
       toast.error(clienteNoSel);
+      setCabeceraModo("editor");
+      setFocoClientePendiente(true);
       return;
     }
     if (
@@ -613,6 +624,10 @@ export default function FacturaCrearPageClient({
                   <span className="min-w-0 truncate text-center">
                     {FACTURA_CONDICION_FISCAL_LABELS[fiscalActual ?? "no_fiscal"]}
                   </span>
+                </span>
+                <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                <span className="min-w-0 truncate text-center uppercase">
+                  {etiquetaClienteVisor}
                 </span>
                 <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
                 <span className="min-w-0 truncate text-center uppercase">
