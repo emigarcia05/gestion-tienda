@@ -136,7 +136,7 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
   },
 
-  // ─── Administración · DESC. & PROMOS (`/administrador/desc-promos/descuentos`) ──────────
+  // ─── Administración · COBROS % DESC. · Descuentos (`/administrador/cobros-desc/descuentos`) ──
   descPromos: {
     /** Catálogo `desc_promo`. Solo editor. */
     acceso: { simple: false, editor: true },

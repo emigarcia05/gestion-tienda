@@ -404,18 +404,6 @@ export default function FacturaDescuentoModal({
     onOpenChange(false);
   }
 
-  function handleAceptar() {
-    if (esVistaPersonalizada) {
-      handleAplicar();
-      return;
-    }
-    if (filtroPago) {
-      aplicarMedioPago(filtroPago, filtroCuota || undefined);
-    }
-    cierreConfirmadoRef.current = true;
-    onOpenChange(false);
-  }
-
   return (
     <>
     <Dialog
@@ -438,21 +426,26 @@ export default function FacturaDescuentoModal({
       <AppModal
         size="xl"
         padding="sm"
+        scrollBody={false}
+        className="h-[85vh]"
+        bodyClassName="flex-1"
         title="DESCUENTO"
         actions={
           <>
             <Button type="button" variant="outline" onClick={handleCancelar}>
               Cancelar
             </Button>
-            <Button type="button" onClick={handleAceptar}>
-              Aceptar
-            </Button>
+            {esVistaPersonalizada ? (
+              <Button type="button" onClick={handleAplicar}>
+                Aplicar
+              </Button>
+            ) : null}
           </>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex h-full min-h-0 flex-col gap-4">
           <div
-            className="flex w-full min-w-0 overflow-hidden rounded-md border border-primary"
+            className="flex w-full min-w-0 shrink-0 overflow-hidden rounded-md border border-primary"
             role="radiogroup"
             aria-label="Vista del descuento"
           >
@@ -479,7 +472,7 @@ export default function FacturaDescuentoModal({
           </div>
 
           {esVistaPersonalizada ? null : (
-          <div className="grid grid-cols-[minmax(0,9fr)_minmax(0,1fr)] items-stretch gap-2">
+          <div className="grid shrink-0 grid-cols-[minmax(0,9fr)_minmax(0,1fr)] items-stretch gap-2">
             <div className="flex min-w-0 flex-col gap-2">
           <div
             role="radiogroup"
@@ -557,7 +550,7 @@ export default function FacturaDescuentoModal({
           </div>
           )}
           {esVistaPersonalizada ? (
-            <div className="flex flex-col gap-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
               <label className="grid grid-cols-[7rem_1fr] items-center gap-3">
                 <ModalMicroLabel>DESC. %</ModalMicroLabel>
                 <PorcentajeCentInput
@@ -586,7 +579,7 @@ export default function FacturaDescuentoModal({
           ) : (
             <>
           <div
-            className="contenedor-tabla-gestion min-h-0 max-h-[min(28rem,50vh)] overflow-auto rounded-md border border-primary"
+            className="contenedor-tabla-gestion min-h-0 flex-1 overflow-auto rounded-md border border-primary"
             aria-label="Descuentos"
           >
             <Table

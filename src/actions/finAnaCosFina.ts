@@ -48,7 +48,7 @@ import {
 import { APP_ROUTES } from "@/lib/appRoutes";
 
 function revalidateRutasAnalisisMc(): void {
-  revalidatePath(APP_ROUTES.finanzas.cobros.cobrosCxFin);
+  revalidatePath(APP_ROUTES.administrador.cobrosDesc.cobrosCxFina);
   revalidatePath(APP_ROUTES.administrador.productos.margenContribucion);
 }
 

@@ -13,9 +13,8 @@ export type AdmPillarId =
   | "balance"
   | "operaciones"
   | "impuestos"
-  | "vtas-cobros"
   | "lista-propia"
-  | "desc-promos"
+  | "cobros-desc"
   | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
@@ -151,30 +150,6 @@ const operacionesScreens: AdmScreenDef[] = [
   },
 ];
 
-const cobrosScreens: AdmScreenDef[] = [
-  {
-    id: "ptos-venta",
-    label: "Ptos. Vtas.",
-    href: F.cobros.ptosVtas,
-    icon: "store",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "cx-fin-cobros",
-    label: "Cobros & Cx. Fin.",
-    href: F.cobros.cobrosCxFin,
-    icon: "circle-dollar",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "cobros-por-sucursal",
-    label: "Cobros & Cajas",
-    href: F.cobros.cobrosCajas,
-    icon: "wallet",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
 const impuestosScreens: AdmScreenDef[] = [
   {
     id: "posicion-iva",
@@ -223,13 +198,34 @@ const productosScreens: AdmScreenDef[] = [
   },
 ];
 
-const descPromosScreens: AdmScreenDef[] = [
+const cobrosDescScreens: AdmScreenDef[] = [
   {
     id: "descuentos",
     label: "Descuentos",
-    href: A.descPromos.descuentos,
+    href: A.cobrosDesc.descuentos,
     icon: "percent",
     permiso: PERMISOS.descPromos.acceso,
+  },
+  {
+    id: "cobros-por-sucursal",
+    label: "Cobros & Cajas",
+    href: A.cobrosDesc.cobrosCajas,
+    icon: "wallet",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "cx-fin-cobros",
+    label: "Cobros & Cx Fina",
+    href: A.cobrosDesc.cobrosCxFina,
+    icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "ptos-venta",
+    label: "Ptos. Vtas.",
+    href: A.cobrosDesc.ptosVtas,
+    icon: "store",
+    permiso: PERMISOS.finanzas.acceso,
   },
 ];
 
@@ -317,13 +313,6 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     screens: operacionesScreens,
   },
   {
-    id: "vtas-cobros",
-    label: "COBROS",
-    icon: "circle-dollar",
-    basePath: `${F.hub}/cobros`,
-    screens: cobrosScreens,
-  },
-  {
     id: "impuestos",
     label: "IMPUESTOS",
     icon: "percent",
@@ -348,11 +337,11 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     screens: proveedoresScreens,
   },
   {
-    id: "desc-promos",
-    label: "DESC. & PROMOS",
+    id: "cobros-desc",
+    label: "COBROS % DESC.",
     icon: "percent",
-    basePath: `${A.hub}/desc-promos`,
-    screens: descPromosScreens,
+    basePath: `${A.hub}/cobros-desc`,
+    screens: cobrosDescScreens,
   },
   {
     id: "pedido-a-fabrica",

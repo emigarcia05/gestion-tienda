@@ -65,7 +65,7 @@ export function requireEditorEstadisticas(): Promise<ActionGateFail | null> {
   );
 }
 
-/** Administrador · DESC. & PROMOS (`PERMISOS.descPromos.acceso`). */
+/** Administrador · COBROS % DESC. → Descuentos (`PERMISOS.descPromos.acceso`). */
 export function requireDescPromosLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(
     PERMISOS.descPromos.acceso,

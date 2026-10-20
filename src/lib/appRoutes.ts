@@ -55,8 +55,11 @@ export const APP_ROUTES = {
       /** Fuera del sidenav: Cx. compra / comparación de proveedores. */
       cxCompra: `${ADMINISTRADOR}/productos/cx-compra`,
     },
-    descPromos: {
-      descuentos: `${ADMINISTRADOR}/desc-promos/descuentos`,
+    cobrosDesc: {
+      descuentos: `${ADMINISTRADOR}/cobros-desc/descuentos`,
+      cobrosCajas: `${ADMINISTRADOR}/cobros-desc/cobros-cajas`,
+      cobrosCxFina: `${ADMINISTRADOR}/cobros-desc/cobros-cx-fina`,
+      ptosVtas: `${ADMINISTRADOR}/cobros-desc/ptos-vtas`,
     },
     proveedores: {
       listaProdProv: `${ADMINISTRADOR}/proveedores/lista-prod-prov`,
@@ -93,11 +96,6 @@ export const APP_ROUTES = {
     operaciones: {
       compCompras: `${FINANZAS}/operaciones/comp-compras`,
       vencGastos: `${FINANZAS}/operaciones/venc-gastos`,
-    },
-    cobros: {
-      ptosVtas: `${FINANZAS}/cobros/ptos-vtas`,
-      cobrosCxFin: `${FINANZAS}/cobros/cobros-cx-fin`,
-      cobrosCajas: `${FINANZAS}/cobros/cobros-cajas`,
     },
     impuestos: {
       posicionIva: `${FINANZAS}/impuestos/posicion-iva`,
@@ -218,7 +216,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
 
   // Administrador · módulos sin función propia
   ["/administrador/productos", R.administrador.productos.listaProductos],
-  ["/administrador/desc-promos", R.administrador.descPromos.descuentos],
+  ["/administrador/cobros-desc", R.administrador.cobrosDesc.descuentos],
   ["/administrador/proveedores", R.administrador.proveedores.listaProdProv],
   ["/administrador/pedidos-a-fabrica", R.administrador.pedidosAFabrica.pedidosAFabrica],
   ["/administrador/estadisticas", R.administrador.estadisticas.ventas],
@@ -274,10 +272,24 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/estadisticas-productos/categorizacion", R.administrador.estadisticas.configuracion],
   ["/finanzas/usuarios", R.administrador.usuarios.usuarios],
 
+  // Administrador · COBROS % DESC. (ex Administrador · DESC. & PROMOS + Finanzas · COBROS / ex /vtas-cobros)
+  ["/administrador/desc-promos", R.administrador.cobrosDesc.descuentos],
+  ["/administrador/desc-promos/descuentos", R.administrador.cobrosDesc.descuentos],
+  ["/finanzas/cobros", R.administrador.cobrosDesc.ptosVtas],
+  ["/finanzas/cobros/ptos-vtas", R.administrador.cobrosDesc.ptosVtas],
+  ["/finanzas/cobros/cobros-cx-fin", R.administrador.cobrosDesc.cobrosCxFina],
+  ["/finanzas/cobros/cobros-cajas", R.administrador.cobrosDesc.cobrosCajas],
+  ["/vtas-cobros", R.administrador.cobrosDesc.ptosVtas],
+  ["/vtas-cobros/cobros", R.administrador.cobrosDesc.ptosVtas],
+  ["/vtas-cobros/ptos-venta", R.administrador.cobrosDesc.ptosVtas],
+  ["/finanzas/fact-cobros", R.administrador.cobrosDesc.ptosVtas],
+  ["/vtas-cobros/cx-fin-cobros", R.administrador.cobrosDesc.cobrosCxFina],
+  ["/finanzas/analisis-mc/costos-financieros", R.administrador.cobrosDesc.cobrosCxFina],
+  ["/vtas-cobros/cobros-por-sucursal", R.administrador.cobrosDesc.cobrosCajas],
+
   // Finanzas · módulos sin función propia
   ["/finanzas/tesoreria", R.finanzas.tesoreria.cajas],
   ["/finanzas/operaciones", R.finanzas.operaciones.compCompras],
-  ["/finanzas/cobros", R.finanzas.cobros.ptosVtas],
   ["/finanzas/impuestos", R.finanzas.impuestos.posicionIva],
 
   // Finanzas · TESORERIA
@@ -294,15 +306,6 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/finanzas/deuda-proveedores", R.finanzas.operaciones.compCompras],
   ["/finanzas/venc-proveedores-mercaderia", R.finanzas.operaciones.compCompras],
   ["/finanzas/vencimientos-gastos", R.finanzas.operaciones.vencGastos],
-
-  // Finanzas · COBROS (ex /vtas-cobros)
-  ["/vtas-cobros", R.finanzas.cobros.ptosVtas],
-  ["/vtas-cobros/cobros", R.finanzas.cobros.ptosVtas],
-  ["/vtas-cobros/ptos-venta", R.finanzas.cobros.ptosVtas],
-  ["/finanzas/fact-cobros", R.finanzas.cobros.ptosVtas],
-  ["/vtas-cobros/cx-fin-cobros", R.finanzas.cobros.cobrosCxFin],
-  ["/finanzas/analisis-mc/costos-financieros", R.finanzas.cobros.cobrosCxFin],
-  ["/vtas-cobros/cobros-por-sucursal", R.finanzas.cobros.cobrosCajas],
 
   // Finanzas · IMPUESTOS
   ["/finanzas/posicion-iva", R.finanzas.impuestos.posicionIva],

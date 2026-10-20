@@ -1,7 +1,7 @@
 import type { AlcanceDescPromo } from "@prisma/client";
 import { APP_ROUTES } from "./appRoutes";
 
-export const DESC_PROMOS_PATH = APP_ROUTES.administrador.descPromos.descuentos;
+export const DESC_PROMOS_PATH = APP_ROUTES.administrador.cobrosDesc.descuentos;
 
 export const ALCANCES_DESC_PROMO = [
   "TODOS",

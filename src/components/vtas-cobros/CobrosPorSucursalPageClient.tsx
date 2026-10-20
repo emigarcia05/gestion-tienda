@@ -164,7 +164,7 @@ export default function CobrosPorSucursalPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="VTAS. & COBROS"
+        title="Administrador"
         subtitle="Cobros & Cajas"
         contentWidth="full"
         actions={
