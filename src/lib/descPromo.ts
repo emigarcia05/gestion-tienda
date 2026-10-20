@@ -25,6 +25,8 @@ export const ETIQUETA_ALCANCE_DESC_PROMO: Record<AlcanceDescPromoValor, string> 
 export type DescPromoItemRef = {
   codTienda: string;
   descripcion: string;
+  idMarca: string | null;
+  marcaNombre: string | null;
   idRubro: string | null;
   rubroNombre: string | null;
 };
@@ -362,6 +364,70 @@ export function gruposPorAlcanceDescPromo(
     }
   }
   return [...porClave.values()];
+}
+
+/** Mayor % primero; empate: mayor prioridad, luego nombre. */
+export function ordenarPromosPorDescFactura(
+  filas: readonly DescPromoFila[]
+): DescPromoFila[] {
+  return filas.slice().sort(
+    (a, b) =>
+      b.descuento - a.descuento ||
+      b.prioridad - a.prioridad ||
+      a.nombre.localeCompare(b.nombre, "es")
+  );
+}
+
+export function esDescPromoEspecial(promo: Pick<DescPromoFila, "alcance">): boolean {
+  return promo.alcance === "ITEMS";
+}
+
+export type ItemDescPromoEspecialFactura = {
+  item: DescPromoItemRef;
+  promos: DescPromoFila[];
+};
+
+/** Ítems únicos de promos alcance ITEMS (DESC. ESPECIAL), con sus promos. */
+export function agruparItemsDescPromoEspeciales(
+  filas: readonly DescPromoFila[]
+): ItemDescPromoEspecialFactura[] {
+  const porCodigo = new Map<string, ItemDescPromoEspecialFactura>();
+  for (const fila of filas) {
+    if (!esDescPromoEspecial(fila)) continue;
+    for (const item of fila.items) {
+      const actual = porCodigo.get(item.codTienda);
+      if (actual) {
+        if (!actual.promos.some((promo) => promo.id === fila.id)) {
+          actual.promos.push(fila);
+        }
+      } else {
+        porCodigo.set(item.codTienda, { item, promos: [fila] });
+      }
+    }
+  }
+  for (const grupo of porCodigo.values()) {
+    grupo.promos = ordenarPromosPorDescFactura(grupo.promos);
+  }
+  return [...porCodigo.values()].sort((a, b) =>
+    (a.item.descripcion || a.item.codTienda).localeCompare(
+      b.item.descripcion || b.item.codTienda,
+      "es"
+    )
+  );
+}
+
+export function filtrarItemsDescPromoEspeciales(
+  items: readonly ItemDescPromoEspecialFactura[],
+  filtros: { idMarca: string; idRubro: string; codTienda: string }
+): ItemDescPromoEspecialFactura[] {
+  return items.filter((fila) => {
+    if (filtros.idMarca && fila.item.idMarca !== filtros.idMarca) return false;
+    if (filtros.idRubro && fila.item.idRubro !== filtros.idRubro) return false;
+    if (filtros.codTienda && fila.item.codTienda !== filtros.codTienda) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function filtrarPromosDescPromoFactura(

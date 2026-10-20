@@ -20,7 +20,9 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
       producto: {
         select: {
           descripcionTienda: true,
+          idMarca: true,
           idRubro: true,
+          marcaRelation: { select: { nombre: true } },
           rubroRelation: { select: { nombre: true } },
         },
       },
@@ -60,6 +62,10 @@ function mapPromo(row: PromoRow): DescPromoFila {
     items: row.items.map((item) => ({
       codTienda: item.codTienda,
       descripcion: (item.producto.descripcionTienda ?? "").toLocaleUpperCase("es-AR"),
+      idMarca: item.producto.idMarca,
+      marcaNombre: item.producto.marcaRelation
+        ? item.producto.marcaRelation.nombre.toLocaleUpperCase("es-AR")
+        : null,
       idRubro: item.producto.idRubro,
       rubroNombre: item.producto.rubroRelation
         ? item.producto.rubroRelation.nombre.toLocaleUpperCase("es-AR")
