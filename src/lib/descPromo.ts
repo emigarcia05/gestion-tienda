@@ -275,6 +275,44 @@ export function mediosPagoUnicosDescPromo(
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+/** Primera palabra (00) y resto (DEBITO / CREDITO) de `cobros_cuotas.cuotas`. */
+export function lineasEtiquetaCuotaDescPromo(cuotaEtiqueta: string | null): {
+  linea1: string;
+  linea2: string;
+} {
+  const t = (cuotaEtiqueta ?? "").trim().toLocaleUpperCase("es-AR");
+  if (!t) return { linea1: "", linea2: "" };
+  const sep = t.search(/\s+/);
+  if (sep < 0) return { linea1: t, linea2: "" };
+  return { linea1: t.slice(0, sep), linea2: t.slice(sep).trim() };
+}
+
+/** Cuotas distintas de un medio, según las promos que lo usan. */
+export function cuotasDeMedioPagoDescPromo(
+  filas: readonly DescPromoFila[],
+  pagoId: string
+): DescPromoFormaPagoRef[] {
+  if (!pagoId) return [];
+  const vistos = new Map<string, DescPromoFormaPagoRef>();
+  for (const fila of filas) {
+    for (const fp of fila.formasPago) {
+      if (fp.pagoId !== pagoId || !fp.cuotaId) continue;
+      if (!vistos.has(fp.cuotaId)) vistos.set(fp.cuotaId, fp);
+    }
+  }
+  return [...vistos.values()].sort((a, b) => {
+    const la = lineasEtiquetaCuotaDescPromo(a.cuotaEtiqueta);
+    const lb = lineasEtiquetaCuotaDescPromo(b.cuotaEtiqueta);
+    const na = Number.parseInt(la.linea1, 10);
+    const nb = Number.parseInt(lb.linea1, 10);
+    const aNum = Number.isFinite(na);
+    const bNum = Number.isFinite(nb);
+    if (aNum && bNum && na !== nb) return na - nb;
+    if (aNum !== bNum) return aNum ? -1 : 1;
+    return (a.cuotaEtiqueta ?? "").localeCompare(b.cuotaEtiqueta ?? "", "es");
+  });
+}
+
 export function columnasFormaPagoDescPromo(
   filas: readonly DescPromoFila[]
 ): DescPromoFormaPagoColumna[] {
@@ -446,10 +484,15 @@ export function filtrarItemsDescPromoEspeciales(
 
 export function filtrarPromosDescPromoFactura(
   filas: readonly DescPromoFila[],
-  pagoId: string
+  pagoId: string,
+  cuotaId?: string
 ): DescPromoFila[] {
   if (!pagoId) return [];
   return filas.filter((fila) =>
-    fila.formasPago.some((fp) => fp.pagoId === pagoId)
+    fila.formasPago.some((fp) => {
+      if (fp.pagoId !== pagoId) return false;
+      if (!cuotaId) return true;
+      return fp.cuotaId === cuotaId;
+    })
   );
 }

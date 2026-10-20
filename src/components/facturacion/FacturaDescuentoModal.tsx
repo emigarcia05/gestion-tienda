@@ -36,11 +36,13 @@ import {
   aCandidataFactura,
   agruparItemsDescPromoEspeciales,
   claveFormaPagoCuotaDescPromo,
+  cuotasDeMedioPagoDescPromo,
   esDescPromoEspecial,
   etiquetaAlcanceCondicion,
   etiquetaFormaPagoCuotaDescPromo,
   filtrarItemsDescPromoEspeciales,
   filtrarPromosDescPromoFactura,
+  lineasEtiquetaCuotaDescPromo,
   mediosPagoUnicosDescPromo,
   ordenarPromosPorDescFactura,
   snapshotCobroDescPromo,
@@ -79,6 +81,8 @@ const VISTA_BTN_CLASS =
   "h-10 min-w-0 flex-1 rounded-none border-0 shadow-none";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
+const BOTON_CUOTA_CLASS =
+  "h-12 w-[5.25rem] shrink-0 flex-col gap-0.5 whitespace-normal border border-primary px-1 py-1";
 const FILA_PROMO_ACTIVA_CLASS = "tabla-desc-factura-fila-activa";
 const FILA_PROMO_HOVER_CLASS = "tabla-desc-factura-fila-hover";
 
@@ -270,6 +274,11 @@ export default function FacturaDescuentoModal({
       ? descuentoActual.promoPagoIdSeleccionado ?? ""
       : ""
   );
+  const [filtroCuota, setFiltroCuota] = useState(
+    descuentoActual?.fuente === "promo_forma_pago"
+      ? descuentoActual.promoCuotaIdSeleccionado ?? ""
+      : ""
+  );
   const [filtroMarcaEspecial, setFiltroMarcaEspecial] = useState(FILTRO_TODOS);
   const [filtroRubroEspecial, setFiltroRubroEspecial] = useState(FILTRO_TODOS);
   const [filtroDescEspecial, setFiltroDescEspecial] = useState(FILTRO_TODOS);
@@ -286,6 +295,10 @@ export default function FacturaDescuentoModal({
   const opcionesPago = useMemo(
     () => mediosPagoUnicosDescPromo(promosCatalogo),
     [promosCatalogo]
+  );
+  const opcionesCuota = useMemo(
+    () => cuotasDeMedioPagoDescPromo(promosCatalogo, filtroPago),
+    [promosCatalogo, filtroPago]
   );
   const opcionesMarcaEspecial = useMemo(() => {
     const map = new Map<string, string>();
@@ -321,8 +334,8 @@ export default function FacturaDescuentoModal({
   );
 
   const promosFiltradas = useMemo(
-    () => filtrarPromosDescPromoFactura(promosCatalogo, filtroPago),
-    [promosCatalogo, filtroPago]
+    () => filtrarPromosDescPromoFactura(promosCatalogo, filtroPago, filtroCuota),
+    [promosCatalogo, filtroPago, filtroCuota]
   );
 
   const promosOrdenadas = useMemo(
@@ -419,6 +432,11 @@ export default function FacturaDescuentoModal({
 
   function aplicarPromo(promo: DescPromoFila) {
     const elegida =
+      promo.formasPago.find(
+        (fp) =>
+          fp.pagoId === filtroPago &&
+          (!filtroCuota || fp.cuotaId === filtroCuota)
+      ) ??
       promo.formasPago.find((fp) => fp.pagoId === filtroPago) ??
       promo.formasPago[0] ??
       null;
@@ -527,6 +545,78 @@ export default function FacturaDescuentoModal({
         }
       >
         <div className="flex flex-col gap-4">
+          <div
+            role="radiogroup"
+            aria-label="Forma de pago"
+            className="flex flex-wrap justify-center gap-2"
+          >
+            {opcionesPago.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">
+                No hay formas de pago en los descuentos.
+              </p>
+            ) : (
+              opcionesPago.map((pago) => {
+                const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
+                const seleccionado = pago.pagoId === filtroPago;
+                return (
+                  <Button
+                    key={pago.pagoId}
+                    type="button"
+                    role="radio"
+                    aria-checked={seleccionado}
+                    variant={seleccionado ? "default" : "outline"}
+                    className={BOTON_FORMA_PAGO_CLASS}
+                    onClick={() => {
+                      setFiltroPago(pago.pagoId);
+                      setFiltroCuota("");
+                    }}
+                  >
+                    <Icono className="size-5 shrink-0" aria-hidden />
+                    <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+                      {pago.nombre}
+                    </span>
+                  </Button>
+                );
+              })
+            )}
+          </div>
+          {opcionesCuota.length > 0 ? (
+            <div
+              role="radiogroup"
+              aria-label="Cuotas"
+              className="flex flex-wrap justify-center gap-2"
+            >
+              {opcionesCuota.map((cuota) => {
+                const lineas = lineasEtiquetaCuotaDescPromo(cuota.cuotaEtiqueta);
+                const seleccionado = cuota.cuotaId === filtroCuota;
+                const etiqueta = cuota.cuotaEtiqueta ?? "";
+                return (
+                  <Button
+                    key={cuota.cuotaId ?? etiqueta}
+                    type="button"
+                    role="radio"
+                    aria-checked={seleccionado}
+                    variant={seleccionado ? "default" : "outline"}
+                    className={BOTON_CUOTA_CLASS}
+                    onClick={() =>
+                      setFiltroCuota((actual) =>
+                        actual === cuota.cuotaId ? "" : (cuota.cuotaId ?? "")
+                      )
+                    }
+                  >
+                    <span className="text-center text-sm font-semibold tabular-nums leading-none">
+                      {lineas.linea1}
+                    </span>
+                    {lineas.linea2 ? (
+                      <span className="line-clamp-1 text-center text-[0.6rem] font-semibold uppercase leading-tight tracking-wide">
+                        {lineas.linea2}
+                      </span>
+                    ) : null}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
           <div
             className="flex w-full min-w-0 overflow-hidden rounded-md border border-primary"
             role="radiogroup"
@@ -795,39 +885,6 @@ export default function FacturaDescuentoModal({
           ) : (
             <>
           <div
-            role="radiogroup"
-            aria-label="Forma de pago"
-            className="flex flex-wrap justify-center gap-2"
-          >
-            {opcionesPago.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">
-                No hay formas de pago en los descuentos.
-              </p>
-            ) : (
-              opcionesPago.map((pago) => {
-                const Icono = iconoFormaPagoDesdeNombre(pago.nombre);
-                const seleccionado = pago.pagoId === filtroPago;
-                return (
-                  <Button
-                    key={pago.pagoId}
-                    type="button"
-                    role="radio"
-                    aria-checked={seleccionado}
-                    variant={seleccionado ? "default" : "outline"}
-                    className={BOTON_FORMA_PAGO_CLASS}
-                    onClick={() => setFiltroPago(pago.pagoId)}
-                  >
-                    <Icono className="size-5 shrink-0" aria-hidden />
-                    <span className="line-clamp-2 text-center text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
-                      {pago.nombre}
-                    </span>
-                  </Button>
-                );
-              })
-            )}
-          </div>
-
-          <div
             className="contenedor-tabla-gestion min-h-0 max-h-[min(28rem,50vh)] overflow-auto rounded-md border border-primary"
             aria-label="Descuentos"
           >
@@ -867,7 +924,11 @@ export default function FacturaDescuentoModal({
                     const grupoActivo = seleccion === clave;
                     const hoverGrupoH = handlersHoverGrupo(clave);
                     const formas: DescPromoFormaPagoRef[] =
-                      promo.formasPago.filter((fp) => fp.pagoId === filtroPago);
+                      promo.formasPago.filter(
+                        (fp) =>
+                          fp.pagoId === filtroPago &&
+                          (!filtroCuota || fp.cuotaId === filtroCuota)
+                      );
                     const nFilas = Math.max(formas.length, 1);
                     return Array.from({ length: nFilas }, (_, i) => {
                       const fp = formas[i] ?? null;
