@@ -112,6 +112,18 @@ export const getReposicionParamsSchema = z.object({
   ),
 });
 
+export const upsertReglaReposicionCorpSchema = z.object({
+  codTienda: z.string().min(1, "Código tienda requerido"),
+  formaPedir: reposicionFormaPedidoVendedorSchema,
+  puntoReposicion: z.number().int().min(0, "Punto reposición inválido"),
+  cant: z.number().int().min(1, "Cant. reposición requerida"),
+  unidadesPorBulto: z.number().int().min(1).max(1_000_000).optional(),
+});
+
+export const deleteReglaReposicionCorpSchema = z.object({
+  codTienda: z.string().min(1, "Código tienda requerido"),
+});
+
 export const productosReposicionSelectorSchema = z.object({
   q: z.string().max(500).optional().default(""),
   bulto: z

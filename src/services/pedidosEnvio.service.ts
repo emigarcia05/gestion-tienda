@@ -38,6 +38,14 @@ import {
   type ReposicionFormaPedidoVendedor,
 } from "@/lib/validations/reposicion";
 import { buildMapBultosProdTienda } from "@/services/tiendaBultos.service";
+import {
+  listarReglasReposicionCorpPorCodigos,
+  obtenerReglaReposicionCorp,
+} from "@/services/reposicionCorp.service";
+import {
+  resolverReglaReposicionEfectiva,
+  valoresReposicionVendedor,
+} from "@/lib/reposicionCorp";
 
 const TIPO_URGENTE = "URGENTE";
 const TIPO_REPOSICION = "REPOSICION";
@@ -654,6 +662,38 @@ export function cantPedirReposicionMerc2(params: {
     : Math.max(0, cantEnUnidades - params.stock);
 }
 
+function cantPedirReposicionEfectiva(params: {
+  sucForma: string | null | undefined;
+  sucPunto: number | null | undefined;
+  sucCantConf: number | null | undefined;
+  sucOmitida: boolean;
+  corp: ReturnType<typeof valoresReposicionVendedor>;
+  stock: number;
+  stockeable: boolean;
+  bulto: number | null | undefined;
+}): number {
+  const sucVal = valoresReposicionVendedor(
+    params.sucForma,
+    params.sucPunto,
+    params.sucCantConf
+  );
+  const efectiva = resolverReglaReposicionEfectiva({
+    corp: params.corp,
+    sucursal: sucVal ? { ...sucVal, omitida: params.sucOmitida } : null,
+    bulto: params.bulto,
+  });
+  if (!efectiva) return 0;
+  return cantPedirReposicionMerc2({
+    forma: efectiva.regla.forma,
+    punto: efectiva.regla.punto,
+    cantConf: efectiva.regla.cantConf,
+    omitida: efectiva.omitida,
+    stock: params.stock,
+    stockeable: params.stockeable,
+    bulto: params.bulto,
+  });
+}
+
 export type LpRowPick = {
   idProveedor: string;
   descripcionProveedor: string;
@@ -777,7 +817,7 @@ export async function getItemsTablaEnviarPedido(params: {
   }
 
   const codTiendasArr = [...codTiendasLookup];
-  const [ivaSaldoReposicion, lpPorCodTiendaRepos, lpRows, stockMaps, stockeableMap, bultosMap] =
+  const [ivaSaldoReposicion, lpPorCodTiendaRepos, lpRows, stockMaps, stockeableMap, bultosMap, corpMap] =
     await Promise.all([
     sumarIvaSaldoParaReposicion(),
     cargarListaPrecioReposicionPorCodTiendas([...codTiendasRepos]),
@@ -799,6 +839,7 @@ export async function getItemsTablaEnviarPedido(params: {
     buildMapsStockSucursalesPrincipales(codTiendasArr),
     buildMapStockeable(codTiendasArr),
     buildMapBultosProdTienda([...codTiendasRepos]),
+    listarReglasReposicionCorpPorCodigos([...codTiendasRepos]),
   ]);
 
   const lpPorCodExt = new Map<string, LpRowPick[]>();
@@ -851,11 +892,12 @@ export async function getItemsTablaEnviarPedido(params: {
       proveedorEtiqueta = proveedorEtiquetaPedidoDesdeRow(provRow.proveedor);
       descripcion = (tienda.descripcionTienda ?? "").trim();
       const stock = stockTiendaParaSucursalCodigo(codigoSuc || "guaymallen", codTi, stockMaps);
-      const computedRepos = cantPedirReposicionMerc2({
-        forma: r.reposicionFormaPedido,
-        punto: r.reposicionPuntoPedido,
-        cantConf: r.reposicionCantConf,
-        omitida: r.reposicionOmitirPedido,
+      const computedRepos = cantPedirReposicionEfectiva({
+        sucForma: r.reposicionFormaPedido,
+        sucPunto: r.reposicionPuntoPedido,
+        sucCantConf: r.reposicionCantConf,
+        sucOmitida: r.reposicionOmitirPedido,
+        corp: corpMap.get(codTi) ?? null,
         stock,
         stockeable: getStockeableFromMap(stockeableMap, codTi),
         bulto: bultosMap.get(codTi) ?? null,
@@ -1066,6 +1108,7 @@ export async function getItemsYProveedorParaEnviar(
     stockMapsPdf,
     stockeableMapPdf,
     bultosMapPdf,
+    corpMapPdf,
   ] =
     await Promise.all([
     sumarIvaSaldoParaReposicion(),
@@ -1088,6 +1131,7 @@ export async function getItemsYProveedorParaEnviar(
     buildMapsStockSucursalesPrincipales(codTiendasArrPdf),
     buildMapStockeable(codTiendasArrPdf),
     buildMapBultosProdTienda([...codTiendasRepos]),
+    listarReglasReposicionCorpPorCodigos([...codTiendasRepos]),
   ]);
 
   const lpPorCodExt = new Map<string, LpRowPick[]>();
@@ -1151,11 +1195,12 @@ export async function getItemsYProveedorParaEnviar(
         codTi,
         stockMapsPdf
       );
-      const computedRepos = cantPedirReposicionMerc2({
-        forma: r.reposicionFormaPedido,
-        punto: r.reposicionPuntoPedido,
-        cantConf: r.reposicionCantConf,
-        omitida: r.reposicionOmitirPedido,
+      const computedRepos = cantPedirReposicionEfectiva({
+        sucForma: r.reposicionFormaPedido,
+        sucPunto: r.reposicionPuntoPedido,
+        sucCantConf: r.reposicionCantConf,
+        sucOmitida: r.reposicionOmitirPedido,
+        corp: corpMapPdf.get(codTi) ?? null,
         stock,
         stockeable: getStockeableFromMap(stockeableMapPdf, codTi),
         bulto: bultosMapPdf.get(codTi) ?? null,
@@ -1320,13 +1365,14 @@ export async function getReposicionItemsProveedorPrioritarioAlternativo(params: 
     })
   );
 
-  const [ivaSaldoReposicion, lpPorCodTiendaRepos, stockMaps, stockeableMap, bultosMap] =
+  const [ivaSaldoReposicion, lpPorCodTiendaRepos, stockMaps, stockeableMap, bultosMap, corpMap] =
     await Promise.all([
     sumarIvaSaldoParaReposicion(),
     cargarListaPrecioReposicionPorCodTiendas([...codTiendasRepos]),
     buildMapsStockSucursalesPrincipales(codTiendasArr),
     buildMapStockeable(codTiendasArr),
     buildMapBultosProdTienda(codTiendasArr),
+    listarReglasReposicionCorpPorCodigos(codTiendasArr),
   ]);
 
   const codigoSucursal = (sucursalRow.codigo ?? "").trim();
@@ -1353,11 +1399,12 @@ export async function getReposicionItemsProveedorPrioritarioAlternativo(params: 
       codTi,
       stockMaps
     );
-    const cantPedir = cantPedirReposicionMerc2({
-      forma: r.reposicionFormaPedido,
-      punto: r.reposicionPuntoPedido,
-      cantConf: r.reposicionCantConf,
-      omitida: r.reposicionOmitirPedido,
+    const cantPedir = cantPedirReposicionEfectiva({
+      sucForma: r.reposicionFormaPedido,
+      sucPunto: r.reposicionPuntoPedido,
+      sucCantConf: r.reposicionCantConf,
+      sucOmitida: r.reposicionOmitirPedido,
+      corp: corpMap.get(codTi) ?? null,
       stock,
       stockeable: getStockeableFromMap(stockeableMap, codTi),
       bulto: bultosMap.get(codTi) ?? null,
@@ -1464,15 +1511,32 @@ export async function setOmitirReposicionPedido(params: {
   omitir: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const sucursalId = await getSucursalIdByCodigo(params.sucursal);
+  const codT = params.codTienda.trim();
   const res = await prisma.prodPedMerc2.updateMany({
     where: {
       sucursalId,
       tipoDePedido: TIPO_REPOSICION,
-      reposicionCodTienda: params.codTienda.trim(),
+      reposicionCodTienda: codT,
     },
     data: { reposicionOmitirPedido: params.omitir },
   });
-  if (res.count === 0) return { ok: false, error: "El producto no tiene reposición configurada." };
+  if (res.count > 0) return { ok: true };
+
+  const corp = await obtenerReglaReposicionCorp(codT);
+  if (!corp) {
+    return { ok: false, error: "El producto no tiene reposición configurada." };
+  }
+  await prisma.prodPedMerc2.create({
+    data: {
+      tipoDePedido: TIPO_REPOSICION,
+      sucursalId,
+      reposicionCodTienda: codT,
+      reposicionFormaPedido: corp.forma,
+      reposicionPuntoPedido: corp.punto,
+      reposicionCantConf: corp.cantConf,
+      reposicionOmitirPedido: params.omitir,
+    },
+  });
   return { ok: true };
 }
 

@@ -77,6 +77,9 @@ export const APP_ROUTES = {
     usuarios: {
       usuarios: `${ADMINISTRADOR}/usuarios/usuarios`,
     },
+    reposicionCorp: {
+      reposicionCorp: `${ADMINISTRADOR}/reposicion-corp/reposicion-corp`,
+    },
   },
   finanzas: {
     hub: FINANZAS,
@@ -221,6 +224,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/administrador/pedidos-a-fabrica", R.administrador.pedidosAFabrica.pedidosAFabrica],
   ["/administrador/estadisticas", R.administrador.estadisticas.ventas],
   ["/administrador/usuarios", R.administrador.usuarios.usuarios],
+  ["/administrador/reposicion-corp", R.administrador.reposicionCorp.reposicionCorp],
 
   // Administrador · PRODUCTOS
   ["/gestion-productos/analisis-precios/lista-propia/lista-productos", R.administrador.productos.listaProductos],

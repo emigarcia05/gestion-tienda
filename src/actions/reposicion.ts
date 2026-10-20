@@ -14,6 +14,10 @@ import {
   upsertPedidoMercaderiaReposicionConfig,
 } from "@/services/pedidosEnvio.service";
 import {
+  obtenerReglaReposicionCorp,
+  validarPisoReposicionCorp,
+} from "@/services/reposicionCorp.service";
+import {
   buildMapStockeable,
   buildMapsStockSucursalesPrincipales,
   getStockeableFromMap,
@@ -42,6 +46,7 @@ import {
   sucursalReposicionSchema,
   normalizarReposicionFormaPedido,
   type ReposicionFormaPedido,
+  type ReposicionFormaPedidoVendedor,
 } from "@/lib/validations/reposicion";
 
 export type SucursalReposicion = "guaymallen" | "maipu";
@@ -69,6 +74,13 @@ export interface ItemReposicion {
   cantPedir: number;
   /** Unidades por bulto (`prod_lista.bulto`). `null` = vacío. */
   bulto: number | null;
+  /** Hay piso corporativo: no se puede borrar la config de sucursal. */
+  tienePisoCorp?: boolean;
+  pisoCorp?: {
+    forma: ReposicionFormaPedidoVendedor;
+    punto: number;
+    cantConf: number;
+  } | null;
 }
 
 export interface ReposicionData {
@@ -508,6 +520,18 @@ export async function upsertReglaReposicion(raw: unknown): Promise<ActionResult<
     }
   }
 
+  const bultosMapPiso = await buildMapBultosProdTienda([codTienda]);
+  const violaPiso = await validarPisoReposicionCorp({
+    codTienda,
+    formaPedir,
+    puntoReposicion,
+    cant,
+    bulto: bultosMapPiso.get(codTienda) ?? null,
+  });
+  if (violaPiso) {
+    return { ok: false, error: violaPiso };
+  }
+
   try {
     const result = await upsertPedidoMercaderiaReposicionConfig({
       sucursal: sucursalCodigo,
@@ -547,6 +571,20 @@ export async function deleteReglaReposicion(raw: unknown): Promise<ActionResult<
     return { ok: false, error: "ID inválido." };
   }
   try {
+    const fila = await prisma.prodPedMerc2.findFirst({
+      where: { id: parsed.data.id, tipoDePedido: "REPOSICION" },
+      select: { reposicionCodTienda: true },
+    });
+    const cod = (fila?.reposicionCodTienda ?? "").trim();
+    if (cod) {
+      const corp = await obtenerReglaReposicionCorp(cod);
+      if (corp) {
+        return {
+          ok: false,
+          error: "No se puede borrar una configuración hecha desde REPOSICION CORP.",
+        };
+      }
+    }
     await prisma.prodPedMerc2.deleteMany({
       where: { id: parsed.data.id, tipoDePedido: "REPOSICION" },
     });

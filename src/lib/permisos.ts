@@ -136,6 +136,12 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
   },
 
+  // ─── Administración · REPOSICION CORP. ─────────────────────────────────
+  reposicionCorp: {
+    /** Catálogo `prod_ped_reposicion_corp`. Solo editor. */
+    acceso: { simple: false, editor: true },
+  },
+
   // ─── Administración · COBROS % DESC. · Descuentos (`/administrador/cobros-desc/descuentos`) ──
   descPromos: {
     /** Catálogo `desc_promo`. Solo editor. */

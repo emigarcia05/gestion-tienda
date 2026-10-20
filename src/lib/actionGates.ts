@@ -65,6 +65,21 @@ export function requireEditorEstadisticas(): Promise<ActionGateFail | null> {
   );
 }
 
+/** Administrador · REPOSICION CORP. (`PERMISOS.reposicionCorp.acceso`). */
+export function requireReposicionCorpLectura(): Promise<ActionGateFail | null> {
+  return requirePermiso(
+    PERMISOS.reposicionCorp.acceso,
+    "Sin permisos para reposición corporativa."
+  );
+}
+
+export function requireEditorReposicionCorp(): Promise<ActionGateFail | null> {
+  return requirePermisoEditor(
+    PERMISOS.reposicionCorp.acceso,
+    "Sin permisos para reposición corporativa."
+  );
+}
+
 /** Administrador · COBROS % DESC. → Descuentos (`PERMISOS.descPromos.acceso`). */
 export function requireDescPromosLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(

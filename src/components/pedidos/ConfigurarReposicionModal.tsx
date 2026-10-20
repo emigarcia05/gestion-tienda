@@ -32,7 +32,9 @@ import {
 import SelectorProductosReposicionModal from "./SelectorProductosReposicionModal";
 import type { ItemReposicion, SucursalReposicion, FormaPedirReposicionOption } from "@/actions/reposicion";
 import { upsertReglaReposicion } from "@/actions/reposicion";
+import { upsertReglaReposicionCorpAction } from "@/actions/reposicionCorp";
 import type { ItemSelectorReposicion } from "@/actions/reposicion";
+import { mensajeViolaPisoReposicionCorp } from "@/lib/reposicionCorp";
 import { fmtNumero } from "@/lib/format";
 import {
   REPOSICION_FORMA_PEDIDO_VENDEDOR_LABELS,
@@ -107,7 +109,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: ItemReposicion;
-  sucursal: SucursalReposicion;
+  sucursal?: SucursalReposicion;
+  modo?: "sucursal" | "corp";
 }
 
 export default function ConfigurarReposicionModal({
@@ -115,6 +118,7 @@ export default function ConfigurarReposicionModal({
   onOpenChange,
   item,
   sucursal,
+  modo = "sucursal",
 }: Props) {
   const router = useRouter();
   const [formaPedir, setFormaPedir] = useState<FormaPedirReposicionOption>(item.formaPedir || "");
@@ -218,6 +222,22 @@ export default function ConfigurarReposicionModal({
       return;
     }
 
+    if (modo === "sucursal" && !sucursal) {
+      toast.error("Seleccioná un usuario en el slidenav.");
+      return;
+    }
+    if (modo === "sucursal" && item.pisoCorp) {
+      const viola = mensajeViolaPisoReposicionCorp(
+        item.pisoCorp,
+        { forma: formaParsed.data, punto, cantConf: cantNum },
+        formaParsed.data === "POR_BULTO" ? unidadesPorBulto : item.bulto
+      );
+      if (viola) {
+        toast.error(viola);
+        return;
+      }
+    }
+
     setGuardando(true);
     try {
       const todos: { codTienda: string }[] = [
@@ -227,8 +247,7 @@ export default function ConfigurarReposicionModal({
         })),
       ];
       for (const t of todos) {
-        const res = await upsertReglaReposicion({
-          sucursalCodigo: sucursal,
+        const payload = {
           codTienda: t.codTienda,
           formaPedir: formaParsed.data,
           puntoReposicion: punto,
@@ -236,7 +255,14 @@ export default function ConfigurarReposicionModal({
           ...(formaParsed.data === "POR_BULTO" && unidadesPorBulto !== null
             ? { unidadesPorBulto }
             : {}),
-        });
+        };
+        const res =
+          modo === "corp"
+            ? await upsertReglaReposicionCorpAction(payload)
+            : await upsertReglaReposicion({
+                sucursalCodigo: sucursal!,
+                ...payload,
+              });
         if (!res.ok) {
           toast.error(res.error ?? "Error al guardar.");
           return;
@@ -258,7 +284,7 @@ export default function ConfigurarReposicionModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <AppModal
-          title="Configurar Reposición"
+          title={modo === "corp" ? "CONFIGURAR REPOSICIÓN CORP." : "Configurar Reposición"}
           className="max-w-[56rem] max-h-[100vh]"
           actions={
             <div className="flex gap-2">
@@ -478,7 +504,7 @@ export default function ConfigurarReposicionModal({
       <SelectorProductosReposicionModal
         open={selectorOpen}
         onOpenChange={setSelectorOpen}
-        sucursal={sucursal}
+        sucursal={sucursal ?? "guaymallen"}
         bultoReferencia={esFormaBulto ? unidadesPorBulto : item.bulto ?? null}
         onConfirmar={handleAgregarProductos}
         excludeIds={[item.idListaTienda]}

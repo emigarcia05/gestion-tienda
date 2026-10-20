@@ -18,7 +18,8 @@ export type AdmPillarId =
   | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
-  | "usuarios";
+  | "usuarios"
+  | "reposicion-corp";
 
 export type AdmIconId =
   | "landmark"
@@ -290,6 +291,16 @@ const usuariosScreens: AdmScreenDef[] = [
   },
 ];
 
+const reposicionCorpScreens: AdmScreenDef[] = [
+  {
+    id: "reposicion-corp",
+    label: "Reposición Corp.",
+    href: A.reposicionCorp.reposicionCorp,
+    icon: "package",
+    permiso: PERMISOS.reposicionCorp.acceso,
+  },
+];
+
 export const FIN_PILLARS: AdmPillarDef[] = [
   {
     id: "tesoreria",
@@ -363,6 +374,13 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     icon: "users",
     basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,
+  },
+  {
+    id: "reposicion-corp",
+    label: "REPOSICION CORP.",
+    icon: "package",
+    basePath: `${A.hub}/reposicion-corp`,
+    screens: reposicionCorpScreens,
   },
 ];
 

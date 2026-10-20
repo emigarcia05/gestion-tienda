@@ -1552,6 +1552,7 @@ model ProdPropio {
   componentes               ProdListaCompuesto[]           @relation("CompuestoComponentes")
   compuestosQueLoUsan       ProdListaCompuesto[]           @relation("ComponenteDeCompuestos")
   descPromos                DescPromoItem[]
+  reposicionCorp            ProdPedReposicionCorp?
 
   @@index([competenciaIdPxListaGeneral], map: "prod_lista_competencia_id_px_lista_general_idx")
   @@index([descripcionTienda], map: "prod_lista_descripcion_idx")
@@ -1868,6 +1869,23 @@ model ProdPedMerc2 {
   @@index([sucursalId, tipoDePedido], map: "prod_ped_merc_sucursal_tipo_idx")
   @@index([reposicionCodTienda], map: "prod_ped_merc_reposicion_cod_tienda_idx")
   @@map("prod_ped_merc")
+}
+
+/**
+ * Piso corporativo de reposición (Administrador · REPOSICION CORP.).
+ * Una fila por `cod_tienda`; vale para sucursales `pedido = true`.
+ * `forma_pedido`: UNIDADES_MAX | POR_BULTO.
+ */
+model ProdPedReposicionCorp {
+  codTienda   String   @id @map("cod_tienda")
+  formaPedido String   @map("forma_pedido")
+  puntoPedido Int      @map("punto_pedido")
+  cantConf    Int      @map("cant_conf")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  producto ProdPropio @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
+
+  @@map("prod_ped_reposicion_corp")
 }
 
 // ─── Historial de pedidos (cabecera + items editables) ────────────────

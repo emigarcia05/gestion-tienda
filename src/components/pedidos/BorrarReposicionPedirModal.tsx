@@ -13,6 +13,8 @@ interface Props {
   descripcion: string;
   /** El ítem también tiene cantidad URGENTE (se borra con cualquiera de las dos opciones). */
   tieneUrgente: boolean;
+  /** Piso corporativo: solo se puede omitir este pedido, no borrar la config. */
+  ocultarBorrarConfig?: boolean;
   onElegir: (opcion: OpcionBorrarReposicion) => Promise<boolean>;
 }
 
@@ -21,6 +23,7 @@ export default function BorrarReposicionPedirModal({
   onOpenChange,
   descripcion,
   tieneUrgente,
+  ocultarBorrarConfig = false,
   onElegir,
 }: Props) {
   const [procesando, setProcesando] = useState<OpcionBorrarReposicion | null>(null);
@@ -55,14 +58,16 @@ export default function BorrarReposicionPedirModal({
             <Button type="button" onClick={() => void elegir("no-pedir")} disabled={!!procesando}>
               {procesando === "no-pedir" ? "Guardando..." : "NO PEDIR EN ESTE PEDIDO"}
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => void elegir("borrar-configuracion")}
-              disabled={!!procesando}
-            >
-              {procesando === "borrar-configuracion" ? "Borrando..." : "BORRAR CONFIGURACIÓN DE REPOSICIÓN"}
-            </Button>
+            {ocultarBorrarConfig ? null : (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void elegir("borrar-configuracion")}
+                disabled={!!procesando}
+              >
+                {procesando === "borrar-configuracion" ? "Borrando..." : "BORRAR CONFIGURACIÓN DE REPOSICIÓN"}
+              </Button>
+            )}
           </div>
         </div>
       </AppModal>

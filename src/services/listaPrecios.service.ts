@@ -26,6 +26,11 @@ import type { Prisma } from "@prisma/client";
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { FiltroPedidoCatalogo } from "@/lib/pedidos";
 import { cantPedirReposicionMerc2 } from "@/services/pedidosEnvio.service";
+import { listarReglasReposicionCorpPorCodigos } from "@/services/reposicionCorp.service";
+import {
+  resolverReglaReposicionEfectiva,
+  valoresReposicionVendedor,
+} from "@/lib/reposicionCorp";
 import {
   buildMapStockeable,
   buildMapsStockSucursalesPrincipales,
@@ -827,14 +832,22 @@ export async function aplicarVariacionPxListaProveedorMasivo(
 // ─── Pedido Urgente: ítems con descripción unificada ─────────────────
 
 export interface PedidoUrgenteReposicionRegla {
-  /** `prod_ped_merc.id` (tipo REPOSICION). */
-  idReposicion: string;
+  /** `prod_ped_merc.id` (tipo REPOSICION). Null si solo hay piso corporativo. */
+  idReposicion: string | null;
   formaPedir: string | null;
   puntoReposicion: number;
   /** `reposicion_cant_conf` (UN. MÁXIMAS o BULTOS REPOSICIÓN). */
   cantConf: number;
   /** `reposicion_omitir_pedido`: «No pedir en este pedido» (cant. a pedir = 0). */
   omitidaEnPedido: boolean;
+  /** Hay piso en `prod_ped_reposicion_corp`; la sucursal no puede borrar la config. */
+  tienePisoCorp: boolean;
+  /** Piso corporativo crudo (para validar override). */
+  pisoCorp: {
+    forma: string;
+    punto: number;
+    cantConf: number;
+  } | null;
 }
 
 export interface PedidoUrgenteItem {
@@ -957,9 +970,9 @@ async function mercaderiaMapsDesdeMerc2(
     },
   });
 
-  const reposicionReglaPorCodTienda = new Map<
+  const sucursalRepoPorCod = new Map<
     string,
-    { forma: string | null; punto: number; cantConf: number; omitida: boolean }
+    { id: string; forma: string | null; punto: number; cantConf: number; omitida: boolean }
   >();
 
   const cantUrgentePorCodExt = new Map<string, number>();
@@ -972,26 +985,17 @@ async function mercaderiaMapsDesdeMerc2(
     }
     if (r.tipoDePedido === "REPOSICION") {
       const k = (r.reposicionCodTienda ?? "").trim();
-      if (!k || reposicionReglaPorCodTienda.has(k)) continue;
-      mercaderiaRepoSet.add(k);
-      const regla = {
+      if (!k || sucursalRepoPorCod.has(k)) continue;
+      sucursalRepoPorCod.set(k, {
+        id: r.id,
         forma: r.reposicionFormaPedido,
         punto: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cantConf: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
         omitida: r.reposicionOmitirPedido,
-      };
-      reposicionReglaPorCodTienda.set(k, regla);
-      reglaRepoPorCodTienda.set(k, {
-        idReposicion: r.id,
-        formaPedir: regla.forma,
-        puntoReposicion: regla.punto,
-        cantConf: regla.cantConf,
-        omitidaEnPedido: regla.omitida,
       });
     }
   }
 
-  const codTiendasRepo = [...mercaderiaRepoSet];
   const tiendaRows =
     codTiendas.length > 0
       ? await prisma.prodPropio.findMany({
@@ -1006,37 +1010,59 @@ async function mercaderiaMapsDesdeMerc2(
   for (const t of tiendaRows) {
     bultoPorCodTienda.set(t.codTienda.trim(), bultoProdTiendaValido(t.bulto));
   }
-  const [stockMapsRepo, stockeableMapRepo] =
+  const [stockMapsRepo, stockeableMapRepo, corpMap] =
     codTiendas.length > 0
       ? await Promise.all([
           buildMapsStockSucursalesPrincipales(codTiendas),
-          buildMapStockeable(codTiendasRepo),
+          buildMapStockeable(codTiendas),
+          listarReglasReposicionCorpPorCodigos(codTiendas),
         ])
       : [
           { maipu: new Map<string, number>(), guaymallen: new Map<string, number>() },
           new Map<string, boolean>(),
+          new Map(),
         ];
   for (const k of codTiendas) {
     stockPorCodTienda.set(k, getStockSucursalPrincipal(k, sucursalTrim, stockMapsRepo));
-  }
-
-  for (const k of mercaderiaRepoSet) {
-    const regla = reposicionReglaPorCodTienda.get(k);
+    const sucRaw = sucursalRepoPorCod.get(k);
+    const sucVal = sucRaw
+      ? valoresReposicionVendedor(sucRaw.forma, sucRaw.punto, sucRaw.cantConf)
+      : null;
+    const bulto = bultoPorCodTienda.get(k) ?? null;
+    const efectiva = resolverReglaReposicionEfectiva({
+      corp: corpMap.get(k) ?? null,
+      sucursal: sucVal
+        ? { ...sucVal, omitida: sucRaw?.omitida, id: sucRaw?.id }
+        : null,
+      bulto,
+    });
+    if (!efectiva) continue;
+    mercaderiaRepoSet.add(k);
+    reglaRepoPorCodTienda.set(k, {
+      idReposicion: efectiva.idReposicionSucursal,
+      formaPedir: efectiva.regla.forma,
+      puntoReposicion: efectiva.regla.punto,
+      cantConf: efectiva.regla.cantConf,
+      omitidaEnPedido: efectiva.omitida,
+      tienePisoCorp: efectiva.tienePisoCorp,
+      pisoCorp: corpMap.get(k) ?? null,
+    });
+    const stock = getStockSucursalPrincipal(k, sucursalTrim, stockMapsRepo);
     const tienda = tiendaRepoPorCod.get(k);
-    let cant = 0;
-    if (regla && tienda) {
-      const stock = getStockSucursalPrincipal(k, sucursalTrim, stockMapsRepo);
-      cant = cantPedirReposicionMerc2({
-        forma: regla.forma,
-        punto: regla.punto,
-        cantConf: regla.cantConf,
-        omitida: regla.omitida,
-        stock,
-        stockeable: getStockeableFromMap(stockeableMapRepo, k),
-        bulto: bultoProdTiendaValido(tienda.bulto),
-      });
-    }
-    mercaderiaMapRepo.set(k, cant);
+    mercaderiaMapRepo.set(
+      k,
+      tienda
+        ? cantPedirReposicionMerc2({
+            forma: efectiva.regla.forma,
+            punto: efectiva.regla.punto,
+            cantConf: efectiva.regla.cantConf,
+            omitida: efectiva.omitida,
+            stock,
+            stockeable: getStockeableFromMap(stockeableMapRepo, k),
+            bulto,
+          })
+        : 0
+    );
   }
 
   for (const p of pairs) {
@@ -1144,14 +1170,14 @@ async function clavesCantidadPositivaPedidoUrgente(
       },
     });
 
-    const reglaPorCod = new Map<
+    const sucursalPorCod = new Map<
       string,
       { forma: string | null; punto: number; cantConf: number; omitida: boolean }
     >();
     for (const r of rows) {
       const k = (r.reposicionCodTienda ?? "").trim();
-      if (!k || reglaPorCod.has(k)) continue;
-      reglaPorCod.set(k, {
+      if (!k || sucursalPorCod.has(k)) continue;
+      sucursalPorCod.set(k, {
         forma: r.reposicionFormaPedido,
         punto: Math.max(0, Math.floor(Number(r.reposicionPuntoPedido ?? 0))),
         cantConf: Math.max(0, Math.floor(Number(r.reposicionCantConf ?? 0))),
@@ -1159,9 +1185,40 @@ async function clavesCantidadPositivaPedidoUrgente(
       });
     }
 
-    const codTiendas = [...reglaPorCod.keys()];
+    const corpRows = await prisma.prodPedReposicionCorp.findMany({
+      select: { codTienda: true, formaPedido: true, puntoPedido: true, cantConf: true },
+    });
+    const corpMap = new Map<string, ReturnType<typeof valoresReposicionVendedor>>();
+    for (const row of corpRows) {
+      const valores = valoresReposicionVendedor(
+        row.formaPedido,
+        row.puntoPedido,
+        row.cantConf
+      );
+      if (valores) corpMap.set(row.codTienda.trim(), valores);
+    }
+
+    const codTiendas = [
+      ...new Set([...sucursalPorCod.keys(), ...corpMap.keys()]),
+    ];
     if (pedidoTipo === "reposicion_conf") {
-      for (const k of codTiendas) repoCodTiendas.add(k);
+      for (const k of codTiendas) {
+        const sucRaw = sucursalPorCod.get(k);
+        const sucVal = sucRaw
+          ? valoresReposicionVendedor(sucRaw.forma, sucRaw.punto, sucRaw.cantConf)
+          : null;
+        if (
+          resolverReglaReposicionEfectiva({
+            corp: corpMap.get(k) ?? null,
+            sucursal: sucVal
+              ? { ...sucVal, omitida: sucRaw?.omitida }
+              : null,
+            bulto: null,
+          })
+        ) {
+          repoCodTiendas.add(k);
+        }
+      }
     } else if (codTiendas.length > 0) {
       const [stockMaps, stockeableMap, bultosMap] = await Promise.all([
         buildMapsStockSucursalesPrincipales(codTiendas),
@@ -1169,16 +1226,28 @@ async function clavesCantidadPositivaPedidoUrgente(
         buildMapBultosProdTienda(codTiendas),
       ]);
       for (const k of codTiendas) {
-        const regla = reglaPorCod.get(k)!;
+        const sucRaw = sucursalPorCod.get(k);
+        const sucVal = sucRaw
+          ? valoresReposicionVendedor(sucRaw.forma, sucRaw.punto, sucRaw.cantConf)
+          : null;
+        const bulto = bultosMap.get(k) ?? null;
+        const efectiva = resolverReglaReposicionEfectiva({
+          corp: corpMap.get(k) ?? null,
+          sucursal: sucVal
+            ? { ...sucVal, omitida: sucRaw?.omitida }
+            : null,
+          bulto,
+        });
+        if (!efectiva) continue;
         const stock = getStockSucursalPrincipal(k, sucursalTrim, stockMaps);
         const cant = cantPedirReposicionMerc2({
-          forma: regla.forma,
-          punto: regla.punto,
-          cantConf: regla.cantConf,
-          omitida: regla.omitida,
+          forma: efectiva.regla.forma,
+          punto: efectiva.regla.punto,
+          cantConf: efectiva.regla.cantConf,
+          omitida: efectiva.omitida,
           stock,
           stockeable: getStockeableFromMap(stockeableMap, k),
-          bulto: bultosMap.get(k) ?? null,
+          bulto,
         });
         if (cant > 0) repoCodTiendas.add(k);
       }

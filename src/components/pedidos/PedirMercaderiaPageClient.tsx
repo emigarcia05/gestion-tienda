@@ -36,6 +36,7 @@ import {
   type FiltroPedidoValor,
   type TipoPedido,
 } from "@/lib/pedidos";
+import { valoresReposicionVendedor } from "@/lib/reposicionCorp";
 import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
@@ -80,6 +81,14 @@ function itemReposicionDesdeProducto(prod: PedidoUrgenteItem): ItemReposicion {
     cantPedidaReposicion: prod.cantReposicion,
     cantPedir: prod.cantReposicion,
     bulto: prod.bultoTienda,
+    tienePisoCorp: regla?.tienePisoCorp ?? false,
+    pisoCorp: regla?.pisoCorp
+      ? valoresReposicionVendedor(
+          regla.pisoCorp.forma,
+          regla.pisoCorp.punto,
+          regla.pisoCorp.cantConf
+        )
+      : null,
   };
 }
 
@@ -202,6 +211,10 @@ export default function PedirMercaderiaPageClient({
     const cambios = cambiosBorrarUrgente(prod);
     if (Object.keys(cambios).length > 0 && !(await guardarUrgente(cambios, null))) return false;
 
+    if (opcion === "borrar-configuracion" && (regla.tienePisoCorp || !regla.idReposicion)) {
+      toast.error("No se puede borrar una configuración hecha desde REPOSICION CORP.");
+      return false;
+    }
     const res =
       opcion === "no-pedir"
         ? await setOmitirReposicionPedidoAction({ sucursal: sucursalValida, codTienda: prod.codTienda, omitir: true })
@@ -326,6 +339,7 @@ export default function PedirMercaderiaPageClient({
         onOpenChange={setModalBorrarOpen}
         descripcion={productoBorrar?.descripcion ?? ""}
         tieneUrgente={productoBorrar ? Object.keys(cambiosBorrarUrgente(productoBorrar)).length > 0 : false}
+        ocultarBorrarConfig={productoBorrar?.reposicionRegla?.tienePisoCorp === true}
         onElegir={elegirBorrarReposicion}
       />
       <AgregarTintometricoModal
