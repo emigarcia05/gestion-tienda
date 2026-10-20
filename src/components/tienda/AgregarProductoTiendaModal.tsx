@@ -199,61 +199,77 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                   onChange={cambiarCompuesto}
                   disabled={pending}
                 />
-              ) : null}
+              ) : (
+                <div className="invisible pointer-events-none" aria-hidden>
+                  <ModalSiNoChoice
+                    label="PROD. COMPUESTO"
+                    value={false}
+                    onChange={() => undefined}
+                    disabled
+                  />
+                </div>
+              )}
             </div>
-            {esPropio && esCompuesto ? (
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-2"
-                  disabled={pending}
-                  onClick={() => setSelectorComponenteAbierto(true)}
-                >
-                  <Plus aria-hidden />
-                  Agregar Componente
-                </Button>
-                <TablaComponentesCompuesto
-                  filas={componentes}
-                  bloqueado={pending}
-                  onCantidadChange={editarCantidadComponente}
-                  onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
-                />
-              </div>
-            ) : esPropio ? null : (
-              <div className="flex min-w-0 flex-col gap-1">
-                <ModalMicroLabel>CX. VINC.</ModalMicroLabel>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 min-w-0 flex-1 justify-start gap-2"
-                    onClick={() => setSelectorAbierto(true)}
-                  >
-                    <Link2 className="shrink-0" aria-hidden />
-                    <span
-                      className="truncate uppercase text-foreground"
-                      title={vinculo ? etiquetaVinculo(vinculo) : undefined}
-                    >
-                      {vinculo ? etiquetaVinculo(vinculo) : "Elegir línea (obligatorio)"}
-                    </span>
-                  </Button>
-                  {vinculo ? (
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModalMicroLabel className={esPropio ? "invisible" : undefined}>
+                CX. VINC.
+              </ModalMicroLabel>
+              <div className="flex min-h-10 gap-2">
+                {!esPropio ? (
+                  <>
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="h-10 w-10"
-                      aria-label="Quitar CX. VINC."
+                      className="h-10 min-w-0 flex-1 gap-2"
                       disabled={pending}
-                      onClick={() => setVinculo(null)}
+                      onClick={() => setSelectorAbierto(true)}
                     >
-                      <X />
+                      <Link2 className="shrink-0" aria-hidden />
+                      <span
+                        className={cn("truncate", vinculo && "uppercase")}
+                        title={vinculo ? etiquetaVinculo(vinculo) : undefined}
+                      >
+                        {vinculo ? etiquetaVinculo(vinculo) : "Elegir Línea (Obligatorio)"}
+                      </span>
                     </Button>
-                  ) : null}
-                </div>
+                    {vinculo ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-10 w-10"
+                        aria-label="Quitar CX. VINC."
+                        disabled={pending}
+                        onClick={() => setVinculo(null)}
+                      >
+                        <X />
+                      </Button>
+                    ) : null}
+                  </>
+                ) : esCompuesto ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 min-w-0 flex-1 gap-2"
+                    disabled={pending}
+                    onClick={() => setSelectorComponenteAbierto(true)}
+                  >
+                    <Plus className="shrink-0" aria-hidden />
+                    Agregar Componente
+                  </Button>
+                ) : (
+                  <div className="h-10 min-w-0 flex-1" aria-hidden />
+                )}
               </div>
-            )}
+            </div>
+            {esPropio && esCompuesto ? (
+              <TablaComponentesCompuesto
+                filas={componentes}
+                bloqueado={pending}
+                onCantidadChange={editarCantidadComponente}
+                onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
+              />
+            ) : null}
           </section>
         </div>
       </AppModal>

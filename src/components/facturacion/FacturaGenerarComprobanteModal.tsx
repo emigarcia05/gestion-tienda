@@ -77,7 +77,7 @@ const BOTON_GENERAR_CLASS =
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
 const COBRO_RESUMEN_FILA_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_11rem_2.25rem] items-center gap-2 py-2";
+  "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-center gap-2 py-2";
 const COBRO_RESUMEN_LINEA_SUAVE_CLASS = "border-b border-primary/40";
 const COBRO_RESUMEN_LINEA_GRUESA_CLASS = "border-b-2 border-primary";
 
@@ -685,7 +685,7 @@ export default function FacturaGenerarComprobanteModal({
 
               {cobros.length > 0 ? (
                 <div
-                  className="flex flex-col"
+                  className="mx-auto flex w-full max-w-md flex-col px-4"
                   role="table"
                   aria-label="Cobros y saldo pendiente"
                 >
@@ -704,7 +704,7 @@ export default function FacturaGenerarComprobanteModal({
                         )}
                       >
                         <span
-                          className="min-w-0 truncate text-left text-sm font-medium uppercase"
+                          className="min-w-0 truncate text-center text-sm font-medium uppercase"
                           title={etiquetaFormaPago}
                         >
                           {etiquetaFormaPago}
@@ -733,7 +733,7 @@ export default function FacturaGenerarComprobanteModal({
                     role="row"
                     className={cn(COBRO_RESUMEN_FILA_CLASS, "font-semibold")}
                   >
-                    <span className="min-w-0 truncate text-left text-sm uppercase">
+                    <span className="min-w-0 truncate text-center text-sm uppercase">
                       SALDO PENDIENTE
                     </span>
                     <span className="text-center text-sm tabular-nums">

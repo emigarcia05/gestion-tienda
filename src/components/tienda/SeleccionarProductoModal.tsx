@@ -123,6 +123,8 @@ export default function SeleccionarProductoModal({
   }, [open]);
 
   const hayFiltros = !!proveedorId || !!q.trim();
+  /** Clave primitiva: el array puede llegar nuevo en cada render y no debe redisparar la búsqueda. */
+  const idsExcluidosKey = idsProveedoresYaVinculados.join("|");
 
   const lineaMarcaRubroSub = useMemo(
     () =>
@@ -139,7 +141,7 @@ export default function SeleccionarProductoModal({
     if (!hayFiltros) {
       queueMicrotask(() => {
         setLoading(false);
-        setRows([]);
+        setRows((prev) => (prev.length === 0 ? prev : []));
       });
       return;
     }
@@ -151,8 +153,9 @@ export default function SeleccionarProductoModal({
       );
       setLoading(false);
       if (result.success) {
-        const filtrados = idsProveedoresYaVinculados.length
-          ? result.data.filter((r) => !idsProveedoresYaVinculados.includes(r.idProveedor))
+        const excluidos = new Set(idsExcluidosKey ? idsExcluidosKey.split("|") : []);
+        const filtrados = excluidos.size
+          ? result.data.filter((r) => !excluidos.has(r.idProveedor))
           : result.data;
         setRows(filtrados);
       } else {
@@ -164,7 +167,7 @@ export default function SeleccionarProductoModal({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [open, proveedorId, q, hayFiltros, idsProveedoresYaVinculados]);
+  }, [open, proveedorId, q, hayFiltros, idsExcluidosKey]);
 
   function vinculadoOtraTienda(row: ProductoProveedorParaVincular): boolean {
     return (
