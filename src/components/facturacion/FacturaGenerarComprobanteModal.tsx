@@ -65,6 +65,7 @@ export type FacturaGenerarComprobanteAccion =
   | "ambos";
 
 const VACIO = "none";
+type PasoGenerarComprobante = "cobro" | "generar";
 
 const SECCION_MODAL_CLASS =
   "flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4";
@@ -133,7 +134,8 @@ function totalCentsDeComprobante(comprobante: FacturaComprobantePdfInput | null)
 }
 
 /**
- * Modal **Generar Comprobante**: cobro (solo ventas) + PDF.
+ * Modal **Generar Comprobante**: paso **COBRO** (solo ventas) y luego **GENERAR COMPROBANTE**.
+ * Pago completo (Agregar deja saldo 0) avanza solo; si no, **Continuar Con Saldo Impago**.
  * **Generar** emite sin imprimir ni PDF. Imprimir / Descargar / Imprimir & Descargar también emiten.
  */
 export default function FacturaGenerarComprobanteModal({
@@ -153,6 +155,7 @@ export default function FacturaGenerarComprobanteModal({
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
   const [documentoReceptor, setDocumentoReceptor] = useState("");
+  const [paso, setPaso] = useState<PasoGenerarComprobante>("cobro");
   const hiddenFechaAcreditacionRef = useRef<HTMLInputElement>(null);
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
@@ -214,6 +217,11 @@ export default function FacturaGenerarComprobanteModal({
     if (!open) return;
     setCobros([]);
     setDocumentoReceptor("");
+    setPaso(
+      comprobante != null && esFacturaTipoVenta(comprobante.tipo)
+        ? "cobro"
+        : "generar"
+    );
     resetFormularioCobro(totalCentsDeComprobante(comprobante));
   }, [open, comprobante, resetFormularioCobro]);
 
@@ -342,6 +350,9 @@ export default function FacturaGenerarComprobanteModal({
     };
     setCobros((prev) => [...prev, fila]);
     resetFormularioCobro(siguientePendiente);
+    if (siguientePendiente <= 0) {
+      setPaso("generar");
+    }
   }
 
   function quitarCobro(id: string) {
@@ -367,11 +378,6 @@ export default function FacturaGenerarComprobanteModal({
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
       return;
     }
-    const extra = cobroDesdeFormulario();
-    if (!extra.ok) {
-      toast.error(extra.error);
-      return;
-    }
     const cobrosEmitir: CobroFacturaEmitirInput[] = cobros.map(
       ({
         pagoNombre,
@@ -387,15 +393,6 @@ export default function FacturaGenerarComprobanteModal({
         montoCents,
       })
     );
-    if (extra.cobro != null) {
-      cobrosEmitir.push({
-        pagoNombre: extra.cobro.pagoNombre,
-        entidadNombre: extra.cobro.entidadNombre ?? "",
-        cuotaEtiqueta: extra.cobro.cuotaEtiqueta,
-        fechaAcreditacionIso: extra.cobro.fechaAcreditacionIso,
-        montoCents: extra.cobro.montoCents,
-      });
-    }
     if (documentoObligatorio && documentoReceptor.replace(/\D/g, "").length < 7) {
       toast.error("Por el importe, identificá al consumidor final con DNI o CUIT.");
       return;
@@ -436,6 +433,13 @@ export default function FacturaGenerarComprobanteModal({
   }
 
   const formCobroVisible = esVenta && pendienteCents > 0;
+  const mostrarPasoCobro = esVenta && paso === "cobro";
+  const mostrarPasoGenerar = !esVenta || paso === "generar";
+  const tituloModal = mostrarPasoCobro
+    ? "COBRO"
+    : mostrarPasoGenerar
+      ? "GENERAR COMPROBANTE"
+      : tituloComprobante(comprobante);
 
   return (
     <Dialog
@@ -448,20 +452,32 @@ export default function FacturaGenerarComprobanteModal({
       <AppModal
         size={esVenta ? "xl" : "sm"}
         padding="sm"
-        title={tituloComprobante(comprobante)}
+        title={tituloModal}
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={cerrarSinEmitir}
-            disabled={ocupado}
-          >
-            Cancelar
-          </Button>
+          <>
+            {esVenta && paso === "generar" ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPaso("cobro")}
+                disabled={ocupado}
+              >
+                Volver
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cerrarSinEmitir}
+              disabled={ocupado}
+            >
+              Cancelar
+            </Button>
+          </>
         }
       >
         <div className="flex flex-col gap-5">
-          {esVenta ? (
+          {mostrarPasoCobro ? (
             <section className={SECCION_MODAL_CLASS}>
               <p className={SECCION_TITULO_CLASS}>COBRO</p>
               <p className="text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
@@ -674,10 +690,22 @@ export default function FacturaGenerarComprobanteModal({
                 </ul>
               ) : null}
 
+              {pendienteCents > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={ocupado}
+                  onClick={() => setPaso("generar")}
+                >
+                  Continuar Con Saldo Impago
+                </Button>
+              ) : null}
+
             </section>
           ) : null}
 
-          {pideDocumentoCf ? (
+          {mostrarPasoGenerar && pideDocumentoCf ? (
             <section className={SECCION_MODAL_CLASS}>
               <p className={SECCION_TITULO_CLASS}>
                 {documentoObligatorio ? "DOCUMENTO DEL CONSUMIDOR" : "DOCUMENTO"}
@@ -697,6 +725,7 @@ export default function FacturaGenerarComprobanteModal({
             </section>
           ) : null}
 
+          {mostrarPasoGenerar ? (
           <section className={SECCION_MODAL_CLASS}>
             <p className={SECCION_TITULO_CLASS}>GENERAR COMPROBANTE</p>
             {comprobante?.cae ? (
@@ -752,6 +781,7 @@ export default function FacturaGenerarComprobanteModal({
               ))}
             </div>
           </section>
+          ) : null}
         </div>
       </AppModal>
     </Dialog>

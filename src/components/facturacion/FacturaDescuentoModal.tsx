@@ -308,6 +308,13 @@ export default function FacturaDescuentoModal({
     });
   }
 
+  function handleAplicarFormaPago() {
+    if (!filtroPago) return;
+    aplicarMedioPago(filtroPago, filtroCuota || undefined);
+    cierreConfirmadoRef.current = true;
+    onOpenChange(false);
+  }
+
   function handleCancelar() {
     cierreConfirmadoRef.current = true;
     onAplicar(descuentoAlAbrirRef.current);
@@ -543,9 +550,7 @@ export default function FacturaDescuentoModal({
               type="button"
               className="h-full min-h-0 w-full px-1 whitespace-normal"
               disabled={!filtroPago}
-              onClick={() =>
-                aplicarMedioPago(filtroPago, filtroCuota || undefined)
-              }
+              onClick={handleAplicarFormaPago}
             >
               Aplicar
             </Button>
