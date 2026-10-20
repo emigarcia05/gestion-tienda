@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { esRubroTintometrico } from "@/lib/codColorTintometrico";
+import type { DescPromoEspecialFactura } from "@/lib/descPromo";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
+import { listarDescPromosEspecialesPorCodigos } from "@/services/descPromo.service";
 import {
   buildMapSaldoStockItemsSucursales,
   claveSaldoStock,
@@ -38,6 +40,8 @@ export interface ProductoFacturaBusquedaItem {
   idRubro: string | null;
   /** FK `prod_lista.id_sub_rubro`. */
   idSubRubro: string | null;
+  /** Promos de alcance ITEMS (DESC. ESPECIAL) de este código. */
+  descEspeciales: DescPromoEspecialFactura[];
 }
 
 function normalizeTokens(q: string): string[] {
@@ -137,10 +141,13 @@ export async function buscarProductosParaFactura(params: {
       }
     }
 
-    const saldos = await buildMapSaldoStockItemsSucursales(
-      codigos,
-      sucursales.map((s) => s.id)
-    );
+    const [saldos, especialesPorCod] = await Promise.all([
+      buildMapSaldoStockItemsSucursales(
+        codigos,
+        sucursales.map((s) => s.id)
+      ),
+      listarDescPromosEspecialesPorCodigos(codigos),
+    ]);
 
     const items: ProductoFacturaBusquedaItem[] = rows.map((r) => {
       const stockPorSucursal: ProductoFacturaStockSucursal[] =
@@ -170,6 +177,7 @@ export async function buscarProductosParaFactura(params: {
         idMarca: r.idMarca,
         idRubro: r.idRubro,
         idSubRubro: r.idSubRubro,
+        descEspeciales: especialesPorCod.get(r.codTienda) ?? [],
       };
     });
 

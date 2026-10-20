@@ -11,6 +11,7 @@ import {
 import FacturaBusquedaAvanzadaModal from "@/components/facturacion/FacturaBusquedaAvanzadaModal";
 import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
+import FacturaDescEspecialesItemModal from "@/components/facturacion/FacturaDescEspecialesItemModal";
 import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import FacturaTintometricoModal from "@/components/facturacion/FacturaTintometricoModal";
@@ -149,12 +150,15 @@ export default function FacturaCrearLineasBlock({
   );
   const [stockModalItem, setStockModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
+  const [especialesModalItem, setEspecialesModalItem] =
+    useState<ProductoFacturaBusquedaItem | null>(null);
   const [busquedaAvanzadaOpen, setBusquedaAvanzadaOpen] = useState(false);
   const [tintometricoPendiente, setTintometricoPendiente] = useState<{
     item: ProductoFacturaBusquedaItem;
     mantenerBusqueda: boolean;
   } | null>(null);
   const [stockDesdeAvanzada, setStockDesdeAvanzada] = useState(false);
+  const [especialesDesdeAvanzada, setEspecialesDesdeAvanzada] = useState(false);
   /** Cantidad de la línea cuando el modal de stock se abre desde el remito. */
   const [stockCantidadLinea, setStockCantidadLinea] = useState<number | null>(null);
   const [stockPorCod, setStockPorCod] = useState<
@@ -204,6 +208,7 @@ export default function FacturaCrearLineasBlock({
   const qTrim = q.trim();
   const puedeBuscar = qTrim.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS;
   const stockModalOpen = stockModalItem != null;
+  const especialesModalOpen = especialesModalItem != null;
   const comentarioLinea =
     comentarioLineaKey == null
       ? null
@@ -259,6 +264,7 @@ export default function FacturaCrearLineasBlock({
     function onDocPointerDown(e: PointerEvent) {
       if (
         stockModalItem != null ||
+        especialesModalItem != null ||
         descuentoModalOpen ||
         comentarioModalOpen ||
         busquedaAvanzadaOpen ||
@@ -275,6 +281,7 @@ export default function FacturaCrearLineasBlock({
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [
     stockModalItem,
+    especialesModalItem,
     descuentoModalOpen,
     comentarioModalOpen,
     busquedaAvanzadaOpen,
@@ -469,7 +476,6 @@ export default function FacturaCrearLineasBlock({
           variant="default"
           size="sm"
           className="h-9 shrink-0 gap-1 px-2.5 text-xs"
-          disabled={lineas.length === 0}
           title="Aplicar descuento"
           aria-label="Aplicar descuento"
           onClick={() => {
@@ -735,6 +741,7 @@ export default function FacturaCrearLineasBlock({
                                   idMarca: linea.idMarca,
                                   idRubro: linea.idRubro,
                                   idSubRubro: linea.idSubRubro,
+                                  descEspeciales: [],
                                 });
                               }}
                             >
@@ -878,6 +885,11 @@ export default function FacturaCrearLineasBlock({
                   setStockCantidadLinea(null);
                   setStockModalItem(item);
                 }}
+                onVerEspeciales={(item) => {
+                  setAbierto(false);
+                  setEspecialesDesdeAvanzada(false);
+                  setEspecialesModalItem(item);
+                }}
                 descuento={descuento}
                 lineas={lineas}
                 className="min-h-0 flex-1"
@@ -889,11 +901,18 @@ export default function FacturaCrearLineasBlock({
 
       <FacturaBusquedaAvanzadaModal
         key={busquedaAvanzadaOpen ? "busqueda-avanzada-abierta" : "busqueda-avanzada-cerrada"}
-        open={busquedaAvanzadaOpen && stockModalItem == null}
+        open={
+          busquedaAvanzadaOpen &&
+          stockModalItem == null &&
+          especialesModalItem == null
+        }
         onOpenChange={(open) => {
-          if (!open && stockDesdeAvanzada) return;
+          if (!open && (stockDesdeAvanzada || especialesDesdeAvanzada)) return;
           setBusquedaAvanzadaOpen(open);
-          if (!open) setStockDesdeAvanzada(false);
+          if (!open) {
+            setStockDesdeAvanzada(false);
+            setEspecialesDesdeAvanzada(false);
+          }
         }}
         sucursalCodigo={sucursalUsuario}
         descuento={descuento}
@@ -901,12 +920,17 @@ export default function FacturaCrearLineasBlock({
         onElegir={(item) => {
           setBusquedaAvanzadaOpen(false);
           setStockDesdeAvanzada(false);
+          setEspecialesDesdeAvanzada(false);
           agregarItem(item, { mantenerBusqueda: true });
         }}
         onVerStock={(item) => {
           setStockDesdeAvanzada(true);
           setStockCantidadLinea(null);
           setStockModalItem(item);
+        }}
+        onVerEspeciales={(item) => {
+          setEspecialesDesdeAvanzada(true);
+          setEspecialesModalItem(item);
         }}
       />
 
@@ -933,6 +957,27 @@ export default function FacturaCrearLineasBlock({
         producto={stockModalItem}
         sucursalCodigo={sucursalUsuario}
         cantidadSolicitada={stockCantidadLinea}
+      />
+
+      <FacturaDescEspecialesItemModal
+        open={especialesModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            const volverAvanzada = especialesDesdeAvanzada;
+            setEspecialesModalItem(null);
+            setEspecialesDesdeAvanzada(false);
+            if (volverAvanzada) return;
+            const qActual = q.trim();
+            if (qActual.length >= FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS) {
+              void fetchSugerencias(qActual);
+              setAbierto(true);
+            }
+            queueMicrotask(() => {
+              ref.current?.focus();
+            });
+          }
+        }}
+        producto={especialesModalItem}
       />
 
       <FacturaDescuentoModal

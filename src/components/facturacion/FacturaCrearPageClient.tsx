@@ -117,11 +117,15 @@ const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
 /** Misma altura que el input CLIENTE. Gana a `main button` (2.5rem) y a `.input-filtro-unificado`. */
 const CABECERA_CAMPO_ALTO_CLASS = "!h-9 !min-h-9 !max-h-9";
 
-/** Lápiz + fecha | tipo | fiscal, tres columnas iguales centradas. */
+/** Lápiz + fecha · tipo · fiscal, tres columnas iguales centradas. */
 const CABECERA_VISOR_TIPO_GRID_CLASS =
   "grid min-w-0 w-full grid-cols-[1.25rem_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2";
 
 const CABECERA_VISOR_SEP_CLASS = "h-6 w-0.5 shrink-0 self-center bg-primary";
+
+/** Punto azul a media altura entre fecha, tipo y fiscal. */
+const CABECERA_VISOR_PUNTO_CLASS =
+  "h-1.5 w-1.5 shrink-0 self-center rounded-full bg-primary";
 
 function emisorPdfDePtoVta(
   ptoVtas: readonly FacturaPtoVtaOpcion[],
@@ -601,11 +605,11 @@ export default function FacturaCrearPageClient({
                   <span className="min-w-0 truncate text-center tabular-nums">
                     {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
                   </span>
-                  <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                  <span className={CABECERA_VISOR_PUNTO_CLASS} aria-hidden />
                   <span className="min-w-0 truncate text-center">
                     {FACTURA_CLASE_LABELS[claseActual]}
                   </span>
-                  <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
+                  <span className={CABECERA_VISOR_PUNTO_CLASS} aria-hidden />
                   <span className="min-w-0 truncate text-center">
                     {FACTURA_CONDICION_FISCAL_LABELS[fiscalActual ?? "no_fiscal"]}
                   </span>

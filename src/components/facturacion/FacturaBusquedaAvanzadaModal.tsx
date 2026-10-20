@@ -44,6 +44,7 @@ interface FacturaBusquedaAvanzadaModalProps {
   sucursalCodigo: SucursalPreferida | null;
   onElegir: (item: ProductoFacturaBusquedaItem) => void;
   onVerStock: (item: ProductoFacturaBusquedaItem) => void;
+  onVerEspeciales: (item: ProductoFacturaBusquedaItem) => void;
   descuento?: FacturaDescuentoEstado | null;
   lineas?: readonly FacturaLineaLocal[];
 }
@@ -54,6 +55,7 @@ export default function FacturaBusquedaAvanzadaModal({
   sucursalCodigo,
   onElegir,
   onVerStock,
+  onVerEspeciales,
   descuento = null,
   lineas = [],
 }: FacturaBusquedaAvanzadaModalProps) {
@@ -311,6 +313,7 @@ export default function FacturaBusquedaAvanzadaModal({
               onActivar={setActivo}
               onElegir={onElegir}
               onVerStock={onVerStock}
+              onVerEspeciales={onVerEspeciales}
               descuento={descuento}
               lineas={lineas}
               className="min-h-0 flex-1"

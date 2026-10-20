@@ -408,10 +408,6 @@ export default function FacturaDescuentoModal({
   }
 
   function aplicarColumnaPago(col: DescPromoFormaPagoColumna) {
-    if (totalLista <= 0) {
-      toast.error("Agregá ítems antes de aplicar un descuento.");
-      return;
-    }
     const formasCobro = formasPagoUnicasDescPromo(col.promos);
     onAplicar({
       fuente: "promo_forma_pago",
@@ -427,11 +423,6 @@ export default function FacturaDescuentoModal({
   }
 
   function handleAplicar() {
-    if (totalLista <= 0) {
-      toast.error("Agregá ítems antes de aplicar un descuento.");
-      return;
-    }
-
     const pctVacio = pctNorm.trim() === "";
     const totalVacio = totalNorm.trim() === "";
 

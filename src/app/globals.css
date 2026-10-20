@@ -1565,6 +1565,10 @@
 .typeahead-listbox-filas > li > [role="button"].typeahead-listbox-fila-activa {
   background-color: color-mix(in oklab, var(--primary) 20%, var(--card));
 }
+.typeahead-listbox-filas > li > [role="button"].typeahead-fila-desc-especial {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
 .tabla-gestion-compacta tbody tr[data-state="selected"] {
   --tabla-row-bg: var(--muted);
   background-color: var(--muted);

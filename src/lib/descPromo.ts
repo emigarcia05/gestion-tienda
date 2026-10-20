@@ -67,6 +67,21 @@ export type DescPromoCandidataFactura = {
   descuento: number;
 };
 
+/** Promo de alcance ITEMS adjunta al buscador de Factura · Crear (DESC. ESPECIAL). */
+export type DescPromoEspecialFactura = {
+  id: string;
+  nombre: string;
+  descuento: number;
+  prioridad: number;
+  formasPago: string;
+};
+
+export function itemTieneDescEspecial(item: {
+  descEspeciales?: readonly DescPromoEspecialFactura[];
+}): boolean {
+  return (item.descEspeciales?.length ?? 0) > 0;
+}
+
 export function etiquetaAlcanceDescPromo(alcance: AlcanceDescPromo): string {
   return ETIQUETA_ALCANCE_DESC_PROMO[alcance];
 }

@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   etiquetaAlcanceDescPromo,
+  etiquetaFormaPagoCuotaDescPromo,
+  type DescPromoEspecialFactura,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import type {
@@ -291,6 +293,54 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
   } catch (e: unknown) {
     console.error("[descPromo.service] listarDescPromos:", e);
     return [];
+  }
+}
+
+/**
+ * Promos de alcance ITEMS (DESC. ESPECIAL) indexadas por `cod_tienda`
+ * pedido. Un código puede tener varias; orden: prioridad desc.
+ */
+export async function listarDescPromosEspecialesPorCodigos(
+  codigos: readonly string[]
+): Promise<Map<string, DescPromoEspecialFactura[]>> {
+  const unicos = [...new Set(codigos.map((c) => c.trim()).filter(Boolean))];
+  const out = new Map<string, DescPromoEspecialFactura[]>();
+  if (unicos.length === 0) return out;
+  const pedido = new Set(unicos);
+  try {
+    const rows = await prisma.descPromo.findMany({
+      where: {
+        alcance: "ITEMS",
+        items: { some: { codTienda: { in: unicos } } },
+      },
+      include: promoInclude,
+      orderBy: [{ prioridad: "desc" }, { id: "asc" }],
+    });
+    for (const row of rows) {
+      const mapped = mapPromo(row);
+      const especial: DescPromoEspecialFactura = {
+        id: mapped.id,
+        nombre: mapped.nombre,
+        descuento: mapped.descuento,
+        prioridad: mapped.prioridad,
+        formasPago: mapped.formasPago
+          .map(etiquetaFormaPagoCuotaDescPromo)
+          .join(" · "),
+      };
+      for (const item of mapped.items) {
+        if (!pedido.has(item.codTienda)) continue;
+        const lista = out.get(item.codTienda) ?? [];
+        lista.push(especial);
+        out.set(item.codTienda, lista);
+      }
+    }
+    return out;
+  } catch (e: unknown) {
+    console.error(
+      "[descPromo.service] listarDescPromosEspecialesPorCodigos:",
+      e
+    );
+    return out;
   }
 }
 
