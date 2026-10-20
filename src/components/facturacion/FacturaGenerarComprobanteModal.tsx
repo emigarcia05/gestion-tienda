@@ -47,7 +47,7 @@ import {
 } from "@/lib/finAnaCosFinaPagos";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
-  montoArCentsToDisplayWithCurrency,
+  montoArCentsToDisplayPesoEntero,
   montoArCentsToNormalizedString,
   montoArCentsTopePesoEntero,
   montoArNormalizedStringToCents,
@@ -76,8 +76,28 @@ const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal border border-primary px-1.5 py-1 hover:bg-primary hover:text-primary-foreground hover:brightness-90 hover:[&_svg]:text-primary-foreground";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
-const COBRO_ITEM_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_11rem_2.25rem] items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5";
+const COBRO_RESUMEN_FILA_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_11rem_2.25rem] items-center gap-2 py-2";
+const COBRO_RESUMEN_LINEA_SUAVE_CLASS = "border-b border-primary/40";
+const COBRO_RESUMEN_LINEA_GRUESA_CLASS = "border-b-2 border-primary";
+
+function etiquetaFormaPagoCobroRegistrado(cobro: {
+  pagoNombre: string;
+  entidadNombre: string;
+  cuotaEtiqueta: string | null;
+  fechaAcreditacionIso?: string;
+}): string {
+  return [
+    cobro.pagoNombre,
+    cobro.entidadNombre,
+    cobro.cuotaEtiqueta,
+    cobro.fechaAcreditacionIso
+      ? `ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
+      : null,
+  ]
+    .filter((parte): parte is string => Boolean(parte?.trim()))
+    .join(" · ");
+}
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -484,9 +504,8 @@ export default function FacturaGenerarComprobanteModal({
         <div className="flex flex-col gap-5">
           {mostrarPasoCobro ? (
             <section className={SECCION_MODAL_CLASS}>
-              <p className={SECCION_TITULO_CLASS}>COBRO</p>
               <p className="text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
-                SALDO PENDIENTE: {montoArCentsToDisplayWithCurrency(pendienteCents, "$")}
+                SALDO PENDIENTE: {montoArCentsToDisplayPesoEntero(pendienteCents, "$")}
               </p>
 
               {formCobroVisible ? (
@@ -665,50 +684,64 @@ export default function FacturaGenerarComprobanteModal({
               ) : null}
 
               {cobros.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {cobros.map((cobro) => {
-                    const etiquetaFormaPago = [
-                      cobro.pagoNombre,
-                      cobro.entidadNombre,
-                      cobro.cuotaEtiqueta,
-                      cobro.fechaAcreditacionIso
-                        ? `ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
-                        : null,
-                    ]
-                      .filter((parte): parte is string => Boolean(parte?.trim()))
-                      .join(" · ");
+                <div
+                  className="flex flex-col"
+                  role="table"
+                  aria-label="Cobros y saldo pendiente"
+                >
+                  {cobros.map((cobro, i) => {
+                    const etiquetaFormaPago = etiquetaFormaPagoCobroRegistrado(cobro);
+                    const esUltimo = i === cobros.length - 1;
                     return (
-                    <li
-                      key={cobro.id}
-                      className={COBRO_ITEM_GRID_CLASS}
-                    >
-                      <span
-                        className="min-w-0 truncate text-left text-sm font-medium"
-                        title={etiquetaFormaPago}
-                      >
-                        {etiquetaFormaPago}
-                      </span>
-                      <span className="text-center text-sm font-medium tabular-nums">
-                        {montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
+                      <div
+                        key={cobro.id}
+                        role="row"
                         className={cn(
-                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                          "justify-self-center"
+                          COBRO_RESUMEN_FILA_CLASS,
+                          esUltimo
+                            ? COBRO_RESUMEN_LINEA_GRUESA_CLASS
+                            : COBRO_RESUMEN_LINEA_SUAVE_CLASS
                         )}
-                        aria-label="Quitar cobro"
-                        disabled={ocupado}
-                        onClick={() => quitarCobro(cobro.id)}
                       >
-                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                      </Button>
-                    </li>
+                        <span
+                          className="min-w-0 truncate text-left text-sm font-medium uppercase"
+                          title={etiquetaFormaPago}
+                        >
+                          {etiquetaFormaPago}
+                        </span>
+                        <span className="text-center text-sm font-medium tabular-nums">
+                          {montoArCentsToDisplayPesoEntero(cobro.montoCents, "$")}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                            "justify-self-center"
+                          )}
+                          aria-label="Quitar cobro"
+                          disabled={ocupado}
+                          onClick={() => quitarCobro(cobro.id)}
+                        >
+                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      </div>
                     );
                   })}
-                </ul>
+                  <div
+                    role="row"
+                    className={cn(COBRO_RESUMEN_FILA_CLASS, "font-semibold")}
+                  >
+                    <span className="min-w-0 truncate text-left text-sm uppercase">
+                      SALDO PENDIENTE
+                    </span>
+                    <span className="text-center text-sm tabular-nums">
+                      {montoArCentsToDisplayPesoEntero(pendienteCents, "$")}
+                    </span>
+                    <span aria-hidden className="justify-self-center" />
+                  </div>
+                </div>
               ) : null}
 
               {pendienteCents > 0 ? (
@@ -747,7 +780,6 @@ export default function FacturaGenerarComprobanteModal({
 
           {mostrarPasoGenerar ? (
           <section className={SECCION_MODAL_CLASS}>
-            <p className={SECCION_TITULO_CLASS}>GENERAR COMPROBANTE</p>
             {comprobante?.cae ? (
               <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <p className="font-semibold tabular-nums">CAE: {comprobante.cae}</p>

@@ -1213,6 +1213,18 @@
 .tabla-desc-promo-grupos tbody td.tabla-desc-promo-grupo-fin {
   border-bottom: 2px solid var(--primary) !important;
 }
+.tabla-gestion-compacta.tabla-desc-promo-grupos tbody.tabla-desc-promo-grupo--impar tr {
+  --tabla-row-bg: var(--card);
+  background-color: var(--card);
+}
+.tabla-gestion-compacta.tabla-desc-promo-grupos tbody.tabla-desc-promo-grupo--par tr {
+  --tabla-row-bg: color-mix(in oklab, var(--primary) 8%, var(--card));
+  background-color: color-mix(in oklab, var(--primary) 8%, var(--card));
+}
+.tabla-gestion-compacta.tabla-desc-promo-grupos tbody:hover tr {
+  --tabla-row-bg: color-mix(in oklab, var(--primary) 20%, var(--card));
+  background-color: color-mix(in oklab, var(--primary) 20%, var(--card));
+}
 .tabla-gestion-compacta tbody tr:not(.tabla-fila-altura-auto) td {
   padding: var(--tabla-body-cell-padding-y) var(--tabla-body-cell-padding-x) !important;
   font-size: 0.75rem !important;

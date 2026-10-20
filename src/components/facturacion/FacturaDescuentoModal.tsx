@@ -607,8 +607,8 @@ export default function FacturaDescuentoModal({
                   <TableHead>ALCANCE</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {promosOrdenadas.length === 0 ? (
+              {promosOrdenadas.length === 0 ? (
+                <TableBody>
                   <EmptyTableRow
                     colSpan={5}
                     message={
@@ -617,67 +617,78 @@ export default function FacturaDescuentoModal({
                         : "ELEGÍ UNA FORMA DE PAGO."
                     }
                   />
-                ) : (
-                  promosOrdenadas.flatMap((promo) => {
-                    const clave = clavePromo(promo.id);
-                    const formas: DescPromoFormaPagoRef[] =
-                      promo.formasPago.length > 0 ? promo.formasPago : [];
-                    const nFilas = Math.max(formas.length, 1);
-                    return Array.from({ length: nFilas }, (_, i) => {
-                      const fp = formas[i] ?? null;
-                      const claveFila = `${clave}-${fp ? claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId) : i}`;
-                      return (
-                        <TableRow key={claveFila}>
-                          {i === 0 ? (
-                            <CeldaAccionesPromo
-                              etiqueta={promo.nombre}
-                              rowSpan={nFilas}
-                              className="tabla-desc-promo-grupo-fin"
-                              onVer={() => setVerPromo(promo)}
-                            />
-                          ) : null}
-                          {i === 0 ? (
+                </TableBody>
+              ) : (
+                promosOrdenadas.map((promo, indicePromo) => {
+                  const clave = clavePromo(promo.id);
+                  const formas: DescPromoFormaPagoRef[] =
+                    promo.formasPago.length > 0 ? promo.formasPago : [];
+                  const nFilas = Math.max(formas.length, 1);
+                  return (
+                    <TableBody
+                      key={clave}
+                      className={
+                        indicePromo % 2 === 0
+                          ? "tabla-desc-promo-grupo--impar"
+                          : "tabla-desc-promo-grupo--par"
+                      }
+                    >
+                      {Array.from({ length: nFilas }, (_, i) => {
+                        const fp = formas[i] ?? null;
+                        const claveFila = `${clave}-${fp ? claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId) : i}`;
+                        return (
+                          <TableRow key={claveFila}>
+                            {i === 0 ? (
+                              <CeldaAccionesPromo
+                                etiqueta={promo.nombre}
+                                rowSpan={nFilas}
+                                className="tabla-desc-promo-grupo-fin"
+                                onVer={() => setVerPromo(promo)}
+                              />
+                            ) : null}
+                            {i === 0 ? (
+                              <TableCell
+                                rowSpan={nFilas}
+                                className="celda-datos font-bold uppercase tabla-desc-promo-grupo-fin"
+                              >
+                                {fmtCelda(promo.nombre)}
+                              </TableCell>
+                            ) : null}
+                            {i === 0 ? (
+                              <TableCell
+                                rowSpan={nFilas}
+                                className="celda-datos text-center tabular-nums tabla-desc-promo-grupo-fin"
+                              >
+                                {fmtCelda(textoDescuentosDescPromo(promo))}
+                              </TableCell>
+                            ) : null}
                             <TableCell
-                              rowSpan={nFilas}
-                              className="celda-datos font-bold uppercase tabla-desc-promo-grupo-fin"
+                              className={cn(
+                                "celda-datos uppercase",
+                                i === nFilas - 1
+                                  ? "tabla-desc-promo-grupo-fin"
+                                  : "tabla-desc-promo-subdiv"
+                              )}
                             >
-                              {fmtCelda(promo.nombre)}
+                              {fmtCelda(
+                                fp ? etiquetaFormaPagoCuotaDescPromo(fp) : ""
+                              )}
                             </TableCell>
-                          ) : null}
-                          {i === 0 ? (
-                            <TableCell
-                              rowSpan={nFilas}
-                              className="celda-datos text-center tabular-nums tabla-desc-promo-grupo-fin"
-                            >
-                              {fmtCelda(textoDescuentosDescPromo(promo))}
-                            </TableCell>
-                          ) : null}
-                          <TableCell
-                            className={cn(
-                              "celda-datos uppercase",
-                              i === nFilas - 1
-                                ? "tabla-desc-promo-grupo-fin"
-                                : "tabla-desc-promo-subdiv"
-                            )}
-                          >
-                            {fmtCelda(
-                              fp ? etiquetaFormaPagoCuotaDescPromo(fp) : ""
-                            )}
-                          </TableCell>
-                          {i === 0 ? (
-                            <TableCell
-                              rowSpan={nFilas}
-                              className="celda-datos uppercase tabla-desc-promo-grupo-fin"
-                            >
-                              {fmtCelda(etiquetaAlcanceCondicion(promo))}
-                            </TableCell>
-                          ) : null}
-                        </TableRow>
-                      );
-                    });
-                  })
-                )}
-              </TableBody>
+                            {i === 0 ? (
+                              <TableCell
+                                rowSpan={nFilas}
+                                className="celda-datos uppercase tabla-desc-promo-grupo-fin"
+                              >
+                                {fmtCelda(etiquetaAlcanceCondicion(promo))}
+                              </TableCell>
+                            ) : null}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  );
+                })
+              )}
             </Table>
           </div>
             </>

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   MONTO_AR_MASK_MAX_CENTS,
   montoArCentsToNormalizedString,
+  montoArCentsToDisplayPesoEntero,
   montoArCentsToDisplayWithCurrency,
   montoArNormalizedStringToCents,
   montoArSignedCentsToDisplayWithCurrency,
@@ -74,10 +75,17 @@ export default function MontoArInput({
 
   const display = useMemo(() => {
     if (treatEmptyNormalizedAsBlank && valueNormalized.trim() === "") return "";
-    return allowNegative
-      ? montoArSignedCentsToDisplayWithCurrency(centsValue, "$")
+    if (allowNegative) return montoArSignedCentsToDisplayWithCurrency(centsValue, "$");
+    return soloPesosEnteros
+      ? montoArCentsToDisplayPesoEntero(centsValue, "$")
       : montoArCentsToDisplayWithCurrency(centsValue, "$");
-  }, [allowNegative, centsValue, treatEmptyNormalizedAsBlank, valueNormalized]);
+  }, [
+    allowNegative,
+    centsValue,
+    soloPesosEnteros,
+    treatEmptyNormalizedAsBlank,
+    valueNormalized,
+  ]);
 
   return (
     <Input

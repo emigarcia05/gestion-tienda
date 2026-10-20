@@ -53,7 +53,7 @@ import {
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
 import {
-  montoArCentsToDisplayWithCurrency,
+  montoArCentsToDisplayPesoEntero,
   montoArCentsToNormalizedString,
   montoArCentsTopePesoEntero,
   montoArNormalizedStringToCents,
@@ -381,7 +381,7 @@ export default function FacturaComprobanteCobrosModal({
           <div className="flex min-h-0 flex-col gap-3">
             <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
               SALDO DISPONIBLE:{" "}
-              {montoArCentsToDisplayWithCurrency(
+              {montoArCentsToDisplayPesoEntero(
                 Math.round((vistaNc?.saldoDisponible ?? 0) * 100),
                 "$"
               )}
@@ -432,7 +432,7 @@ export default function FacturaComprobanteCobrosModal({
                             )}
                           </TableCell>
                           <TableCell className="celda-datos text-right tabular-nums">
-                            {montoArCentsToDisplayWithCurrency(fila.montoCents, "$")}
+                            {montoArCentsToDisplayPesoEntero(fila.montoCents, "$")}
                           </TableCell>
                           <TableCell className="celda-datos text-left">
                             {fmtCelda(fila.personalNombre)}
@@ -506,7 +506,7 @@ export default function FacturaComprobanteCobrosModal({
               <div className="flex shrink-0 flex-col gap-3">
                 <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
                   DEVOLUCIÓN:{" "}
-                  {montoArCentsToDisplayWithCurrency(
+                  {montoArCentsToDisplayPesoEntero(
                     Math.round((vistaNc?.saldoDisponible ?? 0) * 100),
                     "$"
                   )}
@@ -634,7 +634,7 @@ export default function FacturaComprobanteCobrosModal({
             {haySaldo ? (
               <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
                 SALDO PENDIENTE:{" "}
-                {montoArCentsToDisplayWithCurrency(
+                {montoArCentsToDisplayPesoEntero(
                   Math.round((saldoPendiente ?? 0) * 100),
                   "$"
                 )}
@@ -689,7 +689,7 @@ export default function FacturaComprobanteCobrosModal({
                             </span>
                           </TableCell>
                           <TableCell className="celda-datos text-right tabular-nums">
-                            {montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}
+                            {montoArCentsToDisplayPesoEntero(cobro.montoCents, "$")}
                           </TableCell>
                           <TableCell className="celda-datos text-left">
                             {fmtCelda(cobro.personalNombre)}

@@ -37,6 +37,19 @@ export function montoArCentsTopePesoEntero(saldoCents: number): number {
   return Math.ceil(Math.max(0, Math.round(saldoCents)) / 100) * 100;
 }
 
+/**
+ * Visual de cobros en pesos enteros, sin `,00` (`$87.500`). Un saldo con centavos se muestra
+ * llevado al peso superior, igual que el tope de cobro.
+ */
+export function montoArCentsToDisplayPesoEntero(
+  cents: number,
+  currencySymbol: string = "$"
+): string {
+  const pesos = montoArCentsTopePesoEntero(cents) / 100;
+  const fmt = pesos.toLocaleString("es-AR", { useGrouping: true, maximumFractionDigits: 0 });
+  return `${currencySymbol}${fmt}`;
+}
+
 /** Visual con miles `.` y decimales `,XX` (sin símbolo). */
 export function montoArCentsToDisplayBody(cents: number): string {
   const safe = Math.min(Math.max(Math.trunc(cents), 0), MONTO_AR_MASK_MAX_CENTS);
