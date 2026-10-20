@@ -555,30 +555,17 @@
 
   /**
    * Formato 2 de botón (`Button` `variant="outlineBrand"`).
-   * Tinte `--primary` (no card vacío), banda izquierda 4px, texto/ícono `--primary`.
-   * Distinto de los cuadrados outline (fondo card) y del formato 1 (relleno sólido).
+   * Sobrio: azul intermedio, contorno 3px `--primary`, sin sombra.
+   * Texto/ícono `--primary`. Formato 1 = relleno sólido.
    */
   .btn-outline-brand {
-    background-color: color-mix(in oklch, var(--primary) 16%, var(--card));
-    box-shadow:
-      inset 4px 0 0 0 var(--primary),
-      inset 0 1px 0 color-mix(in oklab, var(--primary-foreground) 50%, transparent),
-      0 6px 14px color-mix(in oklab, var(--primary) 22%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 38%, var(--card));
+    box-shadow: none;
   }
 
   .btn-outline-brand:hover:not(:disabled) {
-    background-color: color-mix(in oklch, var(--primary) 26%, var(--card));
-    box-shadow:
-      inset 4px 0 0 0 var(--primary),
-      inset 0 1px 0 color-mix(in oklab, var(--primary-foreground) 65%, transparent),
-      0 8px 18px color-mix(in oklab, var(--primary) 32%, transparent);
-  }
-
-  .btn-outline-brand:focus-visible {
-    box-shadow:
-      inset 4px 0 0 0 var(--primary),
-      0 0 0 3px color-mix(in oklab, var(--primary) 30%, transparent),
-      0 8px 16px color-mix(in oklab, var(--primary) 28%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 48%, var(--card));
+    box-shadow: none;
   }
 
   /* Input/select de filtro (SSOT): una sola definición; misma altura, borde, fondo y tipografía */
