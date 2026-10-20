@@ -75,6 +75,8 @@ const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal px-1.5 py-1";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
+const COBRO_ITEM_GRID_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_11rem_2.25rem] items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5";
 
 function abrirSelectorFechaNativo(el: HTMLInputElement | null) {
   if (!el) return;
@@ -660,25 +662,39 @@ export default function FacturaGenerarComprobanteModal({
 
               {cobros.length > 0 ? (
                 <ul className="flex flex-col gap-2">
-                  {cobros.map((cobro) => (
+                  {cobros.map((cobro) => {
+                    const etiquetaFormaPago = [
+                      cobro.pagoNombre,
+                      cobro.entidadNombre,
+                      cobro.cuotaEtiqueta,
+                      cobro.fechaAcreditacionIso
+                        ? `ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
+                        : null,
+                    ]
+                      .filter((parte): parte is string => Boolean(parte?.trim()))
+                      .join(" · ");
+                    return (
                     <li
                       key={cobro.id}
-                      className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5"
+                      className={COBRO_ITEM_GRID_CLASS}
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                        {cobro.pagoNombre}
-                        {cobro.entidadNombre ? ` · ${cobro.entidadNombre}` : ""}
-                        {cobro.cuotaEtiqueta ? ` · ${cobro.cuotaEtiqueta}` : ""}
-                        {cobro.fechaAcreditacionIso
-                          ? ` · ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
-                          : ""}
-                        {` · ${montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}`}
+                      <span
+                        className="min-w-0 truncate text-left text-sm font-medium"
+                        title={etiquetaFormaPago}
+                      >
+                        {etiquetaFormaPago}
+                      </span>
+                      <span className="text-center text-sm font-medium tabular-nums">
+                        {montoArCentsToDisplayWithCurrency(cobro.montoCents, "$")}
                       </span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        className={cn(
+                          TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                          "justify-self-center"
+                        )}
                         aria-label="Quitar cobro"
                         disabled={ocupado}
                         onClick={() => quitarCobro(cobro.id)}
@@ -686,7 +702,8 @@ export default function FacturaGenerarComprobanteModal({
                         <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : null}
 

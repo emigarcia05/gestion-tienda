@@ -553,6 +553,32 @@
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 
+  /**
+   * Formato 2 de botón (`Button` `variant="outlineBrand"`).
+   * Fondo `card`, tinta e ícono `--primary`, contorno 2px, brillo de marca.
+   * Formato 1 = `variant="default"` (fondo `--primary`, texto blanco).
+   */
+  .btn-outline-brand {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent),
+      0 8px 16px color-mix(in oklab, var(--primary) 18%, transparent),
+      0 0 14px color-mix(in oklab, var(--primary) 42%, transparent);
+  }
+
+  .btn-outline-brand:hover:not(:disabled) {
+    background-color: color-mix(in oklch, var(--primary) 10%, var(--card));
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 40%, transparent),
+      0 10px 20px color-mix(in oklab, var(--primary) 24%, transparent),
+      0 0 20px color-mix(in oklab, var(--primary) 55%, transparent);
+  }
+
+  .btn-outline-brand:focus-visible {
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--primary) 30%, transparent),
+      0 0 16px color-mix(in oklab, var(--primary) 48%, transparent);
+  }
+
   /* Input/select de filtro (SSOT): una sola definición; misma altura, borde, fondo y tipografía */
   .input-filtro-unificado {
     box-sizing: border-box;

@@ -436,7 +436,7 @@ export default function FacturaDescuentoModal({
               Cancelar
             </Button>
             {esVistaPersonalizada ? (
-              <Button type="button" onClick={handleAplicar}>
+              <Button type="button" variant="outlineBrand" onClick={handleAplicar}>
                 Aplicar
               </Button>
             ) : null}
@@ -541,6 +541,7 @@ export default function FacturaDescuentoModal({
             </div>
             <Button
               type="button"
+              variant="outlineBrand"
               className="h-full min-h-0 w-full px-1 whitespace-normal"
               disabled={!filtroPago}
               onClick={handleAplicarFormaPago}
