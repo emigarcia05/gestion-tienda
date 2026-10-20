@@ -24,6 +24,19 @@ export function montoArCentsToNormalizedString(cents: number): string {
   return `${enteros}.${String(decimales).padStart(2, "0")}`;
 }
 
+/** Cobros y pagos se registran en pesos enteros (sin centavos). */
+export function montoArCentsEsPesoEntero(cents: number): boolean {
+  return Number.isInteger(cents) && cents % 100 === 0;
+}
+
+/**
+ * Tope de un cobro/pago entero contra un saldo que puede tener centavos (comprobantes viejos o
+ * de proveedor): el peso entero inmediato superior, para poder saldarlo.
+ */
+export function montoArCentsTopePesoEntero(saldoCents: number): number {
+  return Math.ceil(Math.max(0, Math.round(saldoCents)) / 100) * 100;
+}
+
 /** Visual con miles `.` y decimales `,XX` (sin símbolo). */
 export function montoArCentsToDisplayBody(cents: number): string {
   const safe = Math.min(Math.max(Math.trunc(cents), 0), MONTO_AR_MASK_MAX_CENTS);

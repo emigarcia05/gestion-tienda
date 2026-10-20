@@ -9,6 +9,7 @@ import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
 import { codColorSchema } from "@/lib/codColorTintometrico";
 import {
   listaPreciosCodTiendaSchema,
+  montoPesoEnteroCentsSchema,
   prismaCuidOrUuidSchema,
   prismaCuidSchema,
   prismaIdOptionalNullableSchema,
@@ -196,7 +197,7 @@ const cobroFacturaEmitirSchema = z
     cuotaEtiqueta: z.string().trim().max(100).nullable(),
     /** Día de acreditación elegido a mano (`fechaAcreditacionVariable`). */
     fechaAcreditacionIso: isoYmdSchema.optional(),
-    montoCents: z.number().int().positive(),
+    montoCents: montoPesoEnteroCentsSchema("Ingresá un monto a cobrar."),
   })
   .superRefine((data, ctx) => {
     if (esCobroNotaCreditoNombre(data.pagoNombre)) {

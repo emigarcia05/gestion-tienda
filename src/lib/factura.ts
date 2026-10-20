@@ -971,11 +971,16 @@ export function pxConDescuento(pxLista: number, descuentoPct: number): number {
   return Math.round(pxLista * (1 - pct / 100));
 }
 
+/**
+ * Importe de la línea en pesos enteros, redondeado hacia abajo (las ventas no llevan centavos).
+ * El redondeo a centavos previo evita errores de coma flotante (2,3 × 100 = 229,999…).
+ */
 export function totalLineaConDescuento(
   linea: Pick<FacturaLineaLocal, "cantidad" | "pxLista">,
   descuentoPct: number
 ): number {
-  return linea.cantidad * pxConDescuento(linea.pxLista, descuentoPct);
+  const bruto = linea.cantidad * pxConDescuento(linea.pxLista, descuentoPct);
+  return Math.floor(Math.round(bruto * 100) / 100);
 }
 
 export function totalListaFactura(lineas: readonly FacturaLineaLocal[]): number {

@@ -321,6 +321,7 @@ export default function FacturaPagoCuentaCorrienteModal({
                 <MontoArInput
                   valueNormalized={montoNorm}
                   onValueNormalizedChange={setMontoNorm}
+                  soloPesosEnteros
                   disabled={guardando}
                   aria-label="Monto a pagar"
                 />

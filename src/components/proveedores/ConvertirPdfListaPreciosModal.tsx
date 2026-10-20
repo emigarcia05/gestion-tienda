@@ -327,14 +327,14 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
 
   const seleccionarArchivo = useCallback(
     (file: File) => {
-      if (!file.name.toLowerCase().endsWith(".pdf")) {
-        toast.error("Solo se aceptan archivos PDF.");
-        return;
-      }
-      setArchivoPendiente(file);
-      setFileName(file.name);
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Solo se aceptan archivos PDF.");
+      return;
+    }
+    setArchivoPendiente(file);
+    setFileName(file.name);
       limpiarResultado();
-      setEstado("config");
+    setEstado("config");
     },
     [limpiarResultado]
   );
@@ -567,18 +567,18 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
               </Button>
             )}
             {preview && (
-              <Button
+                <Button
                 onClick={() => void aplicar()}
-                className="gap-2 min-w-[150px]"
+                  className="gap-2 min-w-[150px]"
                 disabled={ocupado || totalVinculos === 0}
-              >
+                >
                 {estado === "aplicando" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
                 Actualizar Precios ({totalVinculos})
-              </Button>
+                </Button>
             )}
           </>
         }
@@ -623,34 +623,34 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
           )}
 
           {!fileName ? (
-            <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
-              <span className="text-sm font-medium text-foreground min-w-0 truncate">
+          <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
+            <span className="text-sm font-medium text-foreground min-w-0 truncate">
                 ADJUNTAR PDF
-              </span>
+            </span>
               <div className="flex w-full min-w-0">
-                <Button
-                  type="button"
-                  variant="default"
-                  size="default"
-                  disabled={ocupado}
-                  className="min-w-0 flex-1"
+              <Button
+                type="button"
+                variant="default"
+                size="default"
+                disabled={ocupado}
+                className="min-w-0 flex-1"
                   onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="h-4 w-4" />
+              >
+                <Upload className="h-4 w-4" />
                   Adjuntar PDF
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) seleccionarArchivo(f);
-                  }}
-                />
-              </div>
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) seleccionarArchivo(f);
+                }}
+              />
             </div>
+          </div>
           ) : null}
 
           {!fileName && (
@@ -716,15 +716,15 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 <>
                   <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
                     <Table variant="compact" scrollX={false} className="table-fixed w-full">
-                      <TableHeader>
+                  <TableHeader>
                         <TableRow className="hover:bg-transparent">
                           <TableHead className="w-[48%]">ÍTEM LISTA</TableHead>
                           <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
                           <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
                           <TableHead className="w-12 text-center">ACCIONES</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                         {sinPrecio.map((item, i) => {
                           const clave = manuales.get(item.codExt);
                           const pdf = clave ? pdfPorClave.get(clave) : undefined;
@@ -788,12 +788,12 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                                   </Button>
                                 </div>
                               </TableCell>
-                            </TableRow>
+                      </TableRow>
                           );
                         })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  </TableBody>
+                </Table>
+              </div>
                 </>
               )}
 

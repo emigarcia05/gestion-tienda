@@ -48,8 +48,9 @@ import {
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
 import {
   montoArCentsToDisplayWithCurrency,
+  montoArCentsToNormalizedString,
+  montoArCentsTopePesoEntero,
   montoArNormalizedStringToCents,
-  montoArNumberToNormalizedString,
 } from "@/lib/montoArMask";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -72,7 +73,7 @@ const SECCION_MODAL_CLASS =
 const SECCION_TITULO_CLASS =
   "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 const BOTON_GENERAR_CLASS =
-  "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal px-1.5 py-1";
+  "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal border border-primary px-1.5 py-1 hover:bg-primary hover:text-primary-foreground hover:brightness-90 hover:[&_svg]:text-primary-foreground";
 const BOTON_FORMA_PAGO_CLASS =
   "h-16 w-[6.5rem] shrink-0 flex-col gap-1 whitespace-normal border border-primary px-2 py-1.5";
 const COBRO_ITEM_GRID_CLASS =
@@ -212,7 +213,9 @@ export default function FacturaGenerarComprobanteModal({
     setEntidadId("");
     setCuotaId("");
     setFechaAcreditacionDdMmYyyy("");
-    setMontoNorm(pendiente > 0 ? montoArNumberToNormalizedString(pendiente / 100) : "");
+    setMontoNorm(
+      pendiente > 0 ? montoArCentsToNormalizedString(montoArCentsTopePesoEntero(pendiente)) : ""
+    );
   }, []);
 
   useEffect(() => {
@@ -311,7 +314,7 @@ export default function FacturaGenerarComprobanteModal({
     if (montoCents <= 0) {
       return { ok: false, error: "Ingresá un monto a pagar." };
     }
-    if (montoCents > pendienteCents) {
+    if (montoCents > montoArCentsTopePesoEntero(pendienteCents)) {
       return { ok: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
@@ -467,14 +470,14 @@ export default function FacturaGenerarComprobanteModal({
                 Volver
               </Button>
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
+          <Button
+            type="button"
+            variant="outline"
               onClick={cerrarSinEmitir}
-              disabled={ocupado}
-            >
-              Cancelar
-            </Button>
+            disabled={ocupado}
+          >
+            Cancelar
+          </Button>
           </>
         }
       >
@@ -587,6 +590,7 @@ export default function FacturaGenerarComprobanteModal({
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
+                      soloPesosEnteros
                       disabled={ocupado}
                       aria-label="Monto a pagar"
                     />
@@ -710,7 +714,6 @@ export default function FacturaGenerarComprobanteModal({
               {pendienteCents > 0 ? (
                 <Button
                   type="button"
-                  variant="outline"
                   className="w-full"
                   disabled={ocupado}
                   onClick={() => setPaso("generar")}
@@ -748,7 +751,7 @@ export default function FacturaGenerarComprobanteModal({
             {comprobante?.cae ? (
               <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <p className="font-semibold tabular-nums">CAE: {comprobante.cae}</p>
-                <p className="tabular-nums">
+              <p className="tabular-nums">
                   N°: {comprobante.nroComprobante.trim() || ""}
               </p>
               <p>
@@ -762,7 +765,7 @@ export default function FacturaGenerarComprobanteModal({
             <div className="grid grid-cols-4 gap-2">
           <Button
             type="button"
-            variant="default"
+            variant="outline"
                 className={BOTON_GENERAR_CLASS}
             disabled={ocupado}
                 aria-label="Generar"
@@ -780,7 +783,7 @@ export default function FacturaGenerarComprobanteModal({
           <Button
                   key={accion.id}
             type="button"
-            variant="default"
+            variant="outline"
                   className={BOTON_GENERAR_CLASS}
             disabled={ocupado}
                   aria-label={accion.ariaLabel}

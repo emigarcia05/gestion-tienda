@@ -63,7 +63,7 @@ import {
   nombreClienteFactura,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
-  pxConDescuento,
+  totalLineaConDescuento,
   resumenTotalesFactura,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
@@ -72,6 +72,7 @@ import {
   type FacturaLineaLocal,
   type FacturaTipo,
 } from "@/lib/factura";
+import { montoArCentsTopePesoEntero } from "@/lib/montoArMask";
 import {
   ARCA_ALICUOTA_IVA_DEFAULT,
   ARCA_CONDICION_IVA,
@@ -969,9 +970,8 @@ function calcularLineas(
     const raw = input.lineas[i];
     const linea = lineasLocales[i];
     const pct = porcentajeDescuentoLinea(linea, pctGlobal);
-    const pxDesc = pxConDescuento(raw.pxLista, pct);
     const cantidad = redondearCantidadUnDecimal(raw.cantidad);
-    const importe = roundArs2(cantidad * pxDesc);
+    const importe = totalLineaConDescuento({ cantidad, pxLista: raw.pxLista }, pct);
     const alicuota =
       letra === "C" ? 0 : (raw.alicuotaIva ?? ARCA_ALICUOTA_IVA_DEFAULT);
     const ivaId = ivaIdDesdeAlicuota(alicuota);
@@ -1100,12 +1100,12 @@ function emitirResultadoDesdeRow(row: {
 }
 
 const PTO_VTA_EMITIR_SELECT = {
-  id: true,
-  ptoVenta: true,
-  cuit: true,
-  condicionIva: true,
-  concepto: true,
-  estado: true,
+      id: true,
+      ptoVenta: true,
+      cuit: true,
+      condicionIva: true,
+      concepto: true,
+      estado: true,
 } as const;
 
 async function ptoVtaActivoDeSucursalPersonal(
@@ -2019,8 +2019,10 @@ export async function registrarCobroComprobanteVta(
             "La devolución solo aplica si no quedan ventas para imputar y hay saldo disponible.",
         };
       }
-      const montoPesos = roundArs2(input.montoCents / 100);
-      if (montoPesos > vista.saldoDisponible) {
+      if (
+        input.montoCents >
+        montoArCentsTopePesoEntero(Math.round(vista.saldoDisponible * 100))
+      ) {
         return { success: false, error: "El monto no puede ser mayor al saldo disponible." };
       }
       if (row.personalId == null || !row.personal?.sucursalPorDefecto) {
@@ -2093,7 +2095,7 @@ export async function registrarCobroComprobanteVta(
       return { success: false, error: "No hay saldo pendiente." };
     }
     const montoPesos = roundArs2(input.montoCents / 100);
-    if (montoPesos > saldo) {
+    if (input.montoCents > montoArCentsTopePesoEntero(Math.round(saldo * 100))) {
       return { success: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
     const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
@@ -2112,7 +2114,7 @@ export async function registrarCobroComprobanteVta(
     });
     if (!movsPrep.success) return movsPrep;
 
-    const siguienteImpCobrado = roundArs2(impCobrado + montoPesos);
+    const siguienteImpCobrado = Math.min(impTotal, roundArs2(impCobrado + montoPesos));
     const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
     await prisma.$transaction(async (tx) => {
       const ordenInicio = await siguienteOrdenCobroComprobante(input.id, tx);

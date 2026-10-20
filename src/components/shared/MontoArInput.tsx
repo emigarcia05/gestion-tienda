@@ -43,6 +43,11 @@ export type MontoArInputProps = Omit<
     treatEmptyNormalizedAsBlank?: boolean;
     /** Tecla `-` / pegado con signo: persiste normalizado negativo (`"-123.45"`). */
     allowNegative?: boolean;
+    /**
+     * Cada dígito agrega pesos (no centavos): el valor siempre es entero (cobros / pagos).
+     * Al pegar se descarta la parte decimal (`,XX`).
+     */
+    soloPesosEnteros?: boolean;
   };
 
 export default function MontoArInput({
@@ -50,12 +55,15 @@ export default function MontoArInput({
   onValueNormalizedChange,
   treatEmptyNormalizedAsBlank = false,
   allowNegative = false,
+  soloPesosEnteros = false,
   variant,
   className,
   disabled,
   ...props
 }: MontoArInputProps) {
   const overwriteOnNextInputRef = useRef(true);
+  const paso = soloPesosEnteros ? 100 : 1;
+  const maxMag = Math.floor(MONTO_AR_MASK_MAX_CENTS / paso) * paso;
   const centsValue = useMemo(
     () =>
       allowNegative
@@ -111,9 +119,9 @@ export default function MontoArInput({
 
         if (isDigit) {
           event.preventDefault();
-          const mag = Math.abs(centsValue);
-          const base = overwriteOnNextInputRef.current ? 0 : mag;
-          const nextMag = Math.min(base * 10 + Number(key), MONTO_AR_MASK_MAX_CENTS);
+          const unidades = Math.floor(Math.abs(centsValue) / paso);
+          const base = overwriteOnNextInputRef.current ? 0 : unidades;
+          const nextMag = Math.min((base * 10 + Number(key)) * paso, maxMag);
           overwriteOnNextInputRef.current = false;
           const keepNeg = allowNegative && centsValue < 0 && nextMag !== 0;
           const next = keepNeg ? -nextMag : nextMag;
@@ -128,8 +136,7 @@ export default function MontoArInput({
         if (key === "Backspace" || key === "Delete") {
           event.preventDefault();
           overwriteOnNextInputRef.current = false;
-          const mag = Math.abs(centsValue);
-          const nextMag = Math.floor(mag / 10);
+          const nextMag = Math.floor(Math.abs(centsValue) / paso / 10) * paso;
           const keepNeg = allowNegative && centsValue < 0 && nextMag !== 0;
           const normalized =
             treatEmptyNormalizedAsBlank && nextMag === 0
@@ -150,11 +157,12 @@ export default function MontoArInput({
         overwriteOnNextInputRef.current = false;
         const text = event.clipboardData.getData("text");
         const pasteNeg = allowNegative && text.trim().startsWith("-");
-        const digits = text.replace(/\D/g, "");
+        const parteEntera = soloPesosEnteros ? text.split(",")[0] : text;
+        const digits = parteEntera.replace(/\D/g, "");
         if (!digits) return;
-        const pastedCents = Number(digits);
-        if (!Number.isFinite(pastedCents)) return;
-        const nextMag = Math.min(pastedCents, MONTO_AR_MASK_MAX_CENTS);
+        const pasted = Number(digits);
+        if (!Number.isFinite(pasted)) return;
+        const nextMag = Math.min(pasted * paso, maxMag);
         const next = pasteNeg && nextMag !== 0 ? -nextMag : nextMag;
         onValueNormalizedChange(
           allowNegative

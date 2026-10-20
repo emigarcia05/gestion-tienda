@@ -553,21 +553,6 @@
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 
-  /**
-   * Formato 2 de botón (`Button` `variant="outlineBrand"`).
-   * Sobrio: azul intermedio, contorno 3px `--primary`, sin sombra.
-   * Texto/ícono `--primary`. Formato 1 = relleno sólido.
-   */
-  .btn-outline-brand {
-    background-color: color-mix(in oklch, var(--primary) 38%, var(--card));
-    box-shadow: none;
-  }
-
-  .btn-outline-brand:hover:not(:disabled) {
-    background-color: color-mix(in oklch, var(--primary) 48%, var(--card));
-    box-shadow: none;
-  }
-
   /* Input/select de filtro (SSOT): una sola definición; misma altura, borde, fondo y tipografía */
   .input-filtro-unificado {
     box-sizing: border-box;
@@ -1214,6 +1199,19 @@
   height: var(--tabla-body-row-min-height) !important;
   min-height: var(--tabla-body-row-min-height) !important;
   max-height: var(--tabla-body-row-min-height) !important;
+}
+/**
+ * Factura DESCUENTO: un bloque por promo (línea 2px `--primary`) y
+ * subdivisiones de FORMA PAGO (línea 1px `--primary`).
+ */
+.tabla-desc-promo-grupos tbody tr:not(.tabla-fila-altura-auto) {
+  border-bottom: none !important;
+}
+.tabla-desc-promo-grupos tbody td.tabla-desc-promo-subdiv {
+  border-bottom: 1px solid var(--primary) !important;
+}
+.tabla-desc-promo-grupos tbody td.tabla-desc-promo-grupo-fin {
+  border-bottom: 2px solid var(--primary) !important;
 }
 .tabla-gestion-compacta tbody tr:not(.tabla-fila-altura-auto) td {
   padding: var(--tabla-body-cell-padding-y) var(--tabla-body-cell-padding-x) !important;

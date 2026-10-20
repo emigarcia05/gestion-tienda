@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { montoArCentsEsPesoEntero } from "@/lib/montoArMask";
 
 /** Un solo UUID (Prisma/crypto id). */
 export const uuidSchema = z.string().uuid("ID inválido.");
@@ -49,6 +50,15 @@ export const listaPreciosCodExtSchema = z
 export const listaPreciosCodExtListSchema = z
   .array(listaPreciosCodExtSchema)
   .min(1, "Al menos un código es requerido.");
+
+/** Monto de un cobro / pago en centavos: positivo y en pesos enteros (múltiplo de 100). */
+export function montoPesoEnteroCentsSchema(mensajeRequerido: string) {
+  return z
+    .number()
+    .int()
+    .positive(mensajeRequerido)
+    .refine(montoArCentsEsPesoEntero, "El monto debe ser en pesos enteros, sin centavos.");
+}
 
 /** Clave natural `prod_lista.cod_tienda`. */
 export const listaPreciosCodTiendaSchema = z

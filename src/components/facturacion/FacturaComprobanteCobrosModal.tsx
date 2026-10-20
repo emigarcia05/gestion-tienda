@@ -54,8 +54,9 @@ import {
 } from "@/lib/finAnaCosFinaPagos";
 import {
   montoArCentsToDisplayWithCurrency,
+  montoArCentsToNormalizedString,
+  montoArCentsTopePesoEntero,
   montoArNormalizedStringToCents,
-  montoArNumberToNormalizedString,
 } from "@/lib/montoArMask";
 import { cn } from "@/lib/utils";
 
@@ -142,7 +143,9 @@ export default function FacturaComprobanteCobrosModal({
     setCuotaId("");
     setMontoNorm(
       pendiente != null && pendiente > 0
-        ? montoArNumberToNormalizedString(pendiente)
+        ? montoArCentsToNormalizedString(
+            montoArCentsTopePesoEntero(Math.round(pendiente * 100))
+          )
         : ""
     );
   }, []);
@@ -318,8 +321,7 @@ export default function FacturaComprobanteCobrosModal({
         ? vistaNc.saldoDisponible
         : 0
       : (saldoPendiente ?? 0);
-    const saldoCents = Math.round(saldoLimite * 100);
-    if (montoCents > saldoCents) {
+    if (montoCents > montoArCentsTopePesoEntero(Math.round(saldoLimite * 100))) {
       toast.error(
         esNotaCredito
           ? "El monto no puede ser mayor al saldo disponible."
@@ -609,6 +611,7 @@ export default function FacturaComprobanteCobrosModal({
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
+                      soloPesosEnteros
                       disabled={guardando}
                       aria-label="Monto a devolver"
                     />
@@ -816,6 +819,7 @@ export default function FacturaComprobanteCobrosModal({
                     <MontoArInput
                       valueNormalized={montoNorm}
                       onValueNormalizedChange={setMontoNorm}
+                      soloPesosEnteros
                       disabled={guardando}
                       aria-label="Monto a pagar"
                     />

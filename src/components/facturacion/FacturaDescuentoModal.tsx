@@ -70,15 +70,20 @@ function CeldaAccionesPromo({
   etiqueta,
   onVer,
   rowSpan,
+  className,
 }: {
   etiqueta: string;
   onVer?: () => void;
   rowSpan?: number;
+  className?: string;
 }) {
   return (
     <TableCell
       rowSpan={rowSpan}
-      className="celda-datos celda-datos--accion-relleno-fila p-0"
+      className={cn(
+        "celda-datos celda-datos--accion-relleno-fila p-0",
+        className
+      )}
     >
       <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-center")}>
         {onVer ? (
@@ -436,7 +441,7 @@ export default function FacturaDescuentoModal({
               Cancelar
             </Button>
             {esVistaPersonalizada ? (
-              <Button type="button" variant="outlineBrand" onClick={handleAplicar}>
+              <Button type="button" onClick={handleAplicar}>
                 Aplicar
               </Button>
             ) : null}
@@ -541,7 +546,6 @@ export default function FacturaDescuentoModal({
             </div>
             <Button
               type="button"
-              variant="outlineBrand"
               className="h-full min-h-0 w-full px-1 whitespace-normal"
               disabled={!filtroPago}
               onClick={handleAplicarFormaPago}
@@ -585,7 +589,7 @@ export default function FacturaDescuentoModal({
           >
             <Table
               variant="compact"
-              className="tabla-gestion-compacta w-full"
+              className="tabla-gestion-compacta tabla-desc-promo-grupos w-full"
             >
               <colgroup>
                 <col className="w-[12%]" />
@@ -628,13 +632,14 @@ export default function FacturaDescuentoModal({
                             <CeldaAccionesPromo
                               etiqueta={promo.nombre}
                               rowSpan={nFilas}
+                              className="tabla-desc-promo-grupo-fin"
                               onVer={() => setVerPromo(promo)}
                             />
                           ) : null}
                           {i === 0 ? (
                             <TableCell
                               rowSpan={nFilas}
-                              className="celda-datos font-bold uppercase"
+                              className="celda-datos font-bold uppercase tabla-desc-promo-grupo-fin"
                             >
                               {fmtCelda(promo.nombre)}
                             </TableCell>
@@ -642,12 +647,19 @@ export default function FacturaDescuentoModal({
                           {i === 0 ? (
                             <TableCell
                               rowSpan={nFilas}
-                              className="celda-datos text-center tabular-nums"
+                              className="celda-datos text-center tabular-nums tabla-desc-promo-grupo-fin"
                             >
                               {fmtCelda(textoDescuentosDescPromo(promo))}
                             </TableCell>
                           ) : null}
-                          <TableCell className="celda-datos uppercase">
+                          <TableCell
+                            className={cn(
+                              "celda-datos uppercase",
+                              i === nFilas - 1
+                                ? "tabla-desc-promo-grupo-fin"
+                                : "tabla-desc-promo-subdiv"
+                            )}
+                          >
                             {fmtCelda(
                               fp ? etiquetaFormaPagoCuotaDescPromo(fp) : ""
                             )}
@@ -655,7 +667,7 @@ export default function FacturaDescuentoModal({
                           {i === 0 ? (
                             <TableCell
                               rowSpan={nFilas}
-                              className="celda-datos uppercase"
+                              className="celda-datos uppercase tabla-desc-promo-grupo-fin"
                             >
                               {fmtCelda(etiquetaAlcanceCondicion(promo))}
                             </TableCell>
