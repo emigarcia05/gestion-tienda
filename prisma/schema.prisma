@@ -1566,13 +1566,13 @@ model ProdPropio {
 
 /**
  * Componentes de un producto compuesto: 1 compuesto → N componentes de `prod_lista`.
- * `cantidad` = unidades del componente por 1 unidad del compuesto (hasta 1 decimal, > 0).
+ * `cantidad` = unidades del componente por 1 unidad del compuesto (hasta 4 decimales, > 0; p. ej. 0,005).
  * Un componente no puede ser compuesto (servicio `productoCompuesto.service.ts`).
  */
 model ProdListaCompuesto {
   codTiendaCompuesto  String   @map("cod_tienda_compuesto")
   codTiendaComponente String   @map("cod_tienda_componente")
-  cantidad            Decimal  @db.Decimal(12, 1)
+  cantidad            Decimal  @db.Decimal(14, 4)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
 

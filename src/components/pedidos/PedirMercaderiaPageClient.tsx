@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Palette } from "lucide-react";
@@ -14,7 +14,6 @@ import TablaPedirMercaderia, {
 } from "@/components/pedidos/TablaPedirMercaderia";
 import CantPedirMercaderiaModal from "@/components/pedidos/CantPedirMercaderiaModal";
 import AgregarTintometricoModal from "@/components/pedidos/AgregarTintometricoModal";
-import ConfigurarReposicionModal from "@/components/pedidos/ConfigurarReposicionModal";
 import BorrarReposicionPedirModal, {
   type OpcionBorrarReposicion,
 } from "@/components/pedidos/BorrarReposicionPedirModal";
@@ -24,7 +23,7 @@ import {
   setOmitirReposicionPedidoAction,
   upsertPedidoUrgenteMercaderiaItemAction,
 } from "@/actions/pedidos";
-import { deleteReglaReposicion, type ItemReposicion } from "@/actions/reposicion";
+import { deleteReglaReposicion } from "@/actions/reposicion";
 import { PAGE_SIZE } from "@/lib/pagination";
 import {
   cantidadesUrgenteDesdeProductos,
@@ -36,13 +35,9 @@ import {
   type FiltroPedidoValor,
   type TipoPedido,
 } from "@/lib/pedidos";
-import { valoresReposicionVendedor } from "@/lib/reposicionCorp";
-import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
 const TIPOS_GENERAR_PEDIDO: TipoPedido[] = ["URGENTE", "TINTOMETRICO", "REPOSICION"];
-/** Espera al cierre animado de un `Dialog` antes de abrir otro (no apilar modales). */
-const MS_ENTRE_MODALES = 300;
 
 interface Props {
   filters: React.ReactNode;
@@ -62,34 +57,6 @@ interface Props {
   ivaComparacionRevisionToken: string;
   /** Tintométricos de la sucursal (y proveedor si está filtrado); van siempre arriba. */
   tintometricos: FilaTintometricoPedir[];
-}
-
-function itemReposicionDesdeProducto(prod: PedidoUrgenteItem): ItemReposicion {
-  const regla = prod.reposicionRegla;
-  return {
-    idListaTienda: prod.codTienda,
-    codExt: prod.codExt,
-    codTienda: prod.codTienda,
-    descripcionTienda: prod.descripcion,
-    stock: prod.stockTienda,
-    idProveedor: null,
-    nombreProveedor: null,
-    idReposicion: regla?.idReposicion ?? null,
-    formaPedir: normalizarReposicionFormaPedido(regla?.formaPedir) ?? "",
-    puntoReposicion: regla?.puntoReposicion ?? 0,
-    cant: regla?.cantConf ?? 0,
-    cantPedidaReposicion: prod.cantReposicion,
-    cantPedir: prod.cantReposicion,
-    bulto: prod.bultoTienda,
-    tienePisoCorp: regla?.tienePisoCorp ?? false,
-    pisoCorp: regla?.pisoCorp
-      ? valoresReposicionVendedor(
-          regla.pisoCorp.forma,
-          regla.pisoCorp.punto,
-          regla.pisoCorp.cantConf
-        )
-      : null,
-  };
 }
 
 export default function PedirMercaderiaPageClient({
@@ -114,11 +81,8 @@ export default function PedirMercaderiaPageClient({
   const [cantPorId, setCantPorId] = useState<Record<string, string>>({});
   const [productoModal, setProductoModal] = useState<PedidoUrgenteItem | null>(null);
   const [modalCantOpen, setModalCantOpen] = useState(false);
-  const [itemReposicion, setItemReposicion] = useState<ItemReposicion | null>(null);
-  const [modalRepoOpen, setModalRepoOpen] = useState(false);
   const [productoBorrar, setProductoBorrar] = useState<PedidoUrgenteItem | null>(null);
   const [modalBorrarOpen, setModalBorrarOpen] = useState(false);
-  const timerModalRef = useRef<number | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -130,23 +94,9 @@ export default function PedirMercaderiaPageClient({
     });
   }, [productos]);
 
-  useEffect(
-    () => () => {
-      if (timerModalRef.current != null) window.clearTimeout(timerModalRef.current);
-    },
-    []
-  );
-
   function abrirCantidad(prod: PedidoUrgenteItem) {
     setProductoModal(prod);
     setModalCantOpen(true);
-  }
-
-  function abrirConfigurarReposicion(prod: PedidoUrgenteItem) {
-    if (!sucursalValida || !prod.codTienda) return;
-    setModalCantOpen(false);
-    setItemReposicion(itemReposicionDesdeProducto(prod));
-    timerModalRef.current = window.setTimeout(() => setModalRepoOpen(true), MS_ENTRE_MODALES);
   }
 
   async function guardarUrgente(
@@ -328,10 +278,10 @@ export default function PedirMercaderiaPageClient({
         open={modalCantOpen}
         onOpenChange={setModalCantOpen}
         producto={productoModal}
+        sucursal={sucursalValida}
         cantPorId={cantPorId}
         ivaSaldoAcumuladoComparacion={ivaSaldoAcumuladoComparacion}
         onGuardarUrgente={guardarUrgente}
-        onConfigurarReposicion={abrirConfigurarReposicion}
         onReactivarReposicion={reactivarReposicion}
       />
       <BorrarReposicionPedirModal
@@ -349,14 +299,6 @@ export default function PedirMercaderiaPageClient({
         proveedorInicial={proveedor}
         onAgregado={() => router.refresh()}
       />
-      {itemReposicion && sucursalValida ? (
-        <ConfigurarReposicionModal
-          open={modalRepoOpen}
-          onOpenChange={setModalRepoOpen}
-          item={itemReposicion}
-          sucursal={sucursalValida}
-        />
-      ) : null}
     </>
   );
 }

@@ -26,8 +26,7 @@ import TablaComponentesCompuesto, {
   type FilaComponente,
 } from "@/components/tienda/TablaComponentesCompuesto";
 import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
-import { parseCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
-import type { ComponenteCandidatoItem } from "@/lib/productoCompuesto";
+import { parseCantidadComponente, type ComponenteCandidatoItem } from "@/lib/productoCompuesto";
 import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import type { CrearProductoTiendaItemInput } from "@/lib/validations/listaProductos";
 import { cn } from "@/lib/utils";
@@ -71,7 +70,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   }, [open]);
 
   const componentesValidos =
-    componentes.length > 0 && componentes.every((c) => parseCantidadUnDecimal(c.cantidadInput) != null);
+    componentes.length > 0 && componentes.every((c) => parseCantidadComponente(c.cantidadInput) != null);
   const puedeAgregar =
     camposProductoTiendaCompletos(campos) &&
     (esPropio || !!vinculo) &&
@@ -126,7 +125,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         esPropio && esCompuesto
           ? componentes.map((c) => ({
               codTienda: c.codTienda,
-              cantidad: parseCantidadUnDecimal(c.cantidadInput) ?? c.cantidad,
+              cantidad: parseCantidadComponente(c.cantidadInput) ?? c.cantidad,
             }))
           : [],
     };

@@ -8,11 +8,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { filtroTexto } from "@/lib/busqueda";
-import type {
-  ComponenteCandidatoItem,
-  ComposicionProductoTienda,
+import {
+  cantidadComponenteDesdePrisma,
+  type ComponenteCandidatoItem,
+  type ComposicionProductoTienda,
 } from "@/lib/productoCompuesto";
-import { cantidadDesdePrisma } from "@/lib/cantidadUnDecimal";
 import type {
   ComponentesCompuestoInput,
   GuardarComponentesCompuestoInput,
@@ -63,7 +63,7 @@ export async function getComposicionProductoTienda(
         componentes: row.componentes.map((c) => ({
           codTienda: c.componente.codTienda,
           descripcion: (c.componente.descripcionTienda ?? "").trim(),
-          cantidad: cantidadDesdePrisma(c.cantidad),
+          cantidad: cantidadComponenteDesdePrisma(c.cantidad),
           costoUnitario: resolverCostoCompraTienda(c.componente),
         })),
       },

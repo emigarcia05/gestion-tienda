@@ -17,8 +17,7 @@ import {
   guardarComponentesCompuestoAction,
   setProductoCompuestoTiendaAction,
 } from "@/actions/listaProductos";
-import type { ComponenteCandidatoItem } from "@/lib/productoCompuesto";
-import { parseCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
+import { parseCantidadComponente, type ComponenteCandidatoItem } from "@/lib/productoCompuesto";
 import { cn } from "@/lib/utils";
 
 /**
@@ -90,9 +89,9 @@ export default function ComponentesProductoCompuesto({
   function persistir(siguientes: FilaComponente[], mensaje: string) {
     const componentes: { codTienda: string; cantidad: number }[] = [];
     for (const f of siguientes) {
-      const cantidad = parseCantidadUnDecimal(f.cantidadInput);
+      const cantidad = parseCantidadComponente(f.cantidadInput);
       if (cantidad == null) {
-        toast.error(`Cantidad inválida en «${f.descripcion || f.codTienda}» (mayor a 0, hasta 1 decimal).`);
+        toast.error(`Cantidad inválida en «${f.descripcion || f.codTienda}» (mayor a 0, hasta 4 decimales).`);
         setFilas(guardadas);
         return;
       }

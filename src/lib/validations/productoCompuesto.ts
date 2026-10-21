@@ -1,6 +1,10 @@
 import { z } from "zod";
-import { cantidadUnDecimalPositivaSchema } from "@/lib/cantidadUnDecimal";
+import { esCantidadComponenteValida } from "@/lib/productoCompuesto";
 import { listaPreciosCodTiendaSchema } from "@/lib/validations/common";
+
+const cantidadComponenteSchema = z
+  .number()
+  .refine(esCantidadComponenteValida, "La cantidad debe ser mayor a 0 y con hasta 4 decimales.");
 
 export const setProductoCompuestoSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
@@ -12,7 +16,7 @@ export const componentesCompuestoSchema = z
   .array(
     z.object({
       codTienda: listaPreciosCodTiendaSchema,
-      cantidad: cantidadUnDecimalPositivaSchema,
+      cantidad: cantidadComponenteSchema,
     })
   )
   .max(100, "Máximo 100 componentes.");

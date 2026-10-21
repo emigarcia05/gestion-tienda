@@ -13,19 +13,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
-import { costoProductoCompuesto, type ComponenteCompuestoItem } from "@/lib/productoCompuesto";
-import { formatCantidadInputValor, parseCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
+import {
+  costoProductoCompuesto,
+  formatCantidadComponenteInput,
+  parseCantidadComponente,
+  type ComponenteCompuestoItem,
+} from "@/lib/productoCompuesto";
 import { fmtPrecio } from "@/lib/format";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 const ROW_ICON_BTN_CLASS = cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS, "h-8 w-8 min-h-8 max-h-8");
 
-/** Fila en edición: `cantidadInput` es el texto del input (`0,5`). */
+/** Fila en edición: `cantidadInput` es el texto del input (`0,005`). */
 export type FilaComponente = ComponenteCompuestoItem & { cantidadInput: string };
 
 export function aFilaComponente(c: ComponenteCompuestoItem): FilaComponente {
-  return { ...c, cantidadInput: formatCantidadInputValor(c.cantidad) };
+  return { ...c, cantidadInput: formatCantidadComponenteInput(c.cantidad) };
 }
 
 /**
@@ -50,7 +54,7 @@ export default function TablaComponentesCompuesto({
   onQuitar: (codTienda: string) => void;
 }) {
   const costoTotal = costoProductoCompuesto(
-    filas.map((f) => ({ cantidad: parseCantidadUnDecimal(f.cantidadInput) ?? 0, costoUnitario: f.costoUnitario }))
+    filas.map((f) => ({ cantidad: parseCantidadComponente(f.cantidadInput) ?? 0, costoUnitario: f.costoUnitario }))
   );
 
   return (
@@ -105,7 +109,7 @@ export default function TablaComponentesCompuesto({
                 ${fmtPrecio(f.costoUnitario)}
               </TableCell>
               <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                ${fmtPrecio((parseCantidadUnDecimal(f.cantidadInput) ?? 0) * f.costoUnitario)}
+                ${fmtPrecio((parseCantidadComponente(f.cantidadInput) ?? 0) * f.costoUnitario)}
               </TableCell>
               <TableCell className="text-center">
                 {puedeQuitar ? (

@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { IvaProveedor } from "@prisma/client";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import ReposicionConfigCampos, { useReposicionConfigForm } from "@/components/pedidos/ReposicionConfigForm";
+import type { ItemReposicion, SucursalReposicion } from "@/actions/reposicion";
 import { ordenarMiembrosPedidoUrgentePorMenorCostoComparable } from "@/lib/precioComparacionPedidoUrgenteReposicion";
-import { labelReposicionFormaPedidoVendedor } from "@/lib/validations/reposicion";
+import { valoresReposicionVendedor } from "@/lib/reposicionCorp";
+import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
 const TITULO_SECCION_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
@@ -37,17 +41,61 @@ function enteroNoNegativo(raw: string): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** Placeholder mientras no hay producto (el hook de reposición se llama siempre). */
+const ITEM_REPOSICION_VACIO: ItemReposicion = {
+  idListaTienda: "",
+  codExt: "",
+  codTienda: "",
+  descripcionTienda: null,
+  stock: 0,
+  idProveedor: null,
+  nombreProveedor: null,
+  idReposicion: null,
+  formaPedir: "",
+  puntoReposicion: 0,
+  cant: 0,
+  cantPedidaReposicion: 0,
+  cantPedir: 0,
+  bulto: null,
+  tienePisoCorp: false,
+  pisoCorp: null,
+};
+
+function itemReposicionDesdeProducto(prod: PedidoUrgenteItem): ItemReposicion {
+  const regla = prod.reposicionRegla;
+  return {
+    idListaTienda: prod.codTienda,
+    codExt: prod.codExt,
+    codTienda: prod.codTienda,
+    descripcionTienda: prod.descripcion,
+    stock: prod.stockTienda,
+    idProveedor: null,
+    nombreProveedor: null,
+    idReposicion: regla?.idReposicion ?? null,
+    formaPedir: normalizarReposicionFormaPedido(regla?.formaPedir) ?? "",
+    puntoReposicion: regla?.puntoReposicion ?? 0,
+    cant: regla?.cantConf ?? 0,
+    cantPedidaReposicion: prod.cantReposicion,
+    cantPedir: prod.cantReposicion,
+    bulto: prod.bultoTienda,
+    tienePisoCorp: regla?.tienePisoCorp ?? false,
+    pisoCorp: regla?.pisoCorp
+      ? valoresReposicionVendedor(regla.pisoCorp.forma, regla.pisoCorp.punto, regla.pisoCorp.cantConf)
+      : null,
+  };
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   producto: PedidoUrgenteItem | null;
+  /** Sucursal del usuario de pestaña ("" = sin usuario: reposición no editable). */
+  sucursal: SucursalReposicion | "";
   /** Cantidades URGENTE vigentes por `cod_ext` (estado optimista de la página). */
   cantPorId: Record<string, string>;
   ivaSaldoAcumuladoComparacion: number;
-  /** Guarda solo los `cod_ext` cuya cantidad cambió (0 = borrar). */
-  onGuardarUrgente: (cambios: Record<string, number>) => Promise<boolean>;
-  /** Abre «Configurar Reposición» (solo productos registrados en tienda). */
-  onConfigurarReposicion: (producto: PedidoUrgenteItem) => void;
+  /** Guarda solo los `cod_ext` cuya cantidad cambió (0 = borrar); `null` = sin toast de éxito. */
+  onGuardarUrgente: (cambios: Record<string, number>, mensajeExito?: string | null) => Promise<boolean>;
   /** Quita «No pedir en este pedido» de la regla. */
   onReactivarReposicion: (producto: PedidoUrgenteItem) => void;
 }
@@ -56,14 +104,26 @@ export default function CantPedirMercaderiaModal({
   open,
   onOpenChange,
   producto,
+  sucursal,
   cantPorId,
   ivaSaldoAcumuladoComparacion,
   onGuardarUrgente,
-  onConfigurarReposicion,
   onReactivarReposicion,
 }: Props) {
+  const router = useRouter();
   const [valores, setValores] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
+
+  const itemRepo = useMemo(
+    () => (producto?.codTienda ? itemReposicionDesdeProducto(producto) : ITEM_REPOSICION_VACIO),
+    [producto]
+  );
+  const repoEditable = Boolean(producto?.estaVinculadoTienda && producto.codTienda && sucursal);
+  const formRepo = useReposicionConfigForm({
+    open: open && repoEditable,
+    item: itemRepo,
+    sucursal: sucursal || undefined,
+  });
 
   const miembros = useMemo(() => {
     if (!producto) return [];
@@ -93,18 +153,37 @@ export default function CantPedirMercaderiaModal({
     const previo = enteroNoNegativo(cantPorId[m.codExt] ?? "");
     if (nuevo !== previo) cambios[m.codExt] = nuevo;
   }
-  const hayCambios = Object.keys(cambios).length > 0;
+  const hayCambiosUrgente = Object.keys(cambios).length > 0;
+  const hayCambiosRepo = repoEditable && formRepo.hayCambios;
   const regla = producto.reposicionRegla;
 
   async function handleGuardar() {
-    if (!hayCambios) {
+    if (!hayCambiosUrgente && !hayCambiosRepo) {
       onOpenChange(false);
       return;
     }
     setGuardando(true);
     try {
-      const ok = await onGuardarUrgente(cambios);
-      if (ok) onOpenChange(false);
+      let guardadosRepo = 0;
+      if (hayCambiosRepo) {
+        const res = await formRepo.guardar();
+        if (res === null) return;
+        guardadosRepo = res;
+      }
+      if (hayCambiosUrgente && !(await onGuardarUrgente(cambios, hayCambiosRepo ? null : "Cantidad guardada."))) {
+        return;
+      }
+      if (hayCambiosRepo) {
+        toast.success(
+          hayCambiosUrgente
+            ? "Cambios guardados."
+            : guardadosRepo > 1
+              ? `Configuración guardada para ${guardadosRepo} producto(s).`
+              : "Configuración guardada."
+        );
+        router.refresh();
+      }
+      onOpenChange(false);
     } finally {
       setGuardando(false);
     }
@@ -114,13 +193,17 @@ export default function CantPedirMercaderiaModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
         title="Cant. a Pedir"
-        size="md"
+        className="max-w-[56rem]"
         actions={
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cerrar
             </Button>
-            <Button type="button" onClick={handleGuardar} disabled={guardando || !hayCambios}>
+            <Button
+              type="button"
+              onClick={handleGuardar}
+              disabled={guardando || (!hayCambiosUrgente && !hayCambiosRepo)}
+            >
               {guardando ? "Guardando..." : "Guardar"}
             </Button>
           </div>
@@ -166,49 +249,24 @@ export default function CantPedirMercaderiaModal({
 
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={TITULO_SECCION_CLASS}>Reposición</h3>
-            {producto.estaVinculadoTienda ? (
+            {repoEditable ? (
               <>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="flex flex-col items-center gap-1">
-                    <ModalMicroLabel>FORMA PEDIR</ModalMicroLabel>
-                    <span className="text-sm tabular-nums text-foreground">
-                      {regla ? labelReposicionFormaPedidoVendedor(regla.formaPedir) || "—" : "—"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <ModalMicroLabel>PTO. REPOSICIÓN</ModalMicroLabel>
-                    <span className="text-sm tabular-nums text-foreground">
-                      {regla ? regla.puntoReposicion : "—"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <ModalMicroLabel>CANT. A PEDIR</ModalMicroLabel>
-                    <span className="text-sm tabular-nums text-foreground">
-                      {regla ? (regla.omitidaEnPedido ? "NO PEDIR" : producto.cantReposicion) : "—"}
-                    </span>
-                  </div>
-                </div>
                 {regla?.omitidaEnPedido ? (
-                  <p className="text-xs text-muted-foreground">
-                    No se pide en este pedido; vuelve a pedirse al generar el pedido del proveedor.
-                  </p>
-                ) : null}
-                <div className="flex justify-center gap-2">
-                  {regla?.omitidaEnPedido ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      No se pide en este pedido; vuelve a pedirse al generar el pedido del proveedor.
+                    </p>
                     <Button type="button" size="sm" onClick={() => onReactivarReposicion(producto)}>
                       Volver a Pedir
                     </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onConfigurarReposicion(producto)}
-                  >
-                    <Settings2 className="h-4 w-4" aria-hidden />
-                    {regla ? "Editar Reposición" : "Configurar Reposición"}
-                  </Button>
-                </div>
+                  </div>
+                ) : null}
+                <ReposicionConfigCampos
+                  form={formRepo}
+                  item={itemRepo}
+                  sucursal={sucursal || undefined}
+                  disabled={guardando}
+                />
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
