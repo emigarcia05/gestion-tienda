@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
   emitirFacturaComprobanteAction,
+  listarStockSucursalesFacturaAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -17,6 +18,7 @@ import FacturaCrearLineasBlock, {
 } from "@/components/facturacion/FacturaCrearLineasBlock";
 import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGenerarComprobanteModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
+import FacturaMovimientosVentaModal from "@/components/facturacion/FacturaMovimientosVentaModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
@@ -103,6 +105,16 @@ import {
 import { cn } from "@/lib/utils";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
+import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
+import type { SucursalTransf } from "@/lib/transfDepositosTypes";
+import {
+  armarPlanMovimientosVenta,
+  planMovimientosVentaVacio,
+  type PlanMovimientosVenta,
+} from "@/lib/ventaMovimientosStock";
+
+/** Espera al cierre animado del modal Generar antes de abrir MOVIMIENTOS (no apilar dialogs). */
+const MS_ENTRE_MODALES = 300;
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
   "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
@@ -228,6 +240,13 @@ export default function FacturaCrearPageClient({
     lineas: FacturaRemitoSnapshot["lineas"];
     descuento: FacturaRemitoSnapshot["descuento"];
   } | null>(null);
+  /** Plan con el stock previo a emitir (la venta descuenta stock de la sucursal). */
+  const planMovimientosRef = useRef<PlanMovimientosVenta | null>(null);
+  const [movimientos, setMovimientos] = useState<{
+    plan: PlanMovimientosVenta;
+    sucursal: SucursalTransf;
+  } | null>(null);
+  const [movimientosOpen, setMovimientosOpen] = useState(false);
   const [sugerenciasClientes, setSugerenciasClientes] = useState<ClienteListaItem[]>([]);
   const [clienteProyectos, setClienteProyectos] = useState<EnviosDireccionItem[]>(
     () => duplicarBorrador?.clienteCatalogo?.proyectos ?? []
@@ -504,6 +523,41 @@ export default function FacturaCrearPageClient({
     setComprobanteModalOpen(true);
   }
 
+  async function planMovimientosConStockActual(
+    lineas: FacturaRemitoSnapshot["lineas"]
+  ): Promise<PlanMovimientosVenta | null> {
+    const sucursal = leerUsuarioSesion()?.sucursalPorDefecto ?? null;
+    const codTiendas = [...new Set(lineas.map((l) => l.codTienda))];
+    if (!sucursal || codTiendas.length === 0) return null;
+    const res = await listarStockSucursalesFacturaAction({ codTiendas });
+    if (!res.ok) return null;
+    return armarPlanMovimientosVenta({
+      lineas,
+      sucursalCodigo: sucursal,
+      stockPorCod: Object.fromEntries(res.data.items.map((i) => [i.codTienda, i.stockPorSucursal])),
+    });
+  }
+
+  function irAListado() {
+    router.push(
+      tipo === "presupuesto"
+        ? FACTURACION_ROUTES.factura.presupuestos
+        : FACTURACION_ROUTES.factura.facturas
+    );
+  }
+
+  function finalizarComprobante() {
+    const plan = planMovimientosRef.current;
+    planMovimientosRef.current = null;
+    const sucursal = sucursalPorDefectoSchema.safeParse(leerUsuarioSesion()?.sucursalPorDefecto);
+    if (planMovimientosVentaVacio(plan) || !plan || !sucursal.success) {
+      irAListado();
+      return;
+    }
+    setMovimientos({ plan, sucursal: sucursal.data });
+    window.setTimeout(() => setMovimientosOpen(true), MS_ENTRE_MODALES);
+  }
+
   async function emitirDesdeModal(
     cobros: CobroFacturaEmitirInput[],
     documentoReceptor?: string
@@ -514,6 +568,9 @@ export default function FacturaCrearPageClient({
       return null;
     }
     const pctGlobal = porcentajeDescuentoGlobal(draft.lineas, draft.descuento);
+    planMovimientosRef.current = esFacturaTipoVenta(draft.tipo)
+      ? await planMovimientosConStockActual(draft.lineas)
+      : null;
     const res = await emitirFacturaComprobanteAction({
       fechaIso: draft.fechaIso,
       tipo: draft.tipo,
@@ -1067,13 +1124,16 @@ export default function FacturaCrearPageClient({
         }}
         comprobante={comprobantePdf}
         onEmitir={emitirDesdeModal}
-        onFinalizado={() => {
-          router.push(
-            tipo === "presupuesto"
-              ? FACTURACION_ROUTES.factura.presupuestos
-              : FACTURACION_ROUTES.factura.facturas
-          );
+        onFinalizado={finalizarComprobante}
+      />
+      <FacturaMovimientosVentaModal
+        open={movimientosOpen}
+        onOpenChange={(open) => {
+          setMovimientosOpen(open);
+          if (!open) irAListado();
         }}
+        plan={movimientos?.plan ?? null}
+        sucursalDestino={movimientos?.sucursal ?? null}
       />
     </ClassicFilteredTableLayout>
   );

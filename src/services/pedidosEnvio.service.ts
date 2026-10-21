@@ -187,6 +187,44 @@ export async function upsertPedidoMercaderiaReposicionConfig(params: {
 }
 
 /** Persiste URGENTE en `prod_ped_merc`. */
+/**
+ * Suma `cant` (redondeada hacia arriba a unidades enteras) a la cantidad URGENTE vigente de esa línea
+ * de proveedor en la sucursal. Usado por **Movimientos de la venta** → Confirmar Compra.
+ */
+export async function sumarPedidoMercaderiaUrgenteItem(params: {
+  sucursal: SucursalPedidoEnvio;
+  codTienda: string;
+  listaPrecioProveedorId: string;
+  cant: number;
+}): Promise<ServiceResult<{ cantTotal: number }>> {
+  const cantNorm = Math.ceil(Math.max(0, Number(params.cant) || 0) - 1e-9);
+  if (cantNorm <= 0) return { success: false, error: "La cantidad a pedir debe ser mayor a 0." };
+  try {
+    const item = await prisma.listaPrecioProveedor.findUnique({
+      where: { codExt: params.listaPrecioProveedorId },
+      select: { codExt: true, codTiendaVinculo: true, habilitado: true },
+    });
+    if (!item || item.codTiendaVinculo !== params.codTienda || !item.habilitado) {
+      return { success: false, error: "El proveedor elegido no está vinculado y habilitado para el ítem." };
+    }
+    const sucursalId = await getSucursalIdByCodigo(params.sucursal);
+    const cantTotal = await prisma.$transaction(async (tx) => {
+      const where = { tipoDePedido: TIPO_URGENTE, sucursalId, urgenteCodExt: item.codExt };
+      const previas = await tx.prodPedMerc2.findMany({ where, select: { urgenteCantPedir: true } });
+      const total = previas.reduce((acc, p) => acc + p.urgenteCantPedir, 0) + cantNorm;
+      await tx.prodPedMerc2.deleteMany({ where });
+      await tx.prodPedMerc2.create({
+        data: { tipoDePedido: TIPO_URGENTE, sucursalId, urgenteCodExt: item.codExt, urgenteCantPedir: total },
+      });
+      return total;
+    });
+    return { success: true, data: { cantTotal } };
+  } catch (e: unknown) {
+    console.error("[pedidosEnvio.service] sumarPedidoMercaderiaUrgenteItem:", e);
+    return { success: false, error: "No se pudo agregar al pedido urgente." };
+  }
+}
+
 export async function upsertPedidoMercaderiaUrgenteItem(params: {
   sucursal: SucursalPedidoEnvio;
   listaPrecioProveedorId: string;

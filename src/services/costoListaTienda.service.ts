@@ -2,11 +2,13 @@
  * Costo de compra del ítem tienda (SSOT):
  * - con CX elegido (`prod_lista.costo_compra_cod_ext`) → `proveedores_prod_lista.px_compra_final_sin_iva`;
  * - sin vínculos (PROD. PROPIO o sin vincular) → `prod_lista.costo_manual`;
- * - con varios vínculos y sin CX elegido → 0 (el usuario debe elegir).
+ * - con varios vínculos y sin CX elegido → 0 (el usuario debe elegir);
+ * - producto compuesto → Σ (cantidad × costo resuelto de cada componente) (`prod_lista_compuestos`).
  */
 import type { Prisma } from "@prisma/client";
 import type { ServiceResult } from "@/types";
 import { prisma } from "@/lib/prisma";
+import { costoProductoCompuesto } from "@/lib/productoCompuesto";
 
 function toNum(n: unknown): number {
   if (n == null) return 0;
@@ -14,20 +16,61 @@ function toNum(n: unknown): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-/** Campos de `prod_lista` necesarios para `resolverCostoCompraTienda`. */
-export const SELECT_COSTO_COMPRA_TIENDA = {
+/** Costo propio del ítem (sin mirar componentes): un componente nunca es compuesto. */
+const SELECT_COSTO_ITEM_SIMPLE = {
   costoManual: true,
   costoListaProveedor: { select: { pxCompraFinalSinIva: true, habilitado: true } },
 } as const satisfies Prisma.ProdPropioSelect;
 
-/** Línea de proveedor elegida pero deshabilitada → 0 (igual que CX PROD. en Cx Compra). */
-export function resolverCostoCompraTienda(row: {
+/** Campos de `prod_lista` necesarios para `resolverCostoCompraTienda` (incluye componentes del kit). */
+export const SELECT_COSTO_COMPRA_TIENDA = {
+  ...SELECT_COSTO_ITEM_SIMPLE,
+  esProductoCompuesto: true,
+  componentes: { select: { cantidad: true, componente: { select: SELECT_COSTO_ITEM_SIMPLE } } },
+} as const satisfies Prisma.ProdPropioSelect;
+
+type FilaCostoSimple = {
   costoManual: unknown;
   costoListaProveedor: { pxCompraFinalSinIva: unknown; habilitado: boolean } | null;
-}): number {
+};
+
+type FilaCostoCompra = FilaCostoSimple & {
+  esProductoCompuesto?: boolean;
+  componentes?: { cantidad: unknown; componente: FilaCostoSimple }[];
+};
+
+/** Línea de proveedor elegida pero deshabilitada → 0 (igual que CX PROD. en Cx Compra). */
+function resolverCostoSimple(row: FilaCostoSimple): number {
   const proveedor = row.costoListaProveedor;
   if (proveedor) return proveedor.habilitado ? toNum(proveedor.pxCompraFinalSinIva) : 0;
   return toNum(row.costoManual);
+}
+
+function costoDesdeComponentes(componentes: { cantidad: unknown; componente: FilaCostoSimple }[]): number {
+  return costoProductoCompuesto(
+    componentes.map((c) => ({ cantidad: toNum(c.cantidad), costoUnitario: resolverCostoSimple(c.componente) }))
+  );
+}
+
+export function resolverCostoCompraTienda(row: FilaCostoCompra): number {
+  if (row.esProductoCompuesto) return costoDesdeComponentes(row.componentes ?? []);
+  return resolverCostoSimple(row);
+}
+
+/** Mapa `cod_tienda` del compuesto → costo del kit (solo los que tienen componentes). */
+export async function mapCostoProductoCompuesto(codTiendas: string[]): Promise<Map<string, number>> {
+  if (codTiendas.length === 0) return new Map();
+  const filas = await prisma.prodListaCompuesto.findMany({
+    where: { codTiendaCompuesto: { in: codTiendas }, compuesto: { esProductoCompuesto: true } },
+    select: { codTiendaCompuesto: true, cantidad: true, componente: { select: SELECT_COSTO_ITEM_SIMPLE } },
+  });
+  const porCompuesto = new Map<string, { cantidad: unknown; componente: FilaCostoSimple }[]>();
+  for (const f of filas) {
+    const lista = porCompuesto.get(f.codTiendaCompuesto) ?? [];
+    lista.push(f);
+    porCompuesto.set(f.codTiendaCompuesto, lista);
+  }
+  return new Map([...porCompuesto].map(([cod, comps]) => [cod, costoDesdeComponentes(comps)]));
 }
 
 /** Mapa `cod_tienda` → costo resuelto (lectores por lote). */

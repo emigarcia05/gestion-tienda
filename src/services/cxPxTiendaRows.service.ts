@@ -8,6 +8,7 @@ import {
   costoDesdeCandidato,
   etiquetaProveedorCosto,
   listarCandidatosCostoPorCodTienda,
+  mapCostoProductoCompuesto,
 } from "@/services/costoListaTienda.service";
 
 export type FilaCxProdDb = {
@@ -46,7 +47,7 @@ async function cargarVinculosCostoPorCodTienda(codTiendas: string[]) {
 
 /**
  * CX PROD. para Cx Compra: proveedor elegido (`costo_compra_cod_ext`); sin vínculos → `costo_manual`;
- * con vínculos y sin elección → 0.
+ * con vínculos y sin elección → 0. Los compuestos los resuelve `buildCxProdMapDesdeFilas` (costo del kit).
  */
 export function mapCxProdDesdeCandidatos(
   costoManual: unknown,
@@ -76,18 +77,23 @@ export function mapCxProdDesdeCandidatos(
 export async function buildCxProdMapDesdeFilas(
   rows: FilaCxProdDb[]
 ): Promise<Map<string, CxProdDatosFila>> {
-  const vinculosPorTienda = await cargarVinculosCostoPorCodTienda(
-    rows.map((r) => r.codTienda)
-  );
+  const codTiendas = rows.map((r) => r.codTienda);
+  const [vinculosPorTienda, costoCompuestos] = await Promise.all([
+    cargarVinculosCostoPorCodTienda(codTiendas),
+    mapCostoProductoCompuesto(codTiendas),
+  ]);
   const map = new Map<string, CxProdDatosFila>();
   for (const r of rows) {
+    const costoKit = costoCompuestos.get(r.codTienda);
     map.set(
       r.codTienda,
-      mapCxProdDesdeCandidatos(
-        r.costoManual,
-        r.costoCompraCodExt,
-        vinculosPorTienda.get(r.codTienda) ?? []
-      )
+      costoKit !== undefined
+        ? { opcionesProveedor: [], seleccion: CX_PROD_SELECCION_PROM, costoMostrado: costoKit }
+        : mapCxProdDesdeCandidatos(
+            r.costoManual,
+            r.costoCompraCodExt,
+            vinculosPorTienda.get(r.codTienda) ?? []
+          )
     );
   }
   return map;

@@ -54,7 +54,7 @@ export default function FacturaProductoBusquedaLista({
   onVerStock,
   onVerEspeciales,
   className,
-  filaClassName = "min-h-5",
+  filaClassName = "min-h-7 py-1",
   descuento = null,
   lineas = [],
 }: FacturaProductoBusquedaListaProps) {
@@ -92,7 +92,7 @@ export default function FacturaProductoBusquedaLista({
                 className={cn(
                   filaGrid,
                   filaClassName,
-                  "cursor-pointer py-0 text-sm leading-tight text-foreground transition-colors",
+                  "cursor-pointer text-sm leading-tight text-foreground transition-colors",
                   activo && TYPEAHEAD_LISTBOX_OPTION_ACTIVE_CLASS
                 )}
                 onMouseEnter={() => onActivar(idx)}
