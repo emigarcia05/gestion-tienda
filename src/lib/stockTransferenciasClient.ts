@@ -21,7 +21,7 @@ export function crearTransferenciaApi(body: {
   personalId: number;
   items: Array<{ codItem: string; cantidad: number }>;
 }) {
-  return fetchApiJson<{ id: string; confirmaNombre: string; numero: string }>(
+  return fetchApiJson<{ id: string; confirmaNombre: string; numero: string; actualizada: boolean }>(
     "/api/stock/transferencias",
     { method: "POST", body }
   );

@@ -5,11 +5,16 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
 import type { ProveedorCompraVentaItem } from "@/lib/ventaMovimientosStock";
 import {
+  confirmarCompraTintometricoVentaSchema,
   confirmarCompraUrgenteVentaSchema,
   listarProveedoresCompraVentaSchema,
 } from "@/lib/validations/ventaMovimientosStock";
 import { listarProveedoresCompraPorCodTiendas } from "@/services/ventaMovimientosStock.service";
-import { sucursalPedidoHabilitada, sumarPedidoMercaderiaUrgenteItem } from "@/services/pedidosEnvio.service";
+import {
+  sucursalPedidoHabilitada,
+  sumarPedidoMercaderiaUrgenteItem,
+  sumarPedidoTintometricoVentaItem,
+} from "@/services/pedidosEnvio.service";
 import { revalidatePedidosMercaderiaListados } from "@/lib/revalidatePedidosMercaderia";
 
 function primerError(error: { issues: readonly { message: string }[] }): string {
@@ -43,6 +48,22 @@ export async function confirmarCompraUrgenteVentaAction(
     listaPrecioProveedorId: parsed.data.listaPrecioProveedorId,
     cant: parsed.data.cantidad,
   });
+  if (!res.success) return { ok: false, error: res.error };
+  revalidatePedidosMercaderiaListados();
+  return { ok: true, data: res.data };
+}
+
+export async function confirmarCompraTintometricoVentaAction(
+  raw: unknown
+): Promise<ActionResult<{ cantAgregada: number }>> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.pedidos.acceso)) return { ok: false, error: "Sin permisos para pedidos." };
+  const parsed = confirmarCompraTintometricoVentaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: primerError(parsed.error) };
+  if (!(await sucursalPedidoHabilitada(parsed.data.sucursal))) {
+    return { ok: false, error: "La sucursal no está habilitada para pedidos." };
+  }
+  const res = await sumarPedidoTintometricoVentaItem(parsed.data);
   if (!res.success) return { ok: false, error: res.error };
   revalidatePedidosMercaderiaListados();
   return { ok: true, data: res.data };

@@ -9,17 +9,21 @@ import FiltrosPedidoUrgente from "@/components/pedidos/FiltrosPedidoUrgente";
 import PedirMercaderiaPageClient from "@/components/pedidos/PedirMercaderiaPageClient";
 import { getPosicionIvaComparacionRevisionToken } from "@/services/finBalPosicionIvaComparacionRevision.service";
 import { getPedidoTintometricoItems } from "@/services/pedidosEnvio.service";
-import { getProveedoresTintometricos } from "@/services/tintometrico.service";
+import {
+  getProveedoresTintometricos,
+  listarProveedoresCoefTintometrico,
+} from "@/services/tintometrico.service";
 import type { FilaTintometricoPedir } from "@/components/pedidos/TablaPedirMercaderia";
 
 async function cargarTintometricos(sucursal: string, proveedor: string): Promise<FilaTintometricoPedir[]> {
   if (!sucursal) return [];
   try {
-    const [items, proveedores] = await Promise.all([
+    const [items, proveedores, proveedoresCoef] = await Promise.all([
       getPedidoTintometricoItems({ sucursalCodigo: sucursal, proveedorId: proveedor || undefined }),
       getProveedoresTintometricos(),
+      listarProveedoresCoefTintometrico(),
     ]);
-    const prefijoPorId = new Map(proveedores.map((p) => [p.id, p.prefijo]));
+    const prefijoPorId = new Map([...proveedoresCoef, ...proveedores].map((p) => [p.id, p.prefijo]));
     return items.map((i) => ({
       id: i.id,
       prefijoProveedor: prefijoPorId.get(i.proveedorId) ?? "",

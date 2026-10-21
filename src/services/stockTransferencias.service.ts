@@ -186,13 +186,84 @@ function movimientosDeAceptados(
     ]);
 }
 
+export type CrearStockTransferenciaResult = {
+  id: string;
+  confirmaNombre: string;
+  numero: string;
+  /** `true` = se sumó a la transferencia abierta del mismo origen → destino (no se creó otra). */
+  actualizada: boolean;
+};
+
+/**
+ * Suma los ítems a la versión abierta del mismo par origen → destino (cantidades del mismo
+ * ítem se acumulan). Solo la sucursal que emitió esa versión puede sumarle; la otra punta debe
+ * aceptarla o rectificarla primero.
+ */
+async function sumarATransferenciaAbierta(
+  t: TransferenciaConRelaciones,
+  input: CrearStockTransferenciaInput,
+  usuario: { nombrePersonal: string },
+  codigoUsuario: string
+): Promise<ServiceResult<CrearStockTransferenciaResult>> {
+  const numeroEtiqueta = fmtNumeroTransferenciaInterna(t.numero, t.version);
+  const creadora = sucursalCreadora(t);
+  if (codigoUsuario !== creadora.codigo) {
+    return {
+      success: false,
+      error: `Ya hay una transferencia pendiente ${t.sucursalOrigen.nombre} → ${t.sucursalDestino.nombre} (N° ${numeroEtiqueta}) emitida por ${creadora.nombre}. Aceptala o rectificala antes de pedir más.`,
+    };
+  }
+
+  const porCod = new Map(t.items.map((i) => [i.codItem, i]));
+  const actualizar: Prisma.StockTransferenciaItemUpdateWithWhereUniqueWithoutTransferenciaInput[] = [];
+  const nuevos: { codItem: string; cantidad: number }[] = [];
+  for (const item of input.items) {
+    const codItem = item.codItem.trim();
+    const cantidad = redondearCantidadUnDecimal(item.cantidad);
+    const existente = porCod.get(codItem);
+    if (existente) {
+      actualizar.push({
+        where: { id: existente.id },
+        data: { cantidad: redondearCantidadUnDecimal(cantidadDesdePrisma(existente.cantidad) + cantidad) },
+      });
+    } else {
+      nuevos.push({ codItem, cantidad });
+    }
+  }
+
+  await prisma.stockTransferencia.update({
+    where: { id: t.id, estado: t.estado },
+    data: {
+      items: {
+        update: actualizar,
+        ...(nuevos.length > 0 ? { createMany: { data: nuevos } } : {}),
+      },
+      notificaciones: {
+        create: {
+          tipo: "TRANSF_PENDIENTE",
+          sucursalId: t.sucursalConfirma.id,
+          titulo: `Transferencia N° ${numeroEtiqueta} actualizada`,
+          mensaje: `${usuario.nombrePersonal} (${creadora.nombre}) sumó ${textoItems(input.items.length)} a la transferencia interna N° ${numeroEtiqueta} ${t.sucursalOrigen.nombre} → ${t.sucursalDestino.nombre}. Revisá las cantidades.`,
+        },
+      },
+    },
+    select: { id: true },
+  });
+  return {
+    success: true,
+    data: { id: t.id, confirmaNombre: t.sucursalConfirma.nombre, numero: numeroEtiqueta, actualizada: true },
+  };
+}
+
 /**
  * Crea una transferencia **EMITIDO_PENDIENTE** versión 1 (sin ledger).
  * El creador debe ser de una punta; la otra recibe `TRANSF_PENDIENTE`.
+ * Si ya hay una abierta del mismo origen → destino, se suma a esa (`sumarATransferenciaAbierta`):
+ * nunca quedan dos pendientes del mismo par.
  */
 export async function crearStockTransferencia(
   input: CrearStockTransferenciaInput
-): Promise<ServiceResult<{ id: string; confirmaNombre: string; numero: string }>> {
+): Promise<ServiceResult<CrearStockTransferenciaResult>> {
   try {
     const usuario = await prisma.globalPersonal.findUnique({
       where: { idPersonal: input.personalId },
@@ -226,6 +297,17 @@ export async function crearStockTransferencia(
       return { success: false, error: "Hay ítems que no existen en el catálogo." };
     }
 
+    const abierta = await prisma.stockTransferencia.findFirst({
+      where: {
+        sucursalOrigenId: origen.id,
+        sucursalDestinoId: destino.id,
+        estado: { in: ["EMITIDO_PENDIENTE", "RECTIFICADO_PENDIENTE"] },
+      },
+      orderBy: { createdAt: "desc" },
+      include: transferenciaInclude,
+    });
+    if (abierta) return sumarATransferenciaAbierta(abierta, input, usuario, codigoUsuario);
+
     const numero = await proximoNumeroFamilia();
     const numeroEtiqueta = fmtNumeroTransferenciaInterna(numero, 1);
 
@@ -258,9 +340,10 @@ export async function crearStockTransferencia(
     });
     return {
       success: true,
-      data: { id: creada.id, confirmaNombre: confirma.nombre, numero: numeroEtiqueta },
+      data: { id: creada.id, confirmaNombre: confirma.nombre, numero: numeroEtiqueta, actualizada: false },
     };
   } catch (e) {
+    if (esNoEncontrado(e)) return crearStockTransferencia(input);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       const target = e.meta?.target;
       const chocaNumero =

@@ -6,15 +6,20 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import { confirmarCompraUrgenteVentaAction, listarProveedoresCompraVentaAction } from "@/actions/ventaMovimientosStock";
+import {
+  confirmarCompraTintometricoVentaAction,
+  confirmarCompraUrgenteVentaAction,
+  listarProveedoresCompraVentaAction,
+} from "@/actions/ventaMovimientosStock";
 import { crearTransferenciaApi, pedirRefrescoNotificaciones } from "@/lib/stockTransferenciasClient";
 import { fmtCantidad, fmtPrecio } from "@/lib/format";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import type { SucursalTransf } from "@/lib/transfDepositosTypes";
-import type {
-  ItemMovimientoVenta,
-  PlanMovimientosVenta,
-  ProveedorCompraVentaItem,
+import {
+  sumarColoresMovimiento,
+  type ItemMovimientoVenta,
+  type PlanMovimientosVenta,
+  type ProveedorCompraVentaItem,
 } from "@/lib/ventaMovimientosStock";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +30,6 @@ const OPCIONES_TRANSFERENCIA: { value: AccionTransferencia; label: string }[] = 
   { value: "nada", label: "No hacer nada" },
   { value: "transferir", label: "Confirmar Transferencia" },
   { value: "proveedor", label: "Pedir a Proveedor" },
-];
-
-const OPCIONES_COMPRA: { value: AccionCompra; label: string }[] = [
-  { value: "nada", label: "No hacer nada" },
-  { value: "comprar", label: "Confirmar Compra" },
 ];
 
 const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
@@ -78,8 +78,19 @@ function CeldaItem({ item }: { item: ItemMovimientoVenta }) {
     <span className="min-w-0 text-left text-sm text-foreground">
       <span className="tabular-nums text-muted-foreground">{item.codTienda}</span>{" "}
       <span className="uppercase">{item.descripcion}</span>
+      {item.colores.length > 0 ? (
+        <span className="block text-xs uppercase text-muted-foreground">
+          {item.colores.map((c) => `COD. ${c.codColor} × ${fmtCantidad(c.cantidad)}`).join(" · ")}
+        </span>
+      ) : null}
     </span>
   );
+}
+
+function detalleProveedor(p: ProveedorCompraVentaItem): string {
+  return p.tipo === "lista"
+    ? `$${fmtPrecio(p.pxCompra)}`
+    : `COEF. ${p.coeficiente.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
 }
 
 interface Props {
@@ -146,8 +157,10 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
       for (const i of g.items) {
         if (accTransf[claveTransf(g.origenCodigo, i.codTienda)] !== "proveedor") continue;
         const previo = porCod.get(i.codTienda);
-        if (previo) previo.cantidad = Math.round((previo.cantidad + i.cantidad) * 10) / 10;
-        else porCod.set(i.codTienda, { ...i });
+        if (previo) {
+          previo.cantidad = Math.round((previo.cantidad + i.cantidad) * 10) / 10;
+          previo.colores = sumarColoresMovimiento(previo.colores, i.colores);
+        } else porCod.set(i.codTienda, { ...i });
       }
     }
     return [...porCod.values()];
@@ -163,6 +176,11 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
       })
     ) || compras.some((c) => accCompra[c.codTienda] === "comprar" && !hechos.has(`c|${c.codTienda}`));
 
+  function esCompraTintometrica(item: ItemMovimientoVenta): boolean {
+    const tipo = proveedores?.[item.codTienda]?.[0]?.tipo;
+    return tipo ? tipo === "tintometrico" : item.colores.length > 0;
+  }
+
   function elegirAccionCompra(codTienda: string, accion: AccionCompra) {
     if (accion === "nada") {
       setAccCompra((prev) => ({ ...prev, [codTienda]: "nada" }));
@@ -174,21 +192,25 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
     }
     const lista = proveedores[codTienda] ?? [];
     if (lista.length === 0) {
-      toast.error("El ítem no tiene proveedores vinculados y habilitados.");
+      toast.error("El ítem no tiene proveedores disponibles para pedir.");
+      return;
+    }
+    if (lista[0].tipo === "tintometrico" && !compras.find((c) => c.codTienda === codTienda)?.colores.length) {
+      toast.error("El ítem tintométrico no tiene COD. COLOR; pedilo desde Pedir Mercadería.");
       return;
     }
     if (lista.length === 1) {
-      setProvElegido((prev) => ({ ...prev, [codTienda]: lista[0].codExt }));
+      setProvElegido((prev) => ({ ...prev, [codTienda]: lista[0].id }));
       setAccCompra((prev) => ({ ...prev, [codTienda]: "comprar" }));
       return;
     }
     setSelectorCod(codTienda);
   }
 
-  function elegirProveedor(codExt: string) {
+  function elegirProveedor(id: string) {
     if (!selectorCod) return;
     const cod = selectorCod;
-    setProvElegido((prev) => ({ ...prev, [cod]: codExt }));
+    setProvElegido((prev) => ({ ...prev, [cod]: id }));
     setAccCompra((prev) => ({ ...prev, [cod]: "comprar" }));
     setSelectorCod(null);
   }
@@ -223,19 +245,40 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
         }
         for (const i of items) nuevosHechos.add(`t|${claveTransf(g.origenCodigo, i.codTienda)}`);
         pedirRefrescoNotificaciones();
-        toast.success(`Transferencia N° ${res.data.numero} pedida a ${g.origenNombre.toLocaleUpperCase("es")}.`, {
-          description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.`,
-        });
+        toast.success(
+          res.data.actualizada
+            ? `Se sumó a la transferencia pendiente N° ${res.data.numero} de ${g.origenNombre.toLocaleUpperCase("es")}.`
+            : `Transferencia N° ${res.data.numero} pedida a ${g.origenNombre.toLocaleUpperCase("es")}.`,
+          { description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.` }
+        );
       }
 
       for (const c of compras) {
         if (accCompra[c.codTienda] !== "comprar" || nuevosHechos.has(`c|${c.codTienda}`)) continue;
-        const codExt = provElegido[c.codTienda];
-        if (!codExt) continue;
+        const prov = proveedores?.[c.codTienda]?.find((p) => p.id === provElegido[c.codTienda]);
+        if (!prov) continue;
+        if (prov.tipo === "tintometrico") {
+          const res = await confirmarCompraTintometricoVentaAction({
+            sucursal: sucursalDestino,
+            codTienda: c.codTienda,
+            proveedorId: prov.id,
+            colores: c.colores,
+          });
+          if (!res.ok) {
+            hayErrores = true;
+            toast.error(`${c.descripcion}: ${res.error}`);
+            continue;
+          }
+          nuevosHechos.add(`c|${c.codTienda}`);
+          toast.success(
+            `${c.descripcion}: ${fmtCantidad(res.data.cantAgregada)} un. al pedido tintométrico de ${prov.proveedor}.`
+          );
+          continue;
+        }
         const res = await confirmarCompraUrgenteVentaAction({
           sucursal: sucursalDestino,
           codTienda: c.codTienda,
-          listaPrecioProveedorId: codExt,
+          listaPrecioProveedorId: prov.id,
           cantidad: c.cantidad,
         });
         if (!res.ok) {
@@ -331,7 +374,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                   const accion = accCompra[c.codTienda] ?? "nada";
                   const prov =
                     accion === "comprar"
-                      ? proveedores?.[c.codTienda]?.find((p) => p.codExt === provElegido[c.codTienda])
+                      ? proveedores?.[c.codTienda]?.find((p) => p.id === provElegido[c.codTienda])
                       : undefined;
                   return (
                     <div key={c.codTienda} className={FILA_GRID_CLASS}>
@@ -339,18 +382,23 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                         <CeldaItem item={c} />
                         {prov ? (
                           <span className="text-xs uppercase text-muted-foreground">
-                            Pedido urgente a {prov.proveedor}
+                            {prov.tipo === "tintometrico" ? "Pedido tintométrico" : "Pedido urgente"} a{" "}
+                            {prov.proveedor}
                           </span>
                         ) : null}
                       </div>
                       <span className="text-center text-sm font-bold tabular-nums">{fmtCantidad(c.cantidad)}</span>
-                      <OpcionesAccion
-                        opciones={OPCIONES_COMPRA}
-                        valor={accion}
-                        onChange={(v) => elegirAccionCompra(c.codTienda, v)}
+                      <Button
+                        type="button"
+                        size="sm"
+                        aria-pressed={accion === "comprar"}
+                        variant={accion === "comprar" ? "default" : "outline"}
+                        className={cn("justify-self-end", accion !== "comprar" && "border-primary")}
                         disabled={pending || hecho}
-                        ariaLabel={`Acción de compra para ${c.descripcion}`}
-                      />
+                        onClick={() => elegirAccionCompra(c.codTienda, accion === "comprar" ? "nada" : "comprar")}
+                      >
+                        {esCompraTintometrica(c) ? "AGREGAR A TINTOMETRICO" : "AGREGAR A PED. URGENTE"}
+                      </Button>
                     </div>
                   );
                 })}
@@ -377,17 +425,19 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
               ) : null}
               {provSelector.map((p) => (
                 <Button
-                  key={p.codExt}
+                  key={p.id}
                   type="button"
                   variant="outline"
                   className="h-auto justify-between gap-3 border-primary py-2"
-                  onClick={() => elegirProveedor(p.codExt)}
+                  onClick={() => elegirProveedor(p.id)}
                 >
                   <span className="uppercase">
                     {p.proveedor}
-                    {p.esCxElegido ? <span className="ml-2 text-xs text-muted-foreground">(CX)</span> : null}
+                    {p.tipo === "lista" && p.esCxElegido ? (
+                      <span className="ml-2 text-xs text-muted-foreground">(CX)</span>
+                    ) : null}
                   </span>
-                  <span className="tabular-nums">${fmtPrecio(p.pxCompra)}</span>
+                  <span className="tabular-nums">{detalleProveedor(p)}</span>
                 </Button>
               ))}
             </div>

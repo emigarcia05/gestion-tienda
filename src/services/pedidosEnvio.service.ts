@@ -10,7 +10,7 @@ import {
   buildCodExtTintometrico,
   parseCodTiendaFromCodExtTintometrico,
 } from "@/lib/pedidosTintometrico";
-import { normalizarCodColor } from "@/lib/codColorTintometrico";
+import { descripcionConCodColor, normalizarCodColor, RUBRO_TINTOMETRICO } from "@/lib/codColorTintometrico";
 import { SUCURSAL_LABEL_PEDIDO } from "@/lib/pedidos";
 import {
   cargarListaPrecioReposicionPorCodTiendas,
@@ -222,6 +222,89 @@ export async function sumarPedidoMercaderiaUrgenteItem(params: {
   } catch (e: unknown) {
     console.error("[pedidosEnvio.service] sumarPedidoMercaderiaUrgenteItem:", e);
     return { success: false, error: "No se pudo agregar al pedido urgente." };
+  }
+}
+
+/**
+ * Suma cada COD. COLOR (cantidad redondeada hacia arriba) al pedido TINTOMETRICO de la base en la sucursal,
+ * dirigido a un proveedor con COEF. TINTOMÉTRICO > 1. Usado por **Movimientos de la venta** → Confirmar Compra.
+ */
+export async function sumarPedidoTintometricoVentaItem(params: {
+  sucursal: SucursalPedidoEnvio;
+  codTienda: string;
+  proveedorId: string;
+  colores: readonly { codColor: string; codColorIdMarca: string | null; cantidad: number }[];
+}): Promise<ServiceResult<{ cantAgregada: number }>> {
+  const codTienda = params.codTienda.trim();
+  const porCodExt = new Map<string, { codColor: string; codColorIdMarca: string | null; cant: number }>();
+  for (const c of params.colores) {
+    const codColor = normalizarCodColor(c.codColor);
+    const cant = Math.ceil(Math.max(0, Number(c.cantidad) || 0) - 1e-9);
+    if (!codColor || cant <= 0) continue;
+    const codExt = buildCodExtTintometrico(codTienda, codColor);
+    const previo = porCodExt.get(codExt);
+    if (previo) previo.cant += cant;
+    else porCodExt.set(codExt, { codColor, codColorIdMarca: c.codColorIdMarca?.trim() || null, cant });
+  }
+  if (porCodExt.size === 0) return { success: false, error: "El ítem no tiene COD. COLOR para pedir." };
+  try {
+    const [proveedor, base] = await Promise.all([
+      prisma.proveedor.findUnique({
+        where: { id: params.proveedorId.trim() },
+        select: { proveedorMercaderia: true, coeficienteTintometrico: true },
+      }),
+      prisma.prodPropio.findFirst({
+        where: {
+          codTienda,
+          rubroRelation: { nombre: { equals: RUBRO_TINTOMETRICO, mode: "insensitive" } },
+        },
+        select: { descripcionTienda: true },
+      }),
+    ]);
+    if (!proveedor?.proveedorMercaderia || !(Number(proveedor.coeficienteTintometrico) > 1)) {
+      return { success: false, error: "El proveedor elegido no tiene COEF. TINTOMÉTRICO mayor a 1." };
+    }
+    if (!base) return { success: false, error: "El ítem no es del rubro Tintométrico." };
+    const descripcionBase = (base.descripcionTienda ?? "").trim() || codTienda;
+    const sucursalId = await getSucursalIdByCodigo(params.sucursal);
+    const proveedorId = params.proveedorId.trim();
+
+    let cantAgregada = 0;
+    await prisma.$transaction(async (tx) => {
+      for (const [codExt, c] of porCodExt) {
+        const datos = {
+          tintometricoDescripcion: descripcionConCodColor(descripcionBase, c.codColor).toUpperCase(),
+          tintometricoCodColor: c.codColor,
+          tintometricoCodColorIdMarca: c.codColorIdMarca,
+        };
+        const previa = await tx.prodPedMerc2.findFirst({
+          where: { tipoDePedido: TIPO_TINTOMETRICO, sucursalId, tintometricoProveedor: proveedorId, urgenteCodExt: codExt },
+          select: { id: true },
+        });
+        if (previa) {
+          await tx.prodPedMerc2.update({
+            where: { id: previa.id },
+            data: { ...datos, tintometrioCantPedir: { increment: c.cant } },
+          });
+        } else {
+          await tx.prodPedMerc2.create({
+            data: {
+              ...datos,
+              tipoDePedido: TIPO_TINTOMETRICO,
+              sucursalId,
+              tintometricoProveedor: proveedorId,
+              urgenteCodExt: codExt,
+              tintometrioCantPedir: c.cant,
+            },
+          });
+        }
+        cantAgregada += c.cant;
+      }
+    });
+    return { success: true, data: { cantAgregada } };
+  } catch (e: unknown) {
+    console.error("[pedidosEnvio.service] sumarPedidoTintometricoVentaItem:", e);
+    return { success: false, error: "No se pudo agregar al pedido tintométrico." };
   }
 }
 

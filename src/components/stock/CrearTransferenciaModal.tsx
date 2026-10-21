@@ -176,9 +176,12 @@ export default function CrearTransferenciaModal({
       pedirRefrescoNotificaciones();
       onGuardada?.();
       onOpenChange(false);
-      toast.success(`Transferencia N° ${res.data.numero} enviada.`, {
-        description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.`,
-      });
+      toast.success(
+        res.data.actualizada
+          ? `Se sumó a la transferencia pendiente N° ${res.data.numero}.`
+          : `Transferencia N° ${res.data.numero} enviada.`,
+        { description: `Queda pendiente hasta que ${res.data.confirmaNombre} la acepte.` }
+      );
     });
   }
 
