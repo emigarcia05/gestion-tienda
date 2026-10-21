@@ -7,7 +7,7 @@ import type { IvaProveedor } from "@prisma/client";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import { Input } from "@/components/ui/input";
+import EnteroStepperInput from "@/components/shared/EnteroStepperInput";
 import { Button } from "@/components/ui/button";
 import ReposicionConfigCampos, { useReposicionConfigForm } from "@/components/pedidos/ReposicionConfigForm";
 import type { ItemReposicion, SucursalReposicion } from "@/actions/reposicion";
@@ -214,33 +214,27 @@ export default function CantPedirMercaderiaModal({
 
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={TITULO_SECCION_CLASS}>Urgente</h3>
-            <div className="grid grid-cols-[1fr_8rem] items-center gap-x-4 gap-y-2">
-              <ModalMicroLabel className="text-left">PROVEEDOR</ModalMicroLabel>
-              <ModalMicroLabel>CANT. A PEDIR</ModalMicroLabel>
+            <div className="grid grid-cols-[1fr_11rem] items-center gap-x-4 gap-y-2">
+              <ModalMicroLabel align="center">PROVEEDOR</ModalMicroLabel>
+              <ModalMicroLabel align="center">CANT. A PEDIR</ModalMicroLabel>
               {miembros.map((m, idx) => (
                 <div key={m.codExt} className="contents">
-                  <span className="truncate text-left text-sm text-foreground">
+                  <span className="truncate text-center text-sm text-foreground">
                     {m.prefijo?.trim() || `Proveedor ${idx + 1}`}
                     {miembros.length > 1 && idx === 0 ? (
                       <span className="ml-2 text-xs text-muted-foreground">(prioridad por costo)</span>
                     ) : null}
                   </span>
-                  <Input
-                    inputMode="numeric"
+                  <EnteroStepperInput
+                    variante="formulario"
+                    min={0}
                     value={valores[m.codExt] ?? ""}
-                    placeholder="0"
                     autoFocus={idx === 0}
-                    onChange={(e) =>
-                      setValores((prev) => ({ ...prev, [m.codExt]: e.target.value.replace(/\D/g, "") }))
+                    onChange={(next) =>
+                      setValores((prev) => ({ ...prev, [m.codExt]: next.replace(/\D/g, "") }))
                     }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleGuardar();
-                      }
-                    }}
-                    className="text-center tabular-nums"
-                    aria-label={`Cantidad urgente ${m.prefijo}`}
+                    onEnter={() => void handleGuardar()}
+                    ariaLabel={`cantidad urgente ${m.prefijo ?? ""}`.trim()}
                   />
                 </div>
               ))}
@@ -266,6 +260,7 @@ export default function CantPedirMercaderiaModal({
                   item={itemRepo}
                   sucursal={sucursal || undefined}
                   disabled={guardando}
+                  mostrarPisoCorp
                 />
               </>
             ) : (

@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import EnteroStepperInput from "@/components/shared/EnteroStepperInput";
 import {
   Select,
   SelectContent,
@@ -35,7 +36,12 @@ import type {
 } from "@/actions/reposicion";
 import { upsertReglaReposicion } from "@/actions/reposicion";
 import { upsertReglaReposicionCorpAction } from "@/actions/reposicionCorp";
-import { mensajeViolaPisoReposicionCorp } from "@/lib/reposicionCorp";
+import {
+  mensajeViolaPisoReposicionCorp,
+  unidadesDesdeReglaReposicion,
+  type ReglaReposicionValores,
+} from "@/lib/reposicionCorp";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { fmtNumero } from "@/lib/format";
 import {
   REPOSICION_FORMA_PEDIDO_VENDEDOR_LABELS,
@@ -280,13 +286,98 @@ interface CamposProps {
   item: ItemReposicion;
   sucursal?: SucursalReposicion;
   disabled?: boolean;
+  /** Muestra debajo, en solo lectura, la regla corporativa (`item.pisoCorp`) si existe. */
+  mostrarPisoCorp?: boolean;
+}
+
+function CampoSoloLecturaReposicion({
+  etiqueta,
+  valor,
+}: {
+  etiqueta: string;
+  valor: string;
+}) {
+  return (
+    <ColumnaCampoReposicion>
+      <EtiquetaCampoReposicion>{etiqueta}</EtiquetaCampoReposicion>
+      <Input
+        type="text"
+        value={valor}
+        readOnly
+        aria-readonly="true"
+        tabIndex={-1}
+        className="min-w-0 bg-muted text-center tabular-nums"
+        aria-label={`${etiqueta} corporativo`}
+      />
+    </ColumnaCampoReposicion>
+  );
+}
+
+/** Regla corporativa en solo lectura, con las mismas columnas que los campos editables. */
+function PisoCorpReposicionSoloLectura({
+  piso,
+  bulto,
+}: {
+  piso: ReglaReposicionValores;
+  bulto: number | null;
+}) {
+  const esBulto = piso.forma === "POR_BULTO";
+  const unTotales = esBulto ? unidadesDesdeReglaReposicion(piso, bulto) : null;
+  return (
+    <div className="flex w-full flex-col gap-1">
+      <ModalMicroLabel align="center">REPOSICIÓN CORPORATIVA</ModalMicroLabel>
+      <div className="grid w-full grid-cols-5 items-start gap-4">
+        <CampoSoloLecturaReposicion
+          etiqueta="FORMA PEDIR"
+          valor={REPOSICION_FORMA_PEDIDO_VENDEDOR_LABELS[piso.forma]}
+        />
+        {esBulto ? (
+          <>
+            <CampoSoloLecturaReposicion
+              etiqueta="UN. POR BULTO"
+              valor={bulto != null && bulto >= 1 ? fmtNumero(bulto) : "—"}
+            />
+            <CampoSoloLecturaReposicion
+              etiqueta="PUNTO REPOSICIÓN (EN UN.)"
+              valor={fmtNumero(piso.punto)}
+            />
+            <CampoSoloLecturaReposicion
+              etiqueta="BULTOS REPOSICIÓN"
+              valor={fmtNumero(piso.cantConf)}
+            />
+            <CampoSoloLecturaReposicion
+              etiqueta="UN. TOTALES"
+              valor={unTotales ? fmtNumero(unTotales) : "—"}
+            />
+          </>
+        ) : (
+          <>
+            <CampoSoloLecturaReposicion
+              etiqueta="PUNTO REPOSICIÓN"
+              valor={fmtNumero(piso.punto)}
+            />
+            <CampoSoloLecturaReposicion
+              etiqueta="UN. MÁXIMAS"
+              valor={fmtNumero(piso.cantConf)}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /**
  * Campos de la regla (`grid-cols-5`: FORMA PEDIR · … según forma) + botón `Plus` para sumar
  * productos con la misma configuración + tabla DESCRIPCIÓN (principal + adicionales).
  */
-export default function ReposicionConfigCampos({ form, item, sucursal, disabled = false }: CamposProps) {
+export default function ReposicionConfigCampos({
+  form,
+  item,
+  sucursal,
+  disabled = false,
+  mostrarPisoCorp = false,
+}: CamposProps) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const {
     formaPedir,
@@ -338,41 +429,35 @@ export default function ReposicionConfigCampos({ form, item, sucursal, disabled 
           <>
             <ColumnaCampoReposicion>
               <EtiquetaCampoReposicion>UN. POR BULTO</EtiquetaCampoReposicion>
-              <Input
-                type="number"
+              <EnteroStepperInput
+                variante="formulario"
                 min={1}
-                step={1}
                 value={unidadesBultoInput}
-                onChange={(e) => form.setUnidadesBultoInput(e.target.value)}
-                className="min-w-0 tabular-nums text-center"
-                aria-label="Unidades por bulto"
+                onChange={form.setUnidadesBultoInput}
+                ariaLabel="unidades por bulto"
                 disabled={disabled}
               />
             </ColumnaCampoReposicion>
             <ColumnaCampoReposicion oculta={ocultarPuntoBulto}>
               <EtiquetaCampoReposicion>PUNTO REPOSICIÓN (EN UN.)</EtiquetaCampoReposicion>
-              <Input
-                type="number"
+              <EnteroStepperInput
+                variante="formulario"
                 min={0}
-                step={1}
                 value={puntoInput}
-                onChange={(e) => form.setPuntoInput(e.target.value)}
-                className="min-w-0 tabular-nums text-center"
-                aria-label="Punto reposición"
+                onChange={form.setPuntoInput}
+                ariaLabel="punto reposición"
                 tabIndex={ocultarPuntoBulto ? -1 : 0}
                 disabled={disabled}
               />
             </ColumnaCampoReposicion>
             <ColumnaCampoReposicion oculta={ocultarBultosTotales}>
               <EtiquetaCampoReposicion>BULTOS REPOSICIÓN</EtiquetaCampoReposicion>
-              <Input
-                type="number"
+              <EnteroStepperInput
+                variante="formulario"
                 min={1}
-                step={1}
                 value={cantInput}
-                onChange={(e) => form.setCantInput(e.target.value)}
-                className="min-w-0 tabular-nums text-center"
-                aria-label="Bultos reposición"
+                onChange={form.setCantInput}
+                ariaLabel="bultos reposición"
                 tabIndex={ocultarBultosTotales ? -1 : 0}
                 disabled={disabled}
               />
@@ -394,28 +479,24 @@ export default function ReposicionConfigCampos({ form, item, sucursal, disabled 
           <>
             <ColumnaCampoReposicion oculta={!mostrarPuntoUnMax}>
               <EtiquetaCampoReposicion>PUNTO REPOSICIÓN</EtiquetaCampoReposicion>
-              <Input
-                type="number"
+              <EnteroStepperInput
+                variante="formulario"
                 min={0}
-                step={1}
                 value={puntoInput}
-                onChange={(e) => form.setPuntoInput(e.target.value)}
-                className="min-w-0 tabular-nums text-center"
-                aria-label="Punto reposición"
+                onChange={form.setPuntoInput}
+                ariaLabel="punto reposición"
                 tabIndex={!mostrarPuntoUnMax ? -1 : 0}
                 disabled={disabled}
               />
             </ColumnaCampoReposicion>
             <ColumnaCampoReposicion oculta={!mostrarCantUnMax}>
               <EtiquetaCampoReposicion>UN. MÁXIMAS</EtiquetaCampoReposicion>
-              <Input
-                type="number"
+              <EnteroStepperInput
+                variante="formulario"
                 min={1}
-                step={1}
                 value={cantInput}
-                onChange={(e) => form.setCantInput(e.target.value)}
-                className="min-w-0 tabular-nums text-center"
-                aria-label="Cantidad reposición"
+                onChange={form.setCantInput}
+                ariaLabel="cantidad reposición"
                 tabIndex={!mostrarCantUnMax ? -1 : 0}
                 disabled={disabled}
               />
@@ -431,6 +512,10 @@ export default function ReposicionConfigCampos({ form, item, sucursal, disabled 
           </>
         )}
       </div>
+
+      {mostrarPisoCorp && item.pisoCorp ? (
+        <PisoCorpReposicionSoloLectura piso={item.pisoCorp} bulto={item.bulto} />
+      ) : null}
 
       <div className="flex flex-col gap-2">
         <div className="flex justify-center">

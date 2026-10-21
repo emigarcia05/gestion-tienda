@@ -64,7 +64,12 @@ export default function ConfigurarReposicionModal({
             <p className="text-sm text-foreground font-medium">{item.descripcionTienda ?? "—"}</p>
             <div className="w-full h-px bg-[#0072BB]" />
           </div>
-          <ReposicionConfigCampos form={form} item={item} sucursal={sucursal} />
+          <ReposicionConfigCampos
+            form={form}
+            item={item}
+            sucursal={sucursal}
+            mostrarPisoCorp={modo === "sucursal"}
+          />
         </div>
       </AppModal>
     </Dialog>
