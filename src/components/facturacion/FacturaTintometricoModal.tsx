@@ -231,6 +231,7 @@ export default function FacturaTintometricoModal({
                 <MontoArInput
                   valueNormalized={pxManualNorm}
                   onValueNormalizedChange={setPxManualNorm}
+                  soloPesosEnteros
                   className="h-10"
                   aria-label="Px. Manual"
                 />
