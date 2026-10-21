@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import EnteroStepperInput from "@/components/shared/EnteroStepperInput";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import ReposicionConfigCampos, { useReposicionConfigForm } from "@/components/pedidos/ReposicionConfigForm";
 import type { ItemReposicion, SucursalReposicion } from "@/actions/reposicion";
@@ -17,6 +18,8 @@ import { normalizarReposicionFormaPedido } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
 const TITULO_SECCION_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
+/** Ancho fijo de la columna CANT. A PEDIR (input + − / + apilados). */
+const ANCHO_CANT_URGENTE_CLASS = "w-44";
 
 type MiembroUrgente = NonNullable<PedidoUrgenteItem["miembrosAgrupacion"]>[number];
 
@@ -214,12 +217,14 @@ export default function CantPedirMercaderiaModal({
 
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={TITULO_SECCION_CLASS}>Urgente</h3>
-            <div className="grid grid-cols-[1fr_11rem] items-center gap-x-4 gap-y-2">
-              <ModalMicroLabel align="center">PROVEEDOR</ModalMicroLabel>
-              <ModalMicroLabel align="center">CANT. A PEDIR</ModalMicroLabel>
+            <div className="grid grid-cols-2 items-center gap-x-4 gap-y-2">
+              <ModalMicroLabel className="text-right">PROVEEDOR</ModalMicroLabel>
+              <ModalMicroLabel className={cn(ANCHO_CANT_URGENTE_CLASS, "justify-self-start text-center")}>
+                CANT. A PEDIR
+              </ModalMicroLabel>
               {miembros.map((m, idx) => (
                 <div key={m.codExt} className="contents">
-                  <span className="truncate text-center text-sm text-foreground">
+                  <span className="truncate text-right text-sm text-foreground">
                     {m.prefijo?.trim() || `Proveedor ${idx + 1}`}
                     {miembros.length > 1 && idx === 0 ? (
                       <span className="ml-2 text-xs text-muted-foreground">(prioridad por costo)</span>
@@ -227,6 +232,7 @@ export default function CantPedirMercaderiaModal({
                   </span>
                   <EnteroStepperInput
                     variante="formulario"
+                    className={cn(ANCHO_CANT_URGENTE_CLASS, "justify-self-start")}
                     min={0}
                     value={valores[m.codExt] ?? ""}
                     autoFocus={idx === 0}
@@ -260,7 +266,7 @@ export default function CantPedirMercaderiaModal({
                   item={itemRepo}
                   sucursal={sucursal || undefined}
                   disabled={guardando}
-                  mostrarPisoCorp
+                  aplicarPisoCorp
                 />
               </>
             ) : (

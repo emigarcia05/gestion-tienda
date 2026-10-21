@@ -68,7 +68,7 @@ export default function ConfigurarReposicionModal({
             form={form}
             item={item}
             sucursal={sucursal}
-            mostrarPisoCorp={modo === "sucursal"}
+            aplicarPisoCorp={modo === "sucursal"}
           />
         </div>
       </AppModal>

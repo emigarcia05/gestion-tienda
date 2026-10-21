@@ -32,20 +32,29 @@ const stepperInputVariants = cva("text-center tabular-nums", {
   defaultVariants: { variante: "tabla" },
 });
 
-function parseEnteroDraft(raw: string, min: number): number | null {
+/** `formulario`: + / − apilados a la derecha del input (mitad de alto cada uno). */
+const STEPPER_BTN_APILADO_CLASS =
+  "h-auto min-h-0 w-full flex-1 rounded-sm border-0 bg-[#0072BB] p-0 text-xs leading-none text-white shadow-none hover:bg-[#0072BB]/90 hover:text-white disabled:cursor-not-allowed disabled:opacity-50";
+
+function parseEnteroLibre(raw: string): number | null {
   const t = raw.trim();
   if (t === "") return null;
   const n = Number(t);
   if (!Number.isFinite(n)) return null;
-  const i = Math.trunc(n);
-  if (i < min) return null;
-  return Math.min(i, MAX_ENTERO_STEPPER);
+  return Math.min(Math.trunc(n), MAX_ENTERO_STEPPER);
+}
+
+function parseEnteroDraft(raw: string, min: number): number | null {
+  const i = parseEnteroLibre(raw);
+  return i == null || i < min ? null : i;
 }
 
 /**
  * Input entero con botones − / + de a 1 (mismo patrón que Control Stock).
  * `value` vacío = sin número. `variante="formulario"` para modales (alto `h-9`).
  * Si el padre persiste por campo, usa `onCommit` (blur o paso).
+ * `clampAlMinimo`: `min` es un piso duro (no se tipea un 0 inicial, − se detiene en `min`
+ * y un número menor se sube a `min` al salir del campo).
  */
 export default function EnteroStepperInput({
   value,
@@ -61,6 +70,7 @@ export default function EnteroStepperInput({
   tabIndex,
   autoFocus,
   onEnter,
+  clampAlMinimo = false,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -76,23 +86,35 @@ export default function EnteroStepperInput({
   tabIndex?: number;
   autoFocus?: boolean;
   onEnter?: () => void;
+  clampAlMinimo?: boolean;
 }) {
   function commitParsed(raw: string) {
+    const libre = parseEnteroLibre(raw);
     const parsed = parseEnteroDraft(raw, min);
-    const next = parsed == null ? (allowEmpty ? "" : String(min)) : String(parsed);
+    let next: string;
+    if (parsed != null) next = String(parsed);
+    else if (clampAlMinimo && libre != null) next = String(min);
+    else next = allowEmpty ? "" : String(min);
     onChange(next);
     onCommit?.(next);
+  }
+
+  function cambiarTexto(raw: string) {
+    if (clampAlMinimo && min >= 1 && /^\s*[0-]/.test(raw)) return;
+    onChange(raw);
   }
 
   function ajustar(delta: -1 | 1) {
     const parsed = parseEnteroDraft(value, min);
     let nextN: number | null;
     if (parsed == null) {
-      nextN = delta > 0 ? Math.max(min, 1) : allowEmpty ? null : min;
+      const libre = clampAlMinimo ? parseEnteroLibre(value) : null;
+      if (libre != null) nextN = min;
+      else nextN = delta > 0 ? Math.max(min, 1) : allowEmpty ? null : min;
     } else {
       const candidato = parsed + delta;
       if (candidato < min) {
-        nextN = allowEmpty ? null : min;
+        nextN = clampAlMinimo || !allowEmpty ? min : null;
       } else {
         nextN = Math.min(candidato, MAX_ENTERO_STEPPER);
       }
@@ -100,6 +122,67 @@ export default function EnteroStepperInput({
     const next = nextN == null ? "" : String(nextN);
     onChange(next);
     onCommit?.(next);
+  }
+
+  const input = (
+    <Input
+      type="number"
+      min={min}
+      max={MAX_ENTERO_STEPPER}
+      step={1}
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      tabIndex={tabIndex}
+      autoFocus={autoFocus}
+      placeholder={variante === "formulario" ? "0" : undefined}
+      onChange={(e) => cambiarTexto(e.target.value)}
+      onBlur={() => commitParsed(value)}
+      onKeyDown={
+        onEnter
+          ? (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onEnter();
+              }
+            }
+          : undefined
+      }
+      className={stepperInputVariants({ variante })}
+    />
+  );
+
+  if (variante === "formulario") {
+    return (
+      <div className={cn(stepperContenedorVariants({ variante }), className)}>
+        {input}
+        <div className="flex h-full w-7 shrink-0 flex-col gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            className={STEPPER_BTN_APILADO_CLASS}
+            aria-label={`Aumentar ${ariaLabel}`}
+            disabled={disabled}
+            tabIndex={tabIndex}
+            onClick={() => ajustar(1)}
+          >
+            +
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className={STEPPER_BTN_APILADO_CLASS}
+            aria-label={`Disminuir ${ariaLabel}`}
+            disabled={disabled}
+            tabIndex={tabIndex}
+            onClick={() => ajustar(-1)}
+          >
+            -
+          </Button>
+        </div>
+        {endAction}
+      </div>
+    );
   }
 
   return (
@@ -116,31 +199,7 @@ export default function EnteroStepperInput({
       >
         -
       </Button>
-      <Input
-        type="number"
-        min={min}
-        max={MAX_ENTERO_STEPPER}
-        step={1}
-        value={value}
-        disabled={disabled}
-        aria-label={ariaLabel}
-        tabIndex={tabIndex}
-        autoFocus={autoFocus}
-        placeholder={variante === "formulario" ? "0" : undefined}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => commitParsed(value)}
-        onKeyDown={
-          onEnter
-            ? (e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  onEnter();
-                }
-              }
-            : undefined
-        }
-        className={stepperInputVariants({ variante })}
-      />
+      {input}
       <Button
         type="button"
         variant="ghost"
