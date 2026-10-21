@@ -148,7 +148,7 @@ export default function ReposicionCorpPageClient({
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
-                  <EmptyTableRow colSpan={5} />
+                  <EmptyTableRow colSpan={5} message="No hay productos para mostrar." />
                 ) : (
                   items.map((row) => (
                     <TableRow
