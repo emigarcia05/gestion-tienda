@@ -34,6 +34,7 @@ const OPCIONES_TRANSFERENCIA: { value: AccionTransferencia; label: string }[] = 
 
 const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 const FILA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_4.5rem_auto] items-center gap-3";
+const FILA_COMPRA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_4.5rem_11rem_13rem] items-center gap-3";
 
 function claveTransf(origen: SucursalTransf, codTienda: string): string {
   return `${origen}|${codTienda}`;
@@ -85,12 +86,6 @@ function CeldaItem({ item }: { item: ItemMovimientoVenta }) {
       ) : null}
     </span>
   );
-}
-
-function detalleProveedor(p: ProveedorCompraVentaItem): string {
-  return p.tipo === "lista"
-    ? `$${fmtPrecio(p.pxCompra)}`
-    : `COEF. ${p.coeficiente.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
 }
 
 interface Props {
@@ -364,9 +359,10 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
               <p className="text-center text-sm text-muted-foreground">SIN COMPRAS.</p>
             ) : (
               <>
-                <div className={FILA_GRID_CLASS}>
-                  <ModalMicroLabel>ÍTEM</ModalMicroLabel>
+                <div className={FILA_COMPRA_GRID_CLASS}>
+                  <ModalMicroLabel>DESCRIPCIÓN</ModalMicroLabel>
                   <ModalMicroLabel align="center">CANT.</ModalMicroLabel>
+                  <ModalMicroLabel>PROVEEDOR</ModalMicroLabel>
                   <span />
                 </div>
                 {compras.map((c) => {
@@ -377,23 +373,18 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                       ? proveedores?.[c.codTienda]?.find((p) => p.id === provElegido[c.codTienda])
                       : undefined;
                   return (
-                    <div key={c.codTienda} className={FILA_GRID_CLASS}>
-                      <div className="flex min-w-0 flex-col">
-                        <CeldaItem item={c} />
-                        {prov ? (
-                          <span className="text-xs uppercase text-muted-foreground">
-                            {prov.tipo === "tintometrico" ? "Pedido tintométrico" : "Pedido urgente"} a{" "}
-                            {prov.proveedor}
-                          </span>
-                        ) : null}
-                      </div>
+                    <div key={c.codTienda} className={FILA_COMPRA_GRID_CLASS}>
+                      <CeldaItem item={c} />
                       <span className="text-center text-sm font-bold tabular-nums">{fmtCantidad(c.cantidad)}</span>
+                      <span className="truncate text-sm uppercase text-foreground" title={prov?.proveedor}>
+                        {prov?.proveedor ?? ""}
+                      </span>
                       <Button
                         type="button"
                         size="sm"
                         aria-pressed={accion === "comprar"}
                         variant={accion === "comprar" ? "default" : "outline"}
-                        className={cn("justify-self-end", accion !== "comprar" && "border-primary")}
+                        className={cn("w-full", accion !== "comprar" && "border-primary")}
                         disabled={pending || hecho}
                         onClick={() => elegirAccionCompra(c.codTienda, accion === "comprar" ? "nada" : "comprar")}
                       >
@@ -437,7 +428,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                       <span className="ml-2 text-xs text-muted-foreground">(CX)</span>
                     ) : null}
                   </span>
-                  <span className="tabular-nums">{detalleProveedor(p)}</span>
+                  {p.tipo === "lista" ? <span className="tabular-nums">${fmtPrecio(p.pxCompra)}</span> : null}
                 </Button>
               ))}
             </div>

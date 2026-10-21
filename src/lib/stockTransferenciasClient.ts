@@ -1,7 +1,10 @@
 import { fetchApiJson } from "@/lib/apiFetchJson";
 import type { SucursalTransf } from "@/lib/transfDepositosTypes";
 import type { NotificacionesSucursal } from "@/services/notificaciones.service";
-import type { TransfDepositosData } from "@/lib/transfDepositosTypes";
+import type {
+  ItemTransfDepositos,
+  TransfDepositosData,
+} from "@/lib/transfDepositosTypes";
 import type {
   AceptarStockTransferenciaResult,
   StockTransferenciaDetalle,
@@ -64,6 +67,20 @@ export function listarCatalogoTransfDepositosApi(params: {
   if (params.rubro) q.set("rubro", params.rubro);
   q.set("pagina", String(params.pagina ?? 1));
   return fetchApiJson<TransfDepositosData>(`/api/stock/transf-depositos?${q.toString()}`);
+}
+
+export function listarSaldosTransfDepositosApi(params: {
+  origen: SucursalTransf;
+  destino?: SucursalTransf | null;
+  cods: string[];
+}) {
+  const q = new URLSearchParams();
+  q.set("origen", params.origen);
+  if (params.destino) q.set("destino", params.destino);
+  for (const cod of params.cods) q.append("cod", cod);
+  return fetchApiJson<ItemTransfDepositos[]>(
+    `/api/stock/transf-depositos/saldos?${q.toString()}`
+  );
 }
 
 export function obtenerTransferenciaApi(id: string) {

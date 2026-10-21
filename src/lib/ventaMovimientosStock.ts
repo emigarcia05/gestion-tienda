@@ -22,8 +22,8 @@ export type ProveedorCompraVentaItem =
   | {
       tipo: "tintometrico";
       id: string;
+      /** `proveedores.nombre`. */
       proveedor: string;
-      coeficiente: number;
     };
 
 /** Parte de la cantidad de un ítem tintométrico con su COD. COLOR. */

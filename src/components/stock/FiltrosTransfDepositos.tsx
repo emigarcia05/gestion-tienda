@@ -38,7 +38,11 @@ export type FiltrosTransfDepositosCambio = {
   q: string;
   marca: string;
   rubro: string;
+  transferencia: FiltroTransferenciaTransf;
 };
+
+/** `"si"`: solo ítems con cantidad a transferir > 0. */
+export type FiltroTransferenciaTransf = "" | "si";
 
 interface Props {
   data: TransfDepositosData;
@@ -47,6 +51,7 @@ interface Props {
   qActual: string;
   marcaActual: string;
   rubroActual: string;
+  transferenciaActual?: FiltroTransferenciaTransf;
   /** Si está, no navega por URL (modal Crear Transferencia). */
   onCambiar?: (next: FiltrosTransfDepositosCambio) => void;
   /** Editar: origen/destino de la versión no se cambian. */
@@ -57,7 +62,7 @@ interface Props {
  * Filtros de **Trans. Depósitos**:
  * 1) **SUC. ORIGEN** → **SUC. DESTINO** (centrados; una punta = sucursal del usuario;
  *    la otra se fija y no se edita)
- * 2) **MARCA** / **RUBRO** + búsqueda (sin desplegable SUCURSAL)
+ * 2) **MARCA** / **RUBRO** / **TRANSFERENCIA** (SI) + búsqueda (sin desplegable SUCURSAL)
  */
 export default function FiltrosTransfDepositos({
   data,
@@ -66,6 +71,7 @@ export default function FiltrosTransfDepositos({
   qActual,
   marcaActual,
   rubroActual,
+  transferenciaActual = "",
   onCambiar,
   parFijo = false,
 }: Props) {
@@ -102,13 +108,16 @@ export default function FiltrosTransfDepositos({
     return () => window.removeEventListener(EVENTO_USUARIO_SESION, syncUsuario);
   }, [syncUsuario]);
 
-  function buildParams(updates: {
+  type ActualizacionFiltros = {
     origen?: Sucursal | null;
     destino?: Sucursal | null;
     q?: string;
     marca?: string;
     rubro?: string;
-  }): URLSearchParams {
+    transferencia?: FiltroTransferenciaTransf;
+  };
+
+  function buildParams(updates: ActualizacionFiltros): URLSearchParams {
     const p = new URLSearchParams();
     const origen =
       updates.origen !== undefined ? updates.origen : origenActual;
@@ -117,28 +126,31 @@ export default function FiltrosTransfDepositos({
     const qVal = updates.q !== undefined ? updates.q : q;
     const marcaVal = updates.marca !== undefined ? updates.marca : marcaActual;
     const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
+    const transfVal =
+      updates.transferencia !== undefined
+        ? updates.transferencia
+        : transferenciaActual;
 
     if (origen) p.set("origen", origen);
     if (destino) p.set("destino", destino);
     if (qVal) p.set("q", qVal);
     if (marcaVal) p.set("marca", marcaVal);
     if (rubroVal) p.set("rubro", rubroVal);
+    if (transfVal) p.set("transferencia", transfVal);
     return p;
   }
 
-  function navigate(updates: {
-    origen?: Sucursal | null;
-    destino?: Sucursal | null;
-    q?: string;
-    marca?: string;
-    rubro?: string;
-  }) {
+  function navigate(updates: ActualizacionFiltros) {
     if (onCambiar) {
       const origen = updates.origen !== undefined ? updates.origen : origenActual;
       const destino = updates.destino !== undefined ? updates.destino : destinoActual;
       const qVal = updates.q !== undefined ? updates.q : q;
       const marcaVal = updates.marca !== undefined ? updates.marca : marcaActual;
       const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
+      const transfVal =
+        updates.transferencia !== undefined
+          ? updates.transferencia
+          : transferenciaActual;
       const par = sucursalUsuario
         ? parTransfConSucursalUsuario(origen, destino, sucursalUsuario)
         : { origen, destino };
@@ -148,6 +160,7 @@ export default function FiltrosTransfDepositos({
         q: qVal,
         marca: marcaVal,
         rubro: rubroVal,
+        transferencia: transfVal,
       });
       return;
     }
@@ -194,10 +207,13 @@ export default function FiltrosTransfDepositos({
   function handleRubro(value: string) {
     navigate({ rubro: value });
   }
+  function handleTransferencia(value: string) {
+    navigate({ transferencia: value === "si" ? "si" : "" });
+  }
 
   function limpiarFiltros() {
     setQ("");
-    navigate({ q: "", marca: "", rubro: "" });
+    navigate({ q: "", marca: "", rubro: "", transferencia: "" });
   }
 
   const origenSeleccionado = origenActual !== null;
@@ -227,6 +243,7 @@ export default function FiltrosTransfDepositos({
         q,
         marca: marcaActual,
         rubro: rubroActual,
+        transferencia: transferenciaActual,
       });
       return;
     }
@@ -236,6 +253,7 @@ export default function FiltrosTransfDepositos({
     if (q) p.set("q", q);
     if (marcaActual) p.set("marca", marcaActual);
     if (rubroActual) p.set("rubro", rubroActual);
+    if (transferenciaActual) p.set("transferencia", transferenciaActual);
     const query = p.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
   }, [
@@ -245,6 +263,7 @@ export default function FiltrosTransfDepositos({
     q,
     marcaActual,
     rubroActual,
+    transferenciaActual,
     pathname,
     router,
     parFijo,
@@ -390,6 +409,32 @@ export default function FiltrosTransfDepositos({
                       {r}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </FiltroIndividualContainer>
+            <FiltroIndividualContainer
+              className={FILTER_SELECT_WRAPPER_CLASS}
+              activo={transferenciaActual === "si"}
+              onLimpiar={() => handleTransferencia("")}
+            >
+              <Select
+                value={transferenciaActual}
+                onValueChange={(v) => handleTransferencia(v)}
+                disabled={!origenSeleccionado}
+              >
+                <SelectTrigger
+                  id="filtro-transf-transferencia"
+                  className="input-filtro-unificado"
+                >
+                  <SelectValue placeholder="TRANSFERENCIA" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  <SelectItem value="si">SI</SelectItem>
                 </SelectContent>
               </Select>
             </FiltroIndividualContainer>

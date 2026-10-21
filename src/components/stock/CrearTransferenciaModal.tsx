@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import PaginacionClient from "@/components/shared/PaginacionClient";
 import FiltrosTransfDepositos, {
+  type FiltroTransferenciaTransf,
   type FiltrosTransfDepositosCambio,
 } from "@/components/stock/FiltrosTransfDepositos";
 import TablaTransfDepositos, {
@@ -57,6 +58,8 @@ export default function CrearTransferenciaModal({
   const [q, setQ] = useState("");
   const [marca, setMarca] = useState("");
   const [rubro, setRubro] = useState("");
+  const [transferencia, setTransferencia] =
+    useState<FiltroTransferenciaTransf>("");
   const [pagina, setPagina] = useState(1);
   const [data, setData] = useState<TransfDepositosData>(TRANSF_DEPOSITOS_DATA_VACIO);
   const [isPending, startTransition] = useTransition();
@@ -75,6 +78,7 @@ export default function CrearTransferenciaModal({
       setQ("");
       setMarca("");
       setRubro("");
+      setTransferencia("");
       setPagina(1);
       setData(TRANSF_DEPOSITOS_DATA_VACIO);
     });
@@ -112,8 +116,10 @@ export default function CrearTransferenciaModal({
     setQ(next.q);
     setMarca(next.marca);
     setRubro(next.rubro);
+    setTransferencia(next.transferencia);
     setPagina(1);
   }, []);
+  const soloConTransferencia = transferencia === "si";
 
   function guardar() {
     const usuario = leerUsuarioSesion();
@@ -221,6 +227,7 @@ export default function CrearTransferenciaModal({
             qActual={q}
             marcaActual={marca}
             rubroActual={rubro}
+            transferenciaActual={transferencia}
             onCambiar={onCambiarFiltros}
             parFijo={modo === "editar"}
           />
@@ -235,9 +242,13 @@ export default function CrearTransferenciaModal({
               cantidadesIniciales={
                 modo === "editar" ? cantidadesIniciales : undefined
               }
+              soloConTransferencia={soloConTransferencia}
+              q={q}
+              marca={marca}
+              rubro={rubro}
             />
           </div>
-          {origen && data.totalPaginas > 1 ? (
+          {origen && !soloConTransferencia && data.totalPaginas > 1 ? (
             <div className="flex shrink-0 justify-end">
               <PaginacionClient
                 paginaActual={pagina}

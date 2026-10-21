@@ -68,8 +68,7 @@ export async function listarProveedoresCompraPorCodTiendas(
     const listaTint: ProveedorCompraVentaItem[] = provTint.map((p) => ({
       tipo: "tintometrico",
       id: p.id,
-      proveedor: etiquetaProveedorCosto(p.prefijo || null, p.nombre),
-      coeficiente: p.coeficienteTintometrico,
+      proveedor: p.nombre.trim(),
     }));
     for (const cod of tintometricos) out[cod] = listaTint.map((p) => ({ ...p }));
     return { success: true, data: out };

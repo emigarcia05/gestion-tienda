@@ -111,3 +111,47 @@ export async function listarCatalogoTransfDepositos(
     return TRANSF_DEPOSITOS_DATA_VACIO;
   }
 }
+
+export interface ListarSaldosTransfDepositosInput {
+  origen: SucursalTransf;
+  destino: SucursalTransf | null;
+  codItems: string[];
+}
+
+/**
+ * Ficha + saldos para códigos puntuales (filas con cantidad fuera de la página
+ * del catálogo). Devuelve una fila por código pedido, exista o no en `prod_lista`.
+ */
+export async function listarSaldosTransfDepositosPorCodigos(
+  input: ListarSaldosTransfDepositosInput
+): Promise<ItemTransfDepositos[]> {
+  const codigos = [...new Set(input.codItems.map((c) => c.trim()).filter(Boolean))];
+  if (codigos.length === 0) return [];
+
+  const [rows, saldosOrigen, saldosDestino] = await Promise.all([
+    prisma.prodPropio.findMany({
+      where: { codTienda: { in: codigos } },
+      select: {
+        codTienda: true,
+        descripcionTienda: true,
+        ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
+      },
+    }),
+    saldosPorCodigo(input.origen, codigos),
+    saldosPorCodigo(input.destino, codigos),
+  ]);
+
+  const fichaPorCod = new Map(rows.map((r) => [r.codTienda, r]));
+  return codigos.map((cod) => {
+    const r = fichaPorCod.get(cod);
+    return {
+      id: cod,
+      codItem: cod,
+      descripcion: r?.descripcionTienda ?? "",
+      marca: r?.marcaRelation?.nombre ?? null,
+      rubro: r?.rubroRelation?.nombre ?? null,
+      stockOrigen: saldosOrigen ? (saldosOrigen.get(cod) ?? 0) : null,
+      stockDestino: saldosDestino ? (saldosDestino.get(cod) ?? 0) : null,
+    };
+  });
+}

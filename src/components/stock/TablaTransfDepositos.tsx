@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -53,6 +54,9 @@ import {
   guardarBorradorTransfDepositos,
   leerBorradorTransfDepositos,
 } from "@/lib/transfDepositosControl";
+import { listarSaldosTransfDepositosApi } from "@/lib/stockTransferenciasClient";
+import { MAX_COD_SALDOS_TRANSF_DEPOSITOS } from "@/lib/validations/transfDepositos";
+import { matchByMultiTerm } from "@/lib/busqueda";
 
 /** DESCRIPCIÓN · CANT. (− input +) · SUC. ORIGEN · SUC. DESTINO · ACCIONES. */
 const PCT_DESC = 42;
@@ -91,6 +95,24 @@ interface Props {
   persistirBorrador?: boolean;
   /** Hidrata cantidades (editar) y gana al localStorage. */
   cantidadesIniciales?: BorradorTransfDepositos;
+  /** Filtro TRANSFERENCIA = SI: solo ítems con cantidad > 0 (todas las páginas). */
+  soloConTransferencia?: boolean;
+  /** Con `soloConTransferencia`, se aplican en cliente sobre esas filas. */
+  q?: string;
+  marca?: string;
+  rubro?: string;
+}
+
+function filaDesdeBorrador(id: string, descripcion: string): ItemTransfDepositos {
+  return {
+    id,
+    codItem: id,
+    descripcion: descripcion.trim() || id,
+    marca: null,
+    rubro: null,
+    stockOrigen: null,
+    stockDestino: null,
+  };
 }
 
 export type ItemCantidadTransfTabla = {
@@ -109,13 +131,28 @@ export type TablaTransfDepositosHandle = {
  * (Trash2, AlertTriangle). Con cantidad: stock `actual → luego`.
  * Cantidades se conservan al paginar y en `localStorage` por par origen→destino
  * hasta **Crear Transferencia**. `data.loteAbierto` hidrata si el local está vacío.
+ * Filas con cantidad fuera de la página: ficha + saldos vía `listarSaldosTransfDepositosApi`.
  */
 const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
   function TablaTransfDepositos(
-    { data, origen, destino, persistirBorrador = true, cantidadesIniciales },
+    {
+      data,
+      origen,
+      destino,
+      persistirBorrador = true,
+      cantidadesIniciales,
+      soloConTransferencia = false,
+      q = "",
+      marca = "",
+      rubro = "",
+    },
     ref
   ) {
   const [borrador, setBorrador] = useState<BorradorTransfDepositos>({});
+  /** Ficha + saldos de filas con cantidad que no están en la página actual. */
+  const [fichasExtra, setFichasExtra] = useState<
+    Record<string, ItemTransfDepositos>
+  >({});
 
   useImperativeHandle(
     ref,
@@ -198,30 +235,100 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
     return map;
   }, [data.controlesRecientes]);
 
-  const idsEnPagina = useMemo(
-    () => new Set(data.items.map((item) => item.id)),
+  const itemsPorId = useMemo(
+    () => new Map(data.items.map((item) => [item.id, item])),
     [data.items]
   );
 
+  const idsConCantidad = useMemo(
+    () =>
+      Object.entries(borrador)
+        .filter(([, item]) => {
+          const n = parseCantidadUnDecimal(item.cantidad);
+          return n != null && n > 0;
+        })
+        .map(([id]) => id),
+    [borrador]
+  );
+
+  const claveSinFicha = useMemo(
+    () =>
+      idsConCantidad
+        .filter((id) => !itemsPorId.has(id) && !fichasExtra[id])
+        .sort()
+        .slice(0, MAX_COD_SALDOS_TRANSF_DEPOSITOS)
+        .join("\n"),
+    [idsConCantidad, itemsPorId, fichasExtra]
+  );
+
+  useEffect(() => {
+    if (!origen || claveSinFicha === "") return;
+    let cancelado = false;
+    void (async () => {
+      const res = await listarSaldosTransfDepositosApi({
+        origen,
+        destino,
+        cods: claveSinFicha.split("\n"),
+      });
+      if (cancelado) return;
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setFichasExtra((prev) => {
+        const next = { ...prev };
+        for (const item of res.data) next[item.id] = item;
+        return next;
+      });
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [origen, destino, claveSinFicha]);
+
   const filas = useMemo(() => {
-    const extras: ItemTransfDepositos[] = Object.entries(borrador)
-      .filter(([id, item]) => {
-        if (idsEnPagina.has(id)) return false;
-        const n = parseCantidadUnDecimal(item.cantidad);
-        return n != null && n > 0;
-      })
-      .map(([id, item]) => ({
-        id,
-        codItem: id,
-        descripcion: item.descripcion.trim() || id,
-        marca: null,
-        rubro: null,
-        stockOrigen: null,
-        stockDestino: null,
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id, "es"));
+    const resolver = (id: string): ItemTransfDepositos => {
+      const desdePagina = itemsPorId.get(id);
+      if (desdePagina) return desdePagina;
+      const ficha = fichasExtra[id];
+      const descBorrador = borrador[id]?.descripcion ?? "";
+      if (ficha) {
+        return { ...ficha, descripcion: ficha.descripcion || descBorrador || id };
+      }
+      return filaDesdeBorrador(id, descBorrador);
+    };
+    const porDescripcion = (a: ItemTransfDepositos, b: ItemTransfDepositos) =>
+      a.descripcion.localeCompare(b.descripcion, "es");
+
+    if (soloConTransferencia) {
+      return idsConCantidad
+        .map(resolver)
+        .filter(
+          (item) =>
+            (!marca || item.marca === marca) &&
+            (!rubro || item.rubro === rubro) &&
+            matchByMultiTerm([item.descripcion, item.codItem], q, {
+              numericAsContains: true,
+            })
+        )
+        .sort(porDescripcion);
+    }
+    const extras = idsConCantidad
+      .filter((id) => !itemsPorId.has(id))
+      .map(resolver)
+      .sort(porDescripcion);
     return [...extras, ...data.items];
-  }, [borrador, data.items, idsEnPagina]);
+  }, [
+    borrador,
+    data.items,
+    itemsPorId,
+    fichasExtra,
+    idsConCantidad,
+    soloConTransferencia,
+    q,
+    marca,
+    rubro,
+  ]);
 
   function handleCantidad(id: string, raw: string, descripcion: string) {
     const limpio = raw.trim();
@@ -327,7 +434,9 @@ const TablaTransfDepositos = forwardRef<TablaTransfDepositosHandle, Props>(
                     maxWidth: "full",
                   })}
                 >
-                  Sin resultados
+                  {soloConTransferencia
+                    ? "Sin ítems con cantidad a transferir"
+                    : "Sin resultados"}
                 </span>
               </TableCell>
             </TableRow>
