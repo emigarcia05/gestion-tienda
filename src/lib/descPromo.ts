@@ -99,6 +99,13 @@ export function textoRangoFechasDescPromo(
   return `${formatIsoYmdDdMmYyArgentina(fila.fechaDesdeIso)} AL ${formatIsoYmdDdMmYyArgentina(fila.fechaHastaIso)}`;
 }
 
+export function textoFechaFinDescPromo(
+  fila: Pick<DescPromoFila, "categoria" | "fechaHastaIso">
+): string {
+  if (fila.categoria !== "FECHA" || !fila.fechaHastaIso) return "SIN FECHA ESTABLECIDA";
+  return formatIsoYmdDdMmYyArgentina(fila.fechaHastaIso);
+}
+
 export const ALCANCES_DESC_PROMO = [
   "TODOS",
   "MARCA",

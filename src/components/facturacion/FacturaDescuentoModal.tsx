@@ -5,6 +5,11 @@ import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  DescPromoAlcanceLectura,
+  DescPromoFormasPagoLectura,
+  SeccionLecturaDescPromo,
+} from "@/components/desc-promos/DescPromoLectura";
 import AppModal from "@/components/shared/AppModal";
 import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -33,9 +38,9 @@ import {
   ordenarPromosPorDescFactura,
   snapshotCobroDescPromo,
   textoDescuentosDescPromo,
+  textoFechaFinDescPromo,
   type DescPromoFila,
   type DescPromoFormaPagoRef,
-  type DescPromoItemRef,
 } from "@/lib/descPromo";
 import { fmtCelda } from "@/lib/format";
 import {
@@ -105,10 +110,6 @@ function CeldaAccionesPromo({
       </div>
     </TableCell>
   );
-}
-
-function promoTieneItems(promo: DescPromoFila): boolean {
-  return esDescPromoEspecial(promo) && promo.items.length > 0;
 }
 
 function clavePromo(promoId: string): string {
@@ -222,7 +223,6 @@ export default function FacturaDescuentoModal({
   const [seleccion, setSeleccion] = useState(inicial.seleccion);
   const [vista, setVista] = useState<VistaDescPromo>(inicial.vista);
   const [verPromo, setVerPromo] = useState<DescPromoFila | null>(null);
-  const [verItems, setVerItems] = useState<DescPromoItemRef[] | null>(null);
   const [filtroPago, setFiltroPago] = useState(
     descuentoActual?.fuente === "promo_forma_pago"
       ? descuentoActual.promoPagoIdSeleccionado ?? ""
@@ -429,7 +429,7 @@ export default function FacturaDescuentoModal({
           onOpenChange(true);
           return;
         }
-        if (verPromo != null || verItems != null) {
+        if (verPromo != null) {
           return;
         }
         if (!cierreConfirmadoRef.current) {
@@ -710,13 +710,12 @@ export default function FacturaDescuentoModal({
     <Dialog
       open={verPromo != null}
       onOpenChange={(next) => {
-        if (!next && verItems != null) return;
         if (!next) setVerPromo(null);
       }}
     >
       <AppModal
         title="VER DESCUENTO"
-        size="md"
+        size="lg"
         actions={
           <Button type="button" variant="outline" onClick={() => setVerPromo(null)}>
             Cerrar
@@ -724,120 +723,32 @@ export default function FacturaDescuentoModal({
         }
       >
         {verPromo ? (
-          <div className="flex flex-col gap-3">
-            <LineaLecturaModal
-              etiqueta="NOMBRE"
-              valor={fmtCelda(verPromo.nombre)}
-            />
-            <LineaLecturaModal
-              etiqueta="DESC."
-              valor={fmtCelda(textoDescuentosDescPromo(verPromo))}
-              tabular
-            />
-            <div className="contenedor-tabla-gestion min-h-0 overflow-auto rounded-md border border-primary">
-              <Table variant="compact" className="tabla-gestion-compacta w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-center">ACCIONES</TableHead>
-                    <TableHead>ALCANCE</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-                      {promoTieneItems(verPromo) ? (
-                        <div
-                          className={cn(
-                            TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                            "justify-center"
-                          )}
-                        >
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                            title="Ver"
-                            aria-label="Ver ítems"
-                            onClick={() => setVerItems(verPromo.items)}
-                          >
-                            <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                          </Button>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="celda-datos uppercase">
-                      {fmtCelda(etiquetaAlcanceCondicion(verPromo))}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-            <div className="contenedor-tabla-gestion min-h-0 max-h-[min(20rem,40vh)] overflow-auto rounded-md border border-primary">
-              <Table variant="compact" className="tabla-gestion-compacta w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>FORMA PAGO</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {verPromo.formasPago.length === 0 ? (
-                    <EmptyTableRow colSpan={1} message="NO HAY FORMAS DE PAGO." />
-                  ) : (
-                    verPromo.formasPago.map((fp) => (
-                      <TableRow
-                        key={claveFormaPagoCuotaDescPromo(fp.pagoId, fp.cuotaId)}
-                      >
-                        <TableCell className="celda-datos uppercase">
-                          {fmtCelda(etiquetaFormaPagoCuotaDescPromo(fp))}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+          <div className="flex flex-col gap-4">
+            <SeccionLecturaDescPromo titulo="DATOS">
+              <LineaLecturaModal etiqueta="NOMBRE" valor={fmtCelda(verPromo.nombre)} />
+              <LineaLecturaModal
+                etiqueta="DESC."
+                valor={fmtCelda(textoDescuentosDescPromo(verPromo))}
+                tabular
+              />
+              <LineaLecturaModal
+                etiqueta="TIPO DE DESC."
+                valor={fmtCelda(verPromo.categoriaEtiqueta)}
+              />
+              <LineaLecturaModal
+                etiqueta="FECHA"
+                valor={textoFechaFinDescPromo(verPromo)}
+                tabular
+              />
+            </SeccionLecturaDescPromo>
+            <SeccionLecturaDescPromo titulo="FORMAS DE PAGO">
+              <DescPromoFormasPagoLectura item={verPromo} />
+            </SeccionLecturaDescPromo>
+            <SeccionLecturaDescPromo titulo="ALCANCE">
+              <DescPromoAlcanceLectura item={verPromo} />
+            </SeccionLecturaDescPromo>
           </div>
         ) : null}
-      </AppModal>
-    </Dialog>
-    <Dialog
-      open={verItems != null}
-      onOpenChange={(next) => {
-        if (!next) setVerItems(null);
-      }}
-    >
-      <AppModal
-        title="VER ÍTEMS"
-        size="md"
-        actions={
-          <Button type="button" variant="outline" onClick={() => setVerItems(null)}>
-            Cerrar
-          </Button>
-        }
-      >
-        <div className="contenedor-tabla-gestion min-h-0 max-h-[min(20rem,40vh)] overflow-auto rounded-md border border-primary">
-          <Table variant="compact" className="tabla-gestion-compacta w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead>DESCRIPCIÓN</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(verItems ?? []).length === 0 ? (
-                <EmptyTableRow colSpan={1} message="NO HAY ÍTEMS." />
-              ) : (
-                (verItems ?? []).map((item) => (
-                  <TableRow key={item.codTienda}>
-                    <TableCell className="celda-datos uppercase">
-                      {fmtCelda(item.descripcion || item.codTienda)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
       </AppModal>
     </Dialog>
     </>
