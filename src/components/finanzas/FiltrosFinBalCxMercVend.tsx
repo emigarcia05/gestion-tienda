@@ -19,11 +19,14 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import { hrefCxMercVend, paramsCxMercVend } from "@/lib/balCxMercVend";
+import type { VistaCxMercVend } from "@/lib/validations/balCxMercaderia";
 import type { OpcionFiltroCxMercVend } from "@/services/balCxMercaderia.service";
 
 const FOCUS_KEY = "filtros-fin-bal-cx-merc-vend-focus";
 
 interface Props {
+  vista: VistaCxMercVend;
   periodos: OpcionFiltroCxMercVend[];
   rubros: OpcionFiltroCxMercVend[];
   sucursales: OpcionFiltroCxMercVend[];
@@ -35,6 +38,7 @@ interface Props {
 }
 
 export default function FiltrosFinBalCxMercVend({
+  vista,
   periodos,
   rubros,
   sucursales,
@@ -44,6 +48,8 @@ export default function FiltrosFinBalCxMercVend({
   sucursalActual,
   qActual,
 }: Props) {
+  /** Vtas Por Suc muestra todos los meses: FECHA no aplica. */
+  const fechaDeshabilitada = vista === "sucursal";
   const pathname = usePathname();
   const router = useRouter();
 
@@ -64,22 +70,30 @@ export default function FiltrosFinBalCxMercVend({
     sucursal?: string;
     q?: string;
   }) {
-    const p = new URLSearchParams();
-    const periodoVal = updates.periodo !== undefined ? updates.periodo : periodoActual;
-    const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
-    const sucursalVal = updates.sucursal !== undefined ? updates.sucursal : sucursalActual;
-    const qVal = updates.q !== undefined ? updates.q : q;
-    if (periodoVal && periodoVal !== periodoDefault) p.set("periodo", periodoVal);
-    if (rubroVal) p.set("rubro", rubroVal);
-    if (sucursalVal) p.set("sucursal", sucursalVal);
-    if (qVal) p.set("q", qVal);
-    const query = p.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
+    const params = paramsCxMercVend(
+      {
+        vista,
+        periodo: updates.periodo ?? periodoActual,
+        rubro: updates.rubro ?? rubroActual,
+        sucursal: updates.sucursal ?? sucursalActual,
+        q: updates.q ?? q,
+      },
+      periodoDefault
+    );
+    router.push(hrefCxMercVend(pathname, params));
   }
 
   function limpiarFiltros() {
     setQ("");
-    router.push(pathname);
+    router.push(
+      hrefCxMercVend(
+        pathname,
+        paramsCxMercVend(
+          { vista, periodo: periodoDefault, rubro: "", sucursal: "", q: "" },
+          periodoDefault
+        )
+      )
+    );
   }
 
   return (
@@ -88,10 +102,14 @@ export default function FiltrosFinBalCxMercVend({
         <FilaFiltrosDesplegables>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={periodoActual !== periodoDefault}
+            activo={!fechaDeshabilitada && periodoActual !== periodoDefault}
             onLimpiar={() => navigate({ periodo: periodoDefault })}
           >
-            <Select value={periodoActual} onValueChange={(v) => navigate({ periodo: v })}>
+            <Select
+              value={periodoActual}
+              onValueChange={(v) => navigate({ periodo: v })}
+              disabled={fechaDeshabilitada}
+            >
               <SelectTrigger
                 id="filtro-cx-merc-vend-fecha"
                 className={SELECT_TRIGGER_FILTER_CLASS}

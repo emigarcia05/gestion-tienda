@@ -4,7 +4,11 @@
  * Venta: costo vigente (`resolverCostoCompraTiendaConOrigen`).
  * NC: costo unitario de la venta asociada (`cbte_asoc_id`) para ese ítem; si no hay, costo vigente.
  */
-import type { BalCxMercaderiaOrigenCosto, Prisma } from "@prisma/client";
+import type {
+  BalCxMercaderiaOrigenCosto,
+  Prisma,
+  StockMovimientoTipo,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { filtroTexto } from "@/lib/busqueda";
 import { cantidadDesdePrisma } from "@/lib/cantidadUnDecimal";
@@ -15,7 +19,11 @@ import {
 } from "@/lib/estPorProdPeriodo";
 import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
 import { PAGE_SIZE } from "@/lib/pagination";
-import { cxMercVendParamsSchema } from "@/lib/validations/balCxMercaderia";
+import {
+  cxMercVendParamsSchema,
+  VISTA_CX_MERC_VEND_DEFAULT,
+  type VistaCxMercVend,
+} from "@/lib/validations/balCxMercaderia";
 import {
   resolverCostoCompraTiendaConOrigen,
   SELECT_COSTO_COMPRA_TIENDA,
@@ -129,18 +137,151 @@ export interface FilaCxMercVend {
   esNotaCredito: boolean;
 }
 
+export interface FilaResumenCxMercVend {
+  /** `YYYY-MM` (vista sucursal) o id de rubro (vista rubro). */
+  clave: string;
+  etiqueta: string;
+  total: number;
+  porSucursal: Record<string, number>;
+}
+
+/** Matriz de las vistas resumidas: filas (meses o rubros) × sucursales; CX con signo. */
+export interface ResumenCxMercVend {
+  columnas: OpcionFiltroCxMercVend[];
+  filas: FilaResumenCxMercVend[];
+  totales: { total: number; porSucursal: Record<string, number> };
+}
+
 export interface CxMercVendData {
+  vista: VistaCxMercVend;
+  /** Solo vista `detalle` (vacío en las resumidas). */
   filas: FilaCxMercVend[];
   total: number;
   totalPaginas: number;
   /** Suma con signo de todas las filas que cumplen los filtros (no solo la página). */
   totalCx: number;
+  /** Solo vistas `sucursal` / `rubro`. */
+  resumen: ResumenCxMercVend | null;
   periodos: OpcionFiltroCxMercVend[];
   rubros: OpcionFiltroCxMercVend[];
   sucursales: OpcionFiltroCxMercVend[];
   /** Mes calendario AR actual (`YYYY-MM`): valor al limpiar FECHA. */
   periodoDefault: string;
-  filtros: { periodo: string; rubro: string; sucursal: string; q: string; pagina: number };
+  filtros: {
+    vista: VistaCxMercVend;
+    periodo: string;
+    rubro: string;
+    sucursal: string;
+    q: string;
+    pagina: number;
+  };
+}
+
+const CLAVE_SIN_RUBRO = "__sin_rubro__";
+
+function cxConSigno(tipo: StockMovimientoTipo, costoTotal: Prisma.Decimal | null): number {
+  const monto = Number(costoTotal ?? 0);
+  return tipo === "INGRESO" ? -monto : monto;
+}
+
+function redondearResumen(resumen: ResumenCxMercVend): ResumenCxMercVend {
+  const r2 = (n: number) => redondear(n, 2);
+  const porSuc = (m: Record<string, number>) =>
+    Object.fromEntries(Object.entries(m).map(([k, v]) => [k, r2(v)]));
+  return {
+    columnas: resumen.columnas,
+    filas: resumen.filas.map((f) => ({
+      ...f,
+      total: r2(f.total),
+      porSucursal: porSuc(f.porSucursal),
+    })),
+    totales: {
+      total: r2(resumen.totales.total),
+      porSucursal: porSuc(resumen.totales.porSucursal),
+    },
+  };
+}
+
+/** Arma la matriz sumando cada grupo en su fila, su sucursal y los totales. */
+function armarResumen(
+  columnas: OpcionFiltroCxMercVend[],
+  filasBase: OpcionFiltroCxMercVend[],
+  grupos: { clave: string; sucursalId: string; cx: number }[],
+  filaExtra?: OpcionFiltroCxMercVend
+): ResumenCxMercVend {
+  const columnasIds = new Set(columnas.map((c) => c.value));
+  const filas = new Map<string, FilaResumenCxMercVend>(
+    filasBase.map((f) => [f.value, { clave: f.value, etiqueta: f.label, total: 0, porSucursal: {} }])
+  );
+  const totales = { total: 0, porSucursal: {} as Record<string, number> };
+  for (const g of grupos) {
+    if (!columnasIds.has(g.sucursalId)) continue;
+    let fila = filas.get(g.clave);
+    if (!fila && filaExtra && g.clave === filaExtra.value) {
+      fila = { clave: filaExtra.value, etiqueta: filaExtra.label, total: 0, porSucursal: {} };
+      filas.set(g.clave, fila);
+    }
+    if (!fila) continue;
+    fila.total += g.cx;
+    fila.porSucursal[g.sucursalId] = (fila.porSucursal[g.sucursalId] ?? 0) + g.cx;
+    totales.total += g.cx;
+    totales.porSucursal[g.sucursalId] = (totales.porSucursal[g.sucursalId] ?? 0) + g.cx;
+  }
+  return redondearResumen({ columnas, filas: [...filas.values()], totales });
+}
+
+/** Vista 1: todos los meses (más reciente primero) × sucursales; ignora FECHA. */
+async function resumenCxMercVendPorSucursal(
+  where: Prisma.BalCxMercaderiaWhereInput,
+  columnas: OpcionFiltroCxMercVend[],
+  periodos: OpcionFiltroCxMercVend[]
+): Promise<ResumenCxMercVend> {
+  const rows = await prisma.balCxMercaderia.groupBy({
+    by: ["fecha", "sucursalId", "tipoMovimiento"],
+    where,
+    _sum: { costoTotal: true },
+  });
+  return armarResumen(
+    columnas,
+    periodos,
+    rows.map((r) => ({
+      clave: clavePeriodoEstPorProd(r.fecha.getUTCMonth() + 1, r.fecha.getUTCFullYear()),
+      sucursalId: r.sucursalId,
+      cx: cxConSigno(r.tipoMovimiento, r._sum.costoTotal),
+    }))
+  );
+}
+
+/** Vista 2: rubros × sucursales del mes elegido. */
+async function resumenCxMercVendPorRubro(
+  where: Prisma.BalCxMercaderiaWhereInput,
+  columnas: OpcionFiltroCxMercVend[],
+  rubros: OpcionFiltroCxMercVend[]
+): Promise<ResumenCxMercVend> {
+  const rows = await prisma.balCxMercaderia.groupBy({
+    by: ["codItem", "sucursalId", "tipoMovimiento"],
+    where,
+    _sum: { costoTotal: true },
+  });
+  const codItems = [...new Set(rows.map((r) => r.codItem))];
+  const productos =
+    codItems.length > 0
+      ? await prisma.prodPropio.findMany({
+          where: { codTienda: { in: codItems } },
+          select: { codTienda: true, idRubro: true },
+        })
+      : [];
+  const rubroPorCod = new Map(productos.map((p) => [p.codTienda, p.idRubro]));
+  return armarResumen(
+    columnas,
+    rubros,
+    rows.map((r) => ({
+      clave: rubroPorCod.get(r.codItem) ?? CLAVE_SIN_RUBRO,
+      sucursalId: r.sucursalId,
+      cx: cxConSigno(r.tipoMovimiento, r._sum.costoTotal),
+    })),
+    { value: CLAVE_SIN_RUBRO, label: "SIN RUBRO" }
+  );
 }
 
 type PeriodoMesAnio = { mes: number; anio: number };
@@ -181,20 +322,22 @@ async function listarPeriodosCxMercVend(
 }
 
 function whereCxMercVend(params: {
-  periodo: PeriodoMesAnio;
+  /** `null` = sin filtro de fecha (vista por sucursal). */
+  periodo: PeriodoMesAnio | null;
   rubro: string;
   sucursal: string;
   q: string;
 }): Prisma.BalCxMercaderiaWhereInput {
-  const { mes, anio } = params.periodo;
-  const parts: Prisma.BalCxMercaderiaWhereInput[] = [
-    {
+  const parts: Prisma.BalCxMercaderiaWhereInput[] = [];
+  if (params.periodo) {
+    const { mes, anio } = params.periodo;
+    parts.push({
       fecha: {
         gte: new Date(Date.UTC(anio, mes - 1, 1)),
         lt: new Date(Date.UTC(anio, mes, 1)),
       },
-    },
-  ];
+    });
+  }
   if (params.sucursal) parts.push({ sucursalId: params.sucursal });
   const prod: Prisma.ProdPropioWhereInput[] = [];
   if (params.rubro) prod.push({ idRubro: params.rubro });
@@ -204,37 +347,15 @@ function whereCxMercVend(params: {
   return { AND: parts };
 }
 
-/**
- * Finanzas · Balance · Cx Merc. Vend.: líneas de `bal_cx_mercaderia` del mes elegido,
- * filtrables por rubro, sucursal y texto (descripción / código). Periodo inválido → mes AR actual.
- */
-export async function listarCxMercVendData(raw: {
-  periodo?: string;
-  rubro?: string;
-  sucursal?: string;
-  q?: string;
-  pagina?: string;
-}): Promise<CxMercVendData> {
-  const actual = mesAnioCalendarioArgentina();
-  const periodoDefault = clavePeriodoEstPorProd(actual.mes, actual.anio);
-  const parsed = cxMercVendParamsSchema.safeParse({
-    periodo: raw.periodo || periodoDefault,
-    rubro: raw.rubro ?? "",
-    sucursal: raw.sucursal ?? "",
-    q: raw.q ?? "",
-    pagina: raw.pagina ?? 1,
-  });
-  const filtros = parsed.success
-    ? parsed.data
-    : { periodo: periodoDefault, rubro: "", sucursal: "", q: "", pagina: 1 };
-  const periodo = parseClavePeriodoEstPorProd(filtros.periodo) ?? actual;
-  const where = whereCxMercVend({ ...filtros, periodo });
-
-  const [rows, total, sumas, periodos, rubros, sucursales] = await Promise.all([
+async function listarDetalleCxMercVend(
+  where: Prisma.BalCxMercaderiaWhereInput,
+  pagina: number
+): Promise<Pick<CxMercVendData, "filas" | "total" | "totalPaginas" | "totalCx">> {
+  const [rows, total, sumas] = await Promise.all([
     prisma.balCxMercaderia.findMany({
       where,
       orderBy: [{ fecha: "desc" }, { createdAt: "desc" }, { codItem: "asc" }],
-      skip: (filtros.pagina - 1) * PAGE_SIZE,
+      skip: (pagina - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       select: {
         id: true,
@@ -252,6 +373,61 @@ export async function listarCxMercVendData(raw: {
       where,
       _sum: { costoTotal: true },
     }),
+  ]);
+  const totalCx = sumas.reduce((acc, s) => acc + cxConSigno(s.tipoMovimiento, s._sum.costoTotal), 0);
+  return {
+    filas: rows.map((r) => ({
+      id: r.id,
+      fechaIso: isoYmdFromPrismaDateOnly(r.fecha),
+      codItem: r.codItem,
+      descripcion: r.prodTienda.descripcionTienda ?? "",
+      cx: cxConSigno(r.tipoMovimiento, r.costoTotal),
+      sucursalNombre: r.sucursal.nombre.toLocaleUpperCase("es-AR"),
+      esNotaCredito: r.tipoMovimiento === "INGRESO",
+    })),
+    total,
+    totalPaginas: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    totalCx: redondear(totalCx, 2),
+  };
+}
+
+/**
+ * Finanzas · Balance · Cx Merc. Vend. (`bal_cx_mercaderia`), 3 vistas:
+ * `sucursal` (meses × sucursales, ignora FECHA), `rubro` (rubros × sucursales del mes) y
+ * `detalle` (líneas paginadas del mes). RUBRO / SUC / texto aplican a todas; SUC limita las columnas.
+ * Periodo inválido → mes AR actual.
+ */
+export async function listarCxMercVendData(raw: {
+  vista?: string;
+  periodo?: string;
+  rubro?: string;
+  sucursal?: string;
+  q?: string;
+  pagina?: string;
+}): Promise<CxMercVendData> {
+  const actual = mesAnioCalendarioArgentina();
+  const periodoDefault = clavePeriodoEstPorProd(actual.mes, actual.anio);
+  const parsed = cxMercVendParamsSchema.safeParse({
+    vista: raw.vista || VISTA_CX_MERC_VEND_DEFAULT,
+    periodo: raw.periodo || periodoDefault,
+    rubro: raw.rubro ?? "",
+    sucursal: raw.sucursal ?? "",
+    q: raw.q ?? "",
+    pagina: raw.pagina ?? 1,
+  });
+  const filtros = parsed.success
+    ? parsed.data
+    : {
+        vista: VISTA_CX_MERC_VEND_DEFAULT,
+        periodo: periodoDefault,
+        rubro: "",
+        sucursal: "",
+        q: "",
+        pagina: 1,
+      };
+  const periodo = parseClavePeriodoEstPorProd(filtros.periodo) ?? actual;
+
+  const [periodos, rubrosRows, sucursalesRows] = await Promise.all([
     listarPeriodosCxMercVend(actual),
     listarRubrosCatalogoReglasDesdeProdTienda(),
     prisma.sucursal.findMany({
@@ -260,36 +436,42 @@ export async function listarCxMercVendData(raw: {
       orderBy: { nombre: "asc" },
     }),
   ]);
+  const rubros = rubrosRows.map((r) => ({
+    value: r.id,
+    label: r.nombre.toLocaleUpperCase("es-AR"),
+  }));
+  const sucursales = sucursalesRows.map((s) => ({
+    value: s.id,
+    label: s.nombre.toLocaleUpperCase("es-AR"),
+  }));
+  const columnas = filtros.sucursal
+    ? sucursales.filter((s) => s.value === filtros.sucursal)
+    : sucursales;
 
-  const totalCx = sumas.reduce((acc, s) => {
-    const monto = Number(s._sum.costoTotal ?? 0);
-    return s.tipoMovimiento === "INGRESO" ? acc - monto : acc + monto;
-  }, 0);
-
-  return {
-    filas: rows.map((r) => {
-      const esNotaCredito = r.tipoMovimiento === "INGRESO";
-      const monto = Number(r.costoTotal);
-      return {
-        id: r.id,
-        fechaIso: isoYmdFromPrismaDateOnly(r.fecha),
-        codItem: r.codItem,
-        descripcion: r.prodTienda.descripcionTienda ?? "",
-        cx: esNotaCredito ? -monto : monto,
-        sucursalNombre: r.sucursal.nombre.toLocaleUpperCase("es-AR"),
-        esNotaCredito,
-      };
-    }),
-    total,
-    totalPaginas: Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    totalCx: Math.round(totalCx * 100) / 100,
+  const base = {
+    vista: filtros.vista,
     periodos,
-    rubros: rubros.map((r) => ({ value: r.id, label: r.nombre.toLocaleUpperCase("es-AR") })),
-    sucursales: sucursales.map((s) => ({
-      value: s.id,
-      label: s.nombre.toLocaleUpperCase("es-AR"),
-    })),
+    rubros,
+    sucursales,
     periodoDefault,
     filtros: { ...filtros, periodo: clavePeriodoEstPorProd(periodo.mes, periodo.anio) },
   };
+  const sinDetalle = { filas: [], total: 0, totalPaginas: 1, totalCx: 0 };
+
+  if (filtros.vista === "sucursal") {
+    const where = whereCxMercVend({ ...filtros, periodo: null });
+    const resumen = await resumenCxMercVendPorSucursal(where, columnas, periodos);
+    return { ...base, ...sinDetalle, totalCx: resumen.totales.total, resumen };
+  }
+  if (filtros.vista === "rubro") {
+    const where = whereCxMercVend({ ...filtros, periodo });
+    const filasRubro = filtros.rubro ? rubros.filter((r) => r.value === filtros.rubro) : rubros;
+    const resumen = await resumenCxMercVendPorRubro(where, columnas, filasRubro);
+    return { ...base, ...sinDetalle, totalCx: resumen.totales.total, resumen };
+  }
+  const detalle = await listarDetalleCxMercVend(
+    whereCxMercVend({ ...filtros, periodo }),
+    filtros.pagina
+  );
+  return { ...base, ...detalle, resumen: null };
 }

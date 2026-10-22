@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   searchParams: Promise<{
+    vista?: string;
     periodo?: string;
     rubro?: string;
     sucursal?: string;
