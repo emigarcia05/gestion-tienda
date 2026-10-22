@@ -405,7 +405,7 @@ export default function CrearEditarDescPromoModal({
     >
       <AppModal
         size="xl"
-        className={cn(esStock && "max-w-[min(66rem,calc(100%-2rem))]")}
+        className="max-w-[min(66rem,calc(100%-2rem))]"
         title={esAlta ? "NUEVO DESCUENTO" : "EDITAR DESCUENTO"}
         actions={
           <div className="flex w-full justify-end gap-2">

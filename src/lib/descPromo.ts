@@ -6,8 +6,6 @@ import type {
 import { APP_ROUTES } from "./appRoutes";
 import { fmtCantidad } from "./cantidadUnDecimal";
 import { formatIsoYmdDdMmYyArgentina } from "./fechaArgentina";
-import { montoArCentsToDisplayWithCurrency } from "./montoArMask";
-
 export const DESC_PROMOS_PATH = APP_ROUTES.administrador.cobrosDesc.descuentos;
 
 export const CATEGORIAS_DESC_PROMO = ["BASE", "FECHA", "STOCK"] as const;
@@ -89,22 +87,6 @@ export function textoEstadoDescPromo(
   }
   const rango = textoRangoFechasDescPromo(fila);
   return rango ? `${estado} · ${rango}` : estado;
-}
-
-/** `CANT. 10 · VEND. 3 · SALDO 7 · CX $850,00 (-15 %)` (Ver descuento). */
-export function textoLoteDescPromo(lote: DescPromoLoteRef | null): string {
-  if (!lote) return "";
-  const costo = montoArCentsToDisplayWithCurrency(Math.round(lote.costoUnitario * 100));
-  const detalle =
-    lote.costoTipo === "PORCENTAJE"
-      ? ` (-${lote.costoValor.toLocaleString("es-AR", { maximumFractionDigits: 2 })} %)`
-      : "";
-  return [
-    `CANT. ${fmtCantidad(lote.cantidad)}`,
-    `VEND. ${fmtCantidad(lote.consumida)}`,
-    `SALDO ${fmtCantidad(lote.saldo)}`,
-    `CX ${costo}${detalle}`,
-  ].join(" · ");
 }
 
 /** `dd/mm/aa AL dd/mm/aa` (solo categoría FECHA). */

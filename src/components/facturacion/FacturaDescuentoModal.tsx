@@ -240,17 +240,28 @@ export default function FacturaDescuentoModal({
     () => promosFormaPago.filter((fila) => !esDescPromoEspecial(fila)),
     [promosFormaPago]
   );
+  /** Tabla: generales + DESC. POR STOCK (alcance ITEMS, pero se listan). */
+  const promosTabla = useMemo(
+    () =>
+      promosFormaPago.filter(
+        (fila) => !esDescPromoEspecial(fila) || fila.categoria === "STOCK"
+      ),
+    [promosFormaPago]
+  );
   const opcionesPago = useMemo(
-    () => mediosPagoUnicosDescPromo(promosCatalogo),
-    [promosCatalogo]
+    () => mediosPagoUnicosDescPromo(promosTabla),
+    [promosTabla]
   );
   const opcionesCuota = useMemo(
-    () => cuotasDeMedioPagoDescPromo(promosCatalogo, filtroPago),
-    [promosCatalogo, filtroPago]
+    () => cuotasDeMedioPagoDescPromo(promosTabla, filtroPago),
+    [promosTabla, filtroPago]
   );
   const promosFiltradas = useMemo(
-    () => filtrarPromosDescPromoFactura(promosCatalogo, filtroPago, filtroCuota),
-    [promosCatalogo, filtroPago, filtroCuota]
+    () =>
+      filtroPago
+        ? filtrarPromosDescPromoFactura(promosTabla, filtroPago, filtroCuota)
+        : promosTabla,
+    [promosTabla, filtroPago, filtroCuota]
   );
 
   const promosOrdenadas = useMemo(
@@ -289,13 +300,13 @@ export default function FacturaDescuentoModal({
       pagoId,
       cuotaId
     );
-    if (filas.length === 0) return;
     const especiales = filtrarPromosDescPromoFactura(
       promosFormaPago.filter(esDescPromoEspecial),
       pagoId,
       cuotaId
     );
-    const formas = formasPagoUnicasDescPromo(filas);
+    if (filas.length === 0 && especiales.length === 0) return;
+    const formas = formasPagoUnicasDescPromo(filas.length > 0 ? filas : especiales);
     const elegida = cuotaId
       ? formas.find((fp) => fp.pagoId === pagoId && fp.cuotaId === cuotaId)
       : formas.find((fp) => fp.pagoId === pagoId);
@@ -432,7 +443,7 @@ export default function FacturaDescuentoModal({
         size="xl"
         padding="sm"
         scrollBody={false}
-        className="h-[85vh]"
+        className="h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)]"
         bodyClassName="flex-1"
         title="DESCUENTO"
         actions={
@@ -614,7 +625,7 @@ export default function FacturaDescuentoModal({
                     message={
                       filtroPago
                         ? "NO HAY DESCUENTOS."
-                        : "ELEGÍ UNA FORMA DE PAGO."
+                        : "NO HAY DESCUENTOS ACTIVOS."
                     }
                   />
                 </TableBody>
