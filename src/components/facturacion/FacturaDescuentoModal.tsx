@@ -5,13 +5,8 @@ import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import {
-  DescPromoAlcanceLectura,
-  DescPromoFormasPagoLectura,
-  SeccionLecturaDescPromo,
-} from "@/components/desc-promos/DescPromoLectura";
+import VerDescPromoModal from "@/components/desc-promos/VerDescPromoModal";
 import AppModal from "@/components/shared/AppModal";
-import LineaLecturaModal from "@/components/shared/LineaLecturaModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
@@ -38,7 +33,6 @@ import {
   ordenarPromosPorDescFactura,
   snapshotCobroDescPromo,
   textoDescuentosDescPromo,
-  textoFechaFinDescPromo,
   textoVencimientoDescPromo,
   type DescPromoFila,
   type DescPromoFormaPagoRef,
@@ -714,50 +708,13 @@ export default function FacturaDescuentoModal({
         </div>
       </AppModal>
     </Dialog>
-    <Dialog
+    <VerDescPromoModal
       open={verPromo != null}
       onOpenChange={(next) => {
         if (!next) setVerPromo(null);
       }}
-    >
-      <AppModal
-        title="VER DESCUENTO"
-        size="xl"
-        actions={
-          <Button type="button" variant="outline" onClick={() => setVerPromo(null)}>
-            Cerrar
-          </Button>
-        }
-      >
-        {verPromo ? (
-          <div className="flex flex-col gap-4">
-            <SeccionLecturaDescPromo titulo="DATOS">
-              <LineaLecturaModal etiqueta="NOMBRE" valor={fmtCelda(verPromo.nombre)} />
-              <LineaLecturaModal
-                etiqueta="DESC."
-                valor={fmtCelda(textoDescuentosDescPromo(verPromo))}
-                tabular
-              />
-              <LineaLecturaModal
-                etiqueta="TIPO DE DESC."
-                valor={fmtCelda(verPromo.categoriaEtiqueta)}
-              />
-              <LineaLecturaModal
-                etiqueta="FECHA"
-                valor={textoFechaFinDescPromo(verPromo)}
-                tabular
-              />
-            </SeccionLecturaDescPromo>
-            <SeccionLecturaDescPromo titulo="FORMAS DE PAGO">
-              <DescPromoFormasPagoLectura item={verPromo} />
-            </SeccionLecturaDescPromo>
-            <SeccionLecturaDescPromo titulo="ALCANCE">
-              <DescPromoAlcanceLectura item={verPromo} />
-            </SeccionLecturaDescPromo>
-          </div>
-        ) : null}
-      </AppModal>
-    </Dialog>
+      item={verPromo}
+    />
     </>
   );
 }

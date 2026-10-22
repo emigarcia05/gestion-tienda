@@ -305,6 +305,14 @@ export function descuentoPctPorPrioridad(
   return mejor?.descuento ?? 0;
 }
 
+/** DESC. POR STOCK: el ítem agotado se sigue mostrando pero ya no aplica. */
+export function itemDescPromoAplica(
+  fila: Pick<DescPromoFila, "categoria">,
+  item: DescPromoItemRef
+): boolean {
+  return fila.categoria !== "STOCK" || (item.lote?.saldo ?? 0) > 0;
+}
+
 export function aCandidataFactura(fila: DescPromoFila): DescPromoCandidataFactura {
   return {
     id: fila.id,
@@ -312,7 +320,9 @@ export function aCandidataFactura(fila: DescPromoFila): DescPromoCandidataFactur
     alcance: fila.alcance,
     idMarca: fila.idMarca,
     idRubro: fila.idRubro,
-    codTiendas: fila.items.map((i) => i.codTienda),
+    codTiendas: fila.items
+      .filter((i) => itemDescPromoAplica(fila, i))
+      .map((i) => i.codTienda),
     descuento: fila.descuento,
   };
 }
@@ -568,6 +578,7 @@ export function agruparItemsDescPromoEspeciales(
   for (const fila of filas) {
     if (!esDescPromoEspecial(fila)) continue;
     for (const item of fila.items) {
+      if (!itemDescPromoAplica(fila, item)) continue;
       const actual = porCodigo.get(item.codTienda);
       if (actual) {
         if (!actual.promos.some((promo) => promo.id === fila.id)) {

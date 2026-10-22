@@ -389,10 +389,14 @@ function hoyIsoArgentina(): string {
 }
 
 /**
- * Factura: FECHA solo dentro del rango; STOCK solo los ítems con saldo > 0
+ * Factura: FECHA solo dentro del rango; STOCK solo si algún ítem tiene saldo > 0
  * (la venta puede superar el saldo: se respeta el desc. para toda la línea).
+ * `conAgotados`: deja los ítems con saldo 0 para mostrarlos (no aplican: `aCandidataFactura`).
  */
-function soloVigentesFactura(filas: DescPromoFila[]): DescPromoFila[] {
+function soloVigentesFactura(
+  filas: DescPromoFila[],
+  { conAgotados }: { conAgotados: boolean }
+): DescPromoFila[] {
   const hoy = hoyIsoArgentina();
   const out: DescPromoFila[] = [];
   for (const fila of filas) {
@@ -400,7 +404,7 @@ function soloVigentesFactura(filas: DescPromoFila[]): DescPromoFila[] {
     if (fila.categoria === "STOCK") {
       const items = fila.items.filter((i) => (i.lote?.saldo ?? 0) > 0);
       if (items.length === 0) continue;
-      out.push({ ...fila, items });
+      out.push(conAgotados ? fila : { ...fila, items });
       continue;
     }
     out.push(fila);
@@ -485,7 +489,7 @@ export async function listarDescPromosEspecialesPorCodigos(
       include: promoInclude,
       orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
-    for (const mapped of soloVigentesFactura(rows.map(mapPromo))) {
+    for (const mapped of soloVigentesFactura(rows.map(mapPromo), { conAgotados: false })) {
       const especial: DescPromoEspecialFactura = {
         id: mapped.id,
         nombre: mapped.nombre,
@@ -520,7 +524,7 @@ export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
       include: promoInclude,
       orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
-    return soloVigentesFactura(rows.map(mapPromo));
+    return soloVigentesFactura(rows.map(mapPromo), { conAgotados: true });
   } catch (e: unknown) {
     console.error("[descPromo.service] listarDescPromosPorFormaPago:", e);
     return [];
