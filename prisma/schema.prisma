@@ -428,6 +428,7 @@ model Sucursal {
   cobrosPorSucursal              CobrosPorSucursal[]
   movimientosTesoreria           TesoreriaMovimiento[]
   stockMovimientos               StockMovimiento[]
+  cxMercaderia                   BalCxMercaderia[]
   stockComprobantes              StockComprobante[]     @relation("StockComprobanteSucursal")
   stockComprobantesDestino       StockComprobante[]     @relation("StockComprobanteSucursalDestino")
   stockTransferenciasOrigen      StockTransferencia[]   @relation("StockTransferenciaOrigen")
@@ -1548,6 +1549,7 @@ model ProdPropio {
   preciosListaEdicion       ProdPropioListaPrecioEdicion[]
   estPorProd                EstPorProd[]
   stockMovimientos          StockMovimiento[]
+  cxMercaderia              BalCxMercaderia[]
   stockTransferenciaItems   StockTransferenciaItem[]
   componentes               ProdListaCompuesto[]           @relation("CompuestoComponentes")
   compuestosQueLoUsan       ProdListaCompuesto[]           @relation("ComponenteDeCompuestos")
@@ -1657,11 +1659,62 @@ model StockMovimiento {
   comprobante StockComprobante @relation(fields: [comprobanteRelacionadoId], references: [id], onDelete: Restrict)
   usuario     GlobalPersonal?  @relation(fields: [usuarioId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
 
+  cxMercaderia BalCxMercaderia?
+
   @@index([codItem, sucursalId], map: "stock_movimientos_item_sucursal_idx")
   @@index([comprobanteRelacionadoId], map: "stock_movimientos_comprobante_idx")
   @@index([sucursalId, createdAt], map: "stock_movimientos_sucursal_fecha_idx")
   @@index([usuarioId], map: "stock_movimientos_usuario_idx")
   @@map("stock_movimientos")
+}
+
+/**
+ * De dónde salió `bal_cx_mercaderia.costo_unitario`.
+ */
+enum BalCxMercaderiaOrigenCosto {
+  /// CX elegido: `proveedores_prod_lista.px_compra_final_sin_iva`.
+  CX_PROVEEDOR   @map("cx_proveedor")
+  /// `prod_lista.costo_manual` (sin vínculos).
+  MANUAL         @map("manual")
+  /// Σ componentes del kit (`prod_lista_compuestos`).
+  COMPUESTO      @map("compuesto")
+  /// NC: costo de la venta asociada (`cbte_asoc_id`).
+  VENTA_ORIGINAL @map("venta_original")
+  /// Costo resuelto = 0 (sin CX elegido, línea deshabilitada o sin costo manual).
+  SIN_COSTO      @map("sin_costo")
+
+  @@map("bal_cx_mercaderia_origen_costo")
+}
+
+/**
+ * Movimiento de mercadería valorizado (Cx. Mercadería Vendida).
+ * Una fila por línea de `stock_movimientos` de venta (EGRESO) o NC (INGRESO).
+ * Costo congelado al registrar, sin IVA. Se borra en cascada con la línea de stock.
+ */
+model BalCxMercaderia {
+  id                String                     @id @default(cuid())
+  tipoMovimiento    StockMovimientoTipo        @map("tipo_movimiento")
+  comprobanteVtaId  String                     @map("comprobante_vta_id")
+  stockMovimientoId String                     @unique(map: "bal_cx_mercaderia_stock_movimiento_key") @map("stock_movimiento_id")
+  codItem           String                     @map("cod_item")
+  sucursalId        String                     @map("sucursal_id")
+  /// Fecha del comprobante de venta / NC.
+  fecha             DateTime                   @db.Date
+  cantidad          Decimal                    @db.Decimal(12, 1)
+  costoUnitario     Decimal                    @map("costo_unitario") @db.Decimal(14, 4)
+  costoTotal        Decimal                    @map("costo_total") @db.Decimal(14, 2)
+  origenCosto       BalCxMercaderiaOrigenCosto @map("origen_costo")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+
+  comprobanteVta  ComprobanteVta  @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
+  stockMovimiento StockMovimiento @relation(fields: [stockMovimientoId], references: [id], onDelete: Cascade)
+  prodTienda      ProdPropio      @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
+  sucursal        Sucursal        @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+
+  @@index([sucursalId, fecha], map: "bal_cx_mercaderia_sucursal_fecha_idx")
+  @@index([codItem], map: "bal_cx_mercaderia_cod_item_idx")
+  @@index([comprobanteVtaId], map: "bal_cx_mercaderia_comprobante_vta_idx")
+  @@map("bal_cx_mercaderia")
 }
 
 /**
@@ -2865,6 +2918,7 @@ model ComprobanteVta {
    */
   movimientosComoNotaCredito TesoreriaMovimiento[]         @relation("MovimientoNotaCredito")
   stockComprobantes          StockComprobante[]
+  cxMercaderia               BalCxMercaderia[]
   cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")

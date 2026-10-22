@@ -7,6 +7,7 @@ import {
 import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
+import { registrarCxMercaderiaDeStockEnTx } from "@/services/balCxMercaderia.service";
 
 export type LineaStockMovimientoInput = {
   tipoMovimiento: StockMovimientoTipo;
@@ -320,7 +321,7 @@ async function marcarStockAplicado(
 }
 
 /**
- * Idempotente: venta/NC autorizada → ledger + `stock_aplicado`.
+ * Idempotente: venta/NC autorizada → ledger + `bal_cx_mercaderia` + `stock_aplicado`.
  * Presupuesto y tipos sin efecto no escriben movimientos.
  */
 export async function aplicarStockDesdeComprobanteVta(
@@ -337,6 +338,8 @@ export async function aplicarStockDesdeComprobanteVta(
         stockAplicado: true,
         personalId: true,
         createdAt: true,
+        fecha: true,
+        cbteAsocId: true,
         personal: { select: { sucursalPorDefecto: true } },
         items: { select: { codTienda: true, cantidad: true } },
       },
@@ -402,6 +405,13 @@ export async function aplicarStockDesdeComprobanteVta(
       lineas,
     });
     if (!reg.success) return reg;
+    await registrarCxMercaderiaDeStockEnTx(tx, {
+      comprobanteVtaId: row.id,
+      stockComprobanteId: reg.data.comprobanteId,
+      fecha: row.fecha,
+      comprobanteVentaOriginalId:
+        ledger.comprobanteTipo === "NOTA_CREDITO" ? row.cbteAsocId : null,
+    });
     await marcarStockAplicado(tx, row.id);
     return { success: true as const, data: { movimientos: reg.data.movimientos } };
   };
@@ -415,7 +425,10 @@ export async function aplicarStockDesdeComprobanteVta(
   }
 }
 
-/** Borra el header y las líneas del ledger de esa venta/NC (p. ej. al eliminar un no fiscal). */
+/**
+ * Borra el header y las líneas del ledger de esa venta/NC (p. ej. al eliminar un no fiscal).
+ * `bal_cx_mercaderia` cae en cascada con cada línea de stock.
+ */
 export async function revertirStockDeComprobanteVta(
   comprobanteVtaId: string,
   db?: Prisma.TransactionClient

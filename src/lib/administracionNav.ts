@@ -132,6 +132,13 @@ const balanceScreens: AdmScreenDef[] = [
     icon: "circle-dollar",
     permiso: PERMISOS.finanzas.acceso,
   },
+  {
+    id: "cx-merc-vend",
+    label: "Cx Merc. Vend.",
+    href: F.balance.cxMercVend,
+    icon: "package",
+    permiso: PERMISOS.finanzas.acceso,
+  },
 ];
 
 const operacionesScreens: AdmScreenDef[] = [

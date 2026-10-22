@@ -57,6 +57,19 @@ export function resolverCostoCompraTienda(row: FilaCostoCompra): number {
   return resolverCostoSimple(row);
 }
 
+export type OrigenCostoCompraTienda = "CX_PROVEEDOR" | "MANUAL" | "COMPUESTO" | "SIN_COSTO";
+
+/** Mismo costo que `resolverCostoCompraTienda` + de dónde salió (costo 0 → `SIN_COSTO`). */
+export function resolverCostoCompraTiendaConOrigen(row: FilaCostoCompra): {
+  costo: number;
+  origen: OrigenCostoCompraTienda;
+} {
+  const costo = resolverCostoCompraTienda(row);
+  if (costo <= 0) return { costo: 0, origen: "SIN_COSTO" };
+  if (row.esProductoCompuesto) return { costo, origen: "COMPUESTO" };
+  return { costo, origen: row.costoListaProveedor ? "CX_PROVEEDOR" : "MANUAL" };
+}
+
 /** Mapa `cod_tienda` del compuesto → costo del kit (solo los que tienen componentes). */
 export async function mapCostoProductoCompuesto(codTiendas: string[]): Promise<Map<string, number>> {
   if (codTiendas.length === 0) return new Map();
