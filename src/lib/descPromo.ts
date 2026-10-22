@@ -99,6 +99,17 @@ export function textoRangoFechasDescPromo(
   return `${formatIsoYmdDdMmYyArgentina(fila.fechaDesdeIso)} AL ${formatIsoYmdDdMmYyArgentina(fila.fechaHastaIso)}`;
 }
 
+/** Leyenda bajo el nombre en Factura · DESCUENTO; BASE no lleva. */
+export function textoVencimientoDescPromo(
+  fila: Pick<DescPromoFila, "categoria" | "fechaHastaIso">
+): string {
+  if (fila.categoria === "STOCK") return "HASTA AGOTAR STOCK";
+  if (fila.categoria === "FECHA" && fila.fechaHastaIso) {
+    return `HASTA ${formatIsoYmdDdMmYyArgentina(fila.fechaHastaIso)}`;
+  }
+  return "";
+}
+
 export function textoFechaFinDescPromo(
   fila: Pick<DescPromoFila, "categoria" | "fechaHastaIso">
 ): string {

@@ -39,6 +39,7 @@ import {
   snapshotCobroDescPromo,
   textoDescuentosDescPromo,
   textoFechaFinDescPromo,
+  textoVencimientoDescPromo,
   type DescPromoFila,
   type DescPromoFormaPagoRef,
 } from "@/lib/descPromo";
@@ -635,6 +636,7 @@ export default function FacturaDescuentoModal({
                   const formas: DescPromoFormaPagoRef[] =
                     promo.formasPago.length > 0 ? promo.formasPago : [];
                   const nFilas = Math.max(formas.length, 1);
+                  const vencimiento = textoVencimientoDescPromo(promo);
                   return (
                     <TableBody
                       key={clave}
@@ -662,7 +664,12 @@ export default function FacturaDescuentoModal({
                                 rowSpan={nFilas}
                                 className="celda-datos font-bold uppercase tabla-desc-promo-grupo-fin"
                               >
-                                {fmtCelda(promo.nombre)}
+                                <span className="block">{fmtCelda(promo.nombre)}</span>
+                                {vencimiento ? (
+                                  <span className="mt-0.5 block text-[0.65rem] font-normal text-muted-foreground tabular-nums">
+                                    {vencimiento}
+                                  </span>
+                                ) : null}
                               </TableCell>
                             ) : null}
                             {i === 0 ? (
@@ -715,7 +722,7 @@ export default function FacturaDescuentoModal({
     >
       <AppModal
         title="VER DESCUENTO"
-        size="lg"
+        size="xl"
         actions={
           <Button type="button" variant="outline" onClick={() => setVerPromo(null)}>
             Cerrar
