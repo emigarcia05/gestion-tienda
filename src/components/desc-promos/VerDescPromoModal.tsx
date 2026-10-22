@@ -8,6 +8,8 @@ import {
   claveFormaPagoCuotaDescPromo,
   etiquetaFormaPagoCuotaDescPromo,
   textoDescuentosDescPromo,
+  textoLoteDescPromo,
+  textoRangoFechasDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import { fmtCelda } from "@/lib/format";
@@ -39,6 +41,17 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
           <div className="flex flex-col gap-4">
             <section className="modal-seccion-formulario flex flex-col gap-2">
               <h3 className={TITULO_SECCION_CLASS}>DATOS</h3>
+              <LineaLecturaModal
+                etiqueta="CATEGORÍA"
+                valor={fmtCelda(item.categoriaEtiqueta)}
+              />
+              {item.categoria === "FECHA" ? (
+                <LineaLecturaModal
+                  etiqueta="VIGENCIA"
+                  valor={fmtCelda(textoRangoFechasDescPromo(item))}
+                  tabular
+                />
+              ) : null}
               <LineaLecturaModal etiqueta="NOMBRE" valor={fmtCelda(item.nombre)} />
               <LineaLecturaModal
                 etiqueta="DESC. %"
@@ -91,7 +104,11 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                     <LineaLecturaModal
                       key={prod.codTienda}
                       etiqueta={prod.codTienda}
-                      valor={fmtCelda(prod.descripcion || prod.codTienda)}
+                      valor={fmtCelda(
+                        [prod.descripcion || prod.codTienda, textoLoteDescPromo(prod.lote)]
+                          .filter(Boolean)
+                          .join(" · ")
+                      )}
                     />
                   ))
                 )

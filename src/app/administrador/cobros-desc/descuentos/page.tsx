@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import DescPromosPageClient from "@/components/desc-promos/DescPromosPageClient";
+import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
@@ -45,6 +46,7 @@ export default async function DescPromosDescuentosPage() {
         cuotas={cuotas}
         rubros={rubros}
         marcas={marcas}
+        hoyIso={dateToIsoYmdArgentina(new Date())}
         esEditor={rol === "editor"}
       />
     </div>

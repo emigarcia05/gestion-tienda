@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -9,6 +9,8 @@ import FiltroMultiSelect, {
   type FiltroMultiSelectOpcion,
 } from "@/components/shared/FiltroMultiSelect";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import MontoArInput from "@/components/shared/MontoArInput";
+import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,19 +30,33 @@ import {
   EmptyTableRow,
 } from "@/components/ui/table";
 import {
+  costosVigentesDescPromoAction,
   crearDescPromoAction,
   editarDescPromoAction,
 } from "@/actions/descPromo";
 import DescPromoAgregarProductosModal from "@/components/desc-promos/DescPromoAgregarProductosModal";
+import {
+  esBorradorCantidadUnDecimal,
+  fmtCantidad,
+  parseCantidadUnDecimal,
+} from "@/lib/cantidadUnDecimal";
 import { cuotasParaFormaPago, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   ALCANCES_DESC_PROMO,
+  CATEGORIAS_DESC_PROMO,
+  costoNuevoLoteDescPromo,
+  COSTO_TIPOS_DESC_PROMO,
   ETIQUETA_ALCANCE_DESC_PROMO,
+  ETIQUETA_CATEGORIA_DESC_PROMO,
+  ETIQUETA_COSTO_TIPO_DESC_PROMO,
   type AlcanceDescPromoValor,
+  type CategoriaDescPromoValor,
+  type CostoTipoDescPromoValor,
   type DescPromoFila,
 } from "@/lib/descPromo";
 import { fmtCelda } from "@/lib/format";
 import type { MarcaCatalogoItem, RubroCatalogoItem } from "@/lib/listaProductos";
+import { montoArCentsToDisplayWithCurrency } from "@/lib/montoArMask";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -72,6 +88,29 @@ interface Props {
   marcas: MarcaCatalogoItem[];
   onSuccess?: () => void;
 }
+
+/** Lote DESC. POR STOCK en edición (strings de los inputs). */
+type LoteForm = {
+  costoTipo: CostoTipoDescPromoValor;
+  /** Normalizado de `PorcentajeCentInput` / `MontoArInput` (`"12.5"`). */
+  valorNorm: string;
+  cantidadTexto: string;
+  /** Unidades ya vendidas (piso de CANT.). */
+  consumida: number;
+  /** PORCENTAJE ya guardado: costo base congelado. */
+  costoBasePrevio: number | null;
+};
+
+const LOTE_FORM_VACIO: LoteForm = {
+  costoTipo: "PORCENTAJE",
+  valorNorm: "",
+  cantidadTexto: "",
+  consumida: 0,
+  costoBasePrevio: null,
+};
+
+/** Tope de `PorcentajeCentInput` en centésimas (100,00 %). */
+const MAX_CENTS_PCT_COSTO = 10_000;
 
 function parseDescuento(texto: string): number | null {
   if (!texto.trim()) return null;
@@ -105,6 +144,33 @@ function cuotaIdsPorPagoDesdeItem(item: DescPromoFila | null): Record<string, st
   return map;
 }
 
+/** Al duplicar, el lote arranca sin vendidas y con el costo vigente como base. */
+function lotesFormDesdeItem(
+  item: DescPromoFila | null,
+  duplicar: boolean
+): Record<string, LoteForm> {
+  if (item == null || item.categoria !== "STOCK") return {};
+  const out: Record<string, LoteForm> = {};
+  for (const prod of item.items) {
+    const lote = prod.lote;
+    if (!lote) continue;
+    out[prod.codTienda] = {
+      costoTipo: lote.costoTipo,
+      valorNorm: String(lote.costoValor),
+      cantidadTexto: fmtCantidad(lote.cantidad),
+      consumida: duplicar ? 0 : lote.consumida,
+      costoBasePrevio:
+        !duplicar && lote.costoTipo === "PORCENTAJE" ? lote.costoBase : null,
+    };
+  }
+  return out;
+}
+
+function fmtCosto(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "";
+  return montoArCentsToDisplayWithCurrency(Math.round(n * 100));
+}
+
 export default function CrearEditarDescPromoModal({
   open,
   onOpenChange,
@@ -118,6 +184,15 @@ export default function CrearEditarDescPromoModal({
   onSuccess,
 }: Props) {
   const esAlta = item == null || duplicar;
+  const [categoria, setCategoria] = useState<CategoriaDescPromoValor>(
+    item?.categoria ?? "BASE"
+  );
+  const [fechaDesde, setFechaDesde] = useState(item?.fechaDesdeIso ?? "");
+  const [fechaHasta, setFechaHasta] = useState(item?.fechaHastaIso ?? "");
+  const [lotes, setLotes] = useState<Record<string, LoteForm>>(() =>
+    lotesFormDesdeItem(item, duplicar)
+  );
+  const [costosActuales, setCostosActuales] = useState<Record<string, number>>({});
   const [alcance, setAlcance] = useState<AlcanceDescPromoValor>(item?.alcance ?? "TODOS");
   const [nombre, setNombre] = useState(item?.nombre ?? "");
   const [descuentoTexto, setDescuentoTexto] = useState(
@@ -156,11 +231,67 @@ export default function CrearEditarDescPromoModal({
     [pagoIds, pagos, cuotas]
   );
 
+  const esStock = categoria === "STOCK";
+  const esFecha = categoria === "FECHA";
   const descuento = parseDescuento(descuentoTexto);
   const pideMarca = alcance === "MARCA" || alcance === "MARCA_RUBRO";
   const pideRubro = alcance === "RUBRO" || alcance === "MARCA_RUBRO";
   const pideItems = alcance === "ITEMS";
   const codTiendas = itemsElegidos.map((i) => i.codTienda);
+  const tieneVendidas = Object.values(lotes).some((l) => l.consumida > 0);
+
+  const claveSinCosto = esStock
+    ? codTiendas.filter((c) => !(c in costosActuales)).join("|")
+    : "";
+  useEffect(() => {
+    if (!claveSinCosto) return;
+    const pedidos = claveSinCosto.split("|");
+    let cancelado = false;
+    void costosVigentesDescPromoAction({ codTiendas: pedidos }).then((res) => {
+      if (cancelado) return;
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setCostosActuales((prev) => ({
+        ...prev,
+        ...Object.fromEntries(pedidos.map((c) => [c, res.data[c] ?? 0])),
+      }));
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [claveSinCosto]);
+
+  function loteDe(codTienda: string): LoteForm {
+    return lotes[codTienda] ?? LOTE_FORM_VACIO;
+  }
+
+  function actualizarLote(codTienda: string, cambios: Partial<LoteForm>) {
+    setLotes((prev) => ({
+      ...prev,
+      [codTienda]: { ...(prev[codTienda] ?? LOTE_FORM_VACIO), ...cambios },
+    }));
+  }
+
+  function costoNuevoPreview(codTienda: string): number | null {
+    const lote = loteDe(codTienda);
+    if (lote.valorNorm.trim() === "") return null;
+    const valor = Number(lote.valorNorm);
+    if (!Number.isFinite(valor)) return null;
+    if (lote.costoTipo === "FIJO") return costoNuevoLoteDescPromo("FIJO", valor, 0);
+    const base = lote.costoBasePrevio ?? costosActuales[codTienda];
+    if (base == null) return null;
+    return costoNuevoLoteDescPromo("PORCENTAJE", valor, base);
+  }
+
+  function cantidadLote(codTienda: string): number | null {
+    const lote = loteDe(codTienda);
+    const cant = parseCantidadUnDecimal(lote.cantidadTexto);
+    if (cant == null || cant < lote.consumida) return null;
+    return cant;
+  }
+
   const vinculosOk =
     pagoIds.length > 0 &&
     pagosConCuotas.every(
@@ -170,8 +301,31 @@ export default function CrearEditarDescPromoModal({
     (!pideMarca || idMarca !== "") &&
     (!pideRubro || idRubro !== "") &&
     (!pideItems || codTiendas.length > 0);
+  const fechasOk =
+    !esFecha || (fechaDesde !== "" && fechaHasta !== "" && fechaDesde <= fechaHasta);
+  const lotesOk =
+    !esStock ||
+    codTiendas.every(
+      (cod) => cantidadLote(cod) != null && loteDe(cod).valorNorm.trim() !== ""
+    );
   const puedeGuardar =
-    nombre.trim() !== "" && vinculosOk && descuento != null && alcanceOk;
+    nombre.trim() !== "" &&
+    vinculosOk &&
+    descuento != null &&
+    alcanceOk &&
+    fechasOk &&
+    lotesOk;
+
+  function handleCategoriaChange(next: string) {
+    if (!CATEGORIAS_DESC_PROMO.includes(next as CategoriaDescPromoValor)) return;
+    const valor = next as CategoriaDescPromoValor;
+    setCategoria(valor);
+    if (valor === "STOCK") {
+      setAlcance("ITEMS");
+      setIdMarca("");
+      setIdRubro("");
+    }
+  }
 
   function handleAlcanceChange(next: string) {
     if (!ALCANCES_DESC_PROMO.includes(next as AlcanceDescPromoValor)) return;
@@ -197,7 +351,22 @@ export default function CrearEditarDescPromoModal({
         }));
       }
     );
+    const lotesPayload: CrearDescPromoInput["lotes"] = esStock
+      ? codTiendas.map((codTienda) => {
+          const lote = loteDe(codTienda);
+          return {
+            codTienda,
+            cantidad: cantidadLote(codTienda) ?? 0,
+            costoTipo: lote.costoTipo,
+            costoValor: Number(lote.valorNorm),
+          };
+        })
+      : [];
     const payload = {
+      categoria,
+      fechaDesde: esFecha ? fechaDesde : null,
+      fechaHasta: esFecha ? fechaHasta : null,
+      lotes: lotesPayload,
       alcance,
       nombre: nombre.trim(),
       descuento,
@@ -236,6 +405,7 @@ export default function CrearEditarDescPromoModal({
     >
       <AppModal
         size="xl"
+        className={cn(esStock && "max-w-[min(66rem,calc(100%-2rem))]")}
         title={esAlta ? "NUEVO DESCUENTO" : "EDITAR DESCUENTO"}
         actions={
           <div className="flex w-full justify-end gap-2">
@@ -258,6 +428,61 @@ export default function CrearEditarDescPromoModal({
         }
       >
         <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Categoría</ModalMicroLabel>
+            <Select
+              value={categoria}
+              onValueChange={handleCategoriaChange}
+              disabled={saving || tieneVendidas}
+            >
+              <SelectTrigger
+                className="w-full"
+                aria-label="Categoría"
+                title={
+                  tieneVendidas
+                    ? "Ya tiene unidades vendidas: no se puede cambiar la categoría."
+                    : undefined
+                }
+              >
+                <SelectValue placeholder="CATEGORÍA" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIAS_DESC_PROMO.map((valor) => (
+                  <SelectItem key={valor} value={valor}>
+                    {ETIQUETA_CATEGORIA_DESC_PROMO[valor]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {esFecha ? (
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1">
+                <ModalMicroLabel>Fecha Desde</ModalMicroLabel>
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  max={fechaHasta || undefined}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  disabled={saving}
+                  className="input-filtro-unificado"
+                  aria-label="Fecha desde"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <ModalMicroLabel>Fecha Hasta</ModalMicroLabel>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  min={fechaDesde || undefined}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  disabled={saving}
+                  className="input-filtro-unificado"
+                  aria-label="Fecha hasta"
+                />
+              </label>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Nombre</ModalMicroLabel>
             <Input
@@ -327,7 +552,11 @@ export default function CrearEditarDescPromoModal({
           ))}
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Alcance</ModalMicroLabel>
-            <Select value={alcance} onValueChange={handleAlcanceChange}>
+            <Select
+              value={alcance}
+              onValueChange={handleAlcanceChange}
+              disabled={saving || esStock}
+            >
               <SelectTrigger className="w-full" aria-label="Alcance">
                 <SelectValue placeholder="ALCANCE" />
               </SelectTrigger>
@@ -385,7 +614,9 @@ export default function CrearEditarDescPromoModal({
           {pideItems ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <ModalMicroLabel>Productos</ModalMicroLabel>
+                <ModalMicroLabel>
+                  {esStock ? "Productos · Costo Nuevo Sin IVA" : "Productos"}
+                </ModalMicroLabel>
                 <Button
                   type="button"
                   variant="default"
@@ -400,57 +631,200 @@ export default function CrearEditarDescPromoModal({
               </div>
               <div className="contenedor-tabla-gestion min-h-0 max-h-[min(18rem,40vh)] overflow-auto rounded-md border border-primary">
                 <Table variant="compact" className="tabla-gestion-compacta w-full">
-                  <colgroup>
-                    <col className="w-[88%]" />
-                    <col className="w-[12%]" />
-                  </colgroup>
+                  {esStock ? (
+                    <colgroup>
+                      <col className="w-[26%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[10%]" />
+                    </colgroup>
+                  ) : (
+                    <colgroup>
+                      <col className="w-[88%]" />
+                      <col className="w-[12%]" />
+                    </colgroup>
+                  )}
                   <TableHeader>
                     <TableRow>
                       <TableHead>DESCRIPCIÓN</TableHead>
+                      {esStock ? (
+                        <>
+                          <TableHead
+                            className="text-center"
+                            title="% guardado: costo congelado al cargarlo. Si no, costo vigente."
+                          >
+                            COSTO BASE
+                          </TableHead>
+                          <TableHead className="text-center">TIPO</TableHead>
+                          <TableHead className="text-center">VALOR</TableHead>
+                          <TableHead className="text-center">COSTO NUEVO</TableHead>
+                          <TableHead className="text-center">CANT.</TableHead>
+                          <TableHead className="text-center">VEND.</TableHead>
+                        </>
+                      ) : null}
                       <TableHead className="text-center">ACCIONES</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {itemsElegidos.length === 0 ? (
-                      <EmptyTableRow colSpan={2} message="NO HAY PRODUCTOS." />
+                      <EmptyTableRow
+                        colSpan={esStock ? 8 : 2}
+                        message="NO HAY PRODUCTOS."
+                      />
                     ) : (
-                      itemsElegidos.map((producto) => (
-                        <TableRow key={producto.codTienda}>
-                          <TableCell className="celda-datos min-w-0">
-                            <span
-                              className="block truncate"
-                              title={producto.descripcion || producto.codTienda}
-                            >
-                              {fmtCelda(
-                                producto.descripcion || producto.codTienda
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-                            <div
-                              className={cn(
-                                TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
-                                "justify-center"
-                              )}
-                            >
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                disabled={saving}
-                                aria-label={`Quitar ${producto.descripcion || producto.codTienda}`}
-                                onClick={() => quitarItem(producto.codTienda)}
+                      itemsElegidos.map((producto) => {
+                        const etiqueta = producto.descripcion || producto.codTienda;
+                        const lote = loteDe(producto.codTienda);
+                        const conVendidas = esStock && lote.consumida > 0;
+                        return (
+                          <TableRow key={producto.codTienda}>
+                            <TableCell className="celda-datos min-w-0">
+                              <span className="block truncate" title={etiqueta}>
+                                {fmtCelda(etiqueta)}
+                              </span>
+                            </TableCell>
+                            {esStock ? (
+                              <>
+                                <TableCell className="celda-datos text-center tabular-nums">
+                                  {fmtCosto(
+                                    lote.costoBasePrevio ??
+                                      costosActuales[producto.codTienda]
+                                  )}
+                                </TableCell>
+                                <TableCell className="celda-datos p-1">
+                                  <Select
+                                    value={lote.costoTipo}
+                                    onValueChange={(v) => {
+                                      if (
+                                        !COSTO_TIPOS_DESC_PROMO.includes(
+                                          v as CostoTipoDescPromoValor
+                                        )
+                                      ) {
+                                        return;
+                                      }
+                                      actualizarLote(producto.codTienda, {
+                                        costoTipo: v as CostoTipoDescPromoValor,
+                                        valorNorm: "",
+                                      });
+                                    }}
+                                    disabled={saving}
+                                  >
+                                    <SelectTrigger
+                                      className="h-8 w-full"
+                                      aria-label={`Tipo de costo ${etiqueta}`}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {COSTO_TIPOS_DESC_PROMO.map((tipo) => (
+                                        <SelectItem key={tipo} value={tipo}>
+                                          {ETIQUETA_COSTO_TIPO_DESC_PROMO[tipo]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell className="celda-datos p-1">
+                                  {lote.costoTipo === "PORCENTAJE" ? (
+                                    <PorcentajeCentInput
+                                      valueNormalized={lote.valorNorm}
+                                      onValueNormalizedChange={(next) =>
+                                        actualizarLote(producto.codTienda, {
+                                          valorNorm: next,
+                                        })
+                                      }
+                                      maxCents={MAX_CENTS_PCT_COSTO}
+                                      treatEmptyNormalizedAsBlank
+                                      pctSuffixAlwaysVisible
+                                      className="h-8"
+                                      disabled={saving}
+                                      aria-label={`Descuento de costo ${etiqueta}`}
+                                    />
+                                  ) : (
+                                    <MontoArInput
+                                      valueNormalized={lote.valorNorm}
+                                      onValueNormalizedChange={(next) =>
+                                        actualizarLote(producto.codTienda, {
+                                          valorNorm: next,
+                                        })
+                                      }
+                                      treatEmptyNormalizedAsBlank
+                                      className="h-8"
+                                      disabled={saving}
+                                      aria-label={`Costo fijo ${etiqueta}`}
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell className="celda-datos text-center font-semibold tabular-nums">
+                                  {fmtCosto(costoNuevoPreview(producto.codTienda))}
+                                </TableCell>
+                                <TableCell className="celda-datos p-1">
+                                  <Input
+                                    value={lote.cantidadTexto}
+                                    onChange={(e) => {
+                                      if (!esBorradorCantidadUnDecimal(e.target.value)) {
+                                        return;
+                                      }
+                                      actualizarLote(producto.codTienda, {
+                                        cantidadTexto: e.target.value,
+                                      });
+                                    }}
+                                    inputMode="decimal"
+                                    placeholder="CANT."
+                                    disabled={saving}
+                                    aria-label={`Cantidad ${etiqueta}`}
+                                    aria-invalid={
+                                      lote.cantidadTexto !== "" &&
+                                      cantidadLote(producto.codTienda) == null
+                                    }
+                                    title={
+                                      lote.consumida > 0
+                                        ? `Mínimo ${fmtCantidad(lote.consumida)} (ya vendidas).`
+                                        : undefined
+                                    }
+                                    className="h-8 text-center tabular-nums"
+                                  />
+                                </TableCell>
+                                <TableCell className="celda-datos text-center tabular-nums">
+                                  {fmtCantidad(lote.consumida)}
+                                </TableCell>
+                              </>
+                            ) : null}
+                            <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                              <div
+                                className={cn(
+                                  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+                                  "justify-center"
+                                )}
                               >
-                                <Trash2
-                                  className={TABLE_ROW_ACTION_ICON_CLASS}
-                                  aria-hidden
-                                />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                                  disabled={saving || conVendidas}
+                                  title={
+                                    conVendidas
+                                      ? "Ya tiene unidades vendidas: no se puede quitar."
+                                      : undefined
+                                  }
+                                  aria-label={`Quitar ${etiqueta}`}
+                                  onClick={() => quitarItem(producto.codTienda)}
+                                >
+                                  <Trash2
+                                    className={TABLE_ROW_ACTION_ICON_CLASS}
+                                    aria-hidden
+                                  />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>

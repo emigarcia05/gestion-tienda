@@ -7,7 +7,10 @@ import {
 import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
-import { registrarCxMercaderiaDeStockEnTx } from "@/services/balCxMercaderia.service";
+import {
+  registrarCxMercaderiaDeStockEnTx,
+  revertirConsumoLotesDescPromoEnTx,
+} from "@/services/balCxMercaderia.service";
 
 export type LineaStockMovimientoInput = {
   tipoMovimiento: StockMovimientoTipo;
@@ -427,13 +430,15 @@ export async function aplicarStockDesdeComprobanteVta(
 
 /**
  * Borra el header y las líneas del ledger de esa venta/NC (p. ej. al eliminar un no fiscal).
- * `bal_cx_mercaderia` cae en cascada con cada línea de stock.
+ * Antes deshace el consumo de lotes DESC. POR STOCK; `bal_cx_mercaderia` cae en cascada
+ * con cada línea de stock.
  */
 export async function revertirStockDeComprobanteVta(
   comprobanteVtaId: string,
   db?: Prisma.TransactionClient
 ): Promise<void> {
   const run = async (tx: Prisma.TransactionClient) => {
+    await revertirConsumoLotesDescPromoEnTx(tx, comprobanteVtaId);
     const headers = await tx.stockComprobante.findMany({
       where: { comprobanteVtaId },
       select: { id: true },

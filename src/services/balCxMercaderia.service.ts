@@ -1,17 +1,18 @@
 /**
- * Cx. Mercadería Vendida (`bal_cx_mercaderia`): una fila valorizada por cada línea de
+ * Cx. Mercadería Vendida (`bal_cx_mercaderia`): 1–2 filas valorizadas por cada línea de
  * `stock_movimientos` de venta (EGRESO) o NC (INGRESO). Costo sin IVA, congelado al registrar.
- * Venta: costo vigente (`resolverCostoCompraTiendaConOrigen`).
- * NC: costo unitario de la venta asociada (`cbte_asoc_id`) para ese ítem; si no hay, costo vigente.
+ * Venta: lote DESC. POR STOCK con saldo y luego costo vigente (`resolverCostoCompraTiendaConOrigen`).
+ * NC: devuelve al lote lo que la venta asociada (`cbte_asoc_id`) consumió de él; el resto al
+ * costo de esa venta; si no hay venta asociada, costo vigente.
  */
-import type {
-  BalCxMercaderiaOrigenCosto,
+import {
   Prisma,
-  StockMovimientoTipo,
+  type BalCxMercaderiaOrigenCosto,
+  type StockMovimientoTipo,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { filtroTexto } from "@/lib/busqueda";
-import { cantidadDesdePrisma } from "@/lib/cantidadUnDecimal";
+import { cantidadDesdePrisma, redondearCantidadUnDecimal } from "@/lib/cantidadUnDecimal";
 import {
   clavePeriodoEstPorProd,
   etiquetaPeriodoCortoEstPorProd,
@@ -36,28 +37,158 @@ function redondear(n: number, decimales: number): number {
   return Math.round(n * f) / f;
 }
 
-/** `cod_item` → costo unitario promedio de los EGRESOS de esa venta. */
-async function costoUnitarioVentaOriginalPorItem(
+/** Porción de un lote DESC. POR STOCK (vendida o con saldo) para un ítem. */
+type PorcionLote = { descPromoId: string; cantidad: number; costoUnitario: number };
+
+/** Costos de la venta original de una NC, separados en porciones de lote y resto. */
+type CostoVentaOriginalItem = {
+  lotes: PorcionLote[];
+  /** Promedio de las filas sin lote (si hubo). */
+  costoNormal: number | null;
+  /** Promedio de todas las filas del ítem. */
+  costoPromedio: number;
+};
+
+function claveLote(descPromoId: string, codItem: string): string {
+  return `${descPromoId}:${codItem}`;
+}
+
+/**
+ * `cod_item` → costos de los EGRESOS de esa venta. Las porciones de lote ya descuentan
+ * lo devuelto por NC anteriores de la misma venta.
+ */
+async function costosVentaOriginalPorItem(
   tx: Prisma.TransactionClient,
   comprobanteVentaId: string
-): Promise<Map<string, number>> {
-  const rows = await tx.balCxMercaderia.groupBy({
-    by: ["codItem"],
-    where: { comprobanteVtaId: comprobanteVentaId, tipoMovimiento: "EGRESO" },
-    _sum: { cantidad: true, costoTotal: true },
+): Promise<Map<string, CostoVentaOriginalItem>> {
+  const ncs = await tx.comprobanteVta.findMany({
+    where: { cbteAsocId: comprobanteVentaId },
+    select: { id: true },
   });
-  const map = new Map<string, number>();
+  const [rows, devueltos] = await Promise.all([
+    tx.balCxMercaderia.groupBy({
+      by: ["codItem", "descPromoId"],
+      where: { comprobanteVtaId: comprobanteVentaId, tipoMovimiento: "EGRESO" },
+      _sum: { cantidad: true, costoTotal: true },
+    }),
+    ncs.length === 0
+      ? Promise.resolve([])
+      : tx.balCxMercaderia.groupBy({
+          by: ["codItem", "descPromoId"],
+          where: {
+            comprobanteVtaId: { in: ncs.map((n) => n.id) },
+            tipoMovimiento: "INGRESO",
+            descPromoId: { not: null },
+          },
+          _sum: { cantidad: true },
+        }),
+  ]);
+  const devuelto = new Map<string, number>();
+  for (const d of devueltos) {
+    if (!d.descPromoId) continue;
+    devuelto.set(claveLote(d.descPromoId, d.codItem), cantidadDesdePrisma(d._sum.cantidad));
+  }
+
+  const acum = new Map<
+    string,
+    { cant: number; total: number; cantNormal: number; totalNormal: number; lotes: PorcionLote[] }
+  >();
   for (const r of rows) {
     const cant = cantidadDesdePrisma(r._sum.cantidad);
     if (cant <= 0) continue;
-    map.set(r.codItem, Number(r._sum.costoTotal ?? 0) / cant);
+    const total = Number(r._sum.costoTotal ?? 0);
+    const a = acum.get(r.codItem) ?? { cant: 0, total: 0, cantNormal: 0, totalNormal: 0, lotes: [] };
+    a.cant += cant;
+    a.total += total;
+    if (r.descPromoId) {
+      const disponible = redondearCantidadUnDecimal(
+        cant - (devuelto.get(claveLote(r.descPromoId, r.codItem)) ?? 0)
+      );
+      if (disponible > 0) {
+        a.lotes.push({ descPromoId: r.descPromoId, cantidad: disponible, costoUnitario: total / cant });
+      }
+    } else {
+      a.cantNormal += cant;
+      a.totalNormal += total;
+    }
+    acum.set(r.codItem, a);
+  }
+  const map = new Map<string, CostoVentaOriginalItem>();
+  for (const [codItem, a] of acum) {
+    map.set(codItem, {
+      lotes: a.lotes,
+      costoNormal: a.cantNormal > 0 ? a.totalNormal / a.cantNormal : null,
+      costoPromedio: a.total / a.cant,
+    });
   }
   return map;
 }
 
 /**
+ * Lotes DESC. POR STOCK con saldo de esos ítems, bloqueados (`FOR UPDATE`) hasta el fin de
+ * la tx. Orden: prioridad del descuento (1 = primero en consumirse).
+ */
+async function lotesConSaldoParaVenta(
+  tx: Prisma.TransactionClient,
+  codItems: readonly string[]
+): Promise<Map<string, PorcionLote[]>> {
+  const out = new Map<string, PorcionLote[]>();
+  if (codItems.length === 0) return out;
+  const rows = await tx.$queryRaw<
+    {
+      promo_id: string;
+      cod_tienda: string;
+      saldo: Prisma.Decimal;
+      costo_unitario: Prisma.Decimal;
+    }[]
+  >`
+    SELECT i.promo_id, i.cod_tienda,
+           (i.cantidad - i.cantidad_consumida) AS saldo, i.costo_unitario
+    FROM desc_promo_items i
+    INNER JOIN desc_promo d ON d.id = i.promo_id
+    WHERE d.categoria = 'STOCK'
+      AND i.cod_tienda IN (${Prisma.join([...codItems])})
+      AND i.cantidad IS NOT NULL
+      AND i.cantidad > i.cantidad_consumida
+    ORDER BY d.prioridad ASC, d.id ASC
+    FOR UPDATE OF i
+  `;
+  for (const r of rows) {
+    const lista = out.get(r.cod_tienda) ?? [];
+    lista.push({
+      descPromoId: r.promo_id,
+      cantidad: cantidadDesdePrisma(r.saldo),
+      costoUnitario: r.costo_unitario.toNumber(),
+    });
+    out.set(r.cod_tienda, lista);
+  }
+  return out;
+}
+
+/** Suma (venta) o resta (NC / reversión) unidades consumidas de un lote; nunca sale de [0, cantidad]. */
+async function moverConsumoLote(
+  tx: Prisma.TransactionClient,
+  descPromoId: string,
+  codItem: string,
+  delta: number
+): Promise<void> {
+  if (delta === 0) return;
+  await tx.$executeRaw`
+    UPDATE desc_promo_items
+    SET cantidad_consumida = LEAST(cantidad, GREATEST(0, cantidad_consumida + ${delta}))
+    WHERE promo_id = ${descPromoId}
+      AND cod_tienda = ${codItem}
+      AND cantidad IS NOT NULL
+  `;
+}
+
+type FilaCxNueva = Prisma.BalCxMercaderiaCreateManyInput;
+
+/**
  * Valoriza las líneas del `stock_comprobantes` recién creado para la venta / NC.
  * Debe correr en la misma transacción que el ledger de stock.
+ * Venta: consume lotes DESC. POR STOCK con saldo (fila propia a `costo_unitario` del lote);
+ * el resto, costo vigente. NC: devuelve primero al lote lo que esa venta consumió de él.
  */
 export async function registrarCxMercaderiaDeStockEnTx(
   tx: Prisma.TransactionClient,
@@ -82,27 +213,33 @@ export async function registrarCxMercaderiaDeStockEnTx(
   if (movimientos.length === 0) return 0;
 
   const codItems = [...new Set(movimientos.map((m) => m.codItem))];
-  const [productos, costoVentaOriginal] = await Promise.all([
+  const codItemsEgreso = [
+    ...new Set(movimientos.filter((m) => m.tipoMovimiento === "EGRESO").map((m) => m.codItem)),
+  ];
+  const [productos, costoVentaOriginal, lotesVenta] = await Promise.all([
     tx.prodPropio.findMany({
       where: { codTienda: { in: codItems } },
       select: { codTienda: true, ...SELECT_COSTO_COMPRA_TIENDA },
     }),
     input.comprobanteVentaOriginalId
-      ? costoUnitarioVentaOriginalPorItem(tx, input.comprobanteVentaOriginalId)
-      : Promise.resolve(new Map<string, number>()),
+      ? costosVentaOriginalPorItem(tx, input.comprobanteVentaOriginalId)
+      : Promise.resolve(new Map<string, CostoVentaOriginalItem>()),
+    lotesConSaldoParaVenta(tx, codItemsEgreso),
   ]);
   const costoVigente = new Map(
     productos.map((p) => [p.codTienda, resolverCostoCompraTiendaConOrigen(p)])
   );
 
-  const data = movimientos.map((m) => {
-    const cantidad = cantidadDesdePrisma(m.cantidad);
-    const original =
-      m.tipoMovimiento === "INGRESO" ? costoVentaOriginal.get(m.codItem) : undefined;
-    const vigente = costoVigente.get(m.codItem) ?? { costo: 0, origen: "SIN_COSTO" as const };
-    const costoUnitario = redondear(original ?? vigente.costo, 4);
-    const origenCosto: BalCxMercaderiaOrigenCosto =
-      original !== undefined ? "VENTA_ORIGINAL" : vigente.origen;
+  const data: FilaCxNueva[] = [];
+  const deltaLotes = new Map<string, { descPromoId: string; codItem: string; delta: number }>();
+  const fila = (
+    m: (typeof movimientos)[number],
+    cantidad: number,
+    costo: number,
+    origenCosto: BalCxMercaderiaOrigenCosto,
+    descPromoId: string | null
+  ): FilaCxNueva => {
+    const costoUnitario = redondear(costo, 4);
     return {
       tipoMovimiento: m.tipoMovimiento,
       comprobanteVtaId: input.comprobanteVtaId,
@@ -114,11 +251,76 @@ export async function registrarCxMercaderiaDeStockEnTx(
       costoUnitario,
       costoTotal: redondear(costoUnitario * cantidad, 2),
       origenCosto,
+      descPromoId,
     };
-  });
+  };
+  const consumir = (porciones: PorcionLote[], m: (typeof movimientos)[number], resto: number, signo: 1 | -1) => {
+    for (const p of porciones) {
+      if (resto <= 0) break;
+      const tomar = redondearCantidadUnDecimal(Math.min(resto, p.cantidad));
+      if (tomar <= 0) continue;
+      p.cantidad = redondearCantidadUnDecimal(p.cantidad - tomar);
+      resto = redondearCantidadUnDecimal(resto - tomar);
+      data.push(fila(m, tomar, p.costoUnitario, "DESC_STOCK", p.descPromoId));
+      const clave = claveLote(p.descPromoId, m.codItem);
+      const actual = deltaLotes.get(clave) ?? { descPromoId: p.descPromoId, codItem: m.codItem, delta: 0 };
+      actual.delta = redondearCantidadUnDecimal(actual.delta + signo * tomar);
+      deltaLotes.set(clave, actual);
+    }
+    return resto;
+  };
+
+  for (const m of movimientos) {
+    const cantidad = cantidadDesdePrisma(m.cantidad);
+    const vigente = costoVigente.get(m.codItem) ?? { costo: 0, origen: "SIN_COSTO" as const };
+    if (m.tipoMovimiento === "EGRESO") {
+      const resto = consumir(lotesVenta.get(m.codItem) ?? [], m, cantidad, 1);
+      if (resto > 0) data.push(fila(m, resto, vigente.costo, vigente.origen, null));
+      continue;
+    }
+    const original = costoVentaOriginal.get(m.codItem);
+    if (!original) {
+      data.push(fila(m, cantidad, vigente.costo, vigente.origen, null));
+      continue;
+    }
+    const resto = consumir(original.lotes, m, cantidad, -1);
+    if (resto > 0) {
+      data.push(
+        fila(m, resto, original.costoNormal ?? original.costoPromedio, "VENTA_ORIGINAL", null)
+      );
+    }
+  }
 
   await tx.balCxMercaderia.createMany({ data });
+  for (const d of deltaLotes.values()) {
+    await moverConsumoLote(tx, d.descPromoId, d.codItem, d.delta);
+  }
   return data.length;
+}
+
+/**
+ * Antes de borrar el ledger de una venta / NC: deshace lo que movió en lotes DESC. POR STOCK
+ * (venta devuelve saldo; NC lo vuelve a consumir).
+ */
+export async function revertirConsumoLotesDescPromoEnTx(
+  tx: Prisma.TransactionClient,
+  comprobanteVtaId: string
+): Promise<void> {
+  const rows = await tx.balCxMercaderia.groupBy({
+    by: ["descPromoId", "codItem", "tipoMovimiento"],
+    where: { comprobanteVtaId, descPromoId: { not: null } },
+    _sum: { cantidad: true },
+  });
+  for (const r of rows) {
+    if (!r.descPromoId) continue;
+    const cant = cantidadDesdePrisma(r._sum.cantidad);
+    await moverConsumoLote(
+      tx,
+      r.descPromoId,
+      r.codItem,
+      r.tipoMovimiento === "EGRESO" ? -cant : cant
+    );
+  }
 }
 
 export interface OpcionFiltroCxMercVend {

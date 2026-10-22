@@ -1,15 +1,29 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { cantidadDesdePrisma, fmtCantidad } from "@/lib/cantidadUnDecimal";
 import {
+  costoNuevoLoteDescPromo,
+  estadoDescPromo,
+  ETIQUETA_CATEGORIA_DESC_PROMO,
   etiquetaAlcanceDescPromo,
   etiquetaFormaPagoCuotaDescPromo,
   type DescPromoEspecialFactura,
   type DescPromoFila,
+  type DescPromoLoteRef,
 } from "@/lib/descPromo";
+import {
+  dateToIsoYmdArgentina,
+  isoYmdFromPrismaDateOnly,
+  prismaDateOnlyFromIsoYmd,
+} from "@/lib/fechaArgentina";
 import type {
   CrearDescPromoInput,
   EditarDescPromoInput,
 } from "@/lib/validations/descPromo";
+import {
+  resolverCostoCompraTienda,
+  SELECT_COSTO_COMPRA_TIENDA,
+} from "@/services/costoListaTienda.service";
 import type { ServiceResult } from "@/types";
 
 const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
@@ -17,6 +31,12 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
     orderBy: { producto: { descripcionTienda: "asc" } },
     select: {
       codTienda: true,
+      cantidad: true,
+      cantidadConsumida: true,
+      costoTipo: true,
+      costoValor: true,
+      costoBase: true,
+      costoUnitario: true,
       producto: {
         select: {
           descripcionTienda: true,
@@ -42,10 +62,36 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
 });
 
 type PromoRow = Prisma.DescPromoGetPayload<{ include: typeof promoInclude }>;
+type PromoItemRow = PromoRow["items"][number];
+
+function decimalANumero(value: Prisma.Decimal | null): number | null {
+  if (value == null) return null;
+  const n = value.toNumber();
+  return Number.isFinite(n) ? n : null;
+}
+
+function mapLote(item: PromoItemRow): DescPromoLoteRef | null {
+  if (item.cantidad == null || item.costoTipo == null) return null;
+  const cantidad = cantidadDesdePrisma(item.cantidad);
+  const consumida = cantidadDesdePrisma(item.cantidadConsumida);
+  return {
+    cantidad,
+    consumida,
+    saldo: Math.max(0, Math.round((cantidad - consumida) * 10) / 10),
+    costoTipo: item.costoTipo,
+    costoValor: decimalANumero(item.costoValor) ?? 0,
+    costoBase: decimalANumero(item.costoBase),
+    costoUnitario: decimalANumero(item.costoUnitario) ?? 0,
+  };
+}
 
 function mapPromo(row: PromoRow): DescPromoFila {
   return {
     id: row.id,
+    categoria: row.categoria,
+    categoriaEtiqueta: ETIQUETA_CATEGORIA_DESC_PROMO[row.categoria],
+    fechaDesdeIso: row.fechaDesde ? isoYmdFromPrismaDateOnly(row.fechaDesde) : null,
+    fechaHastaIso: row.fechaHasta ? isoYmdFromPrismaDateOnly(row.fechaHasta) : null,
     alcance: row.alcance,
     alcanceEtiqueta: etiquetaAlcanceDescPromo(row.alcance),
     nombre: row.nombre,
@@ -70,6 +116,7 @@ function mapPromo(row: PromoRow): DescPromoFila {
       rubroNombre: item.producto.rubroRelation
         ? item.producto.rubroRelation.nombre.toLocaleUpperCase("es-AR")
         : null,
+      lote: row.categoria === "STOCK" ? mapLote(item) : null,
     })),
     formasPago: row.formasPago
       .map((fp) => ({
@@ -131,6 +178,9 @@ function mapDbError(error: unknown, fallback: string): string {
     if (code === "P2002") return "La prioridad ya está en uso. Reintentá.";
     if (code === "P2003") return "Hay un producto, forma de cobro, marca o rubro inválido.";
     if (code === "P2025") return "La promoción no existe.";
+    if (code === "P2004" || code === "23514") {
+      return "Los datos no cumplen las reglas del descuento (fechas, alcance o lote).";
+    }
   }
   return error instanceof Error ? error.message : fallback;
 }
@@ -229,21 +279,133 @@ async function validarVinculos(
   return { success: true, data: undefined };
 }
 
-function dataVinculos(input: CrearDescPromoInput) {
+function dataCabecera(input: CrearDescPromoInput) {
   const ejes = ejesSegunAlcance(input);
+  const conFechas = input.categoria === "FECHA";
   return {
+    categoria: input.categoria,
+    fechaDesde:
+      conFechas && input.fechaDesde ? prismaDateOnlyFromIsoYmd(input.fechaDesde) : null,
+    fechaHasta:
+      conFechas && input.fechaHasta ? prismaDateOnlyFromIsoYmd(input.fechaHasta) : null,
     alcance: input.alcance,
     descuento: input.descuento,
     idMarca: ejes.idMarca,
     idRubro: ejes.idRubro,
-    items: { create: ejes.codTiendas.map((codTienda) => ({ codTienda })) },
-    formasPago: {
-      create: input.vinculosCobro.map((v) => ({
-        pagoId: v.pagoId,
-        cuotaId: v.cuotaId ?? null,
-      })),
-    },
   };
+}
+
+function dataFormasPago(input: CrearDescPromoInput) {
+  return input.vinculosCobro.map((v) => ({
+    pagoId: v.pagoId,
+    cuotaId: v.cuotaId ?? null,
+  }));
+}
+
+type DataLoteItem = {
+  cantidad: number | null;
+  costoTipo: CrearDescPromoInput["lotes"][number]["costoTipo"] | null;
+  costoValor: number | null;
+  costoBase: number | null;
+  costoUnitario: number | null;
+};
+
+const LOTE_VACIO: DataLoteItem = {
+  cantidad: null,
+  costoTipo: null,
+  costoValor: null,
+  costoBase: null,
+  costoUnitario: null,
+};
+
+/** Costo vigente sin IVA (SSOT `costoListaTienda`) por `cod_tienda`. */
+async function costosVigentesPorCodigo(
+  codTiendas: readonly string[],
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<Map<string, number>> {
+  if (codTiendas.length === 0) return new Map();
+  const rows = await db.prodPropio.findMany({
+    where: { codTienda: { in: [...codTiendas] } },
+    select: { codTienda: true, ...SELECT_COSTO_COMPRA_TIENDA },
+  });
+  return new Map(rows.map((r) => [r.codTienda, resolverCostoCompraTienda(r)]));
+}
+
+/**
+ * Lote por ítem (solo STOCK). PORCENTAJE congela `costo_base`: se conserva el del ítem
+ * si ya era PORCENTAJE; si no, se toma el costo vigente.
+ */
+async function lotesPorCodigo(
+  input: CrearDescPromoInput,
+  previos: ReadonlyMap<string, { costoTipo: string | null; costoBase: number | null }>,
+  db: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<Map<string, DataLoteItem>> {
+  const out = new Map<string, DataLoteItem>();
+  if (input.categoria !== "STOCK") return out;
+  const sinBase = input.lotes
+    .filter((l) => {
+      if (l.costoTipo !== "PORCENTAJE") return false;
+      const previo = previos.get(l.codTienda);
+      return previo?.costoTipo !== "PORCENTAJE" || previo.costoBase == null;
+    })
+    .map((l) => l.codTienda);
+  const vigentes = await costosVigentesPorCodigo(sinBase, db);
+  for (const lote of input.lotes) {
+    const previo = previos.get(lote.codTienda);
+    const costoBase =
+      lote.costoTipo === "PORCENTAJE"
+        ? previo?.costoTipo === "PORCENTAJE" && previo.costoBase != null
+          ? previo.costoBase
+          : (vigentes.get(lote.codTienda) ?? 0)
+        : null;
+    out.set(lote.codTienda, {
+      cantidad: lote.cantidad,
+      costoTipo: lote.costoTipo,
+      costoValor: lote.costoValor,
+      costoBase,
+      costoUnitario: costoNuevoLoteDescPromo(
+        lote.costoTipo,
+        lote.costoValor,
+        costoBase ?? 0
+      ),
+    });
+  }
+  return out;
+}
+
+export async function costosVigentesDescPromo(
+  codTiendas: readonly string[]
+): Promise<Record<string, number>> {
+  try {
+    return Object.fromEntries(await costosVigentesPorCodigo(codTiendas));
+  } catch (e: unknown) {
+    console.error("[descPromo.service] costosVigentesDescPromo:", e);
+    return {};
+  }
+}
+
+function hoyIsoArgentina(): string {
+  return dateToIsoYmdArgentina(new Date());
+}
+
+/**
+ * Factura: FECHA solo dentro del rango; STOCK solo los ítems con saldo > 0
+ * (la venta puede superar el saldo: se respeta el desc. para toda la línea).
+ */
+function soloVigentesFactura(filas: DescPromoFila[]): DescPromoFila[] {
+  const hoy = hoyIsoArgentina();
+  const out: DescPromoFila[] = [];
+  for (const fila of filas) {
+    if (fila.categoria === "FECHA" && estadoDescPromo(fila, hoy) !== "VIGENTE") continue;
+    if (fila.categoria === "STOCK") {
+      const items = fila.items.filter((i) => (i.lote?.saldo ?? 0) > 0);
+      if (items.length === 0) continue;
+      out.push({ ...fila, items });
+      continue;
+    }
+    out.push(fila);
+  }
+  return out;
 }
 
 /** Prioridad 1 = la que gana. Una promo nueva va al final (máximo + 1 = la de menor peso). */
@@ -304,7 +466,7 @@ export async function listarDescPromos(): Promise<DescPromoFila[]> {
 }
 
 /**
- * Promos de alcance ITEMS (DESC. ESPECIAL) indexadas por `cod_tienda`
+ * Promos de alcance ITEMS (DESC. ESPECIAL) vigentes indexadas por `cod_tienda`
  * pedido. Un código puede tener varias; orden: prioridad asc (1 = la que gana).
  */
 export async function listarDescPromosEspecialesPorCodigos(
@@ -323,8 +485,7 @@ export async function listarDescPromosEspecialesPorCodigos(
       include: promoInclude,
       orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
-    for (const row of rows) {
-      const mapped = mapPromo(row);
+    for (const mapped of soloVigentesFactura(rows.map(mapPromo))) {
       const especial: DescPromoEspecialFactura = {
         id: mapped.id,
         nombre: mapped.nombre,
@@ -351,7 +512,7 @@ export async function listarDescPromosEspecialesPorCodigos(
   }
 }
 
-/** Reglas con al menos una forma de pago, para Factura · Crear. */
+/** Reglas vigentes con al menos una forma de pago, para Factura · Crear. */
 export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
   try {
     const rows = await prisma.descPromo.findMany({
@@ -359,7 +520,7 @@ export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
       include: promoInclude,
       orderBy: [{ prioridad: "asc" }, { id: "asc" }],
     });
-    return rows.map(mapPromo);
+    return soloVigentesFactura(rows.map(mapPromo));
   } catch (e: unknown) {
     console.error("[descPromo.service] listarDescPromosPorFormaPago:", e);
     return [];
@@ -375,17 +536,28 @@ export async function crearDescPromo(
   }
   const vinculos = await validarVinculos(input);
   if (!vinculos.success) return vinculos;
-  try {
+  const crear = async () => {
+    const lotes = await lotesPorCodigo(input, new Map());
     const prioridad = await siguientePrioridad();
     const created = await prisma.descPromo.create({
       data: {
         nombre,
         prioridad,
-        ...dataVinculos(input),
+        ...dataCabecera(input),
+        items: {
+          create: ejesSegunAlcance(input).codTiendas.map((codTienda) => ({
+            codTienda,
+            ...(lotes.get(codTienda) ?? LOTE_VACIO),
+          })),
+        },
+        formasPago: { create: dataFormasPago(input) },
       },
       include: promoInclude,
     });
-    return { success: true, data: mapPromo(created) };
+    return mapPromo(created);
+  };
+  try {
+    return { success: true, data: await crear() };
   } catch (error) {
     if (
       error &&
@@ -395,16 +567,7 @@ export async function crearDescPromo(
     ) {
       try {
         await compactarPrioridad();
-        const prioridad = await siguientePrioridad();
-        const created = await prisma.descPromo.create({
-          data: {
-            nombre,
-            prioridad,
-            ...dataVinculos(input),
-          },
-          include: promoInclude,
-        });
-        return { success: true, data: mapPromo(created) };
+        return { success: true, data: await crear() };
       } catch (retryError) {
         return {
           success: false,
@@ -429,22 +592,91 @@ export async function editarDescPromo(
   const vinculos = await validarVinculos(input);
   if (!vinculos.success) return vinculos;
   try {
-    const existe = await prisma.descPromo.findUnique({
-      where: { id: input.id },
-      select: { id: true },
+    return await prisma.$transaction(async (tx) => {
+      const existe = await tx.descPromo.findUnique({
+        where: { id: input.id },
+        select: { id: true },
+      });
+      if (!existe) {
+        return { success: false as const, error: "La promoción no existe." };
+      }
+      /** Bloquea los lotes: una venta concurrente espera a que termine la edición. */
+      const previosRows = await tx.$queryRaw<
+        {
+          cod_tienda: string;
+          cantidad_consumida: Prisma.Decimal;
+          costo_tipo: string | null;
+          costo_base: Prisma.Decimal | null;
+          descripcion: string | null;
+        }[]
+      >`
+        SELECT i.cod_tienda, i.cantidad_consumida, i.costo_tipo::text AS costo_tipo,
+               i.costo_base, p.descripcion
+        FROM desc_promo_items i
+        INNER JOIN prod_lista p ON p.cod_tienda = i.cod_tienda
+        WHERE i.promo_id = ${input.id}
+        FOR UPDATE OF i
+      `;
+      const codTiendas = ejesSegunAlcance(input).codTiendas;
+      const nuevos = new Set(codTiendas);
+      const cantidadNueva = new Map(input.lotes.map((l) => [l.codTienda, l.cantidad]));
+      for (const previo of previosRows) {
+        const consumida = cantidadDesdePrisma(previo.cantidad_consumida);
+        if (consumida <= 0) continue;
+        const nombreItem = (previo.descripcion ?? previo.cod_tienda).toLocaleUpperCase("es-AR");
+        if (input.categoria !== "STOCK") {
+          return {
+            success: false as const,
+            error: "Este DESC. POR STOCK ya tiene unidades vendidas: no se puede cambiar la categoría.",
+          };
+        }
+        if (!nuevos.has(previo.cod_tienda)) {
+          return {
+            success: false as const,
+            error: `No se puede quitar ${nombreItem}: ya tiene unidades vendidas.`,
+          };
+        }
+        const cantidad = cantidadNueva.get(previo.cod_tienda) ?? 0;
+        if (cantidad < consumida) {
+          return {
+            success: false as const,
+            error: `La cantidad de ${nombreItem} no puede ser menor a lo ya vendido (${fmtCantidad(consumida)}).`,
+          };
+        }
+      }
+      const previos = new Map(
+        previosRows.map((r) => [
+          r.cod_tienda,
+          {
+            costoTipo: r.costo_tipo,
+            costoBase: r.costo_base == null ? null : r.costo_base.toNumber(),
+          },
+        ])
+      );
+      const lotes = await lotesPorCodigo(input, previos, tx);
+
+      await tx.descPromoItem.deleteMany({
+        where: { promoId: input.id, codTienda: { notIn: codTiendas } },
+      });
+      for (const codTienda of codTiendas) {
+        const lote = lotes.get(codTienda) ?? LOTE_VACIO;
+        await tx.descPromoItem.upsert({
+          where: { promoId_codTienda: { promoId: input.id, codTienda } },
+          create: { promoId: input.id, codTienda, ...lote },
+          update: lote,
+        });
+      }
+      await tx.descPromoFormaPago.deleteMany({ where: { promoId: input.id } });
+      await tx.descPromoFormaPago.createMany({
+        data: dataFormasPago(input).map((fp) => ({ ...fp, promoId: input.id })),
+      });
+      const updated = await tx.descPromo.update({
+        where: { id: input.id },
+        data: { nombre, ...dataCabecera(input) },
+        include: promoInclude,
+      });
+      return { success: true as const, data: mapPromo(updated) };
     });
-    if (!existe) return { success: false, error: "La promoción no existe." };
-    await prisma.descPromoItem.deleteMany({ where: { promoId: input.id } });
-    await prisma.descPromoFormaPago.deleteMany({ where: { promoId: input.id } });
-    const updated = await prisma.descPromo.update({
-      where: { id: input.id },
-      data: {
-        nombre,
-        ...dataVinculos(input),
-      },
-      include: promoInclude,
-    });
-    return { success: true, data: mapPromo(updated) };
   } catch (error) {
     return {
       success: false,

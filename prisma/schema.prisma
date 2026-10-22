@@ -1659,7 +1659,7 @@ model StockMovimiento {
   comprobante StockComprobante @relation(fields: [comprobanteRelacionadoId], references: [id], onDelete: Restrict)
   usuario     GlobalPersonal?  @relation(fields: [usuarioId], references: [idPersonal], onDelete: Restrict, onUpdate: Cascade)
 
-  cxMercaderia BalCxMercaderia?
+  cxMercaderia BalCxMercaderia[]
 
   @@index([codItem, sucursalId], map: "stock_movimientos_item_sucursal_idx")
   @@index([comprobanteRelacionadoId], map: "stock_movimientos_comprobante_idx")
@@ -1682,20 +1682,23 @@ enum BalCxMercaderiaOrigenCosto {
   VENTA_ORIGINAL @map("venta_original")
   /// Costo resuelto = 0 (sin CX elegido, línea deshabilitada o sin costo manual).
   SIN_COSTO      @map("sin_costo")
+  /// Lote DESC. POR STOCK (`desc_promo_items.costo_unitario`); ver `desc_promo_id`.
+  DESC_STOCK     @map("desc_stock")
 
   @@map("bal_cx_mercaderia_origen_costo")
 }
 
 /**
  * Movimiento de mercadería valorizado (Cx. Mercadería Vendida).
- * Una fila por línea de `stock_movimientos` de venta (EGRESO) o NC (INGRESO).
+ * 1–2 filas por línea de `stock_movimientos` de venta (EGRESO) o NC (INGRESO):
+ * la parte cubierta por un lote DESC. POR STOCK (`desc_promo_id`) va en su propia fila.
  * Costo congelado al registrar, sin IVA. Se borra en cascada con la línea de stock.
  */
 model BalCxMercaderia {
   id                String                     @id @default(cuid())
   tipoMovimiento    StockMovimientoTipo        @map("tipo_movimiento")
   comprobanteVtaId  String                     @map("comprobante_vta_id")
-  stockMovimientoId String                     @unique(map: "bal_cx_mercaderia_stock_movimiento_key") @map("stock_movimiento_id")
+  stockMovimientoId String                     @map("stock_movimiento_id")
   codItem           String                     @map("cod_item")
   sucursalId        String                     @map("sucursal_id")
   /// Fecha del comprobante de venta / NC.
@@ -1704,13 +1707,18 @@ model BalCxMercaderia {
   costoUnitario     Decimal                    @map("costo_unitario") @db.Decimal(14, 4)
   costoTotal        Decimal                    @map("costo_total") @db.Decimal(14, 2)
   origenCosto       BalCxMercaderiaOrigenCosto @map("origen_costo")
+  /// Lote DESC. POR STOCK que valorizó la fila (con `cod_item` identifica la fila de `desc_promo_items`).
+  descPromoId       String?                    @map("desc_promo_id")
   createdAt         DateTime                   @default(now()) @map("created_at")
 
   comprobanteVta  ComprobanteVta  @relation(fields: [comprobanteVtaId], references: [id], onDelete: Restrict)
   stockMovimiento StockMovimiento @relation(fields: [stockMovimientoId], references: [id], onDelete: Cascade)
   prodTienda      ProdPropio      @relation(fields: [codItem], references: [codTienda], onDelete: Restrict)
   sucursal        Sucursal        @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  descPromo       DescPromo?      @relation(fields: [descPromoId], references: [id], onDelete: SetNull)
 
+  @@index([stockMovimientoId], map: "bal_cx_mercaderia_stock_movimiento_idx")
+  @@index([descPromoId, codItem], map: "bal_cx_mercaderia_desc_promo_idx")
   @@index([sucursalId, fecha], map: "bal_cx_mercaderia_sucursal_fecha_idx")
   @@index([codItem], map: "bal_cx_mercaderia_cod_item_idx")
   @@index([comprobanteVtaId], map: "bal_cx_mercaderia_comprobante_vta_idx")
@@ -2106,37 +2114,80 @@ enum AlcanceDescPromo {
 }
 
 /**
+ * Categoría de `desc_promo`. En pantalla: DESC. BASE / DESC. POR FECHA / DESC. POR STOCK.
+ */
+enum DescPromoCategoria {
+  /// Permanente o sin fin conocido.
+  BASE
+  /// Vigente entre `fecha_desde` y `fecha_hasta` (inclusive, calendario AR).
+  FECHA
+  /// Alcance ITEMS con lote por ítem (`desc_promo_items.cantidad` + costo nuevo).
+  STOCK
+
+  @@map("desc_promo_categoria")
+}
+
+/** Cómo se cargó el costo nuevo del lote DESC. POR STOCK. */
+enum DescPromoCostoTipo {
+  /// % sobre `costo_base` (costo vigente al cargar el ítem, congelado).
+  PORCENTAJE
+  /// Precio fijo sin IVA.
+  FIJO
+
+  @@map("desc_promo_costo_tipo")
+}
+
+/**
  * Una regla de descuento (%). Siempre 1+ formas `desc_promo_formas_pago`.
- * Alcance ITEMS → N `desc_promo_items`. Mayor `prioridad` gana. Secuencia 1…N sin huecos.
+ * Alcance ITEMS → N `desc_promo_items`. Menor `prioridad` gana (1 = máxima). Secuencia 1…N sin huecos.
+ * Categoría FECHA exige `fecha_desde` ≤ `fecha_hasta`; STOCK exige alcance ITEMS (CHECKs en SQL).
  */
 model DescPromo {
-  id         String           @id @default(cuid())
+  id         String             @id @default(cuid())
   alcance    AlcanceDescPromo
+  categoria  DescPromoCategoria @default(BASE)
   nombre     String
   /** Porcentaje 0–100. Columna SQL `desc`. */
-  descuento  Int              @map("desc")
-  /** Entero único 1…N. El más alto tiene más prioridad. */
-  prioridad  Int              @unique(map: "desc_promo_prioridad_key")
-  idMarca    String?          @map("id_marca")
-  idRubro    String?          @map("id_rubro")
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+  descuento  Int                @map("desc")
+  /** Entero único 1…N. 1 = máxima prioridad. */
+  prioridad  Int                @unique(map: "desc_promo_prioridad_key")
+  idMarca    String?            @map("id_marca")
+  idRubro    String?            @map("id_rubro")
+  fechaDesde DateTime?          @map("fecha_desde") @db.Date
+  fechaHasta DateTime?          @map("fecha_hasta") @db.Date
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
 
-  items      DescPromoItem[]
-  formasPago DescPromoFormaPago[]
-  marca      Marca?     @relation(fields: [idMarca], references: [id], onDelete: Restrict)
-  rubro      ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Restrict)
+  items        DescPromoItem[]
+  formasPago   DescPromoFormaPago[]
+  cxMercaderia BalCxMercaderia[]
+  marca        Marca?     @relation(fields: [idMarca], references: [id], onDelete: Restrict)
+  rubro        ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Restrict)
 
+  @@index([categoria], map: "desc_promo_categoria_idx")
   @@index([alcance], map: "desc_promo_alcance_idx")
   @@index([idMarca], map: "desc_promo_id_marca_idx")
   @@index([idRubro], map: "desc_promo_id_rubro_idx")
   @@map("desc_promo")
 }
 
-/** N:M `desc_promo` (alcance ITEMS) ↔ `prod_lista`. */
+/**
+ * N:M `desc_promo` (alcance ITEMS) ↔ `prod_lista`.
+ * Categoría STOCK: lote del ítem (CHECK `desc_promo_items_lote_chk`: todo null o todo cargado).
+ * Saldo = `cantidad` − `cantidad_consumida`; lo mueve `balCxMercaderia.service` en la tx de stock.
+ */
 model DescPromoItem {
-  promoId   String @map("promo_id")
-  codTienda String @map("cod_tienda")
+  promoId           String              @map("promo_id")
+  codTienda         String              @map("cod_tienda")
+  cantidad          Decimal?            @db.Decimal(12, 1)
+  cantidadConsumida Decimal             @default(0) @map("cantidad_consumida") @db.Decimal(12, 1)
+  costoTipo         DescPromoCostoTipo? @map("costo_tipo")
+  /** % (0–100) o precio fijo sin IVA, según `costo_tipo`. */
+  costoValor        Decimal?            @map("costo_valor") @db.Decimal(14, 4)
+  /** PORCENTAJE: costo vigente al cargar el ítem (congelado). */
+  costoBase         Decimal?            @map("costo_base") @db.Decimal(14, 4)
+  /** Costo nuevo sin IVA que valoriza `bal_cx_mercaderia` mientras haya saldo. */
+  costoUnitario     Decimal?            @map("costo_unitario") @db.Decimal(14, 4)
 
   promo    DescPromo  @relation(fields: [promoId], references: [id], onDelete: Cascade)
   producto ProdPropio @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)

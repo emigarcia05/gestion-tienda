@@ -43,8 +43,11 @@ import { moverPrioridadDescPromoAction } from "@/actions/descPromo";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import {
   ALCANCES_DESC_PROMO,
+  CATEGORIAS_DESC_PROMO,
   ETIQUETA_ALCANCE_DESC_PROMO,
+  ETIQUETA_CATEGORIA_DESC_PROMO,
   textoDescuentosDescPromo,
+  textoEstadoDescPromo,
   textoVinculosDescPromo,
   type DescPromoFila,
 } from "@/lib/descPromo";
@@ -59,6 +62,7 @@ import {
 } from "@/lib/ui-classes";
 
 const ALCANCE_TODOS = "todos";
+const CATEGORIA_TODAS = "todas";
 
 interface Props {
   items: DescPromoFila[];
@@ -67,6 +71,8 @@ interface Props {
   cuotas: CobrosCuotaItem[];
   rubros: RubroCatalogoItem[];
   marcas: MarcaCatalogoItem[];
+  /** `YYYY-MM-DD` Argentina (ESTADO de DESC. POR FECHA). */
+  hoyIso: string;
   esEditor: boolean;
 }
 
@@ -77,6 +83,7 @@ export default function DescPromosPageClient({
   cuotas,
   rubros,
   marcas,
+  hoyIso,
   esEditor,
 }: Props) {
   const router = useRouter();
@@ -88,6 +95,7 @@ export default function DescPromosPageClient({
       onDebouncedSearch: setQDebounced,
     });
   const [filtroAlcance, setFiltroAlcance] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
   const [itemEditar, setItemEditar] = useState<DescPromoFila | null>(null);
   const [itemDuplicar, setItemDuplicar] = useState<DescPromoFila | null>(null);
   const [itemVer, setItemVer] = useState<DescPromoFila | null>(null);
@@ -99,25 +107,29 @@ export default function DescPromosPageClient({
 
   const itemsFiltrados = useMemo(() => {
     return items.filter((item) => {
+      if (filtroCategoria && item.categoria !== filtroCategoria) return false;
       if (filtroAlcance && item.alcance !== filtroAlcance) return false;
       if (!qDebounced.trim()) return true;
       return matchByMultiTerm(
         [
           item.nombre,
+          item.categoriaEtiqueta,
           item.alcanceEtiqueta,
           textoDescuentosDescPromo(item),
+          textoEstadoDescPromo(item, hoyIso),
           textoVinculosDescPromo(item),
           String(item.prioridad),
         ],
         qDebounced
       );
     });
-  }, [items, filtroAlcance, qDebounced]);
+  }, [items, filtroCategoria, filtroAlcance, qDebounced, hoyIso]);
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
     setFiltroAlcance("");
+    setFiltroCategoria("");
   }
 
   async function mover(item: DescPromoFila, direccion: "up" | "down") {
@@ -132,7 +144,7 @@ export default function DescPromosPageClient({
     router.refresh();
   }
 
-  const colSpan = 6;
+  const colSpan = 8;
 
   return (
     <>
@@ -159,6 +171,38 @@ export default function DescPromosPageClient({
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection>
               <FilaFiltrosDesplegables columnas={5}>
+                <FiltroIndividualContainer
+                  className={FILTER_SELECT_WRAPPER_CLASS}
+                  activo={Boolean(filtroCategoria)}
+                  onLimpiar={() => setFiltroCategoria("")}
+                >
+                  <Select
+                    value={filtroCategoria || CATEGORIA_TODAS}
+                    onValueChange={(v) =>
+                      setFiltroCategoria(v === CATEGORIA_TODAS ? "" : v)
+                    }
+                  >
+                    <SelectTrigger
+                      className={SELECT_TRIGGER_FILTER_CLASS}
+                      aria-label="Categoría"
+                    >
+                      <SelectValue placeholder="CATEGORÍA" />
+                    </SelectTrigger>
+                    <SelectContent
+                      className="select-content-filtro"
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                    >
+                      <SelectItem value={CATEGORIA_TODAS}>CATEGORÍA</SelectItem>
+                      {CATEGORIAS_DESC_PROMO.map((valor) => (
+                        <SelectItem key={valor} value={valor}>
+                          {ETIQUETA_CATEGORIA_DESC_PROMO[valor]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FiltroIndividualContainer>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={Boolean(filtroAlcance)}
@@ -197,7 +241,7 @@ export default function DescPromosPageClient({
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-desc-promos-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, ALCANCE, DESC. O VÍNCULOS..."
+                  placeholder="BUSCAR POR NOMBRE, CATEGORÍA, ALCANCE, DESC., ESTADO O VÍNCULOS..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -212,19 +256,23 @@ export default function DescPromosPageClient({
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[8%]" />
-              <col className="w-[22%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
-              <col className={esEditor ? "w-[24%]" : "w-[34%]"} />
-              <col className={esEditor ? "w-[24%]" : "w-[14%]"} />
+              <col className="w-[7%]" />
+              <col className="w-[17%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+              <col className="w-[6%]" />
+              <col className="w-[12%]" />
+              <col className={esEditor ? "w-[17%]" : "w-[27%]"} />
+              <col className={esEditor ? "w-[20%]" : "w-[10%]"} />
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-center">PRIORIDAD</TableHead>
                 <TableHead>NOMBRE</TableHead>
+                <TableHead className="text-center">CATEGORÍA</TableHead>
                 <TableHead className="text-center">ALCANCE</TableHead>
                 <TableHead className="text-center">DESC.</TableHead>
+                <TableHead className="text-center">ESTADO</TableHead>
                 <TableHead>VÍNCULOS</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
@@ -245,6 +293,7 @@ export default function DescPromosPageClient({
                 itemsFiltrados.map((item) => {
                   const vinculos = textoVinculosDescPromo(item);
                   const descuentos = textoDescuentosDescPromo(item);
+                  const estado = textoEstadoDescPromo(item, hoyIso);
                   const bloqueado = moviendoId != null;
                   return (
                     <TableRow key={item.id}>
@@ -255,6 +304,9 @@ export default function DescPromosPageClient({
                         {item.nombre}
                       </TableCell>
                       <TableCell className="celda-datos text-center">
+                        {item.categoriaEtiqueta}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center">
                         {item.alcanceEtiqueta}
                       </TableCell>
                       <TableCell
@@ -262,6 +314,12 @@ export default function DescPromosPageClient({
                         title={descuentos}
                       >
                         {fmtCelda(descuentos)}
+                      </TableCell>
+                      <TableCell
+                        className="celda-datos truncate text-center tabular-nums"
+                        title={estado}
+                      >
+                        {fmtCelda(estado)}
                       </TableCell>
                       <TableCell className="celda-datos truncate" title={vinculos}>
                         {fmtCelda(vinculos)}

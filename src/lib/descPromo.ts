@@ -1,7 +1,121 @@
-import type { AlcanceDescPromo } from "@prisma/client";
+import type {
+  AlcanceDescPromo,
+  DescPromoCategoria,
+  DescPromoCostoTipo,
+} from "@prisma/client";
 import { APP_ROUTES } from "./appRoutes";
+import { fmtCantidad } from "./cantidadUnDecimal";
+import { formatIsoYmdDdMmYyArgentina } from "./fechaArgentina";
+import { montoArCentsToDisplayWithCurrency } from "./montoArMask";
 
 export const DESC_PROMOS_PATH = APP_ROUTES.administrador.cobrosDesc.descuentos;
+
+export const CATEGORIAS_DESC_PROMO = ["BASE", "FECHA", "STOCK"] as const;
+
+export type CategoriaDescPromoValor = (typeof CATEGORIAS_DESC_PROMO)[number];
+
+export const ETIQUETA_CATEGORIA_DESC_PROMO: Record<CategoriaDescPromoValor, string> = {
+  BASE: "DESC. BASE",
+  FECHA: "DESC. POR FECHA",
+  STOCK: "DESC. POR STOCK",
+};
+
+export const COSTO_TIPOS_DESC_PROMO = ["PORCENTAJE", "FIJO"] as const;
+
+export type CostoTipoDescPromoValor = (typeof COSTO_TIPOS_DESC_PROMO)[number];
+
+export const ETIQUETA_COSTO_TIPO_DESC_PROMO: Record<CostoTipoDescPromoValor, string> = {
+  PORCENTAJE: "%",
+  FIJO: "FIJO",
+};
+
+/** Lote de un ítem DESC. POR STOCK. Costos sin IVA. */
+export type DescPromoLoteRef = {
+  cantidad: number;
+  consumida: number;
+  saldo: number;
+  costoTipo: DescPromoCostoTipo;
+  /** % (0–100) o precio fijo según `costoTipo`. */
+  costoValor: number;
+  /** PORCENTAJE: costo vigente congelado al cargar el ítem. */
+  costoBase: number | null;
+  costoUnitario: number;
+};
+
+/** Costo nuevo sin IVA del lote (4 decimales). */
+export function costoNuevoLoteDescPromo(
+  costoTipo: CostoTipoDescPromoValor,
+  costoValor: number,
+  costoBase: number
+): number {
+  const bruto =
+    costoTipo === "FIJO" ? costoValor : costoBase * (1 - costoValor / 100);
+  return Math.round(Math.max(0, bruto) * 10_000) / 10_000;
+}
+
+export type EstadoDescPromo =
+  | "VIGENTE"
+  | "PROGRAMADO"
+  | "VENCIDO"
+  | "CON_SALDO"
+  | "AGOTADO";
+
+/** FECHA: vigente si `hoyIso` ∈ [desde, hasta] (inclusive). BASE siempre; STOCK por saldo. */
+export function estadoDescPromo(
+  fila: Pick<DescPromoFila, "categoria" | "fechaDesdeIso" | "fechaHastaIso" | "items">,
+  hoyIso: string
+): EstadoDescPromo {
+  if (fila.categoria === "FECHA") {
+    if (fila.fechaDesdeIso && hoyIso < fila.fechaDesdeIso) return "PROGRAMADO";
+    if (fila.fechaHastaIso && hoyIso > fila.fechaHastaIso) return "VENCIDO";
+    return "VIGENTE";
+  }
+  if (fila.categoria === "STOCK") {
+    return fila.items.some((i) => (i.lote?.saldo ?? 0) > 0) ? "CON_SALDO" : "AGOTADO";
+  }
+  return "VIGENTE";
+}
+
+/** Texto de la columna ESTADO de la tabla Descuentos. */
+export function textoEstadoDescPromo(
+  fila: Pick<DescPromoFila, "categoria" | "fechaDesdeIso" | "fechaHastaIso" | "items">,
+  hoyIso: string
+): string {
+  const estado = estadoDescPromo(fila, hoyIso);
+  if (estado === "CON_SALDO") {
+    const saldo = fila.items.reduce((s, i) => s + (i.lote?.saldo ?? 0), 0);
+    const total = fila.items.reduce((s, i) => s + (i.lote?.cantidad ?? 0), 0);
+    return `SALDO ${fmtCantidad(saldo)} / ${fmtCantidad(total)}`;
+  }
+  const rango = textoRangoFechasDescPromo(fila);
+  return rango ? `${estado} · ${rango}` : estado;
+}
+
+/** `CANT. 10 · VEND. 3 · SALDO 7 · CX $850,00 (-15 %)` (Ver descuento). */
+export function textoLoteDescPromo(lote: DescPromoLoteRef | null): string {
+  if (!lote) return "";
+  const costo = montoArCentsToDisplayWithCurrency(Math.round(lote.costoUnitario * 100));
+  const detalle =
+    lote.costoTipo === "PORCENTAJE"
+      ? ` (-${lote.costoValor.toLocaleString("es-AR", { maximumFractionDigits: 2 })} %)`
+      : "";
+  return [
+    `CANT. ${fmtCantidad(lote.cantidad)}`,
+    `VEND. ${fmtCantidad(lote.consumida)}`,
+    `SALDO ${fmtCantidad(lote.saldo)}`,
+    `CX ${costo}${detalle}`,
+  ].join(" · ");
+}
+
+/** `dd/mm/aa AL dd/mm/aa` (solo categoría FECHA). */
+export function textoRangoFechasDescPromo(
+  fila: Pick<DescPromoFila, "categoria" | "fechaDesdeIso" | "fechaHastaIso">
+): string {
+  if (fila.categoria !== "FECHA" || !fila.fechaDesdeIso || !fila.fechaHastaIso) {
+    return "";
+  }
+  return `${formatIsoYmdDdMmYyArgentina(fila.fechaDesdeIso)} AL ${formatIsoYmdDdMmYyArgentina(fila.fechaHastaIso)}`;
+}
 
 export const ALCANCES_DESC_PROMO = [
   "TODOS",
@@ -28,6 +142,8 @@ export type DescPromoItemRef = {
   marcaNombre: string | null;
   idRubro: string | null;
   rubroNombre: string | null;
+  /** Solo categoría STOCK. */
+  lote: DescPromoLoteRef | null;
 };
 
 export type DescPromoFormaPagoRef = {
@@ -39,6 +155,11 @@ export type DescPromoFormaPagoRef = {
 
 export type DescPromoFila = {
   id: string;
+  categoria: DescPromoCategoria;
+  categoriaEtiqueta: string;
+  /** `YYYY-MM-DD`; solo categoría FECHA. */
+  fechaDesdeIso: string | null;
+  fechaHastaIso: string | null;
   alcance: AlcanceDescPromo;
   alcanceEtiqueta: string;
   nombre: string;

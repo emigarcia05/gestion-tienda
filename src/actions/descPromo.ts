@@ -10,12 +10,14 @@ import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { DESC_PROMOS_PATH, type DescPromoFila } from "@/lib/descPromo";
 import type { ActionResult } from "@/lib/types";
 import {
+  costosVigentesDescPromoSchema,
   crearDescPromoSchema,
   editarDescPromoSchema,
   eliminarDescPromoSchema,
   moverPrioridadDescPromoSchema,
 } from "@/lib/validations/descPromo";
 import {
+  costosVigentesDescPromo,
   crearDescPromo,
   editarDescPromo,
   eliminarDescPromo,
@@ -50,6 +52,19 @@ export async function listarDescPromosFormaPagoFacturaAction(): Promise<
     console.error("[listarDescPromosFormaPagoFacturaAction]", e);
     return { ok: false, error: "No se pudieron listar los descuentos por forma de pago." };
   }
+}
+
+/** Costo vigente sin IVA por `cod_tienda` (COSTO ACTUAL del lote DESC. POR STOCK). */
+export async function costosVigentesDescPromoAction(
+  raw: unknown
+): Promise<ActionResult<Record<string, number>>> {
+  const gate = await requireEditorDescPromos();
+  if (gate) return gate;
+  const parsed = costosVigentesDescPromoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+  return { ok: true, data: await costosVigentesDescPromo(parsed.data.codTiendas) };
 }
 
 export async function crearDescPromoAction(
