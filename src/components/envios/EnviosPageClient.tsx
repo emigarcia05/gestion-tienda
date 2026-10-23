@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CheckCheck, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, CheckCheck, Eye, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEnvioWizardModal from "@/components/envios/CrearEnvioWizardModal";
+import VerEnvioModal from "@/components/envios/VerEnvioModal";
 import FilterBar, {
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -15,6 +16,7 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -34,10 +36,13 @@ import {
 } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
-import { eliminarEnviosFinalAction, marcarEnviosFinalEntregadoAction } from "@/actions/envios";
+import {
+  compartirLinkConductorAction,
+  eliminarEnviosFinalAction,
+  marcarEnviosFinalEntregadoAction,
+} from "@/actions/envios";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import {
-  direccionEnvioTieneDato,
   etiquetaDepartamentoEnvio,
   etiquetaDireccionEnvio,
   etiquetaFormaPagadoEnvio,
@@ -70,7 +75,7 @@ const FILTRO_FECHA_HOY = "hoy";
 const FILTRO_FECHA_MANANA = "manana";
 const FILTRO_ENTREGADO_NO = "no";
 const FILTRO_ENTREGADO_SI = "si";
-const COLSPAN_ENVIOS_PROGRAMADOS = 11;
+const COLSPAN_ENVIOS_PROGRAMADOS = 7;
 
 function CeldaTilte({
   activo,
@@ -122,6 +127,24 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
   >({ open: false });
   const [deleting, setDeleting] = useState(false);
   const [entregandoId, setEntregandoId] = useState<string | null>(null);
+  const [compartiendo, setCompartiendo] = useState(false);
+  const [itemVer, setItemVer] = useState<EnviosFinalListItem | null>(null);
+
+  async function compartirModuloConductor() {
+    setCompartiendo(true);
+    const res = await compartirLinkConductorAction();
+    setCompartiendo(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo generar el link.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${res.data.path}`);
+      toast.success("Link copiado.");
+    } catch {
+      toast.error("No se pudo copiar el link.");
+    }
+  }
 
   const itemsFiltrados = useMemo(() => {
     return envios.filter((item) => {
@@ -222,14 +245,23 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         subtitle="Programados"
         contentWidth="full"
         actions={
-          <Button
-            type="button"
-            className="h-10 gap-2 px-4"
-            onClick={() => setModalWizard({ open: true, item: null })}
-          >
-            <Plus className="h-4 w-4 shrink-0" aria-hidden />
-            Crear Envío
-          </Button>
+          <>
+            <ToolbarActionButton
+              type="button"
+              icon={<Plus />}
+              label="Crear Envío"
+              className="w-full justify-start"
+              onClick={() => setModalWizard({ open: true, item: null })}
+            />
+            <ToolbarActionButton
+              type="button"
+              icon={<Share2 />}
+              label="COMPARTIR MÓDULO CONDUCTOR"
+              className="w-full justify-start"
+              loading={compartiendo}
+              onClick={() => void compartirModuloConductor()}
+            />
+          </>
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
@@ -311,17 +343,13 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[16%]" />
-              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[24%]" />
+              <col className="w-[21%]" />
               <col className="w-[9%]" />
               <col className="w-[9%]" />
-              <col className="w-[6%]" />
-              <col className="w-[6%]" />
-              <col className="w-[6%]" />
-              <col className="w-[6%]" />
-              <col className="w-[6%]" />
               <col className="w-[8%]" />
+              <col className="w-[11%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -330,10 +358,6 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
                 <TableHead>PINTOR</TableHead>
                 <TableHead>FECHA</TableHead>
                 <TableHead>HORARIO</TableHead>
-                <TableHead className="text-center">DIRECCIÓN</TableHead>
-                <TableHead className="text-center">TELEFONO</TableHead>
-                <TableHead className="text-center">UBI</TableHead>
-                <TableHead className="text-center">PDF</TableHead>
                 <TableHead className="text-center">ENTREGADO</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">ACCIONES</TableHead>
               </TableRow>
@@ -370,32 +394,23 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
                       {etiquetaHorarioEnvio(item.horaDesde, item.horaHasta)}
                     </TableCell>
                     <CeldaTilte
-                      activo={direccionEnvioTieneDato(item.direccion)}
-                      ariaLabelSi="Tiene dirección"
-                      ariaLabelNo="Sin dirección"
-                    />
-                    <CeldaTilte
-                      activo={telefonoEnvio(item) !== ""}
-                      ariaLabelSi="Tiene teléfono"
-                      ariaLabelNo="Sin teléfono"
-                    />
-                    <CeldaTilte
-                      activo={item.direccion.urlMaps.trim() !== ""}
-                      ariaLabelSi="Tiene ubicación"
-                      ariaLabelNo="Sin ubicación"
-                    />
-                    <CeldaTilte
-                      activo={item.tienePdf}
-                      ariaLabelSi="Tiene PDF"
-                      ariaLabelNo="Sin PDF"
-                    />
-                    <CeldaTilte
                       activo={item.entregado}
                       ariaLabelSi="Entregado"
                       ariaLabelNo="No entregado"
                     />
                     <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                       <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Ver"
+                          aria-label="Ver envío"
+                          onClick={() => setItemVer(item)}
+                        >
+                          <Eye className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -453,6 +468,13 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
         </div>
       </ClassicFilteredTableLayout>
 
+      <VerEnvioModal
+        open={itemVer != null}
+        onOpenChange={(open) => {
+          if (!open) setItemVer(null);
+        }}
+        item={itemVer}
+      />
       <CrearEnvioWizardModal
         open={modalWizard.open}
         onOpenChange={(open) => {

@@ -20,8 +20,6 @@ import {
   Target,
   Images,
   Palette,
-  CalendarClock,
-  CircleUser,
   Truck,
   ScanSearch,
   Paintbrush,
@@ -55,8 +53,7 @@ type ModuleId =
   | "clientes"
   | "pedidos"
   | "control-stock"
-  | "herramientas"
-  | "envios";
+  | "herramientas";
 type MarketingModuleId = "publicaciones" | "base-multimedia";
 type SidebarModuleId = ModuleId | MarketingModuleId;
 
@@ -104,6 +101,12 @@ const MODULES: NavModule[] = [
         permiso: PERMISOS.facturacion.acceso,
       },
       {
+        href: GP_ROUTES.envios.programados,
+        label: "Envios",
+        icon: <Truck className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.envios.acceso,
+      },
+      {
         href: GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido,
         label: "Px Sugeridos",
         icon: <FileSearch className="h-4 w-4 shrink-0" />,
@@ -140,25 +143,6 @@ const MODULES: NavModule[] = [
         label: "Compras Recepcionadas",
         icon: <ShoppingCart className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
-      },
-    ],
-  },
-  {
-    id: "envios",
-    label: "ENVIOS",
-    icon: <Truck className={iconClass} />,
-    submodules: [
-      {
-        href: GP_ROUTES.envios.programados,
-        label: "Programados",
-        icon: <CalendarClock className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
-      },
-      {
-        href: GP_ROUTES.envios.conductor,
-        label: "Conductor",
-        icon: <CircleUser className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.envios.acceso,
       },
     ],
   },

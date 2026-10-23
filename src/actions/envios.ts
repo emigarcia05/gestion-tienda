@@ -38,7 +38,10 @@ import {
   listarSucursalesParaEnvios,
   marcarEnviosFinalEntregado,
 } from "@/services/enviosFinal.service";
-import { tokenEnviosConductorValido } from "@/services/enviosConductorPublico.service";
+import {
+  rutaEnviosConductorParaCompartir,
+  tokenEnviosConductorValido,
+} from "@/services/enviosConductorPublico.service";
 
 function firstZodErrorMessage(error: {
   flatten: () => { fieldErrors: Record<string, string[] | undefined>; formErrors: string[] };
@@ -231,6 +234,15 @@ export async function marcarEnviosFinalEntregadoAction(
     console.error("[marcarEnviosFinalEntregadoAction]", e);
     return { ok: false, error: "No se pudo marcar el envío como entregado." };
   }
+}
+
+/** Link público del Conductor para copiar desde Programados. */
+export async function compartirLinkConductorAction(): Promise<ActionResult<{ path: string }>> {
+  const gate = await requireEnvios();
+  if (gate) return gate;
+  const res = rutaEnviosConductorParaCompartir();
+  if (!res.success) return { ok: false, error: res.error };
+  return { ok: true, data: res.data };
 }
 
 /** Visor público del Conductor (`/conductor/{token}`, sin sesión): el gate es el token del link. */
