@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Cotización USD→ARS única (`global_cotizacion_usd.valor`). */
+/** Cotización USD→ARS única (`cotizacion_usd.valor`). */
 export const actualizarCotizacionUsdSchema = z.object({
   valor: z
     .number()

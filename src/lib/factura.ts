@@ -590,7 +590,7 @@ export type FacturaComprobanteListItem = {
   saldoPendiente: number | null;
   /** Días vencido (`hoy AR` − (`fecha` + `dias_vencimiento`)); `null` si no está vencido. */
   diasVencido: number | null;
-  /** Códigos de `sucursales` asociadas al pto. vta. del comprobante (`global_pto_vta_sucursales`). */
+  /** Códigos de `sucursales` asociadas al pto. vta. del comprobante (`pto_vta_sucursales`). */
   sucursalCodigos: string[];
   /** Nombres de sucursal del pto. vta. (MAYÚSCULAS). */
   sucursalNombres: string[];
@@ -847,7 +847,7 @@ export type FacturaPtoVtaOpcion = {
   inicioActividades: string | null;
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
-  /** Códigos de `sucursales` vía `global_pto_vta_sucursales`. */
+  /** Códigos de `sucursales` vía `pto_vta_sucursales`. */
   sucursalCodigos: string[];
 };
 

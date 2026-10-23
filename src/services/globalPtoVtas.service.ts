@@ -210,7 +210,7 @@ export async function editarGlobalPtoVta(
     if (!titularOk.success) return titularOk;
 
     const row = await prisma.$transaction(async (tx) => {
-      await tx.globalPtoVtaSucursal.deleteMany({ where: { ptoVtaId: input.id } });
+      await tx.ptoVtaSucursal.deleteMany({ where: { ptoVtaId: input.id } });
       return tx.globalPtoVta.update({
         where: { id: input.id },
         data: {

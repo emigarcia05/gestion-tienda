@@ -6,7 +6,6 @@ interface Props {
   esEditor: boolean;
   ivaDebitoPorMes: number[];
   ivaCreditoPorMes: number[];
-  saldoManualPorMes: (number | null)[];
   comparacionPedidos: EstadoIvaComparacionPedido;
 }
 
@@ -15,7 +14,6 @@ export default function FinanzasBalancePosicionIvaPage({
   esEditor,
   ivaDebitoPorMes,
   ivaCreditoPorMes,
-  saldoManualPorMes,
   comparacionPedidos,
 }: Props) {
   return (
@@ -24,7 +22,6 @@ export default function FinanzasBalancePosicionIvaPage({
       esEditor={esEditor}
       ivaDebitoPorMes={ivaDebitoPorMes}
       ivaCreditoPorMes={ivaCreditoPorMes}
-      saldoManualPorMes={saldoManualPorMes}
       comparacionPedidos={comparacionPedidos}
     />
   );

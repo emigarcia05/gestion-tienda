@@ -27,7 +27,7 @@ STACK DEL PROYECTO (no salirse)
 
 ESTADO ACTUAL (respetar; no reinventar)
 - Módulo UI: `FACTURACION_ROUTES` (`/facturacion/factura/crear|facturas|presupuestos`). Actions vigentes: `src/actions/factura.ts` (solo búsqueda de productos). Constantes/tipos locales: `@/lib/factura` (`FACTURA_TIPOS`: `presupuesto` | `factura` | `factura_fiscal` | `nota_credito`). PDF cliente: `generarPdfFacturaComprobante`
-- **Emisor fiscal ya modelado:** `ptos_vtas` (`GlobalPtoVta`): `pto_venta` CHAR(5) padded, `cuit` 11 dígitos, `condicion_iva` FK a `condicion_iva_cod_arca.codigo`, IIBB, domicilio, inicio actividades, `concepto` default `'1'`, sucursales N:M `global_pto_vta_sucursales`. Lookup ARCA: `PtoVentasCodArca` (códigos 1, 4, 5, 6, 8, 9, 13)
+- **Emisor fiscal ya modelado:** `ptos_vtas` (`GlobalPtoVta`): `pto_venta` CHAR(5) padded, `cuit` 11 dígitos, `condicion_iva` FK a `condicion_iva_cod_arca.codigo`, IIBB, domicilio, inicio actividades, `concepto` default `'1'`, sucursales N:M `pto_vta_sucursales`. Lookup ARCA: `PtoVentasCodArca` (códigos 1, 4, 5, 6, 8, 9, 13)
 - **Receptor incompleto:** `clientes` es catálogo de envíos (`CONSUMIDOR_FINAL` | `PINTOR`) **sin CUIT/DNI ni condición IVA**. Factura · Crear usa `cliente` como string libre. Ampliar el modelo de receptor fiscal (extender `clientes` o catálogo propio de facturación) es parte del diseño; preguntar antes de unificar/romper Envios
 - **No confundir con DUX:** `POST /api/sync-facturas-ventas-dux` y `duxRemitosVentaApi.ts` son sync **inbound** de remitos/totales a `fin_fact_cobros_pto_vta_mes`. No emiten CAE. No usar DUX como puente ARCA
 - **No reintroducir** import TXT IVA débito AFIP (§5: `parsearTxtIvaDebitoAfip` / `ImportarIvaDebitoCsvModal`)

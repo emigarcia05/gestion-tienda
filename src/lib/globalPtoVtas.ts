@@ -1,4 +1,4 @@
-/** Catálogo `ptos_vtas` (ex `global_pto_vtas`) + sucursales (`global_pto_vta_sucursales`). */
+/** Catálogo `ptos_vtas` (ex `global_pto_vtas`) + sucursales (`pto_vta_sucursales`). */
 
 import {
   normalizarNombreTitularCaja,

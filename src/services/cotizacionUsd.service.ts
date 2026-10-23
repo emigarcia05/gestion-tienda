@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/service.types";
 
-/** PK fija del singleton `global_cotizacion_usd`. */
-export const GLOBAL_COTIZACION_USD_ID = "USD" as const;
+/** PK fija del singleton `cotizacion_usd`. */
+export const COTIZACION_USD_ID = "USD" as const;
 
 const FALLBACK_COTIZACION_USD = 1;
 
@@ -20,14 +20,14 @@ function valorDesdeEnvSeed(): number {
 
 /** Valor global vigente USD→ARS. Crea fila `USD` si no existe (seed env o 1). */
 export async function getCotizacionUsd(): Promise<number> {
-  const row = await prisma.globalCotizacionUsd.findUnique({
-    where: { id: GLOBAL_COTIZACION_USD_ID },
+  const row = await prisma.cotizacionUsd.findUnique({
+    where: { id: COTIZACION_USD_ID },
     select: { valor: true },
   });
   if (!row) {
     const valor = valorDesdeEnvSeed();
-    await prisma.globalCotizacionUsd.create({
-      data: { id: GLOBAL_COTIZACION_USD_ID, valor },
+    await prisma.cotizacionUsd.create({
+      data: { id: COTIZACION_USD_ID, valor },
     });
     return valor;
   }
@@ -36,14 +36,14 @@ export async function getCotizacionUsd(): Promise<number> {
 }
 
 export async function getCotizacionUsdEstado(): Promise<CotizacionUsdEstado> {
-  const row = await prisma.globalCotizacionUsd.findUnique({
-    where: { id: GLOBAL_COTIZACION_USD_ID },
+  const row = await prisma.cotizacionUsd.findUnique({
+    where: { id: COTIZACION_USD_ID },
     select: { valor: true, updatedAt: true },
   });
   if (!row) {
     await getCotizacionUsd();
-    const created = await prisma.globalCotizacionUsd.findUniqueOrThrow({
-      where: { id: GLOBAL_COTIZACION_USD_ID },
+    const created = await prisma.cotizacionUsd.findUniqueOrThrow({
+      where: { id: COTIZACION_USD_ID },
       select: { valor: true, updatedAt: true },
     });
     return { valor: Number(created.valor), updatedAt: created.updatedAt.toISOString() };
@@ -69,9 +69,9 @@ export async function actualizarCotizacionUsd(
   }
 
   try {
-    const estado = await prisma.globalCotizacionUsd.upsert({
-      where: { id: GLOBAL_COTIZACION_USD_ID },
-      create: { id: GLOBAL_COTIZACION_USD_ID, valor },
+    const estado = await prisma.cotizacionUsd.upsert({
+      where: { id: COTIZACION_USD_ID },
+      create: { id: COTIZACION_USD_ID, valor },
       update: { valor },
       select: { valor: true, updatedAt: true },
     });

@@ -61,7 +61,8 @@ export default function CrearEditarCobroModal({
   const [entidadId, setEntidadId] = useState("");
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
-  const [discriminaIva, setDiscriminaIva] = useState(false);
+  const [generaIvaCredito, setGeneraIvaCredito] = useState(false);
+  const [costoIncluyeIva, setCostoIncluyeIva] = useState(true);
   const [esCheque, setEsCheque] = useState(false);
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
@@ -77,7 +78,8 @@ export default function CrearEditarCobroModal({
       setEntidadId(fila.entidadId ?? "");
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
-      setDiscriminaIva(fila.discriminaIva);
+      setGeneraIvaCredito(fila.generaIvaCredito);
+      setCostoIncluyeIva(fila.costoIncluyeIva);
       setEsCheque(fila.esCheque);
       setObservacion(fila.observacion);
       return;
@@ -86,7 +88,8 @@ export default function CrearEditarCobroModal({
     setEntidadId("");
     setSucursalId("");
     setCajaDestinoId("");
-    setDiscriminaIva(false);
+    setGeneraIvaCredito(false);
+    setCostoIncluyeIva(true);
     setEsCheque(false);
     setObservacion("");
   }, [open, esEditar, fila]);
@@ -141,7 +144,8 @@ export default function CrearEditarCobroModal({
         ? await actualizarCobroPorSucursalAction({
             id: fila.id,
             cajaDestinoId,
-            discriminaIva,
+            generaIvaCredito,
+            costoIncluyeIva,
             esCheque,
             observacion,
           })
@@ -150,7 +154,8 @@ export default function CrearEditarCobroModal({
             entidadId: muestraEntidad ? entidadId : null,
             sucursalId,
             cajaDestinoId,
-            discriminaIva,
+            generaIvaCredito,
+            costoIncluyeIva,
             esCheque,
             observacion,
           });
@@ -315,9 +320,16 @@ export default function CrearEditarCobroModal({
           </div>
 
           <ModalSiNoChoice
-            label="DISCRIMINA IVA"
-            value={discriminaIva}
-            onChange={setDiscriminaIva}
+            label="GENERA IVA CRÉDITO"
+            value={generaIvaCredito}
+            onChange={setGeneraIvaCredito}
+            disabled={saving}
+          />
+
+          <ModalSiNoChoice
+            label="COSTO INCLUYE IVA"
+            value={costoIncluyeIva}
+            onChange={setCostoIncluyeIva}
             disabled={saving}
           />
 

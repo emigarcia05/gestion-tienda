@@ -14,17 +14,16 @@ function isoMaxUpdatedAt(d: Date | null | undefined): string {
 
 /**
  * Huella estable: acumulado usado en pedidos + signo (>0 / ≤0) + últimas mutaciones
- * en débito, crédito (gastos con IVA y facturas) y saldos manuales.
+ * en débito y crédito (gastos con IVA y facturas).
  */
 export async function getPosicionIvaComparacionRevisionToken(): Promise<string> {
-  const [estadoComparacion, debMax, gastoMax, manualMax, facturaMax] = await Promise.all([
+  const [estadoComparacion, debMax, gastoMax, facturaMax] = await Promise.all([
     getEstadoIvaComparacionPedido(),
     prisma.finBalIvaDebImportLine.aggregate({ _max: { updatedAt: true } }),
     prisma.finBalGastoMensual.aggregate({
       where: { iva: true },
       _max: { updatedAt: true },
     }),
-    prisma.finBalPosicionIvaSaldoManual.aggregate({ _max: { updatedAt: true } }),
     prisma.comprobanteProveedor.aggregate({
       where: {
         tipoComp: { equals: TIPO_COMP_FACTURA_IVA_CREDITO, mode: "insensitive" },
@@ -44,7 +43,6 @@ export async function getPosicionIvaComparacionRevisionToken(): Promise<string> 
     isoMaxUpdatedAt(estadoComparacion.updatedAt),
     isoMaxUpdatedAt(debMax._max.updatedAt),
     isoMaxUpdatedAt(gastoMax._max.updatedAt),
-    isoMaxUpdatedAt(manualMax._max.updatedAt),
     isoMaxUpdatedAt(facturaMax._max.updatedAt),
   ].join("|");
 }

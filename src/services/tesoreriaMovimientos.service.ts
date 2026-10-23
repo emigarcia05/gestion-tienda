@@ -91,19 +91,19 @@ type CxFinAcreditacion = {
 };
 
 /**
- * % que se descuenta al acreditar según `cobros_vinc_cajas.discrimina_iva`:
- * TRUE → CX TOTAL S/ IVA; FALSE → CX TOTAL C/ IVA.
+ * % que se descuenta al acreditar según `cobros_vinc_cajas.costo_incluye_iva`:
+ * TRUE → CX TOTAL C/ IVA; FALSE → CX TOTAL S/ IVA.
  */
 export function pctCostoAcreditacionDesdeCxFin(
   cx: CxFinAcreditacion | null | undefined,
-  discriminaIva = false
+  costoIncluyeIva = true
 ): number {
   if (!cx) return 0;
   const arancel = decimalPctToNumber(cx.arancel);
   const costo = decimalPctToNumber(cx.costoFinanciero);
-  return discriminaIva
-    ? cxTotalSinIvaFinAnaCosFina(cx.impCheque, arancel, costo)
-    : cxTotalConIvaFinAnaCosFina(cx.impCheque, arancel, costo);
+  return costoIncluyeIva
+    ? cxTotalConIvaFinAnaCosFina(cx.impCheque, arancel, costo)
+    : cxTotalSinIvaFinAnaCosFina(cx.impCheque, arancel, costo);
 }
 
 function claveVinculoCaja(
@@ -114,7 +114,7 @@ function claveVinculoCaja(
   return `${pagoId ?? ""}|${entidadId ?? ""}|${sucursalId}`;
 }
 
-async function mapaDiscriminaIvaPorVinculo(
+async function mapaCostoIncluyeIvaPorVinculo(
   triples: Array<{
     pagoId: string | null;
     entidadId: string | null;
@@ -144,11 +144,11 @@ async function mapaDiscriminaIvaPorVinculo(
       pagoId: true,
       entidadId: true,
       sucursalId: true,
-      discriminaIva: true,
+      costoIncluyeIva: true,
     },
   });
   for (const row of rows) {
-    out.set(claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId), row.discriminaIva);
+    out.set(claveVinculoCaja(row.pagoId, row.entidadId, row.sucursalId), row.costoIncluyeIva);
   }
   return out;
 }
@@ -303,18 +303,18 @@ export async function crearMovimientoTesoreria(
       select: CX_FIN_ACREDITACION_SELECT,
     });
     diasAcreditacion = cx?.diasAcreditacion ?? null;
-    const mapaIva = await mapaDiscriminaIvaPorVinculo([
+    const mapaIva = await mapaCostoIncluyeIvaPorVinculo([
       {
         pagoId: cobro.data.pagoId,
         entidadId: cobro.data.entidadId,
         sucursalId: input.sucursalId,
       },
     ]);
-    const discriminaIva =
+    const costoIncluyeIva =
       mapaIva.get(
         claveVinculoCaja(cobro.data.pagoId, cobro.data.entidadId, input.sucursalId)
-      ) ?? false;
-    costoFinancieroPct = pctCostoAcreditacionDesdeCxFin(cx, discriminaIva);
+      ) ?? true;
+    costoFinancieroPct = pctCostoAcreditacionDesdeCxFin(cx, costoIncluyeIva);
   }
   const { fechaRegistro, fechaAcreditacion } = fechasRegistroYAcreditacion(
     input.fecha,
@@ -1190,7 +1190,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       },
       select: {
         cajaDestinoId: true,
-        discriminaIva: true,
+        costoIncluyeIva: true,
         esCheque: true,
         cajaDestino: { select: { recibeCheque: true } },
       },
@@ -1249,7 +1249,7 @@ export async function prepararMovimientosCobroDesdeSnapshots(
     }
     const costoPct = pctCostoAcreditacionDesdeCxFin(
       costos[0],
-      vinculoCaja.discriminaIva
+      vinculoCaja.costoIncluyeIva
     );
     const montoAcreditado = montoAcreditadoDesdeCostoFinanciero(monto, costoPct);
     const esCheque = vinculoCaja.esCheque;

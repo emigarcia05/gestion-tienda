@@ -1,16 +1,13 @@
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 import { listarIvaDebitoFinBalPorAnio } from "@/services/finBalIvaDeb.service";
 import { sumarIvaCreditoPorMesAnio } from "@/services/finBalPosicionIva.service";
-import { listarSaldoManualPosicionIvaPorAnio } from "@/services/finBalPosicionIvaSaldoManual.service";
-
 /** Inicio del acumulado «IVA SALDO» usado en `pxComparablePedidoUrgenteReposicion` (Pedido Urgente / reposición). */
 const ACUM_PEDIDO_COMPARE_IVA_ANIO = 2026;
 const ACUM_PEDIDO_COMPARE_IVA_MES = 4;
 
 /**
- * Suma de «IVA SALDO» mensual (manual si existe en `fin_bal_posicion_iva_saldo_manual`;
- * si no, débito − crédito como en Posición IVA) desde abril 2026 inclusive hasta el mes
- * calendario actual en Argentina (inclusive). Meses futuros no entran.
+ * Suma de «IVA SALDO» mensual (débito − crédito como en Posición IVA) desde abril 2026
+ * inclusive hasta el mes calendario actual en Argentina (inclusive). Meses futuros no entran.
  */
 export async function calcularIvaSaldoAcumuladoDesdePosicionIva(): Promise<number> {
   try {
@@ -22,20 +19,14 @@ export async function calcularIvaSaldoAcumuladoDesdePosicionIva(): Promise<numbe
       const mesFin = anio === anioActual ? mesActual : 12;
       if (mesInicio > mesFin) continue;
 
-      const [debitoPorMes, creditoPorMes, manualPorMes] = await Promise.all([
+      const [debitoPorMes, creditoPorMes] = await Promise.all([
         listarIvaDebitoFinBalPorAnio(anio),
         sumarIvaCreditoPorMesAnio(anio),
-        listarSaldoManualPosicionIvaPorAnio(anio),
       ]);
 
       for (let mes = mesInicio; mes <= mesFin; mes++) {
         const ix = mes - 1;
-        const manual = manualPorMes[ix];
-        const debito = debitoPorMes[ix] ?? 0;
-        const credito = creditoPorMes[ix] ?? 0;
-        const calculado = debito - credito;
-        const saldoMes = manual !== null ? manual : calculado;
-        total += saldoMes;
+        total += (debitoPorMes[ix] ?? 0) - (creditoPorMes[ix] ?? 0);
       }
     }
 

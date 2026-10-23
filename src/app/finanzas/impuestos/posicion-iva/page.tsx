@@ -4,7 +4,6 @@ import FinanzasBalancePosicionIvaPage from "@/components/finanzas/FinanzasBalanc
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 import { listarIvaDebitoFinBalPorAnio } from "@/services/finBalIvaDeb.service";
 import { sumarIvaCreditoPorMesAnio } from "@/services/finBalPosicionIva.service";
-import { listarSaldoManualPosicionIvaPorAnio } from "@/services/finBalPosicionIvaSaldoManual.service";
 import { getEstadoIvaComparacionPedido } from "@/services/finBalPosicionIvaComparacionPedido.service";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { esEditor, getRol } from "@/lib/sesion";
@@ -28,10 +27,9 @@ export default async function FinanzasPosicionIvaPage() {
   const { anio: anioCalendarioActualRaw } = mesAnioCalendarioArgentina();
   const anio = clampAnio(anioCalendarioActualRaw);
 
-  const [ivaDebitoPorMes, ivaCreditoPorMes, saldoManualPorMes, comparacionPedidos] = await Promise.all([
+  const [ivaDebitoPorMes, ivaCreditoPorMes, comparacionPedidos] = await Promise.all([
     listarIvaDebitoFinBalPorAnio(anio),
     sumarIvaCreditoPorMesAnio(anio),
-    listarSaldoManualPosicionIvaPorAnio(anio),
     getEstadoIvaComparacionPedido(),
   ]);
 
@@ -41,7 +39,6 @@ export default async function FinanzasPosicionIvaPage() {
       esEditor={editor}
       ivaDebitoPorMes={ivaDebitoPorMes}
       ivaCreditoPorMes={ivaCreditoPorMes}
-      saldoManualPorMes={saldoManualPorMes}
       comparacionPedidos={comparacionPedidos}
     />
   );

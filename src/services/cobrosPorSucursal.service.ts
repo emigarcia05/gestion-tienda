@@ -57,8 +57,9 @@ export type CobrosPorSucursalFila = {
   sucursalNombre: string;
   cajaDestinoId: string | null;
   cajaEtiqueta: string;
-  /** TRUE = acreditar con CX TOTAL S/ IVA; FALSE = CX TOTAL C/ IVA. */
-  discriminaIva: boolean;
+  generaIvaCredito: boolean;
+  /** TRUE = Cx Fin con CX TOTAL C/ IVA; FALSE = S/ IVA. */
+  costoIncluyeIva: boolean;
   /** De esta fila; no se hereda a otras sucursales. */
   esCheque: boolean;
   observacion: string;
@@ -237,7 +238,8 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           entidadId: true,
           sucursalId: true,
           cajaDestinoId: true,
-          discriminaIva: true,
+          generaIvaCredito: true,
+          costoIncluyeIva: true,
           esCheque: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
@@ -282,7 +284,8 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       sucursalNombre: d.sucursal.nombre.toLocaleUpperCase("es-AR"),
       cajaDestinoId: d.cajaDestinoId,
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
-      discriminaIva: d.discriminaIva,
+      generaIvaCredito: d.generaIvaCredito,
+      costoIncluyeIva: d.costoIncluyeIva,
       esCheque: d.esCheque,
       observacion: d.observacion,
     }))
@@ -378,7 +381,8 @@ export async function crearCobroPorSucursal(
         entidadId,
         sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
-        discriminaIva: input.discriminaIva,
+        generaIvaCredito: input.generaIvaCredito,
+        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -397,7 +401,8 @@ export async function crearCobroPorSucursal(
         sucursalNombre: textoEtiqueta(sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
-        discriminaIva: input.discriminaIva,
+        generaIvaCredito: input.generaIvaCredito,
+        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -439,7 +444,8 @@ export async function actualizarCobroPorSucursal(
       where: { id: existente.id },
       data: {
         cajaDestinoId: cajaRes.data.id,
-        discriminaIva: input.discriminaIva,
+        generaIvaCredito: input.generaIvaCredito,
+        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -459,7 +465,8 @@ export async function actualizarCobroPorSucursal(
         sucursalNombre: textoEtiqueta(existente.sucursal.nombre) ?? "",
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
-        discriminaIva: input.discriminaIva,
+        generaIvaCredito: input.generaIvaCredito,
+        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
