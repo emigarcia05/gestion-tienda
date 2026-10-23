@@ -14,13 +14,19 @@ import type { ResumenCxMercVend } from "@/services/balCxMercaderia.service";
 
 interface Props {
   resumen: ResumenCxMercVend;
-  /** Encabezado de la columna de filas (`MES` / `RUBRO`). */
+  /** Encabezado de la columna de filas (`MES` / `RUBRO` / `FORMA DE PAGO`). */
   etiquetaFila: string;
+  mensajeVacio?: string;
 }
 
 const TD_NUM = "celda-datos celda-numero tabular-nums text-right";
 
-export default function TablaResumenCxMercVend({ resumen, etiquetaFila }: Props) {
+/** Matriz filas × sucursales de Cx Merc. Vend. y Cx Fin Cobros. */
+export default function TablaResumenCxMercVend({
+  resumen,
+  etiquetaFila,
+  mensajeVacio = "No hay mercadería vendida para mostrar.",
+}: Props) {
   const { columnas, filas, totales } = resumen;
   const pctFila = 18;
   const pctTotal = 14;
@@ -50,7 +56,7 @@ export default function TablaResumenCxMercVend({ resumen, etiquetaFila }: Props)
         </TableHeader>
         <TableBody>
           {filas.length === 0 ? (
-            <EmptyTableRow colSpan={colSpan} message="No hay mercadería vendida para mostrar." />
+            <EmptyTableRow colSpan={colSpan} message={mensajeVacio} />
           ) : (
             filas.map((f) => {
               const conMovimiento = Object.keys(f.porSucursal).length > 0;

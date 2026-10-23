@@ -1,7 +1,7 @@
 /**
  * Visor público del Conductor (link sin login para el celular del chofer). Sin sidenav; el middleware
  * lo encierra en `/conductor/{token}` mientras tenga la cookie. Apto para middleware (sin APIs de Node);
- * la validación contra `ENVIOS_CONDUCTOR_TOKEN` vive en `enviosConductorPublico.service.ts`.
+ * la validación del token vive en `enviosConductorPublico.service.ts`.
  */
 
 export const ENVIOS_CONDUCTOR_PUBLICO_BASE = "/conductor";

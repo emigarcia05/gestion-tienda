@@ -139,6 +139,13 @@ const balanceScreens: AdmScreenDef[] = [
     icon: "package",
     permiso: PERMISOS.finanzas.acceso,
   },
+  {
+    id: "cx-fin-cobros",
+    label: "Cx Fin Cobros",
+    href: F.balance.cxFinCobros,
+    icon: "percent",
+    permiso: PERMISOS.finanzas.acceso,
+  },
 ];
 
 const operacionesScreens: AdmScreenDef[] = [

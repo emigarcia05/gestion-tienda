@@ -429,6 +429,7 @@ model Sucursal {
   movimientosTesoreria           TesoreriaMovimiento[]
   stockMovimientos               StockMovimiento[]
   cxMercaderia                   BalCxMercaderia[]
+  cxFinanciero                   BalCxFinanciero[]
   stockComprobantes              StockComprobante[]     @relation("StockComprobanteSucursal")
   stockComprobantesDestino       StockComprobante[]     @relation("StockComprobanteSucursalDestino")
   stockTransferenciasOrigen      StockTransferencia[]   @relation("StockTransferenciaOrigen")
@@ -767,6 +768,7 @@ model TesoreriaMovimiento {
    */
   chequeEmitidoId      String?                      @map("cheque_emitido_id")
   chequeEmitido        TesoreriaChequeEmitido?      @relation(fields: [chequeEmitidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  cxFinanciero         BalCxFinanciero?
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
@@ -1726,6 +1728,43 @@ model BalCxMercaderia {
 }
 
 /**
+ * Cx. Financiero de cobros de venta (Finanzas · Balance · Cx Fin Cobros). Una fila por
+ * `tesoreria_movimientos` de cobro (INGRESO, +) o devolución de NC (EGRESO, −) con comprobante
+ * y `costo_financiero` > 0. % congelado del movimiento; se borra en cascada con él.
+ */
+model BalCxFinanciero {
+  id                    String                     @id @default(cuid())
+  tesoreriaMovimientoId String                     @unique(map: "bal_cx_financiero_tesoreria_movimiento_key") @map("tesoreria_movimiento_id")
+  tipoMovimiento        SentidoMovimientoTesoreria @map("tipo_movimiento")
+  comprobanteVtaId      String                     @map("comprobante_vta_id")
+  sucursalId            String                     @map("sucursal_id")
+  /// `fecha_registro` del movimiento (calendario Argentina).
+  fecha                 DateTime                   @db.Date
+  pagoId                String                     @map("pago_id")
+  entidadId             String?                    @map("entidad_id")
+  cuotaId               String?                    @map("cuota_id")
+  /// Monto bruto cobrado / devuelto (pesos enteros, positivo).
+  montoCobrado          Int                        @map("monto_cobrado")
+  /// % aplicado (= `tesoreria_movimientos.costo_financiero`).
+  costoPct              Decimal                    @map("costo_pct") @db.Decimal(5, 2)
+  /// `monto_cobrado` × `costo_pct` / 100, positivo; el signo lo da `tipo_movimiento`.
+  cxTotal               Decimal                    @map("cx_total") @db.Decimal(14, 2)
+  createdAt             DateTime                   @default(now()) @map("created_at")
+
+  tesoreriaMovimiento TesoreriaMovimiento         @relation(fields: [tesoreriaMovimientoId], references: [id], onDelete: Cascade)
+  comprobanteVta      ComprobanteVta              @relation(fields: [comprobanteVtaId], references: [id], onDelete: Cascade)
+  sucursal            Sucursal                    @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
+  pago                FinAnaCosFinaPagoCat        @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  entidad             FinAnaCosFinaTerminalMarca? @relation(fields: [entidadId], references: [id], onDelete: Restrict)
+  cuota               CobrosCuota?                @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
+
+  @@index([sucursalId, fecha], map: "bal_cx_financiero_sucursal_fecha_idx")
+  @@index([pagoId], map: "bal_cx_financiero_pago_idx")
+  @@index([comprobanteVtaId], map: "bal_cx_financiero_comprobante_vta_idx")
+  @@map("bal_cx_financiero")
+}
+
+/**
  * Transferencia entre sucursales. Familia `numero` + `version` (N° 0001,
  * 0001-2, …). Los ítems coincidentes registran ledger; los rectificados
  * abren la versión siguiente emitida por quien rectifica.
@@ -2053,6 +2092,7 @@ model FinAnaCosFinaTerminalMarca {
   cuotaVinculos        CobrosCuotaVinculo[]
   cobrosPorSucursal    CobrosPorSucursal[]
   movimientosTesoreria TesoreriaMovimiento[]
+  cxFinanciero         BalCxFinanciero[]
 
   @@index([orden], map: "cobros_entidades_orden_idx")
   @@map("cobros_entidades")
@@ -2079,6 +2119,7 @@ model FinAnaCosFinaPagoCat {
   cuotaVinculos        CobrosCuotaVinculo[]
   cobrosPorSucursal    CobrosPorSucursal[]
   movimientosTesoreria TesoreriaMovimiento[]
+  cxFinanciero         BalCxFinanciero[]
   descPromos           DescPromoFormaPago[]
 
   @@map("cobros_forma_pago")
@@ -2231,6 +2272,7 @@ model CobrosCuota {
   vinculos             CobrosCuotaVinculo[]
   filasCostos          FinAnaCosFina[]
   movimientosTesoreria TesoreriaMovimiento[]
+  cxFinanciero         BalCxFinanciero[]
   descPromoFormasPago  DescPromoFormaPago[]
 
   @@map("cobros_cuotas")
@@ -2970,6 +3012,7 @@ model ComprobanteVta {
   movimientosComoNotaCredito TesoreriaMovimiento[]         @relation("MovimientoNotaCredito")
   stockComprobantes          StockComprobante[]
   cxMercaderia               BalCxMercaderia[]
+  cxFinanciero               BalCxFinanciero[]
   cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")

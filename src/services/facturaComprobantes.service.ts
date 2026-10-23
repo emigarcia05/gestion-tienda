@@ -117,6 +117,7 @@ import {
   prepararMovimientosCobroDesdeSnapshots,
   type MovimientoCobroFacturaData,
 } from "@/services/tesoreriaMovimientos.service";
+import { sincronizarCxFinancieroDeMovimientos } from "@/services/balCxFinanciero.service";
 import {
   chequesEnCarteraDeMovimientos,
   crearChequeEnCarteraDesdeCobro,
@@ -2400,6 +2401,7 @@ export async function asignarClienteCobroComoCobro(
       });
       let restante = pesosLedger;
       let orden = await siguienteOrdenCobroComprobante(input.ventaId, tx);
+      const imputados: string[] = [];
       for (const anticipo of anticipos) {
         if (restante <= 0) break;
         const tomar = Math.min(anticipo.monto, restante);
@@ -2408,6 +2410,7 @@ export async function asignarClienteCobroComoCobro(
             where: { id: anticipo.id },
             data: { comprobanteId: input.ventaId, orden },
           });
+          imputados.push(anticipo.id);
         } else {
           const acredTomar =
             anticipo.monto > 0
@@ -2420,7 +2423,8 @@ export async function asignarClienteCobroComoCobro(
               montoAcreditado: Math.max(0, anticipo.montoAcreditado - acredTomar),
             },
           });
-          await tx.tesoreriaMovimiento.create({
+          const parte = await tx.tesoreriaMovimiento.create({
+            select: { id: true },
             data: {
               cajaId: anticipo.cajaId,
               tipoMovimiento: anticipo.tipoMovimiento,
@@ -2443,6 +2447,7 @@ export async function asignarClienteCobroComoCobro(
               chequeId: anticipo.chequeId,
             },
           });
+          imputados.push(parte.id);
         }
         orden += 1;
         restante -= tomar;
@@ -2452,6 +2457,7 @@ export async function asignarClienteCobroComoCobro(
           "No se encontró el movimiento de tesorería del cobro a imputar."
         );
       }
+      await sincronizarCxFinancieroDeMovimientos(imputados, tx);
       await tx.comprobanteVta.update({
         where: { id: input.ventaId },
         data: {

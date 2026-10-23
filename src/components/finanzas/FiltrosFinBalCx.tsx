@@ -19,68 +19,65 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { hrefCxMercVend, paramsCxMercVend } from "@/lib/balCxMercVend";
-import type { VistaCxMercVend } from "@/lib/validations/balCxMercaderia";
+import { hrefCxMercVend } from "@/lib/balCxMercVend";
 import type { OpcionFiltroCxMercVend } from "@/services/balCxMercaderia.service";
 
-const FOCUS_KEY = "filtros-fin-bal-cx-merc-vend-focus";
-
-interface Props {
-  vista: VistaCxMercVend;
-  periodos: OpcionFiltroCxMercVend[];
-  rubros: OpcionFiltroCxMercVend[];
-  sucursales: OpcionFiltroCxMercVend[];
-  periodoDefault: string;
-  periodoActual: string;
-  rubroActual: string;
-  sucursalActual: string;
-  qActual: string;
+export interface FiltrosBalCxValores {
+  periodo: string;
+  /** Rubro (Cx Merc. Vend.) o forma de pago (Cx Fin Cobros). */
+  grupo: string;
+  sucursal: string;
+  q: string;
 }
 
-export default function FiltrosFinBalCxMercVend({
-  vista,
+interface Props {
+  /** Prefijo de ids y de la clave de foco (`cx-merc-vend`, `cx-fin-cobros`). */
+  idPrefijo: string;
+  /** Vista por sucursal: muestra todos los meses, FECHA no aplica. */
+  fechaDeshabilitada: boolean;
+  periodos: OpcionFiltroCxMercVend[];
+  sucursales: OpcionFiltroCxMercVend[];
+  grupo: {
+    /** Placeholder / opción "todos" (`RUBRO`, `FORMA DE PAGO`). */
+    placeholder: string;
+    ariaLabel: string;
+    opciones: OpcionFiltroCxMercVend[];
+  };
+  placeholderBusqueda: string;
+  periodoDefault: string;
+  actual: FiltrosBalCxValores;
+  /** Query params (sin `pagina`) de la vista actual para esos filtros. */
+  armarParams: (f: FiltrosBalCxValores) => Record<string, string>;
+}
+
+/** Filtros FECHA / agrupador / SUC / búsqueda de Finanzas · Balance · Cx Merc. Vend. y Cx Fin Cobros. */
+export default function FiltrosFinBalCx({
+  idPrefijo,
+  fechaDeshabilitada,
   periodos,
-  rubros,
   sucursales,
+  grupo,
+  placeholderBusqueda,
   periodoDefault,
-  periodoActual,
-  rubroActual,
-  sucursalActual,
-  qActual,
+  actual,
+  armarParams,
 }: Props) {
-  /** Vtas Por Suc muestra todos los meses: FECHA no aplica. */
-  const fechaDeshabilitada = vista === "sucursal";
   const pathname = usePathname();
   const router = useRouter();
 
   const { q, setQ, ref: inputRef, handleQChange, isDebouncing, prepareNavigate } =
     useFiltrosConBusqueda({
-      qActual,
+      qActual: actual.q,
       debounceMs: 700,
-      focusStorageKey: FOCUS_KEY,
+      focusStorageKey: `filtros-fin-bal-${idPrefijo}-focus`,
       onDebouncedSearch: (value) => {
         prepareNavigate();
         navigate({ q: value });
       },
     });
 
-  function navigate(updates: {
-    periodo?: string;
-    rubro?: string;
-    sucursal?: string;
-    q?: string;
-  }) {
-    const params = paramsCxMercVend(
-      {
-        vista,
-        periodo: updates.periodo ?? periodoActual,
-        rubro: updates.rubro ?? rubroActual,
-        sucursal: updates.sucursal ?? sucursalActual,
-        q: updates.q ?? q,
-      },
-      periodoDefault
-    );
-    router.push(hrefCxMercVend(pathname, params));
+  function navigate(updates: Partial<FiltrosBalCxValores>) {
+    router.push(hrefCxMercVend(pathname, armarParams({ ...actual, q, ...updates })));
   }
 
   function limpiarFiltros() {
@@ -88,10 +85,7 @@ export default function FiltrosFinBalCxMercVend({
     router.push(
       hrefCxMercVend(
         pathname,
-        paramsCxMercVend(
-          { vista, periodo: periodoDefault, rubro: "", sucursal: "", q: "" },
-          periodoDefault
-        )
+        armarParams({ periodo: periodoDefault, grupo: "", sucursal: "", q: "" })
       )
     );
   }
@@ -102,16 +96,16 @@ export default function FiltrosFinBalCxMercVend({
         <FilaFiltrosDesplegables>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={!fechaDeshabilitada && periodoActual !== periodoDefault}
+            activo={!fechaDeshabilitada && actual.periodo !== periodoDefault}
             onLimpiar={() => navigate({ periodo: periodoDefault })}
           >
             <Select
-              value={periodoActual}
+              value={actual.periodo}
               onValueChange={(v) => navigate({ periodo: v })}
               disabled={fechaDeshabilitada}
             >
               <SelectTrigger
-                id="filtro-cx-merc-vend-fecha"
+                id={`filtro-${idPrefijo}-fecha`}
                 className={SELECT_TRIGGER_FILTER_CLASS}
                 aria-label="Fecha"
               >
@@ -133,19 +127,19 @@ export default function FiltrosFinBalCxMercVend({
           </FiltroIndividualContainer>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={Boolean(rubroActual)}
-            onLimpiar={() => navigate({ rubro: "" })}
+            activo={Boolean(actual.grupo)}
+            onLimpiar={() => navigate({ grupo: "" })}
           >
             <Select
-              value={rubroActual || "todos"}
-              onValueChange={(v) => navigate({ rubro: v === "todos" ? "" : v })}
+              value={actual.grupo || "todos"}
+              onValueChange={(v) => navigate({ grupo: v === "todos" ? "" : v })}
             >
               <SelectTrigger
-                id="filtro-cx-merc-vend-rubro"
+                id={`filtro-${idPrefijo}-grupo`}
                 className={SELECT_TRIGGER_FILTER_CLASS}
-                aria-label="Rubro"
+                aria-label={grupo.ariaLabel}
               >
-                <SelectValue placeholder="RUBRO" />
+                <SelectValue placeholder={grupo.placeholder} />
               </SelectTrigger>
               <SelectContent
                 position="popper"
@@ -153,10 +147,10 @@ export default function FiltrosFinBalCxMercVend({
                 align="start"
                 className="select-content-filtro max-h-60"
               >
-                <SelectItem value="todos">RUBRO</SelectItem>
-                {rubros.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
+                <SelectItem value="todos">{grupo.placeholder}</SelectItem>
+                {grupo.opciones.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -164,15 +158,15 @@ export default function FiltrosFinBalCxMercVend({
           </FiltroIndividualContainer>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={Boolean(sucursalActual)}
+            activo={Boolean(actual.sucursal)}
             onLimpiar={() => navigate({ sucursal: "" })}
           >
             <Select
-              value={sucursalActual || "todos"}
+              value={actual.sucursal || "todos"}
               onValueChange={(v) => navigate({ sucursal: v === "todos" ? "" : v })}
             >
               <SelectTrigger
-                id="filtro-cx-merc-vend-sucursal"
+                id={`filtro-${idPrefijo}-sucursal`}
                 className={SELECT_TRIGGER_FILTER_CLASS}
                 aria-label="Sucursal"
               >
@@ -198,8 +192,8 @@ export default function FiltrosFinBalCxMercVend({
       <div className="flex items-center gap-3">
         <FilterRowSearch className="flex-1">
           <FiltroBusquedaInput
-            id="filtro-cx-merc-vend-busqueda"
-            placeholder="BUSCAR POR DESCRIPCIÓN O CÓDIGO..."
+            id={`filtro-${idPrefijo}-busqueda`}
+            placeholder={placeholderBusqueda}
             value={q}
             onChange={handleQChange}
             isDebouncing={isDebouncing}

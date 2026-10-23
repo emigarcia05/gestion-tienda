@@ -404,8 +404,8 @@ function redondearResumen(resumen: ResumenCxMercVend): ResumenCxMercVend {
   };
 }
 
-/** Arma la matriz sumando cada grupo en su fila, su sucursal y los totales. */
-function armarResumen(
+/** Arma la matriz sumando cada grupo en su fila, su sucursal y los totales (también Cx Fin Cobros). */
+export function armarResumen(
   columnas: OpcionFiltroCxMercVend[],
   filasBase: OpcionFiltroCxMercVend[],
   grupos: { clave: string; sucursalId: string; cx: number }[],
@@ -486,7 +486,7 @@ async function resumenCxMercVendPorRubro(
   );
 }
 
-type PeriodoMesAnio = { mes: number; anio: number };
+export type PeriodoMesAnio = { mes: number; anio: number };
 
 function compararPeriodo(a: PeriodoMesAnio, b: PeriodoMesAnio): number {
   return a.anio !== b.anio ? a.anio - b.anio : a.mes - b.mes;
@@ -500,10 +500,19 @@ async function listarPeriodosCxMercVend(
     _min: { fecha: true },
     _max: { fecha: true },
   });
+  return opcionesPeriodoCx(agg._min.fecha, agg._max.fecha, actual);
+}
+
+/** Meses entre la fecha mínima y máxima (o el mes actual si es posterior), del más reciente al más antiguo. */
+export function opcionesPeriodoCx(
+  minFecha: Date | null,
+  maxFecha: Date | null,
+  actual: PeriodoMesAnio
+): OpcionFiltroCxMercVend[] {
   const desdeFecha = (d: Date | null): PeriodoMesAnio | null =>
     d ? { mes: d.getUTCMonth() + 1, anio: d.getUTCFullYear() } : null;
-  const min = desdeFecha(agg._min.fecha) ?? actual;
-  const maxData = desdeFecha(agg._max.fecha);
+  const min = desdeFecha(minFecha) ?? actual;
+  const maxData = desdeFecha(maxFecha);
   const max = maxData && compararPeriodo(maxData, actual) > 0 ? maxData : actual;
   const desde = compararPeriodo(min, max) < 0 ? min : max;
 
@@ -523,6 +532,14 @@ async function listarPeriodosCxMercVend(
   return out;
 }
 
+/** Rango `[1° del mes, 1° del mes siguiente)` sobre una columna DATE. */
+export function rangoFechaPeriodoCx(p: PeriodoMesAnio): { gte: Date; lt: Date } {
+  return {
+    gte: new Date(Date.UTC(p.anio, p.mes - 1, 1)),
+    lt: new Date(Date.UTC(p.anio, p.mes, 1)),
+  };
+}
+
 function whereCxMercVend(params: {
   /** `null` = sin filtro de fecha (vista por sucursal). */
   periodo: PeriodoMesAnio | null;
@@ -531,15 +548,7 @@ function whereCxMercVend(params: {
   q: string;
 }): Prisma.BalCxMercaderiaWhereInput {
   const parts: Prisma.BalCxMercaderiaWhereInput[] = [];
-  if (params.periodo) {
-    const { mes, anio } = params.periodo;
-    parts.push({
-      fecha: {
-        gte: new Date(Date.UTC(anio, mes - 1, 1)),
-        lt: new Date(Date.UTC(anio, mes, 1)),
-      },
-    });
-  }
+  if (params.periodo) parts.push({ fecha: rangoFechaPeriodoCx(params.periodo) });
   if (params.sucursal) parts.push({ sucursalId: params.sucursal });
   const prod: Prisma.ProdPropioWhereInput[] = [];
   if (params.rubro) prod.push({ idRubro: params.rubro });

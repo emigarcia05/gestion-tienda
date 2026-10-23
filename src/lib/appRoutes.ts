@@ -96,6 +96,7 @@ export const APP_ROUTES = {
       catalogoGastos: `${FINANZAS}/balance/catalogo-gastos`,
       ventasMensuales: `${FINANZAS}/balance/ventas-mensuales`,
       cxMercVend: `${FINANZAS}/balance/cx-merc-vend`,
+      cxFinCobros: `${FINANZAS}/balance/cx-fin-cobros`,
     },
     operaciones: {
       compCompras: `${FINANZAS}/operaciones/comp-compras`,

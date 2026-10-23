@@ -20,6 +20,7 @@ import type {
 } from "@/lib/validations/tesoreriaMovimientos";
 import type { ServiceResult } from "@/types";
 import { crearChequeEnCarteraDesdeCobro } from "@/services/tesoreriaCheques.service";
+import { sincronizarCxFinancieroDeMovimientos } from "@/services/balCxFinanciero.service";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -1314,6 +1315,7 @@ export async function crearMovimientosCobroPreparados(
     });
     ids.push(created.id);
   }
+  await sincronizarCxFinancieroDeMovimientos(ids, db);
   return { success: true, data: { ids } };
 }
 

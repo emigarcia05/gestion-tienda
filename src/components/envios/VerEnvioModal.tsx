@@ -8,7 +8,6 @@ import { Dialog } from "@/components/ui/dialog";
 import {
   etiquetaDepartamentoEnvio,
   etiquetaFormaPagadoEnvio,
-  etiquetaHorarioEnvio,
   etiquetaNombreProyecto,
   etiquetaSucursalEnvio,
   nombreDestinatarioEnvio,
@@ -22,6 +21,7 @@ import { fmtCelda } from "@/lib/format";
 const TITULO_SECCION_CLASS =
   "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 const LINK_CLASS = "text-primary underline underline-offset-2";
+const LINEA_DOBLE_CLASS = "flex flex-wrap gap-x-8 gap-y-2";
 
 function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
@@ -48,6 +48,7 @@ export default function VerEnvioModal({ open, onOpenChange, item }: Props) {
     ? [dir.distrito.trim(), etiquetaDepartamentoEnvio(dir.departamento)].filter(Boolean).join(", ")
     : "";
   const maps = dir?.urlMaps.trim() ?? "";
+  const pintor = item ? nombrePintorColumnaEnvio(item) : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,72 +63,20 @@ export default function VerEnvioModal({ open, onOpenChange, item }: Props) {
       >
         {item && dir ? (
           <div className="flex flex-col gap-4">
-            <Seccion titulo="DATOS">
+            <Seccion titulo="ENVÍO">
               <LineaLecturaModal
                 etiqueta="SUCURSAL"
                 valor={etiquetaSucursalEnvio(item.sucursal)}
-              />
-              <LineaLecturaModal
-                etiqueta="CLIENTE"
-                valor={fmtCelda(nombreDestinatarioEnvio(item))}
-              />
-              {nombrePintorColumnaEnvio(item) ? (
-                <LineaLecturaModal
-                  etiqueta="PINTOR"
-                  valor={nombrePintorColumnaEnvio(item)}
-                />
-              ) : null}
-              <LineaLecturaModal
-                etiqueta="TELÉFONO"
-                valor={fmtCelda(telefonoEnvio(item))}
-                tabular
               />
               <LineaLecturaModal
                 etiqueta="FECHA"
                 valor={formatIsoYmdDdMmYyyyArgentina(item.fechaEnvioIso)}
                 tabular
               />
-              <LineaLecturaModal
-                etiqueta="HORARIO"
-                valor={etiquetaHorarioEnvio(item.horaDesde, item.horaHasta)}
-                tabular
-              />
-              <LineaLecturaModal
-                etiqueta="FORMA DE PAGO"
-                valor={etiquetaFormaPagadoEnvio(item.formaPagado)}
-              />
-              <LineaLecturaModal
-                etiqueta="ENTREGADO"
-                valor={item.entregado ? "SÍ" : "NO"}
-              />
-              {item.observacionEnvio.trim() ? (
-                <LineaLecturaModal
-                  etiqueta="OBSERVACIÓN"
-                  valor={item.observacionEnvio.trim()}
-                />
-              ) : null}
-            </Seccion>
-            <Seccion titulo="DIRECCIÓN">
-              <LineaLecturaModal etiqueta="PROYECTO" valor={etiquetaNombreProyecto(dir)} />
-              <LineaLecturaModal etiqueta="DIRECCIÓN" valor={fmtCelda(calleNum)} />
-              <LineaLecturaModal etiqueta="ZONA" valor={fmtCelda(zona)} />
-              {dir.referencia.trim() ? (
-                <LineaLecturaModal etiqueta="REFERENCIA" valor={dir.referencia.trim()} />
-              ) : null}
-              <LineaLecturaModal
-                etiqueta="UBICACIÓN"
-                valor={
-                  maps ? (
-                    <a href={maps} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
-                      ABRIR EN MAPS
-                    </a>
-                  ) : (
-                    "SIN UBICACIÓN"
-                  )
-                }
-              />
-            </Seccion>
-            <Seccion titulo="COMPROBANTE">
+              <div className={LINEA_DOBLE_CLASS}>
+                <LineaLecturaModal etiqueta="HORA DESDE" valor={item.horaDesde} tabular />
+                <LineaLecturaModal etiqueta="HORA HASTA" valor={item.horaHasta} tabular />
+              </div>
               <LineaLecturaModal
                 etiqueta="PDF"
                 valor={
@@ -144,6 +93,45 @@ export default function VerEnvioModal({ open, onOpenChange, item }: Props) {
                     "SIN PDF"
                   )
                 }
+              />
+              <LineaLecturaModal
+                etiqueta="FORMA DE PAGO"
+                valor={etiquetaFormaPagadoEnvio(item.formaPagado)}
+              />
+            </Seccion>
+            <Seccion titulo="CLIENTE">
+              <div className={LINEA_DOBLE_CLASS}>
+                <LineaLecturaModal
+                  etiqueta="NOMBRE"
+                  valor={fmtCelda(nombreDestinatarioEnvio(item))}
+                />
+                {pintor ? <LineaLecturaModal etiqueta="PINTOR" valor={pintor} /> : null}
+              </div>
+              <LineaLecturaModal
+                etiqueta="TELÉFONO"
+                valor={fmtCelda(telefonoEnvio(item))}
+                tabular
+              />
+            </Seccion>
+            <Seccion titulo="DIRECCIÓN">
+              <LineaLecturaModal etiqueta="PROYECTO" valor={etiquetaNombreProyecto(dir)} />
+              <LineaLecturaModal etiqueta="DIRECCIÓN" valor={fmtCelda(calleNum)} />
+              <LineaLecturaModal etiqueta="ZONA" valor={fmtCelda(zona)} />
+              <LineaLecturaModal
+                etiqueta="UBICACIÓN"
+                valor={
+                  maps ? (
+                    <a href={maps} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
+                      ABRIR EN MAPS
+                    </a>
+                  ) : (
+                    "SIN UBICACIÓN"
+                  )
+                }
+              />
+              <LineaLecturaModal
+                etiqueta="REFERENCIA"
+                valor={fmtCelda(dir.referencia.trim())}
               />
             </Seccion>
           </div>

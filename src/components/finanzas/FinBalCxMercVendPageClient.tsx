@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { LayoutList, Store, Tags } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
-import FiltrosFinBalCxMercVend from "@/components/finanzas/FiltrosFinBalCxMercVend";
+import FiltrosFinBalCx from "@/components/finanzas/FiltrosFinBalCx";
 import TablaResumenCxMercVend from "@/components/finanzas/TablaResumenCxMercVend";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,16 +82,23 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
         </div>
       }
       filters={
-        <FiltrosFinBalCxMercVend
-          vista={vista}
+        <FiltrosFinBalCx
+          idPrefijo="cx-merc-vend"
+          fechaDeshabilitada={vista === "sucursal"}
           periodos={data.periodos}
-          rubros={data.rubros}
           sucursales={data.sucursales}
+          grupo={{ placeholder: "RUBRO", ariaLabel: "Rubro", opciones: data.rubros }}
+          placeholderBusqueda="BUSCAR POR DESCRIPCIÓN O CÓDIGO..."
           periodoDefault={data.periodoDefault}
-          periodoActual={filtros.periodo}
-          rubroActual={filtros.rubro}
-          sucursalActual={filtros.sucursal}
-          qActual={filtros.q}
+          actual={{
+            periodo: filtros.periodo,
+            grupo: filtros.rubro,
+            sucursal: filtros.sucursal,
+            q: filtros.q,
+          }}
+          armarParams={({ grupo, ...f }) =>
+            paramsCxMercVend({ vista, ...f, rubro: grupo }, data.periodoDefault)
+          }
         />
       }
     >
