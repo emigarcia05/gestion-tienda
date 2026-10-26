@@ -37,8 +37,8 @@ import type { ProveedorListItem } from "@/services/proveedor.service";
  * Layout tipo Finder de 4 columnas:
  *   [TIPOS]  →  [RUBROS]  →  [GASTOS]  →  [GASTO FINAL]
  *
- * Las 4 primeras columnas son cascada: tipo → rubro → gasto (`fin_bal_cat_gasto`,
- * sin proveedor) → filas de `fin_bal_gasto_final` (proveedor, sucursal, mensual o no,
+ * Las 4 primeras columnas son cascada: tipo → rubro → gasto (`bal_gasto_cat`,
+ * sin proveedor) → filas de `bal_gasto` (proveedor, sucursal, mensual o no,
  * día devengado y plazo de pago en la UI de columna GASTO FINAL).
  * La gestión de **PROVEEDORES** se resuelve con un botón en el header que
  * abre un modal autónomo (lista + búsqueda + alta/edición), reutilizando

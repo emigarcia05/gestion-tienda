@@ -3,7 +3,7 @@ import { globalSucursalIdSchema, prismaCuidSchema } from "@/lib/validations/comm
 
 const IVA_POR_GASTO_MAX_KEYS = 500;
 
-/** Periodo calendario para Balance · Gastos y acciones relacionadas (`fin_bal_gasto_mensual`). */
+/** Periodo calendario para Balance · Gastos y acciones relacionadas (`bal_gasto_mensual`). */
 export const mesAnioQuerySchema = z.object({
   mes: z.coerce.number().int().min(1).max(12),
   anio: z.coerce.number().int().min(2026).max(2046),

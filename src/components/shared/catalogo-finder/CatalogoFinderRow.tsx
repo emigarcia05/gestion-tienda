@@ -17,9 +17,9 @@ export interface CatalogoFinderGastoFinalDetalle {
   proveedorNombre: string;
   gastoMensual: boolean;
   diaDevengado: number | null;
-  /** Días hasta el pago (`fin_bal_gasto_final.plazo_pago_dias`). */
+  /** Días hasta el pago (`bal_gasto.plazo_pago_dias`). */
   vencimiento: number | null;
-  /** Misma política que **GENERA IVA CRÉDITO** en el modal (`fin_bal_gasto_final.iva`). */
+  /** Misma política que **GENERA IVA CRÉDITO** en el modal (`bal_gasto.iva`). */
   ivaCredito: "SIEMPRE" | "NUNCA" | "PREGUNTA";
   comentarios: string | null;
 }

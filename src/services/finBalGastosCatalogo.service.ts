@@ -14,8 +14,8 @@ import type {
 
 /**
  * Catálogo jerárquico Finanzas → Balance → Gastos:
- *   fin_bal_gasto_tipo (1) ─→ fin_bal_gasto_rubro (N) ─→ fin_bal_cat_gasto (N)
- *   y filas `fin_bal_gasto_final` (gasto + proveedor + sucursal si mensual + flag mensual + día devengado + comentarios opcional, N por gasto).
+ *   bal_gasto_tipo (1) ─→ bal_gasto_rubro (N) ─→ bal_gasto_cat (N)
+ *   y filas `bal_gasto` (gasto + proveedor + sucursal si mensual + flag mensual + día devengado + comentarios opcional, N por gasto).
  *
  * Convenciones:
  * - `nombre` se persiste en MAYÚSCULAS (ya viene normalizado desde Zod en la Action).
@@ -48,7 +48,7 @@ export interface FinBalGastoItem {
   updatedAt: Date;
 }
 
-/** Fila de `fin_bal_gasto_final` con proveedor y sucursal (esta última solo si `gastoMensual`) para UI de catálogo. */
+/** Fila de `bal_gasto` con proveedor y sucursal (esta última solo si `gastoMensual`) para UI de catálogo. */
 export interface FinBalGastoFinalItem {
   id: string;
   gastoId: string;
@@ -60,7 +60,7 @@ export interface FinBalGastoFinalItem {
   diaDevengado: number | null;
   /** Días entre fecha de gasto (devengo) y fecha de pago. */
   vencimiento: number | null;
-  /** Texto libre (`fin_bal_gasto_final.comentarios`). */
+  /** Texto libre (`bal_gasto.comentarios`). */
   comentarios: string | null;
   /**
    * Política IVA del gasto final (default DB `PREGUNTA`). Reusa enum
@@ -437,7 +437,7 @@ export async function eliminarFinBalGasto(
   }
 }
 
-// ─── Escrituras: Gasto final (`fin_bal_gasto_final`) ──────────────────────
+// ─── Escrituras: Gasto final (`bal_gasto`) ──────────────────────
 
 function mapFinBalGastoFinalRow(row: {
   id: string;

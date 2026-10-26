@@ -50,7 +50,7 @@ type FiltroEstadoBalanceGastos =
   | "sin_monto"
   | "sin_monto_o_pendiente";
 
-/** Catálogo recurrente mensual vs gasto eventual (`fin_bal_gasto_final.gasto_mensual`). */
+/** Catálogo recurrente mensual vs gasto eventual (`bal_gasto.gasto_mensual`). */
 type FiltroTipoBalanceGastos = "" | "mensual" | "eventual";
 
 function aplicarFiltroTipoFilas(

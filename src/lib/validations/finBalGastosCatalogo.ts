@@ -8,7 +8,7 @@ import { ivaPoliticaFormSchema } from "@/lib/validations/iva";
 
 /**
  * Validaciones para el catálogo jerárquico Finanzas → Balance → Gastos:
- * fin_bal_gasto_tipo (1) ─→ fin_bal_gasto_rubro (N) ─→ fin_bal_cat_gasto (N) + fin_bal_gasto_final (gasto + proveedor + sucursal opcional si gasto eventual; la terna puede repetirse entre filas).
+ * bal_gasto_tipo (1) ─→ bal_gasto_rubro (N) ─→ bal_gasto_cat (N) + bal_gasto (gasto + proveedor + sucursal opcional si gasto eventual; la terna puede repetirse entre filas).
  *
  * Convención de normalización: todos los `nombre` se normalizan con `trim + toUpperCase`,
  * consistente con tesoreria_cajas y demás catálogos financieros.
@@ -79,7 +79,7 @@ export const eliminarFinBalGastoSchema = z.object({
 });
 export type EliminarFinBalGastoInput = z.infer<typeof eliminarFinBalGastoSchema>;
 
-// ─── Gasto final (`fin_bal_gasto_final`: gasto + proveedor + sucursal según mensual) ─
+// ─── Gasto final (`bal_gasto`: gasto + proveedor + sucursal según mensual) ─
 
 /** Entrada HTTP: vacío / null se normaliza según `gasto_mensual` en el schema refinado. */
 const gastoFinalSucursalEntradaSchema = z

@@ -36,7 +36,7 @@ export interface ProveedorOpcionGastoFinal {
   nombre: string;
 }
 
-/** Otras filas `fin_bal_gasto_final` del mismo gasto de catálogo (para reglas de COMENTARIOS). */
+/** Otras filas `bal_gasto` del mismo gasto de catálogo (para reglas de COMENTARIOS). */
 export interface FinBalGastoFinalFilaHermana {
   id: string;
   proveedorId: string;
@@ -79,9 +79,9 @@ interface Props {
   diaDevengadoInicial?: number | null;
   /** En edición: días de vencimiento persistidos. */
   vencimientoInicial?: number | null;
-  /** En edición: comentarios persistidos (`fin_bal_gasto_final.comentarios`). */
+  /** En edición: comentarios persistidos (`bal_gasto.comentarios`). */
   comentariosInicial?: string | null;
-  /** En edición: valor persistido de **GENERA IVA CRÉDITO** (`fin_bal_gasto_final.iva`). En alta no hay valor hasta que el usuario elija. */
+  /** En edición: valor persistido de **GENERA IVA CRÉDITO** (`bal_gasto.iva`). En alta no hay valor hasta que el usuario elija. */
   ivaInicial?: IvaValue;
   onSuccess?: () => void;
 }

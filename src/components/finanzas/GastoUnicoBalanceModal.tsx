@@ -56,7 +56,7 @@ export default function GastoUnicoBalanceModal({
   const [filtGastoFinalId, setFiltGastoFinalId] = useState("");
   /** Paso «Cargar»: sucursal de imputación obligatoria antes del resto de campos. */
   const [imputacionSucursalId, setImputacionSucursalId] = useState("");
-  /** Solo si `fin_bal_gasto_final.iva === PREGUNTA`: SI / NO discrimina IVA. */
+  /** Solo si `bal_gasto.iva === PREGUNTA`: SI / NO discrimina IVA. */
   const [discriminaIvaRespuesta, setDiscriminaIvaRespuesta] = useState<"none" | "si" | "no">("none");
 
   const cargarLista = useCallback(async () => {

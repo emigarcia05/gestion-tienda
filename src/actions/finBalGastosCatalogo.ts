@@ -204,7 +204,7 @@ export async function eliminarFinBalGastoAction(
   return { ok: true, data: res.data };
 }
 
-// ─── Gasto final (`fin_bal_gasto_final`) ───────────────────────────────────
+// ─── Gasto final (`bal_gasto`) ───────────────────────────────────
 
 export async function crearFinBalGastoFinalAction(
   raw: unknown

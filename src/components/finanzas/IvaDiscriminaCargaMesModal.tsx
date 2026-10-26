@@ -21,7 +21,7 @@ interface Props {
   onConfirm: (ivaPorGastoFinalId: Record<string, boolean>) => void;
 }
 
-/** Modal previo a «Gasto fijo» / cargar mes: política `PREGUNTA` en `fin_bal_gasto_final.iva`. */
+/** Modal previo a «Gasto fijo» / cargar mes: política `PREGUNTA` en `bal_gasto.iva`. */
 export default function IvaDiscriminaCargaMesModal({ open, onOpenChange, items, onConfirm }: Props) {
   const [decisiones, setDecisiones] = useState<Record<string, "none" | "si" | "no">>({});
 

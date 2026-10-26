@@ -913,7 +913,7 @@ model FinBalGastoTipo {
 
   rubros FinBalGastoRubro[]
 
-  @@map("fin_bal_gasto_tipo")
+  @@map("bal_gasto_tipo")
 }
 
 // Rubro dentro de un Tipo. `nombre` único por `tipo_id` (puede repetirse entre tipos).
@@ -927,12 +927,12 @@ model FinBalGastoRubro {
   tipo   FinBalGastoTipo @relation(fields: [tipoId], references: [id], onDelete: Restrict)
   gastos FinBalGasto[]
 
-  @@unique([tipoId, nombre], map: "fin_bal_gasto_rubro_tipo_nombre_ux")
+  @@unique([tipoId, nombre], map: "bal_gasto_rubro_tipo_nombre_ux")
   @@index([tipoId])
-  @@map("fin_bal_gasto_rubro")
+  @@map("bal_gasto_rubro")
 }
 
-// Gasto (hoja de la jerarquía) dentro de un Rubro. Tabla física `fin_bal_cat_gasto`.
+// Gasto (hoja de la jerarquía) dentro de un Rubro. Tabla física `bal_gasto_cat`.
 // `nombre` único por `rubro_id` (sin vínculo a proveedor).
 model FinBalGasto {
   id        String   @id @default(cuid())
@@ -943,17 +943,17 @@ model FinBalGasto {
 
   rubro               FinBalGastoRubro   @relation(fields: [rubroId], references: [id], onDelete: Restrict)
   /**
-   * Gasto de balance por proveedor y sucursal (`fin_bal_gasto_final`, N filas por gasto).
+   * Gasto de balance por proveedor y sucursal (`bal_gasto`, N filas por gasto).
    */
   asignacionesFinales FinBalGastoFinal[]
 
-  @@unique([rubroId, nombre], map: "fin_bal_cat_gasto_rubro_nombre_ux")
+  @@unique([rubroId, nombre], map: "bal_gasto_cat_rubro_nombre_ux")
   @@index([rubroId])
-  @@map("fin_bal_cat_gasto")
+  @@map("bal_gasto_cat")
 }
 
 /**
- * Gasto de balance “final”: catálogo `fin_bal_cat_gasto` + proveedor + sucursal opcional + `gasto_mensual` + `dia_devengado` + `plazo_pago_dias`.
+ * Gasto de balance “final”: catálogo `bal_gasto_cat` + proveedor + sucursal opcional + `gasto_mensual` + `dia_devengado` + `plazo_pago_dias`.
  * Obligatorios en persistencia: `gasto_id`, `proveedor_id`, `gasto_mensual`.
  * `sucursal_id`: obligatorio si `gasto_mensual = true` (centro de costo); debe ser **NULL** si `gasto_mensual = false` (eventual).
  * Si `gasto_mensual = true`, `dia_devengado` (1–28) y `plazo_pago_dias` (0–30) son obligatorios.
@@ -1002,7 +1002,7 @@ model FinBalGastoFinal {
   @@index([gastoId])
   @@index([proveedorId])
   @@index([sucursalId])
-  @@map("fin_bal_gasto_final")
+  @@map("bal_gasto")
 }
 
 /**
@@ -1031,11 +1031,11 @@ model FinBalGastoMensual {
   gastoMensualEnAlta   Boolean  @default(false) @map("gasto_mensual_en_alta")
   /**
    * Sucursal declarada al cargar una imputación (p. ej. gasto eventual sin sucursal en catálogo).
-   * Si es NULL, la UI de Balance usa `fin_bal_gasto_final.sucursal_id`.
+   * Si es NULL, la UI de Balance usa `bal_gasto.sucursal_id`.
    */
   imputacionSucursalId String?  @map("imputacion_sucursal_id")
   /**
-   * Si la imputación discrimina IVA en este período (`fin_bal_gasto_final.iva`:
+   * Si la imputación discrimina IVA en este período (`bal_gasto.iva`:
    * SIEMPRE → true, NUNCA → false, PREGUNTA → definido por el usuario al alta).
    */
   iva                  Boolean  @map("iva")
@@ -1049,7 +1049,7 @@ model FinBalGastoMensual {
   @@index([anio, mes])
   @@index([imputacionSucursalId])
   @@index([gastoFinalId, mes, anio])
-  @@map("fin_bal_gasto_mensual")
+  @@map("bal_gasto_mensual")
 }
 
 /**

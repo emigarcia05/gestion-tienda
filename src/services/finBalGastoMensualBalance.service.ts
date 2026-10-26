@@ -1,5 +1,5 @@
 /**
- * Imputaciones mensuales de gastos de balance (`fin_bal_gasto_mensual`)
+ * Imputaciones mensuales de gastos de balance (`bal_gasto_mensual`)
  * para la pantalla `/finanzas/balance/gastos`.
  */
 import type { IvaProveedor } from "@prisma/client";
@@ -54,11 +54,11 @@ export async function listarSucursalesParaGastos(): Promise<SucursalOption[]> {
 
 export interface BalanceGastoMensualFila {
   id: string;
-  /** FK `fin_bal_gasto_final`. */
+  /** FK `bal_gasto`. */
   gastoFinalId: string;
-  /** Mes calendario de la imputación (`fin_bal_gasto_mensual.mes`, 1–12). */
+  /** Mes calendario de la imputación (`bal_gasto_mensual.mes`, 1–12). */
   mes: number;
-  /** Año calendario de la imputación (`fin_bal_gasto_mensual.anio`). */
+  /** Año calendario de la imputación (`bal_gasto_mensual.anio`). */
   anio: number;
   /** Fecha de devengo (mes/año de la fila + día devengado del catálogo). */
   fechaDevengoIso: string;
@@ -67,11 +67,11 @@ export interface BalanceGastoMensualFila {
   sucursalGeneraBalance: boolean;
   sucursalCentroCosto: boolean;
   tipoGastoNombre: string;
-  /** `fin_bal_gasto_final.gasto_mensual`: recurrente mensual vs eventual (único). */
+  /** `bal_gasto.gasto_mensual`: recurrente mensual vs eventual (único). */
   esGastoMensual: boolean;
   rubroNombre: string;
   gastoNombre: string;
-  /** Comentarios del `fin_bal_gasto_final` (gasto + proveedor + sucursal), si hay. */
+  /** Comentarios del `bal_gasto` (gasto + proveedor + sucursal), si hay. */
   gastoFinalComentarios: string | null;
   proveedorNombre: string;
   monto: number;
@@ -80,7 +80,7 @@ export interface BalanceGastoMensualFila {
   fechaVencimientoIso: string;
   /** Si hoy (AR) ≥ fecha de vencimiento: pendiente de pago `max(0, monto - pagado)`; si no, 0. */
   montoVencido: number;
-  /** Columna `fin_bal_gasto_mensual.iva`: discrimina IVA en este período. */
+  /** Columna `bal_gasto_mensual.iva`: discrimina IVA en este período. */
   discriminaIva: boolean;
 }
 
@@ -263,8 +263,8 @@ export async function listarPendientesDiscriminaIvaCargaMesCatalogo(params: {
 }
 
 /**
- * Crea filas `fin_bal_gasto_mensual` (monto 0, pagado 0) para el mes/año dado,
- * por cada `fin_bal_gasto_final` con `gasto_mensual = true` que aún no tenga fila
+ * Crea filas `bal_gasto_mensual` (monto 0, pagado 0) para el mes/año dado,
+ * por cada `bal_gasto` con `gasto_mensual = true` que aún no tenga fila
  * (salvo los gastos que reemplaza un libro: `esGastoReemplazadoPorLibro`).
  * Para política `PREGUNTA`, `ivaPorGastoFinalId[gastoFinalId]` debe ser `true`/`false` (discrimina IVA).
  */
@@ -484,7 +484,7 @@ function ordenarHistoricoMontosCronologicamenteAsc(
 }
 
 /**
- * Lista todos los meses con imputación en `fin_bal_gasto_mensual` para un `gasto_final_id`,
+ * Lista todos los meses con imputación en `bal_gasto_mensual` para un `gasto_final_id`,
  * orden cronológico ascendente.
  */
 export async function listarHistoricoMontosGastoFinalBalance(
@@ -505,7 +505,7 @@ export async function listarHistoricoMontosGastoFinalBalance(
   );
 }
 
-/** Ítem del catálogo `fin_bal_gasto_final` con `gasto_mensual = false` (gasto único). */
+/** Ítem del catálogo `bal_gasto` con `gasto_mensual = false` (gasto único). */
 export interface FinBalGastoFinalNoMensualListItem {
   gastoFinalId: string;
   /** Política de IVA del gasto final (`SIEMPRE` / `NUNCA` / `PREGUNTA`). */
@@ -582,7 +582,7 @@ export async function listarGastosFinalesNoMensualesConEstadoPeriodo(params: {
 }
 
 /**
- * Crea una fila `fin_bal_gasto_mensual` para un gasto final con `gasto_mensual = false`
+ * Crea una fila `bal_gasto_mensual` para un gasto final con `gasto_mensual = false`
  * (imputación puntual del periodo).
  */
 export async function crearImputacionGastoUnicoBalance(params: {
