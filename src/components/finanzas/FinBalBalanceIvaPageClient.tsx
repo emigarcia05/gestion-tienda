@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
@@ -11,7 +12,10 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
 import ConfigurarIvaComparacionPedidosControl from "@/components/finanzas/ConfigurarIvaComparacionPedidosControl";
+import PedidoHistoriaLecturaModal from "@/components/pedidos/PedidoHistoriaLecturaModal";
 import {
   Select,
   SelectContent,
@@ -34,7 +38,7 @@ import { APP_ROUTES } from "@/lib/appRoutes";
 import { fmtCx, hrefCxMercVend } from "@/lib/balCxMercVend";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
-import type { BalanceIvaData } from "@/services/balIva.service";
+import type { BalanceIvaData, ComprobanteOrigenBalIva } from "@/services/balIva.service";
 
 const BASE_PATH = APP_ROUTES.finanzas.balance.balanceIva;
 
@@ -57,6 +61,7 @@ function claseImporte(n: number) {
 export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, esEditor }: Props) {
   const router = useRouter();
   const { filas, filtros, periodoDefault } = data;
+  const [comprobanteVer, setComprobanteVer] = useState<ComprobanteOrigenBalIva>(null);
 
   function irAPeriodo(periodo: string) {
     router.push(hrefCxMercVend(BASE_PATH, periodo === periodoDefault ? {} : { periodo }));
@@ -118,9 +123,10 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
           <colgroup>
             <col className="w-[12%]" />
             <col />
-            <col className="w-[15%]" />
-            <col className="w-[15%]" />
-            <col className="w-[15%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[8%]" />
           </colgroup>
           <TableHeader>
             <TableRow>
@@ -129,6 +135,7 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
               <TableHead className="text-right">DÉBITO</TableHead>
               <TableHead className="text-right">CRÉDITO</TableHead>
               <TableHead className="text-right">SALDO</TableHead>
+              <TableHead className="text-center">ACCIONES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,9 +147,10 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
               <TableCell className={cn(claseImporte(data.saldoInicial), "font-medium")}>
                 {fmtCx(data.saldoInicial)}
               </TableCell>
+              <TableCell className="celda-datos" aria-hidden />
             </TableRow>
             {filas.length === 0 ? (
-              <EmptyTableRow colSpan={5} message="No hay movimientos de IVA en este mes." />
+              <EmptyTableRow colSpan={6} message="No hay movimientos de IVA en este mes." />
             ) : (
               filas.map((f) => (
                 <TableRow key={f.id}>
@@ -153,6 +161,9 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
                   <TableCell className={claseImporte(f.debito)}>{celdaImporte(f.debito)}</TableCell>
                   <TableCell className={claseImporte(f.credito)}>{celdaImporte(f.credito)}</TableCell>
                   <TableCell className={claseImporte(f.saldo)}>{fmtCx(f.saldo)}</TableCell>
+                  <CeldaVerComprobante
+                    onVer={f.comprobante ? () => setComprobanteVer(f.comprobante) : undefined}
+                  />
                 </TableRow>
               ))
             )}
@@ -171,10 +182,26 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
               <TableCell className={cn(claseImporte(data.saldoFinal), "font-bold")}>
                 {fmtCx(data.saldoFinal)}
               </TableCell>
+              <TableCell className="celda-datos" aria-hidden />
             </TableRow>
           </TableFooter>
         </Table>
       </div>
+      <FacturaComprobanteDetalleModal
+        open={comprobanteVer?.tipo === "venta"}
+        onOpenChange={(open) => {
+          if (!open) setComprobanteVer(null);
+        }}
+        comprobanteId={comprobanteVer?.tipo === "venta" ? comprobanteVer.comprobanteVtaId : null}
+      />
+      <PedidoHistoriaLecturaModal
+        variante="compra"
+        open={comprobanteVer?.tipo === "compra"}
+        onOpenChange={(open) => {
+          if (!open) setComprobanteVer(null);
+        }}
+        pedidoHistoriaId={comprobanteVer?.tipo === "compra" ? comprobanteVer.pedidoHistoriaId : null}
+      />
     </ClassicFilteredTableLayout>
   );
 }

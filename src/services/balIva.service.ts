@@ -14,6 +14,15 @@ import {
 } from "@/services/balCxMercaderia.service";
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 
+/**
+ * Comprobante que generó la fila (botón VER): venta / NC (venta y Cx Fin del cobro) o la recepción
+ * del pedido (compra). `null`: gasto, o NC de compra sin pedido (bonificación).
+ */
+export type ComprobanteOrigenBalIva =
+  | { tipo: "venta"; comprobanteVtaId: string }
+  | { tipo: "compra"; pedidoHistoriaId: string }
+  | null;
+
 export interface FilaBalanceIva {
   id: string;
   fechaIso: string;
@@ -22,6 +31,28 @@ export interface FilaBalanceIva {
   credito: number;
   /** Saldo acumulado tras este movimiento (incluye el saldo inicial del mes). */
   saldo: number;
+  comprobante: ComprobanteOrigenBalIva;
+}
+
+const SELECT_FILA_BAL_IVA = {
+  id: true,
+  fecha: true,
+  descripcion: true,
+  debito: true,
+  credito: true,
+  comprobanteVtaId: true,
+  comprobanteCompra: { select: { pedidoHistoriaId: true } },
+  tesoreriaMovimiento: { select: { comprobanteId: true } },
+} satisfies Prisma.BalIvaSelect;
+
+function comprobanteOrigen(
+  r: Prisma.BalIvaGetPayload<{ select: typeof SELECT_FILA_BAL_IVA }>
+): ComprobanteOrigenBalIva {
+  const ventaId = r.comprobanteVtaId ?? r.tesoreriaMovimiento?.comprobanteId;
+  if (ventaId) return { tipo: "venta", comprobanteVtaId: ventaId };
+  const pedidoHistoriaId = r.comprobanteCompra?.pedidoHistoriaId;
+  if (pedidoHistoriaId) return { tipo: "compra", pedidoHistoriaId };
+  return null;
 }
 
 export interface BalanceIvaData {
@@ -60,7 +91,7 @@ export async function listarBalanceIvaData(raw: { periodo?: string }): Promise<B
     prisma.balIva.findMany({
       where: { fecha: rango },
       orderBy: [{ fecha: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-      select: { id: true, fecha: true, descripcion: true, debito: true, credito: true },
+      select: SELECT_FILA_BAL_IVA,
     }),
   ]);
 
@@ -81,6 +112,7 @@ export async function listarBalanceIvaData(raw: { periodo?: string }): Promise<B
       debito,
       credito,
       saldo,
+      comprobante: comprobanteOrigen(r),
     };
   });
 

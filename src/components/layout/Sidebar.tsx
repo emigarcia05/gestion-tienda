@@ -90,7 +90,7 @@ const MODULES: NavModule[] = [
       },
       {
         href: FACTURACION_ROUTES.factura.facturas,
-        label: "Comprobantes",
+        label: "Facturas",
         icon: <Files className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.facturacion.acceso,
       },

@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LayoutList, Store, Tags } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
 import FiltrosFinBalCx from "@/components/finanzas/FiltrosFinBalCx";
 import TablaResumenCxMercVend from "@/components/finanzas/TablaResumenCxMercVend";
 import { Button } from "@/components/ui/button";
@@ -49,6 +52,7 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
   const router = useRouter();
   const { filas, filtros, vista } = data;
   const params = paramsCxMercVend(filtros, data.periodoDefault);
+  const [comprobanteVerId, setComprobanteVerId] = useState<string | null>(null);
 
   function cambiarVista(v: VistaCxMercVend) {
     router.push(
@@ -118,6 +122,7 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
                   <col />
                   <col className="w-[12%]" />
                   <col className="w-[14%]" />
+                  <col className="w-[8%]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow>
@@ -126,11 +131,12 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
                     <TableHead>DESC.</TableHead>
                     <TableHead className="text-right">CX</TableHead>
                     <TableHead className="text-center">SUC</TableHead>
+                    <TableHead className="text-center">ACCIONES</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filas.length === 0 ? (
-                    <EmptyTableRow colSpan={5} message="No hay mercadería vendida para mostrar." />
+                    <EmptyTableRow colSpan={6} message="No hay mercadería vendida para mostrar." />
                   ) : (
                     filas.map((f) => (
                       <TableRow key={f.id}>
@@ -154,6 +160,7 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
                         <TableCell className="celda-datos text-center">
                           {f.sucursalNombre}
                         </TableCell>
+                        <CeldaVerComprobante onVer={() => setComprobanteVerId(f.comprobanteVtaId)} />
                       </TableRow>
                     ))
                   )}
@@ -167,7 +174,7 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
                       <TableCell className="celda-datos celda-numero text-right font-bold tabular-nums">
                         {fmtCx(data.totalCx)}
                       </TableCell>
-                      <TableCell className="celda-datos" aria-hidden />
+                      <TableCell colSpan={2} className="celda-datos" aria-hidden />
                     </TableRow>
                   </TableFooter>
                 ) : null}
@@ -188,6 +195,13 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
           </>
         )}
       </div>
+      <FacturaComprobanteDetalleModal
+        open={comprobanteVerId != null}
+        onOpenChange={(open) => {
+          if (!open) setComprobanteVerId(null);
+        }}
+        comprobanteId={comprobanteVerId}
+      />
     </ClassicFilteredTableLayout>
   );
 }

@@ -40,6 +40,8 @@ export interface FilaCxFinCobros {
   cx: number;
   sucursalNombre: string;
   esDevolucion: boolean;
+  /** Venta / NC del cobro (botón VER). */
+  comprobanteVtaId: string;
 }
 
 export interface CxFinCobrosData {
@@ -152,6 +154,7 @@ async function listarDetalle(
         montoCobrado: true,
         costoPct: true,
         cxTotal: true,
+        comprobanteVtaId: true,
         comprobanteVta: { select: { ptoVenta: true, cbteNro: true, receptorNombre: true } },
         pago: { select: { nombre: true } },
         entidad: { select: { nombre: true } },
@@ -182,6 +185,7 @@ async function listarDetalle(
       cx: cxConSigno(r.tipoMovimiento, r.cxTotal),
       sucursalNombre: r.sucursal.nombre.toLocaleUpperCase("es-AR"),
       esDevolucion: r.tipoMovimiento === "EGRESO",
+      comprobanteVtaId: r.comprobanteVtaId,
     })),
     total,
     totalPaginas: Math.max(1, Math.ceil(total / PAGE_SIZE)),

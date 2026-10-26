@@ -337,6 +337,8 @@ export interface FilaCxMercVend {
   cx: number;
   sucursalNombre: string;
   esNotaCredito: boolean;
+  /** Venta / NC que generó el movimiento (botón VER). */
+  comprobanteVtaId: string;
 }
 
 export interface FilaResumenCxMercVend {
@@ -574,6 +576,7 @@ async function listarDetalleCxMercVend(
         codItem: true,
         tipoMovimiento: true,
         costoTotal: true,
+        comprobanteVtaId: true,
         prodTienda: { select: { descripcionTienda: true } },
         sucursal: { select: { nombre: true } },
       },
@@ -595,6 +598,7 @@ async function listarDetalleCxMercVend(
       cx: cxConSigno(r.tipoMovimiento, r.costoTotal),
       sucursalNombre: r.sucursal.nombre.toLocaleUpperCase("es-AR"),
       esNotaCredito: r.tipoMovimiento === "INGRESO",
+      comprobanteVtaId: r.comprobanteVtaId,
     })),
     total,
     totalPaginas: Math.max(1, Math.ceil(total / PAGE_SIZE)),

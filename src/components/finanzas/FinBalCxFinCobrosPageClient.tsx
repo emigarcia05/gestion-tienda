@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, LayoutList, Store } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
+import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
 import FiltrosFinBalCx from "@/components/finanzas/FiltrosFinBalCx";
 import TablaResumenCxMercVend from "@/components/finanzas/TablaResumenCxMercVend";
 import { Button } from "@/components/ui/button";
@@ -49,6 +52,7 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
   const router = useRouter();
   const { filas, filtros, vista } = data;
   const params = paramsCxFinCobros(filtros, data.periodoDefault);
+  const [comprobanteVerId, setComprobanteVerId] = useState<string | null>(null);
 
   function cambiarVista(v: VistaCxFinCobros) {
     router.push(
@@ -121,11 +125,12 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
                   <col className="w-[9%]" />
                   <col className="w-[13%]" />
                   <col />
-                  <col className="w-[20%]" />
+                  <col className="w-[17%]" />
                   <col className="w-[10%]" />
                   <col className="w-[7%]" />
                   <col className="w-[9%]" />
                   <col className="w-[11%]" />
+                  <col className="w-[8%]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow>
@@ -137,11 +142,12 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
                     <TableHead className="text-right">%</TableHead>
                     <TableHead className="text-right">CX</TableHead>
                     <TableHead className="text-center">SUC</TableHead>
+                    <TableHead className="text-center">ACCIONES</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filas.length === 0 ? (
-                    <EmptyTableRow colSpan={8} message={MENSAJE_VACIO} />
+                    <EmptyTableRow colSpan={9} message={MENSAJE_VACIO} />
                   ) : (
                     filas.map((f) => (
                       <TableRow key={f.id}>
@@ -161,6 +167,7 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
                           {fmtCx(f.cx)}
                         </TableCell>
                         <TableCell className="celda-datos text-center">{f.sucursalNombre}</TableCell>
+                        <CeldaVerComprobante onVer={() => setComprobanteVerId(f.comprobanteVtaId)} />
                       </TableRow>
                     ))
                   )}
@@ -172,7 +179,7 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
                         TOTAL CX
                       </TableCell>
                       <TableCell className={cn(TD_NUM, "font-bold")}>{fmtCx(data.totalCx)}</TableCell>
-                      <TableCell className="celda-datos" aria-hidden />
+                      <TableCell colSpan={2} className="celda-datos" aria-hidden />
                     </TableRow>
                   </TableFooter>
                 ) : null}
@@ -193,6 +200,13 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
           </>
         )}
       </div>
+      <FacturaComprobanteDetalleModal
+        open={comprobanteVerId != null}
+        onOpenChange={(open) => {
+          if (!open) setComprobanteVerId(null);
+        }}
+        comprobanteId={comprobanteVerId}
+      />
     </ClassicFilteredTableLayout>
   );
 }

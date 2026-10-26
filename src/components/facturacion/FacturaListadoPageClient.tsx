@@ -475,7 +475,7 @@ export default function FacturaListadoPageClient({
   return (
     <ClassicFilteredTableLayout
       title="COMPROBANTES"
-      subtitle={esFacturas ? "Comprobante" : "Presupuesto"}
+      subtitle={esFacturas ? "Facturas" : "Presupuesto"}
       contentWidth="full"
       actions={
         <ToolbarActionButton
