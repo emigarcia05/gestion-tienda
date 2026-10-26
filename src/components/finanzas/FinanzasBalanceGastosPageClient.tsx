@@ -13,15 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FilterBar, {
-  FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
   SELECT_TRIGGER_FILTER_CLASS,
   FiltroIndividualContainer,
   FilaFiltrosDesplegables,
+  FilterRowSearch,
   FilterRowSelection,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
-import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
+import { matchByMultiTerm } from "@/lib/busqueda";
+import { dateToIsoYmdArgentina, formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import { fmtPrecio } from "@/lib/format";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import TablaGastos, { type BalanceGastoMensualFila } from "@/components/finanzas/TablaGastos";
 import BalanceMensualGastoHistoricoModal from "@/components/finanzas/BalanceMensualGastoHistoricoModal";
@@ -37,8 +41,6 @@ import type { PendienteDiscriminaIvaCargaMesItem } from "@/services/finBalGastoM
 import { cn } from "@/lib/utils";
 import { filterItemsBySelectSearch } from "@/lib/selectSearch";
 import SelectSearchInput from "@/components/shared/SelectSearchInput";
-
-type DimensionOpcionesFiltro = "sucursal" | "proveedor" | "rubro" | "gasto";
 
 /** Valores del filtro ESTADO (combinación monto / pago). */
 type FiltroEstadoBalanceGastos =
@@ -81,37 +83,32 @@ function aplicarFiltroEstadoFilas(
   }
 }
 
-/**
- * Filas coherentes con los filtros activos **excepto** la dimensión del desplegable
- * que se está poblando (así, si elegís RUBRO, PROVEEDOR solo lista proveedores que
- * tienen al menos una fila con ese rubro en el periodo filtrado).
- */
-function filasParaOpcionesDesplegable(
+/** Texto de todas las columnas de `TablaGastos` (cada palabra buscada puede estar en una columna distinta). */
+function textosBusquedaFila(f: BalanceGastoMensualFila): string[] {
+  return [
+    formatIsoYmdDdMmYyyyArgentina(f.fechaDevengoIso),
+    f.sucursalNombre,
+    f.tipoGastoNombre,
+    f.proveedorNombre,
+    f.rubroNombre,
+    f.gastoNombre,
+    f.gastoFinalComentarios ?? "",
+    f.monto > 0 ? fmtPrecio(f.monto) : "",
+    f.pagado > 0 ? fmtPrecio(f.pagado) : "",
+  ];
+}
+
+/** Filtros TIPO, ESTADO y búsqueda (todo menos SUCURSAL, para poblar sus opciones). */
+function filasSinFiltroSucursal(
   filas: BalanceGastoMensualFila[],
-  omitir: DimensionOpcionesFiltro,
-  estado: {
-    filtSucursal: string;
-    filtProveedor: string;
-    filtRubro: string;
-    filtGasto: string;
-    filtEstado: FiltroEstadoBalanceGastos;
-    filtTipo: FiltroTipoBalanceGastos;
-  }
+  filtTipo: FiltroTipoBalanceGastos,
+  filtEstado: FiltroEstadoBalanceGastos,
+  q: string
 ): BalanceGastoMensualFila[] {
-  let out = aplicarFiltroTipoFilas(filas, estado.filtTipo);
-  if (omitir !== "sucursal" && estado.filtSucursal) {
-    out = out.filter((r) => r.sucursalNombre === estado.filtSucursal);
-  }
-  if (omitir !== "proveedor" && estado.filtProveedor) {
-    out = out.filter((r) => r.proveedorNombre === estado.filtProveedor);
-  }
-  if (omitir !== "rubro" && estado.filtRubro) {
-    out = out.filter((r) => r.rubroNombre === estado.filtRubro);
-  }
-  if (omitir !== "gasto" && estado.filtGasto) {
-    out = out.filter((r) => r.gastoNombre === estado.filtGasto);
-  }
-  return aplicarFiltroEstadoFilas(out, estado.filtEstado);
+  let out = aplicarFiltroTipoFilas(filas, filtTipo);
+  out = aplicarFiltroEstadoFilas(out, filtEstado);
+  if (q.trim()) out = out.filter((f) => matchByMultiTerm(textosBusquedaFila(f), q));
+  return out;
 }
 
 /** Filtros de periodo (Balance · Gastos): acotados a los mismos límites que `mesAnioQuerySchema`. */
@@ -175,10 +172,13 @@ export default function FinanzasBalanceGastosPageClient({
     [mesesQuery]
   );
 
-  const [filtRubro, setFiltRubro] = useState("");
-  const [filtGasto, setFiltGasto] = useState("");
   const [filtSucursal, setFiltSucursal] = useState("");
-  const [filtProveedor, setFiltProveedor] = useState("");
+  const [qDebounced, setQDebounced] = useState("");
+  const { q, setQ, handleQChange, isDebouncing, ref: searchRef } = useFiltrosConBusqueda({
+    qActual: qDebounced,
+    debounceMs: 300,
+    onDebouncedSearch: setQDebounced,
+  });
   /** Filtro ESTADO (monto + pago); vacío = sin filtrar por estado. */
   const [filtEstado, setFiltEstado] = useState<FiltroEstadoBalanceGastos>("");
   /** MENSUAL vs EVENTUAL (`gasto_mensual` en catálogo). */
@@ -203,63 +203,30 @@ export default function FinanzasBalanceGastosPageClient({
     };
   }, []);
 
-  const estadoFiltros = useMemo(
-    () => ({
-      filtSucursal,
-      filtProveedor,
-      filtRubro,
-      filtGasto,
-      filtEstado,
-      filtTipo,
-    }),
-    [filtSucursal, filtProveedor, filtRubro, filtGasto, filtEstado, filtTipo]
+  const filasSinSucursal = useMemo(
+    () => filasSinFiltroSucursal(filas, filtTipo, filtEstado, qDebounced),
+    [filas, filtTipo, filtEstado, qDebounced]
   );
 
-  const sucursalesOpciones = useMemo(() => {
-    const base = filasParaOpcionesDesplegable(filas, "sucursal", estadoFiltros);
-    return [...new Set(base.map((f) => f.sucursalNombre))].sort((a, b) => a.localeCompare(b, "es"));
-  }, [filas, estadoFiltros]);
-
-  const proveedoresOpciones = useMemo(() => {
-    const base = filasParaOpcionesDesplegable(filas, "proveedor", estadoFiltros);
-    return [...new Set(base.map((f) => f.proveedorNombre))].sort((a, b) => a.localeCompare(b, "es"));
-  }, [filas, estadoFiltros]);
-
-  const rubrosOpciones = useMemo(() => {
-    const base = filasParaOpcionesDesplegable(filas, "rubro", estadoFiltros);
-    return [...new Set(base.map((f) => f.rubroNombre))].sort((a, b) => a.localeCompare(b, "es"));
-  }, [filas, estadoFiltros]);
-
-  const gastosOpciones = useMemo(() => {
-    const base = filasParaOpcionesDesplegable(filas, "gasto", estadoFiltros);
-    return [...new Set(base.map((f) => f.gastoNombre))].sort((a, b) => a.localeCompare(b, "es"));
-  }, [filas, estadoFiltros]);
+  const sucursalesOpciones = useMemo(
+    () =>
+      [...new Set(filasSinSucursal.map((f) => f.sucursalNombre))].sort((a, b) =>
+        a.localeCompare(b, "es")
+      ),
+    [filasSinSucursal]
+  );
 
   useEffect(() => {
     if (filtSucursal && !sucursalesOpciones.includes(filtSucursal)) setFiltSucursal("");
   }, [filtSucursal, sucursalesOpciones]);
 
-  useEffect(() => {
-    if (filtProveedor && !proveedoresOpciones.includes(filtProveedor)) setFiltProveedor("");
-  }, [filtProveedor, proveedoresOpciones]);
-
-  useEffect(() => {
-    if (filtRubro && !rubrosOpciones.includes(filtRubro)) setFiltRubro("");
-  }, [filtRubro, rubrosOpciones]);
-
-  useEffect(() => {
-    if (filtGasto && !gastosOpciones.includes(filtGasto)) setFiltGasto("");
-  }, [filtGasto, gastosOpciones]);
-
-  const filasFiltradas = useMemo(() => {
-    let out = aplicarFiltroTipoFilas(filas, filtTipo);
-    if (filtRubro) out = out.filter((f) => f.rubroNombre === filtRubro);
-    if (filtGasto) out = out.filter((f) => f.gastoNombre === filtGasto);
-    if (filtSucursal) out = out.filter((f) => f.sucursalNombre === filtSucursal);
-    if (filtProveedor) out = out.filter((f) => f.proveedorNombre === filtProveedor);
-    out = aplicarFiltroEstadoFilas(out, filtEstado);
-    return out;
-  }, [filas, filtTipo, filtRubro, filtGasto, filtSucursal, filtProveedor, filtEstado]);
+  const filasFiltradas = useMemo(
+    () =>
+      filtSucursal
+        ? filasSinSucursal.filter((f) => f.sucursalNombre === filtSucursal)
+        : filasSinSucursal,
+    [filasSinSucursal, filtSucursal]
+  );
 
   /** Periodo: cero o más meses + `anio`. Sin meses = todo el año. */
   function navegarPeriodo(nuevosMeses: number[], nuevoAnio: number) {
@@ -308,10 +275,9 @@ export default function FinanzasBalanceGastosPageClient({
   const labelMeses = etiquetaMesesSeleccionados(meses);
 
   function limpiarFiltros() {
-    setFiltRubro("");
-    setFiltGasto("");
     setFiltSucursal("");
-    setFiltProveedor("");
+    setQ("");
+    setQDebounced("");
     setFiltEstado("");
     setFiltTipo("");
   }
@@ -452,15 +418,15 @@ export default function FinanzasBalanceGastosPageClient({
 
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtProveedor)}
-                  onLimpiar={() => setFiltProveedor("")}
+                  activo={Boolean(filtTipo)}
+                  onLimpiar={() => setFiltTipo("")}
                 >
                   <Select
-                    value={filtProveedor ?? ""}
-                    onValueChange={(v) => setFiltProveedor(v)}
+                    value={filtTipo ?? ""}
+                    onValueChange={(v) => setFiltTipo(v as FiltroTipoBalanceGastos)}
                   >
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="PROVEEDOR" />
+                    <SelectTrigger className="input-filtro-unificado" aria-label="Tipo de gasto (mensual / eventual)">
+                      <SelectValue placeholder="TIPO" />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -468,59 +434,8 @@ export default function FinanzasBalanceGastosPageClient({
                       align="start"
                       className="select-content-filtro"
                     >
-                      {proveedoresOpciones.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtRubro)}
-                  onLimpiar={() => setFiltRubro("")}
-                >
-                  <Select value={filtRubro ?? ""} onValueChange={(v) => setFiltRubro(v)}>
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="RUBRO" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      className="select-content-filtro"
-                    >
-                      {rubrosOpciones.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtGasto)}
-                  onLimpiar={() => setFiltGasto("")}
-                >
-                  <Select value={filtGasto ?? ""} onValueChange={(v) => setFiltGasto(v)}>
-                    <SelectTrigger className="input-filtro-unificado">
-                      <SelectValue placeholder="GASTO" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      className="select-content-filtro"
-                    >
-                      {gastosOpciones.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="mensual">MENSUAL</SelectItem>
+                      <SelectItem value="eventual">EVENTUAL</SelectItem>
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
@@ -550,11 +465,7 @@ export default function FinanzasBalanceGastosPageClient({
                     </SelectContent>
                   </Select>
                 </FiltroIndividualContainer>
-              </FilaFiltrosDesplegables>
-            </FilterRowSelection>
 
-            <FilterRowSelection className="w-full min-w-0">
-              <FilaFiltrosDesplegables>
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={anio !== anioHoy}
@@ -660,36 +571,21 @@ export default function FinanzasBalanceGastosPageClient({
                     ) : null}
                   </div>
                 </FiltroIndividualContainer>
-
-                <FiltroIndividualContainer
-                  className={FILTER_SELECT_WRAPPER_CLASS}
-                  activo={Boolean(filtTipo)}
-                  onLimpiar={() => setFiltTipo("")}
-                >
-                  <Select
-                    value={filtTipo ?? ""}
-                    onValueChange={(v) => setFiltTipo(v as FiltroTipoBalanceGastos)}
-                  >
-                    <SelectTrigger className="input-filtro-unificado" aria-label="Tipo de gasto (mensual / eventual)">
-                      <SelectValue placeholder="TIPO" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      className="select-content-filtro"
-                    >
-                      <SelectItem value="mensual">MENSUAL</SelectItem>
-                      <SelectItem value="eventual">EVENTUAL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FiltroIndividualContainer>
-
-                <div className={cn(FILTER_INLINE_ACTION_SLOT_CLASS, "col-span-2 gap-2")}>
-                  <LimpiarFiltrosButton onClick={limpiarFiltros} />
-                </div>
               </FilaFiltrosDesplegables>
             </FilterRowSelection>
+            <div className="flex items-center gap-3">
+              <FilterRowSearch className="flex-1">
+                <FiltroBusquedaInput
+                  id="filtro-balance-gastos-busqueda"
+                  placeholder="BUSCAR EN FECHA, SUCURSAL, TIPO GASTO, PROVEEDOR, RUBRO, GASTO O MONTO..."
+                  value={q}
+                  onChange={handleQChange}
+                  isDebouncing={isDebouncing}
+                  inputRef={searchRef}
+                />
+              </FilterRowSearch>
+              <LimpiarFiltrosButton onClick={limpiarFiltros} />
+            </div>
           </FilterBar>
         }
       >
