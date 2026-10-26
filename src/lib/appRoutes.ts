@@ -98,6 +98,7 @@ export const APP_ROUTES = {
       cxMercVend: `${FINANZAS}/balance/cx-merc-vend`,
       cxFinCobros: `${FINANZAS}/balance/cx-fin-cobros`,
       balanceIva: `${FINANZAS}/balance/balance-iva`,
+      balanceIibb: `${FINANZAS}/balance/balance-iibb`,
     },
     operaciones: {
       compCompras: `${FINANZAS}/operaciones/comp-compras`,

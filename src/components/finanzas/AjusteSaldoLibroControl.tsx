@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { crearAjusteBalIvaAction } from "@/actions/balIva";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
@@ -21,39 +20,49 @@ import {
 } from "@/components/ui/select";
 import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import { montoArNormalizedStringToCents } from "@/lib/montoArMask";
-import { COLUMNAS_AJUSTE_BAL_IVA, type ColumnaAjusteBalIva } from "@/lib/validations/balIva";
+import type { ActionResult } from "@/lib/types";
 
-const ETIQUETA_COLUMNA: Record<ColumnaAjusteBalIva, string> = {
-  DEBITO: "DÉBITO",
-  CREDITO: "CRÉDITO",
-};
+export interface AjusteSaldoLibroInput<T extends string> {
+  fechaIso: string;
+  movimiento: T;
+  /** Pesos enteros > 0. */
+  monto: number;
+}
 
-interface Props {
+interface Props<T extends string> {
+  /** Opciones del select MOVIMIENTO (la primera es el default). */
+  movimientos: readonly { value: T; label: string }[];
+  guardar: (input: AjusteSaldoLibroInput<T>) => Promise<ActionResult<unknown>>;
   onCreado: () => void;
 }
 
-export default function AjusteSaldoBalIvaControl({ onCreado }: Props) {
+/** Botón **AJUSTE SALDO** de los libros de Balance (IVA, IIBB): FECHA + MOVIMIENTO + MONTO entero. */
+export default function AjusteSaldoLibroControl<T extends string>({
+  movimientos,
+  guardar,
+  onCreado,
+}: Props<T>) {
   const [open, setOpen] = useState(false);
   const [fechaIso, setFechaIso] = useState("");
-  const [columna, setColumna] = useState<ColumnaAjusteBalIva>("DEBITO");
+  const [movimiento, setMovimiento] = useState<T | null>(null);
   const [montoNorm, setMontoNorm] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   const monto = Math.round(montoArNormalizedStringToCents(montoNorm) / 100);
-  const puedeGuardar = fechaIso !== "" && monto > 0 && !guardando;
+  const puedeGuardar = fechaIso !== "" && movimiento !== null && monto > 0 && !guardando;
 
   function abrir() {
     setFechaIso(dateToIsoYmdArgentina(new Date()));
-    setColumna("DEBITO");
+    setMovimiento(movimientos[0]?.value ?? null);
     setMontoNorm("");
     setOpen(true);
   }
 
-  async function guardar() {
-    if (!puedeGuardar) return;
+  async function confirmar() {
+    if (!puedeGuardar || movimiento === null) return;
     setGuardando(true);
     try {
-      const res = await crearAjusteBalIvaAction({ fechaIso, columna, monto });
+      const res = await guardar({ fechaIso, movimiento, monto });
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -79,7 +88,7 @@ export default function AjusteSaldoBalIvaControl({ onCreado }: Props) {
                 <Button type="button" variant="outline" disabled={guardando} onClick={() => setOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="button" disabled={!puedeGuardar} onClick={() => void guardar()}>
+                <Button type="button" disabled={!puedeGuardar} onClick={() => void confirmar()}>
                   {guardando ? "Guardando..." : "Guardar"}
                 </Button>
               </>
@@ -97,14 +106,17 @@ export default function AjusteSaldoBalIvaControl({ onCreado }: Props) {
               </label>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>MOVIMIENTO</ModalMicroLabel>
-                <Select value={columna} onValueChange={(v) => setColumna(v as ColumnaAjusteBalIva)}>
+                <Select
+                  value={movimiento ?? undefined}
+                  onValueChange={(v) => setMovimiento(movimientos.find((m) => m.value === v)?.value ?? null)}
+                >
                   <SelectTrigger className={SELECT_TRIGGER_FILTER_CLASS} aria-label="Movimiento">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
-                    {COLUMNAS_AJUSTE_BAL_IVA.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {ETIQUETA_COLUMNA[c]}
+                    {movimientos.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

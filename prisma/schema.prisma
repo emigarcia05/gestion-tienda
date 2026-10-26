@@ -425,7 +425,6 @@ model Sucursal {
   pedidosHistoria                PedidoHistoria[]
   finBalGastoFinal               FinBalGastoFinal[]
   finBalGastoMensualImputaciones FinBalGastoMensual[]   @relation("FinBalGastoMensualImputacionSucursal")
-  finBalVtas                     FinBalVtas[]
   estPorProd                     EstPorProd[]
   personalSucursalPorDefecto     GlobalPersonal[]       @relation("PersonalSucursalPorDefecto")
   enviosFinal                    EnviosFinal[]
@@ -1054,37 +1053,6 @@ model FinBalGastoMensual {
 }
 
 /**
- * Cargas de ventas para balance (`fin_bal_vtas`).
- * La sucursal debe existir en `sucursales` con `genera_balance = true` (validado en servicio).
- * `mes` / `anio`: periodo calendario (1–12 / año) al que aplica el monto.
- */
-model FinBalVtas {
-  id         String   @id @default(cuid())
-  sucursalId String   @map("sucursal_id")
-  /**
-   * Mes calendario 1–12.
-   */
-  mes        Int
-  /**
-   * Año calendario (columna física `anio`).
-   */
-  anio       Int      @map("anio")
-  /**
-   * Monto entero cargado desde la UI (pesos u otra unidad de negocio).
-   */
-  monto      Int
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  sucursal Sucursal @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
-
-  @@unique([sucursalId, mes, anio], map: "fin_bal_vtas_sucursal_mes_anio_ux")
-  @@index([sucursalId])
-  @@index([anio, mes])
-  @@map("fin_bal_vtas")
-}
-
-/**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
  * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
  * `cod_tienda` referencia `prod_lista.cod_tienda` (código numérico DUX importado como texto).
@@ -1268,6 +1236,40 @@ model BalIva {
 
   @@index([fecha], map: "bal_iva_fecha_idx")
   @@map("bal_iva")
+}
+
+/**
+ * Origen de una fila de Balance IIBB: VENTA usa `comprobante_vta_id`; AJUSTE (manual) ninguna FK
+ * (CHECK `bal_iibb_origen_chk`).
+ */
+enum OrigenBalIibb {
+  VENTA
+  AJUSTE
+}
+
+/**
+ * Libro Balance IIBB: una fila por movimiento que genera IIBB débito (sin crédito). VENTA =
+ * factura / NC fiscal autorizada de un punto de venta RI, débito = (total / 1,21) × 4 % (NC en
+ * negativo), atada al comprobante (Cascade). AJUSTE = fila manual (suma +, resta −).
+ * Saldo = Σ débito (se calcula al leer).
+ */
+model BalIibb {
+  id               String        @id @default(cuid())
+  origen           OrigenBalIibb
+  fecha            DateTime      @db.Date
+  descripcion      String        @db.VarChar(255)
+  /**
+   * Con signo: NC y ajustes que restan en negativo.
+   */
+  debito           Decimal       @default(0) @db.Decimal(14, 2)
+  comprobanteVtaId String?       @unique(map: "bal_iibb_comprobante_vta_key") @map("comprobante_vta_id")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  comprobanteVta ComprobanteVta? @relation(fields: [comprobanteVtaId], references: [id], onDelete: Cascade)
+
+  @@index([fecha], map: "bal_iibb_fecha_idx")
+  @@map("bal_iibb")
 }
 
 model ListaPrecioProveedor {
@@ -3023,6 +3025,7 @@ model ComprobanteVta {
   cxMercaderia               BalCxMercaderia[]
   cxFinanciero               BalCxFinanciero[]
   balIva                     BalIva?
+  balIibb                    BalIibb?
   cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")

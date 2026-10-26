@@ -35,8 +35,9 @@ import {
 } from "@/services/finBalGastoMensualBalance.service";
 import { listarSerieHistorialFilaBalanceMensual } from "@/services/balanceMensualHistorialFila.service";
 import {
-  listarFinBalVtasPorMesAnio,
-} from "@/services/finBalVtas.service";
+  listarSucursalesGeneraBalance,
+  ventasPorSucursalNombreMes,
+} from "@/services/ventasMensuales.service";
 
 function revalidateGastosPaths(): void {
   revalidatePath("/finanzas");
@@ -239,7 +240,7 @@ export async function listarSerieHistorialFilaBalanceMensualAction(
   }
 }
 
-/** Imputaciones del mes y ventas `fin_bal_vtas` para armar el mismo resumen que la página (p. ej. desglose al elegir una barra del historial). */
+/** Imputaciones del mes y ventas (comprobantes, `ventasMensuales.service`) para armar el mismo resumen que la página (p. ej. desglose al elegir una barra del historial). */
 export async function cargarFilasBalanceMensualPeriodoAction(
   raw: unknown,
 ): Promise<
@@ -256,14 +257,11 @@ export async function cargarFilasBalanceMensualPeriodoAction(
 
   const { mes, anio } = parsed.data;
   try {
-    const [filas, vtasMes] = await Promise.all([
+    const [filas, sucursales] = await Promise.all([
       listarImputacionesMensualesBalance({ meses: [mes], anio }),
-      listarFinBalVtasPorMesAnio(mes, anio),
+      listarSucursalesGeneraBalance(),
     ]);
-    const ventasPorSucursalNombre: Record<string, number> = {};
-    for (const v of vtasMes) {
-      ventasPorSucursalNombre[v.sucursal.nombre] = v.monto;
-    }
+    const ventasPorSucursalNombre = await ventasPorSucursalNombreMes(mes, anio, sucursales);
     return { ok: true, data: { filas, ventasPorSucursalNombre } };
   } catch (e: unknown) {
     const msg =

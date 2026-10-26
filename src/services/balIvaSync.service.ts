@@ -3,7 +3,8 @@
  * crea, actualiza o borra la única fila del origen según su estado actual. Llamar en la misma
  * transacción que la escritura del origen. Borrar el origen borra la fila (Cascade).
  *
- * - VENTA: factura / NC fiscal autorizada con IVA → DÉBITO (NC en negativo).
+ * - VENTA: factura / NC fiscal autorizada con IVA, de un punto de venta RI
+ *   (`ptos_vtas.condicion_iva = 1`) → DÉBITO (NC en negativo).
  * - COMPRA_MERCADERIA: comprobante de compra `fiscal` → CRÉDITO 21 % incluido en el total (NC en negativo).
  * - GASTO: imputación con `iva` y monto > 0 → CRÉDITO 21 % incluido en el monto.
  * - CX_FINANCIERO: cobro con Cx Fin cuyo vínculo `genera_iva_credito` → CRÉDITO = IVA del costo de
@@ -12,7 +13,7 @@
 import { Prisma, type OrigenBalIva } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { esFacturaTipo, esFacturaTipoFiscal, esFacturaTipoNotaCredito } from "@/lib/factura";
-import { formatoNroComprobante } from "@/lib/facturaFiscal";
+import { ARCA_CONDICION_IVA, formatoNroComprobante } from "@/lib/facturaFiscal";
 import { ivaFinAnaCosFina } from "@/lib/finAnaCosFina";
 import { ivaCreditoDesdeTotalConIva21 } from "@/lib/ivaDesdeTotalBruto21";
 import { TIPO_COMP_COMPRA } from "@/lib/numeroComprobanteCompra";
@@ -65,7 +66,7 @@ async function guardarLineaBalIva(
   });
 }
 
-function nroComprobanteVta(c: {
+export function nroComprobanteVta(c: {
   letra: string | null;
   ptoVenta: string;
   cbteNro: number | null;
@@ -91,11 +92,20 @@ export async function sincronizarIvaVenta(
       ptoVenta: true,
       cbteNro: true,
       receptorNombre: true,
+      ptoVta: { select: { condicionIva: true } },
     },
   });
   const tipo = c && esFacturaTipo(c.tipoComprobante) ? c.tipoComprobante : null;
   const iva = c ? redondear2(Number(c.impIva) * Number(c.cotizacion)) : 0;
-  if (!c || !tipo || !esFacturaTipoFiscal(tipo) || c.estado !== "autorizado" || !c.cae || iva <= 0) {
+  if (
+    !c ||
+    !tipo ||
+    !esFacturaTipoFiscal(tipo) ||
+    c.ptoVta.condicionIva !== ARCA_CONDICION_IVA.RI ||
+    c.estado !== "autorizado" ||
+    !c.cae ||
+    iva <= 0
+  ) {
     await guardarLineaBalIva(db, { comprobanteVtaId }, null);
     return;
   }

@@ -9,9 +9,9 @@ import {
   type HistoricoMontoGastoFinalBalanceItem,
 } from "@/services/finBalGastoMensualBalance.service";
 import {
-  listarFinBalVtasPorMesAnio,
-  listarSucursalesGeneraBalanceParaVtas,
-} from "@/services/finBalVtas.service";
+  listarSucursalesGeneraBalance,
+  ventasPorSucursalNombreMes,
+} from "@/services/ventasMensuales.service";
 
 const MESES_CORTO_ES: Record<number, string> = {
   1: "ene",
@@ -45,7 +45,7 @@ export async function listarSerieHistorialFilaBalanceMensual(params: {
   anioFin: number;
   cantidadMeses: number;
 }): Promise<HistoricoMontoGastoFinalBalanceItem[]> {
-  const sucursales = await listarSucursalesGeneraBalanceParaVtas();
+  const sucursales = await listarSucursalesGeneraBalance();
   const periodos = ventanaMesesHastaFinAsc(
     params.mesFin,
     params.anioFin,
@@ -57,14 +57,10 @@ export async function listarSerieHistorialFilaBalanceMensual(params: {
     const slice = periodos.slice(i, i + BATCH_PERIODOS);
     const chunk = await Promise.all(
       slice.map(async ({ mes, anio }) => {
-        const [filas, vtasMes] = await Promise.all([
+        const [filas, ventasPorSucursalNombre] = await Promise.all([
           listarImputacionesMensualesBalance({ meses: [mes], anio }),
-          listarFinBalVtasPorMesAnio(mes, anio),
+          ventasPorSucursalNombreMes(mes, anio, sucursales),
         ]);
-        const ventasPorSucursalNombre: Record<string, number> = {};
-        for (const v of vtasMes) {
-          ventasPorSucursalNombre[v.sucursal.nombre] = v.monto;
-        }
         const resumen = resumenBalanceMensualDesdeFilas(
           filas,
           ventasPorSucursalNombre,

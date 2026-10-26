@@ -98,7 +98,7 @@ export function repartoIgualEnteros(total: number, cantidad: number): number[] {
  *
  * Clasificación costos: tipo contiene `VARIABLE` → variable; `FIJO` → fijo; si no, **fijo**.
  *
- * **Ventas:** montos cargados en `fin_bal_vtas` por sucursal / mes / año (`ventasPorSucursalNombre`).
+ * **Ventas:** suma de comprobantes de venta por sucursal / mes (`ventasPorSucursalNombreMes`, NC restan).
  * El bloque **Global** usa la suma de esas ventas (solo sucursales que generan balance en el periodo).
  */
 export function resumenBalanceMensualDesdeFilas(

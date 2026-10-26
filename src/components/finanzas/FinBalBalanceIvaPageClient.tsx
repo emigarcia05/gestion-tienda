@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { eliminarAjusteBalIvaAction } from "@/actions/balIva";
+import { crearAjusteBalIvaAction, eliminarAjusteBalIvaAction } from "@/actions/balIva";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -16,7 +16,7 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
-import AjusteSaldoBalIvaControl from "@/components/finanzas/AjusteSaldoBalIvaControl";
+import AjusteSaldoLibroControl from "@/components/finanzas/AjusteSaldoLibroControl";
 import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
 import PedidoHistoriaLecturaModal from "@/components/pedidos/PedidoHistoriaLecturaModal";
 import AppModal from "@/components/shared/AppModal";
@@ -49,6 +49,7 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import type { ColumnaAjusteBalIva } from "@/lib/validations/balIva";
 import type {
   BalanceIvaData,
   ComprobanteOrigenBalIva,
@@ -58,6 +59,11 @@ import type {
 const BASE_PATH = APP_ROUTES.finanzas.balance.balanceIva;
 
 const TD_NUM = "celda-datos celda-numero tabular-nums text-right";
+
+const MOVIMIENTOS_AJUSTE: readonly { value: ColumnaAjusteBalIva; label: string }[] = [
+  { value: "DEBITO", label: "DÉBITO" },
+  { value: "CREDITO", label: "CRÉDITO" },
+];
 
 interface Props {
   data: BalanceIvaData;
@@ -105,7 +111,17 @@ export default function FinBalBalanceIvaPageClient({ data, esEditor }: Props) {
       title="FINANZAS"
       subtitle="Balance IVA"
       contentWidth="full"
-      actions={esEditor ? <AjusteSaldoBalIvaControl onCreado={() => router.refresh()} /> : undefined}
+      actions={
+        esEditor ? (
+          <AjusteSaldoLibroControl
+            movimientos={MOVIMIENTOS_AJUSTE}
+            guardar={({ fechaIso, movimiento, monto }) =>
+              crearAjusteBalIvaAction({ fechaIso, columna: movimiento, monto })
+            }
+            onCreado={() => router.refresh()}
+          />
+        ) : undefined
+      }
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
           <FilterRowSelection>

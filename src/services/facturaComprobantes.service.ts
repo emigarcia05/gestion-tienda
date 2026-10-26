@@ -25,6 +25,7 @@ import {
   obtenerClienteListaPorId,
   saldosCuentaCorrientePorCliente,
 } from "@/services/clientes.service";
+import { sincronizarIibbVenta } from "@/services/balIibbSync.service";
 import { sincronizarIvaVenta } from "@/services/balIvaSync.service";
 import { rubrosPorCodigosTienda } from "@/services/facturaProductos.service";
 import {
@@ -183,6 +184,16 @@ async function asegurarStockTrasAutorizar(
       success: false,
       error:
         "El comprobante se emitió, pero no se registró en Balance IVA. Consultá el comprobante en ARCA para reintentar.",
+    };
+  }
+  try {
+    await sincronizarIibbVenta(emitido.data.id);
+  } catch (e) {
+    console.error("[sincronizarIibbVenta]", e);
+    return {
+      success: false,
+      error:
+        "El comprobante se emitió, pero no se registró en Balance IIBB. Consultá el comprobante en ARCA para reintentar.",
     };
   }
   return emitido;

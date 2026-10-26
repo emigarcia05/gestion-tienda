@@ -10,9 +10,9 @@ import {
   mesAnioCalendarioArgentina,
 } from "@/services/finBalGastoMensualBalance.service";
 import {
-  listarFinBalVtasPorMesAnio,
-  listarSucursalesGeneraBalanceParaVtas,
-} from "@/services/finBalVtas.service";
+  listarSucursalesGeneraBalance,
+  ventasPorSucursalNombreMes,
+} from "@/services/ventasMensuales.service";
 
 export const dynamic = "force-dynamic";
 
@@ -60,15 +60,11 @@ export default async function BalanceMensualPage({ searchParams }: Props) {
   }
 
   const { mes, anio } = parsed.data;
-  const [filas, sucursalesBalance, vtasMes] = await Promise.all([
+  const [filas, sucursalesBalance] = await Promise.all([
     listarImputacionesMensualesBalance({ meses: [mes], anio }),
-    listarSucursalesGeneraBalanceParaVtas(),
-    listarFinBalVtasPorMesAnio(mes, anio),
+    listarSucursalesGeneraBalance(),
   ]);
-  const ventasPorSucursalNombre: Record<string, number> = {};
-  for (const v of vtasMes) {
-    ventasPorSucursalNombre[v.sucursal.nombre] = v.monto;
-  }
+  const ventasPorSucursalNombre = await ventasPorSucursalNombreMes(mes, anio, sucursalesBalance);
   const resumen = resumenBalanceMensualDesdeFilas(filas, ventasPorSucursalNombre, sucursalesBalance);
 
   return (
