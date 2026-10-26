@@ -25,6 +25,7 @@ import {
   obtenerClienteListaPorId,
   saldosCuentaCorrientePorCliente,
 } from "@/services/clientes.service";
+import { sincronizarIvaVenta } from "@/services/balIvaSync.service";
 import { rubrosPorCodigosTienda } from "@/services/facturaProductos.service";
 import {
   listarVentasPendientesPagoCuentaCorriente,
@@ -172,6 +173,16 @@ async function asegurarStockTrasAutorizar(
     return {
       success: false,
       error: `El comprobante se emitió, pero no se registró el stock: ${stock.error}`,
+    };
+  }
+  try {
+    await sincronizarIvaVenta(emitido.data.id);
+  } catch (e) {
+    console.error("[sincronizarIvaVenta]", e);
+    return {
+      success: false,
+      error:
+        "El comprobante se emitió, pero no se registró en Balance IVA. Consultá el comprobante en ARCA para reintentar.",
     };
   }
   return emitido;

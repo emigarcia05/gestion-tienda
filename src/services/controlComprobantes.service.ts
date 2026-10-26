@@ -25,6 +25,7 @@ import type {
   RegistrarPagoCuentaCorrienteProveedoresInput,
 } from "@/lib/validations/controlComprobantes";
 import { TIPO_COMP_COMPRA } from "@/lib/numeroComprobanteCompra";
+import { sincronizarIvaComprobanteCompra } from "@/services/balIvaSync.service";
 import type { ServiceResult } from "@/types/service.types";
 
 export interface ControlComprobanteFila {
@@ -471,6 +472,7 @@ export async function registrarNotaCreditoBonificacion(
         idSucursalEmpresa: true,
         idProveedor: true,
         tipoComp: true,
+        fiscal: true,
         total: true,
         montoAplicado: true,
       },
@@ -495,10 +497,11 @@ export async function registrarNotaCreditoBonificacion(
     const montoDec = new Prisma.Decimal(monto.toFixed(2));
     await prisma.$transaction(async (tx) => {
       await aplicarImputacionesCompra(tx, [{ id: original.id, asignado: monto }]);
-      await tx.comprobanteProveedor.create({
+      const nc = await tx.comprobanteProveedor.create({
         data: {
           idSucursalEmpresa: original.idSucursalEmpresa,
           tipoComp: TIPO_COMP_COMPRA.NOTA_CREDITO,
+          fiscal: original.fiscal,
           comprobante: input.numero,
           fechaComp: fecha,
           idProveedor: original.idProveedor,
@@ -506,7 +509,9 @@ export async function registrarNotaCreditoBonificacion(
           montoAplicado: montoDec,
           comprobanteAsocId: original.id,
         },
+        select: { id: true },
       });
+      await sincronizarIvaComprobanteCompra(nc.id, tx);
     });
     return { success: true, data: undefined };
   } catch (e) {

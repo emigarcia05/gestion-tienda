@@ -1,10 +1,9 @@
 /**
- * Token de revisión para detectar cambios en insumos del saldo IVA (Posición IVA)
+ * Token de revisión para detectar cambios en el saldo IVA (Balance IVA · `bal_iva`)
  * que afectan la comparación de proveedores en pedidos.
  */
 
-import { prisma } from "@/lib/prisma";
-import { TIPO_COMP_FACTURA_IVA_CREDITO } from "@/services/finBalPosicionIva.service";
+import { huellaBalIva } from "@/services/balIva.service";
 import { getEstadoIvaComparacionPedido } from "@/services/finBalPosicionIvaComparacionPedido.service";
 
 function isoMaxUpdatedAt(d: Date | null | undefined): string {
@@ -13,23 +12,12 @@ function isoMaxUpdatedAt(d: Date | null | undefined): string {
 }
 
 /**
- * Huella estable: acumulado usado en pedidos + signo (>0 / ≤0) + últimas mutaciones
- * en débito y crédito (gastos con IVA y facturas).
+ * Huella estable: acumulado usado en pedidos + signo (>0 / ≤0) + config manual + cambios del libro.
  */
 export async function getPosicionIvaComparacionRevisionToken(): Promise<string> {
-  const [estadoComparacion, debMax, gastoMax, facturaMax] = await Promise.all([
+  const [estadoComparacion, huellaLibro] = await Promise.all([
     getEstadoIvaComparacionPedido(),
-    prisma.finBalIvaDebImportLine.aggregate({ _max: { updatedAt: true } }),
-    prisma.finBalGastoMensual.aggregate({
-      where: { iva: true },
-      _max: { updatedAt: true },
-    }),
-    prisma.comprobanteProveedor.aggregate({
-      where: {
-        tipoComp: { equals: TIPO_COMP_FACTURA_IVA_CREDITO, mode: "insensitive" },
-      },
-      _max: { updatedAt: true },
-    }),
+    huellaBalIva(),
   ]);
 
   const acumulado = estadoComparacion.saldoEfectivoComparacion;
@@ -41,8 +29,6 @@ export async function getPosicionIvaComparacionRevisionToken(): Promise<string> 
     sign,
     String(acumRounded),
     isoMaxUpdatedAt(estadoComparacion.updatedAt),
-    isoMaxUpdatedAt(debMax._max.updatedAt),
-    isoMaxUpdatedAt(gastoMax._max.updatedAt),
-    isoMaxUpdatedAt(facturaMax._max.updatedAt),
+    huellaLibro,
   ].join("|");
 }

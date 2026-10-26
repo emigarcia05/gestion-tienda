@@ -60,7 +60,7 @@ export default function ConfigurarIvaComparacionPedidosControl({
   const handleGuardar = useCallback(() => {
     const saldo = montoArSaldoEnteroPartsToPesos(magnitudeNorm, esNegativo);
     if (saldo === null) {
-      toast.error("Ingresá la posición IVA.");
+      toast.error("Ingresá el saldo IVA.");
       return;
     }
 
@@ -74,7 +74,7 @@ export default function ConfigurarIvaComparacionPedidosControl({
         return;
       }
       setEstado(result.data);
-      toast.success("Posición IVA para comparación guardada.");
+      toast.success("Saldo IVA para comparación guardado.");
       setOpen(false);
       onActualizado?.();
     });
@@ -125,7 +125,7 @@ export default function ConfigurarIvaComparacionPedidosControl({
       >
         <div className="grid grid-cols-[1.35fr_minmax(0,1fr)] gap-x-4 gap-y-2 items-center">
           <label htmlFor="posicion-iva-comparacion-saldo" className="text-right font-medium text-sm text-foreground">
-            POSICION IVA
+            SALDO IVA
           </label>
           <MontoArSaldoEnteroInput
             id="posicion-iva-comparacion-saldo"

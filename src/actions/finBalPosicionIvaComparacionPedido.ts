@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { revalidatePedidoUrgenteTrasCambioIvaSaldo } from "@/lib/revalidatePedidoUrgenteTrasCambioIvaSaldo";
 import { requireEditorFinanzas } from "@/lib/actionGates";
+import { APP_ROUTES } from "@/lib/appRoutes";
 import type { ActionResult } from "@/lib/types";
 import { guardarIvaComparacionPedidoSchema } from "@/lib/validations/finBalPosicionIvaComparacionPedido";
 import {
@@ -33,7 +34,7 @@ export async function guardarIvaComparacionPedidoAction(
       usarValorConfigurado: parsed.data.usarValorConfigurado,
       saldoPesos: parsed.data.saldoPesos,
     });
-    revalidatePath("/finanzas/impuestos/posicion-iva");
+    revalidatePath(APP_ROUTES.finanzas.balance.balanceIva);
     revalidatePedidoUrgenteTrasCambioIvaSaldo();
     return { ok: true, data: estado };
   } catch (e) {

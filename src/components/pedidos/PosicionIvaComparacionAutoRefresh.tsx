@@ -3,7 +3,7 @@
 import { usePosicionIvaComparacionAutoRefresh } from "@/lib/hooks/usePosicionIvaComparacionAutoRefresh";
 
 /**
- * En pantallas de pedido que resuelven proveedor por Posición IVA, consulta periódicamente
+ * En pantallas de pedido que resuelven proveedor por saldo de Balance IVA, consulta periódicamente
  * si cambió el saldo/comparación y ejecuta `router.refresh()` para actualizar la grilla.
  */
 export default function PosicionIvaComparacionAutoRefresh({

@@ -97,13 +97,11 @@ export const APP_ROUTES = {
       ventasMensuales: `${FINANZAS}/balance/ventas-mensuales`,
       cxMercVend: `${FINANZAS}/balance/cx-merc-vend`,
       cxFinCobros: `${FINANZAS}/balance/cx-fin-cobros`,
+      balanceIva: `${FINANZAS}/balance/balance-iva`,
     },
     operaciones: {
       compCompras: `${FINANZAS}/operaciones/comp-compras`,
       vencGastos: `${FINANZAS}/operaciones/venc-gastos`,
-    },
-    impuestos: {
-      posicionIva: `${FINANZAS}/impuestos/posicion-iva`,
     },
   },
   marketing: {
@@ -296,7 +294,6 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   // Finanzas · módulos sin función propia
   ["/finanzas/tesoreria", R.finanzas.tesoreria.cajas],
   ["/finanzas/operaciones", R.finanzas.operaciones.compCompras],
-  ["/finanzas/impuestos", R.finanzas.impuestos.posicionIva],
 
   // Finanzas · TESORERIA
   ["/finanzas/venc-por-fecha", R.finanzas.tesoreria.flujoDeFondos],
@@ -313,9 +310,11 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/finanzas/venc-proveedores-mercaderia", R.finanzas.operaciones.compCompras],
   ["/finanzas/vencimientos-gastos", R.finanzas.operaciones.vencGastos],
 
-  // Finanzas · IMPUESTOS
-  ["/finanzas/posicion-iva", R.finanzas.impuestos.posicionIva],
-  ["/finanzas/balance/posicion-iva", R.finanzas.impuestos.posicionIva],
+  // Finanzas · ex IMPUESTOS (Posición De IVA → Balance IVA)
+  ["/finanzas/impuestos", R.finanzas.balance.balanceIva],
+  ["/finanzas/impuestos/posicion-iva", R.finanzas.balance.balanceIva],
+  ["/finanzas/posicion-iva", R.finanzas.balance.balanceIva],
+  ["/finanzas/balance/posicion-iva", R.finanzas.balance.balanceIva],
 
   // Marketing
   ["/marketing/publicaciones", R.marketing.publicaciones.calendario],

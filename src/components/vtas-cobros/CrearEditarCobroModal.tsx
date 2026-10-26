@@ -62,7 +62,6 @@ export default function CrearEditarCobroModal({
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [generaIvaCredito, setGeneraIvaCredito] = useState(false);
-  const [costoIncluyeIva, setCostoIncluyeIva] = useState(true);
   const [esCheque, setEsCheque] = useState(false);
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
@@ -79,7 +78,6 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setGeneraIvaCredito(fila.generaIvaCredito);
-      setCostoIncluyeIva(fila.costoIncluyeIva);
       setEsCheque(fila.esCheque);
       setObservacion(fila.observacion);
       return;
@@ -89,7 +87,6 @@ export default function CrearEditarCobroModal({
     setSucursalId("");
     setCajaDestinoId("");
     setGeneraIvaCredito(false);
-    setCostoIncluyeIva(true);
     setEsCheque(false);
     setObservacion("");
   }, [open, esEditar, fila]);
@@ -145,7 +142,6 @@ export default function CrearEditarCobroModal({
             id: fila.id,
             cajaDestinoId,
             generaIvaCredito,
-            costoIncluyeIva,
             esCheque,
             observacion,
           })
@@ -155,7 +151,6 @@ export default function CrearEditarCobroModal({
             sucursalId,
             cajaDestinoId,
             generaIvaCredito,
-            costoIncluyeIva,
             esCheque,
             observacion,
           });
@@ -320,16 +315,9 @@ export default function CrearEditarCobroModal({
           </div>
 
           <ModalSiNoChoice
-            label="GENERA IVA CRÉDITO"
+            label="IVA CRED."
             value={generaIvaCredito}
             onChange={setGeneraIvaCredito}
-            disabled={saving}
-          />
-
-          <ModalSiNoChoice
-            label="COSTO INCLUYE IVA"
-            value={costoIncluyeIva}
-            onChange={setCostoIncluyeIva}
             disabled={saving}
           />
 

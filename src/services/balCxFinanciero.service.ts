@@ -6,6 +6,7 @@
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sincronizarIvaCxFinanciero } from "@/services/balIvaSync.service";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -14,8 +15,9 @@ function redondear2(n: number): number {
 }
 
 /**
- * Recalcula las filas de Cx Fin de esos movimientos (borra y vuelve a crear). Llamar en la misma
- * transacción después de crear un cobro o de reasignar/partir un anticipo a una venta.
+ * Recalcula las filas de Cx Fin de esos movimientos (borra y vuelve a crear) y su IVA crédito en
+ * Balance IVA. Llamar en la misma transacción después de crear un cobro o de reasignar/partir un
+ * anticipo a una venta.
  */
 export async function sincronizarCxFinancieroDeMovimientos(
   movimientoIds: readonly string[],
@@ -67,4 +69,5 @@ export async function sincronizarCxFinancieroDeMovimientos(
   if (filas.length > 0) {
     await db.balCxFinanciero.createMany({ data: filas });
   }
+  await sincronizarIvaCxFinanciero(ids, db);
 }

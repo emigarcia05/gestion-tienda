@@ -20,7 +20,7 @@ export function pxFinalCompraConIvaProveedor(pxSinIva: number, ivaProveedor: Iva
 
 /**
  * Precio comparable para ranking de proveedores cuando se compara **mismo ítem de tienda** entre listas:
- * regla según suma acumulada **IVA SALDO** en Posición IVA (`sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido`).
+ * regla según saldo acumulado de Balance IVA (`sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido`).
  * - **IVA SALDO > 0**: comparable = **`px_compra_final_sin_iva`**.
  * - **IVA SALDO ≤ 0**: comparable = **precio final con IVA** (`pxFinalCompraConIvaProveedor`: `SIEMPRE` × 1,21; `NUNCA` / `PREGUNTA` × 1).
  */

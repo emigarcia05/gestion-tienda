@@ -57,9 +57,8 @@ export type CobrosPorSucursalFila = {
   sucursalNombre: string;
   cajaDestinoId: string | null;
   cajaEtiqueta: string;
+  /** TRUE = Cx Fin con CX TOTAL S/ IVA; FALSE = C/ IVA. */
   generaIvaCredito: boolean;
-  /** TRUE = Cx Fin con CX TOTAL C/ IVA; FALSE = S/ IVA. */
-  costoIncluyeIva: boolean;
   /** De esta fila; no se hereda a otras sucursales. */
   esCheque: boolean;
   observacion: string;
@@ -239,7 +238,6 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           sucursalId: true,
           cajaDestinoId: true,
           generaIvaCredito: true,
-          costoIncluyeIva: true,
           esCheque: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
@@ -285,7 +283,6 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       cajaDestinoId: d.cajaDestinoId,
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       generaIvaCredito: d.generaIvaCredito,
-      costoIncluyeIva: d.costoIncluyeIva,
       esCheque: d.esCheque,
       observacion: d.observacion,
     }))
@@ -382,7 +379,6 @@ export async function crearCobroPorSucursal(
         sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
-        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -402,7 +398,6 @@ export async function crearCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
-        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -445,7 +440,6 @@ export async function actualizarCobroPorSucursal(
       data: {
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
-        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },
@@ -466,7 +460,6 @@ export async function actualizarCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
-        costoIncluyeIva: input.costoIncluyeIva,
         esCheque: input.esCheque,
         observacion,
       },

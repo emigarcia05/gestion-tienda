@@ -12,7 +12,6 @@ export type AdmPillarId =
   | "tesoreria"
   | "balance"
   | "operaciones"
-  | "impuestos"
   | "lista-propia"
   | "cobros-desc"
   | "lista-proveedores"
@@ -146,6 +145,13 @@ const balanceScreens: AdmScreenDef[] = [
     icon: "percent",
     permiso: PERMISOS.finanzas.acceso,
   },
+  {
+    id: "balance-iva",
+    label: "Balance IVA",
+    href: F.balance.balanceIva,
+    icon: "percent",
+    permiso: PERMISOS.finanzas.acceso,
+  },
 ];
 
 const operacionesScreens: AdmScreenDef[] = [
@@ -161,16 +167,6 @@ const operacionesScreens: AdmScreenDef[] = [
     label: "Venc. Gastos",
     href: F.operaciones.vencGastos,
     icon: "calendar-clock",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-];
-
-const impuestosScreens: AdmScreenDef[] = [
-  {
-    id: "posicion-iva",
-    label: "Posición De IVA",
-    href: F.impuestos.posicionIva,
-    icon: "percent",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];
@@ -336,13 +332,6 @@ export const FIN_PILLARS: AdmPillarDef[] = [
     icon: "wallet",
     basePath: `${F.hub}/operaciones`,
     screens: operacionesScreens,
-  },
-  {
-    id: "impuestos",
-    label: "IMPUESTOS",
-    icon: "percent",
-    basePath: `${F.hub}/impuestos`,
-    screens: impuestosScreens,
   },
 ];
 

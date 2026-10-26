@@ -364,9 +364,15 @@ model ComprobanteProveedor {
    * En `NOTA_CREDITO`: comprobante de compra al que se aplicó (`monto_aplicado` += total NC).
    */
   comprobanteAsocId String?  @map("comprobante_asoc_id")
+  /**
+   * Comprobante fiscal (genera IVA crédito en Balance IVA). FACTURA → true; COMPROBANTE_COMPRA → false;
+   * NOTA_CREDITO: la elegida al cargarla (bonificación hereda la del comprobante).
+   */
+  fiscal            Boolean  @default(false)
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
+  balIva          BalIva?
   proveedor       Proveedor              @relation(fields: [idProveedor], references: [idProveedorDux], onDelete: Restrict)
   pedidoHistoria  PedidoHistoria?        @relation(fields: [pedidoHistoriaId], references: [id], onDelete: SetNull)
   comprobanteAsoc ComprobanteProveedor?  @relation("ComprobanteProveedorNotaCredito", fields: [comprobanteAsocId], references: [id], onDelete: Restrict)
@@ -769,6 +775,7 @@ model TesoreriaMovimiento {
   chequeEmitidoId      String?                      @map("cheque_emitido_id")
   chequeEmitido        TesoreriaChequeEmitido?      @relation(fields: [chequeEmitidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   cxFinanciero         BalCxFinanciero?
+  balIva               BalIva?
   createdAt            DateTime                     @default(now()) @map("created_at")
   updatedAt            DateTime                     @updatedAt @map("updated_at")
 
@@ -1038,6 +1045,7 @@ model FinBalGastoMensual {
 
   gastoFinal         FinBalGastoFinal @relation(fields: [gastoFinalId], references: [id], onDelete: Cascade)
   imputacionSucursal Sucursal?        @relation("FinBalGastoMensualImputacionSucursal", fields: [imputacionSucursalId], references: [id], onDelete: Restrict)
+  balIva             BalIva?
 
   @@index([anio, mes])
   @@index([imputacionSucursalId])
@@ -1210,25 +1218,53 @@ model EstPorProdTerminacion {
 }
 
 /**
- * Líneas importadas desde TXT AFIP (comprobantes emitidos, registro fijo). Posición de IVA · débito:
- * se agrupa `imp_iva` por mes de `fecha_emision` (importado del TXT · alícuotas AFIP).
- * Tabla física **`fin_bal_iva_deb_import`** (histórico: `fin_bal_iva_deb_import_line` → `fin_bal_pos_iva_final`).
+ * Origen de una fila de Balance IVA. Cada origen usa una sola FK de `bal_iva` (CHECK `bal_iva_origen_chk`).
  */
-model FinBalIvaDebImportLine {
-  id                   String   @id @default(cuid())
-  /**
-   * Hash estable por fila para no duplicar al reimportar el mismo comprobante.
-   */
-  dedupeKey            String   @unique(map: "fin_bal_iva_deb_import_dedupe_key_key") @map("dedupe_key") @db.VarChar(64)
-  fechaEmision         DateTime @map("fecha_emision") @db.Date
-  denominacionReceptor String   @map("denominacion_receptor") @db.VarChar(512)
-  impTotal             Decimal  @map("imp_total") @db.Decimal(14, 2)
-  impIva               Decimal  @default(0) @map("imp_iva") @db.Decimal(14, 2)
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+enum OrigenBalIva {
+  VENTA
+  COMPRA_MERCADERIA
+  GASTO
+  CX_FINANCIERO
+}
 
-  @@index([fechaEmision], map: "fin_bal_iva_deb_import_fecha_emision_idx")
-  @@map("fin_bal_iva_deb_import")
+/**
+ * Libro Balance IVA (ex `fin_bal_iva_deb_import`): una fila por movimiento que genera IVA débito
+ * o crédito, atada a su origen (Cascade). NC y devoluciones restan en su columna (importe negativo);
+ * una fila usa débito o crédito, nunca ambos. Saldo = Σ débito − Σ crédito (se calcula al leer).
+ */
+model BalIva {
+  id                    String       @id @default(cuid())
+  origen                OrigenBalIva
+  fecha                 DateTime     @db.Date
+  descripcion           String       @db.VarChar(255)
+  debito                Decimal      @default(0) @db.Decimal(14, 2)
+  credito               Decimal      @default(0) @db.Decimal(14, 2)
+  /**
+   * VENTA: factura o NC fiscal autorizada.
+   */
+  comprobanteVtaId      String?      @unique(map: "bal_iva_comprobante_vta_key") @map("comprobante_vta_id")
+  /**
+   * COMPRA_MERCADERIA: comprobante de compra o NC con `fiscal = true`.
+   */
+  comprobanteCompraId   String?      @unique(map: "bal_iva_comprobante_compra_key") @map("comprobante_compra_id")
+  /**
+   * GASTO: imputación con `iva = true` y monto > 0.
+   */
+  gastoMensualId        String?      @unique(map: "bal_iva_gasto_mensual_key") @map("gasto_mensual_id")
+  /**
+   * CX_FINANCIERO: cobro (+) o devolución de NC (−) con vínculo `genera_iva_credito`.
+   */
+  tesoreriaMovimientoId String?      @unique(map: "bal_iva_tesoreria_movimiento_key") @map("tesoreria_movimiento_id")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  comprobanteVta      ComprobanteVta?       @relation(fields: [comprobanteVtaId], references: [id], onDelete: Cascade)
+  comprobanteCompra   ComprobanteProveedor? @relation(fields: [comprobanteCompraId], references: [id], onDelete: Cascade)
+  gastoMensual        FinBalGastoMensual?   @relation(fields: [gastoMensualId], references: [id], onDelete: Cascade)
+  tesoreriaMovimiento TesoreriaMovimiento?  @relation(fields: [tesoreriaMovimientoId], references: [id], onDelete: Cascade)
+
+  @@index([fecha], map: "bal_iva_fecha_idx")
+  @@map("bal_iva")
 }
 
 /**
@@ -2329,13 +2365,9 @@ model CobrosPorSucursal {
   cajaDestino   CajaTesoreria?              @relation(fields: [cajaDestinoId], references: [id], onDelete: SetNull)
   /**
    * El IVA del costo financiero de este cobro genera IVA crédito (ex `discrimina_iva`).
-   * Solo dato; no interviene en el % del Cx Fin.
+   * Define el % de Cx Fin al registrar el cobro: TRUE → CX TOTAL S/ IVA; FALSE → CX TOTAL C/ IVA.
    */
   generaIvaCredito Boolean                  @default(false) @map("genera_iva_credito")
-  /**
-   * % de Cx Fin al registrar el cobro: TRUE → CX TOTAL C/ IVA; FALSE → CX TOTAL S/ IVA.
-   */
-  costoIncluyeIva  Boolean                  @default(true) @map("costo_incluye_iva")
   /**
    * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
    * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
@@ -3000,6 +3032,7 @@ model ComprobanteVta {
   stockComprobantes          StockComprobante[]
   cxMercaderia               BalCxMercaderia[]
   cxFinanciero               BalCxFinanciero[]
+  balIva                     BalIva?
   cheques                    TesoreriaCheque[]
 
   @@index([tipoComprobante, fecha], map: "vtas_comprobantes_tipo_fecha_idx")

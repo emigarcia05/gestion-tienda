@@ -1,5 +1,6 @@
 /**
  * Configuración del saldo IVA usado al comparar proveedores en pedidos (urgente / reposición).
+ * Calculado = saldo acumulado de Balance IVA (`bal_iva`); el valor configurado lo reemplaza.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,7 @@ import {
   modoComparacionCostoDesdeSaldo,
   type ModoComparacionCostoIva,
 } from "@/lib/precioComparacionPedidoUrgenteReposicion";
-import { calcularIvaSaldoAcumuladoDesdePosicionIva } from "@/services/finBalPosicionIvaSaldoAcumuladoPedido.service";
+import { calcularSaldoAcumuladoBalIva } from "@/services/balIva.service";
 
 export { modoComparacionCostoDesdeSaldo, type ModoComparacionCostoIva };
 
@@ -57,7 +58,7 @@ function mapEstado(
 export async function getEstadoIvaComparacionPedido(): Promise<EstadoIvaComparacionPedido> {
   const [row, saldoAcumuladoCalculado] = await Promise.all([
     ensureConfigRow(),
-    calcularIvaSaldoAcumuladoDesdePosicionIva(),
+    calcularSaldoAcumuladoBalIva(),
   ]);
   return mapEstado(row, saldoAcumuladoCalculado);
 }
@@ -79,7 +80,7 @@ export async function guardarIvaComparacionPedido(params: {
       saldoPesos,
     },
   });
-  const saldoAcumuladoCalculado = await calcularIvaSaldoAcumuladoDesdePosicionIva();
+  const saldoAcumuladoCalculado = await calcularSaldoAcumuladoBalIva();
   return mapEstado(row, saldoAcumuladoCalculado);
 }
 

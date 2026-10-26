@@ -6,6 +6,7 @@ import type { IvaProveedor } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import type { ServiceResult } from "@/types/service.types";
+import { sincronizarIvaGastoMensual } from "@/services/balIvaSync.service";
 import type { FlujoFondoDetalleDiaFila } from "@/services/vencimientosPorFecha.service";
 import { ordenarDetallesFlujoDia } from "@/services/vencimientosPorFecha.service";
 
@@ -626,18 +627,22 @@ export async function crearImputacionGastoUnicoBalance(params: {
         error: "Elegí una sucursal válida (centro de costo).",
       };
     }
-    const row = await prisma.finBalGastoMensual.create({
-      data: {
-        gastoFinalId,
-        mes,
-        anio,
-        monto,
-        pagado,
-        imputacionSucursalId: sucursalId,
-        iva: ivaResolved.data,
-        gastoMensualEnAlta: false,
-      },
-      select: { id: true },
+    const row = await prisma.$transaction(async (tx) => {
+      const creada = await tx.finBalGastoMensual.create({
+        data: {
+          gastoFinalId,
+          mes,
+          anio,
+          monto,
+          pagado,
+          imputacionSucursalId: sucursalId,
+          iva: ivaResolved.data,
+          gastoMensualEnAlta: false,
+        },
+        select: { id: true },
+      });
+      await sincronizarIvaGastoMensual(creada.id, tx, new Date(Date.UTC(y, m - 1, d)));
+      return creada;
     });
     return { success: true, data: { id: row.id } };
   } catch (e: unknown) {
@@ -866,10 +871,14 @@ export async function actualizarMontoFinBalGastoMensual(params: {
         error: "El monto no puede ser menor al importe ya pagado.",
       };
     }
-    const row = await prisma.finBalGastoMensual.update({
-      where: { id },
-      data: { monto },
-      select: { id: true, monto: true },
+    const row = await prisma.$transaction(async (tx) => {
+      const actualizada = await tx.finBalGastoMensual.update({
+        where: { id },
+        data: { monto },
+        select: { id: true, monto: true },
+      });
+      await sincronizarIvaGastoMensual(id, tx);
+      return actualizada;
     });
     return { success: true, data: { id: row.id, monto: row.monto } };
   } catch (e: unknown) {

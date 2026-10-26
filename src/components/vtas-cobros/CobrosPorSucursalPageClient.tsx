@@ -286,15 +286,10 @@ export default function CobrosPorSucursalPageClient({
                   </TableHead>
                   <TableHead className={cn("min-w-[10rem]", TH_CLASS)}>ENTIDAD</TableHead>
                   <TableHead className={cn("min-w-[8rem]", TH_CLASS)}>SUCURSAL</TableHead>
-                  <TableHead className={cn("min-w-[7rem]", TH_CLASS)}>
-                    GENERA IVA CRÉDITO
-                  </TableHead>
-                  <TableHead className={cn("min-w-[7rem]", TH_CLASS)}>
-                    COSTO INCLUYE IVA
-                  </TableHead>
                   <TableHead className={cn("min-w-[14rem]", TH_CLASS)}>
                     OBSERVACIÓN
                   </TableHead>
+                  <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>IVA CRED.</TableHead>
                   {esEditor ? (
                     <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>ACCIONES</TableHead>
                   ) : null}
@@ -304,7 +299,7 @@ export default function CobrosPorSucursalPageClient({
                 {filasFiltradas.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6 + (esEditor ? 1 : 0)}
+                      colSpan={5 + (esEditor ? 1 : 0)}
                       className="celda-datos text-center text-muted-foreground"
                     >
                       {filas.length === 0
@@ -324,17 +319,14 @@ export default function CobrosPorSucursalPageClient({
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.sucursalNombre}
                       </TableCell>
-                      <TableCell className="celda-datos text-center text-xs font-medium">
-                        {fila.generaIvaCredito ? "SI" : "NO"}
-                      </TableCell>
-                      <TableCell className="celda-datos text-center text-xs font-medium">
-                        {fila.costoIncluyeIva ? "SI" : "NO"}
-                      </TableCell>
                       <TableCell
                         className="celda-datos text-left text-xs"
                         title={fila.observacion || undefined}
                       >
                         {fila.observacion.trim().length > 0 ? fila.observacion : "—"}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center text-xs font-medium">
+                        {fila.generaIvaCredito ? "SI" : "NO"}
                       </TableCell>
                       {esEditor ? (
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila">

@@ -21,6 +21,7 @@ import {
   reservarCorrelativoCompra,
   type TipoCorrelativoCompra,
 } from "@/services/comprobanteCompraNumero.service";
+import { sincronizarIvaComprasDePedido } from "@/services/balIvaSync.service";
 
 const COD_TIENDA_FALLBACK = "1503";
 
@@ -668,8 +669,8 @@ async function calcularDiferenciaStockRecepcion(
 /**
  * Lleva el stock de la sucursal del pedido a lo declarado en la recepción:
  * faltante → comprobante `COMPRA` (INGRESO); sobrante por corrección → `AJUSTE_STOCK` (EGRESO).
- * Un solo `update` anidado guardado por `updated_at` (sin `$transaction` interactiva):
- * si otro request tocó el pedido, P2025 y no se escribe nada.
+ * Un solo `update` anidado guardado por `updated_at`: si otro request tocó el pedido, P2025 y
+ * rollback. Con comprobante de compra, la misma transacción sincroniza Balance IVA.
  */
 async function sincronizarStockRecepcionPedido(params: {
   pedidoHistoriaId: string;
@@ -733,31 +734,35 @@ async function sincronizarStockRecepcionPedido(params: {
   if (ingresos.length > 0) comprobantes.push(comprobante("COMPRA", ingresos));
   if (egresos.length > 0) comprobantes.push(comprobante("AJUSTE_STOCK", egresos));
 
-  const actualizarPedido = prisma.pedidoHistoria.update({
-    where: { id, updatedAt: pedido.updatedAt },
-    data: {
-      ...params.data,
-      updatedAt: new Date(),
-      ...(comprobantes.length > 0
-        ? { stockComprobantes: { create: comprobantes } }
-        : {}),
-      ...(params.comprobanteCompra
-        ? { comprobantesProveedor: { create: params.comprobanteCompra } }
-        : {}),
-    },
-  });
+  const actualizarPedido = (db: Prisma.TransactionClient | typeof prisma) =>
+    db.pedidoHistoria.update({
+      where: { id, updatedAt: pedido.updatedAt },
+      data: {
+        ...params.data,
+        updatedAt: new Date(),
+        ...(comprobantes.length > 0
+          ? { stockComprobantes: { create: comprobantes } }
+          : {}),
+        ...(params.comprobanteCompra
+          ? { comprobantesProveedor: { create: params.comprobanteCompra } }
+          : {}),
+      },
+    });
 
   try {
-    if (params.reemplazarComprobanteId) {
-      // Batch atómico y ordenado: el borrado va antes para liberar el unique natural si el N° no cambia.
-      await prisma.$transaction([
-        prisma.comprobanteProveedor.delete({
-          where: { id: params.reemplazarComprobanteId, montoAplicado: 0 },
-        }),
-        actualizarPedido,
-      ]);
+    if (params.reemplazarComprobanteId || params.comprobanteCompra) {
+      await prisma.$transaction(async (tx) => {
+        if (params.reemplazarComprobanteId) {
+          // El borrado va antes para liberar el unique natural si el N° no cambia.
+          await tx.comprobanteProveedor.delete({
+            where: { id: params.reemplazarComprobanteId, montoAplicado: 0 },
+          });
+        }
+        await actualizarPedido(tx);
+        if (params.comprobanteCompra) await sincronizarIvaComprasDePedido(id, tx);
+      });
     } else {
-      await actualizarPedido;
+      await actualizarPedido(prisma);
     }
     return { success: true, data: undefined };
   } catch (e) {
@@ -1014,6 +1019,7 @@ export async function marcarPedidoHistoriaRegistrado(params: {
       comprobanteCompra: {
         idSucursalEmpresa: idSucursalDux,
         tipoComp: params.fiscal ? TIPO_COMP_COMPRA.FISCAL : TIPO_COMP_COMPRA.NO_FISCAL,
+        fiscal: params.fiscal,
         comprobante: numero,
         fechaComp: dateFromIsoYmd(fechaParsed.data),
         idProveedor: idProveedorDux,
@@ -1129,51 +1135,55 @@ export async function registrarNotaCreditoCompraPedido(params: {
     if (!numero.success) return numero;
 
     const totalDec = new Prisma.Decimal(total.toFixed(2));
-    await prisma.pedidoHistoria.update({
-      where: { id, updatedAt: pedido.updatedAt },
-      data: {
-        updatedAt: new Date(),
-        comprobantesProveedor: {
-          create: {
-            idSucursalEmpresa: original.idSucursalEmpresa,
-            tipoComp: TIPO_COMP_COMPRA.NOTA_CREDITO,
-            comprobante: numero.data,
-            fechaComp: dateFromIsoYmd(fechaParsed.data),
-            idProveedor: original.idProveedor,
-            total: totalDec,
-            montoAplicado: totalDec,
-            comprobanteAsocId: original.id,
+    await prisma.$transaction(async (tx) => {
+      await tx.pedidoHistoria.update({
+        where: { id, updatedAt: pedido.updatedAt },
+        data: {
+          updatedAt: new Date(),
+          comprobantesProveedor: {
+            create: {
+              idSucursalEmpresa: original.idSucursalEmpresa,
+              tipoComp: TIPO_COMP_COMPRA.NOTA_CREDITO,
+              fiscal: params.fiscal,
+              comprobante: numero.data,
+              fechaComp: dateFromIsoYmd(fechaParsed.data),
+              idProveedor: original.idProveedor,
+              total: totalDec,
+              montoAplicado: totalDec,
+              comprobanteAsocId: original.id,
+            },
+            update: {
+              where: { id: original.id },
+              data: { montoAplicado: { increment: totalDec } },
+            },
           },
-          update: {
-            where: { id: original.id },
-            data: { montoAplicado: { increment: totalDec } },
-          },
-        },
-        ...(devolver.size > 0
-          ? {
-              stockComprobantes: {
-                create: {
-                  tipo: "NOTA_CREDITO_COMPRA",
-                  sucursalId: pedido.sucursalId,
-                  proveedorId: pedido.proveedorId,
-                  personalId: params.personalId,
-                  movimientos: {
-                    createMany: {
-                      data: [...devolver].map(([codItem, cantidad]) => ({
-                        tipoMovimiento: "EGRESO" as const,
-                        categoriaMovimiento: "NOTA_CREDITO_COMPRA" as const,
-                        codItem,
-                        sucursalId: pedido.sucursalId,
-                        cantidad,
-                        usuarioId: params.personalId,
-                      })),
+          ...(devolver.size > 0
+            ? {
+                stockComprobantes: {
+                  create: {
+                    tipo: "NOTA_CREDITO_COMPRA",
+                    sucursalId: pedido.sucursalId,
+                    proveedorId: pedido.proveedorId,
+                    personalId: params.personalId,
+                    movimientos: {
+                      createMany: {
+                        data: [...devolver].map(([codItem, cantidad]) => ({
+                          tipoMovimiento: "EGRESO" as const,
+                          categoriaMovimiento: "NOTA_CREDITO_COMPRA" as const,
+                          codItem,
+                          sucursalId: pedido.sucursalId,
+                          cantidad,
+                          usuarioId: params.personalId,
+                        })),
+                      },
                     },
                   },
                 },
-              },
-            }
-          : {}),
-      },
+              }
+            : {}),
+        },
+      });
+      await sincronizarIvaComprasDePedido(id, tx);
     });
 
     return { success: true, data: { numero: numero.data, saldo: round2(saldo - total) } };

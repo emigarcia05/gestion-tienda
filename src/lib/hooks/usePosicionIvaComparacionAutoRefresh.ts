@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getPosicionIvaComparacionRevisionTokenAction } from "@/actions/pedidos";
 
-/** Intervalo entre consultas del token (otra pestaña / otra PC puede haber cambiado Posición IVA). */
+/** Intervalo entre consultas del token (otra pestaña / otra PC puede haber cambiado Balance IVA). */
 export const POSICION_IVA_COMPARACION_POLL_MS = 30_000;
 
 export function usePosicionIvaComparacionAutoRefresh(

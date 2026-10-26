@@ -1,6 +1,6 @@
 /**
  * Resolución de proveedor para pedido REPOSICIÓN por `cod_tienda` (vínculos manuales en
- * `proveedores_prod_lista.cod_tienda`) y menor costo comparable según Posición IVA.
+ * `proveedores_prod_lista.cod_tienda`) y menor costo comparable según saldo de Balance IVA.
  *
  * Desde 2026-05-28 se eliminó el fallback legacy por `cod_ext` (cuando el sync DUX
  * todavía poblaba `prod_lista.cod_ext`). La única fuente de verdad es el vínculo
@@ -13,7 +13,7 @@ import {
   ordenarMiembrosPedidoUrgentePorMenorCostoComparable,
   type MiembroPrecioComparablePedidoUrgente,
 } from "@/lib/precioComparacionPedidoUrgenteReposicion";
-import { sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido } from "@/services/finBalPosicionIvaSaldoAcumuladoPedido.service";
+import { sumarIvaSaldoAcumuladoParaComparacionProveedoresPedido } from "@/services/finBalPosicionIvaComparacionPedido.service";
 import type { LpRowPick } from "@/services/pedidosEnvio.service";
 
 export type LpRowReposicionResuelto = LpRowPick & {
@@ -105,7 +105,7 @@ export async function cargarListaPrecioReposicionPorCodTiendas(
 /**
  * Elige la fila de lista proveedor para un `cod_tienda`: requiere al menos un vínculo
  * manual habilitado en `proveedores_prod_lista.cod_tienda`; entre todos los vínculos, gana
- * el menor costo comparable según Posición IVA. Sin vínculos manuales, devuelve `null`.
+ * el menor costo comparable según saldo de Balance IVA. Sin vínculos manuales, devuelve `null`.
  */
 export function elegirListaPrecioProveedorReposicion(params: {
   codTienda: string;
