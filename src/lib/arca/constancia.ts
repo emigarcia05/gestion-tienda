@@ -23,15 +23,18 @@ import {
 const NS = "http://a5.soap.ws.server.puc.sr/";
 
 function envelopeGetPersonaV2(auth: WsfeAuth, idPersona: string): string {
+  // WSDL personaServiceA5: elementFormDefault="unqualified".
+  // Solo el wrapper va en el NS. Si `token` hereda ese NS, ARCA responde
+  // Unmarshalling Error (unexpected element token).
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <getPersona_v2 xmlns="${NS}">
+    <a5:getPersona_v2 xmlns:a5="${NS}">
       <token>${xmlEscape(auth.token)}</token>
       <sign>${xmlEscape(auth.sign)}</sign>
       <cuitRepresentada>${xmlEscape(auth.cuit)}</cuitRepresentada>
       <idPersona>${xmlEscape(idPersona)}</idPersona>
-    </getPersona_v2>
+    </a5:getPersona_v2>
   </soap:Body>
 </soap:Envelope>`;
 }
