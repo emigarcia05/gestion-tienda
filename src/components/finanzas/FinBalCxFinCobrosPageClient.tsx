@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
-import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
 import FiltrosFinBalCx from "@/components/finanzas/FiltrosFinBalCx";
 import {
@@ -23,7 +23,7 @@ import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPorcentajeTabla } from "@/lib/format";
 import { PAGE_SIZE } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
-import type { CxFinCobrosData } from "@/services/balCxFinCobros.service";
+import type { CxFinCobrosData, FilaCxFinCobros } from "@/services/balCxFinCobros.service";
 
 const BASE_PATH = APP_ROUTES.finanzas.balance.cxFinCobros;
 
@@ -38,7 +38,7 @@ interface Props {
 export default function FinBalCxFinCobrosPageClient({ data }: Props) {
   const { filas, filtros } = data;
   const params = paramsCxFinCobros(filtros, data.periodoDefault);
-  const [comprobanteVerId, setComprobanteVerId] = useState<string | null>(null);
+  const [cobrosVer, setCobrosVer] = useState<FilaCxFinCobros | null>(null);
 
   return (
     <ClassicFilteredTableLayout
@@ -119,7 +119,7 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
                       {fmtCx(f.cx)}
                     </TableCell>
                     <TableCell className="celda-datos text-center">{f.sucursalNombre}</TableCell>
-                    <CeldaVerComprobante onVer={() => setComprobanteVerId(f.comprobanteVtaId)} />
+                    <CeldaVerComprobante titulo="Ver Cobros" onVer={() => setCobrosVer(f)} />
                   </TableRow>
                 ))
               )}
@@ -150,12 +150,15 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
           </div>
         ) : null}
       </div>
-      <FacturaComprobanteDetalleModal
-        open={comprobanteVerId != null}
+      <FacturaComprobanteCobrosModal
+        open={cobrosVer != null}
         onOpenChange={(open) => {
-          if (!open) setComprobanteVerId(null);
+          if (!open) setCobrosVer(null);
         }}
-        comprobanteId={comprobanteVerId}
+        comprobanteId={cobrosVer?.comprobanteVtaId ?? null}
+        nroComprobante={cobrosVer?.comprobante ?? ""}
+        esNotaCredito={cobrosVer?.esDevolucion ?? false}
+        soloLectura
       />
     </ClassicFilteredTableLayout>
   );

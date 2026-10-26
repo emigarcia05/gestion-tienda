@@ -75,6 +75,8 @@ type Props = {
   nroComprobante: string;
   /** NC: ver imputaciones y asignarla como pago de una venta. */
   esNotaCredito?: boolean;
+  /** Solo el detalle: sin agregar cobros, asignar ni devolver NC (p. ej. Cx Fin Cobros). */
+  soloLectura?: boolean;
 };
 
 export default function FacturaComprobanteCobrosModal({
@@ -83,6 +85,7 @@ export default function FacturaComprobanteCobrosModal({
   comprobanteId,
   nroComprobante,
   esNotaCredito = false,
+  soloLectura = false,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<FacturaComprobanteCobroItem[]>([]);
@@ -103,6 +106,8 @@ export default function FacturaComprobanteCobrosModal({
   );
 
   const haySaldo = saldoPendiente != null && saldoPendiente > 0;
+  const puedeAgregarCobro = haySaldo && !soloLectura;
+  const puedeDevolverNc = !soloLectura && vistaNc != null && ncPermiteDevolucion(vistaNc);
   const pagosDisponibles = useMemo(
     () => pagos.filter((p) => !esCobroNotaCreditoNombre(p.nombre)),
     [pagos]
@@ -250,9 +255,7 @@ export default function FacturaComprobanteCobrosModal({
 
   useEffect(() => {
     if (!open) return;
-    const cargarCatalogo =
-      formAbierto ||
-      (esNotaCredito && vistaNc != null && ncPermiteDevolucion(vistaNc));
+    const cargarCatalogo = formAbierto || (esNotaCredito && puedeDevolverNc);
     if (!cargarCatalogo) return;
     let cancelled = false;
     const sucursalCodigo = leerUsuarioSesion()?.sucursalPorDefecto;
@@ -279,7 +282,7 @@ export default function FacturaComprobanteCobrosModal({
     return () => {
       cancelled = true;
     };
-  }, [open, formAbierto, esNotaCredito, vistaNc]);
+  }, [open, formAbierto, esNotaCredito, puedeDevolverNc]);
 
   function handlePagoChange(nextId: string) {
     if (nextId === pagoId) return;
@@ -444,7 +447,8 @@ export default function FacturaComprobanteCobrosModal({
                 </TableBody>
               </Table>
             </div>
-            {(vistaNc?.saldoDisponible ?? 0) > 0 &&
+            {!soloLectura &&
+            (vistaNc?.saldoDisponible ?? 0) > 0 &&
             (vistaNc?.ventas.length ?? 0) > 0 ? (
               <div className="contenedor-tabla-gestion min-h-0 max-h-[40vh] overflow-auto">
                 <Table className="w-full table-fixed text-center">
@@ -502,7 +506,7 @@ export default function FacturaComprobanteCobrosModal({
                 </Table>
               </div>
             ) : null}
-            {vistaNc != null && ncPermiteDevolucion(vistaNc) ? (
+            {puedeDevolverNc ? (
               <div className="flex shrink-0 flex-col gap-3">
                 <p className="shrink-0 text-center text-xl font-bold uppercase tracking-wide tabular-nums text-foreground">
                   DEVOLUCIÓN:{" "}
@@ -701,7 +705,7 @@ export default function FacturaComprobanteCobrosModal({
                 </TableBody>
               </Table>
             </div>
-            {haySaldo && !formAbierto ? (
+            {puedeAgregarCobro && !formAbierto ? (
               <div className="flex shrink-0 justify-center">
                 <Button
                   type="button"
@@ -717,7 +721,7 @@ export default function FacturaComprobanteCobrosModal({
                 </Button>
               </div>
             ) : null}
-            {haySaldo && formAbierto ? (
+            {puedeAgregarCobro && formAbierto ? (
               <div className="flex shrink-0 flex-col gap-3">
                 {pagosDisponibles.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">
