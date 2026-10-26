@@ -60,6 +60,17 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
     );
   }
 
+  /** VER de una fila resumida: detalle de ese mes (vista sucursal) o de esa forma de pago. */
+  function verDetalleFila(clave: string) {
+    const filtroFila = vista === "sucursal" ? { periodo: clave } : { pago: clave };
+    router.push(
+      hrefCxMercVend(
+        BASE_PATH,
+        paramsCxFinCobros({ ...filtros, ...filtroFila, vista: "detalle" }, data.periodoDefault)
+      )
+    );
+  }
+
   return (
     <ClassicFilteredTableLayout
       title="FINANZAS"
@@ -116,6 +127,7 @@ export default function FinBalCxFinCobrosPageClient({ data }: Props) {
             resumen={data.resumen}
             etiquetaFila={vista === "sucursal" ? "MES" : "FORMA DE PAGO"}
             mensajeVacio={MENSAJE_VACIO}
+            onVer={verDetalleFila}
           />
         ) : (
           <>

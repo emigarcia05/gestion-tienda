@@ -1218,18 +1218,21 @@ model EstPorProdTerminacion {
 }
 
 /**
- * Origen de una fila de Balance IVA. Cada origen usa una sola FK de `bal_iva` (CHECK `bal_iva_origen_chk`).
+ * Origen de una fila de Balance IVA. Cada origen usa una sola FK de `bal_iva`; AJUSTE (manual) ninguna
+ * (CHECK `bal_iva_origen_chk`).
  */
 enum OrigenBalIva {
   VENTA
   COMPRA_MERCADERIA
   GASTO
   CX_FINANCIERO
+  AJUSTE
 }
 
 /**
  * Libro Balance IVA (ex `fin_bal_iva_deb_import`): una fila por movimiento que genera IVA débito
- * o crédito, atada a su origen (Cascade). NC y devoluciones restan en su columna (importe negativo);
+ * o crédito, atada a su origen (Cascade), o un AJUSTE manual sin origen (botón AJUSTE SALDO).
+ * NC y devoluciones restan en su columna (importe negativo);
  * una fila usa débito o crédito, nunca ambos. Saldo = Σ débito − Σ crédito (se calcula al leer).
  */
 model BalIva {
@@ -1265,19 +1268,6 @@ model BalIva {
 
   @@index([fecha], map: "bal_iva_fecha_idx")
   @@map("bal_iva")
-}
-
-/**
- * Singleton: saldo IVA efectivo para comparar proveedores en pedidos (urgente / reposición).
- * Si `usar_valor_configurado`, reemplaza el acumulado calculado desde Posición IVA.
- */
-model FinBalPosicionIvaComparacionPedido {
-  id                   String   @id
-  usarValorConfigurado Boolean  @default(false) @map("usar_valor_configurado")
-  saldoPesos           Decimal  @default(0) @map("saldo_pesos") @db.Decimal(14, 2)
-  updatedAt            DateTime @updatedAt @map("updated_at")
-
-  @@map("fin_bal_posicion_iva_comparacion_pedido")
 }
 
 model ListaPrecioProveedor {

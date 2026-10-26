@@ -60,6 +60,17 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
     );
   }
 
+  /** VER de una fila resumida: detalle de ese mes (vista sucursal) o de ese rubro (vista rubro). */
+  function verDetalleFila(clave: string) {
+    const filtroFila = vista === "sucursal" ? { periodo: clave } : { rubro: clave };
+    router.push(
+      hrefCxMercVend(
+        BASE_PATH,
+        paramsCxMercVend({ ...filtros, ...filtroFila, vista: "detalle" }, data.periodoDefault)
+      )
+    );
+  }
+
   return (
     <ClassicFilteredTableLayout
       title="FINANZAS"
@@ -111,6 +122,7 @@ export default function FinBalCxMercVendPageClient({ data }: Props) {
           <TablaResumenCxMercVend
             resumen={data.resumen}
             etiquetaFila={vista === "sucursal" ? "MES" : "RUBRO"}
+            onVer={verDetalleFila}
           />
         ) : (
           <>

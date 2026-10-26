@@ -12,10 +12,18 @@ import {
 interface Props {
   /** `undefined`: el movimiento no tiene comprobante para mostrar (botón deshabilitado). */
   onVer?: () => void;
+  /** Tooltip / aria del botón habilitado. */
+  titulo?: string;
+  /** Tooltip del botón deshabilitado. */
+  tituloDeshabilitado?: string;
 }
 
 /** Celda **ACCIONES** con el botón **VER** del comprobante que generó el movimiento (Balance). */
-export default function CeldaVerComprobante({ onVer }: Props) {
+export default function CeldaVerComprobante({
+  onVer,
+  titulo = "Ver Comprobante",
+  tituloDeshabilitado = "Sin comprobante",
+}: Props) {
   return (
     <TableCell className="celda-datos p-0">
       <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
@@ -24,8 +32,8 @@ export default function CeldaVerComprobante({ onVer }: Props) {
           variant="ghost"
           size="icon"
           className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-          aria-label="Ver comprobante"
-          title={onVer ? "Ver Comprobante" : "Sin comprobante"}
+          aria-label={titulo}
+          title={onVer ? titulo : tituloDeshabilitado}
           disabled={!onVer}
           onClick={onVer}
         >

@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { eliminarAjusteBalIvaAction } from "@/actions/balIva";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
   FILTER_SELECT_WRAPPER_CLASS,
@@ -13,9 +16,13 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
+import AjusteSaldoBalIvaControl from "@/components/finanzas/AjusteSaldoBalIvaControl";
 import CeldaVerComprobante from "@/components/finanzas/CeldaVerComprobante";
-import ConfigurarIvaComparacionPedidosControl from "@/components/finanzas/ConfigurarIvaComparacionPedidosControl";
 import PedidoHistoriaLecturaModal from "@/components/pedidos/PedidoHistoriaLecturaModal";
+import AppModal from "@/components/shared/AppModal";
+import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -33,12 +40,20 @@ import {
   TableRow,
   EmptyTableRow,
 } from "@/components/ui/table";
-import type { EstadoIvaComparacionPedido } from "@/actions/finBalPosicionIvaComparacionPedido";
 import { APP_ROUTES } from "@/lib/appRoutes";
 import { fmtCx, hrefCxMercVend } from "@/lib/balCxMercVend";
 import { formatIsoYmdDdMmYyyyArgentina } from "@/lib/fechaArgentina";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import type { BalanceIvaData, ComprobanteOrigenBalIva } from "@/services/balIva.service";
+import type {
+  BalanceIvaData,
+  ComprobanteOrigenBalIva,
+  FilaBalanceIva,
+} from "@/services/balIva.service";
 
 const BASE_PATH = APP_ROUTES.finanzas.balance.balanceIva;
 
@@ -46,7 +61,6 @@ const TD_NUM = "celda-datos celda-numero tabular-nums text-right";
 
 interface Props {
   data: BalanceIvaData;
-  comparacionPedidos: EstadoIvaComparacionPedido;
   esEditor: boolean;
 }
 
@@ -58,13 +72,32 @@ function claseImporte(n: number) {
   return cn(TD_NUM, n < 0 && "text-destructive");
 }
 
-export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, esEditor }: Props) {
+export default function FinBalBalanceIvaPageClient({ data, esEditor }: Props) {
   const router = useRouter();
   const { filas, filtros, periodoDefault } = data;
   const [comprobanteVer, setComprobanteVer] = useState<ComprobanteOrigenBalIva>(null);
+  const [ajusteParaEliminar, setAjusteParaEliminar] = useState<FilaBalanceIva | null>(null);
+  const [eliminando, setEliminando] = useState(false);
 
   function irAPeriodo(periodo: string) {
     router.push(hrefCxMercVend(BASE_PATH, periodo === periodoDefault ? {} : { periodo }));
+  }
+
+  async function handleConfirmarBorrado() {
+    if (!ajusteParaEliminar) return;
+    setEliminando(true);
+    try {
+      const res = await eliminarAjusteBalIvaAction({ id: ajusteParaEliminar.id });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Ajuste borrado.");
+      setAjusteParaEliminar(null);
+      router.refresh();
+    } finally {
+      setEliminando(false);
+    }
   }
 
   return (
@@ -72,13 +105,7 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
       title="FINANZAS"
       subtitle="Balance IVA"
       contentWidth="full"
-      actions={
-        <ConfigurarIvaComparacionPedidosControl
-          puedeEditar={esEditor}
-          estadoInicial={comparacionPedidos}
-          onActualizado={() => router.refresh()}
-        />
-      }
+      actions={esEditor ? <AjusteSaldoBalIvaControl onCreado={() => router.refresh()} /> : undefined}
       filters={
         <FilterBar className="filtros-contenedor-tienda bg-card">
           <FilterRowSelection>
@@ -121,7 +148,8 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
       <div className="contenedor-tabla-gestion min-h-0 flex-1">
         <Table variant="compact" className="tabla-gestion-compacta w-full">
           <colgroup>
-            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
             <col />
             <col className="w-[13%]" />
             <col className="w-[13%]" />
@@ -131,6 +159,7 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
           <TableHeader>
             <TableRow>
               <TableHead className="text-center">FECHA</TableHead>
+              <TableHead>MOVIMIENTO</TableHead>
               <TableHead>DESCRIPCIÓN</TableHead>
               <TableHead className="text-right">DÉBITO</TableHead>
               <TableHead className="text-right">CRÉDITO</TableHead>
@@ -144,33 +173,53 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
               <TableCell className="celda-datos font-medium uppercase">SALDO ANTERIOR</TableCell>
               <TableCell className="celda-datos" aria-hidden />
               <TableCell className="celda-datos" aria-hidden />
+              <TableCell className="celda-datos" aria-hidden />
               <TableCell className={cn(claseImporte(data.saldoInicial), "font-medium")}>
                 {fmtCx(data.saldoInicial)}
               </TableCell>
               <TableCell className="celda-datos" aria-hidden />
             </TableRow>
             {filas.length === 0 ? (
-              <EmptyTableRow colSpan={6} message="No hay movimientos de IVA en este mes." />
+              <EmptyTableRow colSpan={7} message="No hay movimientos de IVA en este mes." />
             ) : (
               filas.map((f) => (
                 <TableRow key={f.id}>
                   <TableCell className="celda-datos text-center tabular-nums">
                     {formatIsoYmdDdMmYyyyArgentina(f.fechaIso)}
                   </TableCell>
+                  <TableCell className="celda-datos text-left">{f.movimiento}</TableCell>
                   <TableCell className="celda-datos text-left">{f.descripcion}</TableCell>
                   <TableCell className={claseImporte(f.debito)}>{celdaImporte(f.debito)}</TableCell>
                   <TableCell className={claseImporte(f.credito)}>{celdaImporte(f.credito)}</TableCell>
                   <TableCell className={claseImporte(f.saldo)}>{fmtCx(f.saldo)}</TableCell>
-                  <CeldaVerComprobante
-                    onVer={f.comprobante ? () => setComprobanteVer(f.comprobante) : undefined}
-                  />
+                  {f.esAjuste && esEditor ? (
+                    <TableCell className="celda-datos p-0">
+                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          aria-label="Borrar ajuste"
+                          title="Borrar ajuste"
+                          onClick={() => setAjusteParaEliminar(f)}
+                        >
+                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : (
+                    <CeldaVerComprobante
+                      onVer={f.comprobante ? () => setComprobanteVer(f.comprobante) : undefined}
+                    />
+                  )}
                 </TableRow>
               ))
             )}
           </TableBody>
           <TableFooter>
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={2} className="celda-datos font-bold uppercase">
+              <TableCell colSpan={3} className="celda-datos font-bold uppercase">
                 TOTAL DEL MES
               </TableCell>
               <TableCell className={cn(claseImporte(data.totalDebito), "font-bold")}>
@@ -202,6 +251,50 @@ export default function FinBalBalanceIvaPageClient({ data, comparacionPedidos, e
         }}
         pedidoHistoriaId={comprobanteVer?.tipo === "compra" ? comprobanteVer.pedidoHistoriaId : null}
       />
+      <Dialog
+        open={ajusteParaEliminar != null}
+        onOpenChange={(open) => (!open && !eliminando ? setAjusteParaEliminar(null) : null)}
+      >
+        {ajusteParaEliminar ? (
+          <AppModal
+            title="CONFIRMAR BORRADO"
+            size="sm"
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={eliminando}
+                  onClick={() => setAjusteParaEliminar(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="button" disabled={eliminando} onClick={() => void handleConfirmarBorrado()}>
+                  {eliminando ? "Borrando..." : "Borrar"}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-foreground">
+                ¿Querés borrar este ajuste de saldo? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>FECHA</ModalMicroLabel>
+                <p className="text-sm text-foreground">
+                  {formatIsoYmdDdMmYyyyArgentina(ajusteParaEliminar.fechaIso)}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>{ajusteParaEliminar.debito !== 0 ? "DÉBITO" : "CRÉDITO"}</ModalMicroLabel>
+                <p className="text-sm tabular-nums text-foreground">
+                  {fmtCx(ajusteParaEliminar.debito !== 0 ? ajusteParaEliminar.debito : ajusteParaEliminar.credito)}
+                </p>
+              </div>
+            </div>
+          </AppModal>
+        ) : null}
+      </Dialog>
     </ClassicFilteredTableLayout>
   );
 }

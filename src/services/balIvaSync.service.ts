@@ -103,7 +103,7 @@ export async function sincronizarIvaVenta(
   await guardarLineaBalIva(db, { comprobanteVtaId }, {
     origen: "VENTA",
     fecha: c.fecha,
-    descripcion: `${esNc ? "NC VENTA" : "VENTA"} ${nroComprobanteVta(c)} · ${c.receptorNombre}`,
+    descripcion: [nroComprobanteVta(c), c.receptorNombre.toUpperCase()].filter(Boolean).join(" · "),
     debito: esNc ? -iva : iva,
     credito: 0,
   });
@@ -134,7 +134,7 @@ export async function sincronizarIvaComprobanteCompra(
   await guardarLineaBalIva(db, { comprobanteCompraId }, {
     origen: "COMPRA_MERCADERIA",
     fecha: c.fechaComp,
-    descripcion: `${esNc ? "NC COMPRA" : "COMPRA MERC."} ${c.comprobante} · ${c.proveedor.nombre.toUpperCase()}`,
+    descripcion: `${c.comprobante} · ${c.proveedor.nombre.toUpperCase()}`,
     debito: 0,
     credito: esNc ? -iva : iva,
   });
@@ -198,7 +198,7 @@ export async function sincronizarIvaGastoMensual(
     {
       origen: "GASTO",
       fecha: fechaGasto ?? fechaDevengoGasto(g.anio, g.mes, g.gastoFinal.diaDevengado),
-      descripcion: ["GASTO", g.gastoFinal.gasto.nombre, sucursal?.nombre]
+      descripcion: [g.gastoFinal.gasto.nombre, sucursal?.nombre]
         .filter(Boolean)
         .join(" · ")
         .toUpperCase(),
@@ -280,7 +280,7 @@ export async function sincronizarIvaCxFinanciero(
     lineas.set(m.id, {
       origen: "CX_FINANCIERO",
       fecha: m.fechaRegistro,
-      descripcion: ["CX FIN. COBRO", forma, comprobante].filter(Boolean).join(" · ").toUpperCase(),
+      descripcion: [forma, comprobante].filter(Boolean).join(" · ").toUpperCase(),
       debito: 0,
       credito: m.tipoMovimiento === "EGRESO" ? -iva : iva,
     });

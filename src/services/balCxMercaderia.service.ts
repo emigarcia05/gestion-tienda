@@ -342,7 +342,7 @@ export interface FilaCxMercVend {
 }
 
 export interface FilaResumenCxMercVend {
-  /** `YYYY-MM` (vista sucursal) o id de rubro (vista rubro). */
+  /** `YYYY-MM` (vista sucursal), id de rubro o `__sin_rubro__` (vista rubro), id de forma (Cx Fin). */
   clave: string;
   etiqueta: string;
   total: number;
@@ -381,7 +381,9 @@ export interface CxMercVendData {
   };
 }
 
+/** Fila / filtro RUBRO de productos sin rubro (`prod_tienda.id_rubro` null). */
 const CLAVE_SIN_RUBRO = "__sin_rubro__";
+const OPCION_SIN_RUBRO: OpcionFiltroCxMercVend = { value: CLAVE_SIN_RUBRO, label: "SIN RUBRO" };
 
 function cxConSigno(tipo: StockMovimientoTipo, costoTotal: Prisma.Decimal | null): number {
   const monto = Number(costoTotal ?? 0);
@@ -484,7 +486,7 @@ async function resumenCxMercVendPorRubro(
       sucursalId: r.sucursalId,
       cx: cxConSigno(r.tipoMovimiento, r._sum.costoTotal),
     })),
-    { value: CLAVE_SIN_RUBRO, label: "SIN RUBRO" }
+    OPCION_SIN_RUBRO
   );
 }
 
@@ -553,7 +555,7 @@ function whereCxMercVend(params: {
   if (params.periodo) parts.push({ fecha: rangoFechaPeriodoCx(params.periodo) });
   if (params.sucursal) parts.push({ sucursalId: params.sucursal });
   const prod: Prisma.ProdPropioWhereInput[] = [];
-  if (params.rubro) prod.push({ idRubro: params.rubro });
+  if (params.rubro) prod.push({ idRubro: params.rubro === CLAVE_SIN_RUBRO ? null : params.rubro });
   const texto = filtroTexto(params.q, ["descripcionTienda", "codTienda"]);
   if (texto.AND?.length) prod.push(texto);
   if (prod.length > 0) parts.push({ prodTienda: { AND: prod } });
@@ -651,10 +653,11 @@ export async function listarCxMercVendData(raw: {
       orderBy: { nombre: "asc" },
     }),
   ]);
-  const rubros = rubrosRows.map((r) => ({
+  const rubrosCatalogo = rubrosRows.map((r) => ({
     value: r.id,
     label: r.nombre.toLocaleUpperCase("es-AR"),
   }));
+  const rubros = [...rubrosCatalogo, OPCION_SIN_RUBRO];
   const sucursales = sucursalesRows.map((s) => ({
     value: s.id,
     label: s.nombre.toLocaleUpperCase("es-AR"),
@@ -680,7 +683,9 @@ export async function listarCxMercVendData(raw: {
   }
   if (filtros.vista === "rubro") {
     const where = whereCxMercVend({ ...filtros, periodo });
-    const filasRubro = filtros.rubro ? rubros.filter((r) => r.value === filtros.rubro) : rubros;
+    const filasRubro = filtros.rubro
+      ? rubrosCatalogo.filter((r) => r.value === filtros.rubro)
+      : rubrosCatalogo;
     const resumen = await resumenCxMercVendPorRubro(where, columnas, filasRubro);
     return { ...base, ...sinDetalle, totalCx: resumen.totales.total, resumen };
   }

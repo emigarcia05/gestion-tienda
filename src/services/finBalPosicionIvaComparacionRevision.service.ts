@@ -3,32 +3,11 @@
  * que afectan la comparación de proveedores en pedidos.
  */
 
-import { huellaBalIva } from "@/services/balIva.service";
-import { getEstadoIvaComparacionPedido } from "@/services/finBalPosicionIvaComparacionPedido.service";
+import { calcularSaldoAcumuladoBalIva, huellaBalIva } from "@/services/balIva.service";
 
-function isoMaxUpdatedAt(d: Date | null | undefined): string {
-  if (!d) return "";
-  return d.toISOString();
-}
-
-/**
- * Huella estable: acumulado usado en pedidos + signo (>0 / ≤0) + config manual + cambios del libro.
- */
+/** Huella estable: signo (>0 / ≤0) + saldo usado en pedidos + cambios del libro. */
 export async function getPosicionIvaComparacionRevisionToken(): Promise<string> {
-  const [estadoComparacion, huellaLibro] = await Promise.all([
-    getEstadoIvaComparacionPedido(),
-    huellaBalIva(),
-  ]);
-
-  const acumulado = estadoComparacion.saldoEfectivoComparacion;
-  const sign = acumulado > 0 ? "P" : acumulado < 0 ? "N" : "Z";
-  const acumRounded = Math.round(acumulado);
-
-  return [
-    estadoComparacion.usarValorConfigurado ? "C" : "A",
-    sign,
-    String(acumRounded),
-    isoMaxUpdatedAt(estadoComparacion.updatedAt),
-    huellaLibro,
-  ].join("|");
+  const [saldo, huellaLibro] = await Promise.all([calcularSaldoAcumuladoBalIva(), huellaBalIva()]);
+  const sign = saldo > 0 ? "P" : saldo < 0 ? "N" : "Z";
+  return [sign, String(Math.round(saldo)), huellaLibro].join("|");
 }

@@ -4,7 +4,6 @@ import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { esEditor, getRol } from "@/lib/sesion";
 import { listarBalanceIvaData } from "@/services/balIva.service";
-import { getEstadoIvaComparacionPedido } from "@/services/finBalPosicionIvaComparacionPedido.service";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +17,7 @@ export default async function FinBalBalanceIvaPage({ searchParams }: Props) {
     redirect(GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido);
   }
 
-  const [data, comparacionPedidos, editor] = await Promise.all([
-    listarBalanceIvaData(await searchParams),
-    getEstadoIvaComparacionPedido(),
-    esEditor(),
-  ]);
+  const [data, editor] = await Promise.all([listarBalanceIvaData(await searchParams), esEditor()]);
 
-  return (
-    <FinBalBalanceIvaPageClient
-      data={data}
-      comparacionPedidos={comparacionPedidos}
-      esEditor={editor}
-    />
-  );
+  return <FinBalBalanceIvaPageClient data={data} esEditor={editor} />;
 }

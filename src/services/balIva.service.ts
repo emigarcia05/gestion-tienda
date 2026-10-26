@@ -2,11 +2,12 @@
  * Finanzas · Balance · Balance IVA (`bal_iva`): libro de movimientos que generan IVA débito o crédito.
  * El saldo no se persiste: saldo = Σ débito − Σ crédito, acumulado en orden fecha → alta.
  */
-import type { Prisma } from "@prisma/client";
+import { Prisma, type OrigenBalIva } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { clavePeriodoEstPorProd, parseClavePeriodoEstPorProd } from "@/lib/estPorProdPeriodo";
-import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
-import { balIvaParamsSchema } from "@/lib/validations/balIva";
+import { isoYmdFromPrismaDateOnly, prismaDateOnlyFromIsoYmd } from "@/lib/fechaArgentina";
+import { balIvaParamsSchema, type CrearAjusteBalIvaInput } from "@/lib/validations/balIva";
+import type { ServiceResult } from "@/types/service.types";
 import {
   opcionesPeriodoCx,
   rangoFechaPeriodoCx,
@@ -26,6 +27,11 @@ export type ComprobanteOrigenBalIva =
 export interface FilaBalanceIva {
   id: string;
   fechaIso: string;
+  /** Tipo según origen y signo: CX. FINANCIERO COBRO, VENTA, NOTA CREDITO (venta o compra), COMPRA MERC, GASTO, AJUSTE. */
+  movimiento: string;
+  /** Ajuste manual (AJUSTE SALDO): se puede borrar desde la fila. */
+  esAjuste: boolean;
+  /** Comprobante y contraparte (sin el tipo). */
   descripcion: string;
   debito: number;
   credito: number;
@@ -34,8 +40,24 @@ export interface FilaBalanceIva {
   comprobante: ComprobanteOrigenBalIva;
 }
 
+function etiquetaMovimiento(origen: OrigenBalIva, debito: number, credito: number): string {
+  switch (origen) {
+    case "VENTA":
+      return debito < 0 ? "NOTA CREDITO" : "VENTA";
+    case "COMPRA_MERCADERIA":
+      return credito < 0 ? "NOTA CREDITO" : "COMPRA MERC";
+    case "GASTO":
+      return "GASTO";
+    case "CX_FINANCIERO":
+      return "CX. FINANCIERO COBRO";
+    case "AJUSTE":
+      return "AJUSTE";
+  }
+}
+
 const SELECT_FILA_BAL_IVA = {
   id: true,
+  origen: true,
   fecha: true,
   descripcion: true,
   debito: true,
@@ -108,6 +130,8 @@ export async function listarBalanceIvaData(raw: { periodo?: string }): Promise<B
     return {
       id: r.id,
       fechaIso: isoYmdFromPrismaDateOnly(r.fecha),
+      movimiento: etiquetaMovimiento(r.origen, debito, credito),
+      esAjuste: r.origen === "AJUSTE",
       descripcion: r.descripcion,
       debito,
       credito,
@@ -136,6 +160,34 @@ export async function calcularSaldoAcumuladoBalIva(): Promise<number> {
     _sum: { debito: true, credito: true },
   });
   return saldoDesdeSumas(sumas);
+}
+
+/** AJUSTE SALDO: fila manual (sin origen) en DÉBITO o CRÉDITO por un monto entero positivo. */
+export async function crearAjusteBalIva(
+  input: CrearAjusteBalIvaInput
+): Promise<ServiceResult<{ id: string }>> {
+  const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
+  if (!fecha) return { success: false, error: "Fecha inválida." };
+  const monto = new Prisma.Decimal(input.monto);
+  const cero = new Prisma.Decimal(0);
+  const row = await prisma.balIva.create({
+    data: {
+      origen: "AJUSTE",
+      fecha,
+      descripcion: "",
+      debito: input.columna === "DEBITO" ? monto : cero,
+      credito: input.columna === "CREDITO" ? monto : cero,
+    },
+    select: { id: true },
+  });
+  return { success: true, data: { id: row.id } };
+}
+
+/** Borra un AJUSTE; las filas con origen (venta, compra, …) no se borran a mano. */
+export async function eliminarAjusteBalIva(id: string): Promise<ServiceResult<void>> {
+  const { count } = await prisma.balIva.deleteMany({ where: { id, origen: "AJUSTE" } });
+  if (count === 0) return { success: false, error: "El ajuste no existe o ya se borró." };
+  return { success: true, data: undefined };
 }
 
 /** Huella de cambios del libro (altas, ediciones y bajas) para el polling de pedidos. */
