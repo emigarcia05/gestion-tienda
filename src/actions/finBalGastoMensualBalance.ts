@@ -24,7 +24,6 @@ import {
   eliminarFinBalGastoMensual,
   listarGastosFinalesNoMensualesConEstadoPeriodo,
   listarHistoricoMontosGastoFinalBalance,
-  listarImputacionesMensualesBalance,
   listarPendientesDiscriminaIvaCargaMesCatalogo,
   mesAnioCalendarioArgentina,
   obtenerMontoImputacionMesAnterior,
@@ -34,6 +33,7 @@ import {
   type PendienteDiscriminaIvaCargaMesItem,
 } from "@/services/finBalGastoMensualBalance.service";
 import { listarSerieHistorialFilaBalanceMensual } from "@/services/balanceMensualHistorialFila.service";
+import { listarFilasBalanceMensual } from "@/services/balanceMensualLibros.service";
 import {
   listarSucursalesGeneraBalance,
   ventasPorSucursalNombreMes,
@@ -240,7 +240,7 @@ export async function listarSerieHistorialFilaBalanceMensualAction(
   }
 }
 
-/** Imputaciones del mes y ventas (comprobantes, `ventasMensuales.service`) para armar el mismo resumen que la página (p. ej. desglose al elegir una barra del historial). */
+/** Filas del mes (imputaciones + libros, `balanceMensualLibros.service`) y ventas (comprobantes, `ventasMensuales.service`) para armar el mismo resumen que la página (p. ej. desglose al elegir una barra del historial). */
 export async function cargarFilasBalanceMensualPeriodoAction(
   raw: unknown,
 ): Promise<
@@ -258,7 +258,7 @@ export async function cargarFilasBalanceMensualPeriodoAction(
   const { mes, anio } = parsed.data;
   try {
     const [filas, sucursales] = await Promise.all([
-      listarImputacionesMensualesBalance({ meses: [mes], anio }),
+      listarFilasBalanceMensual(mes, anio),
       listarSucursalesGeneraBalance(),
     ]);
     const ventasPorSucursalNombre = await ventasPorSucursalNombreMes(mes, anio, sucursales);

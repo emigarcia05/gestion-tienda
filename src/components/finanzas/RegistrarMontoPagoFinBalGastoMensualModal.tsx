@@ -19,6 +19,10 @@ import {
   montoArPesosEnterosToNormalizedString,
 } from "@/lib/montoArMask";
 import { fmtPrecio } from "@/lib/format";
+import {
+  esGastoReemplazadoPorLibro,
+  MENSAJE_GASTO_REEMPLAZADO_POR_LIBRO,
+} from "@/lib/balanceMensualLibros";
 
 interface Props {
   open: boolean;
@@ -84,6 +88,7 @@ export default function RegistrarMontoPagoFinBalGastoMensualModal({
     [pagadoNorm]
   );
   const hayDatoMonto = montoNorm.trim().length > 0;
+  const montoBloqueado = !!fila && esGastoReemplazadoPorLibro(fila.tipoGastoNombre, fila.gastoNombre);
 
   const disabledSubmit = useMemo(() => {
     if (saving || aplicandoRepetir || !fila) return true;
@@ -96,6 +101,7 @@ export default function RegistrarMontoPagoFinBalGastoMensualModal({
 
   const puedeRepetirMonto =
     !!fila &&
+    !montoBloqueado &&
     !loadingUltMonto &&
     ultMonto !== undefined &&
     ultMonto !== null &&
@@ -185,10 +191,15 @@ export default function RegistrarMontoPagoFinBalGastoMensualModal({
               <MontoArInput
                 valueNormalized={montoNorm}
                 onValueNormalizedChange={setMontoNorm}
-                disabled={saving || aplicandoRepetir}
-                autoFocus
+                disabled={saving || aplicandoRepetir || montoBloqueado}
+                autoFocus={!montoBloqueado}
                 aria-label="Monto en pesos"
               />
+              {montoBloqueado ? (
+                <span className="text-xs text-muted-foreground">
+                  {MENSAJE_GASTO_REEMPLAZADO_POR_LIBRO}
+                </span>
+              ) : null}
             </label>
 
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm">

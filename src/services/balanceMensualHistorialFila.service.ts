@@ -4,10 +4,8 @@ import {
   ventanaMesesHastaFinAsc,
   type BalanceMensualFilaHistorialId,
 } from "@/lib/balanceMensualHistorialFila";
-import {
-  listarImputacionesMensualesBalance,
-  type HistoricoMontoGastoFinalBalanceItem,
-} from "@/services/finBalGastoMensualBalance.service";
+import { listarFilasBalanceMensual } from "@/services/balanceMensualLibros.service";
+import type { HistoricoMontoGastoFinalBalanceItem } from "@/services/finBalGastoMensualBalance.service";
 import {
   listarSucursalesGeneraBalance,
   ventasPorSucursalNombreMes,
@@ -58,7 +56,7 @@ export async function listarSerieHistorialFilaBalanceMensual(params: {
     const chunk = await Promise.all(
       slice.map(async ({ mes, anio }) => {
         const [filas, ventasPorSucursalNombre] = await Promise.all([
-          listarImputacionesMensualesBalance({ meses: [mes], anio }),
+          listarFilasBalanceMensual(mes, anio),
           ventasPorSucursalNombreMes(mes, anio, sucursales),
         ]);
         const resumen = resumenBalanceMensualDesdeFilas(

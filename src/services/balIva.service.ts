@@ -78,6 +78,7 @@ function comprobanteOrigen(
 }
 
 export interface BalanceIvaData {
+  /** Más reciente primero; `saldo` de cada fila acumulado en orden cronológico. */
   filas: FilaBalanceIva[];
   /** Saldo acumulado de todos los movimientos anteriores al mes elegido. */
   saldoInicial: number;
@@ -141,7 +142,7 @@ export async function listarBalanceIvaData(raw: { periodo?: string }): Promise<B
   });
 
   return {
-    filas,
+    filas: filas.reverse(),
     saldoInicial,
     totalDebito,
     totalCredito,

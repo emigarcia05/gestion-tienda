@@ -173,16 +173,6 @@ export default function FinBalBalanceIibbPageClient({ data, esEditor }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow className="bg-muted/35 hover:bg-muted/35">
-              <TableCell className="celda-datos" aria-hidden />
-              <TableCell className="celda-datos font-medium uppercase">SALDO ANTERIOR</TableCell>
-              <TableCell className="celda-datos" aria-hidden />
-              <TableCell className="celda-datos" aria-hidden />
-              <TableCell className={cn(claseImporte(data.saldoInicial), "font-medium")}>
-                {fmtCx(data.saldoInicial)}
-              </TableCell>
-              <TableCell className="celda-datos" aria-hidden />
-            </TableRow>
             {filas.length === 0 ? (
               <EmptyTableRow colSpan={6} message="No hay movimientos de IIBB en este mes." />
             ) : (
@@ -221,6 +211,16 @@ export default function FinBalBalanceIibbPageClient({ data, esEditor }: Props) {
                 </TableRow>
               ))
             )}
+            <TableRow className="bg-muted/35 hover:bg-muted/35">
+              <TableCell className="celda-datos" aria-hidden />
+              <TableCell className="celda-datos font-medium uppercase">SALDO ANTERIOR</TableCell>
+              <TableCell className="celda-datos" aria-hidden />
+              <TableCell className="celda-datos" aria-hidden />
+              <TableCell className={cn(claseImporte(data.saldoInicial), "font-medium")}>
+                {fmtCx(data.saldoInicial)}
+              </TableCell>
+              <TableCell className="celda-datos" aria-hidden />
+            </TableRow>
           </TableBody>
           <TableFooter>
             <TableRow className="hover:bg-transparent">

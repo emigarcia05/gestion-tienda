@@ -5,10 +5,8 @@ import { resumenBalanceMensualDesdeFilas } from "@/lib/balanceMensual";
 import { mesAnioQuerySchema } from "@/lib/validations/finBalGastoMensualBalance";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
-import {
-  listarImputacionesMensualesBalance,
-  mesAnioCalendarioArgentina,
-} from "@/services/finBalGastoMensualBalance.service";
+import { listarFilasBalanceMensual } from "@/services/balanceMensualLibros.service";
+import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 import {
   listarSucursalesGeneraBalance,
   ventasPorSucursalNombreMes,
@@ -61,7 +59,7 @@ export default async function BalanceMensualPage({ searchParams }: Props) {
 
   const { mes, anio } = parsed.data;
   const [filas, sucursalesBalance] = await Promise.all([
-    listarImputacionesMensualesBalance({ meses: [mes], anio }),
+    listarFilasBalanceMensual(mes, anio),
     listarSucursalesGeneraBalance(),
   ]);
   const ventasPorSucursalNombre = await ventasPorSucursalNombreMes(mes, anio, sucursalesBalance);

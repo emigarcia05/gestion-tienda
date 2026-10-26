@@ -156,7 +156,7 @@ const balanceScreens: AdmScreenDef[] = [
     id: "balance-iibb",
     label: "Balance IIBB",
     href: F.balance.balanceIibb,
-    icon: "landmark",
+    icon: "percent",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];

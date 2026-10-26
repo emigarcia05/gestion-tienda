@@ -1,8 +1,6 @@
 /**
- * Finanzas · Balance · Cx Fin Cobros (`bal_cx_financiero`), 3 vistas:
- * `sucursal` (meses × sucursales, ignora FECHA), `forma` (formas de pago × sucursales del mes) y
- * `detalle` (cobros paginados del mes). FORMA DE PAGO / SUC / texto aplican a todas.
- * Cobro (+), devolución de NC (−).
+ * Finanzas · Balance · Cx Fin Cobros (`bal_cx_financiero`): detalle paginado de los cobros del mes
+ * (más reciente primero), con filtros FORMA DE PAGO / SUC / texto. Cobro (+), devolución de NC (−).
  */
 import type { Prisma, SentidoMovimientoTesoreria } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -11,18 +9,12 @@ import { clavePeriodoEstPorProd, parseClavePeriodoEstPorProd } from "@/lib/estPo
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
 import { isoYmdFromPrismaDateOnly } from "@/lib/fechaArgentina";
 import { PAGE_SIZE } from "@/lib/pagination";
+import { cxFinCobrosParamsSchema } from "@/lib/validations/balCxFinanciero";
 import {
-  cxFinCobrosParamsSchema,
-  VISTA_CX_FIN_COBROS_DEFAULT,
-  type VistaCxFinCobros,
-} from "@/lib/validations/balCxFinanciero";
-import {
-  armarResumen,
   opcionesPeriodoCx,
   rangoFechaPeriodoCx,
   type OpcionFiltroCxMercVend,
   type PeriodoMesAnio,
-  type ResumenCxMercVend,
 } from "@/services/balCxMercaderia.service";
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 
@@ -45,22 +37,17 @@ export interface FilaCxFinCobros {
 }
 
 export interface CxFinCobrosData {
-  vista: VistaCxFinCobros;
-  /** Solo vista `detalle` (vacío en las resumidas). */
   filas: FilaCxFinCobros[];
   total: number;
   totalPaginas: number;
   /** Suma con signo de todas las filas que cumplen los filtros (no solo la página). */
   totalCx: number;
-  /** Solo vistas `sucursal` / `forma`. */
-  resumen: ResumenCxMercVend | null;
   periodos: OpcionFiltroCxMercVend[];
   formasPago: OpcionFiltroCxMercVend[];
   sucursales: OpcionFiltroCxMercVend[];
   /** Mes calendario AR actual (`YYYY-MM`): valor al limpiar FECHA. */
   periodoDefault: string;
   filtros: {
-    vista: VistaCxFinCobros;
     periodo: string;
     pago: string;
     sucursal: string;
@@ -78,63 +65,17 @@ function cxConSigno(tipo: SentidoMovimientoTesoreria, cx: Prisma.Decimal | null)
 }
 
 function whereCxFinCobros(params: {
-  /** `null` = sin filtro de fecha (vista por sucursal). */
-  periodo: PeriodoMesAnio | null;
+  periodo: PeriodoMesAnio;
   pago: string;
   sucursal: string;
   q: string;
 }): Prisma.BalCxFinancieroWhereInput {
-  const parts: Prisma.BalCxFinancieroWhereInput[] = [];
-  if (params.periodo) parts.push({ fecha: rangoFechaPeriodoCx(params.periodo) });
+  const parts: Prisma.BalCxFinancieroWhereInput[] = [{ fecha: rangoFechaPeriodoCx(params.periodo) }];
   if (params.sucursal) parts.push({ sucursalId: params.sucursal });
   if (params.pago) parts.push({ pagoId: params.pago });
   const texto = filtroTexto(params.q, ["receptorNombre"]);
   if (texto.AND?.length) parts.push({ comprobanteVta: texto });
   return { AND: parts };
-}
-
-/** Vista 1: todos los meses (más reciente primero) × sucursales; ignora FECHA. */
-async function resumenPorSucursal(
-  where: Prisma.BalCxFinancieroWhereInput,
-  columnas: OpcionFiltroCxMercVend[],
-  periodos: OpcionFiltroCxMercVend[]
-): Promise<ResumenCxMercVend> {
-  const rows = await prisma.balCxFinanciero.groupBy({
-    by: ["fecha", "sucursalId", "tipoMovimiento"],
-    where,
-    _sum: { cxTotal: true },
-  });
-  return armarResumen(
-    columnas,
-    periodos,
-    rows.map((r) => ({
-      clave: clavePeriodoEstPorProd(r.fecha.getUTCMonth() + 1, r.fecha.getUTCFullYear()),
-      sucursalId: r.sucursalId,
-      cx: cxConSigno(r.tipoMovimiento, r._sum.cxTotal),
-    }))
-  );
-}
-
-/** Vista 2: formas de pago × sucursales del mes elegido. */
-async function resumenPorForma(
-  where: Prisma.BalCxFinancieroWhereInput,
-  columnas: OpcionFiltroCxMercVend[],
-  formas: OpcionFiltroCxMercVend[]
-): Promise<ResumenCxMercVend> {
-  const rows = await prisma.balCxFinanciero.groupBy({
-    by: ["pagoId", "sucursalId", "tipoMovimiento"],
-    where,
-    _sum: { cxTotal: true },
-  });
-  return armarResumen(
-    columnas,
-    formas,
-    rows.map((r) => ({
-      clave: r.pagoId,
-      sucursalId: r.sucursalId,
-      cx: cxConSigno(r.tipoMovimiento, r._sum.cxTotal),
-    }))
-  );
 }
 
 async function listarDetalle(
@@ -195,7 +136,6 @@ async function listarDetalle(
 
 /** Periodo inválido → mes AR actual. */
 export async function listarCxFinCobrosData(raw: {
-  vista?: string;
   periodo?: string;
   pago?: string;
   sucursal?: string;
@@ -205,7 +145,6 @@ export async function listarCxFinCobrosData(raw: {
   const actual = mesAnioCalendarioArgentina();
   const periodoDefault = clavePeriodoEstPorProd(actual.mes, actual.anio);
   const parsed = cxFinCobrosParamsSchema.safeParse({
-    vista: raw.vista || VISTA_CX_FIN_COBROS_DEFAULT,
     periodo: raw.periodo || periodoDefault,
     pago: raw.pago ?? "",
     sucursal: raw.sucursal ?? "",
@@ -215,7 +154,6 @@ export async function listarCxFinCobrosData(raw: {
   const filtros = parsed.success
     ? parsed.data
     : {
-        vista: VISTA_CX_FIN_COBROS_DEFAULT,
         periodo: periodoDefault,
         pago: "",
         sucursal: "",
@@ -246,33 +184,14 @@ export async function listarCxFinCobrosData(raw: {
     value: s.id,
     label: s.nombre.toLocaleUpperCase("es-AR"),
   }));
-  const columnas = filtros.sucursal
-    ? sucursales.filter((s) => s.value === filtros.sucursal)
-    : sucursales;
 
-  const base = {
-    vista: filtros.vista,
+  const detalle = await listarDetalle(whereCxFinCobros({ ...filtros, periodo }), filtros.pagina);
+  return {
+    ...detalle,
     periodos,
     formasPago,
     sucursales,
     periodoDefault,
     filtros: { ...filtros, periodo: clavePeriodoEstPorProd(periodo.mes, periodo.anio) },
   };
-  const sinDetalle = { filas: [], total: 0, totalPaginas: 1, totalCx: 0 };
-
-  if (filtros.vista === "sucursal") {
-    const where = whereCxFinCobros({ ...filtros, periodo: null });
-    const resumen = await resumenPorSucursal(where, columnas, periodos);
-    return { ...base, ...sinDetalle, totalCx: resumen.totales.total, resumen };
-  }
-  if (filtros.vista === "forma") {
-    const where = whereCxFinCobros({ ...filtros, periodo });
-    const filasForma = filtros.pago
-      ? formasPago.filter((f) => f.value === filtros.pago)
-      : formasPago;
-    const resumen = await resumenPorForma(where, columnas, filasForma);
-    return { ...base, ...sinDetalle, totalCx: resumen.totales.total, resumen };
-  }
-  const detalle = await listarDetalle(whereCxFinCobros({ ...filtros, periodo }), filtros.pagina);
-  return { ...base, ...detalle, resumen: null };
 }

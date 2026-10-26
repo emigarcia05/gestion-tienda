@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 interface Props {
   searchParams: Promise<{
-    vista?: string;
     periodo?: string;
     pago?: string;
     sucursal?: string;

@@ -32,6 +32,7 @@ export interface FilaBalanceIibb {
 }
 
 export interface BalanceIibbData {
+  /** Más reciente primero; `saldo` de cada fila acumulado en orden cronológico. */
   filas: FilaBalanceIibb[];
   /** Saldo acumulado de todos los movimientos anteriores al mes elegido. */
   saldoInicial: number;
@@ -86,7 +87,7 @@ export async function listarBalanceIibbData(raw: { periodo?: string }): Promise<
   });
 
   return {
-    filas,
+    filas: filas.reverse(),
     saldoInicial,
     totalDebito,
     saldoFinal: saldo,

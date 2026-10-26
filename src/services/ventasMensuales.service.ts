@@ -63,11 +63,38 @@ export async function listarSucursalesGeneraBalance(): Promise<SucursalGeneraBal
   return rows.map((r) => ({ id: r.id, nombre: r.nombre.toLocaleUpperCase("es") }));
 }
 
+/** `select` de `vtas_comprobantes` que necesita `sucursalIdDeVenta`. */
+export const SELECT_SUCURSAL_VENTA = {
+  stockComprobantes: {
+    select: { sucursalId: true },
+    orderBy: { createdAt: "asc" },
+    take: 1,
+  },
+  personal: { select: { sucursalPorDefecto: true } },
+} as const;
+
+/** Mapa `sucursales.codigo` (minúsculas) → id, para el fallback de `sucursalIdDeVenta`. */
+export async function mapaSucursalIdPorCodigo(): Promise<Map<string, string>> {
+  const sucursales = await prisma.sucursal.findMany({ select: { id: true, codigo: true } });
+  return new Map(sucursales.map((s) => [s.codigo.trim().toLowerCase(), s.id]));
+}
+
 /**
- * Ventas netas (NC restan) por periodo `anio-mes` y sucursal, para fechas en `[desde, hasta)`.
- * Sucursal = la del comprobante de stock de la venta; si no tiene, la sucursal por defecto del
+ * Sucursal de una venta: la del comprobante de stock; si no tiene, la sucursal por defecto del
  * usuario que la emitió (misma regla que `aplicarStockDesdeComprobanteVta`).
  */
+export function sucursalIdDeVenta(
+  venta: {
+    stockComprobantes: { sucursalId: string }[];
+    personal: { sucursalPorDefecto: string | null } | null;
+  },
+  sucursalIdPorCodigo: Map<string, string>
+): string | undefined {
+  const codigo = venta.personal?.sucursalPorDefecto?.trim().toLowerCase() ?? "";
+  return venta.stockComprobantes[0]?.sucursalId ?? sucursalIdPorCodigo.get(codigo);
+}
+
+/** Ventas netas (NC restan) por periodo `anio-mes` y sucursal (`sucursalIdDeVenta`), para fechas en `[desde, hasta)`. */
 async function sumarVentasPorPeriodoYSucursal(
   desde: Date,
   hasta: Date
@@ -76,7 +103,7 @@ async function sumarVentasPorPeriodoYSucursal(
   const out = new Map<string, Record<string, number>>();
   if (inicio >= hasta) return out;
 
-  const [rows, sucursales] = await Promise.all([
+  const [rows, sucursalIdPorCodigo] = await Promise.all([
     prisma.comprobanteVta.findMany({
       where: {
         tipoComprobante: { in: [...TIPOS_VENTA] },
@@ -88,21 +115,14 @@ async function sumarVentasPorPeriodoYSucursal(
         tipoComprobante: true,
         impTotal: true,
         cotizacion: true,
-        stockComprobantes: {
-          select: { sucursalId: true },
-          orderBy: { createdAt: "asc" },
-          take: 1,
-        },
-        personal: { select: { sucursalPorDefecto: true } },
+        ...SELECT_SUCURSAL_VENTA,
       },
     }),
-    prisma.sucursal.findMany({ select: { id: true, codigo: true } }),
+    mapaSucursalIdPorCodigo(),
   ]);
-  const sucursalIdPorCodigo = new Map(sucursales.map((s) => [s.codigo.trim().toLowerCase(), s.id]));
 
   for (const r of rows) {
-    const codigo = r.personal?.sucursalPorDefecto?.trim().toLowerCase() ?? "";
-    const sucursalId = r.stockComprobantes[0]?.sucursalId ?? sucursalIdPorCodigo.get(codigo);
+    const sucursalId = sucursalIdDeVenta(r, sucursalIdPorCodigo);
     if (!sucursalId || !esFacturaTipo(r.tipoComprobante)) continue;
     const signo = esFacturaTipoNotaCredito(r.tipoComprobante) ? -1 : 1;
     const importe = signo * Number(r.impTotal) * Number(r.cotizacion);

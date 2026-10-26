@@ -89,7 +89,8 @@ export function repartoIgualEnteros(total: number, cantidad: number): number[] {
 }
 
 /**
- * Resume imputaciones del mes para balance mensual.
+ * Resume las filas del mes para balance mensual: imputaciones de Gastos + filas de libros
+ * (Cx Merc., Cx Fin, IVA, IIBB; ver `listarFilasBalanceMensual`).
  *
  * - **Global:** todas las imputaciones (cualquier sucursal).
  * - **Por sucursal:** solo sucursales con `genera_balance === true`. A cada una se le suman

@@ -4,6 +4,10 @@
  */
 import type { IvaProveedor } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  esGastoReemplazadoPorLibro,
+  MENSAJE_GASTO_REEMPLAZADO_POR_LIBRO,
+} from "@/lib/balanceMensualLibros";
 import { dateToIsoYmdArgentina } from "@/lib/fechaArgentina";
 import type { ServiceResult } from "@/types/service.types";
 import { sincronizarIvaGastoMensual } from "@/services/balIvaSync.service";
@@ -21,6 +25,17 @@ export function discriminaIvaDesdePoliticaGastoFinal(
     return { success: false, error: "Indicá si el gasto discrimina IVA." };
   }
   return { success: true, data: respuestaUsuario };
+}
+
+/** `select` del gasto de catálogo con su tipo, para `esGastoReemplazadoPorLibro`. */
+const SELECT_GASTO_CON_TIPO = {
+  select: { nombre: true, rubro: { select: { tipo: { select: { nombre: true } } } } },
+} as const;
+
+function gastoFinalReemplazadoPorLibro(gf: {
+  gasto: { nombre: string; rubro: { tipo: { nombre: string } } };
+}): boolean {
+  return esGastoReemplazadoPorLibro(gf.gasto.rubro.tipo.nombre, gf.gasto.nombre);
 }
 
 /** Sucursales con `centro_costo` — selectores en Balance · Gastos y catálogo de gastos. */
@@ -205,16 +220,18 @@ export async function listarPendientesDiscriminaIvaCargaMesCatalogo(params: {
   }
 
   try {
-    const finals = await prisma.finBalGastoFinal.findMany({
-      where: { gastoMensual: true, sucursalId: { not: null } },
-      select: {
-        id: true,
-        iva: true,
-        proveedor: { select: { nombre: true } },
-        gasto: { select: { nombre: true } },
-        sucursal: { select: { nombre: true } },
-      },
-    });
+    const finals = (
+      await prisma.finBalGastoFinal.findMany({
+        where: { gastoMensual: true, sucursalId: { not: null } },
+        select: {
+          id: true,
+          iva: true,
+          proveedor: { select: { nombre: true } },
+          gasto: SELECT_GASTO_CON_TIPO,
+          sucursal: { select: { nombre: true } },
+        },
+      })
+    ).filter((f) => !gastoFinalReemplazadoPorLibro(f));
     if (finals.length === 0) {
       return { success: true, data: { pendientesPregunta: [] } };
     }
@@ -247,7 +264,8 @@ export async function listarPendientesDiscriminaIvaCargaMesCatalogo(params: {
 
 /**
  * Crea filas `fin_bal_gasto_mensual` (monto 0, pagado 0) para el mes/año dado,
- * por cada `fin_bal_gasto_final` con `gasto_mensual = true` que aún no tenga fila.
+ * por cada `fin_bal_gasto_final` con `gasto_mensual = true` que aún no tenga fila
+ * (salvo los gastos que reemplaza un libro: `esGastoReemplazadoPorLibro`).
  * Para política `PREGUNTA`, `ivaPorGastoFinalId[gastoFinalId]` debe ser `true`/`false` (discrimina IVA).
  */
 export async function cargarImputacionesMensualesDesdeCatalogo(params: {
@@ -261,10 +279,12 @@ export async function cargarImputacionesMensualesDesdeCatalogo(params: {
   }
 
   try {
-    const finals = await prisma.finBalGastoFinal.findMany({
-      where: { gastoMensual: true, sucursalId: { not: null } },
-      select: { id: true, iva: true },
-    });
+    const finals = (
+      await prisma.finBalGastoFinal.findMany({
+        where: { gastoMensual: true, sucursalId: { not: null } },
+        select: { id: true, iva: true, gasto: SELECT_GASTO_CON_TIPO },
+      })
+    ).filter((f) => !gastoFinalReemplazadoPorLibro(f));
     if (finals.length === 0) {
       return { success: true, data: { creados: 0, yaExistentes: 0 } };
     }
@@ -528,21 +548,23 @@ export async function listarGastosFinalesNoMensualesConEstadoPeriodo(params: {
     },
   });
 
-  const rows: FinBalGastoFinalNoMensualListItem[] = finals.map((gf) => {
-    const comRaw = gf.comentarios?.trim() ?? "";
-    return {
-      gastoFinalId: gf.id,
-      ivaPolitica: gf.iva,
-      tipoGastoNombre: gf.gasto.rubro.tipo.nombre.toUpperCase(),
-      rubroNombre: gf.gasto.rubro.nombre.toUpperCase(),
-      gastoNombre: gf.gasto.nombre.toUpperCase(),
-      proveedorNombre: gf.proveedor.nombre.toUpperCase(),
-      sucursalNombre: gf.sucursal?.nombre.toUpperCase() ?? "—",
-      diaDevengado: gf.diaDevengado,
-      vencimiento: gf.vencimiento,
-      gastoFinalComentarios: comRaw.length > 0 ? comRaw.toUpperCase() : null,
-    };
-  });
+  const rows: FinBalGastoFinalNoMensualListItem[] = finals
+    .filter((gf) => !gastoFinalReemplazadoPorLibro(gf))
+    .map((gf) => {
+      const comRaw = gf.comentarios?.trim() ?? "";
+      return {
+        gastoFinalId: gf.id,
+        ivaPolitica: gf.iva,
+        tipoGastoNombre: gf.gasto.rubro.tipo.nombre.toUpperCase(),
+        rubroNombre: gf.gasto.rubro.nombre.toUpperCase(),
+        gastoNombre: gf.gasto.nombre.toUpperCase(),
+        proveedorNombre: gf.proveedor.nombre.toUpperCase(),
+        sucursalNombre: gf.sucursal?.nombre.toUpperCase() ?? "—",
+        diaDevengado: gf.diaDevengado,
+        vencimiento: gf.vencimiento,
+        gastoFinalComentarios: comRaw.length > 0 ? comRaw.toUpperCase() : null,
+      };
+    });
 
   rows.sort((a, b) => {
     const t = a.tipoGastoNombre.localeCompare(b.tipoGastoNombre, "es");
@@ -602,10 +624,13 @@ export async function crearImputacionGastoUnicoBalance(params: {
   try {
     const gf = await prisma.finBalGastoFinal.findUnique({
       where: { id: gastoFinalId },
-      select: { id: true, gastoMensual: true, iva: true },
+      select: { id: true, gastoMensual: true, iva: true, gasto: SELECT_GASTO_CON_TIPO },
     });
     if (!gf) {
       return { success: false, error: "Gasto no encontrado en el catálogo." };
+    }
+    if (gastoFinalReemplazadoPorLibro(gf)) {
+      return { success: false, error: MENSAJE_GASTO_REEMPLAZADO_POR_LIBRO };
     }
     if (gf.gastoMensual) {
       return {
@@ -860,10 +885,13 @@ export async function actualizarMontoFinBalGastoMensual(params: {
   try {
     const current = await prisma.finBalGastoMensual.findUnique({
       where: { id },
-      select: { pagado: true },
+      select: { pagado: true, gastoFinal: { select: { gasto: SELECT_GASTO_CON_TIPO } } },
     });
     if (!current) {
       return { success: false, error: "Imputación no encontrada." };
+    }
+    if (gastoFinalReemplazadoPorLibro(current.gastoFinal)) {
+      return { success: false, error: MENSAJE_GASTO_REEMPLAZADO_POR_LIBRO };
     }
     if (monto < current.pagado) {
       return {
