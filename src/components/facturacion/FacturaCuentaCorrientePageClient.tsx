@@ -116,9 +116,12 @@ export default function FacturaCuentaCorrientePageClient({
   marcasCatalogo,
   rubrosCatalogo,
   visorPublico = null,
+  clienteInicial = null,
 }: {
   marcasCatalogo: string[];
   rubrosCatalogo: string[];
+  /** Cliente de `?cliente=` (link desde Lista Clientes). */
+  clienteInicial?: ClienteListaItem | null;
   visorPublico?: {
     token: string;
     sesion: CuentaCorrientePublicaSesion;
@@ -371,6 +374,13 @@ export default function FacturaCuentaCorrientePageClient({
     // Solo al montar el visor público.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visorPublico?.token]);
+
+  useEffect(() => {
+    if (visorPublico || !clienteInicial) return;
+    aplicarCliente(clienteInicial);
+    // Solo cuando cambia el cliente de la URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteInicial?.id]);
 
   useEffect(() => {
     if (vista !== "clientes_saldo" || esPublico) return;

@@ -205,6 +205,9 @@ export default function CrearEditarClienteModal({
       if (data.condicionIva != null) {
         setCondicionIva(data.condicionIva);
         setCondicionIvaDescripcion(data.condicionIvaDescripcion);
+        if (data.condicionIvaAsumida) {
+          toast.info("ARCA no informó régimen de IVA: se asigna Consumidor Final.");
+        }
       } else {
         setCondicionIva(null);
         setCondicionIvaDescripcion(null);

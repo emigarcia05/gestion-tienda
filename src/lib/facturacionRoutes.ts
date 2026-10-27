@@ -30,3 +30,11 @@ export function hrefFacturaCrear(opts?: {
   const q = params.toString();
   return q ? `${FACTURACION_ROUTES.factura.crear}?${q}` : FACTURACION_ROUTES.factura.crear;
 }
+
+export const CUENTA_CORRIENTE_QUERY_CLIENTE = "cliente" as const;
+
+/** Cuenta Corriente con el cliente ya seleccionado. */
+export function hrefCuentaCorrienteCliente(clienteId: string): string {
+  const params = new URLSearchParams({ [CUENTA_CORRIENTE_QUERY_CLIENTE]: clienteId });
+  return `${FACTURACION_ROUTES.clientes.cuentaCorriente}?${params.toString()}`;
+}

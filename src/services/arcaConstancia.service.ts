@@ -7,6 +7,7 @@ import {
 } from "@/lib/arca";
 import type { ArcaConstanciaPersona } from "@/lib/arcaConstancia";
 import {
+  ARCA_CONDICION_IVA,
   ARCA_SERVICIO_CONSTANCIA,
   condicionIvaDesdeConstanciaArca,
   nombreDesdeConstanciaArca,
@@ -147,20 +148,18 @@ export async function consultarConstanciaArca(cuit: string): Promise<
     return { success: false, error: "ARCA no devolvió el nombre del contribuyente." };
   }
 
-  const condicionIva = condicionIvaDesdeConstanciaArca({
+  const regimenIva = condicionIvaDesdeConstanciaArca({
     tieneDatosMonotributo: persona.data.tieneDatosMonotributo,
     categoriaMonotributo: persona.data.categoriaMonotributo,
     impuestosRegimenGeneral: persona.data.impuestosRegimenGeneral,
   });
+  // Sin RI, monotributo ni exento en el padrón: frente al IVA es consumidor final.
+  const condicionIva = regimenIva ?? ARCA_CONDICION_IVA.CF;
 
-  let condicionIvaDescripcion: string | null = null;
-  if (condicionIva != null) {
-    const cat = await prisma.ptoVentasCodArca.findUnique({
-      where: { codigo: condicionIva },
-      select: { descripcion: true },
-    });
-    condicionIvaDescripcion = cat?.descripcion ?? null;
-  }
+  const cat = await prisma.ptoVentasCodArca.findUnique({
+    where: { codigo: condicionIva },
+    select: { descripcion: true },
+  });
 
   return {
     success: true,
@@ -168,7 +167,8 @@ export async function consultarConstanciaArca(cuit: string): Promise<
       cuit: persona.data.cuit,
       nombre,
       condicionIva,
-      condicionIvaDescripcion,
+      condicionIvaDescripcion: cat?.descripcion ?? null,
+      condicionIvaAsumida: regimenIva == null,
       estadoClave: persona.data.estadoClave,
       tipoPersona: persona.data.tipoPersona,
     },

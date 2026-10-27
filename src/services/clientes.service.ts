@@ -9,6 +9,7 @@ import {
   CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
   compararClientesParaListado,
   compararClientesTypeaheadFactura,
+  ETIQUETA_CLIENTE_SIN_NOMBRE,
   etiquetaClienteListado,
   normalizarCelCliente,
   normalizarNombreCliente,
@@ -318,6 +319,57 @@ function normalizarCuitCliente(cuit: string | null | undefined): string | null {
   return cuit;
 }
 
+/**
+ * CUIT único entre clientes. Mismo nombre (sin distinguir mayúsculas) solo si el CEL
+ * lo diferencia: obligatorio y distinto al de cada homónimo. Valores ya normalizados.
+ */
+async function validarDuplicadosCliente(input: {
+  id?: string;
+  nombreCompleto: string;
+  cel: string;
+  cuit: string | null;
+}): Promise<ServiceResult<void>> {
+  const excluirPropio = input.id ? { NOT: { id: input.id } } : {};
+  if (input.cuit) {
+    const mismoCuit = await prisma.cliente.findFirst({
+      where: { cuit: input.cuit, ...excluirPropio },
+      select: { nombreCompleto: true, cel: true },
+    });
+    if (mismoCuit) {
+      const nombre = normalizarNombreCliente(mismoCuit.nombreCompleto);
+      return {
+        success: false,
+        error: `Ya existe un cliente con ese CUIT: ${nombre || `${ETIQUETA_CLIENTE_SIN_NOMBRE} (${mismoCuit.cel.trim()})`}.`,
+      };
+    }
+  }
+
+  const homonimos = await prisma.cliente.findMany({
+    where: {
+      nombreCompleto: { equals: input.nombreCompleto, mode: "insensitive" },
+      ...excluirPropio,
+    },
+    select: { cel: true },
+  });
+  if (homonimos.length === 0) return { success: true, data: undefined };
+  const etiqueta = input.nombreCompleto
+    ? `un cliente llamado ${input.nombreCompleto}`
+    : `un cliente ${ETIQUETA_CLIENTE_SIN_NOMBRE}`;
+  if (input.cel === "") {
+    return {
+      success: false,
+      error: `Ya existe ${etiqueta}. Cargá el CEL para diferenciarlo.`,
+    };
+  }
+  if (homonimos.some((h) => normalizarCelCliente(h.cel) === input.cel)) {
+    return {
+      success: false,
+      error: `Ya existe ${etiqueta} con el mismo CEL.`,
+    };
+  }
+  return { success: true, data: undefined };
+}
+
 export async function listarClientes(): Promise<ClienteItem[]> {
   try {
     const rows = await prisma.cliente.findMany({
@@ -328,6 +380,21 @@ export async function listarClientes(): Promise<ClienteItem[]> {
   } catch (e) {
     console.error("[clientes][listar]", e);
     return [];
+  }
+}
+
+/** Solo `es_pintor = TRUE` (selector PINTOR ASOCIADO fuera del catálogo completo). */
+export async function listarPintores(): Promise<ServiceResult<ClienteItem[]>> {
+  try {
+    const rows = await prisma.cliente.findMany({
+      where: { esPintor: true },
+      orderBy: [{ nombreCompleto: "asc" }, { createdAt: "asc" }],
+      select,
+    });
+    return { success: true, data: rows.map(mapRow).sort(compararClientesParaListado) };
+  } catch (e) {
+    console.error("[clientes][listarPintores]", e);
+    return { success: false, error: "No se pudieron cargar los pintores." };
   }
 }
 
@@ -518,13 +585,18 @@ export async function crearCliente(
     if (!pintor.success) return pintor;
     const condicion = await validarCondicionIvaCliente(input.condicionIva ?? null);
     if (!condicion.success) return condicion;
+    const nombreCompleto = normalizarNombreCliente(input.nombreCompleto);
+    const cel = normalizarCelCliente(input.cel);
+    const cuit = normalizarCuitCliente(input.cuit ?? null);
+    const duplicado = await validarDuplicadosCliente({ nombreCompleto, cel, cuit });
+    if (!duplicado.success) return duplicado;
     const row = await prisma.cliente.create({
       data: {
-        nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
-        cel: normalizarCelCliente(input.cel),
+        nombreCompleto,
+        cel,
         esPintor: input.esPintor,
         pintorAsociadoId: pintor.data,
-        cuit: normalizarCuitCliente(input.cuit ?? null),
+        cuit,
         condicionIva: condicion.data,
         ctaCorrientePlazo:
           input.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
@@ -570,10 +642,27 @@ export async function editarCliente(
     if (!pintor.success) return pintor;
     const existente = await prisma.cliente.findUnique({
       where: { id: input.id },
-      select: { condicionIva: true },
+      select: { condicionIva: true, nombreCompleto: true, cel: true, cuit: true },
     });
     if (!existente) {
       return { success: false, error: "El cliente no existe." };
+    }
+    const nombreNuevo = normalizarNombreCliente(input.nombreCompleto);
+    const celNuevo = normalizarCelCliente(input.cel);
+    const cuitNuevo =
+      input.cuit !== undefined ? normalizarCuitCliente(input.cuit) : existente.cuit;
+    const cambiaIdentidad =
+      nombreNuevo !== normalizarNombreCliente(existente.nombreCompleto) ||
+      celNuevo !== normalizarCelCliente(existente.cel) ||
+      cuitNuevo !== existente.cuit;
+    if (cambiaIdentidad) {
+      const duplicado = await validarDuplicadosCliente({
+        id: input.id,
+        nombreCompleto: nombreNuevo,
+        cel: celNuevo,
+        cuit: cuitNuevo,
+      });
+      if (!duplicado.success) return duplicado;
     }
     const data: {
       nombreCompleto: string;
@@ -585,8 +674,8 @@ export async function editarCliente(
       ctaCorrientePlazo?: number | null;
       ctaCorrienteMontoMax?: number | null;
     } = {
-      nombreCompleto: normalizarNombreCliente(input.nombreCompleto),
-      cel: normalizarCelCliente(input.cel),
+      nombreCompleto: nombreNuevo,
+      cel: celNuevo,
       esPintor: input.esPintor,
       pintorAsociadoId: pintor.data,
     };

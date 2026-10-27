@@ -14,10 +14,11 @@ import type {
   FacturaEmitirResultado,
   FacturaVentaPendientePago,
 } from "@/lib/factura";
-import type { ClienteListaItem } from "@/lib/envios";
+import type { ClienteItem, ClienteListaItem } from "@/lib/envios";
 import type { ActionResult } from "@/lib/types";
 import {
   buscarClientesFacturaSchema,
+  obtenerClienteFacturaSchema,
   buscarProductosFacturaAvanzadaSchema,
   buscarProductosFacturaSchema,
   listarStockSucursalesFacturaSchema,
@@ -38,8 +39,10 @@ import { rutaCuentaCorrientePublica } from "@/lib/cuentaCorrientePublica";
 import {
   buscarClientesParaFactura,
   listarClientesConSaldoCuentaCorriente,
+  listarPintores,
   obtenerCuentaCorrienteCliente,
   obtenerOCrearTokenCuentaCorriente,
+  obtenerClienteListaPorId,
 } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
@@ -81,6 +84,26 @@ export async function buscarClientesFacturaAction(
       take: parsed.data.take,
     })
   );
+}
+
+export async function obtenerClienteFacturaAction(
+  raw: unknown
+): Promise<ActionResult<ClienteListaItem>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = obtenerClienteFacturaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const item = await obtenerClienteListaPorId(parsed.data.id);
+  if (!item) return { ok: false, error: "El cliente no existe." };
+  return { ok: true, data: item };
+}
+
+export async function listarPintoresFacturaAction(): Promise<ActionResult<ClienteItem[]>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  return fromServiceResult(await listarPintores());
 }
 
 export async function listarClientesConSaldoCuentaCorrienteAction(): Promise<

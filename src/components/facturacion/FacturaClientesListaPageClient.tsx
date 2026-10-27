@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Paintbrush, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Paintbrush, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import FilterBar, {
@@ -38,6 +39,7 @@ import {
   type ClienteListaItem,
   type EnviosDireccionItem,
 } from "@/lib/envios";
+import { hrefCuentaCorrienteCliente } from "@/lib/facturacionRoutes";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { etiquetaCondicionIvaArca, type PtoVentasCodArcaItem } from "@/lib/globalPtoVtas";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
@@ -271,23 +273,18 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className={cn(
-                                TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                                !esPintor && "invisible"
-                              )}
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                               disabled={!esPintor}
-                              tabIndex={esPintor ? undefined : -1}
-                              aria-hidden={!esPintor}
                               title={
                                 !esPintor
-                                  ? undefined
+                                  ? "Solo pintores: ver clientes asociados"
                                   : expandidoAsociados
                                     ? "Ocultar clientes asociados"
                                     : "Ver clientes asociados"
                               }
                               aria-label={
                                 !esPintor
-                                  ? undefined
+                                  ? `${nombre} no es pintor`
                                   : expandidoAsociados
                                     ? `Ocultar clientes asociados de ${nombre}`
                                     : `Ver clientes asociados de ${nombre}`
@@ -307,23 +304,18 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className={cn(
-                                TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-                                !tieneVariosProyectos && "invisible"
-                              )}
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                               disabled={!tieneVariosProyectos}
-                              tabIndex={tieneVariosProyectos ? undefined : -1}
-                              aria-hidden={!tieneVariosProyectos}
                               title={
                                 !tieneVariosProyectos
-                                  ? undefined
+                                  ? "Solo con más de un proyecto"
                                   : expandidoProyectos
                                     ? "Ocultar proyectos"
                                     : "Ver proyectos"
                               }
                               aria-label={
                                 !tieneVariosProyectos
-                                  ? undefined
+                                  ? `${nombre} no tiene varios proyectos`
                                   : expandidoProyectos
                                     ? `Ocultar proyectos de ${nombre}`
                                     : `Ver proyectos de ${nombre}`
@@ -344,6 +336,20 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                               ) : (
                                 <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                               )}
+                            </Button>
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                            >
+                              <Link
+                                href={hrefCuentaCorrienteCliente(item.id)}
+                                title="Cuenta corriente"
+                                aria-label={`Cuenta corriente de ${nombre}`}
+                              >
+                                <Wallet className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                              </Link>
                             </Button>
                             <Button
                               type="button"

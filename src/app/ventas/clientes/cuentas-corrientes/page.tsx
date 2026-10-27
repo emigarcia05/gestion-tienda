@@ -3,6 +3,8 @@ import FacturaCuentaCorrientePageClient from "@/components/facturacion/FacturaCu
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
+import { obtenerClienteFacturaSchema } from "@/lib/validations/factura";
+import { obtenerClienteListaPorId } from "@/services/clientes.service";
 import {
   listarNombresMarcaDistinctProdTienda,
   listarNombresRubroDistinctProdTienda,
@@ -10,15 +12,23 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function FacturaCuentaCorrientePage() {
+export default async function FacturaCuentaCorrientePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cliente?: string }>;
+}) {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.facturacion.acceso)) {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [marcasCatalogo, rubrosCatalogo] = await Promise.all([
+  const { cliente } = await searchParams;
+  const clienteParsed = obtenerClienteFacturaSchema.safeParse({ id: cliente });
+
+  const [marcasCatalogo, rubrosCatalogo, clienteInicial] = await Promise.all([
     listarNombresMarcaDistinctProdTienda(),
     listarNombresRubroDistinctProdTienda(),
+    clienteParsed.success ? obtenerClienteListaPorId(clienteParsed.data.id) : null,
   ]);
 
   return (
@@ -26,6 +36,7 @@ export default async function FacturaCuentaCorrientePage() {
       <FacturaCuentaCorrientePageClient
         marcasCatalogo={marcasCatalogo}
         rubrosCatalogo={rubrosCatalogo}
+        clienteInicial={clienteInicial}
       />
     </div>
   );

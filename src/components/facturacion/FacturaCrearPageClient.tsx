@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
   emitirFacturaComprobanteAction,
+  listarPintoresFacturaAction,
   listarStockSucursalesFacturaAction,
+  obtenerClienteFacturaAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -89,6 +91,8 @@ import {
 } from "@/lib/fechaArgentina";
 import { fmtPrecio } from "@/lib/format";
 import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
   TYPEAHEAD_LISTBOX_ANCHOR_CLASS,
   TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS,
   TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS,
@@ -117,7 +121,7 @@ import {
 const MS_ENTRE_MODALES = 300;
 
 const FILA_BUSQUEDA_CLIENTES_GRID =
-  "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center justify-items-stretch gap-1.5 px-2";
+  "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem_2.25rem] items-center justify-items-stretch gap-1.5 px-2";
 
 const CABECERA_EDITOR_FILA1_CLASS =
   "grid w-full min-w-0 grid-cols-[10.5rem_minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-end gap-3";
@@ -258,6 +262,8 @@ export default function FacturaCrearPageClient({
     return proyectos.length === 1 ? (proyectos[0]?.id ?? null) : null;
   });
   const [loadingClientes, setLoadingClientes] = useState(false);
+  const [editarCliente, setEditarCliente] = useState<ClienteListaItem | null>(null);
+  const [pintoresEditarCliente, setPintoresEditarCliente] = useState<ClienteItem[] | null>(null);
   const [clientesAbierto, setClientesAbierto] = useState(false);
   const [clienteHighlight, setClienteHighlight] = useState(0);
 
@@ -364,6 +370,28 @@ export default function FacturaCrearPageClient({
     setSugerenciasClientes([]);
     setClientesAbierto(false);
     setClienteHighlight(0);
+  }
+
+  function abrirEditarCliente(item: ClienteListaItem) {
+    setClientesAbierto(false);
+    setEditarCliente(item);
+    if (pintoresEditarCliente != null) return;
+    void listarPintoresFacturaAction().then((res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setPintoresEditarCliente(res.data);
+    });
+  }
+
+  async function aplicarClienteEditado(id: string) {
+    const res = await obtenerClienteFacturaAction({ id });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    aplicarClienteSeleccionado(res.data);
   }
 
   const claseActual = claseDesdeFacturaTipo(tipo);
@@ -632,6 +660,20 @@ export default function FacturaCrearPageClient({
         onOpenChange={setCrearClienteOpen}
         modo="crear"
         onSuccess={aplicarClienteSeleccionado}
+      />
+      <CrearEditarClienteModal
+        open={editarCliente != null}
+        onOpenChange={(open) => {
+          if (!open) setEditarCliente(null);
+        }}
+        modo="editar"
+        item={editarCliente}
+        pintores={pintoresEditarCliente ?? []}
+        direcciones={editarCliente?.proyectos ?? []}
+        onSuccess={(actualizado) => void aplicarClienteEditado(actualizado.id)}
+        onCatalogoChanged={() => {
+          if (editarCliente) void aplicarClienteEditado(editarCliente.id);
+        }}
       />
       <CrearEditarEnviosDireccionModal
         open={crearProyectoOpen}
@@ -945,6 +987,7 @@ export default function FacturaCrearPageClient({
                           <span className={TYPEAHEAD_LISTBOX_CELL_CLASS}>
                             SALDO
                           </span>
+                          <span className={TYPEAHEAD_LISTBOX_CELL_CLASS} />
                         </div>
                         <ul
                           className={cn(
@@ -999,6 +1042,24 @@ export default function FacturaCrearPageClient({
                                   >
                                     {`$${fmtPrecio(item.saldoCuentaCorriente)}`}
                                   </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    tabIndex={-1}
+                                    className={cn(
+                                      TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+                                      "justify-self-center"
+                                    )}
+                                    title="Editar"
+                                    aria-label={`Editar ${nombre}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      abrirEditarCliente(item);
+                                    }}
+                                  >
+                                    <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                                  </Button>
                                 </div>
                               </li>
                             );

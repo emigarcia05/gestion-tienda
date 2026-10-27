@@ -69,7 +69,7 @@ function tieneImpuestoActivo(list: readonly ArcaPadronImpuesto[], id: number): b
 
 /**
  * Condición IVA (`iva_condicion_cod_arca.codigo`) a partir de la constancia.
- * Null si ARCA no informa un régimen claro (no asumir Consumidor Final).
+ * Null si no figura RI, monotributo ni exento; `consultarConstanciaArca` lo toma como Consumidor Final.
  */
 export function condicionIvaDesdeConstanciaArca(args: {
   tieneDatosMonotributo: boolean;

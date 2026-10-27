@@ -113,6 +113,10 @@ export type BuscarProductosFacturaAvanzadaInput = z.infer<
  * Tokens separados por espacio: AND sobre nombre / CEL / CUIT / pintor asociado / `SIN NOMBRE`.
  * El servicio prioriza coincidencia en el nombre del cliente (columna CLIENTE).
  */
+export const obtenerClienteFacturaSchema = z.object({
+  id: prismaCuidSchema,
+});
+
 export const buscarClientesFacturaSchema = z.object({
   q: z
     .string()

@@ -6,9 +6,14 @@
 export type ArcaConstanciaPersona = {
   cuit: string;
   nombre: string;
-  /** Código `iva_condicion_cod_arca`. Null si ARCA no informó un régimen claro. */
+  /**
+   * Código `iva_condicion_cod_arca`. Si ARCA no informa RI, monotributo ni exento,
+   * es Consumidor Final (`condicionIvaAsumida = true`).
+   */
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
+  /** `true` si la condición es Consumidor Final porque ARCA no informó régimen. */
+  condicionIvaAsumida: boolean;
   estadoClave: string | null;
   tipoPersona: string | null;
 };
@@ -42,6 +47,7 @@ export function parseArcaConstanciaApiJson(json: unknown): ArcaConstanciaApiResu
         nombre: d.nombre,
         condicionIva: typeof d.condicionIva === "number" ? d.condicionIva : null,
         condicionIvaDescripcion: textoOpcional(d.condicionIvaDescripcion),
+        condicionIvaAsumida: d.condicionIvaAsumida === true,
         estadoClave: textoOpcional(d.estadoClave),
         tipoPersona: textoOpcional(d.tipoPersona),
       },
