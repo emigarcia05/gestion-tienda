@@ -1,5 +1,7 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  NOMBRE_PROYECTO_DEFAULT,
   capitalizarTextoEnvio,
   direccionEnvioTieneDato,
   nombreProyectoPersistido,
@@ -16,8 +18,7 @@ const select = {
   id: true,
   personaId: true,
   nombreProyecto: true,
-  calleNombre: true,
-  numeracion: true,
+  direccion: true,
   distrito: true,
   departamento: true,
   urlMaps: true,
@@ -28,8 +29,7 @@ export function mapEnviosDireccionItem(row: {
   id: string;
   personaId: string;
   nombreProyecto: string;
-  calleNombre: string;
-  numeracion: string;
+  direccion: string;
   distrito: string;
   departamento: EnviosDireccionItem["departamento"];
   urlMaps: string | null;
@@ -39,8 +39,7 @@ export function mapEnviosDireccionItem(row: {
     id: row.id,
     personaId: row.personaId,
     nombreProyecto: nombreProyectoPersistido(row.nombreProyecto),
-    calleNombre: properTextoEnvio(row.calleNombre),
-    numeracion: capitalizarTextoEnvio(row.numeracion),
+    direccion: properTextoEnvio(row.direccion),
     distrito: properTextoEnvio(row.distrito),
     departamento: row.departamento,
     urlMaps: (row.urlMaps ?? "").trim(),
@@ -65,7 +64,7 @@ export async function listarEnviosDirecciones(
   try {
     const rows = await prisma.enviosDireccion.findMany({
       where: personaId ? { personaId } : undefined,
-      orderBy: [{ nombreProyecto: "asc" }, { calleNombre: "asc" }, { numeracion: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ nombreProyecto: "asc" }, { direccion: "asc" }, { createdAt: "asc" }],
       select,
     });
     return rows.map(mapEnviosDireccionItem);
@@ -93,8 +92,7 @@ export async function crearEnviosDireccion(
       data: {
         personaId: input.personaId,
         nombreProyecto: nombreProyectoPersistido(input.nombreProyecto),
-        calleNombre: properTextoEnvio(input.calleNombre),
-        numeracion: capitalizarTextoEnvio(input.numeracion),
+        direccion: properTextoEnvio(input.direccion),
         distrito: properTextoEnvio(input.distrito),
         departamento: input.departamento,
         urlMaps: input.urlMaps.trim() === "" ? null : input.urlMaps.trim(),
@@ -122,8 +120,7 @@ export async function editarEnviosDireccion(
       data: {
         personaId: input.personaId,
         nombreProyecto: nombreProyectoPersistido(input.nombreProyecto),
-        calleNombre: properTextoEnvio(input.calleNombre),
-        numeracion: capitalizarTextoEnvio(input.numeracion),
+        direccion: properTextoEnvio(input.direccion),
         distrito: properTextoEnvio(input.distrito),
         departamento: input.departamento,
         urlMaps: input.urlMaps.trim() === "" ? null : input.urlMaps.trim(),
@@ -140,6 +137,52 @@ export async function editarEnviosDireccion(
       error: prismaErrorMessage(error, "No se pudo actualizar el proyecto."),
     };
   }
+}
+
+/**
+ * Domicilio fiscal de ARCA → `clientes_proyectos.direccion` del cliente.
+ * Sin proyectos crea PRINCIPAL; con proyectos completa el PRINCIPAL (o el único) si no tiene dirección.
+ * No pisa direcciones ya cargadas. Devuelve el proyecto creado/actualizado, o null si no hubo cambios.
+ */
+export async function guardarDomicilioFiscalEnProyecto(
+  db: Prisma.TransactionClient | typeof prisma,
+  personaId: string,
+  domicilio: string
+): Promise<EnviosDireccionItem | null> {
+  const direccion = properTextoEnvio(domicilio);
+  if (direccion === "") return null;
+  const proyectos = await db.enviosDireccion.findMany({
+    where: { personaId },
+    orderBy: { createdAt: "asc" },
+    select,
+  });
+  const clave = direccion.toLocaleLowerCase("es-AR");
+  if (proyectos.some((p) => p.direccion.trim().toLocaleLowerCase("es-AR") === clave)) {
+    return null;
+  }
+  if (proyectos.length === 0) {
+    const row = await db.enviosDireccion.create({
+      data: {
+        personaId,
+        nombreProyecto: NOMBRE_PROYECTO_DEFAULT,
+        direccion,
+        distrito: "",
+      },
+      select,
+    });
+    return mapEnviosDireccionItem(row);
+  }
+  const sinDireccion = proyectos.filter((p) => p.direccion.trim() === "");
+  const destino =
+    sinDireccion.find((p) => nombreProyectoPersistido(p.nombreProyecto) === NOMBRE_PROYECTO_DEFAULT) ??
+    (proyectos.length === 1 ? sinDireccion[0] : undefined);
+  if (!destino) return null;
+  const row = await db.enviosDireccion.update({
+    where: { id: destino.id },
+    data: { direccion },
+    select,
+  });
+  return mapEnviosDireccionItem(row);
 }
 
 export async function eliminarEnviosDireccion(

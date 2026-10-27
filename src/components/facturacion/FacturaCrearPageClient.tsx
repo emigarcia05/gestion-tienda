@@ -142,6 +142,9 @@ const CABECERA_EDITOR_SLOT_CLASS = "flex min-w-0 flex-col gap-1";
 /** Misma altura que el input CLIENTE. Gana a `main button` (2.5rem) y a `.input-filtro-unificado`. */
 const CABECERA_CAMPO_ALTO_CLASS = "!h-9 !min-h-9 !max-h-9";
 
+/** Fila CLIENTE / PROYECTO / SALDO: mismo alto que el Select PROYECTO (`.input-filtro-unificado`, 2.5rem). */
+const CABECERA_FILA2_ALTO_CLASS = "!h-10 !min-h-10 !max-h-10";
+
 /** Lápiz + fecha · tipo · fiscal, tres columnas iguales centradas. */
 const CABECERA_VISOR_TIPO_GRID_CLASS =
   "grid min-w-0 w-full grid-cols-[1.25rem_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2";
@@ -678,7 +681,10 @@ export default function FacturaCrearPageClient({
         open={crearClienteOpen}
         onOpenChange={setCrearClienteOpen}
         modo="crear"
-        onSuccess={aplicarClienteSeleccionado}
+        onSuccess={(creado) => {
+          aplicarClienteSeleccionado(creado);
+          void aplicarClienteEditado(creado.id);
+        }}
       />
       <CrearEditarClienteModal
         open={editarCliente != null}
@@ -950,6 +956,7 @@ export default function FacturaCrearPageClient({
                   aria-autocomplete="list"
                   aria-label="Cliente"
                   className={cn(
+                    CABECERA_FILA2_ALTO_CLASS,
                     "w-full pr-10",
                     (isDebouncingClientes || loadingClientes) && "pr-16"
                   )}
@@ -1100,7 +1107,10 @@ export default function FacturaCrearPageClient({
                 <Button
                   type="button"
                   variant="default"
-                  className="box-border !h-9 !min-h-9 !max-h-9 w-fit max-w-full self-start px-3 !py-0 text-xs leading-none"
+                  className={cn(
+                    CABECERA_FILA2_ALTO_CLASS,
+                    "box-border w-fit max-w-full self-start px-3 !py-0 text-xs leading-none"
+                  )}
                   onClick={cargarConsumidorFinal}
                 >
                   {FACTURA_BOTON_CLIENTE_CONSUMIDOR_FINAL}
@@ -1160,41 +1170,40 @@ export default function FacturaCrearPageClient({
             )}
 
             <div className={cn(CABECERA_EDITOR_SLOT_CLASS, "items-center")}>
-              <div className="relative w-full">
-                <p
+              <Button
+                type="button"
+                variant="ghost"
+                className={cn(
+                  CABECERA_FILA2_ALTO_CLASS,
+                  "relative w-full !pl-2 !pr-9 rounded-md border text-sm tabular-nums shadow-xs",
+                  "disabled:cursor-default disabled:opacity-100",
+                  tieneSaldoVencido
+                    ? "border-destructive bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+                    : "border-primary bg-card text-foreground hover:bg-muted hover:text-foreground"
+                )}
+                disabled={!hayClienteConSaldo}
+                onClick={() => setSaldoInfoOpen(true)}
+                aria-label={
+                  tieneSaldoVencido
+                    ? "Saldo cliente, con saldo vencido. Ver detalle"
+                    : "Saldo cliente. Ver detalle"
+                }
+                title="Ver detalle del saldo"
+              >
+                <span className="truncate">
+                  <span className="font-bold">SALDO:</span>
+                  {hayClienteConSaldo ? (
+                    <span className="font-normal">{` $${fmtPrecio(saldoCuentaCorrienteCliente)}`}</span>
+                  ) : null}
+                </span>
+                <Info
                   className={cn(
-                    "flex h-9 min-h-9 w-full items-center justify-center gap-1.5 truncate rounded-md border border-primary pl-2 pr-9 text-center text-sm tabular-nums text-foreground",
-                    tieneSaldoVencido && "border-destructive bg-destructive text-white"
+                    "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2",
+                    tieneSaldoVencido ? "text-white" : "text-muted-foreground"
                   )}
-                  aria-label={
-                    tieneSaldoVencido ? "Saldo cliente, con saldo vencido" : "Saldo cliente"
-                  }
-                  title="Saldo cliente"
-                >
-                  <span className={tieneSaldoVencido ? "text-white" : "text-muted-foreground"}>
-                    SALDO
-                  </span>
-                  {hayClienteConSaldo ? `$${fmtPrecio(saldoCuentaCorrienteCliente)}` : null}
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    CABECERA_CAMPO_ALTO_CLASS,
-                    "absolute right-0 top-0 !w-9 shrink-0 !p-0 rounded-r-md",
-                    tieneSaldoVencido
-                      ? "text-white hover:bg-white/15 hover:text-white"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                  disabled={!hayClienteConSaldo}
-                  onClick={() => setSaldoInfoOpen(true)}
-                  aria-label="Ver detalle del saldo"
-                  title="Ver detalle del saldo"
-                >
-                  <Info className="h-4 w-4 shrink-0" aria-hidden />
-                </Button>
-              </div>
+                  aria-hidden
+                />
+              </Button>
             </div>
           </div>
 

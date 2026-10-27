@@ -42,7 +42,7 @@ interface Props {
 export default function VerEnvioModal({ open, onOpenChange, item }: Props) {
   const dir = item?.direccion;
   const calleNum = dir
-    ? [dir.calleNombre.trim(), dir.numeracion.trim()].filter(Boolean).join(" ")
+    ? dir.direccion.trim()
     : "";
   const zona = dir
     ? [dir.distrito.trim(), etiquetaDepartamentoEnvio(dir.departamento)].filter(Boolean).join(", ")

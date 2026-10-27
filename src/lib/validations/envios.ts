@@ -130,6 +130,13 @@ const clienteCampos = {
   condicionIva: clienteCondicionIvaSchema,
   ctaCorrientePlazo: clienteCtaCorrientePlazoSchema,
   ctaCorrienteMontoMax: clienteCtaCorrienteMontoMaxSchema,
+  /** Domicilio fiscal ARCA (`getPersona_v2`); se guarda en `clientes_proyectos.direccion`. */
+  domicilioFiscal: z
+    .string()
+    .trim()
+    .max(440, "El texto es demasiado largo.")
+    .nullish()
+    .transform((v) => properTextoEnvio(v ?? "")),
 };
 
 function refineClientePintorAsociado(
@@ -201,8 +208,7 @@ const departamentoOpcionalSchema = z.preprocess(
 function refineDireccionAlMenosUnDato(
   data: {
     nombreProyecto?: string;
-    calleNombre?: string;
-    numeracion?: string;
+    direccion?: string;
     distrito?: string;
     departamento?: string | null;
     urlMaps?: string;
@@ -225,8 +231,7 @@ export const crearEnviosDireccionSchema = z
     nombreProyecto: textoOpcionalSchema(200).transform((v) =>
       v === "" ? "" : normalizarNombreCliente(v)
     ),
-    calleNombre: textoEnvioProperOpcionalSchema(400),
-    numeracion: textoEnvioOpcionalSchema(40),
+    direccion: textoEnvioProperOpcionalSchema(440),
     distrito: textoEnvioProperOpcionalSchema(200),
     departamento: departamentoOpcionalSchema,
     urlMaps: urlMapsSchema,

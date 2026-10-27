@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireClientesMutacion, requireEnvios, requireEnviosOFacturacion } from "@/lib/actionGates";
 import type {
-  ClienteItem,
+  ClienteGuardadoItem,
   EnviosDireccionItem,
   EnviosFinalListItem,
   EnviosWizardCatalogo,
@@ -62,7 +62,7 @@ function revalidateEnvios(): void {
   revalidatePath(FACTURACION_ROUTES.clientes.cuentaCorriente);
 }
 
-export async function crearClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {
+export async function crearClienteAction(raw: unknown): Promise<ActionResult<ClienteGuardadoItem>> {
   const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = crearClienteSchema.safeParse(raw);
@@ -78,7 +78,7 @@ export async function crearClienteAction(raw: unknown): Promise<ActionResult<Cli
   }
 }
 
-export async function editarClienteAction(raw: unknown): Promise<ActionResult<ClienteItem>> {
+export async function editarClienteAction(raw: unknown): Promise<ActionResult<ClienteGuardadoItem>> {
   const gate = await requireClientesMutacion();
   if (gate) return gate;
   const parsed = editarClienteSchema.safeParse(raw);

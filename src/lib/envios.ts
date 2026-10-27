@@ -399,7 +399,7 @@ function properPalabraEnvio(word: string): string {
   return lower.charAt(0).toLocaleUpperCase("es-AR") + lower.slice(1);
 }
 
-/** `calle_nombre` y `distrito`: proper case (primera letra de cada palabra). */
+/** `direccion` y `distrito`: proper case (primera letra de cada palabra). */
 export function properTextoEnvio(value: string): string {
   const t = value.trim().replace(/\s+/g, " ");
   if (t === "") return t;
@@ -444,8 +444,8 @@ export interface EnviosDireccionItem {
   personaId: string;
   /** Nombre del proyecto (MAYÚSCULAS). */
   nombreProyecto: string;
-  calleNombre: string;
-  numeracion: string;
+  /** Calle y número en un solo texto (`clientes_proyectos.direccion`). */
+  direccion: string;
   distrito: string;
   departamento: EnviosDepartamento | null;
   urlMaps: string;
@@ -459,6 +459,11 @@ export interface ClienteListaItem extends ClienteItem {
   saldoCuentaCorriente: number;
   /** Parte del saldo en ventas con plazo (`dias_vencimiento`) ya vencido. */
   saldoVencidoCuentaCorriente: number;
+}
+
+/** Resultado de crear/editar cliente: proyecto donde se guardó el domicilio fiscal ARCA (si hubo cambio). */
+export interface ClienteGuardadoItem extends ClienteItem {
+  proyectoDomicilioFiscal: EnviosDireccionItem | null;
 }
 
 export interface EnviosSucursalOption {
@@ -558,7 +563,7 @@ export function partesProyectoEnvioListado(dir: EnviosDireccionItem): {
 
 export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
   const nombre = dir.nombreProyecto.trim();
-  const calleNum = [dir.calleNombre.trim(), dir.numeracion.trim()].filter((s) => s !== "").join(" ");
+  const calleNum = dir.direccion.trim();
   const distrito = dir.distrito.trim();
   const depto = etiquetaDepartamentoEnvio(dir.departamento);
   let texto = calleNum;
@@ -572,9 +577,9 @@ export function etiquetaDireccionEnvio(dir: EnviosDireccionItem): string {
   return nombre || texto || "Proyecto";
 }
 
-/** Línea de listado wizard: `calle numeracion, distrito - departamento.` */
+/** Línea de listado wizard: `direccion, distrito - departamento.` */
 export function etiquetaDireccionEnvioListado(dir: EnviosDireccionItem): string {
-  const calleNum = [dir.calleNombre.trim(), dir.numeracion.trim()].filter((s) => s !== "").join(" ");
+  const calleNum = dir.direccion.trim();
   const distrito = dir.distrito.trim();
   const depto = etiquetaDepartamentoEnvio(dir.departamento);
   const calleDistrito = [calleNum, distrito].filter((s) => s !== "").join(", ");
@@ -606,8 +611,7 @@ export function metaDireccionEnvio(dir: EnviosDireccionItem): string {
 
 export function direccionEnvioTieneDato(data: {
   nombreProyecto?: string | null;
-  calleNombre?: string | null;
-  numeracion?: string | null;
+  direccion?: string | null;
   distrito?: string | null;
   departamento?: string | null;
   urlMaps?: string | null;
@@ -615,8 +619,7 @@ export function direccionEnvioTieneDato(data: {
 }): boolean {
   return (
     (data.nombreProyecto ?? "").trim() !== "" ||
-    (data.calleNombre ?? "").trim() !== "" ||
-    (data.numeracion ?? "").trim() !== "" ||
+    (data.direccion ?? "").trim() !== "" ||
     (data.distrito ?? "").trim() !== "" ||
     Boolean(data.departamento) ||
     (data.urlMaps ?? "").trim() !== "" ||

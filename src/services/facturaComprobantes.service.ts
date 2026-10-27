@@ -527,16 +527,13 @@ async function domicilioReceptorParaFiscal(args: {
     const proyecto = await prisma.enviosDireccion.findUnique({
       where: { id: args.proyectoId },
       select: {
-        calleNombre: true,
-        numeracion: true,
+        direccion: true,
         distrito: true,
         departamento: true,
       },
     });
     if (proyecto) {
-      const calle = [proyecto.calleNombre.trim(), proyecto.numeracion.trim()]
-        .filter((p) => p.length > 0)
-        .join(" ");
+      const calle = proyecto.direccion.trim();
       const lugar = [proyecto.distrito.trim(), (proyecto.departamento ?? "").replaceAll("_", " ")]
         .filter((p) => p.length > 0)
         .join(", ");

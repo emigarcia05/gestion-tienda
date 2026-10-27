@@ -2819,15 +2819,15 @@ enum EnviosDepartamento {
 /**
  * Proyecto de cliente (`clientes_proyectos`; ex `clientes_direcciones` / `envios_direcciones`).
  * `nombre_proyecto` en mayúsculas `es-AR`; vacío persiste `PRINCIPAL` (CHECK + default SQL).
- * Textos de domicilio: `calle_nombre` y `distrito` en proper case; `numeracion` y `referencia` con primera mayúscula de la oración.
+ * Textos de domicilio: `direccion` (calle y número; ex `calle_nombre` + `numeracion`) y `distrito` en proper case; `referencia` con primera mayúscula de la oración.
+ * `direccion` también recibe el domicilio fiscal de ARCA al crear/editar un cliente con CUIT (Factura A).
  * Al persistir hace falta al menos un dato (CHECK SQL + Zod + servicio).
  */
 model EnviosDireccion {
   id             String              @id @default(cuid())
   personaId      String              @map("persona_id")
   nombreProyecto String              @default("PRINCIPAL") @map("nombre_proyecto")
-  calleNombre    String              @map("calle_nombre")
-  numeracion     String              @map("numeracion")
+  direccion      String              @map("direccion")
   distrito       String              @map("distrito")
   departamento   EnviosDepartamento? @map("departamento")
   urlMaps        String?             @map("url_maps") @db.Text
@@ -2841,7 +2841,7 @@ model EnviosDireccion {
 
   @@index([personaId], map: "clientes_proyectos_persona_id_idx")
   @@index([nombreProyecto], map: "clientes_proyectos_nombre_proyecto_idx")
-  @@index([calleNombre], map: "clientes_proyectos_calle_nombre_idx")
+  @@index([direccion], map: "clientes_proyectos_direccion_idx")
   @@index([departamento], map: "clientes_proyectos_departamento_idx")
   @@map("clientes_proyectos")
 }

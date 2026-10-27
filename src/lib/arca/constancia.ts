@@ -71,6 +71,13 @@ function parseCategoria(raw: unknown): ArcaConstanciaRaw["categoriaMonotributo"]
   return { idCategoria, descripcionCategoria };
 }
 
+function parseDomicilioFiscal(raw: unknown): string | null {
+  const dom = asXmlArray(raw).find(isRecord);
+  if (!dom) return null;
+  const direccion = xmlText(dom.direccion ?? dom.Direccion);
+  return direccion && direccion.trim() ? direccion.trim() : null;
+}
+
 function textoErrores(raw: unknown): string[] {
   if (!isRecord(raw)) return [];
   const list = asXmlArray(raw.error ?? raw.Error);
@@ -106,6 +113,7 @@ function mapRaw(idPersona: string, ret: Record<string, unknown>): ArcaConstancia
     tieneDatosMonotributo: mono != null,
     categoriaMonotributo: parseCategoria(mono?.categoriaMonotributo),
     impuestosRegimenGeneral: parseImpuestos(rg),
+    domicilioFiscal: parseDomicilioFiscal(generales?.domicilioFiscal),
   };
 }
 

@@ -27,6 +27,7 @@ import {
   normalizarCelCliente,
   normalizarNombreCliente,
   soloDigitos,
+  type ClienteGuardadoItem,
   type ClienteItem,
   type EnviosDireccionItem,
 } from "@/lib/envios";
@@ -72,6 +73,8 @@ export default function CrearEditarClienteModal({
   /** Solo ARCA (`getPersona_v2`) o el valor ya persistido al editar. No se elige en UI. */
   const [condicionIva, setCondicionIva] = useState<number | null>(null);
   const [condicionIvaDescripcion, setCondicionIvaDescripcion] = useState<string | null>(null);
+  /** Domicilio fiscal de la última consulta ARCA; al guardar va a `clientes_proyectos.direccion`. */
+  const [domicilioFiscal, setDomicilioFiscal] = useState<string | null>(null);
   const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState(
     String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT)
   );
@@ -115,6 +118,7 @@ export default function CrearEditarClienteModal({
 
   useEffect(() => {
     if (!open) return;
+    setDomicilioFiscal(null);
     if (modo === "editar" && item) {
       setNombreCompleto(normalizarNombreCliente(item.nombreCompleto));
       setCel(item.cel);
@@ -202,6 +206,7 @@ export default function CrearEditarClienteModal({
       const data = parsed.data;
       setCargarComoConsFinal(false);
       setNombreCompleto(data.nombre);
+      setDomicilioFiscal(data.domicilioFiscal);
       if (data.condicionIva != null) {
         setCondicionIva(data.condicionIva);
         setCondicionIvaDescripcion(data.condicionIvaDescripcion);
@@ -220,7 +225,7 @@ export default function CrearEditarClienteModal({
     }
   }
 
-  async function persistirCliente(): Promise<ClienteItem | null> {
+  async function persistirCliente(): Promise<ClienteGuardadoItem | null> {
     const esPintorGuardar = esPintorFijo ?? esPintor;
     const payload = {
       nombreCompleto: !esPintorGuardar && cargarComoConsFinal ? "" : nombreCompleto,
@@ -237,6 +242,7 @@ export default function CrearEditarClienteModal({
         ctaCorrienteMontoMaxNorm.trim() === ""
           ? null
           : montoArNormalizedStringToCents(ctaCorrienteMontoMaxNorm) / 100,
+      domicilioFiscal: cuitDigits === "" ? null : domicilioFiscal,
     };
     const res = clienteId
       ? await editarClienteAction({ id: clienteId, ...payload })
@@ -246,6 +252,14 @@ export default function CrearEditarClienteModal({
       return null;
     }
     setClienteId(res.data.id);
+    const proyecto = res.data.proyectoDomicilioFiscal;
+    if (proyecto) {
+      setDireccionesLocal((prev) =>
+        prev.some((d) => d.id === proyecto.id)
+          ? prev.map((d) => (d.id === proyecto.id ? proyecto : d))
+          : [...prev, proyecto]
+      );
+    }
     return res.data;
   }
 
@@ -342,6 +356,7 @@ export default function CrearEditarClienteModal({
                         if (soloDigitos(next) !== cuitDigits) {
                           setCondicionIva(null);
                           setCondicionIvaDescripcion(null);
+                          setDomicilioFiscal(null);
                         }
                         setCuitMasked(next);
                       }}
@@ -388,6 +403,17 @@ export default function CrearEditarClienteModal({
                     aria-label="Condición IVA"
                   />
                 </div>
+                {domicilioFiscal ? (
+                  <div className="col-span-2 flex flex-col gap-1">
+                    <ModalMicroLabel>DOMICILIO FISCAL</ModalMicroLabel>
+                    <Input
+                      value={domicilioFiscal}
+                      readOnly
+                      tabIndex={-1}
+                      aria-label="Domicilio fiscal"
+                    />
+                  </div>
+                ) : null}
               </div>
             </section>
 

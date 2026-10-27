@@ -15,6 +15,7 @@ import {
   normalizarNombreCliente,
   soloDigitos,
   tokenCoincideClienteSinNombre,
+  type ClienteGuardadoItem,
   type ClienteItem,
   type ClienteListaItem,
   type ClienteResumen,
@@ -39,7 +40,10 @@ import {
   listarCobrosDeComprobantes,
   usadoImputadoNcPesosPorIds,
 } from "@/services/cobrosComprobante.service";
-import { mapEnviosDireccionItem } from "@/services/enviosDirecciones.service";
+import {
+  guardarDomicilioFiscalEnProyecto,
+  mapEnviosDireccionItem,
+} from "@/services/enviosDirecciones.service";
 import type { ServiceResult } from "@/types/service.types";
 
 const TIPOS_VENTA_CTA_CTE = ["factura_fiscal", "factura_no_fiscal"] as const;
@@ -413,8 +417,7 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
             id: true,
             personaId: true,
             nombreProyecto: true,
-            calleNombre: true,
-            numeracion: true,
+            direccion: true,
             distrito: true,
             departamento: true,
             urlMaps: true,
@@ -422,8 +425,7 @@ export async function listarClientesConProyectos(): Promise<ClienteListaItem[]> 
           },
           orderBy: [
             { nombreProyecto: "asc" },
-            { calleNombre: "asc" },
-            { numeracion: "asc" },
+            { direccion: "asc" },
             { createdAt: "asc" },
           ],
         },
@@ -455,8 +457,7 @@ export async function obtenerClienteListaPorId(
             id: true,
             personaId: true,
             nombreProyecto: true,
-            calleNombre: true,
-            numeracion: true,
+            direccion: true,
             distrito: true,
             departamento: true,
             urlMaps: true,
@@ -464,8 +465,7 @@ export async function obtenerClienteListaPorId(
           },
           orderBy: [
             { nombreProyecto: "asc" },
-            { calleNombre: "asc" },
-            { numeracion: "asc" },
+            { direccion: "asc" },
             { createdAt: "asc" },
           ],
         },
@@ -546,8 +546,7 @@ export async function buscarClientesParaFactura(params: {
             id: true,
             personaId: true,
             nombreProyecto: true,
-            calleNombre: true,
-            numeracion: true,
+            direccion: true,
             distrito: true,
             departamento: true,
             urlMaps: true,
@@ -555,8 +554,7 @@ export async function buscarClientesParaFactura(params: {
           },
           orderBy: [
             { nombreProyecto: "asc" },
-            { calleNombre: "asc" },
-            { numeracion: "asc" },
+            { direccion: "asc" },
             { createdAt: "asc" },
           ],
         },
@@ -583,7 +581,7 @@ export async function buscarClientesParaFactura(params: {
 
 export async function crearCliente(
   input: CrearClienteInput
-): Promise<ServiceResult<ClienteItem>> {
+): Promise<ServiceResult<ClienteGuardadoItem>> {
   try {
     const pintor = await resolverPintorAsociadoId(input);
     if (!pintor.success) return pintor;
@@ -594,21 +592,29 @@ export async function crearCliente(
     const cuit = normalizarCuitCliente(input.cuit ?? null);
     const duplicado = await validarDuplicadosCliente({ nombreCompleto, cel, cuit });
     if (!duplicado.success) return duplicado;
-    const row = await prisma.cliente.create({
-      data: {
-        nombreCompleto,
-        cel,
-        esPintor: input.esPintor,
-        pintorAsociadoId: pintor.data,
-        cuit,
-        condicionIva: condicion.data,
-        ctaCorrientePlazo:
-          input.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
-        ctaCorrienteMontoMax: input.ctaCorrienteMontoMax ?? null,
-      },
-      select,
+    const { row, proyectoDomicilioFiscal } = await prisma.$transaction(async (tx) => {
+      const creado = await tx.cliente.create({
+        data: {
+          nombreCompleto,
+          cel,
+          esPintor: input.esPintor,
+          pintorAsociadoId: pintor.data,
+          cuit,
+          condicionIva: condicion.data,
+          ctaCorrientePlazo:
+            input.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
+          ctaCorrienteMontoMax: input.ctaCorrienteMontoMax ?? null,
+        },
+        select,
+      });
+      const proyecto = await guardarDomicilioFiscalEnProyecto(
+        tx,
+        creado.id,
+        input.domicilioFiscal
+      );
+      return { row: creado, proyectoDomicilioFiscal: proyecto };
     });
-    return { success: true, data: mapRow(row) };
+    return { success: true, data: { ...mapRow(row), proyectoDomicilioFiscal } };
   } catch (error) {
     console.error("[clientes][crear]", error);
     return { success: false, error: prismaErrorMessage(error, "No se pudo crear el cliente.") };
@@ -617,7 +623,7 @@ export async function crearCliente(
 
 export async function editarCliente(
   input: EditarClienteInput
-): Promise<ServiceResult<ClienteItem>> {
+): Promise<ServiceResult<ClienteGuardadoItem>> {
   try {
     const usada = await prisma.enviosFinal.findFirst({
       where: input.esPintor ? { clienteFinalId: input.id } : { pintorId: input.id },
@@ -700,12 +706,20 @@ export async function editarCliente(
     if (input.ctaCorrienteMontoMax !== undefined) {
       data.ctaCorrienteMontoMax = input.ctaCorrienteMontoMax;
     }
-    const row = await prisma.cliente.update({
-      where: { id: input.id },
-      data,
-      select,
+    const { row, proyectoDomicilioFiscal } = await prisma.$transaction(async (tx) => {
+      const actualizado = await tx.cliente.update({
+        where: { id: input.id },
+        data,
+        select,
+      });
+      const proyecto = await guardarDomicilioFiscalEnProyecto(
+        tx,
+        actualizado.id,
+        input.domicilioFiscal
+      );
+      return { row: actualizado, proyectoDomicilioFiscal: proyecto };
     });
-    return { success: true, data: mapRow(row) };
+    return { success: true, data: { ...mapRow(row), proyectoDomicilioFiscal } };
   } catch (error) {
     console.error("[clientes][editar]", error);
     return { success: false, error: prismaErrorMessage(error, "No se pudo actualizar el cliente.") };

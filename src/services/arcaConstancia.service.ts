@@ -6,6 +6,7 @@ import {
   leerArcaEnvPorCuit,
 } from "@/lib/arca";
 import type { ArcaConstanciaPersona } from "@/lib/arcaConstancia";
+import { properTextoEnvio } from "@/lib/envios";
 import {
   ARCA_CONDICION_IVA,
   ARCA_SERVICIO_CONSTANCIA,
@@ -171,6 +172,9 @@ export async function consultarConstanciaArca(cuit: string): Promise<
       condicionIvaAsumida: regimenIva == null,
       estadoClave: persona.data.estadoClave,
       tipoPersona: persona.data.tipoPersona,
+      domicilioFiscal: persona.data.domicilioFiscal
+        ? properTextoEnvio(persona.data.domicilioFiscal)
+        : null,
     },
   };
 }

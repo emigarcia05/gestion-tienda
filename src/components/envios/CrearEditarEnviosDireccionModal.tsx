@@ -48,8 +48,7 @@ export default function CrearEditarEnviosDireccionModal({
   item = null,
   onSuccess,
 }: Props) {
-  const [calleNombre, setCalleNombre] = useState("");
-  const [numeracion, setNumeracion] = useState("");
+  const [direccion, setDireccion] = useState("");
   const [distrito, setDistrito] = useState("");
   const [departamento, setDepartamento] = useState<EnviosDepartamentoValue | "">("");
   const [urlMaps, setUrlMaps] = useState("");
@@ -61,8 +60,7 @@ export default function CrearEditarEnviosDireccionModal({
     if (!open) return;
     if (modo === "editar" && item) {
       setNombreProyecto(item.nombreProyecto);
-      setCalleNombre(properTextoEnvio(item.calleNombre));
-      setNumeracion(capitalizarTextoEnvio(item.numeracion));
+      setDireccion(properTextoEnvio(item.direccion));
       setDistrito(properTextoEnvio(item.distrito));
       setDepartamento(item.departamento ?? "");
       setUrlMaps(item.urlMaps);
@@ -70,8 +68,7 @@ export default function CrearEditarEnviosDireccionModal({
       return;
     }
     setNombreProyecto("");
-    setCalleNombre("");
-    setNumeracion("");
+    setDireccion("");
     setDistrito("");
     setDepartamento("");
     setUrlMaps("");
@@ -82,8 +79,7 @@ export default function CrearEditarEnviosDireccionModal({
     personaId !== "" &&
     direccionEnvioTieneDato({
       nombreProyecto,
-      calleNombre,
-      numeracion,
+      direccion,
       distrito,
       departamento: departamento === "" ? null : departamento,
       urlMaps,
@@ -97,8 +93,7 @@ export default function CrearEditarEnviosDireccionModal({
       const payload = {
         personaId,
         nombreProyecto,
-        calleNombre,
-        numeracion,
+        direccion,
         distrito,
         departamento: departamento === "" ? null : departamento,
         urlMaps,
@@ -147,18 +142,11 @@ export default function CrearEditarEnviosDireccionModal({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <ModalMicroLabel>CALLE NOMBRE</ModalMicroLabel>
+            <ModalMicroLabel>DIRECCIÓN</ModalMicroLabel>
             <Input
-              value={calleNombre}
-              onChange={(e) => setCalleNombre(properTextoEnvioInput(e.target.value))}
-              autoComplete="off"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <ModalMicroLabel>NUMERACIÓN</ModalMicroLabel>
-            <Input
-              value={numeracion}
-              onChange={(e) => setNumeracion(capitalizarTextoEnvioInput(e.target.value))}
+              value={direccion}
+              onChange={(e) => setDireccion(properTextoEnvioInput(e.target.value))}
+              placeholder="CALLE Y NÚMERO"
               autoComplete="off"
             />
           </label>

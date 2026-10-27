@@ -16,6 +16,8 @@ export type ArcaConstanciaPersona = {
   condicionIvaAsumida: boolean;
   estadoClave: string | null;
   tipoPersona: string | null;
+  /** Domicilio fiscal (calle y número, proper case); se guarda en `clientes_proyectos.direccion`. */
+  domicilioFiscal: string | null;
 };
 
 export type ArcaConstanciaApiResult =
@@ -50,6 +52,7 @@ export function parseArcaConstanciaApiJson(json: unknown): ArcaConstanciaApiResu
         condicionIvaAsumida: d.condicionIvaAsumida === true,
         estadoClave: textoOpcional(d.estadoClave),
         tipoPersona: textoOpcional(d.tipoPersona),
+        domicilioFiscal: textoOpcional(d.domicilioFiscal),
       },
     };
   }

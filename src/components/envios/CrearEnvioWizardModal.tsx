@@ -243,8 +243,7 @@ export default function CrearEnvioWizardModal({
       matchByMultiTerm(
         [
           item.nombreProyecto,
-          item.calleNombre,
-          item.numeracion,
+          item.direccion,
           item.distrito,
           etiquetaDepartamentoEnvio(item.departamento),
           item.referencia,

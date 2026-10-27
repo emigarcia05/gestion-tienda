@@ -49,8 +49,7 @@ const direccionSelect = {
   id: true,
   personaId: true,
   nombreProyecto: true,
-  calleNombre: true,
-  numeracion: true,
+  direccion: true,
   distrito: true,
   departamento: true,
   urlMaps: true,
@@ -125,8 +124,7 @@ function mapDireccion(row: {
   id: string;
   personaId: string;
   nombreProyecto: string;
-  calleNombre: string;
-  numeracion: string;
+  direccion: string;
   distrito: string;
   departamento: EnviosDireccionItem["departamento"];
   urlMaps: string | null;
@@ -136,8 +134,7 @@ function mapDireccion(row: {
     id: row.id,
     personaId: row.personaId,
     nombreProyecto: nombreProyectoPersistido(row.nombreProyecto),
-    calleNombre: properTextoEnvio(row.calleNombre),
-    numeracion: capitalizarTextoEnvio(row.numeracion),
+    direccion: properTextoEnvio(row.direccion),
     distrito: properTextoEnvio(row.distrito),
     departamento: row.departamento,
     urlMaps: (row.urlMaps ?? "").trim(),
@@ -174,8 +171,7 @@ function mapListRow(row: {
     id: string;
     personaId: string;
     nombreProyecto: string;
-    calleNombre: string;
-    numeracion: string;
+    direccion: string;
     distrito: string;
     departamento: EnviosDireccionItem["departamento"];
     urlMaps: string | null;

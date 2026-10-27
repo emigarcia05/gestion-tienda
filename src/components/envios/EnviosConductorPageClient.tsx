@@ -215,12 +215,10 @@ export default function EnviosConductorPageClient({
                 const maps = item.direccion.urlMaps.trim();
                 const tel = telefonoEnvio(item);
                 const telHref = tel !== "" ? `tel:${tel.replace(/\s+/g, "")}` : "";
-                const calle = item.direccion.calleNombre.trim();
-                const numeracion = item.direccion.numeracion.trim();
+                const lineaCalle = item.direccion.direccion.trim();
                 const distrito = item.direccion.distrito.trim();
                 const departamento = etiquetaDepartamentoEnvio(item.direccion.departamento).trim();
                 const referencia = item.direccion.referencia.trim();
-                const lineaCalle = [calle, numeracion].filter(Boolean).join(", ");
                 const lineaDistrito = [distrito, departamento].filter(Boolean).join(", ");
                 const nombreDestinatario = nombreDestinatarioEnvio(item);
                 const nombrePintorAsociado = item.clienteFinal

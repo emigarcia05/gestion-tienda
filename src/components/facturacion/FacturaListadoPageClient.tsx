@@ -99,7 +99,7 @@ const FILTRO_SALDO_CON = "con_saldo";
 const FILTRO_SALDO_VENCIDO = "con_saldo_vencido";
 const PERIODO_HOY = "hoy";
 const PERIODO_RANGO = "rango";
-/** Ancho fijo de BUSCAR POR CLIENTE y PROYECTO. El hueco de proyecto se reserva aunque no se muestre. */
+/** Ancho fijo de PROYECTO. El hueco se reserva aunque no se muestre. */
 const FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS = "w-[20rem] shrink-0 flex-none";
 /** Texto de celda alineado al `th` (`.table-head-inner` centra en 100% del ancho). */
 const CELDA_TEXTO_CLASS = "text-center whitespace-normal";
@@ -668,19 +668,21 @@ export default function FacturaListadoPageClient({
           <div className="flex items-center gap-3">
               {esFacturas ? (
                 <>
-                  <FiltroIndividualContainer
-                    activo={filtroCliente != null}
-                    onLimpiar={() => onFiltroClienteChange(null)}
-                    className={FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS}
-                  >
-                    <FacturaClienteTypeahead
-                      key={filtroClienteKey}
-                      id="filtro-facturas-busqueda"
-                      placeholder="BUSCAR POR CLIENTE..."
-                      seleccionado={filtroCliente}
-                      onSeleccionar={onFiltroClienteChange}
-                    />
-                  </FiltroIndividualContainer>
+                  <FilterRowSearch className="flex-1">
+                    <FiltroIndividualContainer
+                      activo={filtroCliente != null}
+                      onLimpiar={() => onFiltroClienteChange(null)}
+                      className="w-full"
+                    >
+                      <FacturaClienteTypeahead
+                        key={filtroClienteKey}
+                        id="filtro-facturas-busqueda"
+                        placeholder="BUSCAR POR CLIENTE..."
+                        seleccionado={filtroCliente}
+                        onSeleccionar={onFiltroClienteChange}
+                      />
+                    </FiltroIndividualContainer>
+                  </FilterRowSearch>
                   <FiltroIndividualContainer
                     activo={muestraProyecto && Boolean(filtroProyectoId)}
                     onLimpiar={() => setFiltroProyectoId("")}
