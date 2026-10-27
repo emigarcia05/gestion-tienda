@@ -20,7 +20,7 @@ function esDnFacturacionNoConstancia(cn: string | null): boolean {
 }
 
 function msgReiniciarPorDn(cn: string, ambiente: string): string {
-  return `ARCA_CONSTANCIA_CERT_PEM tiene el certificado «${cn}» (ambiente ${ambiente}), que es el de facturación. Pegá ahí el PEM de TiedaColorC1 (en Vercel: Production y Preview, después Redeploy; en local: .env y reiniciar npm run dev).`;
+  return `ARCA_CONSTANCIA_CERT_PEM_20372672235 tiene el certificado «${cn}» (ambiente ${ambiente}), que es el de facturación. Pegá ahí el PEM de tienda-gestion-constancia (en Vercel: Production y Preview, después Redeploy; en local: .env y reiniciar npm run dev).`;
 }
 
 function msgWsNoAutorizado(cn: string | null, ambiente: string): string {

@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  leerArcaConexion,
+  leerConexionConstancia,
   urlConstancia,
   urlConstanciaAfip,
   type ArcaConexionConfig,
@@ -113,12 +113,19 @@ function esErrorConexionSoap(mensaje: string): boolean {
   return mensaje.toLowerCase().includes("no se pudo conectar");
 }
 
-function mensajeFaultUsable(raw: string): string {
+function mensajePersonaInexistente(ambiente: ArcaConexionConfig["ambiente"]): string {
+  if (ambiente === "homo") {
+    return "Ese CUIT no está en el padrón de homologación (ARCA_ENV=homo). La página de ARCA muestra el padrón de producción: el número puede ser válido y aun así no existir en homo.";
+  }
+  return "ARCA no encontró un contribuyente con ese CUIT.";
+}
+
+function mensajeFaultUsable(raw: string, ambiente: ArcaConexionConfig["ambiente"]): string {
   const t = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (!t) return "ARCA rechazó la consulta de constancia.";
   const lower = t.toLowerCase();
   if (lower.includes("no existe") || lower.includes("no se encontr")) {
-    return "ARCA no encontró un contribuyente con ese CUIT.";
+    return mensajePersonaInexistente(ambiente);
   }
   if (lower.includes("acceder a los servicios de afip") || lower.includes("acceder a los servicios de arca")) {
     return "El certificado no corresponde a este ambiente. ARCA_ENV (homo/prod) tiene que coincidir con el certificado (homologación vs producción).";
@@ -148,7 +155,7 @@ async function postConstancia(
   });
   if (principal.ok) return { ok: true, body: principal.body };
   if (!esErrorConexionSoap(principal.error)) {
-    return { ok: false, error: mensajeFaultUsable(principal.error) };
+    return { ok: false, error: mensajeFaultUsable(principal.error, env.ambiente) };
   }
   const alias = await postSoap({
     url: urlConstanciaAfip(env.ambiente),
@@ -157,14 +164,14 @@ async function postConstancia(
     timeoutMs: env.timeoutMs,
   });
   if (alias.ok) return { ok: true, body: alias.body };
-  return { ok: false, error: mensajeFaultUsable(alias.error) };
+  return { ok: false, error: mensajeFaultUsable(alias.error, env.ambiente) };
 }
 
 export async function constanciaGetPersonaV2(
   auth: WsfeAuth,
   idPersona: string
 ): Promise<{ ok: true; data: ArcaConstanciaRaw } | { ok: false; error: string }> {
-  const env: ArcaConexionConfig | { error: string } = leerArcaConexion();
+  const env: ArcaConexionConfig | { error: string } = leerConexionConstancia();
   if ("error" in env) return { ok: false, error: env.error };
 
   const soap = await postConstancia(env, envelopeGetPersonaV2(auth, idPersona));
@@ -184,7 +191,7 @@ export async function constanciaGetPersonaV2(
     return {
       ok: false,
       error: detalle
-        ? mensajeFaultUsable(detalle)
+        ? mensajeFaultUsable(detalle, env.ambiente)
         : "ARCA no devolvió el nombre del contribuyente.",
     };
   }

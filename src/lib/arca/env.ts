@@ -30,14 +30,36 @@ export type ArcaConexionConfig = {
   timeoutMs: number;
 };
 
+function parseAmbienteValor(
+  raw: string | undefined,
+  nombre: string
+): ArcaAmbiente | { error: string } | null {
+  const value = (raw ?? "").trim().toLowerCase();
+  if (!value) return null;
+  const parsed = ambienteSchema.safeParse(value);
+  if (!parsed.success) return { error: `${nombre} debe ser homo o prod.` };
+  return parsed.data;
+}
+
 function parseAmbiente(): ArcaAmbiente | { error: string } {
-  const ambienteParsed = ambienteSchema.safeParse(
-    (process.env.ARCA_ENV ?? "homo").trim().toLowerCase() || "homo"
-  );
-  if (!ambienteParsed.success) {
-    return { error: "ARCA_ENV debe ser homo o prod." };
+  return parseAmbienteValor(process.env.ARCA_ENV, "ARCA_ENV") ?? "homo";
+}
+
+/**
+ * Padrón de la consulta de CUIT.
+ * `ARCA_CONSTANCIA_ENV_{CUIT}` y, si falta, `ARCA_CONSTANCIA_ENV`. Si ninguna está, `ARCA_ENV`.
+ * No cambia la facturación.
+ */
+export function ambienteConstancia(): ArcaAmbiente | { error: string } {
+  const general = parseAmbiente();
+  if (typeof general !== "string") return general;
+  const cuit = cuitEmisorConstancia();
+  if (typeof cuit === "string") {
+    const nombre = `ARCA_CONSTANCIA_ENV_${cuit}`;
+    const propio = parseAmbienteValor(envRuntime(nombre), nombre);
+    if (propio) return propio;
   }
-  return ambienteParsed.data;
+  return parseAmbienteValor(envRuntime("ARCA_CONSTANCIA_ENV"), "ARCA_CONSTANCIA_ENV") ?? general;
 }
 
 function parseTimeoutMs(): number {
@@ -48,6 +70,13 @@ function parseTimeoutMs(): number {
 /** Ambiente + timeout para SOAP WSFEv1 (no exige CUIT ni PEM). */
 export function leerArcaConexion(): ArcaConexionConfig | { error: string } {
   const ambiente = parseAmbiente();
+  if (typeof ambiente !== "string") return ambiente;
+  return { ambiente, timeoutMs: parseTimeoutMs() };
+}
+
+/** URL de Constancia de Inscripción. Puede ser prod aunque la facturación siga en homo. */
+export function leerConexionConstancia(): ArcaConexionConfig | { error: string } {
+  const ambiente = ambienteConstancia();
   if (typeof ambiente !== "string") return ambiente;
   return { ambiente, timeoutMs: parseTimeoutMs() };
 }
@@ -215,35 +244,45 @@ export function leerArcaEnv(opts?: {
   };
 }
 
-const MSG_FALTAN_PEM_CONSTANCIA =
-  "Faltan ARCA_CONSTANCIA_CERT_PEM y ARCA_CONSTANCIA_KEY_PEM (certificado TiedaColorC1). En Vercel: Settings → Environment Variables, Production y Preview, después Redeploy. En local: .env y reiniciar npm run dev. No uses el par ARCA_CERT_PEM de facturación.";
+function msgFaltanPemConstancia(cuit: string): string {
+  return `Faltan ARCA_CONSTANCIA_CERT_PEM_${cuit} y ARCA_CONSTANCIA_KEY_PEM_${cuit}. En Vercel: Settings → Environment Variables, Production y Preview, después Redeploy. En local: .env y reiniciar npm run dev. No uses ARCA_CERT_PEM_${cuit}: ese par es el de facturación.`;
+}
 
-function leerPemsConstancia(): {
+function leerPemsConstancia(cuit: string): {
   certPem: string;
   keyPem: string;
   keyPassphrase: string | null;
 } {
   return {
-    certPem: primerPem(envRuntime("ARCA_CONSTANCIA_CERT_PEM")),
-    keyPem: primerPem(envRuntime("ARCA_CONSTANCIA_KEY_PEM")),
-    keyPassphrase: primerPass(envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE")),
+    certPem: primerPem(
+      envRuntime(`ARCA_CONSTANCIA_CERT_PEM_${cuit}`),
+      envRuntime("ARCA_CONSTANCIA_CERT_PEM")
+    ),
+    keyPem: primerPem(
+      envRuntime(`ARCA_CONSTANCIA_KEY_PEM_${cuit}`),
+      envRuntime("ARCA_CONSTANCIA_KEY_PEM")
+    ),
+    keyPassphrase: primerPass(
+      envRuntime(`ARCA_CONSTANCIA_KEY_PASSPHRASE_${cuit}`),
+      envRuntime("ARCA_CONSTANCIA_KEY_PASSPHRASE")
+    ),
   };
 }
 
 /**
- * PEM de constancia. Solo `ARCA_CONSTANCIA_CERT_PEM` / `ARCA_CONSTANCIA_KEY_PEM`.
- * No usa `ARCA_CERT_PEM` ni `ARCA_CERT_PEM_{CUIT}` (otro DN / wsfe).
+ * PEM de constancia: `ARCA_CONSTANCIA_CERT_PEM_{CUIT}` / `ARCA_CONSTANCIA_KEY_PEM_{CUIT}`.
+ * Si faltan, usa el nombre sin CUIT. No usa `ARCA_CERT_PEM_{CUIT}` (otro certificado, wsfe).
  */
 export function leerArcaEnvPorCuit(cuitRaw: string): ArcaEnvConfig | { error: string } {
-  const ambiente = parseAmbiente();
+  const ambiente = ambienteConstancia();
   if (typeof ambiente !== "string") return ambiente;
   const cuit = cuit11(cuitRaw);
   if (!cuit) {
     return { error: MSG_SIN_CUIT };
   }
-  const pems = leerPemsConstancia();
+  const pems = leerPemsConstancia(cuit);
   if (!pems.certPem || !pems.keyPem) {
-    return { error: MSG_FALTAN_PEM_CONSTANCIA };
+    return { error: msgFaltanPemConstancia(cuit) };
   }
   const fromCert = cuitDesdeCertPem(pems.certPem);
   if (fromCert && fromCert !== cuit) {
