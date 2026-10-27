@@ -16,11 +16,6 @@ import {
 } from "@/services/costoListaTienda.service";
 import type { ServiceResult } from "@/types/service.types";
 
-export type ClavePrecioListaEdicion = {
-  codTienda: string;
-  idLista: number;
-};
-
 type ResultadoPrecioListaEdicion = {
   margenManual: number | null;
   pxEdicion: number | null;
@@ -195,20 +190,4 @@ export async function guardarPrecioListaEdicionDesdePx(
       pxEfectivo: pxEntero,
     },
   };
-}
-
-/** Elimina filas exportadas en Act. Px (cierra la actualización pendiente). */
-export async function limpiarPreciosEdicionTrasActPx(
-  claves: ClavePrecioListaEdicion[]
-): Promise<void> {
-  if (claves.length === 0) return;
-
-  await prisma.prodPropioListaPrecioEdicion.deleteMany({
-    where: {
-      OR: claves.map((c) => ({
-        codTienda: c.codTienda,
-        idLista: c.idLista,
-      })),
-    },
-  });
 }

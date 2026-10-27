@@ -13,8 +13,6 @@ import {
   establecerCodExtCostoLista,
   limpiarCodExtCostoLista,
 } from "@/services/costoListaTienda.service";
-import { listarFilasExportCostoCxDiff } from "@/services/exportCostoCxDiff.service";
-import type { FilaExportCostoCx } from "@/services/exportCostoCxDiff.service";
 
 const guardarCostoCxProdSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
@@ -52,26 +50,4 @@ export async function guardarCostoCxProdTiendaAction(
   revalidatePath(GP_ROUTES.analisisPrecios.listaPropia.listaProductos);
   revalidatePath("/administrador/productos/cx-compra");
   return { ok: true, data: undefined };
-}
-
-/** Excel CODIGO + COSTO: `px_compra_final_sin_iva` del proveedor elegido (`costo_compra_cod_ext`) de cada ítem. */
-export async function exportarCostoCxDiffAction(): Promise<
-  ActionResult<{ filas: FilaExportCostoCx[] }>
-> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
-    return { ok: false, error: "Sin acceso." };
-  }
-  if (!(await esEditor())) {
-    return { ok: false, error: "Sin permisos de editor." };
-  }
-  try {
-    const filas = await listarFilasExportCostoCxDiff();
-    return { ok: true, data: { filas } };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudo generar la exportación.",
-    };
-  }
 }

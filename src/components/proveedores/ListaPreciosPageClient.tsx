@@ -7,9 +7,6 @@ import ImportarListaPreciosModal from "@/components/proveedores/ImportarListaPre
 import ConvertirPdfListaPreciosModal from "@/components/proveedores/ConvertirPdfListaPreciosModal";
 import CrearProductoListaPreciosModal from "@/components/proveedores/CrearProductoListaPreciosModal";
 import EdicionMasivaListaPreciosModal from "@/components/proveedores/EdicionMasivaListaPreciosModal";
-import ExportarListaPreciosButton, {
-  type ListaPreciosFiltrosExportSnapshot,
-} from "@/components/proveedores/ExportarListaPreciosButton";
 import ListaPreciosTablaConFiltros from "@/components/proveedores/ListaPreciosTablaConFiltros";
 import CotizacionUsdListaPreciosControl from "@/components/proveedores/CotizacionUsdListaPreciosControl";
 import ReglasDescuentosListaPrecioModal from "@/components/proveedores/ReglasDescuentosListaPrecioModal";
@@ -50,24 +47,11 @@ export default function ListaPreciosPageClient({
 }: Props) {
   const router = useRouter();
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [filtrosExportSnapshot, setFiltrosExportSnapshot] =
-    useState<ListaPreciosFiltrosExportSnapshot>({
-      filtros: null,
-      hasFilterActive: false,
-      total: 0,
-    });
 
   const handleEdicionSuccess = useCallback(() => {
     setReloadNonce((n) => n + 1);
     router.refresh();
   }, [router]);
-
-  const handleFiltrosExportSnapshotChange = useCallback(
-    (snapshot: ListaPreciosFiltrosExportSnapshot) => {
-      setFiltrosExportSnapshot(snapshot);
-    },
-    []
-  );
 
   const p = PERMISOS.listaPrecios;
   const esEditorActivo = rol === "editor";
@@ -107,7 +91,6 @@ export default function ListaPreciosPageClient({
         )}
         {puedeImportar && (
           <>
-            <ExportarListaPreciosButton snapshot={filtrosExportSnapshot} />
             <ImportarListaPreciosModal proveedores={proveedores} cotizacionUsd={cotizacionUsd.valor} />
             <ConvertirPdfListaPreciosModal proveedores={proveedores} />
           </>
@@ -131,7 +114,6 @@ export default function ListaPreciosPageClient({
         puedeEdicionMasiva={puedeEdicionMasiva}
         reloadNonce={reloadNonce}
         onEdicionSuccess={handleEdicionSuccess}
-        onFiltrosExportSnapshotChange={handleFiltrosExportSnapshotChange}
       />
     </ClassicFilteredTableLayout>
   );

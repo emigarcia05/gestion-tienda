@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Minus, Pencil, Plus, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import ExportarMktSeccionesGoogleSheetsButton from "@/components/shared/ExportarMktSeccionesGoogleSheetsButton";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
@@ -304,13 +303,6 @@ export default function MarketingObjetivosPageClient({
         title="Marketing"
         subtitle="Objetivos"
         contentWidth="full"
-        actions={
-          esEditor ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <ExportarMktSeccionesGoogleSheetsButton />
-            </div>
-          ) : undefined
-        }
       >
         <div className="grid min-h-0 flex-1 grid-cols-3 gap-3 overflow-hidden">
           {MKT_PUBLI_OBJ_EJES.map((eje) => {

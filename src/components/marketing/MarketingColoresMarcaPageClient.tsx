@@ -6,7 +6,6 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarMktColorMarcaModal from "@/components/marketing/CrearEditarMktColorMarcaModal";
-import ExportarMktSeccionesGoogleSheetsButton from "@/components/shared/ExportarMktSeccionesGoogleSheetsButton";
 import FilterBar, {
   FilterRowSearch,
   LimpiarFiltrosButton,
@@ -125,7 +124,6 @@ export default function MarketingColoresMarcaPageClient({ items, esEditor }: Pro
         actions={
           esEditor ? (
             <div className="flex flex-wrap items-center gap-2">
-              <ExportarMktSeccionesGoogleSheetsButton />
               <Button
                 type="button"
                 variant="default"

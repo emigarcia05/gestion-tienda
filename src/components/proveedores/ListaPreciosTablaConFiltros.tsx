@@ -45,7 +45,6 @@ import EliminarListaPrecioModal from "@/components/proveedores/EliminarListaPrec
 import DescuentosListaPreciosCelda from "@/components/proveedores/DescuentosListaPreciosCelda";
 import DescuentosAplicadosListaPreciosModal from "@/components/proveedores/DescuentosAplicadosListaPreciosModal";
 import ReglaDescuentoItemListaPreciosModal from "@/components/proveedores/ReglaDescuentoItemListaPreciosModal";
-import type { ListaPreciosFiltrosExportSnapshot } from "@/components/proveedores/ExportarListaPreciosButton";
 import type {
   DescuentoActivoListaPrecio,
   FilaListaPrecioParaCliente,
@@ -83,7 +82,6 @@ interface ListaPreciosTablaConFiltrosProps {
   puedeEdicionMasiva?: boolean;
   reloadNonce?: number;
   onEdicionSuccess?: () => void;
-  onFiltrosExportSnapshotChange?: (snapshot: ListaPreciosFiltrosExportSnapshot) => void;
 }
 
 /** Anchos de columna en % (COD / DESCR / MARCA / RUBRO / PX FINAL / ACC). */
@@ -130,7 +128,6 @@ export default function ListaPreciosTablaConFiltros({
   puedeEdicionMasiva = false,
   reloadNonce = 0,
   onEdicionSuccess,
-  onFiltrosExportSnapshotChange,
 }: ListaPreciosTablaConFiltrosProps) {
   const [filaEdit, setFilaEdit] = useState<FilaListaPrecioParaCliente | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -306,35 +303,6 @@ export default function ListaPreciosTablaConFiltros({
     busqueda,
     pagina,
     reloadNonce,
-  ]);
-
-  useEffect(() => {
-    onFiltrosExportSnapshotChange?.({
-      hasFilterActive,
-      total: hasFilterActive ? total : 0,
-      filtros: hasFilterActive
-        ? {
-            proveedorId: proveedorId || undefined,
-            marcaNombre: marcaNombre || undefined,
-            rubroNombre: rubroNombre || undefined,
-            busqueda: busqueda.trim() || undefined,
-            habilitado:
-              habilitadoFilter === "si" ? true : habilitadoFilter === "no" ? false : undefined,
-            vinculado:
-              vinculadoFilter === "si" ? true : vinculadoFilter === "no" ? false : undefined,
-          }
-        : null,
-    });
-  }, [
-    hasFilterActive,
-    proveedorId,
-    marcaNombre,
-    rubroNombre,
-    habilitadoFilter,
-    vinculadoFilter,
-    busqueda,
-    total,
-    onFiltrosExportSnapshotChange,
   ]);
 
   const filteredFilas = filasData;

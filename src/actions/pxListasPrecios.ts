@@ -19,13 +19,6 @@ import {
   guardarPrecioListaEdicionDesdeMargen,
   guardarPrecioListaEdicionDesdePx,
 } from "@/services/pxListasPrecioEdicion.service";
-import {
-  clavesDesdeGruposExportPxListas,
-  listarExportPxListasMargenPorLista,
-  type ExportPxListaMargenGrupo,
-} from "@/services/exportPxListasMargen.service";
-import { limpiarPreciosEdicionTrasActPx } from "@/services/pxListasPrecioEdicion.service";
-
 function revalidatePxListasPaths() {
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
 }
@@ -179,30 +172,6 @@ export async function guardarPxListaCompetenciaRefAction(
         e instanceof Error
           ? e.message
           : "No se pudo guardar el competidor de referencia.",
-    };
-  }
-}
-
-/** Excel por `nombre_lista` (CODIGO + PORC UTILIDAD) y limpieza de staging exportado. */
-export async function exportarPxListasMargenAction(): Promise<
-  ActionResult<{ grupos: ExportPxListaMargenGrupo[] }>
-> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
-    return { ok: false, error: "Sin acceso." };
-  }
-  try {
-    const grupos = await listarExportPxListasMargenPorLista();
-    const claves = clavesDesdeGruposExportPxListas(grupos);
-    if (claves.length > 0) {
-      await limpiarPreciosEdicionTrasActPx(claves);
-      revalidatePxListasPaths();
-    }
-    return { ok: true, data: { grupos } };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudo generar la exportación.",
     };
   }
 }

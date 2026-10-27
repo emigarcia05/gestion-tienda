@@ -5,7 +5,6 @@ import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTable
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import FiltrosPxListasPrecios from "@/components/px-listas-precios/FiltrosPxListasPrecios";
 import TablaPxListasPrecios from "@/components/px-listas-precios/TablaPxListasPrecios";
-import ActPxListasButton from "@/components/px-listas-precios/ActPxListasButton";
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
@@ -89,13 +88,6 @@ export default function PxListasPreciosPageClient({
             actualizarActual={actualizar}
             pxVinculadoActual={pxVinculado}
           />
-        }
-        actions={
-          puedeEditar ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <ActPxListasButton />
-            </div>
-          ) : undefined
         }
       >
         <div className="flex h-full min-h-0 flex-col gap-0.5">

@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarMktContenidoUrlDriveModal from "@/components/marketing/CrearEditarMktContenidoUrlDriveModal";
 import GestionarMktContenidoDriveTipoModal from "@/components/marketing/GestionarMktContenidoDriveTipoModal";
-import ExportarMktSeccionesGoogleSheetsButton from "@/components/shared/ExportarMktSeccionesGoogleSheetsButton";
 import FilterBar, {
   FILTER_SELECT_WRAPPER_CLASS,
   FiltroIndividualContainer,
@@ -126,7 +125,6 @@ export default function MarketingBaseMultimediaPageClient({
         actions={
           esEditor ? (
             <div className="flex flex-wrap items-center gap-2">
-              <ExportarMktSeccionesGoogleSheetsButton />
               <Button
                 type="button"
                 variant="default"

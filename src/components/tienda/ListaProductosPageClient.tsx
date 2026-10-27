@@ -6,7 +6,6 @@ import { FolderTree, Palette, Plus, Ruler, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
-import ActCxButton from "@/components/tienda/ActCxButton";
 import FiltrosTienda from "@/components/tienda/FiltrosTienda";
 import TablaTienda from "@/components/tienda/TablaTienda";
 import AgregarProductoTiendaModal from "@/components/tienda/AgregarProductoTiendaModal";
@@ -74,7 +73,6 @@ export default function ListaProductosPageClient({
           Nuevo Item
         </Button>
       ) : null}
-      {puedeEditarCxProd ? <ActCxButton /> : null}
       <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("marcas")}>
         <Tags className="h-4 w-4" aria-hidden />
         Gestionar Marcas

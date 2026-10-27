@@ -5,7 +5,7 @@ import {
   type OpcionCompetenciaRefPxListas,
   type OpcionFiltroPxVinculado,
 } from "@/lib/pxListasCompetenciaRef";
-import { preciosPxListaEnterosIguales, roundPxListaEntero } from "@/lib/pxListasPreciosFormat";
+import { roundPxListaEntero } from "@/lib/pxListasPreciosFormat";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/service.types";
 import {
@@ -345,62 +345,4 @@ export async function guardarCompetenciaRefPxListaGeneral(
       margenManual: resPx.data.margenManual,
     },
   };
-}
-
-/**
- * Si hay FK de competidor, re-aplica el PX de referencia a staging de GENERAL
- * (p. ej. cuando cambió scraping/sugerido) para que PORC. UTILIDAD se derive del costo actual.
- */
-export async function sincronizarPxGeneralDesdeCompetenciaRef(
-  codTiendas: string[]
-): Promise<void> {
-  if (codTiendas.length === 0) return;
-
-  const idGeneral = await resolverIdListaGeneral();
-  if (idGeneral == null) return;
-
-  const rows = await prisma.prodPropio.findMany({
-    where: {
-      codTienda: { in: codTiendas },
-      competenciaIdPxListaGeneral: { not: null },
-    },
-    select: {
-      codTienda: true,
-      competenciaIdPxListaGeneral: true,
-    },
-  });
-  if (rows.length === 0) return;
-
-  const edicionRows = await prisma.prodPropioListaPrecioEdicion.findMany({
-    where: {
-      codTienda: { in: rows.map((r) => r.codTienda) },
-      idLista: idGeneral,
-    },
-    select: { codTienda: true, precio: true },
-  });
-  const edicionMap = new Map(
-    edicionRows.map((r) => [r.codTienda, Number(r.precio)])
-  );
-
-  for (const row of rows) {
-    const competenciaId = row.competenciaIdPxListaGeneral;
-    if (!competenciaId) continue;
-    const pxRef = await resolverPxReferenciaCompetenciaPxListas(
-      row.codTienda,
-      competenciaId
-    );
-    if (pxRef == null || !(pxRef > 0)) continue;
-    const actual = edicionMap.get(row.codTienda) ?? null;
-    if (preciosPxListaEnterosIguales(pxRef, actual)) continue;
-    await guardarPrecioListaEdicionDesdePx(row.codTienda, idGeneral, pxRef);
-  }
-}
-
-/** Antes de Act. Px: re-sincroniza todos los productos con FK de competidor. */
-export async function sincronizarTodosPxGeneralDesdeCompetenciaRef(): Promise<void> {
-  const rows = await prisma.prodPropio.findMany({
-    where: { competenciaIdPxListaGeneral: { not: null } },
-    select: { codTienda: true },
-  });
-  await sincronizarPxGeneralDesdeCompetenciaRef(rows.map((r) => r.codTienda));
 }
