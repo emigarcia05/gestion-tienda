@@ -71,6 +71,7 @@ export default function CrearEditarClienteModal({
   const [cuitMasked, setCuitMasked] = useState("");
   /** Solo ARCA (`getPersona_v2`) o el valor ya persistido al editar. No se elige en UI. */
   const [condicionIva, setCondicionIva] = useState<number | null>(null);
+  const [condicionIvaDescripcion, setCondicionIvaDescripcion] = useState<string | null>(null);
   const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState(
     String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT)
   );
@@ -119,6 +120,7 @@ export default function CrearEditarClienteModal({
       setCel(item.cel);
       setCuitMasked(item.cuit ? formatearCuitMascara(item.cuit) : "");
       setCondicionIva(item.condicionIva);
+      setCondicionIvaDescripcion(item.condicionIvaDescripcion);
       setCtaCorrientePlazo(
         item.ctaCorrientePlazo != null
           ? String(item.ctaCorrientePlazo)
@@ -143,6 +145,7 @@ export default function CrearEditarClienteModal({
     setCel("");
     setCuitMasked("");
     setCondicionIva(null);
+    setCondicionIvaDescripcion(null);
     setCtaCorrientePlazo(String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT));
     setCtaCorrienteMontoMaxNorm("");
     setCargarComoConsFinal(false);
@@ -201,8 +204,10 @@ export default function CrearEditarClienteModal({
       setNombreCompleto(data.nombre);
       if (data.condicionIva != null) {
         setCondicionIva(data.condicionIva);
+        setCondicionIvaDescripcion(data.condicionIvaDescripcion);
       } else {
         setCondicionIva(null);
+        setCondicionIvaDescripcion(null);
         toast.error("ARCA no informó la condición IVA.");
       }
     } catch {
@@ -323,49 +328,62 @@ export default function CrearEditarClienteModal({
               <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
                 CREAR CON CUIT
               </p>
-              <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CUIT</ModalMicroLabel>
-                <div className="relative">
-                  <Input
-                    value={cuitMasked}
-                    onChange={(e) => {
-                      const next = formatearCuitMascara(e.target.value);
-                      if (soloDigitos(next) !== cuitDigits) {
-                        setCondicionIva(null);
-                      }
-                      setCuitMasked(next);
-                    }}
-                    placeholder="##-########-#"
-                    autoComplete="off"
-                    inputMode="numeric"
-                    className={cn("tabular-nums", "pr-10")}
-                    disabled={saving}
-                    aria-label="CUIT"
-                  />
-                  <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="icon-xs"
-                      className="size-full p-0 shadow-none"
-                      disabled={!puedeConsultarArca}
-                      onClick={() => void consultarConstanciaArca()}
-                      aria-label={
-                        consultandoArca
-                          ? "Consultando CUIT en ARCA"
-                          : "Consultar CUIT en ARCA"
-                      }
-                      title="Consultar ARCA"
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "size-3.5 shrink-0",
-                          consultandoArca && "animate-spin"
-                        )}
-                        aria-hidden
-                      />
-                    </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <ModalMicroLabel>CUIT</ModalMicroLabel>
+                  <div className="relative">
+                    <Input
+                      value={cuitMasked}
+                      onChange={(e) => {
+                        const next = formatearCuitMascara(e.target.value);
+                        if (soloDigitos(next) !== cuitDigits) {
+                          setCondicionIva(null);
+                          setCondicionIvaDescripcion(null);
+                        }
+                        setCuitMasked(next);
+                      }}
+                      placeholder="##-########-#"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      className={cn("tabular-nums", "pr-10")}
+                      disabled={saving}
+                      aria-label="CUIT"
+                    />
+                    <div className="absolute inset-y-[0.2rem] right-[0.3rem] z-10 aspect-square">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="icon-xs"
+                        className="size-full p-0 shadow-none"
+                        disabled={!puedeConsultarArca}
+                        onClick={() => void consultarConstanciaArca()}
+                        aria-label={
+                          consultandoArca
+                            ? "Consultando CUIT en ARCA"
+                            : "Consultar CUIT en ARCA"
+                        }
+                        title="Consultar ARCA"
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "size-3.5 shrink-0",
+                            consultandoArca && "animate-spin"
+                          )}
+                          aria-hidden
+                        />
+                      </Button>
+                    </div>
                   </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <ModalMicroLabel>CONDICIÓN IVA</ModalMicroLabel>
+                  <Input
+                    value={condicionIvaDescripcion ?? ""}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="—"
+                    aria-label="Condición IVA"
+                  />
                 </div>
               </div>
             </section>
@@ -465,6 +483,7 @@ export default function CrearEditarClienteModal({
                                       pintorAsociado: null,
                                       cuit: null,
                                       condicionIva: null,
+                                      condicionIvaDescripcion: null,
                                       ctaCorrientePlazo: null,
                                       ctaCorrienteMontoMax: null,
                                     }

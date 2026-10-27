@@ -80,7 +80,6 @@ import {
   ARCA_CONDICION_IVA,
   ARCA_DOC_TIPO,
   alicuotasParaRepresentacion,
-  aplicarDocumentoConsumidorFinal,
   armarTotalesWsfe,
   coherenciaImpTotal,
   docNroAEnteroArca,
@@ -1060,7 +1059,8 @@ function validarReceptorFiscal(opts: {
     if (opts.impTotal > tope && esCfSinDoc) {
       return {
         success: false,
-        error: "Por el importe, el consumidor final debe identificarse con DNI o CUIT.",
+        error:
+          "Por el importe, el comprobante no puede ir a consumidor final sin identificar. Asociá un cliente con CUIT.",
       };
     }
     if (!esCfSinDoc && opts.docTipo === ARCA_DOC_TIPO.DNI) {
@@ -1225,7 +1225,7 @@ export async function emitirFacturaComprobante(
   });
   if (!proyectoResuelto.success) return proyectoResuelto;
   const proyectoId = proyectoResuelto.data;
-  let receptor = receptorFiscalParaEmitir({
+  const receptor = receptorFiscalParaEmitir({
     cliente: clienteFiscal,
     fallback: {
       docTipo: input.receptorDocTipo,
@@ -1348,13 +1348,6 @@ export async function emitirFacturaComprobante(
     impTrib = tot.impTrib;
     impExento = tot.impExento;
     alicIva = tot.alicIva;
-
-    const docCf = aplicarDocumentoConsumidorFinal(
-      receptor,
-      input.documentoReceptor ?? ""
-    );
-    if (!docCf.ok) return { success: false, error: docCf.error };
-    receptor = docCf.receptor;
 
     const recOk = validarReceptorFiscal({
       letra,

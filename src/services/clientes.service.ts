@@ -57,6 +57,7 @@ const select = {
   pintorAsociado: { select: resumenSelect },
   cuit: true,
   condicionIva: true,
+  condicionIvaArca: { select: { descripcion: true } },
   ctaCorrientePlazo: true,
   ctaCorrienteMontoMax: true,
 } as const;
@@ -79,6 +80,7 @@ function mapRow(row: {
   pintorAsociado: ClienteResumen | null;
   cuit: string | null;
   condicionIva: number | null;
+  condicionIvaArca: { descripcion: string } | null;
   ctaCorrientePlazo: number | null;
   ctaCorrienteMontoMax: { toString(): string } | number | null;
 }): ClienteItem {
@@ -88,6 +90,7 @@ function mapRow(row: {
     pintorAsociado: row.pintorAsociado ? mapResumen(row.pintorAsociado) : null,
     cuit: row.cuit,
     condicionIva: row.condicionIva,
+    condicionIvaDescripcion: row.condicionIvaArca?.descripcion ?? null,
     ctaCorrientePlazo: row.ctaCorrientePlazo,
     ctaCorrienteMontoMax: numeroMontoCtaCorriente(row.ctaCorrienteMontoMax),
   };

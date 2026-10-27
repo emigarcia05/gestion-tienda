@@ -68,7 +68,7 @@ function tieneImpuestoActivo(list: readonly ArcaPadronImpuesto[], id: number): b
 }
 
 /**
- * Condición IVA (`condicion_iva_cod_arca.codigo`) a partir de la constancia.
+ * Condición IVA (`iva_condicion_cod_arca.codigo`) a partir de la constancia.
  * Null si ARCA no informa un régimen claro (no asumir Consumidor Final).
  */
 export function condicionIvaDesdeConstanciaArca(args: {
@@ -96,7 +96,7 @@ export function condicionIvaDesdeConstanciaArca(args: {
   return null;
 }
 
-/** Razón social, o apellido + nombre (persona física). */
+/** Razón social, o nombre + apellido (persona física). */
 export function nombreDesdeConstanciaArca(args: {
   razonSocial: string | null;
   apellido: string | null;
@@ -104,7 +104,7 @@ export function nombreDesdeConstanciaArca(args: {
 }): string | null {
   const razon = (args.razonSocial ?? "").trim();
   if (razon) return razon.replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
-  const partes = [args.apellido, args.nombre]
+  const partes = [args.nombre, args.apellido]
     .map((s) => (s ?? "").trim())
     .filter((s) => s.length > 0);
   if (partes.length === 0) return null;
@@ -238,45 +238,6 @@ export function alicuotasParaRepresentacion(args: {
     return respaldo;
   }
   return rows;
-}
-
-/**
- * Identificación opcional del consumidor final (DNI o CUIT/CUIL).
- * No cambia la condición IVA: sigue siendo consumidor final.
- */
-export function aplicarDocumentoConsumidorFinal(
-  receptor: ReceptorFiscalSnapshot,
-  documentoRaw: string
-): { ok: true; receptor: ReceptorFiscalSnapshot } | { ok: false; error: string } {
-  const documento = documentoRaw.replace(/\D/g, "");
-  if (!documento) return { ok: true, receptor };
-  if (receptor.condicionIva !== ARCA_CONDICION_IVA.CF) {
-    return { ok: true, receptor };
-  }
-  if (documento.length >= 7 && documento.length <= 8) {
-    return {
-      ok: true,
-      receptor: {
-        ...receptor,
-        docTipo: ARCA_DOC_TIPO.DNI,
-        docNro: documento,
-      },
-    };
-  }
-  if (documento.length === 11 && esCuitValido(documento)) {
-    return {
-      ok: true,
-      receptor: {
-        ...receptor,
-        docTipo: ARCA_DOC_TIPO.CUIT,
-        docNro: documento,
-      },
-    };
-  }
-  return {
-    ok: false,
-    error: "Documento inválido. Usá DNI (7 u 8 dígitos) o CUIT (11 dígitos).",
-  };
 }
 
 /** Dígito verificador CUIT/CUIL (11 dígitos). */

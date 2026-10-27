@@ -423,8 +423,10 @@ export interface ClienteItem extends ClienteResumen {
   pintorAsociado: ClienteResumen | null;
   /** CUIT 11 dígitos o null. */
   cuit: string | null;
-  /** Código ARCA (`condicion_iva_cod_arca.codigo`) o null. */
+  /** Código ARCA (`iva_condicion_cod_arca.codigo`) o null. */
   condicionIva: number | null;
+  /** `iva_condicion_cod_arca.descripcion` del código, o null. */
+  condicionIvaDescripcion: string | null;
   /** Días de plazo de cuenta corriente; default 1; null = sin configurar. */
   ctaCorrientePlazo: number | null;
   /** Tope de saldo CC; null = sin tope. */

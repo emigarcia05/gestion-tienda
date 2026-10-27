@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { cuotasParaFormaYEntidad, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
-  esFacturaTipoFiscal,
   esFacturaTipoVenta,
   FACTURA_TIPO_LABELS,
   filtrarCuotasCatalogoPorDescPromo,
@@ -29,7 +28,6 @@ import {
   nombresPagoPromoFormaPago,
   resumenTotalesFactura,
 } from "@/lib/factura";
-import { ARCA_CF_MAX_SIN_DOC_DEFAULT } from "@/lib/facturaFiscal";
 import {
   descargarPdfFacturaComprobante,
   imprimirPdfFacturaComprobante,
@@ -70,8 +68,6 @@ type PasoGenerarComprobante = "cobro" | "generar";
 
 const SECCION_MODAL_CLASS =
   "flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4";
-const SECCION_TITULO_CLASS =
-  "text-center text-xs font-bold uppercase tracking-wide text-foreground";
 const BOTON_GENERAR_CLASS =
   "h-14 min-h-14 w-full min-w-0 shrink flex-col gap-0.5 whitespace-normal border border-primary px-1.5 py-1 hover:bg-primary hover:text-primary-foreground hover:brightness-90 hover:[&_svg]:text-primary-foreground";
 const BOTON_FORMA_PAGO_CLASS =
@@ -136,10 +132,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   comprobante: FacturaComprobantePdfInput | null;
   /** Persiste el comprobante (ARCA si aplica) y devuelve el PDF con nro/CAE. */
-  onEmitir: (
-    cobros: CobroFacturaEmitirInput[],
-    documentoReceptor?: string
-  ) => Promise<FacturaComprobantePdfInput | null>;
+  onEmitir: (cobros: CobroFacturaEmitirInput[]) => Promise<FacturaComprobantePdfInput | null>;
   onFinalizado?: () => void;
 }
 
@@ -177,21 +170,10 @@ export default function FacturaGenerarComprobanteModal({
   const [fechaAcreditacionDdMmYyyy, setFechaAcreditacionDdMmYyyy] = useState("");
   const [montoNorm, setMontoNorm] = useState("");
   const [cobros, setCobros] = useState<CobroRegistrado[]>([]);
-  const [documentoReceptor, setDocumentoReceptor] = useState("");
   const [paso, setPaso] = useState<PasoGenerarComprobante>("cobro");
   const hiddenFechaAcreditacionRef = useRef<HTMLInputElement>(null);
 
   const esVenta = comprobante != null && esFacturaTipoVenta(comprobante.tipo);
-  const cuitReceptor = (comprobante?.clienteCuit ?? "").replace(/\D/g, "");
-  const condicionReceptor = (comprobante?.clienteCondicionIva ?? "").toLocaleUpperCase("es-AR");
-  const pideDocumentoCf =
-    comprobante != null &&
-    esFacturaTipoFiscal(comprobante.tipo) &&
-    (condicionReceptor.includes("CONSUMIDOR") || cuitReceptor.length !== 11);
-  const documentoObligatorio =
-    pideDocumentoCf &&
-    cuitReceptor.length !== 11 &&
-    totalCentsDeComprobante(comprobante) > ARCA_CF_MAX_SIN_DOC_DEFAULT * 100;
   const totalCents = totalCentsDeComprobante(comprobante);
   const cobradoCents = cobros.reduce((acc, c) => acc + c.montoCents, 0);
   const pendienteCents = Math.max(0, totalCents - cobradoCents);
@@ -241,7 +223,6 @@ export default function FacturaGenerarComprobanteModal({
   useEffect(() => {
     if (!open) return;
     setCobros([]);
-    setDocumentoReceptor("");
     setPaso(
       comprobante != null && esFacturaTipoVenta(comprobante.tipo)
         ? "cobro"
@@ -418,16 +399,9 @@ export default function FacturaGenerarComprobanteModal({
         montoCents,
       })
     );
-    if (documentoObligatorio && documentoReceptor.replace(/\D/g, "").length < 7) {
-      toast.error("Por el importe, identificá al consumidor final con DNI o CUIT.");
-      return;
-    }
     setPending(accion);
     try {
-      const emitido = await onEmitir(
-        cobrosEmitir,
-        pideDocumentoCf ? documentoReceptor : undefined
-      );
+      const emitido = await onEmitir(cobrosEmitir);
       if (emitido == null) return;
       if (accion === "emitir") {
         toast.success("Comprobante generado.");
@@ -755,26 +729,6 @@ export default function FacturaGenerarComprobanteModal({
                 </Button>
               ) : null}
 
-            </section>
-          ) : null}
-
-          {mostrarPasoGenerar && pideDocumentoCf ? (
-            <section className={SECCION_MODAL_CLASS}>
-              <p className={SECCION_TITULO_CLASS}>
-                {documentoObligatorio ? "DOCUMENTO DEL CONSUMIDOR" : "DOCUMENTO"}
-              </p>
-              <label className="mx-auto flex w-full max-w-xs flex-col gap-1">
-                <ModalMicroLabel align="center">DNI / CUIT</ModalMicroLabel>
-                <Input
-                  value={documentoReceptor}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  disabled={ocupado}
-                  placeholder="DNI o CUIT"
-                  className="h-10 text-center tabular-nums"
-                  onChange={(e) => setDocumentoReceptor(e.target.value)}
-                />
-              </label>
             </section>
           ) : null}
 

@@ -6,7 +6,7 @@
 export type ArcaConstanciaPersona = {
   cuit: string;
   nombre: string;
-  /** Código `condicion_iva_cod_arca`. Null si ARCA no informó un régimen claro. */
+  /** Código `iva_condicion_cod_arca`. Null si ARCA no informó un régimen claro. */
   condicionIva: number | null;
   condicionIvaDescripcion: string | null;
   estadoClave: string | null;

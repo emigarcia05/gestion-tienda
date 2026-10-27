@@ -559,8 +559,7 @@ export default function FacturaCrearPageClient({
   }
 
   async function emitirDesdeModal(
-    cobros: CobroFacturaEmitirInput[],
-    documentoReceptor?: string
+    cobros: CobroFacturaEmitirInput[]
   ): Promise<FacturaComprobantePdfInput | null> {
     const draft = emitirDraftRef.current;
     if (!draft) {
@@ -593,7 +592,6 @@ export default function FacturaCrearPageClient({
       })),
       descuento: descuentoEstadoParaEmitir(draft.lineas, draft.descuento),
       cobros,
-      documentoReceptor: documentoReceptor?.trim() || undefined,
     });
     if (!res.ok) {
       toast.error(res.error);
