@@ -181,12 +181,17 @@ export async function saldosCuentaCorrientePorCliente(
 }
 
 async function conSaldoCuentaCorriente(
-  items: Omit<ClienteListaItem, "saldoCuentaCorriente">[]
+  items: Omit<ClienteListaItem, "saldoCuentaCorriente" | "saldoVencidoCuentaCorriente">[]
 ): Promise<ClienteListaItem[]> {
-  const saldos = await saldosCuentaCorrientePorCliente(items.map((item) => item.id));
+  const ids = items.map((item) => item.id);
+  const [saldos, vencidos] = await Promise.all([
+    saldosCuentaCorrientePorCliente(ids),
+    saldosVencidosCuentaCorrientePorCliente(ids),
+  ]);
   return items.map((item) => ({
     ...item,
     saldoCuentaCorriente: saldos.get(item.id) ?? 0,
+    saldoVencidoCuentaCorriente: vencidos.get(item.id) ?? 0,
   }));
 }
 
@@ -201,6 +206,8 @@ async function saldosVencidosCuentaCorrientePorCliente(
       clienteId: { in: clienteIds },
       estado: { not: "rechazado" },
       tipoComprobante: { in: [...TIPOS_VENTA_CTA_CTE] },
+      // Sin plazo no vence; las ventas pagadas quedan con `dias_vencimiento` null.
+      diasVencimiento: { not: null },
     },
     select: {
       clienteId: true,
@@ -233,15 +240,12 @@ export async function listarClientesConSaldoCuentaCorriente(): Promise<
   try {
     const items = await listarClientesConProyectos();
     const conSaldo = items.filter((item) => item.saldoCuentaCorriente > 0.009);
-    const vencidos = await saldosVencidosCuentaCorrientePorCliente(
-      conSaldo.map((item) => item.id)
-    );
     const data = conSaldo
       .map((item) => ({
         id: item.id,
         etiqueta: etiquetaClienteListado(item),
         saldo: item.saldoCuentaCorriente,
-        saldoVencido: vencidos.get(item.id) ?? 0,
+        saldoVencido: item.saldoVencidoCuentaCorriente,
       }))
       .sort((a, b) => {
         if (b.saldo !== a.saldo) return b.saldo - a.saldo;

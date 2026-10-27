@@ -563,12 +563,6 @@ export const FACTURA_DESCUENTO_MAX_CENTS = 10_000;
 export type FacturaComprobanteEstado = "borrador" | "autorizado" | "rechazado";
 
 /** Opción del filtro CLIENTE en Lista Comprobantes (catálogo, no texto libre). */
-export type FacturaClienteFiltroOption = {
-  id: string;
-  etiqueta: string;
-  proyectos: { id: string; etiqueta: string }[];
-};
-
 export type FacturaComprobanteListItem = {
   id: string;
   tipo: FacturaTipo;

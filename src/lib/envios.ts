@@ -457,6 +457,8 @@ export interface ClienteListaItem extends ClienteItem {
   proyectos: EnviosDireccionItem[];
   /** Saldo de cuenta corriente (ventas − cobros − notas de crédito). */
   saldoCuentaCorriente: number;
+  /** Parte del saldo en ventas con plazo (`dias_vencimiento`) ya vencido. */
+  saldoVencidoCuentaCorriente: number;
 }
 
 export interface EnviosSucursalOption {

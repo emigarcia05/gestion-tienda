@@ -1,14 +1,8 @@
 import { redirect } from "next/navigation";
 import FacturaListadoPageClient from "@/components/facturacion/FacturaListadoPageClient";
-import {
-  etiquetaClienteListado,
-  etiquetaNombreProyecto,
-} from "@/lib/envios";
-import type { FacturaClienteFiltroOption } from "@/lib/factura";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
-import { listarClientesConProyectos } from "@/services/clientes.service";
 import {
   listarFacturasComprobantes,
   listarSucursalesFiltroFacturas,
@@ -25,20 +19,11 @@ export default async function FacturaFacturasPage() {
     redirect(GP_ROUTES.defaultEntry);
   }
 
-  const [items, sucursales, usuarios, clientes] = await Promise.all([
+  const [items, sucursales, usuarios] = await Promise.all([
     listarFacturasComprobantes(),
     listarSucursalesFiltroFacturas(),
     listarUsuariosFiltroFacturas(),
-    listarClientesConProyectos(),
   ]);
-  const clientesFiltro: FacturaClienteFiltroOption[] = clientes.map((cliente) => ({
-    id: cliente.id,
-    etiqueta: etiquetaClienteListado(cliente),
-    proyectos: cliente.proyectos.map((proyecto) => ({
-      id: proyecto.id,
-      etiqueta: etiquetaNombreProyecto(proyecto),
-    })),
-  }));
 
   return (
     <div className="area-page-shell">
@@ -46,7 +31,6 @@ export default async function FacturaFacturasPage() {
         items={items}
         sucursales={sucursales}
         usuarios={usuarios}
-        clientesFiltro={clientesFiltro}
         variant="facturas"
       />
     </div>

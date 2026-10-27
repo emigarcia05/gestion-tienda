@@ -18,6 +18,7 @@ import FilterBar, {
   LimpiarFiltrosButton,
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
+import FacturaClienteTypeahead from "@/components/facturacion/FacturaClienteTypeahead";
 import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
@@ -53,7 +54,6 @@ import {
   esFacturaTipoVenta,
   puedeEliminarComprobante,
   resumenIndicadoresListaComprobantes,
-  type FacturaClienteFiltroOption,
   type FacturaComprobanteListItem,
   type FacturaSucursalFiltroOption,
   type FacturaUsuarioFiltroOption,
@@ -82,9 +82,11 @@ import {
   generarBytesPdfFacturaComprobante,
   nombreArchivoComprobanteFactura,
 } from "@/lib/facturaComprobantePdfClient";
-import type {
-  EnviosWizardBorradorFactura,
-  EnviosWizardCatalogo,
+import {
+  etiquetaNombreProyecto,
+  type ClienteListaItem,
+  type EnviosWizardBorradorFactura,
+  type EnviosWizardCatalogo,
 } from "@/lib/envios";
 
 const FILTRO_SUCURSAL_TODAS = "todas";
@@ -143,8 +145,6 @@ type Props = {
   items: FacturaComprobanteListItem[];
   sucursales: FacturaSucursalFiltroOption[];
   usuarios: FacturaUsuarioFiltroOption[];
-  /** Catálogo para el filtro de Lista Comprobantes. Presupuestos no lo usa. */
-  clientesFiltro?: FacturaClienteFiltroOption[];
   variant: "facturas" | "presupuestos";
 };
 
@@ -152,7 +152,6 @@ export default function FacturaListadoPageClient({
   items,
   sucursales,
   usuarios,
-  clientesFiltro = [],
   variant,
 }: Props) {
   const router = useRouter();
@@ -173,7 +172,9 @@ export default function FacturaListadoPageClient({
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroFiscal, setFiltroFiscal] = useState("");
   const [filtroPendiente, setFiltroPendiente] = useState("");
-  const [filtroClienteId, setFiltroClienteId] = useState("");
+  const [filtroCliente, setFiltroCliente] = useState<ClienteListaItem | null>(null);
+  /** Remonta el buscador de cliente para vaciar texto escrito sin elegir. */
+  const [filtroClienteKey, setFiltroClienteKey] = useState(0);
   const [filtroProyectoId, setFiltroProyectoId] = useState("");
   const [cobrosId, setCobrosId] = useState<string | null>(null);
   const [cobrosNro, setCobrosNro] = useState("");
@@ -205,13 +206,15 @@ export default function FacturaListadoPageClient({
     (codigo) => sucursalCodigos.has(codigo)
   );
 
-  const proyectosCliente = useMemo(() => {
-    if (!filtroClienteId) return [];
-    return (
-      clientesFiltro.find((cliente) => cliente.id === filtroClienteId)?.proyectos ??
-      []
-    );
-  }, [clientesFiltro, filtroClienteId]);
+  const filtroClienteId = filtroCliente?.id ?? "";
+  const proyectosCliente = useMemo(
+    () =>
+      (filtroCliente?.proyectos ?? []).map((proyecto) => ({
+        id: proyecto.id,
+        etiqueta: etiquetaNombreProyecto(proyecto),
+      })),
+    [filtroCliente]
+  );
   const muestraProyecto = proyectosCliente.length > 1;
 
   const hoyIso = dateToIsoYmdArgentina(new Date());
@@ -340,12 +343,13 @@ export default function FacturaListadoPageClient({
     setFiltroTipo("");
     setFiltroFiscal("");
     setFiltroPendiente("");
-    setFiltroClienteId("");
+    setFiltroCliente(null);
+    setFiltroClienteKey((k) => k + 1);
     setFiltroProyectoId("");
   }
 
-  function onFiltroClienteChange(value: string) {
-    setFiltroClienteId(value);
+  function onFiltroClienteChange(cliente: ClienteListaItem | null) {
+    setFiltroCliente(cliente);
     setFiltroProyectoId("");
   }
 
@@ -665,30 +669,17 @@ export default function FacturaListadoPageClient({
               {esFacturas ? (
                 <>
                   <FiltroIndividualContainer
-                    activo={Boolean(filtroClienteId)}
-                    onLimpiar={() => onFiltroClienteChange("")}
+                    activo={filtroCliente != null}
+                    onLimpiar={() => onFiltroClienteChange(null)}
                     className={FILTRO_CLIENTE_PROYECTO_ANCHO_CLASS}
                   >
-                    <Select value={filtroClienteId} onValueChange={onFiltroClienteChange}>
-                      <SelectTrigger
-                        id="filtro-facturas-busqueda"
-                        className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                      >
-                        <SelectValue placeholder="BUSCAR POR CLIENTE" />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="select-content-filtro"
-                        position="popper"
-                        side="bottom"
-                        align="start"
-                      >
-                        {clientesFiltro.map((cliente) => (
-                          <SelectItem key={cliente.id} value={cliente.id}>
-                            {cliente.etiqueta}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FacturaClienteTypeahead
+                      key={filtroClienteKey}
+                      id="filtro-facturas-busqueda"
+                      placeholder="BUSCAR POR CLIENTE..."
+                      seleccionado={filtroCliente}
+                      onSeleccionar={onFiltroClienteChange}
+                    />
                   </FiltroIndividualContainer>
                   <FiltroIndividualContainer
                     activo={muestraProyecto && Boolean(filtroProyectoId)}

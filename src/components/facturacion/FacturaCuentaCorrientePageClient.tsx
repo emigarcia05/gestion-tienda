@@ -200,9 +200,10 @@ export default function FacturaCuentaCorrientePageClient({
     setHighlight(0);
   }, []);
 
+  const [qClienteFijado, setQClienteFijado] = useState("");
   const { q, setQ, handleQChange, isDebouncing, ref: searchRef } =
     useFiltrosConBusqueda({
-      qActual: "",
+      qActual: qClienteFijado,
       debounceMs: 300,
       onDebouncedSearch: (value) => {
         void fetchSugerencias(value);
@@ -334,12 +335,18 @@ export default function FacturaCuentaCorrientePageClient({
     setProductos(res.data.productos);
   }
 
+  /** El hook repone `qActual` si el input no tiene foco: fijar ambos para que el nombre quede. */
+  function fijarTextoCliente(texto: string) {
+    setQClienteFijado(texto);
+    setQ(texto);
+  }
+
   function aplicarCliente(item: ClienteListaItem) {
     clienteIdRef.current = item.id;
     setClienteId(item.id);
     setClienteSeleccionado(item);
     setProyectoFiltroId(null);
-    setQ(etiquetaClienteListado(item));
+    fijarTextoCliente(etiquetaClienteListado(item));
     setAbierto(false);
     setSugerencias([]);
     void cargarLedger(item.id);
@@ -351,7 +358,7 @@ export default function FacturaCuentaCorrientePageClient({
     setClienteId(id);
     setClienteSeleccionado(null);
     setProyectoFiltroId(null);
-    setQ(cuenta?.etiqueta ?? "");
+    fijarTextoCliente(cuenta?.etiqueta ?? "");
     void cargarLedger(id);
   }
 
@@ -360,7 +367,7 @@ export default function FacturaCuentaCorrientePageClient({
     setClienteId(fila.id);
     setClienteSeleccionado(null);
     setProyectoFiltroId(null);
-    setQ(fila.etiqueta);
+    fijarTextoCliente(fila.etiqueta);
     setAbierto(false);
     setSugerencias([]);
     setTotalesItemVista(false);
@@ -444,7 +451,7 @@ export default function FacturaCuentaCorrientePageClient({
   function limpiarFiltros() {
     if (!esPublico) {
       clienteIdRef.current = null;
-      setQ("");
+      fijarTextoCliente("");
       setClienteId(null);
       setClienteSeleccionado(null);
       setProyectoFiltroId(null);
@@ -472,6 +479,7 @@ export default function FacturaCuentaCorrientePageClient({
       setProyectoFiltroId(null);
       setMovimientos([]);
       setProductos([]);
+      setQClienteFijado("");
     }
     handleQChange(value);
     if (value.trim().length < FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS) {

@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, FileText, Loader2, MessageSquare, Pencil, Plus } from "lucide-react";
+import {
+  CalendarDays,
+  FileText,
+  Info,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   buscarClientesFacturaAction,
@@ -21,7 +29,7 @@ import FacturaCrearLineasBlock, {
 import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGenerarComprobanteModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import FacturaMovimientosVentaModal from "@/components/facturacion/FacturaMovimientosVentaModal";
-import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import FacturaSaldoClienteModal from "@/components/facturacion/FacturaSaldoClienteModal";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
@@ -212,6 +220,10 @@ export default function FacturaCrearPageClient({
       ? duplicarBorrador.clienteCatalogo.saldoCuentaCorriente
       : null
   );
+  const [saldoVencidoCliente, setSaldoVencidoCliente] = useState(
+    () => duplicarBorrador?.clienteCatalogo?.saldoVencidoCuentaCorriente ?? 0
+  );
+  const [saldoInfoOpen, setSaldoInfoOpen] = useState(false);
   /** Cliente elegido o CF explícito: `qActual` del typeahead. */
   const [clienteQActual, setClienteQActual] = useState(() => {
     if (!duplicarBorrador) return "";
@@ -321,6 +333,8 @@ export default function FacturaCrearPageClient({
   const clienteTrim = cliente.trim();
   const puedeBuscarClientes =
     clienteTrim.length >= FACTURA_BUSQUEDA_CLIENTES_MIN_CHARS;
+  const hayClienteConSaldo = clienteId != null && saldoCuentaCorrienteCliente != null;
+  const tieneSaldoVencido = hayClienteConSaldo && saldoVencidoCliente > 0.009;
 
   function vaciarInputClienteParaBusqueda() {
     setClienteId(null);
@@ -328,6 +342,7 @@ export default function FacturaCrearPageClient({
     setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
+    setSaldoVencidoCliente(0);
     setClienteQActual("");
     setCliente("");
     setClienteProyectos([]);
@@ -345,6 +360,7 @@ export default function FacturaCrearPageClient({
     setClienteCondicionIvaCodigo(null);
     setCtaCorrienteMontoMaxCliente(null);
     setSaldoCuentaCorrienteCliente(null);
+    setSaldoVencidoCliente(0);
     setClienteProyectos([]);
     setProyectoId(null);
     setClientesAbierto(false);
@@ -364,6 +380,9 @@ export default function FacturaCrearPageClient({
     setCtaCorrienteMontoMaxCliente(item.ctaCorrienteMontoMax);
     setSaldoCuentaCorrienteCliente(
       "saldoCuentaCorriente" in item ? item.saldoCuentaCorriente : 0
+    );
+    setSaldoVencidoCliente(
+      "saldoVencidoCuentaCorriente" in item ? item.saldoVencidoCuentaCorriente : 0
     );
     setClienteProyectos(proyectos);
     setProyectoId(proyectos[0]?.id ?? null);
@@ -737,7 +756,6 @@ export default function FacturaCrearPageClient({
           <div className="flex flex-col gap-3">
           <div className={CABECERA_EDITOR_FILA1_CLASS}>
             <label className={cn(CABECERA_EDITOR_SLOT_CLASS, "w-full")}>
-              <ModalMicroLabel>FECHA</ModalMicroLabel>
               <div className="relative w-full">
                 <Input
                   type="text"
@@ -778,7 +796,6 @@ export default function FacturaCrearPageClient({
             </label>
 
             <label className={CABECERA_EDITOR_SLOT_CLASS}>
-              <ModalMicroLabel>TIPO COMPROBANTE</ModalMicroLabel>
               <Select
                 value={claseActual}
                 onValueChange={(value) => {
@@ -791,7 +808,11 @@ export default function FacturaCrearPageClient({
                   }
                 }}
               >
-                <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}>
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}
+                  aria-label="Tipo comprobante"
+                  title="Tipo comprobante"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -810,7 +831,6 @@ export default function FacturaCrearPageClient({
               inert={mostrarFiscal ? undefined : true}
             >
               <label className={CABECERA_EDITOR_SLOT_CLASS}>
-                <ModalMicroLabel>CONDICIÓN FISCAL</ModalMicroLabel>
                 <Select
                   value={fiscalActual ?? "no_fiscal"}
                   onValueChange={(value) => {
@@ -819,7 +839,11 @@ export default function FacturaCrearPageClient({
                     }
                   }}
                 >
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}>
+                  <SelectTrigger
+                    className={cn(SELECT_TRIGGER_FILTER_CLASS, CABECERA_CAMPO_ALTO_CLASS, "w-full")}
+                    aria-label="Condición fiscal"
+                    title="Condición fiscal"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -838,7 +862,6 @@ export default function FacturaCrearPageClient({
 
           <div className={CABECERA_EDITOR_FILA2_CLASS}>
             <label className={CABECERA_EDITOR_SLOT_CLASS}>
-              <ModalMicroLabel>CLIENTE</ModalMicroLabel>
               <div
                 ref={clienteWrapRef}
                 className={cn(
@@ -1074,9 +1097,6 @@ export default function FacturaCrearPageClient({
 
             {mostrarBotonConsumidorFinal ? (
               <div className={CABECERA_EDITOR_SLOT_CLASS}>
-                <ModalMicroLabel className="invisible" aria-hidden>
-                  PROYECTO CLIENTE
-                </ModalMicroLabel>
                 <Button
                   type="button"
                   variant="default"
@@ -1093,7 +1113,6 @@ export default function FacturaCrearPageClient({
               inert={mostrarProyecto ? undefined : true}
             >
               <label className={CABECERA_EDITOR_SLOT_CLASS}>
-                <ModalMicroLabel>PROYECTO CLIENTE</ModalMicroLabel>
                 <div className="filtro-individual-container relative w-full">
                   <Select
                     value={proyectoId ?? "none"}
@@ -1101,7 +1120,11 @@ export default function FacturaCrearPageClient({
                       setProyectoId(value === "none" ? null : value);
                     }}
                   >
-                    <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectTrigger
+                      className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                      aria-label="Proyecto cliente"
+                      title="Proyecto cliente"
+                    >
                       <SelectValue placeholder="PROYECTO" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1137,15 +1160,41 @@ export default function FacturaCrearPageClient({
             )}
 
             <div className={cn(CABECERA_EDITOR_SLOT_CLASS, "items-center")}>
-              <ModalMicroLabel align="center">SALDO CLIENTE</ModalMicroLabel>
-              <p
-                className="flex h-9 min-h-9 w-full items-center justify-center truncate rounded-md border border-primary px-2 text-center text-sm tabular-nums text-foreground"
-                aria-label="Saldo cliente"
-              >
-                {clienteId != null && saldoCuentaCorrienteCliente != null
-                  ? `$${fmtPrecio(saldoCuentaCorrienteCliente)}`
-                  : ""}
-              </p>
+              <div className="relative w-full">
+                <p
+                  className={cn(
+                    "flex h-9 min-h-9 w-full items-center justify-center gap-1.5 truncate rounded-md border border-primary pl-2 pr-9 text-center text-sm tabular-nums text-foreground",
+                    tieneSaldoVencido && "border-destructive bg-destructive text-white"
+                  )}
+                  aria-label={
+                    tieneSaldoVencido ? "Saldo cliente, con saldo vencido" : "Saldo cliente"
+                  }
+                  title="Saldo cliente"
+                >
+                  <span className={tieneSaldoVencido ? "text-white" : "text-muted-foreground"}>
+                    SALDO
+                  </span>
+                  {hayClienteConSaldo ? `$${fmtPrecio(saldoCuentaCorrienteCliente)}` : null}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    CABECERA_CAMPO_ALTO_CLASS,
+                    "absolute right-0 top-0 !w-9 shrink-0 !p-0 rounded-r-md",
+                    tieneSaldoVencido
+                      ? "text-white hover:bg-white/15 hover:text-white"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  disabled={!hayClienteConSaldo}
+                  onClick={() => setSaldoInfoOpen(true)}
+                  aria-label="Ver detalle del saldo"
+                  title="Ver detalle del saldo"
+                >
+                  <Info className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -1193,6 +1242,13 @@ export default function FacturaCrearPageClient({
         }}
         plan={movimientos?.plan ?? null}
         sucursalDestino={movimientos?.sucursal ?? null}
+      />
+      <FacturaSaldoClienteModal
+        open={saldoInfoOpen && hayClienteConSaldo}
+        onOpenChange={setSaldoInfoOpen}
+        cliente={cliente}
+        saldoTotal={saldoCuentaCorrienteCliente ?? 0}
+        saldoVencido={saldoVencidoCliente}
       />
     </ClassicFilteredTableLayout>
   );
