@@ -1,6 +1,6 @@
 import { APP_ROUTES } from "./appRoutes";
 
-/** Rutas de los módulos **VENTAS** (comprobantes) y **CLIENTES** del área Ventas. */
+/** Rutas del módulo **VENTAS** (comprobantes, Clientes y Cuenta Corriente, que no está en el sidenav). */
 export const FACTURACION_ROUTES = {
   factura: {
     crear: APP_ROUTES.ventas.ventas.crear,

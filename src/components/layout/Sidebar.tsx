@@ -28,7 +28,6 @@ import {
   Files,
   ScrollText,
   Users,
-  Wallet,
   ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,7 +49,6 @@ const iconClass = "h-5 w-5 shrink-0";
 
 type ModuleId =
   | "ventas"
-  | "clientes"
   | "pedidos"
   | "control-stock"
   | "herramientas";
@@ -101,6 +99,12 @@ const MODULES: NavModule[] = [
         permiso: PERMISOS.facturacion.acceso,
       },
       {
+        href: FACTURACION_ROUTES.clientes.lista,
+        label: "Clientes",
+        icon: <Users className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.facturacion.acceso,
+      },
+      {
         href: GP_ROUTES.envios.programados,
         label: "Envios",
         icon: <Truck className="h-4 w-4 shrink-0" />,
@@ -143,25 +147,6 @@ const MODULES: NavModule[] = [
         label: "Compras Recepcionadas",
         icon: <ShoppingCart className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.pedidos.acceso,
-      },
-    ],
-  },
-  {
-    id: "clientes",
-    label: "CLIENTES",
-    icon: <Users className={iconClass} />,
-    submodules: [
-      {
-        href: FACTURACION_ROUTES.clientes.cuentaCorriente,
-        label: "Cuentas Corrientes",
-        icon: <Wallet className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
-      },
-      {
-        href: FACTURACION_ROUTES.clientes.lista,
-        label: "Lista Clientes",
-        icon: <ClipboardList className="h-4 w-4 shrink-0" />,
-        permiso: PERMISOS.facturacion.acceso,
       },
     ],
   },

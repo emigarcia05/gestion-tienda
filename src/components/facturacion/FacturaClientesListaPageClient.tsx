@@ -7,8 +7,12 @@ import { ChevronDown, ChevronUp, Paintbrush, Pencil, Plus, Trash2, Wallet } from
 import { toast } from "sonner";
 import { eliminarClienteAction, eliminarEnviosDireccionAction } from "@/actions/envios";
 import FilterBar, {
+  FILTER_SELECT_WRAPPER_CLASS,
+  FilaFiltrosDesplegables,
   FilterRowSearch,
+  FiltroIndividualContainer,
   LimpiarFiltrosButton,
+  SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
@@ -20,6 +24,13 @@ import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import AppModal from "@/components/shared/AppModal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   EmptyTableRow,
   Table,
@@ -50,7 +61,11 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
-const COL_SPAN = 8;
+const COL_SPAN = 7;
+
+const FILTRO_SALDO_CON = "con_saldo";
+const FILTRO_TIPO_PINTOR = "pintor";
+const FILTRO_TIPO_CONS_FINAL = "cons_final";
 
 type ModalCliente = { open: false } | { open: true; modo: "crear" | "editar"; item: ClienteListaItem | null };
 type ModalProyecto =
@@ -87,6 +102,8 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
     id: string;
     kind: "proyectos" | "asociados";
   } | null>(null);
+  const [filtroSaldo, setFiltroSaldo] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [modalCliente, setModalCliente] = useState<ModalCliente>({ open: false });
   const [modalProyecto, setModalProyecto] = useState<ModalProyecto>({ open: false });
   const [modalEliminar, setModalEliminar] = useState<ModalEliminar>({ open: false });
@@ -102,9 +119,13 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
   );
 
   const itemsFiltrados = useMemo(() => {
-    if (!qDebounced.trim()) return items;
-    return items.filter((item) =>
-      matchByMultiTerm(
+    const busqueda = qDebounced.trim();
+    return items.filter((item) => {
+      if (filtroSaldo === FILTRO_SALDO_CON && item.saldoCuentaCorriente <= 0.009) return false;
+      if (filtroTipo === FILTRO_TIPO_PINTOR && !item.esPintor) return false;
+      if (filtroTipo === FILTRO_TIPO_CONS_FINAL && item.esPintor) return false;
+      if (!busqueda) return true;
+      return matchByMultiTerm(
         [
           etiquetaClienteListado(item),
           etiquetaEsPintor(item.esPintor),
@@ -113,20 +134,20 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
           item.cuit ? formatearCuitMascara(item.cuit) : "",
           item.cel,
           nombrePintorAsociadoCliente(item) ?? "",
-          item.ctaCorrientePlazo != null ? String(item.ctaCorrientePlazo) : "",
-          item.ctaCorrienteMontoMax != null ? String(item.ctaCorrienteMontoMax) : "",
           etiquetaCondicionIvaCliente(item.condicionIva, condicionesIva),
           ...item.proyectos.map((p) => etiquetaNombreProyecto(p)),
         ],
-        qDebounced,
+        busqueda,
         { numericAsContains: true }
-      )
-    );
-  }, [items, qDebounced, condicionesIva]);
+      );
+    });
+  }, [items, qDebounced, condicionesIva, filtroSaldo, filtroTipo]);
 
   function limpiarFiltros() {
     setQ("");
     setQDebounced("");
+    setFiltroSaldo("");
+    setFiltroTipo("");
   }
 
   async function handleEliminar() {
@@ -155,8 +176,8 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Clientes"
-        subtitle="Lista Clientes"
+        title="Ventas"
+        subtitle="Clientes"
         contentWidth="full"
         actions={
           <ToolbarActionButton
@@ -168,6 +189,47 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
+            <FilaFiltrosDesplegables>
+              <FiltroIndividualContainer
+                activo={Boolean(filtroSaldo)}
+                onLimpiar={() => setFiltroSaldo("")}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={filtroSaldo} onValueChange={setFiltroSaldo}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="SALDO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_SALDO_CON}>CON SALDO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+              <FiltroIndividualContainer
+                activo={Boolean(filtroTipo)}
+                onLimpiar={() => setFiltroTipo("")}
+                className={FILTER_SELECT_WRAPPER_CLASS}
+              >
+                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="TIPO" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value={FILTRO_TIPO_PINTOR}>PINTOR</SelectItem>
+                    <SelectItem value={FILTRO_TIPO_CONS_FINAL}>CONSUMIDOR FINAL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
+            </FilaFiltrosDesplegables>
             <div className="flex items-center gap-3">
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
@@ -187,12 +249,11 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[18%]" />
+              <col className="w-[22%]" />
               <col className="w-[12%]" />
               <col className="w-[14%]" />
               <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[8%]" />
+              <col className="w-[14%]" />
               <col className="w-[12%]" />
               <col className="w-[16%]" />
             </colgroup>
@@ -203,8 +264,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                 <TableHead>COND. IVA</TableHead>
                 <TableHead className="text-center">CEL</TableHead>
                 <TableHead>PINTOR</TableHead>
-                <TableHead className="text-center">PLAZO CTA. CTE.</TableHead>
-                <TableHead className="text-right">MONTO MÁX. CTA. CTE.</TableHead>
+                <TableHead className="text-right">SALDO</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -252,15 +312,8 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
                         <TableCell className="celda-datos">
                           {fmtCelda(nombrePintorAsociadoCliente(item) ?? "")}
                         </TableCell>
-                        <TableCell className="celda-datos text-center tabular-nums">
-                          {item.ctaCorrientePlazo != null
-                            ? String(item.ctaCorrientePlazo)
-                            : fmtCelda("")}
-                        </TableCell>
                         <TableCell className="celda-datos text-right tabular-nums">
-                          {item.ctaCorrienteMontoMax != null
-                            ? `$${fmtPrecio(item.ctaCorrienteMontoMax)}`
-                            : fmtCelda("")}
+                          {`$${fmtPrecio(item.saldoCuentaCorriente)}`}
                         </TableCell>
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                           <div
