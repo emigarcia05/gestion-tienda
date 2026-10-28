@@ -207,13 +207,6 @@ const productosScreens: AdmScreenDef[] = [
     icon: "folder-tree",
     permiso: PERMISOS.comparacionCategorias.acceso,
   },
-  {
-    id: "margen-contribucion",
-    label: "Margen Contribución",
-    href: A.productos.margenContribucion,
-    icon: "pie-chart",
-    permiso: PERMISOS.finanzas.acceso,
-  },
 ];
 
 const cobrosDescScreens: AdmScreenDef[] = [
@@ -236,6 +229,13 @@ const cobrosDescScreens: AdmScreenDef[] = [
     label: "Cobros & Cx Fina",
     href: A.cobrosDesc.cobrosCxFina,
     icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "margen-contribucion",
+    label: "Margen Contribución",
+    href: A.cobrosDesc.margenContribucion,
+    icon: "pie-chart",
     permiso: PERMISOS.finanzas.acceso,
   },
   {

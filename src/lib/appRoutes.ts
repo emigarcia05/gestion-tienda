@@ -51,7 +51,6 @@ export const APP_ROUTES = {
       pxListas: `${ADMINISTRADOR}/productos/px-listas`,
       pxCompetencia: `${ADMINISTRADOR}/productos/px-competencia`,
       analisisCat: `${ADMINISTRADOR}/productos/analisis-cat`,
-      margenContribucion: `${ADMINISTRADOR}/productos/margen-contribucion`,
       /** Fuera del sidenav: Cx. compra / comparación de proveedores. */
       cxCompra: `${ADMINISTRADOR}/productos/cx-compra`,
     },
@@ -59,6 +58,7 @@ export const APP_ROUTES = {
       descuentos: `${ADMINISTRADOR}/cobros-desc/descuentos`,
       cobrosCajas: `${ADMINISTRADOR}/cobros-desc/cobros-cajas`,
       cobrosCxFina: `${ADMINISTRADOR}/cobros-desc/cobros-cx-fina`,
+      margenContribucion: `${ADMINISTRADOR}/cobros-desc/margen-contribucion`,
       ptosVtas: `${ADMINISTRADOR}/cobros-desc/ptos-vtas`,
     },
     proveedores: {
@@ -246,8 +246,6 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/gestion-productos/proveedores/comparacion-categorias/categorias", R.administrador.productos.analisisCat],
   ["/proveedores/comparacion-categorias", R.administrador.productos.analisisCat],
   ["/proveedores/comparacion-categorias/categorias", R.administrador.productos.analisisCat],
-  ["/finanzas/analisis-mc", R.administrador.productos.margenContribucion],
-  ["/finanzas/analisis-mc/margen-contribucion", R.administrador.productos.margenContribucion],
   ["/gestion-productos/analisis-precios/cx-y-px-tienda/cx-compra", R.administrador.productos.cxCompra],
   ["/gestion-productos/tienda/comp-proveedores", R.administrador.productos.cxCompra],
   ["/gestion-productos/tienda", R.administrador.productos.cxCompra],
@@ -290,6 +288,9 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/finanzas/fact-cobros", R.administrador.cobrosDesc.ptosVtas],
   ["/vtas-cobros/cx-fin-cobros", R.administrador.cobrosDesc.cobrosCxFina],
   ["/finanzas/analisis-mc/costos-financieros", R.administrador.cobrosDesc.cobrosCxFina],
+  ["/finanzas/analisis-mc", R.administrador.cobrosDesc.margenContribucion],
+  ["/finanzas/analisis-mc/margen-contribucion", R.administrador.cobrosDesc.margenContribucion],
+  ["/administrador/productos/margen-contribucion", R.administrador.cobrosDesc.margenContribucion],
   ["/vtas-cobros/cobros-por-sucursal", R.administrador.cobrosDesc.cobrosCajas],
 
   // Finanzas · módulos sin función propia

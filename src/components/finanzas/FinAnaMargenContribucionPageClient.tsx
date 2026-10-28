@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings2, Calculator, Tags } from "lucide-react";
+import { Calculator, ChartLine, Table2, Tags } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
+import FiltroMultiSelect, {
+  type FiltroMultiSelectOpcion,
+} from "@/components/shared/FiltroMultiSelect";
 import TablaFinAnaMargenContribucion, {
   inputsMargenContribucionDesdeNumeros,
 } from "@/components/finanzas/TablaFinAnaMargenContribucion";
 import GraficoMcVsPorcUtilidad from "@/components/finanzas/GraficoMcVsPorcUtilidad";
-import GestionarPagosFinAnaCosFinaModal from "@/components/finanzas/GestionarPagosFinAnaCosFinaModal";
 import GestionCxYFormulasMargenContribucionModal from "@/components/finanzas/GestionCxYFormulasMargenContribucionModal";
 import GestionarCategoriasMargenContribucionModal from "@/components/finanzas/GestionarCategoriasMargenContribucionModal";
 import FilterBar, {
@@ -26,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import {
@@ -35,7 +37,6 @@ import {
   crearDescuentoPctPorFormaPagoVacios,
   etiquetaFormaPagoMargenContribucion,
   etiquetaTipoComprobanteVentaMargenContribucion,
-  idFormaPagoTresCuotasMargenContribucion,
   idsFormasPagoMargenContribucion,
   mapCxFinancieroPorFormaPago,
   mcPctEnPorcUtilidadMargenContribucion,
@@ -77,6 +78,8 @@ interface Props {
   configMc: FinAnaMcConfigItem;
   esEditor: boolean;
 }
+
+type VistaMargenContribucion = "detalle" | "grafico";
 
 function configUiDesdeMcConfig(configMc: FinAnaMcConfigItem) {
   return {
@@ -132,7 +135,27 @@ export default function FinAnaMargenContribucionPageClient({
       formulaParams.pxListaCIva
     )
   );
-  const [modalGestionarPagosAbierto, setModalGestionarPagosAbierto] = useState(false);
+  const [vista, setVista] = useState<VistaMargenContribucion>("detalle");
+  const esVistaGrafico = vista === "grafico";
+  /** Vacío = todas las formas de pago como columnas. */
+  const [formasTablaIds, setFormasTablaIds] = useState<string[]>([]);
+  const opcionesFormasPago = useMemo<FiltroMultiSelectOpcion[]>(
+    () =>
+      formasPago.map((id) => ({
+        value: id,
+        label: etiquetaFiltroMayusculas(
+          etiquetaFormaPagoMargenContribucion(id, pagos)
+        ),
+      })),
+    [formasPago, pagos]
+  );
+  const formasVisibles = useMemo(
+    () =>
+      formasTablaIds.length === 0
+        ? formasPago
+        : formasPago.filter((id) => formasTablaIds.includes(id)),
+    [formasPago, formasTablaIds]
+  );
   const [modalCxFormulasAbierto, setModalCxFormulasAbierto] = useState(false);
   const [modalCategoriasAbierto, setModalCategoriasAbierto] = useState(false);
 
@@ -161,24 +184,10 @@ export default function FinAnaMargenContribucionPageClient({
   const tienePorcUtilidad =
     config.porcUtilidadNorm.trim() !== "" && porcUtilidadPct > 0;
 
-  const formaPagoTresCuotasId = useMemo(
-    () => idFormaPagoTresCuotasMargenContribucion(pagos),
-    [pagos]
-  );
-
-  /** `undefined` = aún no tocó el control → default 3 CUOTAS. */
-  const [formasGraficoIds, setFormasGraficoIds] = useState<string[] | undefined>(
-    undefined
-  );
   const [metricaGrafico, setMetricaGrafico] =
     useState<MetricaGraficoMcMargenContribucion>(() =>
       metricaDesdeVariableObjetivo(configMc.variableObjetivo)
     );
-
-  const formasGraficoSeleccionadas = useMemo(() => {
-    if (formasGraficoIds !== undefined) return formasGraficoIds;
-    return formaPagoTresCuotasId ? [formaPagoTresCuotasId] : [];
-  }, [formasGraficoIds, formaPagoTresCuotasId]);
 
   const graficoMc = useMemo(() => {
     const marcaEnRango =
@@ -186,7 +195,7 @@ export default function FinAnaMargenContribucionPageClient({
       porcUtilidadPct >= MC_GRAFICO_PORC_UTILIDAD_MIN &&
       porcUtilidadPct <= MC_GRAFICO_PORC_UTILIDAD_MAX;
 
-    const filasFormaPago = formasPago.map((formaId, index) => {
+    const filasTodasLasFormas = formasPago.map((formaId, index) => {
       const descuentoPct = inputs.descuentoPctPorFormaPago[formaId] ?? 0;
       const cxFinPct = cxFinancieroPorFormaPago[formaId] ?? 0;
       const base = {
@@ -204,6 +213,7 @@ export default function FinAnaMargenContribucionPageClient({
         nombre: etiquetaFormaPagoMargenContribucion(formaId, pagos),
         color:
           COLORES_SERIE_GRAFICO_MC[index % COLORES_SERIE_GRAFICO_MC.length]!,
+        descuentoPct,
         valorPct: puedeMostrarValor
           ? mcPctEnPorcUtilidadMargenContribucion({
               ...base,
@@ -216,10 +226,13 @@ export default function FinAnaMargenContribucionPageClient({
     });
 
     const colorPorId = new Map(
-      filasFormaPago.map((fila) => [fila.id, fila.color] as const)
+      filasTodasLasFormas.map((fila) => [fila.id, fila.color] as const)
+    );
+    const filasFormaPago = filasTodasLasFormas.filter((fila) =>
+      formasVisibles.includes(fila.id)
     );
 
-    const series = formasGraficoSeleccionadas.map((formaId) => {
+    const series = formasVisibles.map((formaId) => {
       const descuentoPct = inputs.descuentoPctPorFormaPago[formaId] ?? 0;
       const cxFinPct = cxFinancieroPorFormaPago[formaId] ?? 0;
       const base = {
@@ -245,7 +258,7 @@ export default function FinAnaMargenContribucionPageClient({
     });
 
     /** Serie en escala M.C. (ratio×100) para umbrales cuando VARIABLE OBJETIVO = M.C. */
-    const seriesMc = formasGraficoSeleccionadas.map((formaId) => {
+    const seriesMc = formasVisibles.map((formaId) => {
       const descuentoPct = inputs.descuentoPctPorFormaPago[formaId] ?? 0;
       const cxFinPct = cxFinancieroPorFormaPago[formaId] ?? 0;
       const base = {
@@ -266,7 +279,7 @@ export default function FinAnaMargenContribucionPageClient({
     });
 
     /** Serie en escala M.C. PONDERADO para umbrales de Cat. M.C. */
-    const seriesMcPonderado = formasGraficoSeleccionadas.map((formaId) => {
+    const seriesMcPonderado = formasVisibles.map((formaId) => {
       const descuentoPct = inputs.descuentoPctPorFormaPago[formaId] ?? 0;
       const cxFinPct = cxFinancieroPorFormaPago[formaId] ?? 0;
       const base = {
@@ -296,6 +309,7 @@ export default function FinAnaMargenContribucionPageClient({
         config.terminalId || "ALL",
         config.tipoComprobante,
         tienePorcUtilidad ? String(porcUtilidadPct) : "SIN_PORC",
+        formasVisibles.join(","),
         Object.entries(cxFinancieroPorFormaPago)
           .map(([id, v]) => `${id}:${v}`)
           .sort()
@@ -308,7 +322,7 @@ export default function FinAnaMargenContribucionPageClient({
     };
   }, [
     formasPago,
-    formasGraficoSeleccionadas,
+    formasVisibles,
     inputs.descuentoPctPorFormaPago,
     cxFinancieroPorFormaPago,
     formulaParams,
@@ -322,7 +336,7 @@ export default function FinAnaMargenContribucionPageClient({
 
   function limpiarFiltros() {
     setConfig(configUiDesdeMcConfig(defaultsMc));
-    setFormasGraficoIds(undefined);
+    setFormasTablaIds([]);
     setMetricaGrafico(metricaDesdeVariableObjetivo(defaultsMc.variableObjetivo));
     setInputs(
       inputsMargenContribucionIniciales(
@@ -331,10 +345,6 @@ export default function FinAnaMargenContribucionPageClient({
         formulaParams.pxListaCIva
       )
     );
-  }
-
-  function handleCatalogoPagosChanged() {
-    router.refresh();
   }
 
   async function cambiarDescuentoPorFormaPago(
@@ -365,40 +375,49 @@ export default function FinAnaMargenContribucionPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Productos"
+        title="Administrador"
         subtitle="Margen Contribución"
+        contentWidth="full"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
+          <>
+            <ToolbarActionButton
+              label={esVistaGrafico ? "Ver Detalle" : "Ver Gráfico"}
+              icon={esVistaGrafico ? <Table2 /> : <ChartLine />}
+              className="w-full justify-start"
+              onClick={() => setVista(esVistaGrafico ? "detalle" : "grafico")}
+            />
+            <ToolbarActionButton
+              label="Gestionar Cat. M.C."
+              icon={<Tags />}
+              className="w-full justify-start"
               onClick={() => setModalCategoriasAbierto(true)}
-              className="h-10 gap-2 px-4"
-            >
-              <Tags className="size-4 shrink-0" aria-hidden />
-              Gestionar Cat. M.C.
-            </Button>
-            <Button
-              type="button"
+            />
+            <ToolbarActionButton
+              label="Info Cx. & Formulas"
+              icon={<Calculator />}
+              className="w-full justify-start"
               onClick={() => setModalCxFormulasAbierto(true)}
-              className="h-10 gap-2 px-4"
-            >
-              <Calculator className="size-4 shrink-0" aria-hidden />
-              Gestion Cx. Y Formulas
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setModalGestionarPagosAbierto(true)}
-              className="h-10 gap-2 px-4"
-            >
-              <Settings2 className="size-4 shrink-0" aria-hidden />
-              Gestionar Formas Pago
-            </Button>
-          </div>
+            />
+          </>
         }
         filters={
           <FilterBar className="filtros-contenedor-tienda bg-card">
             <FilterRowSelection className="w-full min-w-0">
-              <FilaFiltrosDesplegables columnas={4}>
+              <FilaFiltrosDesplegables columnas={5}>
+                <FiltroIndividualContainer
+                  className={cn(FILTER_SELECT_WRAPPER_CLASS, "relative")}
+                  activo={formasTablaIds.length > 0}
+                  onLimpiar={() => setFormasTablaIds([])}
+                >
+                  <FiltroMultiSelect
+                    opciones={opcionesFormasPago}
+                    selected={formasTablaIds}
+                    onChange={setFormasTablaIds}
+                    placeholder="FORMAS DE PAGO"
+                    ariaLabel="Formas de pago (columnas)"
+                  />
+                </FiltroIndividualContainer>
+
                 <FiltroIndividualContainer
                   className={FILTER_SELECT_WRAPPER_CLASS}
                   activo={
@@ -515,18 +534,7 @@ export default function FinAnaMargenContribucionPageClient({
         }
         filtersAriaLabel="Configuración de margen contribución"
       >
-        <div className="relative flex h-full min-h-0 flex-col gap-3">
-          <TablaFinAnaMargenContribucion
-            formasPago={formasPago}
-            pagosCatalogo={pagos}
-            cxFinancieroPorFormaPago={cxFinancieroPorFormaPago}
-            inputs={inputs}
-            onDescuentoPorFormaPagoChange={cambiarDescuentoPorFormaPago}
-            porcUtilidadPct={porcUtilidadPct}
-            tipoComprobante={config.tipoComprobante}
-            formulaParams={formulaParams}
-            esEditor={esEditor}
-          />
+        {esVistaGrafico ? (
           <GraficoMcVsPorcUtilidad
             series={graficoMc.series}
             seriesMc={graficoMc.seriesMc}
@@ -536,28 +544,29 @@ export default function FinAnaMargenContribucionPageClient({
             metrica={metricaGrafico}
             onMetricaChange={setMetricaGrafico}
             filasFormaPago={graficoMc.filasFormaPago}
-            formasSeleccionadas={formasGraficoSeleccionadas}
-            onFormasSeleccionadasChange={setFormasGraficoIds}
             categoriasMc={categoriasMc}
             variableObjetivo={defaultsMc.variableObjetivo}
-            className="relative z-0 shrink-0"
+            className="min-h-0 flex-1"
           />
-        </div>
+        ) : (
+          <TablaFinAnaMargenContribucion
+            formasPago={formasVisibles}
+            pagosCatalogo={pagos}
+            cxFinancieroPorFormaPago={cxFinancieroPorFormaPago}
+            inputs={inputs}
+            onDescuentoPorFormaPagoChange={cambiarDescuentoPorFormaPago}
+            porcUtilidadPct={porcUtilidadPct}
+            tipoComprobante={config.tipoComprobante}
+            formulaParams={formulaParams}
+            esEditor={esEditor}
+          />
+        )}
       </ClassicFilteredTableLayout>
 
       <GestionCxYFormulasMargenContribucionModal
         open={modalCxFormulasAbierto}
         onOpenChange={setModalCxFormulasAbierto}
         formulaParams={formulaParams}
-      />
-
-      <GestionarPagosFinAnaCosFinaModal
-        open={modalGestionarPagosAbierto}
-        onOpenChange={setModalGestionarPagosAbierto}
-        pagosIniciales={pagos}
-        entidadesIniciales={terminales}
-        esEditor={esEditor}
-        onCatalogoChanged={handleCatalogoPagosChanged}
       />
 
       <GestionarCategoriasMargenContribucionModal

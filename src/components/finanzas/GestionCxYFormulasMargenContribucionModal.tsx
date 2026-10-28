@@ -53,7 +53,7 @@ export default function GestionCxYFormulasMargenContribucionModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <AppModal
-        title="Gestion Cx. Y Formulas"
+        title="Info Cx. & Formulas"
         size="lg"
         className="max-w-xl"
         scrollBody

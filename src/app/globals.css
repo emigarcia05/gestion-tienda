@@ -375,18 +375,6 @@
   }
 
   /**
-   * Margen Contribución: altura al contenido, solo scroll horizontal.
-   * Al expandir COSTOS la tabla se superpone al gráfico (sin scroll vertical).
-   */
-  .contenedor-tabla-gestion.contenedor-tabla-gestion--mc-overlay {
-    flex: 0 0 auto;
-    height: auto;
-    max-height: none;
-    overflow-x: auto;
-    overflow-y: visible;
-  }
-
-  /**
    * Tabla con pie de totales siempre visible: el scroll vertical solo afecta a encabezado + cuerpo.
    * Estructura (misma tarjeta / borde que `.contenedor-tabla-gestion`):
    * `.contenedor-tabla-gestion.contenedor-tabla-gestion--pie-fijo` (flex column, overflow hidden)
@@ -1804,54 +1792,20 @@
  */
 .tabla-fin-ana-margen-contribucion {
   --tabla-mc-seccion-width: 1.75rem;
-  /** Ancho fijo de cada columna forma de pago (+20 % sobre 5 rem). */
+  --tabla-mc-concepto-width: 10.5rem;
+  /** Ancho mínimo de cada columna forma de pago; con más espacio se reparten el ancho. */
   --tabla-mc-forma-width: 7.5rem;
-  /**
-   * Anula `w-full` de `Table` / `.tabla-gestion-compacta` para que las
-   * columnas forma no absorban el sobrante del viewport.
-   */
-  width: max-content !important;
-  min-width: max-content !important;
+  /** `--tabla-mc-formas` (cantidad de columnas elegidas) lo setea `TablaFinAnaMargenContribucion`. */
+  width: 100% !important;
+  min-width: calc(
+    var(--tabla-mc-seccion-width) + var(--tabla-mc-concepto-width) +
+      var(--tabla-mc-formas, 1) * var(--tabla-mc-forma-width)
+  ) !important;
   max-width: none !important;
-}
-.tabla-fin-ana-margen-contribucion col.tabla-mc-col-forma {
-  width: var(--tabla-mc-forma-width) !important;
-  min-width: var(--tabla-mc-forma-width) !important;
-  max-width: var(--tabla-mc-forma-width) !important;
 }
 .tabla-fin-ana-margen-contribucion thead th.tabla-mc-col-forma,
 .tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-forma {
-  width: var(--tabla-mc-forma-width) !important;
-  min-width: var(--tabla-mc-forma-width) !important;
-  max-width: var(--tabla-mc-forma-width) !important;
   box-sizing: border-box;
-}
-/** Columna final (~5 %) para el botón expandir COSTOS: fuera visualmente de la tabla de datos. */
-.tabla-fin-ana-margen-contribucion col.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion thead th.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-expandir {
-  width: 5% !important;
-  min-width: 2.25rem !important;
-  max-width: 3rem !important;
-  box-sizing: border-box;
-}
-/**
- * Fondo unificado (sin cebra ni hover de fila): parece un riel externo al grid de datos.
- * Anula bordes horizontales / separadores primary de filas sep y subtotal.
- */
-.tabla-fin-ana-margen-contribucion thead th.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody tr:nth-child(odd) td.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody tr:nth-child(even) td.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody tr:hover td.tabla-mc-col-expandir,
-.tabla-fin-ana-margen-contribucion tbody tr.tabla-fila-mc-sep-linea td.tabla-mc-col-expandir {
-  --tabla-row-bg: var(--background);
-  background-color: var(--background) !important;
-  border-top: none !important;
-  border-bottom: none !important;
-  border-left: none !important;
-  border-right: none !important;
-  box-shadow: none !important;
 }
 .tabla-fin-ana-margen-contribucion thead th.tabla-mc-col-seccion,
 .tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-seccion {

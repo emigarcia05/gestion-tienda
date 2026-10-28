@@ -37,6 +37,8 @@ export type FilaFormaPagoGraficoMc = {
   id: string;
   nombre: string;
   color: string;
+  /** DESCUENTO aplicado a la forma (entero −100…100; negativo = descuento). */
+  descuentoPct: number;
   /** Valor de la métrica (%) en el PORC. UTILIDAD actual; null si no aplica. */
   valorPct: number | null;
 };
@@ -56,9 +58,8 @@ interface Props {
   revisionFiltros: string;
   metrica: MetricaGraficoMcMargenContribucion;
   onMetricaChange: (metrica: MetricaGraficoMcMargenContribucion) => void;
+  /** Formas elegidas en el filtro FORMAS DE PAGO; todas se grafican. */
   filasFormaPago: FilaFormaPagoGraficoMc[];
-  formasSeleccionadas: string[];
-  onFormasSeleccionadasChange: (ids: string[]) => void;
   /** Rangos de catálogo; overlay en métricas MC / MC_PONDERADO. */
   categoriasMc?: FinAnaMcCategoriaItem[];
   /** Escala de umbrales guardada en `fin_ana_mc_cat_config`. */
@@ -208,8 +209,6 @@ export default function GraficoMcVsPorcUtilidad({
   metrica,
   onMetricaChange,
   filasFormaPago,
-  formasSeleccionadas,
-  onFormasSeleccionadasChange,
   categoriasMc = [],
   variableObjetivo = "MC_PONDERADO",
   className,
@@ -219,19 +218,6 @@ export default function GraficoMcVsPorcUtilidad({
   const categoriasDisponibles = metricaGraficoSoportaCategoriasMc(metrica);
   const etiquetaEjeY = ETIQUETA_METRICA_GRAFICO_MC[metrica];
   const etiquetaColumna = ETIQUETA_CORTA_METRICA_GRAFICO_MC[metrica];
-  const selectedSet = useMemo(
-    () => new Set(formasSeleccionadas),
-    [formasSeleccionadas]
-  );
-
-  const idsFormas = useMemo(
-    () => filasFormaPago.map((fila) => fila.id),
-    [filasFormaPago]
-  );
-
-  const todasSeleccionadas =
-    idsFormas.length > 0 && idsFormas.every((id) => selectedSet.has(id));
-
   const categoriasOrdenadas = useMemo(
     () => [...categoriasMc].sort((a, b) => a.desdePct - b.desdePct),
     [categoriasMc]
@@ -244,22 +230,6 @@ export default function GraficoMcVsPorcUtilidad({
   }, [categoriasDisponibles]);
 
   const tituloGrafico = `RELACIÓN "PORC. UTILIDAD / ${etiquetaEjeY}"`;
-
-  function toggleForma(id: string) {
-    if (selectedSet.has(id)) {
-      onFormasSeleccionadasChange(formasSeleccionadas.filter((x) => x !== id));
-      return;
-    }
-    onFormasSeleccionadasChange([...formasSeleccionadas, id]);
-  }
-
-  function toggleTodasFormas() {
-    if (todasSeleccionadas) {
-      onFormasSeleccionadasChange([]);
-      return;
-    }
-    onFormasSeleccionadasChange(idsFormas);
-  }
 
   const {
     paths,
@@ -456,7 +426,7 @@ export default function GraficoMcVsPorcUtilidad({
       )}
     >
       <div className="flex min-h-[14rem] flex-1">
-        <div className="flex w-56 shrink-0 flex-col gap-2 border-r border-border p-2">
+        <div className="flex w-64 shrink-0 flex-col gap-2 border-r border-border p-2">
           <Select
             value={metrica}
             onValueChange={(value) =>
@@ -487,42 +457,11 @@ export default function GraficoMcVsPorcUtilidad({
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/60">
-                  <th className="w-8 px-1 py-1.5 text-center font-bold text-foreground">
-                    <span className="sr-only">GRAFICAR</span>
-                    <div className="flex items-center justify-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={idsFormas.length === 0}
-                        onClick={toggleTodasFormas}
-                        className={cn(
-                          "tabla-check-toggle !size-4 shrink-0 rounded-[2px] border border-[#0072bb] bg-card p-0 text-[#0072bb] hover:bg-card hover:text-[#0072bb]",
-                          todasSeleccionadas && "[&_svg]:!text-[#0072bb]"
-                        )}
-                        aria-pressed={todasSeleccionadas}
-                        aria-label={
-                          todasSeleccionadas
-                            ? "Deseleccionar todas las formas de pago"
-                            : "Seleccionar todas las formas de pago"
-                        }
-                        title={
-                          todasSeleccionadas
-                            ? "Deseleccionar todas"
-                            : "Seleccionar todas"
-                        }
-                      >
-                        {todasSeleccionadas ? (
-                          <Check
-                            className={TABLE_ROW_ACTION_ICON_CLASS}
-                            aria-hidden
-                          />
-                        ) : null}
-                      </Button>
-                    </div>
-                  </th>
                   <th className="px-1.5 py-1.5 text-left font-bold text-foreground">
                     FORMA
+                  </th>
+                  <th className="w-12 px-1.5 py-1.5 text-right font-bold text-foreground">
+                    DESC.
                   </th>
                   <th className="w-14 px-1.5 py-1.5 text-right font-bold text-foreground">
                     {etiquetaColumna}
@@ -540,47 +479,31 @@ export default function GraficoMcVsPorcUtilidad({
                     </td>
                   </tr>
                 ) : (
-                  filasFormaPago.map((fila) => {
-                    const checked = selectedSet.has(fila.id);
-                    return (
-                      <tr
-                        key={fila.id}
-                        className={cn(
-                          "border-b border-border last:border-b-0",
-                          checked && "bg-primary/5"
-                        )}
-                      >
-                        <td className="px-1 py-1 text-center align-middle">
-                          <input
-                            type="checkbox"
-                            className="size-3.5 accent-primary"
-                            checked={checked}
-                            onChange={() => toggleForma(fila.id)}
-                            aria-label={`Graficar ${fila.nombre}`}
+                  filasFormaPago.map((fila) => (
+                    <tr
+                      key={fila.id}
+                      className="border-b border-border last:border-b-0"
+                    >
+                      <td className="min-w-0 px-1.5 py-1 align-middle">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: fila.color }}
+                            aria-hidden
                           />
-                        </td>
-                        <td className="min-w-0 px-1.5 py-1 align-middle">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            {checked ? (
-                              <span
-                                className="size-2 shrink-0 rounded-full"
-                                style={{ backgroundColor: fila.color }}
-                                aria-hidden
-                              />
-                            ) : null}
-                            <span className="truncate font-medium text-foreground">
-                              {fila.nombre}
-                            </span>
+                          <span className="truncate font-medium text-foreground">
+                            {fila.nombre}
                           </span>
-                        </td>
-                        <td className="px-1.5 py-1 text-right align-middle tabular-nums text-foreground">
-                          {fila.valorPct == null
-                            ? "—"
-                            : fmtPct(fila.valorPct)}
-                        </td>
-                      </tr>
-                    );
-                  })
+                        </span>
+                      </td>
+                      <td className="px-1.5 py-1 text-right align-middle tabular-nums text-foreground">
+                        {fmtPct(fila.descuentoPct)}
+                      </td>
+                      <td className="px-1.5 py-1 text-right align-middle tabular-nums text-foreground">
+                        {fila.valorPct == null ? "—" : fmtPct(fila.valorPct)}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

@@ -20,8 +20,9 @@ import {
 } from "@/services/finAnaMcConfig.service";
 import { guardarFinAnaMcConfigSchema } from "@/lib/validations/finAnaMcConfig";
 import type { FinAnaMcConfigItem } from "@/lib/finAnaMcConfig";
+import { APP_ROUTES } from "@/lib/appRoutes";
 
-const RUTA_MARGEN_CONTRIBUCION = "/administrador/productos/margen-contribucion";
+const RUTA_MARGEN_CONTRIBUCION = APP_ROUTES.administrador.cobrosDesc.margenContribucion;
 
 
 

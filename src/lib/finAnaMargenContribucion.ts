@@ -526,26 +526,6 @@ export const MC_GRAFICO_PORC_UTILIDAD_MIN = 20;
 export const MC_GRAFICO_PORC_UTILIDAD_MAX = 200;
 export const MC_GRAFICO_PORC_UTILIDAD_STEP = 5;
 
-/**
- * Resuelve la forma de pago **3 Cuotas** por nombre del catálogo
- * (`cobros_forma_pago`), sin hardcodear id.
- */
-export function idFormaPagoTresCuotasMargenContribucion(
-  pagos: readonly FinAnaCosFinaPagoItem[]
-): FormaPagoMargenContribucion | null {
-  const candidatos = filtrarPagosMargenContribucion([...pagos]);
-  const exacto = candidatos.find((p) => {
-    const nombre = p.nombre.trim().toLocaleUpperCase("es");
-    return nombre === "3 CUOTAS" || nombre === "3 CUOTA";
-  });
-  if (exacto) return exacto.id;
-  const aproximado = candidatos.find((p) => {
-    const nombre = p.nombre.toLocaleUpperCase("es");
-    return /\b3\b/.test(nombre) && /CUOTA/.test(nombre);
-  });
-  return aproximado?.id ?? null;
-}
-
 export type PuntoMcVsPorcUtilidad = {
   porcUtilidadPct: number;
   /** Valor del eje Y en % de visualización (M.C ratio×100 o M.C PONDERADO base-100). */
