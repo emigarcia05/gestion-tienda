@@ -48,6 +48,8 @@ export const FIN_ANA_MC_FILAS_DATO = [
   "PX_VENTA",
   "IVA",
   "IIBB",
+  /** IIBB | IVA en una sola fila (vista compacta). */
+  "IMPUESTOS",
   "CX_MERCADERIA",
   "CX_FINANCIERO",
   "MC",
@@ -81,7 +83,7 @@ export const FIN_ANA_MC_SECCIONES: readonly SeccionMargenContribucion[] = [
   {
     id: "COSTOS",
     etiqueta: "COSTOS",
-    filas: ["IVA", "IIBB", "CX_MERCADERIA", "CX_FINANCIERO"],
+    filas: ["IMPUESTOS", "CX_MERCADERIA", "CX_FINANCIERO"],
   },
   {
     id: "MARGEN",
@@ -116,6 +118,7 @@ const ETIQUETAS_FILA: Record<FilaMargenContribucionDatoId, string> = {
   PX_VENTA: "PX VENTA",
   IVA: "IVA",
   IIBB: "IIBB",
+  IMPUESTOS: "IMPUESTOS",
   CX_MERCADERIA: "CX MERCADERÍA",
   CX_FINANCIERO: "CX FINANCIERO",
   MC: "M.C",
@@ -143,6 +146,7 @@ export function ayudaFormulaFilaMargenContribucion(
   const mapa: Partial<Record<FilaMargenContribucionDatoId, string>> = {
     IVA: `(Px. Vta. sin IVA × ${iva}) / Px. Vta. C/ IVA`,
     IIBB: `(Px. Vta. sin IVA × ${iibb}) / Px. Vta. C/ IVA`,
+    IMPUESTOS: `IIBB = (Px. Vta. sin IVA × ${iibb}) / Px. Vta. C/ IVA | IVA = (Px. Vta. sin IVA × ${iva}) / Px. Vta. C/ IVA`,
     CX_MERCADERIA:
       "((Px. Lista sin IVA) / (1 + porc. utilidad % / 100)) / Px. Vta. C/ IVA",
     CX_FINANCIERO:
@@ -223,6 +227,18 @@ export function etiquetaEscenarioIvaMargenContribucion(
 
 /** Rótulo de las celdas de dos escenarios (`fmtParEscenariosMargenContribucion`). */
 export const ETIQUETA_PAR_ESCENARIOS_MC = `${ETIQUETAS_ESCENARIO_IVA.FACTURA_A} | ${ETIQUETAS_ESCENARIO_IVA.FACTURA_C}`;
+
+/** Rótulo de la fila IMPUESTOS (`IIBB | IVA`, escenario CON IVA). */
+export const ETIQUETA_PAR_IMPUESTOS_MC = "IIBB | IVA";
+
+/** Segunda línea del CONCEPTO para filas que muestran un par de valores `a | b`. */
+export function subetiquetaFilaMargenContribucion(
+  id: FilaMargenContribucionDatoId
+): string | null {
+  if (id === "MC" || id === "MC_PONDERADO") return ETIQUETA_PAR_ESCENARIOS_MC;
+  if (id === "IMPUESTOS") return ETIQUETA_PAR_IMPUESTOS_MC;
+  return null;
+}
 
 export function aplicaImpuestosComprobanteMargenContribucion(
   tipo: TipoComprobanteVentaMargenContribucion
@@ -434,14 +450,23 @@ export function fmtCeldaMontoMargenContribucion(
   return `${Math.round(pct).toLocaleString("es-AR")}%`;
 }
 
+/** Celda con dos valores `a | b` (p. ej. `3% | 17%`); `—` si no hay ninguno. */
+export function fmtParCeldaMargenContribucion(
+  a: number | null,
+  b: number | null,
+  escala: "ratio" | "base100" = "ratio"
+): string {
+  if (a == null && b == null) return "—";
+  return `${fmtCeldaMontoMargenContribucion(a, escala)} | ${fmtCeldaMontoMargenContribucion(b, escala)}`;
+}
+
 /** Celda de dos escenarios: `CON IVA | SIN IVA` (p. ej. `10% | 31%`); `—` si no hay ninguno. */
 export function fmtParEscenariosMargenContribucion(
   conIva: number | null,
   sinIva: number | null,
   escala: "ratio" | "base100" = "ratio"
 ): string {
-  if (conIva == null && sinIva == null) return "—";
-  return `${fmtCeldaMontoMargenContribucion(conIva, escala)} | ${fmtCeldaMontoMargenContribucion(sinIva, escala)}`;
+  return fmtParCeldaMargenContribucion(conIva, sinIva, escala);
 }
 
 /** Suma de costos (ratios): IVA + IIBB + CX MERCADERÍA + CX FINANCIERO. */

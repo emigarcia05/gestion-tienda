@@ -98,24 +98,26 @@ export default function TablaFinAnaMcResumenFormasPago({
             filas.map(({ columna, margenes }) => (
               <TableRow key={columna.id} className="tabla-fila-altura-auto">
                 <TableCell className="celda-datos px-2 py-1 leading-tight" title={columna.etiqueta}>
-                  {columna.cuotaEtiqueta ? (
-                    <span className={cn(LINEA_CABEZAL_SECUNDARIA_MC, "text-muted-foreground")}>
-                      {columna.cuotaEtiqueta}
-                    </span>
-                  ) : null}
-                  <span className="flex min-w-0 items-center justify-center gap-1.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
                     <span
                       className="size-2 shrink-0 rounded-full"
                       style={{ backgroundColor: columna.color }}
                       aria-hidden
                     />
-                    <span className="truncate font-semibold">{columna.formaNombre}</span>
-                  </span>
-                  {columna.entidadNombre ? (
-                    <span className={cn(LINEA_CABEZAL_SECUNDARIA_MC, "text-muted-foreground")}>
-                      {columna.entidadNombre}
-                    </span>
-                  ) : null}
+                    <div className="min-w-0 flex-1 text-center">
+                      {columna.cuotaEtiqueta ? (
+                        <span className={cn(LINEA_CABEZAL_SECUNDARIA_MC, "text-muted-foreground")}>
+                          {columna.cuotaEtiqueta}
+                        </span>
+                      ) : null}
+                      <span className="block truncate font-semibold">{columna.formaNombre}</span>
+                      {columna.entidadNombre ? (
+                        <span className={cn(LINEA_CABEZAL_SECUNDARIA_MC, "text-muted-foreground")}>
+                          {columna.entidadNombre}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
                 </TableCell>
                 <TableCell
                   className="celda-datos celda-numero px-2 py-1 font-bold tabular-nums"

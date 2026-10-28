@@ -15,12 +15,15 @@ import {
   cxFinancieroRatioMargenContribucion,
   esFilaDescuentoPorFormaPagoMargenContribucion,
   ETIQUETA_PAR_ESCENARIOS_MC,
+  ETIQUETA_PAR_IMPUESTOS_MC,
   etiquetaFilaMargenContribucion,
   FIN_ANA_MC_DESCUENTO_MAX,
   FIN_ANA_MC_DESCUENTO_MIN,
   FIN_ANA_MC_SECCIONES,
   fmtCeldaMontoMargenContribucion,
+  fmtParCeldaMargenContribucion,
   fmtParEscenariosMargenContribucion,
+  subetiquetaFilaMargenContribucion,
   mcMargenContribucionPorFormaPago,
   mcPonderadoMargenContribucionPorFormaPago,
   type FilaMargenContribucionDatoId,
@@ -57,25 +60,28 @@ const SEP_FORMA = "tabla-mc-sep-forma";
 export const LINEA_CABEZAL_SECUNDARIA_MC =
   "block truncate text-[0.65rem] font-semibold opacity-80";
 
+function esFilaMargen(filaId: FilaMargenContribucionDatoId): boolean {
+  return filaId === "MC" || filaId === "MC_PONDERADO";
+}
+
 function CeldaConceptoMargenContribucion({
   filaId,
-  esFilaMargen,
 }: {
   filaId: FilaMargenContribucionDatoId;
-  esFilaMargen: boolean;
 }) {
+  const subetiqueta = subetiquetaFilaMargenContribucion(filaId);
   return (
     <TableCell
       className={cn(
         "celda-datos font-medium",
         COL_CONCEPTO_STICKY,
-        esFilaMargen && "font-bold"
+        esFilaMargen(filaId) && "font-bold"
       )}
     >
       <span className="block leading-tight">{etiquetaFilaMargenContribucion(filaId)}</span>
-      {esFilaMargen ? (
+      {subetiqueta ? (
         <span className="block text-[0.6rem] font-semibold leading-tight text-muted-foreground">
-          {ETIQUETA_PAR_ESCENARIOS_MC}
+          {subetiqueta}
         </span>
       ) : null}
     </TableCell>
@@ -223,9 +229,23 @@ export default function TablaFinAnaMargenContribucion({
       ));
     }
 
-    const esFilaMargen = filaId === "MC" || filaId === "MC_PONDERADO";
+    if (filaId === "IMPUESTOS") {
+      return columnas.map((columna) => (
+        <TableCell
+          key={`${filaId}-${columna.id}`}
+          className={cn("celda-datos celda-numero tabular-nums", COL_FORMA, SEP_FORMA)}
+          title={ETIQUETA_PAR_IMPUESTOS_MC}
+        >
+          {fmtParCeldaMargenContribucion(
+            valorFila("IIBB", columna, "FACTURA_A").valor,
+            valorFila("IVA", columna, "FACTURA_A").valor
+          )}
+        </TableCell>
+      ));
+    }
+
     return columnas.map((columna) => {
-      if (!esFilaMargen) {
+      if (!esFilaMargen(filaId)) {
         const { valor, escala } = valorFila(filaId, columna, "FACTURA_A");
         return (
           <TableCell
@@ -340,10 +360,7 @@ export default function TablaFinAnaMargenContribucion({
                     </span>
                   </TableCell>
                 ) : null}
-                <CeldaConceptoMargenContribucion
-                  filaId={filaId}
-                  esFilaMargen={filaId === "MC" || filaId === "MC_PONDERADO"}
-                />
+                <CeldaConceptoMargenContribucion filaId={filaId} />
                 {renderCeldasDatos(filaId)}
               </TableRow>
             ));
