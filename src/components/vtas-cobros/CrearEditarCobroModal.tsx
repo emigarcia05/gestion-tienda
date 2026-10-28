@@ -284,13 +284,6 @@ export default function CrearEditarCobroModal({
             </Select>
           </div>
 
-          <ModalSiNoChoice
-            label="ES CHEQUE"
-            value={esCheque}
-            onChange={setEsCheque}
-            disabled={saving || !pagoId}
-          />
-
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>CAJA VINCULADA</ModalMicroLabel>
             <Select
@@ -313,6 +306,13 @@ export default function CrearEditarCobroModal({
               </SelectContent>
             </Select>
           </div>
+
+          <ModalSiNoChoice
+            label="ES CHEQUE"
+            value={esCheque}
+            onChange={setEsCheque}
+            disabled={saving || !pagoId}
+          />
 
           <ModalSiNoChoice
             label="IVA CRED."

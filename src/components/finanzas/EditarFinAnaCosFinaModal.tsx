@@ -148,20 +148,19 @@ export default function EditarFinAnaCosFinaModal({
               <p className="truncate text-sm text-foreground">{fmtCelda(fila.cuotas)}</p>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>DÍAS DE ACREDITACIÓN</ModalMicroLabel>
-              <Input
-                value={diasDraft}
-                onChange={(e) => setDiasDraft(e.target.value)}
-                inputMode="numeric"
-                autoComplete="off"
-                disabled={saving}
-                className="tabular-nums"
-                aria-label="Días de acreditación"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 items-end gap-3">
+              <div className="flex flex-col gap-1">
+                <ModalMicroLabel>DÍAS ACRED.</ModalMicroLabel>
+                <Input
+                  value={diasDraft}
+                  onChange={(e) => setDiasDraft(e.target.value)}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  disabled={saving}
+                  className="tabular-nums"
+                  aria-label="Días de acreditación"
+                />
+              </div>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>ARANCEL</ModalMicroLabel>
                 <PorcentajeCentInput
@@ -169,16 +168,18 @@ export default function EditarFinAnaCosFinaModal({
                   onValueNormalizedChange={setArancelDraft}
                   disabled={saving}
                   pctSuffixAlwaysVisible
+                  className="h-9"
                   aria-label="Arancel"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <ModalMicroLabel>CX FINANCIERO</ModalMicroLabel>
+                <ModalMicroLabel>CX FIN.</ModalMicroLabel>
                 <PorcentajeCentInput
                   valueNormalized={costoDraft}
                   onValueNormalizedChange={setCostoDraft}
                   disabled={saving}
                   pctSuffixAlwaysVisible
+                  className="h-9"
                   aria-label="Cx. financiero"
                 />
               </div>
