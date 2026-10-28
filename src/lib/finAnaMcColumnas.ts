@@ -36,11 +36,14 @@ export type ColumnaMargenContribucion = {
   id: string;
   pagoId: string;
   formaNombre: string;
-  /** `ENTIDAD · CUOTA` (omite lo que no tiene); vacío si la fila no tiene ninguno. */
-  detalle: string;
+  /** `null` si la fila no tiene entidad. */
+  entidadNombre: string | null;
+  /** `null` si la fila no tiene cuota. */
+  cuotaEtiqueta: string | null;
+  /** `FORMA · ENTIDAD · CUOTA` (omite lo que no tiene). */
   etiqueta: string;
-  /** `null` si no hay TIPO FACTURA elegido. */
-  cxFinPct: number | null;
+  /** CX FIN (%) por escenario: FACTURA A (CON IVA) → CX TOTAL S/ IVA; FACTURA C (SIN IVA) → C/ IVA. */
+  cxFinPctPorTipo: Record<TipoComprobanteVentaMargenContribucion, number>;
   color: string;
 };
 
@@ -128,8 +131,7 @@ export function opcionesCuotaColumnasMargenContribucion(
  */
 export function columnasMargenContribucion(
   filas: readonly FilaCxFinColumnaMargenContribucion[],
-  filtros: FiltrosColumnasMargenContribucion,
-  tipoComprobante: TipoComprobanteVentaMargenContribucion | null
+  filtros: FiltrosColumnasMargenContribucion
 ): ColumnaMargenContribucion[] {
   if (filtros.pagoIds.length === 0) return [];
   const columnas: ColumnaMargenContribucion[] = [];
@@ -138,19 +140,21 @@ export function columnasMargenContribucion(
     if (!incluye(filtros.entidadIds, claveEntidad(fila))) return;
     if (!incluye(filtros.cuotas, claveCuota(fila))) return;
     const formaNombre = fila.pagoNombre.toLocaleUpperCase("es");
-    const detalle = [fila.terminalId ? fila.terminalNombre : null, etiquetaCuota(fila)]
-      .filter((parte): parte is string => Boolean(parte))
-      .join(" · ");
+    const entidadNombre = fila.terminalId ? fila.terminalNombre : null;
+    const cuotaEtiqueta = etiquetaCuota(fila);
     columnas.push({
       id: fila.id,
       pagoId: fila.pagoId,
       formaNombre,
-      detalle,
-      etiqueta: detalle ? `${formaNombre} · ${detalle}` : formaNombre,
-      cxFinPct:
-        tipoComprobante == null
-          ? null
-          : cxTotalPorTipoComprobanteMargenContribucion(fila, tipoComprobante),
+      entidadNombre,
+      cuotaEtiqueta,
+      etiqueta: [formaNombre, entidadNombre, cuotaEtiqueta]
+        .filter((parte): parte is string => Boolean(parte))
+        .join(" · "),
+      cxFinPctPorTipo: {
+        FACTURA_A: cxTotalPorTipoComprobanteMargenContribucion(fila, "FACTURA_A"),
+        FACTURA_C: cxTotalPorTipoComprobanteMargenContribucion(fila, "FACTURA_C"),
+      },
       color: COLORES_SERIE_GRAFICO_MC[index % COLORES_SERIE_GRAFICO_MC.length]!,
     });
   });

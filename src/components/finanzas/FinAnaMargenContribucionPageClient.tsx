@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calculator, ChartLine, Table2, Tags } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
@@ -23,17 +23,8 @@ import FilterBar, {
   FilterRowSelection,
   LimpiarFiltrosButton,
 } from "@/components/FilterBar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  FIN_ANA_MC_TIPOS_COMPROBANTE,
-  etiquetaTipoComprobanteVentaMargenContribucion,
   mcPctEnPorcUtilidadMargenContribucion,
   MC_GRAFICO_PORC_UTILIDAD_MAX,
   MC_GRAFICO_PORC_UTILIDAD_MIN,
@@ -60,10 +51,17 @@ import {
 } from "@/lib/finAnaMcConfig";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import type { DescuentosMargenContribucionMap } from "@/services/margenContribucionDesc.service";
+import { guardarDescuentoMargenContribucionAction } from "@/actions/finAnaMargenContribucion";
+import { toast } from "sonner";
+
+/** Espera tras el último dígito antes de guardar el DESC. (evita guardar cada tecla). */
+const DESCUENTO_GUARDADO_DEBOUNCE_MS = 500;
 
 interface Props {
   filasCostosFinancieros: FinAnaCosFinaItem[];
   terminales: FinAnaCosFinaTerminalMarcaItem[];
+  descuentosPorColumna: DescuentosMargenContribucionMap;
   formulas: FinAnaMcFormulaItem[];
   categoriasMc: FinAnaMcCategoriaItem[];
   configMc: FinAnaMcConfigItem;
@@ -83,6 +81,7 @@ function soloDisponibles(
 export default function FinAnaMargenContribucionPageClient({
   filasCostosFinancieros,
   terminales,
+  descuentosPorColumna,
   formulas,
   categoriasMc,
   configMc,
@@ -94,9 +93,24 @@ export default function FinAnaMargenContribucionPageClient({
     () => resolverParametrosFormulaMargenContribucion(formulas),
     [formulas]
   );
-  const [inputs, setInputs] = useState(() =>
-    inputsMargenContribucionDesdeNumeros({ pxLista: formulaParams.pxListaCIva })
+  const [inputs, setInputs] = useState(() => ({
+    ...inputsMargenContribucionDesdeNumeros({ pxLista: formulaParams.pxListaCIva }),
+    descuentoPctPorColumna: descuentosPorColumna,
+  }));
+  const guardadosPendientesRef = useRef(
+    new Map<string, { timer: ReturnType<typeof setTimeout>; descuentoPct: number }>()
   );
+
+  useEffect(() => {
+    const pendientes = guardadosPendientesRef.current;
+    return () => {
+      for (const [cxFinId, { timer, descuentoPct }] of pendientes) {
+        clearTimeout(timer);
+        void guardarDescuentoMargenContribucionAction({ cxFinId, descuentoPct });
+      }
+      pendientes.clear();
+    };
+  }, []);
   const [vista, setVista] = useState<VistaMargenContribucion>("detalle");
   const esVistaGrafico = vista === "grafico";
   const [modalCxFormulasAbierto, setModalCxFormulasAbierto] = useState(false);
@@ -104,8 +118,8 @@ export default function FinAnaMargenContribucionPageClient({
 
   /** Filtros sin valor por defecto. */
   const [porcUtilidadPct, setPorcUtilidadPct] = useState<number | null>(null);
-  const [tipoComprobante, setTipoComprobante] =
-    useState<TipoComprobanteVentaMargenContribucion | null>(null);
+  const [escenarioGrafico, setEscenarioGrafico] =
+    useState<TipoComprobanteVentaMargenContribucion>("FACTURA_A");
   const [pagoIds, setPagoIds] = useState<string[]>([]);
   const [entidadIds, setEntidadIds] = useState<string[]>([]);
   const [cuotasSel, setCuotasSel] = useState<string[]>([]);
@@ -138,12 +152,12 @@ export default function FinAnaMargenContribucionPageClient({
 
   const columnas = useMemo(
     () =>
-      columnasMargenContribucion(
-        filasHabilitadas,
-        { pagoIds, entidadIds, cuotas: cuotasSel },
-        tipoComprobante
-      ),
-    [filasHabilitadas, pagoIds, entidadIds, cuotasSel, tipoComprobante]
+      columnasMargenContribucion(filasHabilitadas, {
+        pagoIds,
+        entidadIds,
+        cuotas: cuotasSel,
+      }),
+    [filasHabilitadas, pagoIds, entidadIds, cuotasSel]
   );
 
   function cambiarFormasPago(next: string[]) {
@@ -179,15 +193,13 @@ export default function FinAnaMargenContribucionPageClient({
 
     function baseColumna(
       columna: ColumnaMargenContribucion,
-      tipo: TipoComprobanteVentaMargenContribucion,
-      cxFinPct: number,
       metrica: MetricaGraficoMcMargenContribucion
     ) {
       return {
         pxLista: formulaParams.pxListaCIva,
         descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
-        cxFinPct,
-        tipoComprobante: tipo,
+        cxFinPct: columna.cxFinPctPorTipo[escenarioGrafico],
+        tipoComprobante: escenarioGrafico,
         formulas: formulaParams,
         metrica,
       };
@@ -197,25 +209,18 @@ export default function FinAnaMargenContribucionPageClient({
       metrica: MetricaGraficoMcMargenContribucion,
       conMarca: boolean
     ): SerieGraficoMcVsPorcUtilidad[] {
-      if (tipoComprobante == null) return [];
-      return columnas.flatMap((columna) => {
-        if (columna.cxFinPct == null) return [];
-        const base = baseColumna(columna, tipoComprobante, columna.cxFinPct, metrica);
-        return [
-          {
-            id: columna.id,
-            etiqueta: columna.etiqueta,
-            color: columna.color,
-            puntos: serieMcVsPorcUtilidadMargenContribucion(base),
-            valorMarca:
-              conMarca && marcaEnRango
-                ? mcPctEnPorcUtilidadMargenContribucion({
-                    ...base,
-                    porcUtilidadPct,
-                  })
-                : null,
-          },
-        ];
+      return columnas.map((columna) => {
+        const base = baseColumna(columna, metrica);
+        return {
+          id: columna.id,
+          etiqueta: columna.etiqueta,
+          color: columna.color,
+          puntos: serieMcVsPorcUtilidadMargenContribucion(base),
+          valorMarca:
+            conMarca && marcaEnRango
+              ? mcPctEnPorcUtilidadMargenContribucion({ ...base, porcUtilidadPct })
+              : null,
+        };
       });
     }
 
@@ -227,18 +232,12 @@ export default function FinAnaMargenContribucionPageClient({
       nombre: columna.etiqueta,
       color: columna.color,
       descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
-      valorPct:
-        tipoComprobante != null && columna.cxFinPct != null && puedeMostrarValor
-          ? mcPctEnPorcUtilidadMargenContribucion({
-              ...baseColumna(
-                columna,
-                tipoComprobante,
-                columna.cxFinPct,
-                metricaGrafico
-              ),
-              porcUtilidadPct: porcUtilidadPct ?? MC_GRAFICO_PORC_UTILIDAD_MIN,
-            })
-          : null,
+      valorPct: puedeMostrarValor
+        ? mcPctEnPorcUtilidadMargenContribucion({
+            ...baseColumna(columna, metricaGrafico),
+            porcUtilidadPct: porcUtilidadPct ?? MC_GRAFICO_PORC_UTILIDAD_MIN,
+          })
+        : null,
     }));
 
     return {
@@ -249,17 +248,13 @@ export default function FinAnaMargenContribucionPageClient({
       seriesMcPonderado: seriesDe("MC_PONDERADO", false),
       filasFormaPago,
       porcUtilidadMarca: marcaEnRango ? porcUtilidadPct : null,
-      mensajeSinSeries:
-        columnas.length === 0
-          ? "Seleccioná al menos una forma de pago"
-          : "Elegí el TIPO FACTURA",
       revisionFiltros: [
-        tipoComprobante ?? "SIN_TIPO",
+        escenarioGrafico,
         porcUtilidadPct == null ? "SIN_PORC" : String(porcUtilidadPct),
         columnas
           .map(
             (columna) =>
-              `${columna.id}:${columna.cxFinPct}:${inputs.descuentoPctPorColumna[columna.id] ?? 0}`
+              `${columna.id}:${columna.cxFinPctPorTipo[escenarioGrafico]}:${inputs.descuentoPctPorColumna[columna.id] ?? 0}`
           )
           .join("|"),
       ].join("::"),
@@ -268,21 +263,17 @@ export default function FinAnaMargenContribucionPageClient({
     columnas,
     inputs.descuentoPctPorColumna,
     formulaParams,
-    tipoComprobante,
+    escenarioGrafico,
     metricaGrafico,
     porcUtilidadPct,
   ]);
 
   function limpiarFiltros() {
     setPorcUtilidadPct(null);
-    setTipoComprobante(null);
     setPagoIds([]);
     setEntidadIds([]);
     setCuotasSel([]);
     setMetricaGrafico(metricaDesdeVariableObjetivo(defaultsMc.variableObjetivo));
-    setInputs(
-      inputsMargenContribucionDesdeNumeros({ pxLista: formulaParams.pxListaCIva })
-    );
   }
 
   function cambiarDescuentoColumna(columnaId: string, descuentoPct: number) {
@@ -293,6 +284,19 @@ export default function FinAnaMargenContribucionPageClient({
         [columnaId]: descuentoPct,
       },
     }));
+
+    const pendientes = guardadosPendientesRef.current;
+    const anterior = pendientes.get(columnaId);
+    if (anterior) clearTimeout(anterior.timer);
+    const timer = setTimeout(async () => {
+      pendientes.delete(columnaId);
+      const res = await guardarDescuentoMargenContribucionAction({
+        cxFinId: columnaId,
+        descuentoPct,
+      });
+      if (!res.ok) toast.error(res.error ?? "No se pudo guardar el descuento.");
+    }, DESCUENTO_GUARDADO_DEBOUNCE_MS);
+    pendientes.set(columnaId, { timer, descuentoPct });
   }
 
   return (
@@ -341,44 +345,13 @@ export default function FinAnaMargenContribucionPageClient({
                       onValueChange={setPorcUtilidadPct}
                       onEmpty={() => setPorcUtilidadPct(null)}
                       sufijoEnTexto
-                      placeholder="PORC. UTILIDAD (S/ IVA)"
+                      placeholder="PORC. UT. (S/ IVA)"
                       className="input-filtro-unificado flex items-center rounded-md border border-primary bg-transparent text-xs"
                       inputClassName="text-xs placeholder:font-bold placeholder:text-muted-foreground"
                       aria-label="Porc. utilidad"
                       title={`Porc. utilidad (CX MERCADERÍA), entero de ${MC_GRAFICO_PORC_UTILIDAD_MIN} a ${MC_GRAFICO_PORC_UTILIDAD_MAX} %`}
                       disabled={!esEditor}
                     />
-                  </FiltroIndividualContainer>
-
-                  <FiltroIndividualContainer
-                    className={FILTER_SELECT_WRAPPER_CLASS}
-                    activo={tipoComprobante != null}
-                    onLimpiar={() => setTipoComprobante(null)}
-                  >
-                    <Select
-                      value={tipoComprobante ?? ""}
-                      onValueChange={(value) =>
-                        setTipoComprobante(
-                          value as TipoComprobanteVentaMargenContribucion
-                        )
-                      }
-                    >
-                      <SelectTrigger className="input-filtro-unificado w-full">
-                        <SelectValue placeholder="TIPO FACTURA" />
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="bottom"
-                        align="start"
-                        className="select-content-filtro"
-                      >
-                        {FIN_ANA_MC_TIPOS_COMPROBANTE.map((tipo) => (
-                          <SelectItem key={tipo} value={tipo}>
-                            {etiquetaTipoComprobanteVentaMargenContribucion(tipo)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </FiltroIndividualContainer>
 
                   <FiltroIndividualContainer
@@ -442,7 +415,8 @@ export default function FinAnaMargenContribucionPageClient({
             metrica={metricaGrafico}
             onMetricaChange={setMetricaGrafico}
             filasFormaPago={graficoMc.filasFormaPago}
-            mensajeSinSeries={graficoMc.mensajeSinSeries}
+            escenario={escenarioGrafico}
+            onEscenarioChange={setEscenarioGrafico}
             categoriasMc={categoriasMc}
             variableObjetivo={defaultsMc.variableObjetivo}
             className="min-h-0 flex-1"
@@ -453,9 +427,7 @@ export default function FinAnaMargenContribucionPageClient({
             inputs={inputs}
             onDescuentoColumnaChange={cambiarDescuentoColumna}
             porcUtilidadPct={porcUtilidadPct}
-            tipoComprobante={tipoComprobante}
             formulaParams={formulaParams}
-            esEditor={esEditor}
           />
         )}
       </ClassicFilteredTableLayout>

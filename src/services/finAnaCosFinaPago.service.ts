@@ -167,14 +167,6 @@ export async function crearFinAnaCosFinaPago(
         select: pagoSelect,
       });
 
-      if (created.enMargenContribucion) {
-        await tx.finAnaMcDescuentoFp.upsert({
-          where: { pagoId: created.id },
-          create: { pagoId: created.id, descuentoPct: 0 },
-          update: {},
-        });
-      }
-
       await sincronizarMatrizFinAnaCosFina(tx);
       return created;
     });

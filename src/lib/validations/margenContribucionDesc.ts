@@ -5,8 +5,9 @@ import {
 } from "@/lib/finAnaMargenContribucion";
 import { prismaCuidOrUuidSchema } from "@/lib/validations/common";
 
-export const actualizarDescuentoFpMargenContribucionSchema = z.object({
-  pagoId: prismaCuidOrUuidSchema,
+export const guardarDescuentoMargenContribucionSchema = z.object({
+  /** `cobros_cx_fin.id` = columna forma × entidad × cuota. */
+  cxFinId: prismaCuidOrUuidSchema,
   descuentoPct: z
     .number()
     .int()
@@ -14,6 +15,6 @@ export const actualizarDescuentoFpMargenContribucionSchema = z.object({
     .max(FIN_ANA_MC_DESCUENTO_MAX),
 });
 
-export type ActualizarDescuentoFpMargenContribucionInput = z.infer<
-  typeof actualizarDescuentoFpMargenContribucionSchema
+export type GuardarDescuentoMargenContribucionInput = z.infer<
+  typeof guardarDescuentoMargenContribucionSchema
 >;

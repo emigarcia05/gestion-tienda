@@ -14,6 +14,7 @@ import {
   calcularValoresMargenContribucion,
   cxFinancieroRatioMargenContribucion,
   esFilaDescuentoPorFormaPagoMargenContribucion,
+  etiquetaEscenarioIvaMargenContribucion,
   etiquetaFilaMargenContribucion,
   FIN_ANA_MC_DESCUENTO_MAX,
   FIN_ANA_MC_DESCUENTO_MIN,
@@ -51,6 +52,9 @@ const COL_SECCION_STICKY = "tabla-mc-col-seccion";
 const COL_CONCEPTO_STICKY = "tabla-mc-col-concepto";
 /** Separador vertical entre columnas (más marcado). */
 const SEP_FORMA = "tabla-mc-sep-forma";
+/** Cuota / entidad del cabezal (arriba y abajo de la forma); vacías quedan reservadas para alinear la forma. */
+const LINEA_CABEZAL_SECUNDARIA =
+  "block truncate text-[0.65rem] font-semibold opacity-80";
 
 function CeldaConceptoMargenContribucion({
   filaId,
@@ -67,7 +71,13 @@ function CeldaConceptoMargenContribucion({
         esFilaMargen && "font-bold"
       )}
     >
-      {etiquetaFilaMargenContribucion(filaId)}
+      <span className="block leading-tight">{etiquetaFilaMargenContribucion(filaId)}</span>
+      {esFilaMargen ? (
+        <span className="block text-[0.6rem] font-semibold leading-tight text-muted-foreground">
+          {etiquetaEscenarioIvaMargenContribucion("FACTURA_A")} |{" "}
+          {etiquetaEscenarioIvaMargenContribucion("FACTURA_C")}
+        </span>
+      ) : null}
     </TableCell>
   );
 }
@@ -75,8 +85,8 @@ function CeldaConceptoMargenContribucion({
 type InputsMargenContribucionState = {
   pxListaNorm: string;
   /**
-   * Entero −100…100 (%) por columna (`ColumnaMargenContribucion.id`); sin clave = 0.
-   * Negativo = descuento; positivo = recargo. Solo en memoria (no se persiste).
+   * Entero −100…100 (%) por columna (`ColumnaMargenContribucion.id` = `cobros_cx_fin.id`);
+   * sin clave = 0. Negativo = descuento; positivo = recargo. Persistido en `margen_contribucion_desc`.
    */
   descuentoPctPorColumna: Record<string, number>;
 };
@@ -88,10 +98,7 @@ interface Props {
   onDescuentoColumnaChange: (columnaId: string, descuentoPct: number) => void;
   /** `null` = PORC. UTILIDAD vacío. */
   porcUtilidadPct: number | null;
-  /** `null` = TIPO FACTURA sin elegir: todos los valores calculados quedan en "—". */
-  tipoComprobante: TipoComprobanteVentaMargenContribucion | null;
   formulaParams?: ParametrosFormulaMargenContribucion;
-  esEditor: boolean;
 }
 
 export default function TablaFinAnaMargenContribucion({
@@ -99,9 +106,7 @@ export default function TablaFinAnaMargenContribucion({
   inputs,
   onDescuentoColumnaChange,
   porcUtilidadPct,
-  tipoComprobante,
   formulaParams = FIN_ANA_MC_FORMULA_PARAMS_DEFAULT,
-  esEditor,
 }: Props) {
   const totalCols = 2 + columnas.length;
   /** Ancho mínimo de la tabla según la cantidad de columnas (ver `.tabla-fin-ana-margen-contribucion`). */
@@ -111,31 +116,33 @@ export default function TablaFinAnaMargenContribucion({
 
   const parsed = useMemo(() => {
     const pxLista = parsePxListaEnteroNormalized(inputs.pxListaNorm) ?? 0;
-    const calculadosPorColumna = new Map<string, ValoresCalculadosMargenContribucion>();
-    if (tipoComprobante != null) {
-      for (const columna of columnas) {
-        calculadosPorColumna.set(
-          columna.id,
-          calcularValoresMargenContribucion({
-            pxLista,
-            descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
-            porcUtilidadPct,
-            tipoComprobante,
-            formulas: formulaParams,
-          })
-        );
-      }
+    const calculadosPorColumna = new Map<
+      string,
+      Record<TipoComprobanteVentaMargenContribucion, ValoresCalculadosMargenContribucion>
+    >();
+    for (const columna of columnas) {
+      const base = {
+        pxLista,
+        descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
+        porcUtilidadPct,
+        formulas: formulaParams,
+      };
+      calculadosPorColumna.set(columna.id, {
+        FACTURA_A: calcularValoresMargenContribucion({ ...base, tipoComprobante: "FACTURA_A" }),
+        FACTURA_C: calcularValoresMargenContribucion({ ...base, tipoComprobante: "FACTURA_C" }),
+      });
     }
     return { pxLista, calculadosPorColumna };
-  }, [inputs, columnas, porcUtilidadPct, tipoComprobante, formulaParams]);
+  }, [inputs, columnas, porcUtilidadPct, formulaParams]);
 
   function valorFila(
     filaId: FilaMargenContribucionDatoId,
-    columna: ColumnaMargenContribucion
+    columna: ColumnaMargenContribucion,
+    tipo: TipoComprobanteVentaMargenContribucion
   ): { valor: number | null; escala: "ratio" | "base100" } {
-    const calculados = parsed.calculadosPorColumna.get(columna.id);
-    const cxFinPct = columna.cxFinPct;
-    if (!calculados || cxFinPct == null) return { valor: null, escala: "ratio" };
+    const calculados = parsed.calculadosPorColumna.get(columna.id)?.[tipo];
+    const cxFinPct = columna.cxFinPctPorTipo[tipo];
+    if (!calculados) return { valor: null, escala: "ratio" };
 
     switch (filaId) {
       case "PX_LISTA":
@@ -210,7 +217,6 @@ export default function TablaFinAnaMargenContribucion({
               onValueChange={(next) => onDescuentoColumnaChange(columna.id, next)}
               className={INPUT_MARGEN_DESCUENTO_CLASS}
               aria-label={`Descuento ${columna.etiqueta}`}
-              disabled={!esEditor}
             />
           </div>
         </TableCell>
@@ -219,18 +225,38 @@ export default function TablaFinAnaMargenContribucion({
 
     const esFilaMargen = filaId === "MC" || filaId === "MC_PONDERADO";
     return columnas.map((columna) => {
-      const { valor, escala } = valorFila(filaId, columna);
+      if (!esFilaMargen) {
+        const { valor, escala } = valorFila(filaId, columna, "FACTURA_A");
+        return (
+          <TableCell
+            key={`${filaId}-${columna.id}`}
+            className={cn("celda-datos celda-numero tabular-nums", COL_FORMA, SEP_FORMA)}
+          >
+            {fmtCeldaMontoMargenContribucion(valor, escala)}
+          </TableCell>
+        );
+      }
+
+      const conIva = valorFila(filaId, columna, "FACTURA_A");
+      const sinIva = valorFila(filaId, columna, "FACTURA_C");
+      const textoConIva = fmtCeldaMontoMargenContribucion(conIva.valor, conIva.escala);
+      const textoSinIva = fmtCeldaMontoMargenContribucion(sinIva.valor, sinIva.escala);
+      const sinValores = conIva.valor == null && sinIva.valor == null;
       return (
         <TableCell
           key={`${filaId}-${columna.id}`}
           className={cn(
-            "celda-datos celda-numero tabular-nums",
+            "celda-datos celda-numero tabular-nums font-bold",
             COL_FORMA,
-            SEP_FORMA,
-            esFilaMargen && "font-bold"
+            SEP_FORMA
           )}
+          title={
+            sinValores
+              ? undefined
+              : `${etiquetaEscenarioIvaMargenContribucion("FACTURA_A")}: ${textoConIva} | ${etiquetaEscenarioIvaMargenContribucion("FACTURA_C")}: ${textoSinIva}`
+          }
         >
-          {fmtCeldaMontoMargenContribucion(valor, escala)}
+          {sinValores ? "—" : `${textoConIva} | ${textoSinIva}`}
         </TableCell>
       );
     });
@@ -274,12 +300,23 @@ export default function TablaFinAnaMargenContribucion({
                 className={cn("text-center leading-tight", COL_FORMA, SEP_FORMA)}
                 title={columna.etiqueta}
               >
+                <span
+                  className={cn(
+                    LINEA_CABEZAL_SECUNDARIA,
+                    !columna.cuotaEtiqueta && "invisible"
+                  )}
+                >
+                  {columna.cuotaEtiqueta ?? "\u00a0"}
+                </span>
                 <span className="block truncate">{columna.formaNombre}</span>
-                {columna.detalle ? (
-                  <span className="block truncate text-[0.65rem] font-semibold opacity-80">
-                    {columna.detalle}
-                  </span>
-                ) : null}
+                <span
+                  className={cn(
+                    LINEA_CABEZAL_SECUNDARIA,
+                    !columna.entidadNombre && "invisible"
+                  )}
+                >
+                  {columna.entidadNombre ?? "\u00a0"}
+                </span>
               </TableHead>
             ))}
           </TableRow>

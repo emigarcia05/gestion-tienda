@@ -206,6 +206,18 @@ export function etiquetaTipoComprobanteVentaMargenContribucion(
   return ETIQUETAS_TIPO_COMPROBANTE[tipo];
 }
 
+/** Escenarios que muestra la UI: FACTURA A = CON IVA (resta IVA + IIBB), FACTURA C = SIN IVA. */
+const ETIQUETAS_ESCENARIO_IVA: Record<TipoComprobanteVentaMargenContribucion, string> = {
+  FACTURA_A: "CON IVA",
+  FACTURA_C: "SIN IVA",
+};
+
+export function etiquetaEscenarioIvaMargenContribucion(
+  tipo: TipoComprobanteVentaMargenContribucion
+): string {
+  return ETIQUETAS_ESCENARIO_IVA[tipo];
+}
+
 export function aplicaImpuestosComprobanteMargenContribucion(
   tipo: TipoComprobanteVentaMargenContribucion
 ): { aplicaIva: boolean; aplicaIibb: boolean } {

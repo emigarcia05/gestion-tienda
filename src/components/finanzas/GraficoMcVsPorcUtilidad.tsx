@@ -15,12 +15,15 @@ import { cn } from "@/lib/utils";
 import {
   ETIQUETA_CORTA_METRICA_GRAFICO_MC,
   ETIQUETA_METRICA_GRAFICO_MC,
+  etiquetaEscenarioIvaMargenContribucion,
   FIN_ANA_MC_METRICAS_GRAFICO,
+  FIN_ANA_MC_TIPOS_COMPROBANTE,
   MC_GRAFICO_PORC_UTILIDAD_MAX,
   MC_GRAFICO_PORC_UTILIDAD_MIN,
   metricaGraficoSoportaCategoriasMc,
   type MetricaGraficoMcMargenContribucion,
   type PuntoMcVsPorcUtilidad,
+  type TipoComprobanteVentaMargenContribucion,
 } from "@/lib/finAnaMargenContribucion";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 
@@ -54,13 +57,16 @@ interface Props {
   seriesMcPonderado?: SerieGraficoMcVsPorcUtilidad[];
   /** PORC. UTILIDAD actual del filtro; si null, no se dibuja la marca vertical. */
   porcUtilidadMarca: number | null;
-  /** Cambia con TERMINAL / TIPO COMPROBANTE / PORC. UTILIDAD / CX / descuentos. */
+  /** Cambia con escenario / PORC. UTILIDAD / columnas / CX / descuentos. */
   revisionFiltros: string;
   metrica: MetricaGraficoMcMargenContribucion;
   onMetricaChange: (metrica: MetricaGraficoMcMargenContribucion) => void;
+  /** Escenario graficado: FACTURA A = CON IVA, FACTURA C = SIN IVA. */
+  escenario: TipoComprobanteVentaMargenContribucion;
+  onEscenarioChange: (escenario: TipoComprobanteVentaMargenContribucion) => void;
   /** Columnas elegidas en los filtros (forma × entidad × cuota); todas se grafican. */
   filasFormaPago: FilaFormaPagoGraficoMc[];
-  /** Texto cuando no hay series (sin formas elegidas o sin TIPO FACTURA). */
+  /** Texto cuando no hay series (sin formas elegidas). */
   mensajeSinSeries?: string;
   /** Rangos de catálogo; overlay en métricas MC / MC_PONDERADO. */
   categoriasMc?: FinAnaMcCategoriaItem[];
@@ -210,6 +216,8 @@ export default function GraficoMcVsPorcUtilidad({
   revisionFiltros,
   metrica,
   onMetricaChange,
+  escenario,
+  onEscenarioChange,
   filasFormaPago,
   mensajeSinSeries = "Seleccioná al menos una forma de pago",
   categoriasMc = [],
@@ -451,6 +459,32 @@ export default function GraficoMcVsPorcUtilidad({
               {FIN_ANA_MC_METRICAS_GRAFICO.map((opcion) => (
                 <SelectItem key={opcion} value={opcion}>
                   {ETIQUETA_METRICA_GRAFICO_MC[opcion]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={escenario}
+            onValueChange={(value) =>
+              onEscenarioChange(value as TipoComprobanteVentaMargenContribucion)
+            }
+          >
+            <SelectTrigger
+              className="input-filtro-unificado h-10 w-full shrink-0 text-xs font-semibold"
+              aria-label="Escenario del gráfico"
+            >
+              <SelectValue placeholder="ESCENARIO" />
+            </SelectTrigger>
+            <SelectContent
+              position="popper"
+              side="bottom"
+              align="start"
+              className="select-content-filtro"
+            >
+              {FIN_ANA_MC_TIPOS_COMPROBANTE.map((opcion) => (
+                <SelectItem key={opcion} value={opcion}>
+                  {etiquetaEscenarioIvaMargenContribucion(opcion)}
                 </SelectItem>
               ))}
             </SelectContent>

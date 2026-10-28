@@ -2125,7 +2125,6 @@ model FinAnaCosFinaPagoCat {
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
   filasCostos          FinAnaCosFina[]
-  descuentosFp         FinAnaMcDescuentoFp[]
   entidades            CobrosFormaPagoEntidad[]
   cuotaVinculos        CobrosCuotaVinculo[]
   cobrosPorSucursal    CobrosPorSucursal[]
@@ -2329,6 +2328,7 @@ model FinAnaCosFina {
   updatedAt        DateTime                    @updatedAt @map("updated_at")
 
   movimientosTesoreria TesoreriaMovimiento[]
+  mcDescuento          MargenContribucionDesc?
 
   @@index([terminalId], map: "cobros_cx_fin_terminal_idx")
   @@index([pagoId], map: "cobros_cx_fin_pago_idx")
@@ -2379,17 +2379,18 @@ model CobrosPorSucursal {
 }
 
 /**
- * Descuento % (entero −100…100) por forma de pago en simulador Margen Contribución.
+ * DESC. % (entero −100…100, CHECK en SQL) de Margen Contribución por combinación
+ * forma × entidad × cuota (`cobros_cx_fin`). Sin fila = 0.
  */
-model FinAnaMcDescuentoFp {
-  id           String               @id @default(cuid())
-  pagoId       String               @unique @map("pago_id")
-  pago         FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  descuentoPct Int                  @default(0) @map("descuento_pct")
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
+model MargenContribucionDesc {
+  id           String        @id @default(cuid())
+  cxFinId      String        @unique @map("cx_fin_id")
+  cxFin        FinAnaCosFina @relation(fields: [cxFinId], references: [id], onDelete: Cascade)
+  descuentoPct Int           @default(0) @map("descuento_pct")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
-  @@map("fin_ana_mc_descuento_fp")
+  @@map("margen_contribucion_desc")
 }
 
 /**

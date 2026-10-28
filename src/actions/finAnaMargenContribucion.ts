@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireEditorFinanzas, requireFinanzasLectura } from "@/lib/actionGates";
 import type { ActionResult } from "@/lib/types";
+import { guardarDescuentoMargenContribucion } from "@/services/margenContribucionDesc.service";
 import {
-  actualizarDescuentoFpMargenContribucion,
-} from "@/services/finAnaMcDescuentoFp.service";
-import { actualizarDescuentoFpMargenContribucionSchema } from "@/lib/validations/finAnaMcDescuentoFp";
-import type { DescuentoFpMargenContribucionMap } from "@/services/finAnaMcDescuentoFp.service";
+  guardarDescuentoMargenContribucionSchema,
+  type GuardarDescuentoMargenContribucionInput,
+} from "@/lib/validations/margenContribucionDesc";
 import {
   listarFinAnaMcCategorias,
   reemplazarFinAnaMcCategorias,
@@ -24,21 +24,19 @@ import { APP_ROUTES } from "@/lib/appRoutes";
 
 const RUTA_MARGEN_CONTRIBUCION = APP_ROUTES.administrador.cobrosDesc.margenContribucion;
 
-
-
-export async function actualizarDescuentoFpMargenContribucionAction(
+/** Cualquier usuario con acceso a la pantalla puede guardar el DESC. de una columna. */
+export async function guardarDescuentoMargenContribucionAction(
   params: unknown
-): Promise<ActionResult<DescuentoFpMargenContribucionMap>> {
-  const gate = await requireEditorFinanzas();
+): Promise<ActionResult<GuardarDescuentoMargenContribucionInput>> {
+  const gate = await requireFinanzasLectura();
   if (gate) return gate;
 
-  const parsed = actualizarDescuentoFpMargenContribucionSchema.safeParse(params);
+  const parsed = guardarDescuentoMargenContribucionSchema.safeParse(params);
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
-  const res = await actualizarDescuentoFpMargenContribucion(parsed.data);
+  const res = await guardarDescuentoMargenContribucion(parsed.data);
   if (!res.success) return { ok: false, error: res.error };
 
-  revalidatePath(RUTA_MARGEN_CONTRIBUCION);
   return { ok: true, data: res.data };
 }
 

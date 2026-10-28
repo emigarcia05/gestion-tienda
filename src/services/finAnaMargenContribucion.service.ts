@@ -11,6 +11,10 @@ import { listarFinAnaCosFinaTerminalesMarcas } from "@/services/finAnaCosFinaTer
 import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
+import {
+  listarDescuentosMargenContribucion,
+  type DescuentosMargenContribucionMap,
+} from "@/services/margenContribucionDesc.service";
 import { listarFormulasMargenContribucion } from "@/services/finAnaMcFormulas.service";
 import type { FinAnaMcFormulaItem } from "@/lib/finAnaMcFormulas";
 import { listarFinAnaMcCategorias } from "@/services/finAnaMcCategorias.service";
@@ -25,6 +29,7 @@ export type DatosPaginaMargenContribucion = {
   terminales: FinAnaCosFinaTerminalMarcaItem[];
   pagos: FinAnaCosFinaPagoItem[];
   cxFinancieroPorFormaPago: CxFinancieroPorFormaPago;
+  descuentosPorColumna: DescuentosMargenContribucionMap;
   formulas: FinAnaMcFormulaItem[];
   categoriasMc: FinAnaMcCategoriaItem[];
   configMc: FinAnaMcConfigItem;
@@ -36,6 +41,7 @@ export async function getDatosPaginaMargenContribucion(): Promise<DatosPaginaMar
     filasCostosFinancieros,
     terminales,
     pagos,
+    descuentosPorColumna,
     formulas,
     categoriasMc,
     configMc,
@@ -43,6 +49,7 @@ export async function getDatosPaginaMargenContribucion(): Promise<DatosPaginaMar
     listarFinAnaCosFina(),
     listarFinAnaCosFinaTerminalesMarcas(),
     listarFinAnaCosFinaPagos(),
+    listarDescuentosMargenContribucion(),
     listarFormulasMargenContribucion(),
     listarFinAnaMcCategorias(),
     getFinAnaMcConfig(),
@@ -53,6 +60,7 @@ export async function getDatosPaginaMargenContribucion(): Promise<DatosPaginaMar
     terminales,
     pagos,
     cxFinancieroPorFormaPago: mapCxFinancieroPorFormaPago(filasCostosFinancieros, pagos),
+    descuentosPorColumna,
     formulas,
     categoriasMc,
     configMc,
