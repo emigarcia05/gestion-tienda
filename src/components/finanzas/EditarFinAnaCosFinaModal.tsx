@@ -157,7 +157,7 @@ export default function EditarFinAnaCosFinaModal({
                   inputMode="numeric"
                   autoComplete="off"
                   disabled={saving}
-                  className="tabular-nums"
+                  className="text-center tabular-nums"
                   aria-label="Días de acreditación"
                 />
               </div>
