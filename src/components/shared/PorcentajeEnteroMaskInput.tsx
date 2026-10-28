@@ -27,6 +27,9 @@ export type PorcentajeEnteroMaskInputProps = NativeInputProps & {
    */
   emptyWhenNull?: boolean;
   onEmpty?: () => void;
+  /** `%` pegado al número dentro del texto (p. ej. `60%`) en lugar del sufijo alineado a la derecha. */
+  sufijoEnTexto?: boolean;
+  inputClassName?: string;
 };
 
 function clampInt(n: number, min: number, max: number): number {
@@ -81,6 +84,8 @@ export default function PorcentajeEnteroMaskInput({
   max,
   emptyWhenNull = false,
   onEmpty,
+  sufijoEnTexto = false,
+  inputClassName,
   className,
   disabled,
   onFocus,
@@ -137,7 +142,7 @@ export default function PorcentajeEnteroMaskInput({
         inputMode={signed ? "text" : "numeric"}
         autoComplete="off"
         disabled={disabled}
-        value={displayBody}
+        value={sufijoEnTexto && displayBody !== "" ? `${displayBody}%` : displayBody}
         onFocus={(event) => {
           setFocused(true);
           resetEditState();
@@ -249,19 +254,22 @@ export default function PorcentajeEnteroMaskInput({
         className={cn(
           "min-h-0 min-w-0 flex-1 border-0 bg-transparent px-1 py-0 text-center text-sm tabular-nums shadow-none outline-none",
           "focus-visible:ring-0 focus-visible:outline-none",
-          disabled && "cursor-not-allowed opacity-50"
+          disabled && "cursor-not-allowed opacity-50",
+          inputClassName
         )}
         {...props}
       />
-      <span
-        className={cn(
-          "input-mascara-sufijo__pct pointer-events-none select-none px-1.5 text-xs text-muted-foreground tabular-nums",
-          vacio && "invisible"
-        )}
-        aria-hidden
-      >
-        %
-      </span>
+      {sufijoEnTexto ? null : (
+        <span
+          className={cn(
+            "input-mascara-sufijo__pct pointer-events-none select-none px-1.5 text-xs text-muted-foreground tabular-nums",
+            vacio && "invisible"
+          )}
+          aria-hidden
+        >
+          %
+        </span>
+      )}
     </div>
   );
 }

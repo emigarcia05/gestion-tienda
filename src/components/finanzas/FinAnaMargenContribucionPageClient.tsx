@@ -33,14 +33,11 @@ import {
 import { cn } from "@/lib/utils";
 import {
   FIN_ANA_MC_TIPOS_COMPROBANTE,
-  crearDescuentoPctPorFormaPagoVacios,
   etiquetaTipoComprobanteVentaMargenContribucion,
-  idsFormasPagoMargenContribucion,
   mcPctEnPorcUtilidadMargenContribucion,
   MC_GRAFICO_PORC_UTILIDAD_MAX,
   MC_GRAFICO_PORC_UTILIDAD_MIN,
   serieMcVsPorcUtilidadMargenContribucion,
-  type FormaPagoMargenContribucion,
   type MetricaGraficoMcMargenContribucion,
   type TipoComprobanteVentaMargenContribucion,
 } from "@/lib/finAnaMargenContribucion";
@@ -61,18 +58,12 @@ import {
   metricaDesdeVariableObjetivo,
   type FinAnaMcConfigItem,
 } from "@/lib/finAnaMcConfig";
-import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
-import { actualizarDescuentoFpMargenContribucionAction } from "@/actions/finAnaMargenContribucion";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
 import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
-import type { DescuentoFpMargenContribucionMap } from "@/services/finAnaMcDescuentoFp.service";
-import { toast } from "sonner";
 
 interface Props {
   filasCostosFinancieros: FinAnaCosFinaItem[];
   terminales: FinAnaCosFinaTerminalMarcaItem[];
-  pagos: FinAnaCosFinaPagoItem[];
-  descuentosPorFormaPago: DescuentoFpMargenContribucionMap;
   formulas: FinAnaMcFormulaItem[];
   categoriasMc: FinAnaMcCategoriaItem[];
   configMc: FinAnaMcConfigItem;
@@ -80,22 +71,6 @@ interface Props {
 }
 
 type VistaMargenContribucion = "detalle" | "grafico";
-
-function inputsMargenContribucionIniciales(
-  formasPago: FormaPagoMargenContribucion[],
-  descuentosPorFormaPago: DescuentoFpMargenContribucionMap,
-  pxLista: number
-) {
-  const descuentos = {
-    ...crearDescuentoPctPorFormaPagoVacios(formasPago),
-    ...descuentosPorFormaPago,
-  };
-  return inputsMargenContribucionDesdeNumeros({
-    pxLista,
-    descuentoPctPorFormaPago: descuentos,
-    formasPago,
-  });
-}
 
 function soloDisponibles(
   seleccion: string[],
@@ -108,27 +83,19 @@ function soloDisponibles(
 export default function FinAnaMargenContribucionPageClient({
   filasCostosFinancieros,
   terminales,
-  pagos,
-  descuentosPorFormaPago,
   formulas,
   categoriasMc,
   configMc,
   esEditor,
 }: Props) {
   const router = useRouter();
-  const formasPago = useMemo(() => idsFormasPagoMargenContribucion(pagos), [pagos]);
   const [defaultsMc, setDefaultsMc] = useState(configMc);
-  const [descuentosBase, setDescuentosBase] = useState(descuentosPorFormaPago);
   const formulaParams = useMemo(
     () => resolverParametrosFormulaMargenContribucion(formulas),
     [formulas]
   );
   const [inputs, setInputs] = useState(() =>
-    inputsMargenContribucionIniciales(
-      formasPago,
-      descuentosPorFormaPago,
-      formulaParams.pxListaCIva
-    )
+    inputsMargenContribucionDesdeNumeros({ pxLista: formulaParams.pxListaCIva })
   );
   const [vista, setVista] = useState<VistaMargenContribucion>("detalle");
   const esVistaGrafico = vista === "grafico";
@@ -218,7 +185,7 @@ export default function FinAnaMargenContribucionPageClient({
     ) {
       return {
         pxLista: formulaParams.pxListaCIva,
-        descuentoPct: inputs.descuentoPctPorFormaPago[columna.pagoId] ?? 0,
+        descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
         cxFinPct,
         tipoComprobante: tipo,
         formulas: formulaParams,
@@ -259,7 +226,7 @@ export default function FinAnaMargenContribucionPageClient({
       id: columna.id,
       nombre: columna.etiqueta,
       color: columna.color,
-      descuentoPct: inputs.descuentoPctPorFormaPago[columna.pagoId] ?? 0,
+      descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
       valorPct:
         tipoComprobante != null && columna.cxFinPct != null && puedeMostrarValor
           ? mcPctEnPorcUtilidadMargenContribucion({
@@ -289,16 +256,17 @@ export default function FinAnaMargenContribucionPageClient({
       revisionFiltros: [
         tipoComprobante ?? "SIN_TIPO",
         porcUtilidadPct == null ? "SIN_PORC" : String(porcUtilidadPct),
-        columnas.map((columna) => `${columna.id}:${columna.cxFinPct}`).join("|"),
-        Object.entries(inputs.descuentoPctPorFormaPago)
-          .map(([id, v]) => `${id}:${v}`)
-          .sort()
+        columnas
+          .map(
+            (columna) =>
+              `${columna.id}:${columna.cxFinPct}:${inputs.descuentoPctPorColumna[columna.id] ?? 0}`
+          )
           .join("|"),
       ].join("::"),
     };
   }, [
     columnas,
-    inputs.descuentoPctPorFormaPago,
+    inputs.descuentoPctPorColumna,
     formulaParams,
     tipoComprobante,
     metricaGrafico,
@@ -313,37 +281,18 @@ export default function FinAnaMargenContribucionPageClient({
     setCuotasSel([]);
     setMetricaGrafico(metricaDesdeVariableObjetivo(defaultsMc.variableObjetivo));
     setInputs(
-      inputsMargenContribucionIniciales(
-        formasPago,
-        descuentosBase,
-        formulaParams.pxListaCIva
-      )
+      inputsMargenContribucionDesdeNumeros({ pxLista: formulaParams.pxListaCIva })
     );
   }
 
-  async function cambiarDescuentoPorFormaPago(
-    formaPago: FormaPagoMargenContribucion,
-    descuentoPct: number
-  ) {
+  function cambiarDescuentoColumna(columnaId: string, descuentoPct: number) {
     setInputs((prev) => ({
       ...prev,
-      descuentoPctPorFormaPago: {
-        ...prev.descuentoPctPorFormaPago,
-        [formaPago]: descuentoPct,
+      descuentoPctPorColumna: {
+        ...prev.descuentoPctPorColumna,
+        [columnaId]: descuentoPct,
       },
     }));
-
-    if (!esEditor) return;
-
-    const res = await actualizarDescuentoFpMargenContribucionAction({
-      pagoId: formaPago,
-      descuentoPct,
-    });
-    if (!res.ok) {
-      toast.error(res.error ?? "No se pudo guardar el descuento.");
-      return;
-    }
-    setDescuentosBase(res.data);
   }
 
   return (
@@ -391,8 +340,10 @@ export default function FinAnaMargenContribucionPageClient({
                       max={MC_GRAFICO_PORC_UTILIDAD_MAX}
                       onValueChange={setPorcUtilidadPct}
                       onEmpty={() => setPorcUtilidadPct(null)}
-                      placeholder="PORC. UTILIDAD"
+                      sufijoEnTexto
+                      placeholder="PORC. UTILIDAD (S/ IVA)"
                       className="input-filtro-unificado flex items-center rounded-md border border-primary bg-transparent text-xs"
+                      inputClassName="text-xs placeholder:font-bold placeholder:text-muted-foreground"
                       aria-label="Porc. utilidad"
                       title={`Porc. utilidad (CX MERCADERÍA), entero de ${MC_GRAFICO_PORC_UTILIDAD_MIN} a ${MC_GRAFICO_PORC_UTILIDAD_MAX} %`}
                       disabled={!esEditor}
@@ -500,7 +451,7 @@ export default function FinAnaMargenContribucionPageClient({
           <TablaFinAnaMargenContribucion
             columnas={columnas}
             inputs={inputs}
-            onDescuentoPorFormaPagoChange={cambiarDescuentoPorFormaPago}
+            onDescuentoColumnaChange={cambiarDescuentoColumna}
             porcUtilidadPct={porcUtilidadPct}
             tipoComprobante={tipoComprobante}
             formulaParams={formulaParams}

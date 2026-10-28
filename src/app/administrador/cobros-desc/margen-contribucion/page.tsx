@@ -14,22 +14,13 @@ export default async function FinAnaMargenContribucionPage() {
   }
 
   const esEditor = rol === "editor";
-  const {
-    filasCostosFinancieros,
-    terminales,
-    pagos,
-    descuentosPorFormaPago,
-    formulas,
-    categoriasMc,
-    configMc,
-  } = await getDatosPaginaMargenContribucion();
+  const { filasCostosFinancieros, terminales, formulas, categoriasMc, configMc } =
+    await getDatosPaginaMargenContribucion();
 
   return (
     <FinAnaMargenContribucionPageClient
       filasCostosFinancieros={filasCostosFinancieros}
       terminales={terminales}
-      pagos={pagos}
-      descuentosPorFormaPago={descuentosPorFormaPago}
       formulas={formulas}
       categoriasMc={categoriasMc}
       configMc={configMc}

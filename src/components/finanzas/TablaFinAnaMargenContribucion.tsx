@@ -12,7 +12,6 @@ import {
 import PorcentajeEnteroMaskInput from "@/components/shared/PorcentajeEnteroMaskInput";
 import {
   calcularValoresMargenContribucion,
-  crearDescuentoPctPorFormaPagoVacios,
   cxFinancieroRatioMargenContribucion,
   esFilaDescuentoPorFormaPagoMargenContribucion,
   etiquetaFilaMargenContribucion,
@@ -23,7 +22,6 @@ import {
   mcMargenContribucionPorFormaPago,
   mcPonderadoMargenContribucionPorFormaPago,
   type FilaMargenContribucionDatoId,
-  type FormaPagoMargenContribucion,
   type TipoComprobanteVentaMargenContribucion,
   type ValoresCalculadosMargenContribucion,
   type ParametrosFormulaMargenContribucion,
@@ -76,18 +74,18 @@ function CeldaConceptoMargenContribucion({
 
 type InputsMargenContribucionState = {
   pxListaNorm: string;
-  /** Entero −100…100 (%) por forma de pago. Negativo = descuento; positivo = recargo. */
-  descuentoPctPorFormaPago: Record<FormaPagoMargenContribucion, number>;
+  /**
+   * Entero −100…100 (%) por columna (`ColumnaMargenContribucion.id`); sin clave = 0.
+   * Negativo = descuento; positivo = recargo. Solo en memoria (no se persiste).
+   */
+  descuentoPctPorColumna: Record<string, number>;
 };
 
 interface Props {
   /** Combinaciones forma × entidad × cuota elegidas en los filtros. */
   columnas: ColumnaMargenContribucion[];
   inputs: InputsMargenContribucionState;
-  onDescuentoPorFormaPagoChange: (
-    formaPago: FormaPagoMargenContribucion,
-    descuentoPct: number
-  ) => void | Promise<void>;
+  onDescuentoColumnaChange: (columnaId: string, descuentoPct: number) => void;
   /** `null` = PORC. UTILIDAD vacío. */
   porcUtilidadPct: number | null;
   /** `null` = TIPO FACTURA sin elegir: todos los valores calculados quedan en "—". */
@@ -99,7 +97,7 @@ interface Props {
 export default function TablaFinAnaMargenContribucion({
   columnas,
   inputs,
-  onDescuentoPorFormaPagoChange,
+  onDescuentoColumnaChange,
   porcUtilidadPct,
   tipoComprobante,
   formulaParams = FIN_ANA_MC_FORMULA_PARAMS_DEFAULT,
@@ -120,7 +118,7 @@ export default function TablaFinAnaMargenContribucion({
           columna.id,
           calcularValoresMargenContribucion({
             pxLista,
-            descuentoPct: inputs.descuentoPctPorFormaPago[columna.pagoId] ?? 0,
+            descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
             porcUtilidadPct,
             tipoComprobante,
             formulas: formulaParams,
@@ -204,14 +202,12 @@ export default function TablaFinAnaMargenContribucion({
         >
           <div className="flex h-full min-h-0 w-full items-center justify-center">
             <PorcentajeEnteroMaskInput
-              value={inputs.descuentoPctPorFormaPago[columna.pagoId] ?? 0}
+              value={inputs.descuentoPctPorColumna[columna.id] ?? 0}
               signed
               defaultNegative
               min={FIN_ANA_MC_DESCUENTO_MIN}
               max={FIN_ANA_MC_DESCUENTO_MAX}
-              onValueChange={(next) => {
-                void onDescuentoPorFormaPagoChange(columna.pagoId, next);
-              }}
+              onValueChange={(next) => onDescuentoColumnaChange(columna.id, next)}
               className={INPUT_MARGEN_DESCUENTO_CLASS}
               aria-label={`Descuento ${columna.etiqueta}`}
               disabled={!esEditor}
@@ -337,18 +333,12 @@ export default function TablaFinAnaMargenContribucion({
   );
 }
 
-/** Serializa inputs persistidos (opcional futuro). */
+/** Estado inicial: PX LISTA de referencia y todos los descuentos en 0. */
 export function inputsMargenContribucionDesdeNumeros(params: {
   pxLista?: number | null;
-  descuentoPctPorFormaPago?: InputsMargenContribucionState["descuentoPctPorFormaPago"];
-  formasPago?: FormaPagoMargenContribucion[];
 }): InputsMargenContribucionState {
-  const formasPago = params.formasPago ?? [];
   return {
     pxListaNorm: pxListaEnteroFromNumber(params.pxLista ?? null),
-    descuentoPctPorFormaPago: {
-      ...crearDescuentoPctPorFormaPagoVacios(formasPago),
-      ...params.descuentoPctPorFormaPago,
-    },
+    descuentoPctPorColumna: {},
   };
 }
