@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calculator, ChartLine, Table2, Tags } from "lucide-react";
+import { Calculator, Tags } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
@@ -10,6 +10,7 @@ import PorcentajeEnteroMaskInput from "@/components/shared/PorcentajeEnteroMaskI
 import TablaFinAnaMargenContribucion, {
   inputsMargenContribucionDesdeNumeros,
 } from "@/components/finanzas/TablaFinAnaMargenContribucion";
+import TablaFinAnaMcResumenFormasPago from "@/components/finanzas/TablaFinAnaMcResumenFormasPago";
 import GraficoMcVsPorcUtilidad, {
   type SerieGraficoMcVsPorcUtilidad,
 } from "@/components/finanzas/GraficoMcVsPorcUtilidad";
@@ -38,6 +39,7 @@ import {
   opcionesCuotaColumnasMargenContribucion,
   opcionesEntidadColumnasMargenContribucion,
   opcionesFormaPagoColumnasMargenContribucion,
+  todasLasColumnasMargenContribucion,
   type ColumnaMargenContribucion,
 } from "@/lib/finAnaMcColumnas";
 import {
@@ -67,8 +69,6 @@ interface Props {
   configMc: FinAnaMcConfigItem;
   esEditor: boolean;
 }
-
-type VistaMargenContribucion = "detalle" | "grafico";
 
 function soloDisponibles(
   seleccion: string[],
@@ -111,8 +111,6 @@ export default function FinAnaMargenContribucionPageClient({
       pendientes.clear();
     };
   }, []);
-  const [vista, setVista] = useState<VistaMargenContribucion>("detalle");
-  const esVistaGrafico = vista === "grafico";
   const [modalCxFormulasAbierto, setModalCxFormulasAbierto] = useState(false);
   const [modalCategoriasAbierto, setModalCategoriasAbierto] = useState(false);
 
@@ -150,6 +148,10 @@ export default function FinAnaMargenContribucionPageClient({
     [filasHabilitadas, pagoIds, entidadIds]
   );
 
+  const todasLasColumnas = useMemo(
+    () => todasLasColumnasMargenContribucion(filasHabilitadas),
+    [filasHabilitadas]
+  );
   const columnas = useMemo(
     () =>
       columnasMargenContribucion(filasHabilitadas, {
@@ -224,29 +226,12 @@ export default function FinAnaMargenContribucionPageClient({
       });
     }
 
-    const puedeMostrarValor =
-      metricaGrafico === "CX_FINANCIERO" || porcUtilidadPct != null;
-
-    const filasFormaPago = columnas.map((columna) => ({
-      id: columna.id,
-      nombre: columna.etiqueta,
-      color: columna.color,
-      descuentoPct: inputs.descuentoPctPorColumna[columna.id] ?? 0,
-      valorPct: puedeMostrarValor
-        ? mcPctEnPorcUtilidadMargenContribucion({
-            ...baseColumna(columna, metricaGrafico),
-            porcUtilidadPct: porcUtilidadPct ?? MC_GRAFICO_PORC_UTILIDAD_MIN,
-          })
-        : null,
-    }));
-
     return {
       series: seriesDe(metricaGrafico, true),
       /** Escala M.C. (ratio×100) para umbrales cuando VARIABLE OBJETIVO = M.C. */
       seriesMc: seriesDe("MC", false),
       /** Escala M.C. PONDERADO para umbrales de Cat. M.C. */
       seriesMcPonderado: seriesDe("MC_PONDERADO", false),
-      filasFormaPago,
       porcUtilidadMarca: marcaEnRango ? porcUtilidadPct : null,
       revisionFiltros: [
         escenarioGrafico,
@@ -308,12 +293,6 @@ export default function FinAnaMargenContribucionPageClient({
         actions={
           <>
             <ToolbarActionButton
-              label={esVistaGrafico ? "Ver Detalle" : "Ver Gráfico"}
-              icon={esVistaGrafico ? <Table2 /> : <ChartLine />}
-              className="w-full justify-start"
-              onClick={() => setVista(esVistaGrafico ? "detalle" : "grafico")}
-            />
-            <ToolbarActionButton
               label="Gestionar Cat. M.C."
               icon={<Tags />}
               className="w-full justify-start"
@@ -346,8 +325,8 @@ export default function FinAnaMargenContribucionPageClient({
                       onEmpty={() => setPorcUtilidadPct(null)}
                       sufijoEnTexto
                       placeholder="PORC. UT. (S/ IVA)"
-                      className="input-filtro-unificado flex items-center rounded-md border border-primary bg-transparent text-xs"
-                      inputClassName="text-xs placeholder:font-bold placeholder:text-muted-foreground"
+                      className="input-filtro-unificado flex items-center rounded-md border border-primary bg-transparent"
+                      inputClassName="text-sm font-semibold placeholder:font-bold placeholder:text-muted-foreground"
                       aria-label="Porc. utilidad"
                       title={`Porc. utilidad (CX MERCADERÍA), entero de ${MC_GRAFICO_PORC_UTILIDAD_MIN} a ${MC_GRAFICO_PORC_UTILIDAD_MAX} %`}
                       disabled={!esEditor}
@@ -405,31 +384,44 @@ export default function FinAnaMargenContribucionPageClient({
         }
         filtersAriaLabel="Configuración de margen contribución"
       >
-        {esVistaGrafico ? (
-          <GraficoMcVsPorcUtilidad
-            series={graficoMc.series}
-            seriesMc={graficoMc.seriesMc}
-            seriesMcPonderado={graficoMc.seriesMcPonderado}
-            porcUtilidadMarca={graficoMc.porcUtilidadMarca}
-            revisionFiltros={graficoMc.revisionFiltros}
-            metrica={metricaGrafico}
-            onMetricaChange={setMetricaGrafico}
-            filasFormaPago={graficoMc.filasFormaPago}
-            escenario={escenarioGrafico}
-            onEscenarioChange={setEscenarioGrafico}
-            categoriasMc={categoriasMc}
-            variableObjetivo={defaultsMc.variableObjetivo}
-            className="min-h-0 flex-1"
-          />
-        ) : (
-          <TablaFinAnaMargenContribucion
-            columnas={columnas}
-            inputs={inputs}
-            onDescuentoColumnaChange={cambiarDescuentoColumna}
-            porcUtilidadPct={porcUtilidadPct}
-            formulaParams={formulaParams}
-          />
-        )}
+        <div className="flex min-h-0 flex-1 gap-3">
+          <div className="flex min-h-0 w-1/4 min-w-0 flex-col">
+            <TablaFinAnaMcResumenFormasPago
+              columnas={todasLasColumnas}
+              descuentoPctPorColumna={inputs.descuentoPctPorColumna}
+              porcUtilidadPct={porcUtilidadPct}
+              pxLista={formulaParams.pxListaCIva}
+              formulaParams={formulaParams}
+            />
+          </div>
+          <div className="flex min-h-0 w-3/4 min-w-0 flex-col">
+            <div className="flex h-1/2 min-h-0 flex-col">
+              <TablaFinAnaMargenContribucion
+                columnas={columnas}
+                inputs={inputs}
+                onDescuentoColumnaChange={cambiarDescuentoColumna}
+                porcUtilidadPct={porcUtilidadPct}
+                formulaParams={formulaParams}
+              />
+            </div>
+            <div className="flex h-1/2 min-h-0 flex-col pt-3">
+              <GraficoMcVsPorcUtilidad
+                series={graficoMc.series}
+                seriesMc={graficoMc.seriesMc}
+                seriesMcPonderado={graficoMc.seriesMcPonderado}
+                porcUtilidadMarca={graficoMc.porcUtilidadMarca}
+                revisionFiltros={graficoMc.revisionFiltros}
+                metrica={metricaGrafico}
+                onMetricaChange={setMetricaGrafico}
+                escenario={escenarioGrafico}
+                onEscenarioChange={setEscenarioGrafico}
+                categoriasMc={categoriasMc}
+                variableObjetivo={defaultsMc.variableObjetivo}
+                className="min-h-0 flex-1"
+              />
+            </div>
+          </div>
+        </div>
       </ClassicFilteredTableLayout>
 
       <GestionCxYFormulasMargenContribucionModal

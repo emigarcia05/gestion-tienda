@@ -1,6 +1,10 @@
 import {
+  calcularValoresMargenContribucion,
   COLORES_SERIE_GRAFICO_MC,
   cxTotalPorTipoComprobanteMargenContribucion,
+  mcMargenContribucionPorFormaPago,
+  mcPonderadoMargenContribucionPorFormaPago,
+  type ParametrosFormulaMargenContribucion,
   type TipoComprobanteVentaMargenContribucion,
 } from "@/lib/finAnaMargenContribucion";
 
@@ -215,4 +219,45 @@ export function columnasMargenContribucion(
     });
   });
   return columnas.sort(compararColumnas);
+}
+
+/** Todas las filas habilitadas como columnas (sin filtros), en el mismo orden. */
+export function todasLasColumnasMargenContribucion(
+  filas: readonly FilaCxFinColumnaMargenContribucion[]
+): ColumnaMargenContribucion[] {
+  const pagoIds = [...new Set(filas.map((fila) => fila.pagoId))];
+  return columnasMargenContribucion(filas, { pagoIds, entidadIds: [], cuotas: [] });
+}
+
+export type MargenesPorEscenarioMargenContribucion = {
+  /** Ratio (0–1). */
+  mc: Record<TipoComprobanteVentaMargenContribucion, number | null>;
+  /** Escala base-100. */
+  mcPonderado: Record<TipoComprobanteVentaMargenContribucion, number | null>;
+};
+
+/** M.C y M.C PONDERADO de una columna en los dos escenarios (CON IVA = FACTURA A, SIN IVA = FACTURA C). */
+export function margenesPorEscenarioMargenContribucion(
+  columna: ColumnaMargenContribucion,
+  params: {
+    pxLista: number;
+    descuentoPct: number;
+    porcUtilidadPct: number | null;
+    formulas: ParametrosFormulaMargenContribucion;
+  }
+): MargenesPorEscenarioMargenContribucion {
+  const deTipo = (tipo: TipoComprobanteVentaMargenContribucion) => {
+    const calculados = calcularValoresMargenContribucion({ ...params, tipoComprobante: tipo });
+    const cxFinPct = columna.cxFinPctPorTipo[tipo];
+    return {
+      mc: mcMargenContribucionPorFormaPago(calculados, cxFinPct),
+      mcPonderado: mcPonderadoMargenContribucionPorFormaPago(calculados, cxFinPct),
+    };
+  };
+  const conIva = deTipo("FACTURA_A");
+  const sinIva = deTipo("FACTURA_C");
+  return {
+    mc: { FACTURA_A: conIva.mc, FACTURA_C: sinIva.mc },
+    mcPonderado: { FACTURA_A: conIva.mcPonderado, FACTURA_C: sinIva.mcPonderado },
+  };
 }

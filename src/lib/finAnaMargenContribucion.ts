@@ -61,6 +61,8 @@ export type SeccionMargenContribucionId = "INGRESO" | "COSTOS" | "MARGEN";
 export type SeccionMargenContribucion = {
   id: SeccionMargenContribucionId;
   etiqueta: string;
+  /** Etiqueta horizontal para secciones de una sola fila (la vertical no entra en 2rem). */
+  etiquetaCorta?: string;
   filas: readonly FilaMargenContribucionDatoId[];
 };
 
@@ -72,6 +74,7 @@ export const FIN_ANA_MC_SECCIONES: readonly SeccionMargenContribucion[] = [
   {
     id: "INGRESO",
     etiqueta: "INGRESO",
+    etiquetaCorta: "ING.",
     /** PX LISTA / PX VENTA se calculan en memoria (base $100) pero no se muestran. */
     filas: ["DESCUENTO"],
   },
@@ -217,6 +220,9 @@ export function etiquetaEscenarioIvaMargenContribucion(
 ): string {
   return ETIQUETAS_ESCENARIO_IVA[tipo];
 }
+
+/** Rótulo de las celdas de dos escenarios (`fmtParEscenariosMargenContribucion`). */
+export const ETIQUETA_PAR_ESCENARIOS_MC = `${ETIQUETAS_ESCENARIO_IVA.FACTURA_A} | ${ETIQUETAS_ESCENARIO_IVA.FACTURA_C}`;
 
 export function aplicaImpuestosComprobanteMargenContribucion(
   tipo: TipoComprobanteVentaMargenContribucion
@@ -426,6 +432,16 @@ export function fmtCeldaMontoMargenContribucion(
   if (valor == null || Number.isNaN(valor)) return "—";
   const pct = escala === "ratio" ? valor * 100 : valor;
   return `${Math.round(pct).toLocaleString("es-AR")}%`;
+}
+
+/** Celda de dos escenarios: `CON IVA | SIN IVA` (p. ej. `10% | 31%`); `—` si no hay ninguno. */
+export function fmtParEscenariosMargenContribucion(
+  conIva: number | null,
+  sinIva: number | null,
+  escala: "ratio" | "base100" = "ratio"
+): string {
+  if (conIva == null && sinIva == null) return "—";
+  return `${fmtCeldaMontoMargenContribucion(conIva, escala)} | ${fmtCeldaMontoMargenContribucion(sinIva, escala)}`;
 }
 
 /** Suma de costos (ratios): IVA + IIBB + CX MERCADERÍA + CX FINANCIERO. */

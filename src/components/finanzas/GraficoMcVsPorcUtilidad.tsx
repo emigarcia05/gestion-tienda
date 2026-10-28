@@ -13,7 +13,6 @@ import {
 import { TABLE_ROW_ACTION_ICON_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import {
-  ETIQUETA_CORTA_METRICA_GRAFICO_MC,
   ETIQUETA_METRICA_GRAFICO_MC,
   etiquetaEscenarioIvaMargenContribucion,
   FIN_ANA_MC_METRICAS_GRAFICO,
@@ -36,16 +35,6 @@ export type SerieGraficoMcVsPorcUtilidad = {
   valorMarca: number | null;
 };
 
-export type FilaFormaPagoGraficoMc = {
-  id: string;
-  nombre: string;
-  color: string;
-  /** DESCUENTO aplicado a la forma (entero −100…100; negativo = descuento). */
-  descuentoPct: number;
-  /** Valor de la métrica (%) en el PORC. UTILIDAD actual; null si no aplica. */
-  valorPct: number | null;
-};
-
 interface Props {
   series: SerieGraficoMcVsPorcUtilidad[];
   /** Series en escala **M.C** (ratio×100) para umbrales si VARIABLE OBJETIVO = M.C. */
@@ -64,8 +53,6 @@ interface Props {
   /** Escenario graficado: FACTURA A = CON IVA, FACTURA C = SIN IVA. */
   escenario: TipoComprobanteVentaMargenContribucion;
   onEscenarioChange: (escenario: TipoComprobanteVentaMargenContribucion) => void;
-  /** Columnas elegidas en los filtros (forma × entidad × cuota); todas se grafican. */
-  filasFormaPago: FilaFormaPagoGraficoMc[];
   /** Texto cuando no hay series (sin formas elegidas). */
   mensajeSinSeries?: string;
   /** Rangos de catálogo; overlay en métricas MC / MC_PONDERADO. */
@@ -218,7 +205,6 @@ export default function GraficoMcVsPorcUtilidad({
   onMetricaChange,
   escenario,
   onEscenarioChange,
-  filasFormaPago,
   mensajeSinSeries = "Seleccioná al menos una forma de pago",
   categoriasMc = [],
   variableObjetivo = "MC_PONDERADO",
@@ -228,7 +214,6 @@ export default function GraficoMcVsPorcUtilidad({
   const [mostrarCategoriasMc, setMostrarCategoriasMc] = useState(false);
   const categoriasDisponibles = metricaGraficoSoportaCategoriasMc(metrica);
   const etiquetaEjeY = ETIQUETA_METRICA_GRAFICO_MC[metrica];
-  const etiquetaColumna = ETIQUETA_CORTA_METRICA_GRAFICO_MC[metrica];
   const categoriasOrdenadas = useMemo(
     () => [...categoriasMc].sort((a, b) => a.desdePct - b.desdePct),
     [categoriasMc]
@@ -437,7 +422,7 @@ export default function GraficoMcVsPorcUtilidad({
       )}
     >
       <div className="flex min-h-[14rem] flex-1">
-        <div className="flex w-64 shrink-0 flex-col gap-2 border-r border-border p-2">
+        <div className="flex w-44 shrink-0 flex-col gap-2 border-r border-border p-2">
           <Select
             value={metrica}
             onValueChange={(value) =>
@@ -490,61 +475,6 @@ export default function GraficoMcVsPorcUtilidad({
             </SelectContent>
           </Select>
 
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/60">
-                  <th className="px-1.5 py-1.5 text-left font-bold text-foreground">
-                    FORMA
-                  </th>
-                  <th className="w-12 px-1.5 py-1.5 text-right font-bold text-foreground">
-                    DESC.
-                  </th>
-                  <th className="w-14 px-1.5 py-1.5 text-right font-bold text-foreground">
-                    {etiquetaColumna}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filasFormaPago.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="px-2 py-3 text-center text-muted-foreground"
-                    >
-                      Sin formas de pago
-                    </td>
-                  </tr>
-                ) : (
-                  filasFormaPago.map((fila) => (
-                    <tr
-                      key={fila.id}
-                      className="border-b border-border last:border-b-0"
-                    >
-                      <td className="min-w-0 px-1.5 py-1 align-middle">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span
-                            className="size-2 shrink-0 rounded-full"
-                            style={{ backgroundColor: fila.color }}
-                            aria-hidden
-                          />
-                          <span className="truncate font-medium text-foreground">
-                            {fila.nombre}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-1.5 py-1 text-right align-middle tabular-nums text-foreground">
-                        {fmtPct(fila.descuentoPct)}
-                      </td>
-                      <td className="px-1.5 py-1 text-right align-middle tabular-nums text-foreground">
-                        {fila.valorPct == null ? "—" : fmtPct(fila.valorPct)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
 
         <div className="relative min-w-0 flex-1 px-2 py-1" key={revisionFiltros}>

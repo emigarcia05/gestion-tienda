@@ -1807,6 +1807,13 @@
 .tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-forma {
   box-sizing: border-box;
 }
+/* Margen Contribución, resumen lateral (FORMA PAGO | M.C. | M.C. POND.): ocupa el ancho de su panel. */
+.tabla-fin-ana-mc-resumen {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  table-layout: fixed;
+}
 /* Cabezal en 3 líneas (CUOTA / FORMA / ENTIDAD): excepción a la altura global de 2 líneas. */
 .tabla-fin-ana-margen-contribucion {
   --tabla-thead-height: 2.875rem;
@@ -1844,6 +1851,13 @@
   line-height: 1.1;
   color: var(--primary);
   white-space: nowrap;
+}
+/* Sección de una sola fila (INGRESO): horizontal y chica para no estirar la fila de 2rem. */
+.tabla-fin-ana-margen-contribucion .tabla-mc-seccion-label.tabla-mc-seccion-label--corta {
+  writing-mode: horizontal-tb;
+  transform: none;
+  letter-spacing: 0;
+  font-size: 0.55rem;
 }
 .tabla-fin-ana-margen-contribucion thead th.tabla-mc-col-concepto,
 .tabla-fin-ana-margen-contribucion tbody td.tabla-mc-col-concepto {

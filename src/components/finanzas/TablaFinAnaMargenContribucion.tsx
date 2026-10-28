@@ -14,12 +14,13 @@ import {
   calcularValoresMargenContribucion,
   cxFinancieroRatioMargenContribucion,
   esFilaDescuentoPorFormaPagoMargenContribucion,
-  etiquetaEscenarioIvaMargenContribucion,
+  ETIQUETA_PAR_ESCENARIOS_MC,
   etiquetaFilaMargenContribucion,
   FIN_ANA_MC_DESCUENTO_MAX,
   FIN_ANA_MC_DESCUENTO_MIN,
   FIN_ANA_MC_SECCIONES,
   fmtCeldaMontoMargenContribucion,
+  fmtParEscenariosMargenContribucion,
   mcMargenContribucionPorFormaPago,
   mcPonderadoMargenContribucionPorFormaPago,
   type FilaMargenContribucionDatoId,
@@ -53,7 +54,7 @@ const COL_CONCEPTO_STICKY = "tabla-mc-col-concepto";
 /** Separador vertical entre columnas (más marcado). */
 const SEP_FORMA = "tabla-mc-sep-forma";
 /** Cuota / entidad del cabezal (arriba y abajo de la forma); vacías quedan reservadas para alinear la forma. */
-const LINEA_CABEZAL_SECUNDARIA =
+export const LINEA_CABEZAL_SECUNDARIA_MC =
   "block truncate text-[0.65rem] font-semibold opacity-80";
 
 function CeldaConceptoMargenContribucion({
@@ -74,8 +75,7 @@ function CeldaConceptoMargenContribucion({
       <span className="block leading-tight">{etiquetaFilaMargenContribucion(filaId)}</span>
       {esFilaMargen ? (
         <span className="block text-[0.6rem] font-semibold leading-tight text-muted-foreground">
-          {etiquetaEscenarioIvaMargenContribucion("FACTURA_A")} |{" "}
-          {etiquetaEscenarioIvaMargenContribucion("FACTURA_C")}
+          {ETIQUETA_PAR_ESCENARIOS_MC}
         </span>
       ) : null}
     </TableCell>
@@ -239,9 +239,6 @@ export default function TablaFinAnaMargenContribucion({
 
       const conIva = valorFila(filaId, columna, "FACTURA_A");
       const sinIva = valorFila(filaId, columna, "FACTURA_C");
-      const textoConIva = fmtCeldaMontoMargenContribucion(conIva.valor, conIva.escala);
-      const textoSinIva = fmtCeldaMontoMargenContribucion(sinIva.valor, sinIva.escala);
-      const sinValores = conIva.valor == null && sinIva.valor == null;
       return (
         <TableCell
           key={`${filaId}-${columna.id}`}
@@ -250,13 +247,9 @@ export default function TablaFinAnaMargenContribucion({
             COL_FORMA,
             SEP_FORMA
           )}
-          title={
-            sinValores
-              ? undefined
-              : `${etiquetaEscenarioIvaMargenContribucion("FACTURA_A")}: ${textoConIva} | ${etiquetaEscenarioIvaMargenContribucion("FACTURA_C")}: ${textoSinIva}`
-          }
+          title={ETIQUETA_PAR_ESCENARIOS_MC}
         >
-          {sinValores ? "—" : `${textoConIva} | ${textoSinIva}`}
+          {fmtParEscenariosMargenContribucion(conIva.valor, sinIva.valor, conIva.escala)}
         </TableCell>
       );
     });
@@ -302,7 +295,7 @@ export default function TablaFinAnaMargenContribucion({
               >
                 <span
                   className={cn(
-                    LINEA_CABEZAL_SECUNDARIA,
+                    LINEA_CABEZAL_SECUNDARIA_MC,
                     !columna.cuotaEtiqueta && "invisible"
                   )}
                 >
@@ -311,7 +304,7 @@ export default function TablaFinAnaMargenContribucion({
                 <span className="block truncate">{columna.formaNombre}</span>
                 <span
                   className={cn(
-                    LINEA_CABEZAL_SECUNDARIA,
+                    LINEA_CABEZAL_SECUNDARIA_MC,
                     !columna.entidadNombre && "invisible"
                   )}
                 >
@@ -336,8 +329,14 @@ export default function TablaFinAnaMargenContribucion({
                       COL_SECCION_STICKY
                     )}
                   >
-                    <span className="tabla-mc-seccion-label">
-                      {seccion.etiqueta}
+                    <span
+                      className={cn(
+                        "tabla-mc-seccion-label",
+                        seccion.etiquetaCorta && "tabla-mc-seccion-label--corta"
+                      )}
+                      title={seccion.etiqueta}
+                    >
+                      {seccion.etiquetaCorta ?? seccion.etiqueta}
                     </span>
                   </TableCell>
                 ) : null}
