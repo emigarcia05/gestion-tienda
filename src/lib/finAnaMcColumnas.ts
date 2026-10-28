@@ -125,8 +125,47 @@ export function opcionesCuotaColumnasMargenContribucion(
 }
 
 /**
- * Columnas = filas habilitadas que cumplen FORMA PAGO (obligatoria), ENTIDAD y CUOTAS
- * (vacías = todas las de esas formas). Orden de `filas` (forma → entidad → cuota).
+ * Formas a las que se aplica una selección de ENTIDAD / CUOTAS: las que tienen al menos
+ * una de las opciones elegidas. Las demás no se acotan (p. ej. EFECTIVO sin entidad ni cuota).
+ */
+function formasAlcanzadas(
+  filas: readonly FilaCxFinColumnaMargenContribucion[],
+  seleccion: readonly string[],
+  clave: (fila: FilaCxFinColumnaMargenContribucion) => string
+): Set<string> {
+  const formas = new Set<string>();
+  if (seleccion.length === 0) return formas;
+  for (const fila of filas) {
+    if (seleccion.includes(clave(fila))) formas.add(fila.pagoId);
+  }
+  return formas;
+}
+
+function compararTexto(a: string, b: string): number {
+  return a.localeCompare(b, "es", { sensitivity: "base", numeric: true });
+}
+
+/** `null` (sin cuota / sin entidad) va primero. */
+function compararOpcional(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  return compararTexto(a, b);
+}
+
+/** Orden de columnas: CUOTA (sin cuota primero) → FORMA DE PAGO → ENTIDAD (sin entidad primero). */
+function compararColumnas(a: ColumnaMargenContribucion, b: ColumnaMargenContribucion): number {
+  return (
+    compararOpcional(a.cuotaEtiqueta, b.cuotaEtiqueta) ||
+    compararTexto(a.formaNombre, b.formaNombre) ||
+    compararOpcional(a.entidadNombre, b.entidadNombre)
+  );
+}
+
+/**
+ * Columnas = filas habilitadas de las FORMAS PAGO elegidas (obligatoria). ENTIDAD y CUOTAS
+ * acotan solo las formas que tienen alguna de las opciones elegidas; una forma elegida nunca
+ * desaparece por ellas. Ordenadas con `compararColumnas`.
  * El color sale de la posición en `filas` para no cambiar al filtrar.
  */
 export function columnasMargenContribucion(
@@ -134,11 +173,28 @@ export function columnasMargenContribucion(
   filtros: FiltrosColumnasMargenContribucion
 ): ColumnaMargenContribucion[] {
   if (filtros.pagoIds.length === 0) return [];
+  const filasDeLasFormas = filas.filter((fila) => filtros.pagoIds.includes(fila.pagoId));
+  const formasConEntidad = formasAlcanzadas(
+    filasDeLasFormas,
+    filtros.entidadIds,
+    claveEntidad
+  );
+  const pasaEntidad = (fila: FilaCxFinColumnaMargenContribucion) =>
+    !formasConEntidad.has(fila.pagoId) ||
+    filtros.entidadIds.includes(claveEntidad(fila));
+  const formasConCuota = formasAlcanzadas(
+    filasDeLasFormas.filter(pasaEntidad),
+    filtros.cuotas,
+    claveCuota
+  );
+
   const columnas: ColumnaMargenContribucion[] = [];
   filas.forEach((fila, index) => {
     if (!filtros.pagoIds.includes(fila.pagoId)) return;
-    if (!incluye(filtros.entidadIds, claveEntidad(fila))) return;
-    if (!incluye(filtros.cuotas, claveCuota(fila))) return;
+    if (!pasaEntidad(fila)) return;
+    if (formasConCuota.has(fila.pagoId) && !filtros.cuotas.includes(claveCuota(fila))) {
+      return;
+    }
     const formaNombre = fila.pagoNombre.toLocaleUpperCase("es");
     const entidadNombre = fila.terminalId ? fila.terminalNombre : null;
     const cuotaEtiqueta = etiquetaCuota(fila);
@@ -158,5 +214,5 @@ export function columnasMargenContribucion(
       color: COLORES_SERIE_GRAFICO_MC[index % COLORES_SERIE_GRAFICO_MC.length]!,
     });
   });
-  return columnas;
+  return columnas.sort(compararColumnas);
 }
