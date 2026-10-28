@@ -21,6 +21,12 @@ export type PorcentajeEnteroMaskInputProps = NativeInputProps & {
   defaultNegative?: boolean;
   min?: number;
   max?: number;
+  /**
+   * `value === null` se muestra vacío (placeholder visible, sin `%`) y borrar el último
+   * dígito llama a `onEmpty` en lugar de dejar 0 (p. ej. filtro PORC. UTILIDAD).
+   */
+  emptyWhenNull?: boolean;
+  onEmpty?: () => void;
 };
 
 function clampInt(n: number, min: number, max: number): number {
@@ -73,6 +79,8 @@ export default function PorcentajeEnteroMaskInput({
   defaultNegative = false,
   min,
   max,
+  emptyWhenNull = false,
+  onEmpty,
   className,
   disabled,
   onFocus,
@@ -93,14 +101,16 @@ export default function PorcentajeEnteroMaskInput({
   const effectiveMin = min ?? (signed ? -999_999 : 0);
   const effectiveMax = max ?? (signed ? 999_999 : 99);
   const intValue = value ?? 0;
+  const vacio = emptyWhenNull && value === null;
 
   const displayBody = useMemo(() => {
+    if (vacio) return "";
     if (!signed) return formatUnsignedEnteroBody(intValue);
     if (intValue === 0 && focused) {
       return pendingSign < 0 ? "-" : "+";
     }
     return formatSignedEnteroBody(intValue);
-  }, [intValue, signed, pendingSign, focused]);
+  }, [vacio, intValue, signed, pendingSign, focused]);
 
   function resetEditState() {
     overwriteOnNextInputRef.current = true;
@@ -191,6 +201,13 @@ export default function PorcentajeEnteroMaskInput({
           if (key === "Backspace" || key === "Delete") {
             event.preventDefault();
             overwriteOnNextInputRef.current = false;
+            if (emptyWhenNull) {
+              if (vacio) return;
+              if (Math.abs(intValue) < 10) {
+                onEmpty?.();
+                return;
+              }
+            }
             if (intValue === 0) {
               setPendingSign(signed && defaultNegative ? -1 : 1);
               return;
@@ -237,7 +254,10 @@ export default function PorcentajeEnteroMaskInput({
         {...props}
       />
       <span
-        className="input-mascara-sufijo__pct pointer-events-none select-none px-1.5 text-xs text-muted-foreground tabular-nums"
+        className={cn(
+          "input-mascara-sufijo__pct pointer-events-none select-none px-1.5 text-xs text-muted-foreground tabular-nums",
+          vacio && "invisible"
+        )}
         aria-hidden
       >
         %

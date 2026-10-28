@@ -58,8 +58,10 @@ interface Props {
   revisionFiltros: string;
   metrica: MetricaGraficoMcMargenContribucion;
   onMetricaChange: (metrica: MetricaGraficoMcMargenContribucion) => void;
-  /** Formas elegidas en el filtro FORMAS DE PAGO; todas se grafican. */
+  /** Columnas elegidas en los filtros (forma × entidad × cuota); todas se grafican. */
   filasFormaPago: FilaFormaPagoGraficoMc[];
+  /** Texto cuando no hay series (sin formas elegidas o sin TIPO FACTURA). */
+  mensajeSinSeries?: string;
   /** Rangos de catálogo; overlay en métricas MC / MC_PONDERADO. */
   categoriasMc?: FinAnaMcCategoriaItem[];
   /** Escala de umbrales guardada en `fin_ana_mc_cat_config`. */
@@ -138,9 +140,9 @@ function ejeTicksMultiplo5(
   return { lo: best.lo, hi: best.hi, ticks: best.ticks };
 }
 
-/** Eje X fijo 20…200: 10 etiquetas, múltiplos de 5 (paso 20). */
+/** Eje X fijo 0…300 (rango de PORC. UTILIDAD): 11 etiquetas, paso 30. */
 const TICKS_X_PORC_UTILIDAD = [
-  20, 40, 60, 80, 100, 120, 140, 160, 180, 200,
+  0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300,
 ] as const;
 
 /**
@@ -209,6 +211,7 @@ export default function GraficoMcVsPorcUtilidad({
   metrica,
   onMetricaChange,
   filasFormaPago,
+  mensajeSinSeries = "Seleccioná al menos una forma de pago",
   categoriasMc = [],
   variableObjetivo = "MC_PONDERADO",
   className,
@@ -543,7 +546,7 @@ export default function GraficoMcVsPorcUtilidad({
           ) : null}
           {series.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Seleccioná al menos una forma de pago
+              {mensajeSinSeries}
             </div>
           ) : (
             <svg

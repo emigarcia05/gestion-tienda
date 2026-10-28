@@ -285,10 +285,12 @@ export function iibbRatioMargenContribucion(
  */
 export function cxMercaderiaPesosDesdePorcUtilidadMargenContribucion(
   pxLista: number,
-  porcUtilidadPct: number,
+  porcUtilidadPct: number | null,
   params: ParametrosFormulaMargenContribucion = FIN_ANA_MC_FORMULA_PARAMS_DEFAULT
 ): number | null {
-  if (!(pxLista > 0) || !(porcUtilidadPct > 0)) return null;
+  if (!(pxLista > 0) || porcUtilidadPct == null || !(porcUtilidadPct >= 0)) {
+    return null;
+  }
   const netoLista = netoSinIvaMargenContribucion(pxLista, params.ivaFactor);
   const factorUtilidad = 1 + porcUtilidadPct / 100;
   if (!(factorUtilidad > 0)) return null;
@@ -301,7 +303,7 @@ export function cxMercaderiaPesosDesdePorcUtilidadMargenContribucion(
  */
 export function cxMercaderiaRatioMargenContribucion(
   pxLista: number,
-  porcUtilidadPct: number,
+  porcUtilidadPct: number | null,
   pxVenta: number,
   params: ParametrosFormulaMargenContribucion = FIN_ANA_MC_FORMULA_PARAMS_DEFAULT
 ): number | null {
@@ -347,7 +349,8 @@ export function cxMercaderiaMargenContribucion(
 export type InputsMargenContribucion = {
   pxLista: number;
   descuentoPct: number;
-  porcUtilidadPct: number;
+  /** `null` = PORC. UTILIDAD vacío (CX MERCADERÍA y márgenes sin valor). */
+  porcUtilidadPct: number | null;
   tipoComprobante?: TipoComprobanteVentaMargenContribucion;
   formulas?: ParametrosFormulaMargenContribucion;
 };
@@ -467,26 +470,37 @@ export type FilaCostosFinancierosMargenContribucion = {
   costoFinanciero: number;
 };
 
+/** CX FINANCIERO (%) de una fila de Cobros & Cx Fina: FACTURA A → S/ IVA; FACTURA C → C/ IVA. */
+export function cxTotalPorTipoComprobanteMargenContribucion(
+  fila: Pick<
+    FilaCostosFinancierosMargenContribucion,
+    "impCheque" | "arancel" | "costoFinanciero"
+  >,
+  tipoComprobante: TipoComprobanteVentaMargenContribucion
+): number {
+  return tipoComprobante === "FACTURA_A"
+    ? cxTotalSinIvaFinAnaCosFina(
+        fila.impCheque,
+        fila.arancel,
+        fila.costoFinanciero
+      )
+    : cxTotalConIvaFinAnaCosFina(
+        fila.impCheque,
+        fila.arancel,
+        fila.costoFinanciero
+      );
+}
+
 function promedioCxTotalMargenContribucion(
   filas: FilaCostosFinancierosMargenContribucion[],
   tipoComprobante: TipoComprobanteVentaMargenContribucion
 ): number {
   if (filas.length === 0) return 0;
-  const usarSinIva = tipoComprobante === "FACTURA_A";
-  const suma = filas.reduce((acc, fila) => {
-    const cx = usarSinIva
-      ? cxTotalSinIvaFinAnaCosFina(
-          fila.impCheque,
-          fila.arancel,
-          fila.costoFinanciero
-        )
-      : cxTotalConIvaFinAnaCosFina(
-          fila.impCheque,
-          fila.arancel,
-          fila.costoFinanciero
-        );
-    return acc + cx;
-  }, 0);
+  const suma = filas.reduce(
+    (acc, fila) =>
+      acc + cxTotalPorTipoComprobanteMargenContribucion(fila, tipoComprobante),
+    0
+  );
   return roundPorcentaje0a100(suma / filas.length);
 }
 
@@ -521,9 +535,9 @@ export function mapCxFinancieroPorFormaPago(
   return map;
 }
 
-/** Rango del gráfico M.C vs PORC. UTILIDAD (eje X). */
-export const MC_GRAFICO_PORC_UTILIDAD_MIN = 20;
-export const MC_GRAFICO_PORC_UTILIDAD_MAX = 200;
+/** Rango del gráfico M.C vs PORC. UTILIDAD (eje X) = valores aceptados por el filtro PORC. UTILIDAD. */
+export const MC_GRAFICO_PORC_UTILIDAD_MIN = 0;
+export const MC_GRAFICO_PORC_UTILIDAD_MAX = 300;
 export const MC_GRAFICO_PORC_UTILIDAD_STEP = 5;
 
 export type PuntoMcVsPorcUtilidad = {
