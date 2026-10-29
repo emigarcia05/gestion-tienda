@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import { useRouter } from "next/navigation";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
@@ -37,7 +36,15 @@ import type { SeguimientoFiscalData } from "@/services/seguimientoFiscal.service
 const BASE_PATH = APP_ROUTES.administrador.cobrosDesc.seguimientoFiscal;
 
 const TD_NUM = "celda-datos celda-numero tabular-nums text-right";
-const ETIQUETA_SIN_PTO_VTA = "SIN PTO. VTA.";
+const ETIQUETA_SIN_TITULAR = "SIN TITULAR";
+
+/** COBRO > VTAS. FISCALES → falta facturar; COBRO < VTAS. FISCALES → falta cobrar. */
+function textoDiferencia(cobro: number, ventasFiscales: number): string {
+  const diferencia = Math.round((cobro - ventasFiscales) * 100) / 100;
+  if (diferencia > 0) return `FACTURAR ${fmtCx(diferencia)}`;
+  if (diferencia < 0) return `COBRAR ${fmtCx(-diferencia)}`;
+  return "—";
+}
 
 interface Props {
   data: SeguimientoFiscalData;
@@ -45,7 +52,7 @@ interface Props {
 
 export default function SeguimientoFiscalPageClient({ data }: Props) {
   const router = useRouter();
-  const { grupos, filtros, periodoDefault } = data;
+  const { filas, filtros, periodoDefault } = data;
 
   function irAPeriodo(periodo: string) {
     router.push(hrefCxMercVend(BASE_PATH, periodo === periodoDefault ? {} : { periodo }));
@@ -98,85 +105,55 @@ export default function SeguimientoFiscalPageClient({ data }: Props) {
       <div className="contenedor-tabla-gestion min-h-0 flex-1">
         <Table variant="compact" className="tabla-gestion-compacta w-full">
           <colgroup>
-            <col className="w-[22%]" />
-            <col className="w-[14%]" />
             <col />
-            <col className="w-[18%]" />
-            <col className="w-[8%]" />
-            <col className="w-[14%]" />
+            <col className="w-[20%]" />
+            <col className="w-[20%]" />
+            <col className="w-[24%]" />
           </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>TITULAR</TableHead>
-              <TableHead className="text-center">PTOS. VTA.</TableHead>
-              <TableHead>FORMA DE PAGO</TableHead>
-              <TableHead>ENTIDAD</TableHead>
-              <TableHead className="text-right">CANT.</TableHead>
-              <TableHead className="text-right">MONTO COBRADO</TableHead>
+              <TableHead className="text-right">COBRO</TableHead>
+              <TableHead className="text-right">VTAS. FISCALES</TableHead>
+              <TableHead className="text-right">DIFERENCIA</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {grupos.length === 0 ? (
+            {filas.length === 0 ? (
               <EmptyTableRow
-                colSpan={6}
-                message="No hay cobros con seguimiento fiscal en este mes."
+                colSpan={4}
+                message="No hay cobros con seguimiento fiscal ni ventas fiscales en este mes."
               />
             ) : (
-              grupos.map((grupo) => {
-                const titular = grupo.titular ?? ETIQUETA_SIN_PTO_VTA;
-                return (
-                  <Fragment key={grupo.titular ?? "__sin_pto_vta__"}>
-                    {grupo.formas.map((forma, i) => (
-                      <TableRow key={forma.clave}>
-                        {i === 0 ? (
-                          <>
-                            <TableCell
-                              rowSpan={grupo.formas.length}
-                              className={cn(
-                                "celda-datos text-left font-medium",
-                                grupo.titular == null && "text-muted-foreground"
-                              )}
-                            >
-                              {titular}
-                            </TableCell>
-                            <TableCell
-                              rowSpan={grupo.formas.length}
-                              className="celda-datos text-center tabular-nums"
-                            >
-                              {grupo.ptosVenta.length > 0 ? grupo.ptosVenta.join(", ") : "—"}
-                            </TableCell>
-                          </>
-                        ) : null}
-                        <TableCell className="celda-datos text-left">{forma.formaNombre}</TableCell>
-                        <TableCell className="celda-datos text-left">
-                          {forma.entidadNombre || "—"}
-                        </TableCell>
-                        <TableCell className={TD_NUM}>{forma.cantidad}</TableCell>
-                        <TableCell className={TD_NUM}>{fmtCx(forma.monto)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/35 hover:bg-muted/35">
-                      <TableCell colSpan={4} className="celda-datos font-bold uppercase">
-                        TOTAL {titular}
-                      </TableCell>
-                      <TableCell className={cn(TD_NUM, "font-bold")}>
-                        {grupo.formas.reduce((acc, f) => acc + f.cantidad, 0)}
-                      </TableCell>
-                      <TableCell className={cn(TD_NUM, "font-bold")}>
-                        {fmtCx(grupo.total)}
-                      </TableCell>
-                    </TableRow>
-                  </Fragment>
-                );
-              })
+              filas.map((fila) => (
+                <TableRow key={fila.titular ?? "__sin_titular__"}>
+                  <TableCell
+                    className={cn(
+                      "celda-datos text-left font-medium",
+                      fila.titular == null && "text-muted-foreground"
+                    )}
+                  >
+                    {fila.titular ?? ETIQUETA_SIN_TITULAR}
+                  </TableCell>
+                  <TableCell className={TD_NUM}>{fmtCx(fila.cobro)}</TableCell>
+                  <TableCell className={TD_NUM}>{fmtCx(fila.ventasFiscales)}</TableCell>
+                  <TableCell className={cn(TD_NUM, "font-semibold")}>
+                    {textoDiferencia(fila.cobro, fila.ventasFiscales)}
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
           <TableFooter>
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={5} className="celda-datos font-bold uppercase">
-                TOTAL DEL MES
+              <TableCell className="celda-datos font-bold uppercase">TOTAL DEL MES</TableCell>
+              <TableCell className={cn(TD_NUM, "font-bold")}>{fmtCx(data.totalCobro)}</TableCell>
+              <TableCell className={cn(TD_NUM, "font-bold")}>
+                {fmtCx(data.totalVentasFiscales)}
               </TableCell>
-              <TableCell className={cn(TD_NUM, "font-bold")}>{fmtCx(data.total)}</TableCell>
+              <TableCell className={cn(TD_NUM, "font-bold")}>
+                {textoDiferencia(data.totalCobro, data.totalVentasFiscales)}
+              </TableCell>
             </TableRow>
           </TableFooter>
         </Table>

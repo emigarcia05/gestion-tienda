@@ -1,8 +1,9 @@
 /**
- * Administrador · COBROS & DESC. · Seguimiento Fiscal (solo lectura).
- * Suma el monto bruto de los cobros del mes cuyo vínculo `cobros_vinc_cajas`
- * (forma × entidad × sucursal) tiene `seguimiento_fiscal = true`, agrupado por el titular
- * del punto de venta del comprobante cobrado (`vtas_comprobantes.pto_vta_id` → `ptos_vtas.titular`).
+ * Administrador · COBROS & DESC. · Seguimiento Fiscal (solo lectura). Una fila por titular:
+ * - COBRO: Σ monto bruto de los cobros del mes cuyo vínculo `cobros_vinc_cajas`
+ *   (forma × entidad × sucursal) tiene `seguimiento_fiscal = true`, por `cobros_vinc_cajas.titular_id`.
+ * - VTAS. FISCALES: Σ `imp_total × cotizacion` de los comprobantes fiscales autorizados del mes
+ *   de los puntos de venta del titular (`ptos_vtas.titular`); las NC fiscales restan.
  */
 import { clavePeriodoEstPorProd, parseClavePeriodoEstPorProd } from "@/lib/estPorProdPeriodo";
 import { prisma } from "@/lib/prisma";
@@ -14,30 +15,20 @@ import {
 } from "@/services/balCxMercaderia.service";
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 
-export interface FilaSeguimientoFiscalForma {
-  /** `pagoId|entidadId` (entidad vacía si la forma no tiene). */
-  clave: string;
-  formaNombre: string;
-  /** Vacío si la forma no tiene entidad. */
-  entidadNombre: string;
-  cantidad: number;
-  /** Σ `tesoreria_movimientos.monto` (bruto). */
-  monto: number;
-}
+const TIPOS_VENTA_FISCAL = ["factura_fiscal", "nota_credito_fiscal"] as const;
 
-export interface GrupoSeguimientoFiscalTitular {
-  /** `null` = cobros sin comprobante (anticipo CC sin imputar). */
+export interface FilaSeguimientoFiscalTitular {
+  /** `null` = cobros de vínculos con seguimiento fiscal sin titular cargado. */
   titular: string | null;
-  /** N° de los puntos de venta del titular que tuvieron cobros en el mes. */
-  ptosVenta: string[];
-  formas: FilaSeguimientoFiscalForma[];
-  total: number;
+  cobro: number;
+  ventasFiscales: number;
 }
 
 export interface SeguimientoFiscalData {
-  /** Titulares A→Z; el grupo sin punto de venta va último. */
-  grupos: GrupoSeguimientoFiscalTitular[];
-  total: number;
+  /** Titulares A→Z; la fila sin titular va última. */
+  filas: FilaSeguimientoFiscalTitular[];
+  totalCobro: number;
+  totalVentasFiscales: number;
   periodos: OpcionFiltroCxMercVend[];
   /** Mes calendario AR actual (`YYYY-MM`): valor al limpiar FECHA. */
   periodoDefault: string;
@@ -46,6 +37,26 @@ export interface SeguimientoFiscalData {
 
 function compararTexto(a: string, b: string): number {
   return a.localeCompare(b, "es", { sensitivity: "base", numeric: true });
+}
+
+function claveVinculo(pagoId: string, entidadId: string | null, sucursalId: string): string {
+  return `${pagoId}|${entidadId ?? ""}|${sucursalId}`;
+}
+
+function redondear2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function fechaMinima(a: Date | null, b: Date | null): Date | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a < b ? a : b;
+}
+
+function fechaMaxima(a: Date | null, b: Date | null): Date | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
 }
 
 export async function listarSeguimientoFiscalData(raw: {
@@ -58,18 +69,50 @@ export async function listarSeguimientoFiscalData(raw: {
     (parsed.success ? parseClavePeriodoEstPorProd(parsed.data.periodo) : null) ?? actual;
   const rango = rangoFechaPeriodoCx(periodo);
   const whereCobro = { catMovimiento: "COBRO", tipoMovimiento: "INGRESO" } as const;
+  const whereVentaFiscal = {
+    tipoComprobante: { in: [...TIPOS_VENTA_FISCAL] },
+    estado: "autorizado",
+  };
 
-  const [agg, vinculos] = await Promise.all([
+  const [aggCobros, aggVentas, vinculos, ventas] = await Promise.all([
     prisma.tesoreriaMovimiento.aggregate({
       where: whereCobro,
       _min: { fechaRegistro: true },
       _max: { fechaRegistro: true },
     }),
+    prisma.comprobanteVta.aggregate({
+      where: whereVentaFiscal,
+      _min: { fecha: true },
+      _max: { fecha: true },
+    }),
     prisma.cobrosPorSucursal.findMany({
       where: { seguimientoFiscal: true },
-      select: { pagoId: true, entidadId: true, sucursalId: true },
+      orderBy: [{ createdAt: "asc" }],
+      select: {
+        pagoId: true,
+        entidadId: true,
+        sucursalId: true,
+        titular: { select: { nombre: true } },
+      },
+    }),
+    prisma.comprobanteVta.findMany({
+      where: { ...whereVentaFiscal, fecha: rango },
+      select: {
+        tipoComprobante: true,
+        impTotal: true,
+        cotizacion: true,
+        ptoVta: { select: { titular: true } },
+      },
     }),
   ]);
+
+  // Si el trío forma × entidad × sucursal tiene varias filas (alias distintos), usa la primera.
+  const titularPorVinculo = new Map<string, string | null>();
+  for (const v of vinculos) {
+    const clave = claveVinculo(v.pagoId, v.entidadId, v.sucursalId);
+    if (titularPorVinculo.has(clave)) continue;
+    titularPorVinculo.set(clave, v.titular ? v.titular.nombre.toLocaleUpperCase("es-AR") : null);
+  }
 
   const movimientos =
     vinculos.length === 0
@@ -84,65 +127,35 @@ export async function listarSeguimientoFiscalData(raw: {
               sucursalId: v.sucursalId,
             })),
           },
-          select: {
-            monto: true,
-            pagoId: true,
-            entidadId: true,
-            pago: { select: { nombre: true } },
-            entidad: { select: { nombre: true } },
-            comprobante: {
-              select: { ptoVta: { select: { ptoVenta: true, titular: true } } },
-            },
-          },
+          select: { monto: true, pagoId: true, entidadId: true, sucursalId: true },
         });
 
-  const grupos = new Map<
-    string,
-    { titular: string | null; ptosVenta: Set<string>; formas: Map<string, FilaSeguimientoFiscalForma> }
-  >();
-  let total = 0;
-  for (const m of movimientos) {
-    const ptoVta = m.comprobante?.ptoVta ?? null;
-    const titular = ptoVta ? ptoVta.titular.toLocaleUpperCase("es-AR") : null;
-    const claveGrupo = titular ?? "";
-    let grupo = grupos.get(claveGrupo);
-    if (!grupo) {
-      grupo = { titular, ptosVenta: new Set(), formas: new Map() };
-      grupos.set(claveGrupo, grupo);
+  const filas = new Map<string, FilaSeguimientoFiscalTitular>();
+  const filaDe = (titular: string | null): FilaSeguimientoFiscalTitular => {
+    const clave = titular ?? "";
+    let fila = filas.get(clave);
+    if (!fila) {
+      fila = { titular, cobro: 0, ventasFiscales: 0 };
+      filas.set(clave, fila);
     }
-    if (ptoVta) grupo.ptosVenta.add(ptoVta.ptoVenta);
+    return fila;
+  };
 
-    const claveForma = `${m.pagoId ?? ""}|${m.entidadId ?? ""}`;
-    let forma = grupo.formas.get(claveForma);
-    if (!forma) {
-      forma = {
-        clave: claveForma,
-        formaNombre: (m.pago?.nombre ?? "").toLocaleUpperCase("es-AR"),
-        entidadNombre: (m.entidad?.nombre ?? "").toLocaleUpperCase("es-AR"),
-        cantidad: 0,
-        monto: 0,
-      };
-      grupo.formas.set(claveForma, forma);
-    }
-    forma.cantidad += 1;
-    forma.monto += m.monto;
-    total += m.monto;
+  for (const m of movimientos) {
+    if (!m.pagoId) continue;
+    const clave = claveVinculo(m.pagoId, m.entidadId, m.sucursalId);
+    if (!titularPorVinculo.has(clave)) continue;
+    filaDe(titularPorVinculo.get(clave) ?? null).cobro += m.monto;
   }
 
-  const listaGrupos: GrupoSeguimientoFiscalTitular[] = [...grupos.values()]
-    .map((g) => {
-      const formas = [...g.formas.values()].sort(
-        (a, b) =>
-          compararTexto(a.formaNombre, b.formaNombre) ||
-          compararTexto(a.entidadNombre, b.entidadNombre)
-      );
-      return {
-        titular: g.titular,
-        ptosVenta: [...g.ptosVenta].sort(compararTexto),
-        formas,
-        total: formas.reduce((acc, f) => acc + f.monto, 0),
-      };
-    })
+  for (const v of ventas) {
+    const signo = v.tipoComprobante === "nota_credito_fiscal" ? -1 : 1;
+    filaDe(v.ptoVta.titular.toLocaleUpperCase("es-AR")).ventasFiscales +=
+      signo * Number(v.impTotal) * Number(v.cotizacion);
+  }
+
+  const lista = [...filas.values()]
+    .map((f) => ({ ...f, cobro: redondear2(f.cobro), ventasFiscales: redondear2(f.ventasFiscales) }))
     .sort((a, b) => {
       if (a.titular == null) return b.titular == null ? 0 : 1;
       if (b.titular == null) return -1;
@@ -150,9 +163,14 @@ export async function listarSeguimientoFiscalData(raw: {
     });
 
   return {
-    grupos: listaGrupos,
-    total,
-    periodos: opcionesPeriodoCx(agg._min.fechaRegistro, agg._max.fechaRegistro, actual),
+    filas: lista,
+    totalCobro: redondear2(lista.reduce((acc, f) => acc + f.cobro, 0)),
+    totalVentasFiscales: redondear2(lista.reduce((acc, f) => acc + f.ventasFiscales, 0)),
+    periodos: opcionesPeriodoCx(
+      fechaMinima(aggCobros._min.fechaRegistro, aggVentas._min?.fecha ?? null),
+      fechaMaxima(aggCobros._max.fechaRegistro, aggVentas._max?.fecha ?? null),
+      actual
+    ),
     periodoDefault,
     filtros: { periodo: clavePeriodoEstPorProd(periodo.mes, periodo.anio) },
   };

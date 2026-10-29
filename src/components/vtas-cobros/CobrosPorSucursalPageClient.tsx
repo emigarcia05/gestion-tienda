@@ -289,12 +289,12 @@ export default function CobrosPorSucursalPageClient({
                   </TableHead>
                   <TableHead className={cn("min-w-[10rem]", TH_CLASS)}>ENTIDAD</TableHead>
                   <TableHead className={cn("min-w-[8rem]", TH_CLASS)}>SUCURSAL</TableHead>
-                  <TableHead className={cn("min-w-[14rem]", TH_CLASS)}>
-                    OBSERVACIÓN
-                  </TableHead>
                   <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>IVA CRED.</TableHead>
                   <TableHead className={cn("min-w-[8rem]", TH_CLASS)}>
                     SEGUIMIENTO FISCAL
+                  </TableHead>
+                  <TableHead className={cn("min-w-[14rem]", TH_CLASS)}>
+                    OBSERVACIÓN
                   </TableHead>
                   {esEditor ? (
                     <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>ACCIONES</TableHead>
@@ -325,12 +325,6 @@ export default function CobrosPorSucursalPageClient({
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.sucursalNombre}
                       </TableCell>
-                      <TableCell
-                        className="celda-datos text-left text-xs"
-                        title={fila.observacion || undefined}
-                      >
-                        {fila.observacion.trim().length > 0 ? fila.observacion : "—"}
-                      </TableCell>
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.generaIvaCredito ? "SI" : "NO"}
                       </TableCell>
@@ -341,6 +335,12 @@ export default function CobrosPorSucursalPageClient({
                             {fila.titularNombre}
                           </span>
                         ) : null}
+                      </TableCell>
+                      <TableCell
+                        className="celda-datos text-left text-xs"
+                        title={fila.observacion || undefined}
+                      >
+                        {fila.observacion.trim().length > 0 ? fila.observacion : "—"}
                       </TableCell>
                       {esEditor ? (
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila">
