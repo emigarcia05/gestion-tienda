@@ -490,7 +490,6 @@ model GlobalPtoVta {
 
   sucursales       PtoVtaSucursal[]
   comprobantesVtas ComprobanteVta[]
-  cobrosVincCajas  CobrosPorSucursal[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
   @@index([titular], map: "ptos_vtas_titular_idx")
@@ -587,7 +586,8 @@ model TesoreriaTitular {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  ptoVtas GlobalPtoVta[]
+  ptoVtas         GlobalPtoVta[]
+  cobrosVincCajas CobrosPorSucursal[]
 
   @@map("tesoreria_titulares")
 }
@@ -2370,10 +2370,10 @@ model CobrosPorSucursal {
    */
   seguimientoFiscal Boolean                 @default(false) @map("seguimiento_fiscal")
   /**
-   * Punto de venta asociado. Obligatorio si `seguimientoFiscal`; si no, null.
+   * Titular (de puntos de venta) asociado. Obligatorio si `seguimientoFiscal`; si no, null.
    */
-  ptoVtaId      String?                     @map("pto_vta_id")
-  ptoVta        GlobalPtoVta?               @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  titularId     String?                     @map("titular_id")
+  titular       TesoreriaTitular?           @relation(fields: [titularId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   /**
    * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
    * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
@@ -2393,7 +2393,7 @@ model CobrosPorSucursal {
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
   @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")
-  @@index([ptoVtaId], map: "cobros_vinc_cajas_pto_vta_idx")
+  @@index([titularId], map: "cobros_vinc_cajas_titular_idx")
   @@map("cobros_vinc_cajas")
 }
 

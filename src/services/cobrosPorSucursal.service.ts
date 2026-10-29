@@ -40,12 +40,12 @@ export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
   alias: boolean;
 };
 
-/** Opción del Select PTO. VTA. (seguimiento fiscal). */
-export type CobrosPorSucursalPtoVtaOption = {
+/** Opción del Select TITULAR (seguimiento fiscal): titular de `tesoreria_titulares`. */
+export type CobrosPorSucursalTitularOption = {
   id: string;
-  /** `00002 - TITULAR`. */
-  etiqueta: string;
-  activo: boolean;
+  nombre: string;
+  /** Tiene al menos un punto de venta (`ptos_vtas.titular`). */
+  tienePtoVta: boolean;
 };
 
 export type CobrosPorSucursalVinculoPagoEntidad = {
@@ -71,9 +71,9 @@ export type CobrosPorSucursalFila = {
   generaIvaCredito: boolean;
   /** `cobros_vinc_cajas.seguimiento_fiscal`. */
   seguimientoFiscal: boolean;
-  /** `cobros_vinc_cajas.pto_vta_id`; solo con seguimiento fiscal. */
-  ptoVtaId: string | null;
-  ptoVtaEtiqueta: string;
+  /** `cobros_vinc_cajas.titular_id`; solo con seguimiento fiscal. */
+  titularId: string | null;
+  titularNombre: string;
   /** De esta fila; no se hereda a otras sucursales. */
   esCheque: boolean;
   /** `cobros_vinc_cajas.alias`; null si la forma de pago no usa alias. */
@@ -88,7 +88,7 @@ export type CobrosPorSucursalVista = {
   pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
-  ptosVenta: CobrosPorSucursalPtoVtaOption[];
+  titulares: CobrosPorSucursalTitularOption[];
 };
 
 function mapDbError(error: unknown, fallback: string): string {
@@ -127,27 +127,26 @@ function normalizarObservacion(raw: string): string {
   return raw.trim();
 }
 
-function etiquetaPtoVta(row: { ptoVenta: string; titular: string }): string {
-  return `${row.ptoVenta} - ${row.titular.toLocaleUpperCase("es-AR")}`;
-}
-
-async function resolverPtoVta(
+async function resolverTitular(
   seguimientoFiscal: boolean,
-  ptoVtaId: string | null
-): Promise<ServiceResult<{ id: string; etiqueta: string } | null>> {
+  titularId: string | null
+): Promise<ServiceResult<{ id: string; nombre: string } | null>> {
   if (!seguimientoFiscal) return { success: true, data: null };
-  if (!ptoVtaId) {
+  if (!titularId) {
     return {
       success: false,
-      error: "Con SEGUIMIENTO FISCAL tenés que elegir un punto de venta.",
+      error: "Con SEGUIMIENTO FISCAL tenés que elegir un titular.",
     };
   }
-  const row = await prisma.globalPtoVta.findUnique({
-    where: { id: ptoVtaId },
-    select: { id: true, ptoVenta: true, titular: true },
+  const row = await prisma.tesoreriaTitular.findUnique({
+    where: { id: titularId },
+    select: { id: true, nombre: true },
   });
-  if (!row) return { success: false, error: "Punto de venta inválido." };
-  return { success: true, data: { id: row.id, etiqueta: etiquetaPtoVta(row) } };
+  if (!row) return { success: false, error: "Titular inválido." };
+  return {
+    success: true,
+    data: { id: row.id, nombre: row.nombre.toLocaleUpperCase("es-AR") },
+  };
 }
 
 function resolverAlias(
@@ -273,7 +272,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
     pagosRows,
     entidadesRows,
     vinculosRows,
-    ptosVentaRows,
+    titularesRows,
   ] = await Promise.all([
       listarSucursalesCobrosPorSucursal(),
       prisma.cajaTesoreria.findMany({
@@ -298,8 +297,8 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           cajaDestinoId: true,
           generaIvaCredito: true,
           seguimientoFiscal: true,
-          ptoVtaId: true,
-          ptoVta: { select: { ptoVenta: true, titular: true } },
+          titularId: true,
+          titular: { select: { nombre: true } },
           esCheque: true,
           alias: true,
           observacion: true,
@@ -327,9 +326,9 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       prisma.cobrosFormaPagoEntidad.findMany({
         select: { pagoId: true, entidadId: true },
       }),
-      prisma.globalPtoVta.findMany({
-        orderBy: [{ ptoVenta: "asc" }],
-        select: { id: true, ptoVenta: true, titular: true, estado: true },
+      prisma.tesoreriaTitular.findMany({
+        orderBy: [{ nombre: "asc" }],
+        select: { id: true, nombre: true, _count: { select: { ptoVtas: true } } },
       }),
     ]);
 
@@ -351,8 +350,8 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       generaIvaCredito: d.generaIvaCredito,
       seguimientoFiscal: d.seguimientoFiscal,
-      ptoVtaId: d.ptoVtaId,
-      ptoVtaEtiqueta: d.ptoVta ? etiquetaPtoVta(d.ptoVta) : "",
+      titularId: d.titularId,
+      titularNombre: d.titular ? d.titular.nombre.toLocaleUpperCase("es-AR") : "",
       esCheque: d.esCheque,
       alias: d.alias,
       observacion: d.observacion,
@@ -386,10 +385,10 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       nombre: e.nombre.toLocaleUpperCase("es-AR"),
     })),
     vinculosPagoEntidad: vinculosRows,
-    ptosVenta: ptosVentaRows.map((p) => ({
-      id: p.id,
-      etiqueta: etiquetaPtoVta(p),
-      activo: p.estado === "activo",
+    titulares: titularesRows.map((t) => ({
+      id: t.id,
+      nombre: t.nombre.toLocaleUpperCase("es-AR"),
+      tienePtoVta: t._count.ptoVtas > 0,
     })),
   };
 }
@@ -435,9 +434,9 @@ export async function crearCobroPorSucursal(
     const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
-    const ptoVtaRes = await resolverPtoVta(input.seguimientoFiscal, input.ptoVtaId);
-    if (!ptoVtaRes.success) return ptoVtaRes;
-    const ptoVta = ptoVtaRes.data;
+    const titularRes = await resolverTitular(input.seguimientoFiscal, input.titularId);
+    if (!titularRes.success) return titularRes;
+    const titular = titularRes.data;
 
     const sucursal = await prisma.sucursal.findUnique({
       where: { id: input.sucursalId },
@@ -468,7 +467,7 @@ export async function crearCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
-        ptoVtaId: ptoVta?.id ?? null,
+        titularId: titular?.id ?? null,
         esCheque: input.esCheque,
         alias,
         observacion,
@@ -490,8 +489,8 @@ export async function crearCobroPorSucursal(
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
-        ptoVtaId: ptoVta?.id ?? null,
-        ptoVtaEtiqueta: ptoVta?.etiqueta ?? "",
+        titularId: titular?.id ?? null,
+        titularNombre: titular?.nombre ?? "",
         esCheque: input.esCheque,
         alias,
         observacion,
@@ -547,9 +546,9 @@ export async function actualizarCobroPorSucursal(
     const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
-    const ptoVtaRes = await resolverPtoVta(input.seguimientoFiscal, input.ptoVtaId);
-    if (!ptoVtaRes.success) return ptoVtaRes;
-    const ptoVta = ptoVtaRes.data;
+    const titularRes = await resolverTitular(input.seguimientoFiscal, input.titularId);
+    if (!titularRes.success) return titularRes;
+    const titular = titularRes.data;
 
     await prisma.cobrosPorSucursal.update({
       where: { id: existente.id },
@@ -557,7 +556,7 @@ export async function actualizarCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
-        ptoVtaId: ptoVta?.id ?? null,
+        titularId: titular?.id ?? null,
         esCheque: input.esCheque,
         alias,
         observacion,
@@ -580,8 +579,8 @@ export async function actualizarCobroPorSucursal(
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
-        ptoVtaId: ptoVta?.id ?? null,
-        ptoVtaEtiqueta: ptoVta?.etiqueta ?? "",
+        titularId: titular?.id ?? null,
+        titularNombre: titular?.nombre ?? "",
         esCheque: input.esCheque,
         alias,
         observacion,

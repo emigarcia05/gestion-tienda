@@ -46,8 +46,8 @@ import type {
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalPagoCatalogo,
-  CobrosPorSucursalPtoVtaOption,
   CobrosPorSucursalSucursalCol,
+  CobrosPorSucursalTitularOption,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
 
@@ -60,7 +60,7 @@ interface Props {
   pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
-  ptosVenta: CobrosPorSucursalPtoVtaOption[];
+  titulares: CobrosPorSucursalTitularOption[];
   esEditor: boolean;
 }
 
@@ -76,7 +76,7 @@ export default function CobrosPorSucursalPageClient({
   pagos,
   entidades,
   vinculosPagoEntidad,
-  ptosVenta,
+  titulares,
   esEditor,
 }: Props) {
   const [filas, setFilas] = useState(filasIniciales);
@@ -336,9 +336,9 @@ export default function CobrosPorSucursalPageClient({
                       </TableCell>
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.seguimientoFiscal ? "SI" : "NO"}
-                        {fila.seguimientoFiscal && fila.ptoVtaEtiqueta ? (
+                        {fila.seguimientoFiscal && fila.titularNombre ? (
                           <span className="block text-[0.65rem] font-normal text-muted-foreground">
-                            {fila.ptoVtaEtiqueta}
+                            {fila.titularNombre}
                           </span>
                         ) : null}
                       </TableCell>
@@ -406,7 +406,7 @@ export default function CobrosPorSucursalPageClient({
         vinculosPagoEntidad={vinculosPagoEntidad}
         cajas={cajas}
         sucursales={sucursales}
-        ptosVenta={ptosVenta}
+        titulares={titulares}
         onSaved={handleSaved}
       />
 

@@ -27,8 +27,8 @@ import type {
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalPagoCatalogo,
-  CobrosPorSucursalPtoVtaOption,
   CobrosPorSucursalSucursalCol,
+  CobrosPorSucursalTitularOption,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
 
@@ -44,7 +44,7 @@ interface Props {
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   cajas: CobrosPorSucursalCajaOption[];
   sucursales: CobrosPorSucursalSucursalCol[];
-  ptosVenta: CobrosPorSucursalPtoVtaOption[];
+  titulares: CobrosPorSucursalTitularOption[];
   onSaved: (fila: CobrosPorSucursalFila) => void;
 }
 
@@ -58,7 +58,7 @@ export default function CrearEditarCobroModal({
   vinculosPagoEntidad,
   cajas,
   sucursales,
-  ptosVenta,
+  titulares,
   onSaved,
 }: Props) {
   const [pagoId, setPagoId] = useState("");
@@ -67,7 +67,7 @@ export default function CrearEditarCobroModal({
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [generaIvaCredito, setGeneraIvaCredito] = useState(false);
   const [seguimientoFiscal, setSeguimientoFiscal] = useState(false);
-  const [ptoVtaId, setPtoVtaId] = useState("");
+  const [titularId, setTitularId] = useState("");
   const [esCheque, setEsCheque] = useState(false);
   const [alias, setAlias] = useState("");
   const [observacion, setObservacion] = useState("");
@@ -87,7 +87,7 @@ export default function CrearEditarCobroModal({
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setGeneraIvaCredito(fila.generaIvaCredito);
       setSeguimientoFiscal(fila.seguimientoFiscal);
-      setPtoVtaId(fila.ptoVtaId ?? "");
+      setTitularId(fila.titularId ?? "");
       setEsCheque(fila.esCheque);
       setAlias(fila.alias ?? "");
       setObservacion(fila.observacion);
@@ -99,7 +99,7 @@ export default function CrearEditarCobroModal({
     setCajaDestinoId("");
     setGeneraIvaCredito(false);
     setSeguimientoFiscal(false);
-    setPtoVtaId("");
+    setTitularId("");
     setEsCheque(false);
     setAlias("");
     setObservacion("");
@@ -115,9 +115,9 @@ export default function CrearEditarCobroModal({
     return entidades.filter((e) => ids.has(e.id));
   }, [pagoId, entidades, vinculosPagoEntidad]);
 
-  const ptosVentaDisponibles = useMemo(
-    () => ptosVenta.filter((p) => p.activo || p.id === ptoVtaId),
-    [ptosVenta, ptoVtaId]
+  const titularesDisponibles = useMemo(
+    () => titulares.filter((t) => t.tienePtoVta || t.id === titularId),
+    [titulares, titularId]
   );
 
   const cajasDisponibles = useMemo(() => {
@@ -151,7 +151,7 @@ export default function CrearEditarCobroModal({
     (muestraEntidad && entidadId.trim().length === 0) ||
     sucursalId.trim().length === 0 ||
     cajaDestinoId.trim().length === 0 ||
-    (seguimientoFiscal && ptoVtaId.length === 0) ||
+    (seguimientoFiscal && titularId.length === 0) ||
     (pagoUsaAlias && alias.trim().length === 0);
 
   async function handleSubmit() {
@@ -164,7 +164,7 @@ export default function CrearEditarCobroModal({
             cajaDestinoId,
             generaIvaCredito,
             seguimientoFiscal,
-            ptoVtaId: seguimientoFiscal ? ptoVtaId : null,
+            titularId: seguimientoFiscal ? titularId : null,
             esCheque,
             alias: pagoUsaAlias ? alias : "",
             observacion,
@@ -176,7 +176,7 @@ export default function CrearEditarCobroModal({
             cajaDestinoId,
             generaIvaCredito,
             seguimientoFiscal,
-            ptoVtaId: seguimientoFiscal ? ptoVtaId : null,
+            titularId: seguimientoFiscal ? titularId : null,
             esCheque,
             alias: pagoUsaAlias ? alias : "",
             observacion,
@@ -335,6 +335,22 @@ export default function CrearEditarCobroModal({
             </Select>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <ModalMicroLabel>ALIAS</ModalMicroLabel>
+            <Input
+              value={pagoUsaAlias ? alias : ""}
+              onChange={(e) => setAlias(e.target.value)}
+              disabled={saving || !pagoUsaAlias}
+              required={pagoUsaAlias}
+              aria-required={pagoUsaAlias}
+              maxLength={100}
+              placeholder={
+                pagoUsaAlias ? "Obligatorio" : "La forma de pago no usa alias"
+              }
+              aria-label="Alias"
+            />
+          </div>
+
           <ModalSiNoChoice
             label="ES CHEQUE"
             value={esCheque}
@@ -354,24 +370,24 @@ export default function CrearEditarCobroModal({
             value={seguimientoFiscal}
             onChange={(value) => {
               setSeguimientoFiscal(value);
-              if (!value) setPtoVtaId("");
+              if (!value) setTitularId("");
             }}
             disabled={saving}
           />
 
           {seguimientoFiscal ? (
             <div className="flex flex-col gap-1.5">
-              <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+              <ModalMicroLabel>TITULAR</ModalMicroLabel>
               <Select
-                value={ptoVtaId || undefined}
-                onValueChange={setPtoVtaId}
+                value={titularId || undefined}
+                onValueChange={setTitularId}
                 disabled={saving}
               >
                 <SelectTrigger
                   className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                  aria-label="Punto de venta"
+                  aria-label="Titular"
                 >
-                  <SelectValue placeholder="Seleccionar punto de venta" />
+                  <SelectValue placeholder="Seleccionar titular" />
                 </SelectTrigger>
                 <SelectContent
                   position="popper"
@@ -379,31 +395,15 @@ export default function CrearEditarCobroModal({
                   align="start"
                   className="select-content-filtro"
                 >
-                  {ptosVentaDisponibles.map((pto) => (
-                    <SelectItem key={pto.id} value={pto.id}>
-                      {pto.etiqueta}
+                  {titularesDisponibles.map((titular) => (
+                    <SelectItem key={titular.id} value={titular.id}>
+                      {titular.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           ) : null}
-
-          <div className="flex flex-col gap-1.5">
-            <ModalMicroLabel>ALIAS</ModalMicroLabel>
-            <Input
-              value={pagoUsaAlias ? alias : ""}
-              onChange={(e) => setAlias(e.target.value)}
-              disabled={saving || !pagoUsaAlias}
-              required={pagoUsaAlias}
-              aria-required={pagoUsaAlias}
-              maxLength={100}
-              placeholder={
-                pagoUsaAlias ? "Obligatorio" : "La forma de pago no usa alias"
-              }
-              aria-label="Alias"
-            />
-          </div>
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>OBSERVACIÓN</ModalMicroLabel>
