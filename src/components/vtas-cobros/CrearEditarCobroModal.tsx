@@ -62,6 +62,7 @@ export default function CrearEditarCobroModal({
   const [sucursalId, setSucursalId] = useState("");
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [generaIvaCredito, setGeneraIvaCredito] = useState(false);
+  const [seguimientoFiscal, setSeguimientoFiscal] = useState(false);
   const [esCheque, setEsCheque] = useState(false);
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
@@ -78,6 +79,7 @@ export default function CrearEditarCobroModal({
       setSucursalId(fila.sucursalId);
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setGeneraIvaCredito(fila.generaIvaCredito);
+      setSeguimientoFiscal(fila.seguimientoFiscal);
       setEsCheque(fila.esCheque);
       setObservacion(fila.observacion);
       return;
@@ -87,6 +89,7 @@ export default function CrearEditarCobroModal({
     setSucursalId("");
     setCajaDestinoId("");
     setGeneraIvaCredito(false);
+    setSeguimientoFiscal(false);
     setEsCheque(false);
     setObservacion("");
   }, [open, esEditar, fila]);
@@ -142,6 +145,7 @@ export default function CrearEditarCobroModal({
             id: fila.id,
             cajaDestinoId,
             generaIvaCredito,
+            seguimientoFiscal,
             esCheque,
             observacion,
           })
@@ -151,6 +155,7 @@ export default function CrearEditarCobroModal({
             sucursalId,
             cajaDestinoId,
             generaIvaCredito,
+            seguimientoFiscal,
             esCheque,
             observacion,
           });
@@ -318,6 +323,13 @@ export default function CrearEditarCobroModal({
             label="IVA CRED."
             value={generaIvaCredito}
             onChange={setGeneraIvaCredito}
+            disabled={saving}
+          />
+
+          <ModalSiNoChoice
+            label="SEGUIMIENTO FISCAL"
+            value={seguimientoFiscal}
+            onChange={setSeguimientoFiscal}
             disabled={saving}
           />
 

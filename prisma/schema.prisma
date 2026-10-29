@@ -2361,6 +2361,10 @@ model CobrosPorSucursal {
    */
   generaIvaCredito Boolean                  @default(false) @map("genera_iva_credito")
   /**
+   * Marca de seguimiento fiscal de este cobro (esta sucursal). Se configura en Crear / Editar Cobro.
+   */
+  seguimientoFiscal Boolean                 @default(false) @map("seguimiento_fiscal")
+  /**
    * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
    * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
    */

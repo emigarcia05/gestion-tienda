@@ -8,6 +8,8 @@ export const crearCobroPorSucursalSchema = z.object({
   cajaDestinoId: prismaCuidOrUuidSchema,
   /** TRUE → Cx Fin con CX TOTAL S/ IVA; FALSE → C/ IVA. */
   generaIvaCredito: z.boolean(),
+  /** `cobros_vinc_cajas.seguimiento_fiscal`. */
+  seguimientoFiscal: z.boolean().default(false),
   /** De esta fila (`cobros_vinc_cajas.es_cheque`): no se hereda a otras sucursales. */
   esCheque: z.boolean().default(false),
   observacion: z.string().max(2000).default(""),
@@ -19,6 +21,7 @@ export const actualizarCobroPorSucursalSchema = z.object({
   id: prismaCuidOrUuidSchema,
   cajaDestinoId: prismaCuidOrUuidSchema,
   generaIvaCredito: z.boolean(),
+  seguimientoFiscal: z.boolean().default(false),
   esCheque: z.boolean().default(false),
   observacion: z.string().max(2000).default(""),
 });

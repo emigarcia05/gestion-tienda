@@ -60,6 +60,7 @@ export const APP_ROUTES = {
       cobrosCxFina: `${ADMINISTRADOR}/cobros-desc/cobros-cx-fina`,
       margenContribucion: `${ADMINISTRADOR}/cobros-desc/margen-contribucion`,
       ptosVtas: `${ADMINISTRADOR}/cobros-desc/ptos-vtas`,
+      seguimientoFiscal: `${ADMINISTRADOR}/cobros-desc/seguimiento-fiscal`,
     },
     proveedores: {
       listaProdProv: `${ADMINISTRADOR}/proveedores/lista-prod-prov`,
@@ -275,7 +276,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/estadisticas-productos/categorizacion", R.administrador.estadisticas.configuracion],
   ["/finanzas/usuarios", R.administrador.usuarios.usuarios],
 
-  // Administrador · COBROS % DESC. (ex Administrador · DESC. & PROMOS + Finanzas · COBROS / ex /vtas-cobros)
+  // Administrador · COBROS & DESC. (ex Administrador · DESC. & PROMOS + Finanzas · COBROS / ex /vtas-cobros)
   ["/administrador/desc-promos", R.administrador.cobrosDesc.descuentos],
   ["/administrador/desc-promos/descuentos", R.administrador.cobrosDesc.descuentos],
   ["/finanzas/cobros", R.administrador.cobrosDesc.ptosVtas],

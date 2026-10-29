@@ -245,6 +245,13 @@ const cobrosDescScreens: AdmScreenDef[] = [
     icon: "store",
     permiso: PERMISOS.finanzas.acceso,
   },
+  {
+    id: "seguimiento-fiscal",
+    label: "Seguimiento Fiscal",
+    href: A.cobrosDesc.seguimientoFiscal,
+    icon: "landmark",
+    permiso: PERMISOS.finanzas.acceso,
+  },
 ];
 
 const proveedoresScreens: AdmScreenDef[] = [
@@ -359,7 +366,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
   },
   {
     id: "cobros-desc",
-    label: "COBROS % DESC.",
+    label: "COBROS & DESC.",
     icon: "percent",
     basePath: `${A.hub}/cobros-desc`,
     screens: cobrosDescScreens,

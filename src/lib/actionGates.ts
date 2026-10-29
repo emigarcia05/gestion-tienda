@@ -80,7 +80,7 @@ export function requireEditorReposicionCorp(): Promise<ActionGateFail | null> {
   );
 }
 
-/** Administrador · COBROS % DESC. → Descuentos (`PERMISOS.descPromos.acceso`). */
+/** Administrador · COBROS & DESC. → Descuentos (`PERMISOS.descPromos.acceso`). */
 export function requireDescPromosLectura(): Promise<ActionGateFail | null> {
   return requirePermiso(
     PERMISOS.descPromos.acceso,

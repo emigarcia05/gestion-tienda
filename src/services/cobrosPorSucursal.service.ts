@@ -59,6 +59,8 @@ export type CobrosPorSucursalFila = {
   cajaEtiqueta: string;
   /** TRUE = Cx Fin con CX TOTAL S/ IVA; FALSE = C/ IVA. */
   generaIvaCredito: boolean;
+  /** `cobros_vinc_cajas.seguimiento_fiscal`. */
+  seguimientoFiscal: boolean;
   /** De esta fila; no se hereda a otras sucursales. */
   esCheque: boolean;
   observacion: string;
@@ -238,6 +240,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           sucursalId: true,
           cajaDestinoId: true,
           generaIvaCredito: true,
+          seguimientoFiscal: true,
           esCheque: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
@@ -283,6 +286,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       cajaDestinoId: d.cajaDestinoId,
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       generaIvaCredito: d.generaIvaCredito,
+      seguimientoFiscal: d.seguimientoFiscal,
       esCheque: d.esCheque,
       observacion: d.observacion,
     }))
@@ -379,6 +383,7 @@ export async function crearCobroPorSucursal(
         sucursalId: sucursal.id,
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
+        seguimientoFiscal: input.seguimientoFiscal,
         esCheque: input.esCheque,
         observacion,
       },
@@ -398,6 +403,7 @@ export async function crearCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
+        seguimientoFiscal: input.seguimientoFiscal,
         esCheque: input.esCheque,
         observacion,
       },
@@ -440,6 +446,7 @@ export async function actualizarCobroPorSucursal(
       data: {
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
+        seguimientoFiscal: input.seguimientoFiscal,
         esCheque: input.esCheque,
         observacion,
       },
@@ -460,6 +467,7 @@ export async function actualizarCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
+        seguimientoFiscal: input.seguimientoFiscal,
         esCheque: input.esCheque,
         observacion,
       },
