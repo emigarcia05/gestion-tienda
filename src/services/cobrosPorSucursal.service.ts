@@ -36,6 +36,16 @@ export type CobrosPorSucursalCatalogoItem = {
 
 export type CobrosPorSucursalPagoCatalogo = CobrosPorSucursalCatalogoItem & {
   fechaAcreditacionVariable: boolean;
+  /** `cobros_forma_pago.alias`: el cobro exige ALIAS. */
+  alias: boolean;
+};
+
+/** Opción del Select PTO. VTA. (seguimiento fiscal). */
+export type CobrosPorSucursalPtoVtaOption = {
+  id: string;
+  /** `00002 - TITULAR`. */
+  etiqueta: string;
+  activo: boolean;
 };
 
 export type CobrosPorSucursalVinculoPagoEntidad = {
@@ -61,8 +71,13 @@ export type CobrosPorSucursalFila = {
   generaIvaCredito: boolean;
   /** `cobros_vinc_cajas.seguimiento_fiscal`. */
   seguimientoFiscal: boolean;
+  /** `cobros_vinc_cajas.pto_vta_id`; solo con seguimiento fiscal. */
+  ptoVtaId: string | null;
+  ptoVtaEtiqueta: string;
   /** De esta fila; no se hereda a otras sucursales. */
   esCheque: boolean;
+  /** `cobros_vinc_cajas.alias`; null si la forma de pago no usa alias. */
+  alias: string | null;
   observacion: string;
 };
 
@@ -73,6 +88,7 @@ export type CobrosPorSucursalVista = {
   pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
+  ptosVenta: CobrosPorSucursalPtoVtaOption[];
 };
 
 function mapDbError(error: unknown, fallback: string): string {
@@ -81,7 +97,7 @@ function mapDbError(error: unknown, fallback: string): string {
     if (code === "P2003") return "Hay referencias inválidas (forma, entidad, sucursal o caja).";
     if (code === "P2025") return "Registro no encontrado.";
     if (code === "P2002") {
-      return "Ya existe esa forma de pago para esa sucursal.";
+      return "Ya existe esa forma de pago para esa sucursal (con el mismo ALIAS).";
     }
   }
   return error instanceof Error ? error.message : fallback;
@@ -111,6 +127,41 @@ function normalizarObservacion(raw: string): string {
   return raw.trim();
 }
 
+function etiquetaPtoVta(row: { ptoVenta: string; titular: string }): string {
+  return `${row.ptoVenta} - ${row.titular.toLocaleUpperCase("es-AR")}`;
+}
+
+async function resolverPtoVta(
+  seguimientoFiscal: boolean,
+  ptoVtaId: string | null
+): Promise<ServiceResult<{ id: string; etiqueta: string } | null>> {
+  if (!seguimientoFiscal) return { success: true, data: null };
+  if (!ptoVtaId) {
+    return {
+      success: false,
+      error: "Con SEGUIMIENTO FISCAL tenés que elegir un punto de venta.",
+    };
+  }
+  const row = await prisma.globalPtoVta.findUnique({
+    where: { id: ptoVtaId },
+    select: { id: true, ptoVenta: true, titular: true },
+  });
+  if (!row) return { success: false, error: "Punto de venta inválido." };
+  return { success: true, data: { id: row.id, etiqueta: etiquetaPtoVta(row) } };
+}
+
+function resolverAlias(
+  pagoUsaAlias: boolean,
+  raw: string
+): ServiceResult<string | null> {
+  if (!pagoUsaAlias) return { success: true, data: null };
+  const alias = raw.trim();
+  if (alias.length === 0) {
+    return { success: false, error: "Esta forma de pago exige ALIAS." };
+  }
+  return { success: true, data: alias };
+}
+
 function sortFilas(a: CobrosPorSucursalFila, b: CobrosPorSucursalFila): number {
   const byPago = a.pagoNombre.localeCompare(b.pagoNombre, "es", {
     sensitivity: "base",
@@ -125,31 +176,30 @@ function sortFilas(a: CobrosPorSucursalFila, b: CobrosPorSucursalFila): number {
   });
 }
 
-function mensajeDuplicado(conEntidad: boolean): string {
-  return conEntidad
-    ? "Ya existe esa forma de pago × entidad para esa sucursal."
-    : "Ya existe esa forma de pago para esa sucursal.";
+function mensajeDuplicado(conEntidad: boolean, conAlias: boolean): string {
+  const base = conEntidad
+    ? "Ya existe esa forma de pago × entidad para esa sucursal"
+    : "Ya existe esa forma de pago para esa sucursal";
+  return conAlias ? `${base} con ese ALIAS.` : `${base}.`;
 }
 
+/** Unicidad: forma [× entidad] × sucursal × ALIAS (sin mayúsculas; null = sin alias). */
 async function buscarDuplicado(input: {
   pagoId: string;
   entidadId: string | null;
   sucursalId: string;
+  alias: string | null;
   excludeId?: string;
 }): Promise<boolean> {
-  const where: Prisma.CobrosPorSucursalWhereInput = input.entidadId
-    ? {
-        pagoId: input.pagoId,
-        entidadId: input.entidadId,
-        sucursalId: input.sucursalId,
-        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
-      }
-    : {
-        pagoId: input.pagoId,
-        entidadId: null,
-        sucursalId: input.sucursalId,
-        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
-      };
+  const where: Prisma.CobrosPorSucursalWhereInput = {
+    pagoId: input.pagoId,
+    entidadId: input.entidadId,
+    sucursalId: input.sucursalId,
+    alias: input.alias
+      ? { equals: input.alias, mode: "insensitive" }
+      : null,
+    ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+  };
   const row = await prisma.cobrosPorSucursal.findFirst({
     where,
     select: { id: true },
@@ -216,8 +266,15 @@ async function validarCajaDestino(
 }
 
 export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalVista> {
-  const [sucursales, cajasRows, destinos, pagosRows, entidadesRows, vinculosRows] =
-    await Promise.all([
+  const [
+    sucursales,
+    cajasRows,
+    destinos,
+    pagosRows,
+    entidadesRows,
+    vinculosRows,
+    ptosVentaRows,
+  ] = await Promise.all([
       listarSucursalesCobrosPorSucursal(),
       prisma.cajaTesoreria.findMany({
         orderBy: [{ titular: "asc" }],
@@ -241,7 +298,10 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
           cajaDestinoId: true,
           generaIvaCredito: true,
           seguimientoFiscal: true,
+          ptoVtaId: true,
+          ptoVta: { select: { ptoVenta: true, titular: true } },
           esCheque: true,
+          alias: true,
           observacion: true,
           sucursal: { select: { nombre: true } },
           cajaDestino: {
@@ -258,7 +318,7 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       }),
       prisma.finAnaCosFinaPagoCat.findMany({
         orderBy: [{ nombre: "asc" }],
-        select: { id: true, nombre: true, fechaAcreditacionVariable: true },
+        select: { id: true, nombre: true, fechaAcreditacionVariable: true, alias: true },
       }),
       prisma.finAnaCosFinaTerminalMarca.findMany({
         orderBy: [{ nombre: "asc" }],
@@ -266,6 +326,10 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       }),
       prisma.cobrosFormaPagoEntidad.findMany({
         select: { pagoId: true, entidadId: true },
+      }),
+      prisma.globalPtoVta.findMany({
+        orderBy: [{ ptoVenta: "asc" }],
+        select: { id: true, ptoVenta: true, titular: true, estado: true },
       }),
     ]);
 
@@ -287,7 +351,10 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       cajaEtiqueta: d.cajaDestino ? etiquetaCajaLista(d.cajaDestino) : "",
       generaIvaCredito: d.generaIvaCredito,
       seguimientoFiscal: d.seguimientoFiscal,
+      ptoVtaId: d.ptoVtaId,
+      ptoVtaEtiqueta: d.ptoVta ? etiquetaPtoVta(d.ptoVta) : "",
       esCheque: d.esCheque,
+      alias: d.alias,
       observacion: d.observacion,
     }))
     .sort(sortFilas);
@@ -312,12 +379,18 @@ export async function listarVistaCobrosPorSucursal(): Promise<CobrosPorSucursalV
       id: p.id,
       nombre: p.nombre.toLocaleUpperCase("es-AR"),
       fechaAcreditacionVariable: p.fechaAcreditacionVariable,
+      alias: p.alias,
     })),
     entidades: entidadesRows.map((e) => ({
       id: e.id,
       nombre: e.nombre.toLocaleUpperCase("es-AR"),
     })),
     vinculosPagoEntidad: vinculosRows,
+    ptosVenta: ptosVentaRows.map((p) => ({
+      id: p.id,
+      etiqueta: etiquetaPtoVta(p),
+      activo: p.estado === "activo",
+    })),
   };
 }
 
@@ -329,11 +402,14 @@ export async function crearCobroPorSucursal(
 
     const pago = await prisma.finAnaCosFinaPagoCat.findUnique({
       where: { id: input.pagoId },
-      select: { id: true, nombre: true },
+      select: { id: true, nombre: true, alias: true },
     });
     if (!pago) {
       return { success: false, error: "Forma de pago inválida." };
     }
+    const aliasRes = resolverAlias(pago.alias, input.alias);
+    if (!aliasRes.success) return aliasRes;
+    const alias = aliasRes.data;
 
     const vinculos = await prisma.cobrosFormaPagoEntidad.findMany({
       where: { pagoId: input.pagoId },
@@ -359,6 +435,10 @@ export async function crearCobroPorSucursal(
     const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
 
+    const ptoVtaRes = await resolverPtoVta(input.seguimientoFiscal, input.ptoVtaId);
+    if (!ptoVtaRes.success) return ptoVtaRes;
+    const ptoVta = ptoVtaRes.data;
+
     const sucursal = await prisma.sucursal.findUnique({
       where: { id: input.sucursalId },
       select: { id: true, nombre: true },
@@ -371,9 +451,13 @@ export async function crearCobroPorSucursal(
       pagoId: input.pagoId,
       entidadId,
       sucursalId: input.sucursalId,
+      alias,
     });
     if (duplicado) {
-      return { success: false, error: mensajeDuplicado(Boolean(entidadId)) };
+      return {
+        success: false,
+        error: mensajeDuplicado(Boolean(entidadId), Boolean(alias)),
+      };
     }
 
     const created = await prisma.cobrosPorSucursal.create({
@@ -384,7 +468,9 @@ export async function crearCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
+        ptoVtaId: ptoVta?.id ?? null,
         esCheque: input.esCheque,
+        alias,
         observacion,
       },
       select: { id: true },
@@ -404,7 +490,10 @@ export async function crearCobroPorSucursal(
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
+        ptoVtaId: ptoVta?.id ?? null,
+        ptoVtaEtiqueta: ptoVta?.etiqueta ?? "",
         esCheque: input.esCheque,
+        alias,
         observacion,
       },
     };
@@ -430,16 +519,37 @@ export async function actualizarCobroPorSucursal(
         entidadId: true,
         sucursalId: true,
         sucursal: { select: { nombre: true } },
-        pago: { select: { nombre: true } },
+        pago: { select: { nombre: true, alias: true } },
         entidad: { select: { nombre: true } },
       },
     });
     if (!existente) {
       return { success: false, error: "Cobro no encontrado." };
     }
+    const aliasRes = resolverAlias(existente.pago.alias, input.alias);
+    if (!aliasRes.success) return aliasRes;
+    const alias = aliasRes.data;
+
+    const duplicado = await buscarDuplicado({
+      pagoId: existente.pagoId,
+      entidadId: existente.entidadId,
+      sucursalId: existente.sucursalId,
+      alias,
+      excludeId: existente.id,
+    });
+    if (duplicado) {
+      return {
+        success: false,
+        error: mensajeDuplicado(Boolean(existente.entidadId), Boolean(alias)),
+      };
+    }
 
     const cajaRes = await validarCajaDestino(input.cajaDestinoId, input.esCheque);
     if (!cajaRes.success) return cajaRes;
+
+    const ptoVtaRes = await resolverPtoVta(input.seguimientoFiscal, input.ptoVtaId);
+    if (!ptoVtaRes.success) return ptoVtaRes;
+    const ptoVta = ptoVtaRes.data;
 
     await prisma.cobrosPorSucursal.update({
       where: { id: existente.id },
@@ -447,7 +557,9 @@ export async function actualizarCobroPorSucursal(
         cajaDestinoId: cajaRes.data.id,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
+        ptoVtaId: ptoVta?.id ?? null,
         esCheque: input.esCheque,
+        alias,
         observacion,
       },
     });
@@ -468,7 +580,10 @@ export async function actualizarCobroPorSucursal(
         cajaEtiqueta: cajaRes.data.etiqueta,
         generaIvaCredito: input.generaIvaCredito,
         seguimientoFiscal: input.seguimientoFiscal,
+        ptoVtaId: ptoVta?.id ?? null,
+        ptoVtaEtiqueta: ptoVta?.etiqueta ?? "",
         esCheque: input.esCheque,
+        alias,
         observacion,
       },
     };

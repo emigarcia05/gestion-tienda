@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,6 +54,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
   const [editingItem, setEditingItem] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formEntidadIds, setFormEntidadIds] = useState<string[]>([]);
+  const [formAlias, setFormAlias] = useState(false);
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FinAnaCosFinaPagoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
@@ -100,6 +102,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
+    setFormAlias(false);
     setBorrarTarget(null);
     void cargar();
     // Solo al abrir: no resetear en refresh de props.
@@ -125,6 +128,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(null);
     setFormNombre("");
     setFormEntidadIds([]);
+    setFormAlias(false);
   }
 
   function abrirCrear() {
@@ -138,6 +142,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
     setEditingItem(item);
     setFormNombre(item.nombre);
     setFormEntidadIds([...item.entidadIds]);
+    setFormAlias(item.alias);
     setFormOpen(true);
   }
 
@@ -152,6 +157,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
           id: editingItem.id,
           nombre: formNombre,
           entidadIds: formEntidadIds,
+          alias: formAlias,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo guardar.");
@@ -162,6 +168,7 @@ export default function GestionarPagosFinAnaCosFinaModal({
         const res = await crearFinAnaCosFinaPagoAction({
           nombre: formNombre,
           entidadIds: formEntidadIds,
+          alias: formAlias,
         });
         if (!res.ok) {
           toast.error(res.error ?? "No se pudo crear la forma de pago.");
@@ -393,6 +400,12 @@ export default function GestionarPagosFinAnaCosFinaModal({
                 />
               )}
             </div>
+            <ModalSiNoChoice
+              label="ALIAS"
+              value={formAlias}
+              onChange={setFormAlias}
+              disabled={pending}
+            />
           </div>
         </AppModal>
       </Dialog>

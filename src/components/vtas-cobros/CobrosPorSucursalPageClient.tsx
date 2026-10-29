@@ -46,6 +46,7 @@ import type {
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalPagoCatalogo,
+  CobrosPorSucursalPtoVtaOption,
   CobrosPorSucursalSucursalCol,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
@@ -59,6 +60,7 @@ interface Props {
   pagos: CobrosPorSucursalPagoCatalogo[];
   entidades: CobrosPorSucursalCatalogoItem[];
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
+  ptosVenta: CobrosPorSucursalPtoVtaOption[];
   esEditor: boolean;
 }
 
@@ -74,6 +76,7 @@ export default function CobrosPorSucursalPageClient({
   pagos,
   entidades,
   vinculosPagoEntidad,
+  ptosVenta,
   esEditor,
 }: Props) {
   const [filas, setFilas] = useState(filasIniciales);
@@ -290,6 +293,9 @@ export default function CobrosPorSucursalPageClient({
                     OBSERVACIÓN
                   </TableHead>
                   <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>IVA CRED.</TableHead>
+                  <TableHead className={cn("min-w-[8rem]", TH_CLASS)}>
+                    SEGUIMIENTO FISCAL
+                  </TableHead>
                   {esEditor ? (
                     <TableHead className={cn("min-w-[6rem]", TH_CLASS)}>ACCIONES</TableHead>
                   ) : null}
@@ -299,7 +305,7 @@ export default function CobrosPorSucursalPageClient({
                 {filasFiltradas.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5 + (esEditor ? 1 : 0)}
+                      colSpan={6 + (esEditor ? 1 : 0)}
                       className="celda-datos text-center text-muted-foreground"
                     >
                       {filas.length === 0
@@ -327,6 +333,14 @@ export default function CobrosPorSucursalPageClient({
                       </TableCell>
                       <TableCell className="celda-datos text-center text-xs font-medium">
                         {fila.generaIvaCredito ? "SI" : "NO"}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center text-xs font-medium">
+                        {fila.seguimientoFiscal ? "SI" : "NO"}
+                        {fila.seguimientoFiscal && fila.ptoVtaEtiqueta ? (
+                          <span className="block text-[0.65rem] font-normal text-muted-foreground">
+                            {fila.ptoVtaEtiqueta}
+                          </span>
+                        ) : null}
                       </TableCell>
                       {esEditor ? (
                         <TableCell className="celda-datos celda-datos--accion-relleno-fila">
@@ -392,6 +406,7 @@ export default function CobrosPorSucursalPageClient({
         vinculosPagoEntidad={vinculosPagoEntidad}
         cajas={cajas}
         sucursales={sucursales}
+        ptosVenta={ptosVenta}
         onSaved={handleSaved}
       />
 

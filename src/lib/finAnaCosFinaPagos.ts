@@ -21,6 +21,8 @@ export type FinAnaCosFinaPagoItem = {
   entidadNombres: string[];
   /** El cobro pide la fecha de acreditación a mano (también true si el vínculo de esa sucursal es cheque). */
   fechaAcreditacionVariable: boolean;
+  /** `cobros_forma_pago.alias`. */
+  alias: boolean;
   /**
    * Overlay de `cobros_vinc_cajas.es_cheque` al listar formas de una sucursal.
    * En el catálogo global queda false.

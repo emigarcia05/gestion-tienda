@@ -8,6 +8,7 @@ import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import {
   Select,
@@ -26,6 +27,7 @@ import type {
   CobrosPorSucursalCatalogoItem,
   CobrosPorSucursalFila,
   CobrosPorSucursalPagoCatalogo,
+  CobrosPorSucursalPtoVtaOption,
   CobrosPorSucursalSucursalCol,
   CobrosPorSucursalVinculoPagoEntidad,
 } from "@/services/cobrosPorSucursal.service";
@@ -42,6 +44,7 @@ interface Props {
   vinculosPagoEntidad: CobrosPorSucursalVinculoPagoEntidad[];
   cajas: CobrosPorSucursalCajaOption[];
   sucursales: CobrosPorSucursalSucursalCol[];
+  ptosVenta: CobrosPorSucursalPtoVtaOption[];
   onSaved: (fila: CobrosPorSucursalFila) => void;
 }
 
@@ -55,6 +58,7 @@ export default function CrearEditarCobroModal({
   vinculosPagoEntidad,
   cajas,
   sucursales,
+  ptosVenta,
   onSaved,
 }: Props) {
   const [pagoId, setPagoId] = useState("");
@@ -63,13 +67,16 @@ export default function CrearEditarCobroModal({
   const [cajaDestinoId, setCajaDestinoId] = useState("");
   const [generaIvaCredito, setGeneraIvaCredito] = useState(false);
   const [seguimientoFiscal, setSeguimientoFiscal] = useState(false);
+  const [ptoVtaId, setPtoVtaId] = useState("");
   const [esCheque, setEsCheque] = useState(false);
+  const [alias, setAlias] = useState("");
   const [observacion, setObservacion] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
   const esEditar = mode === "editar";
   const muestraEntidad = vinculosPagoEntidad.some((v) => v.pagoId === pagoId);
+  const pagoUsaAlias = pagos.some((p) => p.id === pagoId && p.alias);
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +87,9 @@ export default function CrearEditarCobroModal({
       setCajaDestinoId(fila.cajaDestinoId ?? "");
       setGeneraIvaCredito(fila.generaIvaCredito);
       setSeguimientoFiscal(fila.seguimientoFiscal);
+      setPtoVtaId(fila.ptoVtaId ?? "");
       setEsCheque(fila.esCheque);
+      setAlias(fila.alias ?? "");
       setObservacion(fila.observacion);
       return;
     }
@@ -90,7 +99,9 @@ export default function CrearEditarCobroModal({
     setCajaDestinoId("");
     setGeneraIvaCredito(false);
     setSeguimientoFiscal(false);
+    setPtoVtaId("");
     setEsCheque(false);
+    setAlias("");
     setObservacion("");
   }, [open, esEditar, fila]);
 
@@ -103,6 +114,11 @@ export default function CrearEditarCobroModal({
     );
     return entidades.filter((e) => ids.has(e.id));
   }, [pagoId, entidades, vinculosPagoEntidad]);
+
+  const ptosVentaDisponibles = useMemo(
+    () => ptosVenta.filter((p) => p.activo || p.id === ptoVtaId),
+    [ptosVenta, ptoVtaId]
+  );
 
   const cajasDisponibles = useMemo(() => {
     if (!pagoId) return [];
@@ -134,7 +150,9 @@ export default function CrearEditarCobroModal({
     pagoId.trim().length === 0 ||
     (muestraEntidad && entidadId.trim().length === 0) ||
     sucursalId.trim().length === 0 ||
-    cajaDestinoId.trim().length === 0;
+    cajaDestinoId.trim().length === 0 ||
+    (seguimientoFiscal && ptoVtaId.length === 0) ||
+    (pagoUsaAlias && alias.trim().length === 0);
 
   async function handleSubmit() {
     if (disabledSubmit) return;
@@ -146,7 +164,9 @@ export default function CrearEditarCobroModal({
             cajaDestinoId,
             generaIvaCredito,
             seguimientoFiscal,
+            ptoVtaId: seguimientoFiscal ? ptoVtaId : null,
             esCheque,
+            alias: pagoUsaAlias ? alias : "",
             observacion,
           })
         : await crearCobroPorSucursalAction({
@@ -156,7 +176,9 @@ export default function CrearEditarCobroModal({
             cajaDestinoId,
             generaIvaCredito,
             seguimientoFiscal,
+            ptoVtaId: seguimientoFiscal ? ptoVtaId : null,
             esCheque,
+            alias: pagoUsaAlias ? alias : "",
             observacion,
           });
       if (!res.ok) {
@@ -211,6 +233,7 @@ export default function CrearEditarCobroModal({
               onValueChange={(value) => {
                 setPagoId(value);
                 setEsCheque(false);
+                setAlias("");
                 setEntidadId("");
                 setSucursalId("");
                 setCajaDestinoId("");
@@ -329,9 +352,58 @@ export default function CrearEditarCobroModal({
           <ModalSiNoChoice
             label="SEGUIMIENTO FISCAL"
             value={seguimientoFiscal}
-            onChange={setSeguimientoFiscal}
+            onChange={(value) => {
+              setSeguimientoFiscal(value);
+              if (!value) setPtoVtaId("");
+            }}
             disabled={saving}
           />
+
+          {seguimientoFiscal ? (
+            <div className="flex flex-col gap-1.5">
+              <ModalMicroLabel>PTO. VTA.</ModalMicroLabel>
+              <Select
+                value={ptoVtaId || undefined}
+                onValueChange={setPtoVtaId}
+                disabled={saving}
+              >
+                <SelectTrigger
+                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                  aria-label="Punto de venta"
+                >
+                  <SelectValue placeholder="Seleccionar punto de venta" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  side="bottom"
+                  align="start"
+                  className="select-content-filtro"
+                >
+                  {ptosVentaDisponibles.map((pto) => (
+                    <SelectItem key={pto.id} value={pto.id}>
+                      {pto.etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1.5">
+            <ModalMicroLabel>ALIAS</ModalMicroLabel>
+            <Input
+              value={pagoUsaAlias ? alias : ""}
+              onChange={(e) => setAlias(e.target.value)}
+              disabled={saving || !pagoUsaAlias}
+              required={pagoUsaAlias}
+              aria-required={pagoUsaAlias}
+              maxLength={100}
+              placeholder={
+                pagoUsaAlias ? "Obligatorio" : "La forma de pago no usa alias"
+              }
+              aria-label="Alias"
+            />
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>OBSERVACIÓN</ModalMicroLabel>

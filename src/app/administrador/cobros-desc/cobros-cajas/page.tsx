@@ -23,6 +23,7 @@ export default async function VtasCobrosPorSucursalPage() {
       pagos={vista.pagos}
       entidades={vista.entidades}
       vinculosPagoEntidad={vista.vinculosPagoEntidad}
+      ptosVenta={vista.ptosVenta}
       esEditor={rol === "editor"}
     />
   );

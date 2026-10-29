@@ -490,6 +490,7 @@ model GlobalPtoVta {
 
   sucursales       PtoVtaSucursal[]
   comprobantesVtas ComprobanteVta[]
+  cobrosVincCajas  CobrosPorSucursal[]
 
   @@index([condicionIva], map: "ptos_vtas_condicion_iva_idx")
   @@index([titular], map: "ptos_vtas_titular_idx")
@@ -2121,6 +2122,10 @@ model FinAnaCosFinaPagoCat {
    * Si true, la fecha de acreditación del cobro se elige al registrar (no fija por `dias_acreditacion`).
    */
   fechaAcreditacionVariable Boolean  @default(false) @map("fecha_acreditacion_variable")
+  /**
+   * Marca ALIAS de la forma de pago. Se edita en Crear / Editar Forma De Pago.
+   */
+  alias                     Boolean  @default(false) @map("alias")
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
@@ -2365,10 +2370,19 @@ model CobrosPorSucursal {
    */
   seguimientoFiscal Boolean                 @default(false) @map("seguimiento_fiscal")
   /**
+   * Punto de venta asociado. Obligatorio si `seguimientoFiscal`; si no, null.
+   */
+  ptoVtaId      String?                     @map("pto_vta_id")
+  ptoVta        GlobalPtoVta?               @relation(fields: [ptoVtaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  /**
    * Si true, este cobro (esta sucursal) crea un cheque en `tesoreria_cheques`.
    * La caja destino debe tener `recibe_cheque`. No se hereda a otras sucursales.
    */
   esCheque      Boolean                     @default(false) @map("es_cheque")
+  /**
+   * ALIAS del cobro. Obligatorio si la forma de pago tiene `alias = true`; si no, null.
+   */
+  alias         String?                     @map("alias") @db.Text
   /**
    * Texto libre de la fila.
    */
@@ -2379,6 +2393,7 @@ model CobrosPorSucursal {
   @@index([sucursalId], map: "cobros_vinc_cajas_sucursal_idx")
   @@index([cajaDestinoId], map: "cobros_vinc_cajas_caja_destino_idx")
   @@index([entidadId], map: "cobros_vinc_cajas_entidad_idx")
+  @@index([ptoVtaId], map: "cobros_vinc_cajas_pto_vta_idx")
   @@map("cobros_vinc_cajas")
 }
 
