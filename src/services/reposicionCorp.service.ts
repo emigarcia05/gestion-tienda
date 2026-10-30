@@ -147,6 +147,31 @@ export async function deleteReglaReposicionCorp(
   }
 }
 
+const SELECTOR_REPOSICION_CORP_LIMIT = 300;
+
+/**
+ * Productos de `prod_lista` (habilitados) para sumar a la misma regla corporativa.
+ * Sin requisito de sucursal ni proveedor. Con `bultoReferencia` (POR_BULTO) solo bulto vacío o igual:
+ * al guardar se persiste ese bulto en cada producto.
+ */
+export async function listarProductosSelectorReposicionCorp(input: {
+  q: string;
+  bultoReferencia: number | null;
+}): Promise<{ codTienda: string; descripcionTienda: string | null }[]> {
+  const parts: Prisma.ProdPropioWhereInput[] = [{ habilitado: true }];
+  const textFilter = filtroTexto(input.q, ["descripcionTienda", "codTienda"]);
+  if (textFilter.AND?.length) parts.push(textFilter);
+  if (input.bultoReferencia != null) {
+    parts.push({ OR: [{ bulto: null }, { bulto: input.bultoReferencia }] });
+  }
+  return prisma.prodPropio.findMany({
+    where: { AND: parts },
+    orderBy: { descripcionTienda: "asc" },
+    take: SELECTOR_REPOSICION_CORP_LIMIT,
+    select: { codTienda: true, descripcionTienda: true },
+  });
+}
+
 /** Crea la fila REPOSICION de sucursal si no existe (mismo valor que el piso). No pisa overrides. */
 export async function asegurarFilasReposicionSucursalDesdeCorp(
   codTienda: string,

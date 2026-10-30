@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Search, Check } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -25,20 +26,43 @@ import {
 } from "@/components/ui/table";
 import { getProductosReposicionSelector, type ItemSelectorReposicion } from "@/actions/reposicion";
 import type { SucursalReposicion } from "@/actions/reposicion";
+import { getProductosSelectorReposicionCorpAction } from "@/actions/reposicionCorp";
 import { FiltroIndividualContainer } from "@/components/FilterBar";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  sucursal: SucursalReposicion;
+  /** `corp`: todo `prod_lista` habilitado (sin sucursal ni proveedor). */
+  modo?: "sucursal" | "corp";
+  sucursal?: SucursalReposicion;
+  /** Solo con POR_BULTO: limita a productos con bulto vacío o igual. */
   bultoReferencia: number | null;
   onConfirmar: (seleccionados: ItemSelectorReposicion[]) => void;
   excludeIds?: string[];
 }
 
+async function buscarProductos(
+  modo: "sucursal" | "corp",
+  sucursal: SucursalReposicion | undefined,
+  q: string,
+  bultoReferencia: number | null
+): Promise<ItemSelectorReposicion[]> {
+  if (modo === "corp") {
+    const res = await getProductosSelectorReposicionCorpAction({ q, bultoReferencia });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudieron cargar los productos.");
+      return [];
+    }
+    return res.data;
+  }
+  if (!sucursal) return [];
+  return getProductosReposicionSelector({ sucursal, q, bultoReferencia });
+}
+
 export default function SelectorProductosReposicionModal({
   open,
   onOpenChange,
+  modo = "sucursal",
   sucursal,
   bultoReferencia,
   onConfirmar,
@@ -48,50 +72,55 @@ export default function SelectorProductosReposicionModal({
   const [debouncedQ, setDebouncedQ] = useState("");
   const [items, setItems] = useState<ItemSelectorReposicion[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /** Persiste entre búsquedas: se puede tildar en varias búsquedas antes de Agregar. */
+  const [selected, setSelected] = useState<Map<string, ItemSelectorReposicion>>(new Map());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300);
     return () => clearTimeout(t);
   }, [q]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const list = await getProductosReposicionSelector({
-      sucursal,
-      q: debouncedQ,
-      bultoReferencia,
-    });
-    setItems(list);
-    setLoading(false);
-  }, [sucursal, debouncedQ, bultoReferencia]);
-
   useEffect(() => {
-    if (open) queueMicrotask(() => void load());
-  }, [open, load]);
+    if (!open) return;
+    let cancelado = false;
+    queueMicrotask(() => {
+      if (cancelado) return;
+      setLoading(true);
+      void buscarProductos(modo, sucursal, debouncedQ, bultoReferencia).then((list) => {
+        if (cancelado) return;
+        setItems(list);
+        setLoading(false);
+      });
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [open, modo, sucursal, debouncedQ, bultoReferencia]);
 
   const toggle = (item: ItemSelectorReposicion) => {
     const key = item.idListaTienda;
-    if (excludeIds.includes(item.idListaTienda)) return;
+    if (excludeIds.includes(key)) return;
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(key)) next.delete(key);
-      else next.add(key);
+      else next.set(key, item);
       return next;
     });
   };
 
-  const handleConfirmar = () => {
-    const list = items.filter((it) => selected.has(it.idListaTienda));
-    onConfirmar(list);
-    setSelected(new Set());
+  const reiniciar = () => {
+    setSelected(new Map());
     setQ("");
+  };
+
+  const handleConfirmar = () => {
+    onConfirmar([...selected.values()]);
+    reiniciar();
     onOpenChange(false);
   };
 
   const handleCerrar = () => {
-    setSelected(new Set());
-    setQ("");
+    reiniciar();
     onOpenChange(false);
   };
 
@@ -99,10 +128,7 @@ export default function SelectorProductosReposicionModal({
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (!o) {
-          setSelected(new Set());
-          setQ("");
-        }
+        if (!o) reiniciar();
         onOpenChange(o);
       }}
     >
@@ -124,10 +150,11 @@ export default function SelectorProductosReposicionModal({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   type="text"
-                  placeholder="BUSCAR POR DESCRIPCIÓN..."
+                  placeholder="BUSCAR POR DESCRIPCIÓN O CÓDIGO..."
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   className="pl-9 input-filtro-unificado w-full"
+                  autoFocus
                 />
               </div>
             </FiltroIndividualContainer>
@@ -191,7 +218,7 @@ export default function SelectorProductosReposicionModal({
                       items.map((item) => {
                         const key = item.idListaTienda;
                         const isSelected = selected.has(key);
-                        const disabled = excludeIds.includes(item.idListaTienda);
+                        const disabled = excludeIds.includes(key);
                         return (
                           <TableRow
                             key={key}
@@ -211,6 +238,7 @@ export default function SelectorProductosReposicionModal({
                                 aria-label={isSelected ? "Deseleccionar" : "Seleccionar"}
                                 aria-checked={isSelected}
                                 role="checkbox"
+                                disabled={disabled}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!disabled) toggle(item);
@@ -237,8 +265,8 @@ export default function SelectorProductosReposicionModal({
             <Button type="button" variant="outline" onClick={handleCerrar}>
               Cancelar
             </Button>
-            <Button type="button" onClick={handleConfirmar}>
-              Agregar
+            <Button type="button" onClick={handleConfirmar} disabled={selected.size === 0}>
+              {selected.size > 0 ? `Agregar (${selected.size})` : "Agregar"}
             </Button>
           </div>
         </div>

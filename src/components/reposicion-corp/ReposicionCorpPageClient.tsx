@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import FiltrosReposicionCorp from "@/components/reposicion-corp/FiltrosReposicionCorp";
@@ -135,7 +135,7 @@ export default function ReposicionCorpPageClient({
                 <col className="w-[14%]" />
                 <col className="w-[10%]" />
                 <col className="w-[10%]" />
-                <col className="w-[6%]" />
+                <col className="w-[8%]" />
               </colgroup>
               <TableHeader>
                 <TableRow>
@@ -143,7 +143,7 @@ export default function ReposicionCorpPageClient({
                   <TableHead className="text-center">FORMA</TableHead>
                   <TableHead className="text-center">PTO.</TableHead>
                   <TableHead className="text-center">CANT.</TableHead>
-                  <TableHead className="text-center" aria-label="Acciones" />
+                  <TableHead className="text-center">ACCIONES</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -151,11 +151,7 @@ export default function ReposicionCorpPageClient({
                   <EmptyTableRow colSpan={5} message="No hay productos para mostrar." />
                 ) : (
                   items.map((row) => (
-                    <TableRow
-                      key={row.codTienda}
-                      className="cursor-pointer"
-                      onDoubleClick={() => abrirConfigurar(row)}
-                    >
+                    <TableRow key={row.codTienda}>
                       <TableCell className="celda-datos text-left">
                         {fmtCelda(row.descripcionTienda)}
                       </TableCell>
@@ -171,24 +167,31 @@ export default function ReposicionCorpPageClient({
                         {row.configurado ? fmtNumero(row.cant) : ""}
                       </TableCell>
                       <TableCell className="celda-datos text-center">
-                        {row.configurado ? (
-                          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS)}
-                              aria-label="Borrar configuración corporativa"
-                              disabled={borrando === row.codTienda}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void borrarConfig(row);
-                              }}
-                            >
-                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} />
-                            </Button>
-                          </div>
-                        ) : null}
+                        <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS)}
+                            aria-label="Editar configuración corporativa"
+                            title="Editar"
+                            onClick={() => abrirConfigurar(row)}
+                          >
+                            <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS)}
+                            aria-label="Borrar configuración corporativa"
+                            title={row.configurado ? "Borrar" : "Sin configuración para borrar"}
+                            disabled={!row.configurado || borrando === row.codTienda}
+                            onClick={() => void borrarConfig(row)}
+                          >
+                            <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

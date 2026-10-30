@@ -286,6 +286,8 @@ interface CamposProps {
   disabled?: boolean;
   /** Usa `item.pisoCorp` como mínimo duro de PUNTO y CANT. (no en modo corporativo). */
   aplicarPisoCorp?: boolean;
+  /** `corp`: el selector «+» busca en todo `prod_lista` (sin sucursal). */
+  modo?: "sucursal" | "corp";
 }
 
 /** Regla corporativa en una línea compacta de solo lectura (debajo de los campos). */
@@ -348,6 +350,7 @@ export default function ReposicionConfigCampos({
   sucursal,
   disabled = false,
   aplicarPisoCorp = false,
+  modo = "sucursal",
 }: CamposProps) {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const {
@@ -555,10 +558,11 @@ export default function ReposicionConfigCampos({
       <SelectorProductosReposicionModal
         open={selectorOpen}
         onOpenChange={setSelectorOpen}
-        sucursal={sucursal ?? "guaymallen"}
-        bultoReferencia={esFormaBulto ? unidadesPorBulto : item.bulto ?? null}
+        modo={modo}
+        sucursal={sucursal}
+        bultoReferencia={esFormaBulto ? unidadesPorBulto : null}
         onConfirmar={form.agregarProductos}
-        excludeIds={[item.idListaTienda]}
+        excludeIds={[item.idListaTienda, ...productosAdicionales.map((p) => p.idListaTienda)]}
       />
     </>
   );

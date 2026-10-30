@@ -124,6 +124,12 @@ export const deleteReglaReposicionCorpSchema = z.object({
   codTienda: z.string().min(1, "Código tienda requerido"),
 });
 
+/** Selector «Seleccionar Productos» de CONFIGURAR REPOSICIÓN CORP. (`bultoReferencia` solo con POR_BULTO). */
+export const productosReposicionCorpSelectorSchema = z.object({
+  q: z.string().max(500).optional().default(""),
+  bultoReferencia: z.number().int().min(1).max(1_000_000).nullable().optional().default(null),
+});
+
 export const productosReposicionSelectorSchema = z.object({
   q: z.string().max(500).optional().default(""),
   bulto: z

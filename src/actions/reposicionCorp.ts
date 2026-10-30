@@ -7,12 +7,15 @@ import { APP_ROUTES } from "@/lib/appRoutes";
 import { REVALIDATE_CX_COMPRA } from "@/lib/gestionProductosRoutes";
 import {
   deleteReglaReposicionCorpSchema,
+  productosReposicionCorpSelectorSchema,
   upsertReglaReposicionCorpSchema,
 } from "@/lib/validations/reposicion";
 import {
   deleteReglaReposicionCorp,
+  listarProductosSelectorReposicionCorp,
   upsertReglaReposicionCorp,
 } from "@/services/reposicionCorp.service";
+import type { ItemSelectorReposicion } from "@/actions/reposicion";
 
 const REPOSICION_CORP_PATH = APP_ROUTES.administrador.reposicionCorp.reposicionCorp;
 
@@ -36,6 +39,30 @@ export async function upsertReglaReposicionCorpAction(
     }
   }
   return { ok: true, data: undefined };
+}
+
+export async function getProductosSelectorReposicionCorpAction(
+  raw: unknown
+): Promise<ActionResult<ItemSelectorReposicion[]>> {
+  const gate = await requireEditorReposicionCorp();
+  if (gate) return gate;
+  const parsed = productosReposicionCorpSelectorSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Búsqueda inválida." };
+  try {
+    const rows = await listarProductosSelectorReposicionCorp(parsed.data);
+    return {
+      ok: true,
+      data: rows.map((r) => ({
+        idListaTienda: r.codTienda,
+        codExt: "",
+        codTienda: r.codTienda,
+        descripcionTienda: r.descripcionTienda,
+      })),
+    };
+  } catch (e: unknown) {
+    console.error("[reposicionCorp] getProductosSelectorReposicionCorpAction:", e);
+    return { ok: false, error: "No se pudieron cargar los productos." };
+  }
 }
 
 export async function deleteReglaReposicionCorpAction(

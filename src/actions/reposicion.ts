@@ -425,7 +425,8 @@ const getProductosReposicionSelectorSchema = z.object({
 
 /**
  * Productos de lista_tienda con proveedor para el selector del modal "Agregar configuración".
- * Incluye ítems con `bulto` vacío o con el mismo `bultoReferencia` (al guardar se persiste ese valor).
+ * Con `bultoReferencia` (solo POR_BULTO) incluye ítems con `bulto` vacío o igual (al guardar se persiste ese valor);
+ * sin él no filtra por bulto.
  * Búsqueda por descripción; máximo SELECTOR_LIMIT resultados.
  */
 export async function getProductosReposicionSelector(
@@ -438,12 +439,12 @@ export async function getProductosReposicionSelector(
   const { sucursal, bultoReferencia } = parsed.data;
   if (!sucursal) return [];
   if (!(await sucursalPedidoHabilitada(sucursal))) return [];
-  if (bultoReferencia == null) return [];
   const parsedQ = productosReposicionSelectorSchema.safeParse({ q: parsed.data.q });
   const qNorm = parsedQ.success ? parsedQ.data.q : "";
 
   const textFilter = filtroTexto(qNorm, ["descripcionTienda", "codTienda"]);
   const whereParts: Prisma.ProdPropioWhereInput[] = [
+    { habilitado: true },
     {
       listaPreciosProveedores: {
         some: {
@@ -452,10 +453,10 @@ export async function getProductosReposicionSelector(
         },
       },
     },
-    {
-      OR: [{ bulto: null }, { bulto: bultoReferencia }],
-    },
   ];
+  if (bultoReferencia != null) {
+    whereParts.push({ OR: [{ bulto: null }, { bulto: bultoReferencia }] });
+  }
   if (textFilter.AND?.length) whereParts.push(textFilter);
   const where: Prisma.ProdPropioWhereInput = { AND: whereParts };
 
