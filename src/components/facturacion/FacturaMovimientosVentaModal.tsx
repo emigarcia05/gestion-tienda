@@ -35,12 +35,16 @@ type AccionTransferencia = "nada" | "transferir" | "proveedor";
 type AccionCompra = "nada" | "comprar";
 
 const OPCIONES_TRANSFERENCIA: { value: AccionTransferencia; lineas: [string, string] }[] = [
-  { value: "nada", lineas: ["Ni transferencia", "ni compra"] },
+  { value: "nada", lineas: ["Ni transf.", "ni comprar"] },
   { value: "transferir", lineas: ["Pedir", "transferencia"] },
   { value: "proveedor", lineas: ["Pedir", "a proveedor"] },
 ];
 
 const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
+/** Botón de opción en dos renglones (control segmentado de TRANSFERENCIAS y botón de COMPRAS). */
+const OPCION_BTN_CLASS =
+  "h-auto min-h-10 flex-col gap-0 whitespace-normal rounded-none px-2 py-1 text-xs font-semibold uppercase leading-tight shadow-none";
+const OPCION_BTN_INACTIVA_CLASS = "text-primary hover:text-primary";
 const FILA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_8rem_22rem] items-center gap-3";
 const FILA_COMPRA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_8rem_11rem_13rem] items-center gap-3";
 
@@ -95,10 +99,7 @@ function OpcionesAccion<T extends string>({
             role="radio"
             aria-checked={elegida}
             variant={elegida ? "default" : "ghost"}
-            className={cn(
-              "h-auto min-h-10 flex-col gap-0 whitespace-normal rounded-none px-2 py-1 text-xs font-semibold uppercase leading-tight shadow-none",
-              !elegida && "text-primary hover:text-primary"
-            )}
+            className={cn(OPCION_BTN_CLASS, !elegida && OPCION_BTN_INACTIVA_CLASS)}
             disabled={disabled}
             onClick={() => onChange(o.value)}
           >
@@ -169,9 +170,15 @@ function CantidadEditable({
   );
 }
 
+/** `detalle` va debajo; un renglón invisible igual arriba deja la descripción centrada con CANT. */
 function CeldaItem({ item, detalle }: { item: ItemMovimientoVenta; detalle?: string }) {
   return (
     <span className="min-w-0 text-left text-sm text-foreground">
+      {detalle ? (
+        <span aria-hidden className="invisible block text-xs">
+          {detalle}
+        </span>
+      ) : null}
       <span className="tabular-nums text-muted-foreground">{item.codTienda}</span>{" "}
       <span className="uppercase">{item.descripcion}</span>
       {item.colores.length > 0 ? (
@@ -194,7 +201,7 @@ interface Props {
 
 /**
  * Tras registrar una venta: ítems que la sucursal no cubre. **TRANSFERENCIAS** (por sucursal origen:
- * Ni transferencia ni compra / Pedir transferencia / Pedir a proveedor, sin opción por defecto) y
+ * Ni transf. ni comprar / Pedir transferencia / Pedir a proveedor, sin opción por defecto) y
  * **COMPRAS** (botón conmutable → suma al PEDIDO URGENTE; con varios proveedores, elegir a cuál).
  */
 export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan, sucursalDestino }: Props) {
@@ -280,6 +287,11 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
 
   if (!plan || !sucursalDestino) return null;
 
+  const cantItemsSinStock = new Set([
+    ...plan.transferencias.flatMap((g) => g.items.map((i) => i.codTienda)),
+    ...plan.compras.map((i) => i.codTienda),
+  ]).size;
+
   const hayPendiente =
     plan.transferencias.some((g) =>
       g.items.some((i) => {
@@ -288,7 +300,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
       })
     ) || compras.some((c) => accCompra[c.codTienda] === "comprar" && !hechos.has(`c|${c.codTienda}`));
 
-  /** Cada transferencia necesita una decisión explícita (incluida «Ni transferencia ni compra»). */
+  /** Cada transferencia necesita una decisión explícita (incluida «Ni transf. ni comprar»). */
   const todasDecididas = plan.transferencias.every((g) =>
     g.items.every((i) => accTransf[claveTransf(g.origenCodigo, i.codTienda)] != null)
   );
@@ -491,6 +503,15 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
         }
       >
         <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1 text-center">
+            <p className="text-sm font-semibold text-foreground">¡La compra se ha registrado correctamente!</p>
+            <p className="text-sm text-muted-foreground">
+              {cantItemsSinStock === 1
+                ? "Existe un ítem que no tiene el stock suficiente para completar la entrega."
+                : "Existen ítems que no tienen el stock suficiente para completar la entrega."}{" "}
+              Determinar la forma de completar la mercadería.
+            </p>
+          </div>
           {plan.transferencias.length > 0 ? (
             <section className="modal-seccion-formulario flex flex-col gap-3">
               <h3 className={SECCION_TITULO_CLASS}>TRANSFERENCIAS</h3>
@@ -587,14 +608,18 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                       </span>
                       <Button
                         type="button"
-                        size="sm"
                         aria-pressed={accion === "comprar"}
-                        variant={accion === "comprar" ? "default" : "outline"}
-                        className={cn("w-full", accion !== "comprar" && "border-primary")}
+                        variant={accion === "comprar" ? "default" : "ghost"}
+                        className={cn(
+                          OPCION_BTN_CLASS,
+                          "w-full rounded-md border border-primary",
+                          accion !== "comprar" && OPCION_BTN_INACTIVA_CLASS
+                        )}
                         disabled={pending || hecho}
                         onClick={() => elegirAccionCompra(c.codTienda, accion === "comprar" ? "nada" : "comprar")}
                       >
-                        {esCompraTintometrica(c) ? "AGREGAR A TINTOMETRICO" : "AGREGAR A PED. URGENTE"}
+                        <span>Agregar a</span>
+                        <span>{esCompraTintometrica(c) ? "Tintométrico" : "Ped. urgente"}</span>
                       </Button>
                     </div>
                   );
