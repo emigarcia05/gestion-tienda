@@ -1686,7 +1686,7 @@
   max-width: 8cqw;
   box-shadow: 2px 0 0 0 var(--border);
 }
-.tabla-px-listas-precios tbody td.celda-px-listas-col-fija.celda-px-listas-actualizar {
+.tabla-px-listas-precios tbody td.celda-px-listas-col-fija.celda-px-listas-pendiente {
   background-color: color-mix(in srgb, var(--accent2) 22%, var(--tabla-row-bg, var(--card)));
 }
 
@@ -1769,8 +1769,8 @@
   cursor: pointer;
 }
 
-/* Px Listas: celdas pendientes de actualizar en DUX (margen manual ≠ margen DUX). */
-.tabla-px-listas-precios tbody td.celda-px-listas-actualizar {
+/* Px Listas: valor en pantalla distinto al de la BD (pendiente de «Guardar Cambios»). */
+.tabla-px-listas-precios tbody td.celda-px-listas-pendiente {
   background-color: color-mix(in srgb, var(--accent2) 22%, transparent);
 }
 

@@ -25,18 +25,33 @@ const pxListaEdicionSchema = z
   .positive("El precio debe ser mayor a cero.")
   .max(999_999_999, "Precio demasiado alto.");
 
-/** Guardar margen en UI → persiste PX en `prod_listas_precios_edicion`. `margenManual: null` elimina staging. */
-export const guardarPxListaMargenEdicionSchema = z.object({
+const cambioPxListasBase = {
   codTienda: listaPreciosCodTiendaSchema,
   idLista: z.coerce.number().int().positive("Lista inválida."),
-  margenManual: z.union([margenListaTiendaSchema, z.null()]),
-});
+};
 
-/** Guardar PX entero en UI → persiste staging y deriva margen %. `pxEdicion: null` elimina staging. */
-export const guardarPxListaPrecioEdicionSchema = z.object({
-  codTienda: listaPreciosCodTiendaSchema,
-  idLista: z.coerce.number().int().positive("Lista inválida."),
-  pxEdicion: z.union([pxListaEdicionSchema, z.null()]),
+/** Cambio pendiente de una celda (PX o PORC. UTILIDAD); `null` elimina el staging. */
+export const cambioPxListasSchema = z.discriminatedUnion("tipo", [
+  z.object({
+    ...cambioPxListasBase,
+    tipo: z.literal("px"),
+    pxEdicion: z.union([pxListaEdicionSchema, z.null()]),
+  }),
+  z.object({
+    ...cambioPxListasBase,
+    tipo: z.literal("margen"),
+    margenManual: z.union([margenListaTiendaSchema, z.null()]),
+  }),
+]);
+
+export type CambioPxListas = z.infer<typeof cambioPxListasSchema>;
+
+/** **Guardar Cambios** de Px Listas: todos los pendientes en una llamada. */
+export const guardarPxListasCambiosSchema = z.object({
+  cambios: z
+    .array(cambioPxListasSchema)
+    .min(1, "No hay cambios para guardar.")
+    .max(2000, "Demasiados cambios en una sola vez."),
 });
 
 /** Competidor de referencia para **1 - GENERAL**. `"-"` / null = sin referencia (no toca PX). */

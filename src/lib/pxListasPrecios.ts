@@ -21,8 +21,6 @@ export type PrecioListaPxListasCelda = {
   pxEfectivo: number | null;
   /** Margen % mostrado: manual si existe; si no, margen DUX. */
   margenPct: number | null;
-  /** `true` si hay PX en staging (`prod_listas_precios_edicion`) pendiente de Act. Px. */
-  requiereActualizar: boolean;
 };
 
 export type ItemPxListasPreciosTabla = {

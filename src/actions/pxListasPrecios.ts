@@ -8,121 +8,44 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
 import {
   guardarPxListaCompetenciaRefSchema,
-  guardarPxListaMargenEdicionSchema,
-  guardarPxListaPrecioEdicionSchema,
+  guardarPxListasCambiosSchema,
 } from "@/lib/validations/pxListasPrecios";
+import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
 import {
-  guardarCompetenciaRefPxListaGeneral,
-  limpiarCompetenciaRefSiListaGeneral,
-} from "@/services/pxListasCompetenciaRef.service";
-import {
-  guardarPrecioListaEdicionDesdeMargen,
-  guardarPrecioListaEdicionDesdePx,
-} from "@/services/pxListasPrecioEdicion.service";
+  guardarCambiosPxListasLote,
+  type ResultadoCambioPxListas,
+} from "@/services/pxListasCambiosLote.service";
 function revalidatePxListasPaths() {
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
 }
 
-/** Persiste PX staging en `prod_listas_precios_edicion` desde margen % (o elimina con `margenManual: null`). */
-export async function guardarPxListaMargenEdicionAction(
+/**
+ * **Guardar Cambios** de Px Listas: persiste en `prod_listas_precios_edicion` todos los cambios
+ * pendientes de la pantalla (PX o PORC. UTILIDAD; `null` elimina el staging). Resultado por celda.
+ */
+export async function guardarPxListasCambiosAction(
   raw: unknown
-): Promise<
-  ActionResult<{
-    margenManual: number | null;
-    pxEdicion: number | null;
-    pxEfectivo: number | null;
-  }>
-> {
+): Promise<ActionResult<{ resultados: ResultadoCambioPxListas[] }>> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
     return { ok: false, error: "Sin acceso." };
   }
 
-  const parsed = guardarPxListaMargenEdicionSchema.safeParse(raw);
+  const parsed = guardarPxListasCambiosSchema.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.flatten().fieldErrors;
     const first =
-      Object.values(msg).flat()[0] ?? "Datos de margen inválidos.";
+      parsed.error.issues[0]?.message ?? "Datos de cambios inválidos.";
     return { ok: false, error: first };
   }
 
   try {
-    const { codTienda, idLista, margenManual } = parsed.data;
-    const res = await guardarPrecioListaEdicionDesdeMargen(
-      codTienda,
-      idLista,
-      margenManual
-    );
-    if (!res.success) {
-      return { ok: false, error: res.error };
-    }
-    /** Edición manual de PORC. en GENERAL → quita FK de competidor. */
-    await limpiarCompetenciaRefSiListaGeneral(codTienda, idLista);
-    revalidatePxListasPaths();
-    return {
-      ok: true,
-      data: {
-        margenManual: res.data.margenManual,
-        pxEdicion: res.data.pxEdicion,
-        pxEfectivo: res.data.pxEfectivo,
-      },
-    };
+    const resultados = await guardarCambiosPxListasLote(parsed.data.cambios);
+    if (resultados.some((r) => r.ok)) revalidatePxListasPaths();
+    return { ok: true, data: { resultados } };
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "No se pudo guardar el margen.",
-    };
-  }
-}
-
-/** Persiste PX staging en `prod_listas_precios_edicion` desde precio entero (o elimina con `pxEdicion: null`). */
-export async function guardarPxListaPrecioEdicionAction(
-  raw: unknown
-): Promise<
-  ActionResult<{
-    margenManual: number | null;
-    pxEdicion: number | null;
-    pxEfectivo: number | null;
-  }>
-> {
-  const rol = await getRol();
-  if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
-    return { ok: false, error: "Sin acceso." };
-  }
-
-  const parsed = guardarPxListaPrecioEdicionSchema.safeParse(raw);
-  if (!parsed.success) {
-    const msg = parsed.error.flatten().fieldErrors;
-    const first =
-      Object.values(msg).flat()[0] ?? "Datos de precio inválidos.";
-    return { ok: false, error: first };
-  }
-
-  try {
-    const { codTienda, idLista, pxEdicion } = parsed.data;
-    const res = await guardarPrecioListaEdicionDesdePx(
-      codTienda,
-      idLista,
-      pxEdicion
-    );
-    if (!res.success) {
-      return { ok: false, error: res.error };
-    }
-    /** Edición manual de PX en GENERAL → quita FK de competidor. */
-    await limpiarCompetenciaRefSiListaGeneral(codTienda, idLista);
-    revalidatePxListasPaths();
-    return {
-      ok: true,
-      data: {
-        margenManual: res.data.margenManual,
-        pxEdicion: res.data.pxEdicion,
-        pxEfectivo: res.data.pxEfectivo,
-      },
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "No se pudo guardar el precio.",
+      error: e instanceof Error ? e.message : "No se pudieron guardar los cambios.",
     };
   }
 }
