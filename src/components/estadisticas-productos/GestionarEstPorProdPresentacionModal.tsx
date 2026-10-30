@@ -42,6 +42,12 @@ const LIST_ROW_ICON_BTN_CLASS = cn(
 
 const SELECT_TRIGGER_CLASS = "input-filtro-unificado w-full";
 
+/** Botón al lado de un `.input-filtro-unificado` (alto 2.5rem): mismo alto que el select. */
+const SELECT_SIDE_ICON_BTN_CLASS = cn(
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+  "h-10 w-10 min-h-10 max-h-10"
+);
+
 const INPUT_READONLY_CLASS = "bg-muted/40 cursor-default";
 
 /** Valor sentinel del Select para dejar conversión vacía. */
@@ -519,7 +525,7 @@ export default function GestionarEstPorProdPresentacionModal({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className={LIST_ROW_ICON_BTN_CLASS}
+                      className={SELECT_SIDE_ICON_BTN_CLASS}
                       aria-label="Gestionar unidades de medida"
                       title="Gestionar unidades de medida"
                       disabled={pending}
