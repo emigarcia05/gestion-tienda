@@ -1201,6 +1201,10 @@
 .tabla-desc-promo-grupos tbody td.tabla-desc-promo-grupo-fin {
   border-bottom: 2px solid var(--primary) !important;
 }
+/* Fin de grupo de filas (p. ej. sucursal con rowSpan): línea primary 2px bajo la celda. */
+.tabla-gestion-compacta tbody td.tabla-grupo-fin {
+  border-bottom: 2px solid var(--primary) !important;
+}
 .tabla-gestion-compacta.tabla-desc-promo-grupos tbody.tabla-desc-promo-grupo--impar tr {
   --tabla-row-bg: var(--card);
   background-color: var(--card);

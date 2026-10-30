@@ -153,6 +153,45 @@ export async function listarBalanceIvaData(raw: { periodo?: string }): Promise<B
   };
 }
 
+export interface SumasBalIva {
+  debito: number;
+  credito: number;
+  /** débito − crédito. */
+  saldo: number;
+}
+
+export interface ResumenBalIvaPeriodo {
+  /** Enero → mes del período inclusive. */
+  anual: SumasBalIva;
+  /** Solo el mes del período. */
+  mensual: SumasBalIva;
+}
+
+function sumasBalIva(agg: {
+  _sum: { debito: Prisma.Decimal | null; credito: Prisma.Decimal | null };
+}): SumasBalIva {
+  const debito = Number(agg._sum.debito ?? 0);
+  const credito = Number(agg._sum.credito ?? 0);
+  return { debito, credito, saldo: debito - credito };
+}
+
+/** Movimientos del año (enero → mes del período) y del mes del período. */
+export async function resumenBalIvaPeriodo(periodo: {
+  mes: number;
+  anio: number;
+}): Promise<ResumenBalIvaPeriodo> {
+  const mes = rangoFechaPeriodoCx(periodo);
+  const inicioAnio = rangoFechaPeriodoCx({ mes: 1, anio: periodo.anio }).gte;
+  const [anual, mensual] = await Promise.all([
+    prisma.balIva.aggregate({
+      where: { fecha: { gte: inicioAnio, lt: mes.lt } },
+      _sum: { debito: true, credito: true },
+    }),
+    prisma.balIva.aggregate({ where: { fecha: mes }, _sum: { debito: true, credito: true } }),
+  ]);
+  return { anual: sumasBalIva(anual), mensual: sumasBalIva(mensual) };
+}
+
 /** Saldo acumulado (débito − crédito) hasta el mes calendario AR actual inclusive. */
 export async function calcularSaldoAcumuladoBalIva(): Promise<number> {
   const { lt: finMesActual } = rangoFechaPeriodoCx(mesAnioCalendarioArgentina());

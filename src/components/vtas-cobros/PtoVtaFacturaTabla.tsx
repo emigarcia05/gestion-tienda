@@ -137,21 +137,35 @@ export default function PtoVtaFacturaTabla({ filasIniciales, esEditor }: Props) 
           filas.map((fila, i) => {
             const primeraDeSucursal = i === 0 || filas[i - 1]?.sucursalId !== fila.sucursalId;
             const filasSucursal = filas.filter((f) => f.sucursalId === fila.sucursalId).length;
+            const ultimaSucursalId = filas[filas.length - 1]?.sucursalId;
+            const separaSucursal = fila.sucursalId !== ultimaSucursalId;
+            const ultimaDeSucursal =
+              separaSucursal && filas[i + 1]?.sucursalId !== fila.sucursalId;
             const clave = claveFila(fila);
             return (
               <TableRow key={clave}>
                 {primeraDeSucursal ? (
                   <TableCell
                     rowSpan={filasSucursal}
-                    className="celda-datos text-left align-middle font-medium"
+                    className={cn(
+                      "celda-datos text-left align-middle font-medium",
+                      separaSucursal && "tabla-grupo-fin"
+                    )}
                   >
                     {fila.sucursalNombre}
                   </TableCell>
                 ) : null}
-                <TableCell className="celda-datos text-center font-semibold">
+                <TableCell
+                  className={cn(
+                    "celda-datos text-center font-semibold",
+                    ultimaDeSucursal && "tabla-grupo-fin"
+                  )}
+                >
                   {ETIQUETA_GRUPO_FACTURA_PTO_VTA[fila.grupo]}
                 </TableCell>
-                <TableCell className="celda-datos text-left">
+                <TableCell
+                  className={cn("celda-datos text-left", ultimaDeSucursal && "tabla-grupo-fin")}
+                >
                   <CeldaPtoVta
                     fila={fila}
                     esEditor={esEditor}

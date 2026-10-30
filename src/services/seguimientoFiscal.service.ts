@@ -4,6 +4,7 @@
  *   (forma × entidad × sucursal) tiene `seguimiento_fiscal = true`, por `cobros_vinc_cajas.titular_id`.
  * - VTAS. FISCALES: Σ `imp_total × cotizacion` de los comprobantes fiscales autorizados del mes
  *   de los puntos de venta del titular (`ptos_vtas.titular`); las NC fiscales restan.
+ * Además, Balance IVA (`bal_iva`) del año (enero → mes elegido) y del mes elegido.
  */
 import { clavePeriodoEstPorProd, parseClavePeriodoEstPorProd } from "@/lib/estPorProdPeriodo";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +14,7 @@ import {
   rangoFechaPeriodoCx,
   type OpcionFiltroCxMercVend,
 } from "@/services/balCxMercaderia.service";
+import { resumenBalIvaPeriodo, type ResumenBalIvaPeriodo } from "@/services/balIva.service";
 import { mesAnioCalendarioArgentina } from "@/services/finBalGastoMensualBalance.service";
 
 const TIPOS_VENTA_FISCAL = ["factura_fiscal", "nota_credito_fiscal"] as const;
@@ -29,6 +31,8 @@ export interface SeguimientoFiscalData {
   filas: FilaSeguimientoFiscalTitular[];
   totalCobro: number;
   totalVentasFiscales: number;
+  /** Balance IVA (`bal_iva`) del año (enero → mes elegido) y del mes elegido. */
+  balanceIva: ResumenBalIvaPeriodo & { anio: number };
   periodos: OpcionFiltroCxMercVend[];
   /** Mes calendario AR actual (`YYYY-MM`): valor al limpiar FECHA. */
   periodoDefault: string;
@@ -74,7 +78,7 @@ export async function listarSeguimientoFiscalData(raw: {
     estado: "autorizado",
   };
 
-  const [aggCobros, aggVentas, vinculos, ventas] = await Promise.all([
+  const [aggCobros, aggVentas, vinculos, ventas, balanceIva] = await Promise.all([
     prisma.tesoreriaMovimiento.aggregate({
       where: whereCobro,
       _min: { fechaRegistro: true },
@@ -104,6 +108,7 @@ export async function listarSeguimientoFiscalData(raw: {
         ptoVta: { select: { titular: true } },
       },
     }),
+    resumenBalIvaPeriodo(periodo),
   ]);
 
   // Si el trío forma × entidad × sucursal tiene varias filas (alias distintos), usa la primera.
@@ -166,6 +171,7 @@ export async function listarSeguimientoFiscalData(raw: {
     filas: lista,
     totalCobro: redondear2(lista.reduce((acc, f) => acc + f.cobro, 0)),
     totalVentasFiscales: redondear2(lista.reduce((acc, f) => acc + f.ventasFiscales, 0)),
+    balanceIva: { ...balanceIva, anio: periodo.anio },
     periodos: opcionesPeriodoCx(
       fechaMinima(aggCobros._min.fechaRegistro, aggVentas._min?.fecha ?? null),
       fechaMaxima(aggCobros._max.fechaRegistro, aggVentas._max?.fecha ?? null),

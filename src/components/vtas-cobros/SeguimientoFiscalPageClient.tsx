@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import FilterBar, {
   FILTER_INLINE_ACTION_SLOT_CLASS,
@@ -11,6 +12,7 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import {
   Select,
   SelectContent,
@@ -32,6 +34,7 @@ import { APP_ROUTES } from "@/lib/appRoutes";
 import { fmtCx, hrefCxMercVend } from "@/lib/balCxMercVend";
 import { cn } from "@/lib/utils";
 import PtoVtaFacturaTabla from "@/components/vtas-cobros/PtoVtaFacturaTabla";
+import type { SumasBalIva } from "@/services/balIva.service";
 import type { PtoVtaFacturaFila } from "@/services/ptoVtaFactura.service";
 import type { SeguimientoFiscalData } from "@/services/seguimientoFiscal.service";
 
@@ -70,6 +73,29 @@ function CeldasRecomendacion({
   );
 }
 
+/** Cuadrante de la matriz 2×2: barra con el nombre + contenido. */
+function Cuadrante({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="flex min-h-0 flex-col gap-2" aria-label={titulo}>
+      <h2 className="shrink-0 rounded-md bg-sidebar px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-sidebar-foreground">
+        {titulo}
+      </h2>
+      <div className="contenedor-tabla-gestion min-h-0">{children}</div>
+    </section>
+  );
+}
+
+function FilaSaldoIva({ concepto, sumas }: { concepto: string; sumas: SumasBalIva }) {
+  return (
+    <TableRow>
+      <TableCell className="celda-datos text-left font-medium">{concepto}</TableCell>
+      <TableCell className={TD_NUM}>{fmtCx(sumas.debito)}</TableCell>
+      <TableCell className={TD_NUM}>{fmtCx(sumas.credito)}</TableCell>
+      <TableCell className={cn(TD_NUM, "font-semibold")}>{fmtCx(sumas.saldo)}</TableCell>
+    </TableRow>
+  );
+}
+
 interface Props {
   data: SeguimientoFiscalData;
   ptoVtaFactura: PtoVtaFacturaFila[];
@@ -78,7 +104,9 @@ interface Props {
 
 export default function SeguimientoFiscalPageClient({ data, ptoVtaFactura, esEditor }: Props) {
   const router = useRouter();
-  const { filas, filtros, periodoDefault } = data;
+  const { filas, filtros, periodoDefault, balanceIva } = data;
+  const etiquetaMes =
+    data.periodos.find((p) => p.value === filtros.periodo)?.label ?? filtros.periodo;
 
   function irAPeriodo(periodo: string) {
     router.push(hrefCxMercVend(BASE_PATH, periodo === periodoDefault ? {} : { periodo }));
@@ -128,8 +156,8 @@ export default function SeguimientoFiscalPageClient({ data, ptoVtaFactura, esEdi
         </FilterBar>
       }
     >
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="contenedor-tabla-gestion min-h-0">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 lg:grid-rows-2">
+        <Cuadrante titulo="BALANCE COBROS / FACTURAS">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
               <col />
@@ -191,10 +219,41 @@ export default function SeguimientoFiscalPageClient({ data, ptoVtaFactura, esEdi
               </TableRow>
             </TableFooter>
           </Table>
-        </div>
-        <div className="contenedor-tabla-gestion min-h-0">
+        </Cuadrante>
+        <Cuadrante titulo="BALANCE IVA">
+          <Table variant="compact" className="tabla-gestion-compacta w-full">
+            <colgroup>
+              <col />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+            </colgroup>
+            <TableHeader>
+              <TableRow>
+                <TableHead>CONCEPTO</TableHead>
+                <TableHead className="text-right">DÉBITO</TableHead>
+                <TableHead className="text-right">CRÉDITO</TableHead>
+                <TableHead className="text-right">SALDO</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <FilaSaldoIva
+                concepto={`SALDO ANUAL ${balanceIva.anio}`}
+                sumas={balanceIva.anual}
+              />
+              <FilaSaldoIva concepto={`SALDO MENSUAL ${etiquetaMes}`} sumas={balanceIva.mensual} />
+            </TableBody>
+          </Table>
+        </Cuadrante>
+        <Cuadrante titulo="PTOS VTAS SEGÚN TIPO FAC. & SUC.">
           <PtoVtaFacturaTabla filasIniciales={ptoVtaFactura} esEditor={esEditor} />
-        </div>
+        </Cuadrante>
+        <Cuadrante titulo="FACTURA FISCAL OBLIGATORIA">
+          <TableEmptyState
+            placement="blockedPanel"
+            message="Esta función se habilitará más adelante."
+          />
+        </Cuadrante>
       </div>
     </ClassicFilteredTableLayout>
   );
