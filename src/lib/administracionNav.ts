@@ -226,9 +226,16 @@ const cobrosDescScreens: AdmScreenDef[] = [
   },
   {
     id: "cx-fin-cobros",
-    label: "Cobros & Cx Fina",
+    label: "Cobros & Cx Financiero",
     href: A.cobrosDesc.cobrosCxFina,
     icon: "circle-dollar",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
+    id: "seguimiento-fiscal",
+    label: "Seguimiento Fiscal",
+    href: A.cobrosDesc.seguimientoFiscal,
+    icon: "landmark",
     permiso: PERMISOS.finanzas.acceso,
   },
   {
@@ -243,13 +250,6 @@ const cobrosDescScreens: AdmScreenDef[] = [
     label: "Ptos. Vtas.",
     href: A.cobrosDesc.ptosVtas,
     icon: "store",
-    permiso: PERMISOS.finanzas.acceso,
-  },
-  {
-    id: "seguimiento-fiscal",
-    label: "Seguimiento Fiscal",
-    href: A.cobrosDesc.seguimientoFiscal,
-    icon: "landmark",
     permiso: PERMISOS.finanzas.acceso,
   },
 ];

@@ -14,7 +14,7 @@ export type PtoVtaReglaAmbito =
   (typeof PTO_VTA_REGLA_AMBITO)[keyof typeof PTO_VTA_REGLA_AMBITO];
 
 export type PtoVtaRegla = {
-  id: "sucursal_habilitada" | "fiscal_ri_mismo_iva";
+  id: "sucursal_habilitada" | "fiscal_ri_mismo_iva" | "fiscal_config_sucursal";
   orden: number;
   ambito: PtoVtaReglaAmbito;
   titulo: string;
@@ -45,5 +45,13 @@ export const PTO_VTA_REGLAS: readonly PtoVtaRegla[] = [
     titulo: "RESPONSABLE INSCRIPTO",
     resumen:
       "Si el cliente es Responsable Inscripto, se debe seleccionar un pto. vta. que tenga la misma condición de IVA (Responsable Inscripto).",
+  },
+  {
+    id: "fiscal_config_sucursal",
+    orden: 3,
+    ambito: PTO_VTA_REGLA_AMBITO.FACTURA_FISCAL,
+    titulo: "CONFIGURACIÓN POR SUCURSAL",
+    resumen:
+      'Se usa el pto. vta. configurado en Seguimiento Fiscal para la sucursal que emite: FACT. "A" si el cliente es Responsable Inscripto, FACT. "B/C" si no. Sin configuración no se emite.',
   },
 ];

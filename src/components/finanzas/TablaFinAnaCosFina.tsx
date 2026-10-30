@@ -203,7 +203,12 @@ export default function TablaFinAnaCosFina({ filas, esEditor, onFilaActualizada 
                   </TableCell>
                   <TableCell className="celda-datos celda-datos--accion-relleno-fila">
                     <div className="flex h-full w-full items-center justify-center">
-                      <CeldaHabilitadoToggleVisual activo={fila.impCheque} />
+                      {fila.impCheque ? (
+                        <Check
+                          className={cn(TABLE_ROW_ACTION_ICON_CLASS, "text-[#0072bb]")}
+                          aria-label="Imp. cheque: sí"
+                        />
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell className="celda-datos">

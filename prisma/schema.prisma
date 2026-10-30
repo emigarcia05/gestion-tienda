@@ -505,9 +505,32 @@ model PtoVtaSucursal {
   ptoVta     GlobalPtoVta @relation(fields: [ptoVtaId], references: [id], onDelete: Cascade)
   sucursal   Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Restrict)
 
+  prioridadesFactura SucursalPtoVtaFactura[]
+
   @@id([ptoVtaId, sucursalId])
   @@index([sucursalId], map: "pto_vta_sucursales_sucursal_idx")
   @@map("pto_vta_sucursales")
+}
+
+/**
+ * Pto. vta. con el que factura cada sucursal según el grupo de factura
+ * (`A` = receptor Responsable Inscripto; `BC` = resto). Se edita en Seguimiento Fiscal.
+ * FK compuesta a `pto_vta_sucursales` (Cascade): si se desasocia el pto. vta. de la sucursal, se borra.
+ */
+model SucursalPtoVtaFactura {
+  sucursalId String         @map("sucursal_id")
+  /**
+   * `A` | `BC` (CHECK SQL).
+   */
+  grupo      String         @map("grupo") @db.VarChar(2)
+  ptoVtaId   String         @map("pto_vta_id")
+  vinculo    PtoVtaSucursal @relation(fields: [ptoVtaId, sucursalId], references: [ptoVtaId, sucursalId], onDelete: Cascade, onUpdate: Cascade, map: "sucursal_ptos_vtas_factura_vinculo_fkey")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@id([sucursalId, grupo], map: "sucursal_ptos_vtas_factura_pkey")
+  @@index([ptoVtaId, sucursalId], map: "sucursal_ptos_vtas_factura_pto_vta_idx")
+  @@map("sucursal_ptos_vtas_factura")
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   type FacturaVentaPendientePago,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
+import { esGrupoFacturaPtoVta } from "@/lib/ptoVtaFactura";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -231,7 +232,10 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       condicionIva: true,
       condicionIvaArca: { select: { descripcion: true } },
       sucursales: {
-        select: { sucursal: { select: { codigo: true } } },
+        select: {
+          sucursal: { select: { codigo: true } },
+          prioridadesFactura: { select: { grupo: true } },
+        },
       },
     },
   });
@@ -250,6 +254,12 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     sucursalCodigos: [
       ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
     ],
+    gruposFactura: r.sucursales.flatMap((link) =>
+      link.prioridadesFactura
+        .map((p) => p.grupo)
+        .filter(esGrupoFacturaPtoVta)
+        .map((grupo) => ({ sucursalCodigo: link.sucursal.codigo, grupo }))
+    ),
   }));
 }
 

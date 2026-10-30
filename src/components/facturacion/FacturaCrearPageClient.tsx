@@ -98,6 +98,7 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtPrecio } from "@/lib/format";
+import { grupoFacturaPorReceptor, mensajePtoVtaFacturaSinConfigurar } from "@/lib/ptoVtaFactura";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
@@ -533,12 +534,20 @@ export default function FacturaCrearPageClient({
       toast.error(MENSAJE_PERSONAL_SESION_REQUERIDO);
       return;
     }
+    const grupoFactura = esFacturaTipoFiscal(tipo)
+      ? grupoFacturaPorReceptor(clienteId ? clienteCondicionIvaCodigo : null)
+      : null;
     const ptoVtaId = ptoVtaIdParaSucursal(
       ptoVtas,
-      personalSesion.sucursalPorDefecto
+      personalSesion.sucursalPorDefecto,
+      grupoFactura
     );
     if (!ptoVtaId) {
-      toast.error(MENSAJE_PTO_VTA_SUCURSAL_USUARIO);
+      toast.error(
+        grupoFactura
+          ? mensajePtoVtaFacturaSinConfigurar(grupoFactura)
+          : MENSAJE_PTO_VTA_SUCURSAL_USUARIO
+      );
       return;
     }
     const clienteEmitir = nombreClienteFactura(cliente);

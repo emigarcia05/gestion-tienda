@@ -523,7 +523,7 @@ export type FilaCostosFinancierosMargenContribucion = {
   costoFinanciero: number;
 };
 
-/** CX FINANCIERO (%) de una fila de Cobros & Cx Fina: FACTURA A → S/ IVA; FACTURA C → C/ IVA. */
+/** CX FINANCIERO (%) de una fila de Cobros & Cx Financiero: FACTURA A → S/ IVA; FACTURA C → C/ IVA. */
 export function cxTotalPorTipoComprobanteMargenContribucion(
   fila: Pick<
     FilaCostosFinancierosMargenContribucion,

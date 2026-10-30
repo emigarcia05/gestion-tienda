@@ -19,6 +19,7 @@ import {
   type DescPromoCandidataFactura,
   type DescPromoFormaPagoRef,
 } from "@/lib/descPromo";
+import type { GrupoFacturaPtoVta } from "@/lib/ptoVtaFactura";
 
 export const FACTURA_TIPOS = [
   "presupuesto",
@@ -843,13 +844,26 @@ export type FacturaPtoVtaOpcion = {
   condicionIvaDescripcion: string | null;
   /** Códigos de `sucursales` vía `pto_vta_sucursales`. */
   sucursalCodigos: string[];
+  /** Sucursal × grupo en que está configurado (`sucursal_ptos_vtas_factura`). */
+  gruposFactura: { sucursalCodigo: string; grupo: GrupoFacturaPtoVta }[];
 };
 
-/** Pto. vta. de la sucursal del usuario; si no hay, el primero activo. */
+/**
+ * Pto. vta. de la sucursal del usuario; si no hay, el primero activo.
+ * Con `grupo` (comprobante fiscal): solo el configurado para sucursal × grupo; `""` si no hay.
+ */
 export function ptoVtaIdParaSucursal(
   ptoVtas: readonly FacturaPtoVtaOpcion[],
-  sucursalCodigo: string | null | undefined
+  sucursalCodigo: string | null | undefined,
+  grupo?: GrupoFacturaPtoVta | null
 ): string {
+  if (grupo) {
+    if (!sucursalCodigo) return "";
+    const configurado = ptoVtas.find((p) =>
+      p.gruposFactura.some((g) => g.sucursalCodigo === sucursalCodigo && g.grupo === grupo)
+    );
+    return configurado?.id ?? "";
+  }
   if (sucursalCodigo) {
     const propio = ptoVtas.find((p) => p.sucursalCodigos.includes(sucursalCodigo));
     if (propio) return propio.id;

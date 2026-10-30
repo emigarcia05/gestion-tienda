@@ -76,6 +76,13 @@ import {
 } from "@/lib/factura";
 import { montoArCentsTopePesoEntero } from "@/lib/montoArMask";
 import {
+  ETIQUETA_GRUPO_FACTURA_PTO_VTA,
+  grupoFacturaPorReceptor,
+  mensajePtoVtaFacturaSinConfigurar,
+  ptoVtaAdmiteGrupoFactura,
+  type GrupoFacturaPtoVta,
+} from "@/lib/ptoVtaFactura";
+import {
   ARCA_ALICUOTA_IVA_DEFAULT,
   ARCA_CONDICION_IVA,
   ARCA_DOC_TIPO,
@@ -1128,18 +1135,18 @@ const PTO_VTA_EMITIR_SELECT = {
       estado: true,
 } as const;
 
+type PtoVtaEmitir = {
+  id: string;
+  ptoVenta: string;
+  cuit: string | null;
+  condicionIva: number | null;
+  concepto: string;
+  estado: string;
+};
+
 async function ptoVtaActivoDeSucursalPersonal(
   sucursalCodigo: string | null
-): Promise<
-  ServiceResult<{
-    id: string;
-    ptoVenta: string;
-    cuit: string | null;
-    condicionIva: number | null;
-    concepto: string;
-    estado: string;
-  }>
-> {
+): Promise<ServiceResult<PtoVtaEmitir>> {
   if (!sucursalCodigo) {
     return { success: false, error: MENSAJE_PERSONAL_SIN_SUCURSAL };
   }
@@ -1153,6 +1160,37 @@ async function ptoVtaActivoDeSucursalPersonal(
   });
   if (!pto) {
     return { success: false, error: MENSAJE_PTO_VTA_SUCURSAL_USUARIO };
+  }
+  return { success: true, data: pto };
+}
+
+/** Comprobante fiscal: pto. vta. configurado en `sucursal_ptos_vtas_factura` para el grupo (A / B·C). */
+async function ptoVtaFacturaDeSucursalPersonal(
+  sucursalCodigo: string | null,
+  grupo: GrupoFacturaPtoVta
+): Promise<ServiceResult<PtoVtaEmitir>> {
+  if (!sucursalCodigo) {
+    return { success: false, error: MENSAJE_PERSONAL_SIN_SUCURSAL };
+  }
+  const config = await prisma.sucursalPtoVtaFactura.findFirst({
+    where: { grupo, vinculo: { sucursal: { codigo: sucursalCodigo } } },
+    select: { vinculo: { select: { ptoVta: { select: PTO_VTA_EMITIR_SELECT } } } },
+  });
+  if (!config) {
+    return { success: false, error: mensajePtoVtaFacturaSinConfigurar(grupo) };
+  }
+  const pto = config.vinculo.ptoVta;
+  if (pto.estado !== "activo") {
+    return {
+      success: false,
+      error: `El punto de venta ${pto.ptoVenta} configurado para ${ETIQUETA_GRUPO_FACTURA_PTO_VTA[grupo]} está inactivo.`,
+    };
+  }
+  if (!ptoVtaAdmiteGrupoFactura(grupo, pto.condicionIva)) {
+    return {
+      success: false,
+      error: `El punto de venta ${pto.ptoVenta} configurado para ${ETIQUETA_GRUPO_FACTURA_PTO_VTA[grupo]} no es Responsable Inscripto.`,
+    };
   }
   return { success: true, data: pto };
 }
@@ -1171,10 +1209,6 @@ export async function emitirFacturaComprobante(
   if (!personal) {
     return { success: false, error: "El usuario no existe." };
   }
-
-  const ptoRes = await ptoVtaActivoDeSucursalPersonal(personal.sucursalPorDefecto);
-  if (!ptoRes.success) return ptoRes;
-  const pto = ptoRes.data;
 
   const clienteNoSel = mensajeClienteFacturaNoSeleccionado(
     input.cliente,
@@ -1232,6 +1266,15 @@ export async function emitirFacturaComprobante(
   });
 
   const fiscal = esTipoComprobanteFiscal(input.tipo);
+  const ptoRes = fiscal
+    ? await ptoVtaFacturaDeSucursalPersonal(
+        personal.sucursalPorDefecto,
+        grupoFacturaPorReceptor(receptor.condicionIva)
+      )
+    : await ptoVtaActivoDeSucursalPersonal(personal.sucursalPorDefecto);
+  if (!ptoRes.success) return ptoRes;
+  const pto = ptoRes.data;
+
   let letra: ArcaLetra | null = null;
   let cbteTipo: number | null = null;
   let original: {

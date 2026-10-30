@@ -8,7 +8,7 @@ import {
   type TipoComprobanteVentaMargenContribucion,
 } from "@/lib/finAnaMargenContribucion";
 
-/** Fila de Cobros & Cx Fina (`cobros_cx_fin`) usada para armar columnas de Margen Contribución. */
+/** Fila de Cobros & Cx Financiero (`cobros_cx_fin`) usada para armar columnas de Margen Contribución. */
 export type FilaCxFinColumnaMargenContribucion = {
   id: string;
   habilitado: boolean;

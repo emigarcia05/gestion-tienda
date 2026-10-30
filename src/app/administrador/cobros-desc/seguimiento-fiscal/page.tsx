@@ -3,6 +3,7 @@ import SeguimientoFiscalPageClient from "@/components/vtas-cobros/SeguimientoFis
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { PERMISOS, puede } from "@/lib/permisos";
 import { getRol } from "@/lib/sesion";
+import { listarPtoVtaFacturaFilas } from "@/services/ptoVtaFactura.service";
 import { listarSeguimientoFiscalData } from "@/services/seguimientoFiscal.service";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,16 @@ export default async function SeguimientoFiscalPage({ searchParams }: Props) {
     redirect(GP_ROUTES.ayudaVendedor.pxVenta.pxVtaSugerido);
   }
 
-  const data = await listarSeguimientoFiscalData(await searchParams);
+  const [data, ptoVtaFactura] = await Promise.all([
+    listarSeguimientoFiscalData(await searchParams),
+    listarPtoVtaFacturaFilas(),
+  ]);
 
-  return <SeguimientoFiscalPageClient data={data} />;
+  return (
+    <SeguimientoFiscalPageClient
+      data={data}
+      ptoVtaFactura={ptoVtaFactura}
+      esEditor={rol === "editor"}
+    />
+  );
 }

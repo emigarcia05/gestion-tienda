@@ -210,16 +210,20 @@ export async function editarGlobalPtoVta(
     if (!titularOk.success) return titularOk;
 
     const row = await prisma.$transaction(async (tx) => {
-      await tx.ptoVtaSucursal.deleteMany({ where: { ptoVtaId: input.id } });
+      // Solo borra las sucursales quitadas: el Cascade a `sucursal_ptos_vtas_factura` no toca las que siguen.
+      await tx.ptoVtaSucursal.deleteMany({
+        where: { ptoVtaId: input.id, sucursalId: { notIn: input.sucursalIds } },
+      });
+      await tx.ptoVtaSucursal.createMany({
+        data: input.sucursalIds.map((sucursalId) => ({ ptoVtaId: input.id, sucursalId })),
+        skipDuplicates: true,
+      });
       return tx.globalPtoVta.update({
         where: { id: input.id },
         data: {
           ptoVenta: input.ptoVenta,
           titular: titularOk.data,
           ...datosFiscalesDesdeInput(input),
-          sucursales: {
-            create: input.sucursalIds.map((sucursalId) => ({ sucursalId })),
-          },
         },
         include: ptoVtaInclude,
       });
