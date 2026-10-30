@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
+import EnteroStepperInput from "@/components/shared/EnteroStepperInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import {
   confirmarCompraTintometricoVentaAction,
@@ -26,20 +28,28 @@ import { cn } from "@/lib/utils";
 type AccionTransferencia = "nada" | "transferir" | "proveedor";
 type AccionCompra = "nada" | "comprar";
 
-const OPCIONES_TRANSFERENCIA: { value: AccionTransferencia; label: string }[] = [
-  { value: "nada", label: "No hacer nada" },
-  { value: "transferir", label: "Confirmar Transferencia" },
-  { value: "proveedor", label: "Pedir a Proveedor" },
+const OPCIONES_TRANSFERENCIA: { value: AccionTransferencia; lineas: [string, string] }[] = [
+  { value: "nada", lineas: ["Ni transferencia", "ni compra"] },
+  { value: "transferir", lineas: ["Pedir", "transferencia"] },
+  { value: "proveedor", lineas: ["Pedir", "a proveedor"] },
 ];
 
 const SECCION_TITULO_CLASS = "text-center text-xs font-bold uppercase tracking-wide text-foreground";
-const FILA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_4.5rem_auto] items-center gap-3";
-const FILA_COMPRA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_4.5rem_11rem_13rem] items-center gap-3";
+const FILA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_8rem_22rem] items-center gap-3";
+const FILA_COMPRA_GRID_CLASS = "grid grid-cols-[minmax(0,1fr)_8rem_11rem_13rem] items-center gap-3";
 
 function claveTransf(origen: SucursalTransf, codTienda: string): string {
   return `${origen}|${codTienda}`;
 }
 
+/** Cantidad editada (entero ≥ 1) o la del plan si no se editó o el texto no es válido. */
+function cantidadEfectiva(original: number, editada: string | undefined): number {
+  if (editada == null) return original;
+  const n = Number(editada);
+  return Number.isInteger(n) && n >= 1 ? n : original;
+}
+
+/** Control segmentado: las opciones ocupan el mismo ancho; ninguna elegida hasta que el usuario decide. */
 function OpcionesAccion<T extends string>({
   opciones,
   valor,
@@ -47,29 +57,93 @@ function OpcionesAccion<T extends string>({
   disabled,
   ariaLabel,
 }: {
-  opciones: { value: T; label: string }[];
-  valor: T;
+  opciones: { value: T; lineas: [string, string] }[];
+  valor: T | undefined;
   onChange: (v: T) => void;
   disabled: boolean;
   ariaLabel: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap justify-end gap-1.5">
-      {opciones.map((o) => (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="grid grid-cols-3 divide-x divide-primary overflow-hidden rounded-md border border-primary"
+    >
+      {opciones.map((o) => {
+        const elegida = valor === o.value;
+        return (
+          <Button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={elegida}
+            variant={elegida ? "default" : "ghost"}
+            className={cn(
+              "h-auto min-h-10 flex-col gap-0 whitespace-normal rounded-none px-2 py-1 text-xs font-semibold uppercase leading-tight shadow-none",
+              !elegida && "text-primary hover:text-primary"
+            )}
+            disabled={disabled}
+            onClick={() => onChange(o.value)}
+          >
+            <span>{o.lineas[0]}</span>
+            <span>{o.lineas[1]}</span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** CANT.: número + lápiz; al editar, stepper − / + (entero ≥ 1). */
+function CantidadEditable({
+  cantidad,
+  editable,
+  editando,
+  valor,
+  onEditar,
+  onChange,
+  disabled,
+  ariaLabel,
+}: {
+  cantidad: number;
+  editable: boolean;
+  editando: boolean;
+  valor: string;
+  onEditar: () => void;
+  onChange: (next: string) => void;
+  disabled: boolean;
+  ariaLabel: string;
+}) {
+  if (editable && editando) {
+    return (
+      <EnteroStepperInput
+        className="h-9 flex-nowrap"
+        value={valor}
+        onChange={onChange}
+        min={1}
+        allowEmpty={false}
+        clampAlMinimo
+        disabled={disabled}
+        ariaLabel={ariaLabel}
+      />
+    );
+  }
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      <span className="text-sm font-bold tabular-nums">{fmtCantidad(cantidad)}</span>
+      {editable ? (
         <Button
-          key={o.value}
           type="button"
-          size="sm"
-          role="radio"
-          aria-checked={valor === o.value}
-          variant={valor === o.value ? "default" : "outline"}
-          className={cn(valor !== o.value && "border-primary")}
+          variant="ghost"
+          size="icon-xs"
+          className="text-primary hover:text-primary"
+          aria-label={`Editar ${ariaLabel}`}
           disabled={disabled}
-          onClick={() => onChange(o.value)}
+          onClick={onEditar}
         >
-          {o.label}
+          <Pencil />
         </Button>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -98,12 +172,16 @@ interface Props {
 
 /**
  * Tras registrar una venta: ítems que la sucursal no cubre. **TRANSFERENCIAS** (por sucursal origen:
- * No hacer nada / Confirmar Transferencia / Pedir a Proveedor) y **COMPRAS** (No hacer nada /
- * Confirmar Compra → suma al PEDIDO URGENTE; con varios proveedores, elegir a cuál).
+ * Ni transferencia ni compra / Pedir transferencia / Pedir a proveedor, sin opción por defecto) y
+ * **COMPRAS** (botón conmutable → suma al PEDIDO URGENTE; con varios proveedores, elegir a cuál).
  */
 export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan, sucursalDestino }: Props) {
   const [accTransf, setAccTransf] = useState<Record<string, AccionTransferencia>>({});
   const [accCompra, setAccCompra] = useState<Record<string, AccionCompra>>({});
+  /** Cantidades editadas (texto del stepper) y filas en modo edición; clave = `claveTransf` / `codTienda`. */
+  const [cantTransf, setCantTransf] = useState<Record<string, string>>({});
+  const [cantCompra, setCantCompra] = useState<Record<string, string>>({});
+  const [editando, setEditando] = useState<Set<string>>(new Set());
   const [provElegido, setProvElegido] = useState<Record<string, string>>({});
   const [proveedores, setProveedores] = useState<Record<string, ProveedorCompraVentaItem[]> | null>(null);
   const [hechos, setHechos] = useState<Set<string>>(new Set());
@@ -123,6 +201,9 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
     queueMicrotask(() => {
       setAccTransf({});
       setAccCompra({});
+      setCantTransf({});
+      setCantCompra({});
+      setEditando(new Set());
       setProvElegido({});
       setProveedores(null);
       setHechos(new Set());
@@ -171,14 +252,53 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
       })
     ) || compras.some((c) => accCompra[c.codTienda] === "comprar" && !hechos.has(`c|${c.codTienda}`));
 
+  /** Cada transferencia necesita una decisión explícita (incluida «Ni transferencia ni compra»). */
+  const todasDecididas = plan.transferencias.every((g) =>
+    g.items.every((i) => accTransf[claveTransf(g.origenCodigo, i.codTienda)] != null)
+  );
+
   function esCompraTintometrica(item: ItemMovimientoVenta): boolean {
     const tipo = proveedores?.[item.codTienda]?.[0]?.tipo;
     return tipo ? tipo === "tintometrico" : item.colores.length > 0;
   }
 
+  function cantidadCompra(c: ItemMovimientoVenta): number {
+    return esCompraTintometrica(c) ? c.cantidad : cantidadEfectiva(c.cantidad, cantCompra[c.codTienda]);
+  }
+
+  function quitarEdicion(clave: string) {
+    setEditando((prev) => {
+      if (!prev.has(clave)) return prev;
+      const next = new Set(prev);
+      next.delete(clave);
+      return next;
+    });
+  }
+
+  function iniciarEdicion(clave: string, cantidad: number, setCant: (v: string) => void) {
+    setCant(String(Math.max(1, Math.round(cantidad))));
+    setEditando((prev) => new Set(prev).add(clave));
+  }
+
+  function descartarCantCompra(codTienda: string) {
+    setCantCompra(({ [codTienda]: _quitada, ...resto }) => resto);
+    quitarEdicion(`c|${codTienda}`);
+  }
+
+  function elegirAccionTransf(k: string, codTienda: string, accion: AccionTransferencia) {
+    const previa = accTransf[k];
+    setAccTransf((prev) => ({ ...prev, [k]: accion }));
+    if (accion !== "transferir") {
+      setCantTransf(({ [k]: _quitada, ...resto }) => resto);
+      quitarEdicion(`t|${k}`);
+    }
+    if ((previa === "proveedor") !== (accion === "proveedor")) descartarCantCompra(codTienda);
+  }
+
   function elegirAccionCompra(codTienda: string, accion: AccionCompra) {
     if (accion === "nada") {
       setAccCompra((prev) => ({ ...prev, [codTienda]: "nada" }));
+      descartarCantCompra(codTienda);
       return;
     }
     if (proveedores == null) {
@@ -212,6 +332,10 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
 
   async function confirmar() {
     if (!plan || !sucursalDestino) return;
+    if (!hayPendiente) {
+      onOpenChange(false);
+      return;
+    }
     const usuario = leerUsuarioSesion();
     if (!usuario) {
       toast.error("Elegí un usuario.");
@@ -231,7 +355,10 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
           origenCodigo: g.origenCodigo,
           destinoCodigo: sucursalDestino,
           personalId: usuario.idPersonal,
-          items: items.map((i) => ({ codItem: i.codTienda, cantidad: i.cantidad })),
+          items: items.map((i) => ({
+            codItem: i.codTienda,
+            cantidad: cantidadEfectiva(i.cantidad, cantTransf[claveTransf(g.origenCodigo, i.codTienda)]),
+          })),
         });
         if (!res.ok) {
           hayErrores = true;
@@ -274,7 +401,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
           sucursal: sucursalDestino,
           codTienda: c.codTienda,
           listaPrecioProveedorId: prov.id,
-          cantidad: c.cantidad,
+          cantidad: cantidadCompra(c),
         });
         if (!res.ok) {
           hayErrores = true;
@@ -311,7 +438,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
               Cerrar
             </Button>
-            <Button type="button" onClick={() => void confirmar()} disabled={pending || !hayPendiente}>
+            <Button type="button" onClick={() => void confirmar()} disabled={pending || !todasDecididas}>
               {pending ? "Confirmando..." : "Confirmar"}
             </Button>
           </div>
@@ -337,11 +464,24 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                     return (
                       <div key={k} className={FILA_GRID_CLASS}>
                         <CeldaItem item={i} />
-                        <span className="text-center text-sm font-bold tabular-nums">{fmtCantidad(i.cantidad)}</span>
+                        <CantidadEditable
+                          cantidad={cantidadEfectiva(i.cantidad, cantTransf[k])}
+                          editable={accTransf[k] === "transferir"}
+                          editando={editando.has(`t|${k}`)}
+                          valor={cantTransf[k] ?? ""}
+                          onEditar={() =>
+                            iniciarEdicion(`t|${k}`, i.cantidad, (v) =>
+                              setCantTransf((prev) => ({ ...prev, [k]: v }))
+                            )
+                          }
+                          onChange={(v) => setCantTransf((prev) => ({ ...prev, [k]: v }))}
+                          disabled={pending || hecho}
+                          ariaLabel={`cantidad a transferir de ${i.descripcion}`}
+                        />
                         <OpcionesAccion
                           opciones={OPCIONES_TRANSFERENCIA}
-                          valor={accTransf[k] ?? "nada"}
-                          onChange={(v) => setAccTransf((prev) => ({ ...prev, [k]: v }))}
+                          valor={accTransf[k]}
+                          onChange={(v) => elegirAccionTransf(k, i.codTienda, v)}
                           disabled={pending || hecho}
                           ariaLabel={`Acción para ${i.descripcion} desde ${g.origenNombre}`}
                         />
@@ -375,7 +515,20 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                   return (
                     <div key={c.codTienda} className={FILA_COMPRA_GRID_CLASS}>
                       <CeldaItem item={c} />
-                      <span className="text-center text-sm font-bold tabular-nums">{fmtCantidad(c.cantidad)}</span>
+                      <CantidadEditable
+                        cantidad={cantidadCompra(c)}
+                        editable={accion === "comprar" && !esCompraTintometrica(c)}
+                        editando={editando.has(`c|${c.codTienda}`)}
+                        valor={cantCompra[c.codTienda] ?? ""}
+                        onEditar={() =>
+                          iniciarEdicion(`c|${c.codTienda}`, c.cantidad, (v) =>
+                            setCantCompra((prev) => ({ ...prev, [c.codTienda]: v }))
+                          )
+                        }
+                        onChange={(v) => setCantCompra((prev) => ({ ...prev, [c.codTienda]: v }))}
+                        disabled={pending || hecho}
+                        ariaLabel={`cantidad a pedir de ${c.descripcion}`}
+                      />
                       <span className="truncate text-sm uppercase text-foreground" title={prov?.proveedor}>
                         {prov?.proveedor ?? ""}
                       </span>
@@ -411,7 +564,7 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
             <div className="flex flex-col gap-2">
               {itemSelector ? (
                 <p className="text-center text-sm font-medium uppercase text-foreground">
-                  {itemSelector.descripcion} · {fmtCantidad(itemSelector.cantidad)} un.
+                  {itemSelector.descripcion} · {fmtCantidad(cantidadCompra(itemSelector))} un.
                 </p>
               ) : null}
               {provSelector.map((p) => (
