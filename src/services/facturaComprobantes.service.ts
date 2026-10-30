@@ -33,6 +33,7 @@ import {
   listarVistaCobroNotaCredito,
   usadoNotaCreditoPesos,
 } from "@/services/facturaComprobantesListado.service";
+import { titularTieneFacturaObligatoriaPendiente } from "@/services/facturaFiscalObligatoria.service";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -797,6 +798,23 @@ export async function eliminarComprobanteNoFiscal(
         error: "Solo se pueden eliminar comprobantes no fiscales.",
       };
     }
+    return await borrarComprobanteVtaConCobros(id, tipo);
+  } catch (e) {
+    console.error("[facturaComprobantes][eliminar]", e);
+    return { success: false, error: "No se pudo eliminar el comprobante." };
+  }
+}
+
+/**
+ * Borra el comprobante con sus cobros (Cascade), revierte stock e imputaciones de NC y
+ * limpia los cheques que quedan sin movimientos. Lo usan Eliminar (no fiscal) y la anulación
+ * de un fiscal forzado que ARCA rechazó (Factura Fiscal Obligatoria).
+ */
+async function borrarComprobanteVtaConCobros(
+  id: string,
+  tipo: FacturaTipo
+): Promise<ServiceResult<void>> {
+  try {
     const cheques = await chequesEnCarteraDeMovimientos({
       comprobanteId: id,
       clienteCobroId: null,
@@ -816,7 +834,7 @@ export async function eliminarComprobanteNoFiscal(
     });
     return { success: true, data: undefined };
   } catch (e) {
-    console.error("[facturaComprobantes][eliminar]", e);
+    console.error("[facturaComprobantes][borrarComprobanteVtaConCobros]", e);
     return { success: false, error: "No se pudo eliminar el comprobante." };
   }
 }
@@ -1129,6 +1147,7 @@ function emitirResultadoDesdeRow(row: {
 const PTO_VTA_EMITIR_SELECT = {
       id: true,
       ptoVenta: true,
+      titular: true,
       cuit: true,
       condicionIva: true,
       concepto: true,
@@ -1138,6 +1157,7 @@ const PTO_VTA_EMITIR_SELECT = {
 type PtoVtaEmitir = {
   id: string;
   ptoVenta: string;
+  titular: string;
   cuit: string | null;
   condicionIva: number | null;
   concepto: string;
@@ -1195,10 +1215,81 @@ async function ptoVtaFacturaDeSucursalPersonal(
   return { success: true, data: pto };
 }
 
+/**
+ * Factura Fiscal Obligatoria: una venta no fiscal pasa a fiscal (sin aviso) si el pto. vta. que
+ * usaría como fiscal (configurado por sucursal × grupo) es de un titular con restante > 0.
+ */
+async function tipoEmisionConFacturaObligatoria(
+  input: EmitirFacturaComprobanteInput
+): Promise<FacturaTipo> {
+  if (input.tipo !== "factura_no_fiscal") return input.tipo;
+  const personal = await prisma.globalPersonal.findUnique({
+    where: { idPersonal: input.personalId },
+    select: { sucursalPorDefecto: true },
+  });
+  if (!personal) return input.tipo;
+  const cliente = input.clienteId
+    ? await prisma.cliente.findUnique({
+        where: { id: input.clienteId },
+        select: { cuit: true, condicionIva: true },
+      })
+    : null;
+  const receptor = receptorFiscalParaEmitir({
+    cliente,
+    fallback: {
+      docTipo: input.receptorDocTipo,
+      docNro: input.receptorDocNro,
+      condicionIva: input.receptorCondicionIva,
+    },
+  });
+  const ptoRes = await ptoVtaFacturaDeSucursalPersonal(
+    personal.sucursalPorDefecto,
+    grupoFacturaPorReceptor(receptor.condicionIva)
+  );
+  if (!ptoRes.success) return input.tipo;
+  const pendiente = await titularTieneFacturaObligatoriaPendiente(ptoRes.data.titular);
+  return pendiente ? "factura_fiscal" : input.tipo;
+}
+
+/**
+ * `intentoPersistido`: el comprobante (con sus cobros) ya se guardó y ARCA no lo autorizó.
+ * `rechazoDefinitivo`: ARCA respondió el rechazo (no fue falla de comunicación).
+ */
+type EmisionResultado =
+  | ServiceResult<FacturaEmitirResultado>
+  | {
+      success: false;
+      error: string;
+      intentoPersistido: true;
+      comprobanteId: string;
+      rechazoDefinitivo: boolean;
+    };
+
 export async function emitirFacturaComprobante(
   input: EmitirFacturaComprobanteInput,
   opciones?: { omitirTopeCtaCorriente?: boolean }
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
+  const tipo = await tipoEmisionConFacturaObligatoria(input);
+  if (tipo === input.tipo) return emitirFacturaComprobanteSegunTipo(input, opciones);
+  const forzado = await emitirFacturaComprobanteSegunTipo({ ...input, tipo }, opciones);
+  if (forzado.success) return forzado;
+  if ("intentoPersistido" in forzado) {
+    // Sin respuesta de ARCA el fiscal pudo haberse autorizado: no se emite el no fiscal.
+    if (!forzado.rechazoDefinitivo) return forzado;
+    const anulado = await borrarComprobanteVtaConCobros(forzado.comprobanteId, "factura_fiscal");
+    if (!anulado.success) return forzado;
+    console.warn("[facturaComprobantes][facturaObligatoria] fiscal rechazado, se emite no fiscal", {
+      comprobanteId: forzado.comprobanteId,
+      error: forzado.error,
+    });
+  }
+  return emitirFacturaComprobanteSegunTipo(input, opciones);
+}
+
+async function emitirFacturaComprobanteSegunTipo(
+  input: EmitirFacturaComprobanteInput,
+  opciones?: { omitirTopeCtaCorriente?: boolean }
+): Promise<EmisionResultado> {
   const fecha = prismaDateOnlyFromIsoYmd(input.fechaIso);
   if (!fecha) return { success: false, error: "Fecha de comprobante inválida." };
 
@@ -1589,7 +1680,7 @@ async function emitirFiscal(args: {
   receptorDomicilio: string | null;
   emisorCondicionIva: number | null;
   movimientosCobro: readonly MovimientoCobroFacturaData[];
-}): Promise<ServiceResult<FacturaEmitirResultado>> {
+}): Promise<EmisionResultado> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
     cuitEmisor: args.pto.cuit,
@@ -1815,7 +1906,13 @@ async function emitirFiscal(args: {
       errores: caeRes.error,
       payload: payloadSolicitud,
     });
-    return { success: false, error: caeRes.error };
+    return {
+      success: false,
+      error: caeRes.error,
+      intentoPersistido: true,
+      comprobanteId: createdId,
+      rechazoDefinitivo: caeRes.rechazado === true,
+    };
   }
 
   const data = caeRes.data;
@@ -1845,6 +1942,9 @@ async function emitirFiscal(args: {
     return {
       success: false,
       error: obs || "ARCA no autorizó el comprobante.",
+      intentoPersistido: true,
+      comprobanteId: createdId,
+      rechazoDefinitivo: true,
     };
   }
   const emitido = { success: true as const, data: emitirResultadoDesdeRow(updated) };

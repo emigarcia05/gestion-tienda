@@ -197,10 +197,13 @@ export async function wsfeCompUltimoAutorizado(
   return { ok: true, cbteNro: nro };
 }
 
+/** `rechazado: true` = ARCA respondió y rechazó; sin él, falla de configuración o comunicación. */
 export async function wsfeCaeSolicitar(
   auth: WsfeAuth,
   req: WsfeCaeRequest
-): Promise<{ ok: true; data: WsfeCaeResult } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; data: WsfeCaeResult } | { ok: false; error: string; rechazado?: true }
+> {
   const env = leerArcaConexion();
   if ("error" in env) return { ok: false, error: env.error };
   const d = req.det;
@@ -261,11 +264,15 @@ export async function wsfeCaeSolicitar(
     events,
   };
   if (errors.length > 0 && resultado !== "A") {
-    return { ok: false, error: mensajeErroresArca(errors, "ARCA rechazó el comprobante.") };
+    return {
+      ok: false,
+      error: mensajeErroresArca(errors, "ARCA rechazó el comprobante."),
+      rechazado: true,
+    };
   }
   if (resultado === "R") {
     const obsMsg = mensajeErroresArca(obs, "ARCA rechazó el comprobante.");
-    return { ok: false, error: obsMsg };
+    return { ok: false, error: obsMsg, rechazado: true };
   }
   return { ok: true, data };
 }

@@ -606,6 +606,15 @@ model GlobalPersonal {
 model TesoreriaTitular {
   id        String   @id @default(cuid())
   nombre    String   @unique(map: "tesoreria_titulares_nombre_key")
+  /**
+   * Factura Fiscal Obligatoria (Seguimiento Fiscal): pesos enteros > 0; null = sin obligación.
+   * Mientras quede restante, las ventas no fiscales de sus ptos. vta. se emiten como fiscales.
+   */
+  facObligatoriaMonto Int?      @map("fac_obligatoria_monto")
+  /**
+   * Desde cuándo se descuentan los comprobantes fiscales (`vtas_comprobantes.created_at`). CHECK: ambos null o ambos con valor.
+   */
+  facObligatoriaDesde DateTime? @map("fac_obligatoria_desde")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

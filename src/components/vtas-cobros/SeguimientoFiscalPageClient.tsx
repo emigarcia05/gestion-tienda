@@ -12,7 +12,6 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import {
   Select,
   SelectContent,
@@ -33,8 +32,10 @@ import {
 import { APP_ROUTES } from "@/lib/appRoutes";
 import { fmtCx, hrefCxMercVend } from "@/lib/balCxMercVend";
 import { cn } from "@/lib/utils";
+import FacturaFiscalObligatoriaTabla from "@/components/vtas-cobros/FacturaFiscalObligatoriaTabla";
 import PtoVtaFacturaTabla from "@/components/vtas-cobros/PtoVtaFacturaTabla";
 import type { SumasBalIva } from "@/services/balIva.service";
+import type { FacturaFiscalObligatoriaFila } from "@/services/facturaFiscalObligatoria.service";
 import type { PtoVtaFacturaFila } from "@/services/ptoVtaFactura.service";
 import type { SeguimientoFiscalData } from "@/services/seguimientoFiscal.service";
 
@@ -99,10 +100,16 @@ function FilaSaldoIva({ concepto, sumas }: { concepto: string; sumas: SumasBalIv
 interface Props {
   data: SeguimientoFiscalData;
   ptoVtaFactura: PtoVtaFacturaFila[];
+  facturaObligatoria: FacturaFiscalObligatoriaFila[];
   esEditor: boolean;
 }
 
-export default function SeguimientoFiscalPageClient({ data, ptoVtaFactura, esEditor }: Props) {
+export default function SeguimientoFiscalPageClient({
+  data,
+  ptoVtaFactura,
+  facturaObligatoria,
+  esEditor,
+}: Props) {
   const router = useRouter();
   const { filas, filtros, periodoDefault, balanceIva } = data;
   const etiquetaMes =
@@ -245,14 +252,11 @@ export default function SeguimientoFiscalPageClient({ data, ptoVtaFactura, esEdi
             </TableBody>
           </Table>
         </Cuadrante>
+        <Cuadrante titulo="FACTURA FISCAL OBLIGATORIA">
+          <FacturaFiscalObligatoriaTabla filasIniciales={facturaObligatoria} esEditor={esEditor} />
+        </Cuadrante>
         <Cuadrante titulo="PTOS VTAS SEGÚN TIPO FAC. & SUC.">
           <PtoVtaFacturaTabla filasIniciales={ptoVtaFactura} esEditor={esEditor} />
-        </Cuadrante>
-        <Cuadrante titulo="FACTURA FISCAL OBLIGATORIA">
-          <TableEmptyState
-            placement="blockedPanel"
-            message="Esta función se habilitará más adelante."
-          />
         </Cuadrante>
       </div>
     </ClassicFilteredTableLayout>
