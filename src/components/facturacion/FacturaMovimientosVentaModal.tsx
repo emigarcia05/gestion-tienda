@@ -22,7 +22,13 @@ import {
   type ItemMovimientoVenta,
   type PlanMovimientosVenta,
   type ProveedorCompraVentaItem,
+  type TransferenciaVentaItem,
 } from "@/lib/ventaMovimientosStock";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
 type AccionTransferencia = "nada" | "transferir" | "proveedor";
@@ -42,11 +48,22 @@ function claveTransf(origen: SucursalTransf, codTienda: string): string {
   return `${origen}|${codTienda}`;
 }
 
-/** Cantidad editada (entero ≥ 1) o la del plan si no se editó o el texto no es válido. */
-function cantidadEfectiva(original: number, editada: string | undefined): number {
+/** Cantidad editada (entero entre 1 y `max`) o la del plan si no se editó o el texto no es válido. */
+function cantidadEfectiva(original: number, editada: string | undefined, max?: number): number {
   if (editada == null) return original;
   const n = Number(editada);
-  return Number.isInteger(n) && n >= 1 ? n : original;
+  if (!Number.isInteger(n) || n < 1) return original;
+  return max != null ? Math.min(n, max) : n;
+}
+
+/** Tope entero para transferir: no se puede pedir más que el stock de la sucursal origen. */
+function maxTransferible(item: TransferenciaVentaItem): number {
+  return Math.floor(item.stockOrigen);
+}
+
+/** La edición de una transferencia sólo aplica a ítems sin COD. COLOR y con stock entero ≥ 1 en origen. */
+function transferenciaEditable(item: TransferenciaVentaItem): boolean {
+  return item.colores.length === 0 && maxTransferible(item) >= 1;
 }
 
 /** Control segmentado: las opciones ocupan el mismo ancho; ninguna elegida hasta que el usuario decide. */
@@ -94,12 +111,13 @@ function OpcionesAccion<T extends string>({
   );
 }
 
-/** CANT.: número + lápiz; al editar, stepper − / + (entero ≥ 1). */
+/** CANT.: número + lápiz; al editar, stepper + / − (entero entre 1 y `max`). */
 function CantidadEditable({
   cantidad,
   editable,
   editando,
   valor,
+  max,
   onEditar,
   onChange,
   disabled,
@@ -109,6 +127,7 @@ function CantidadEditable({
   editable: boolean;
   editando: boolean;
   valor: string;
+  max?: number;
   onEditar: () => void;
   onChange: (next: string) => void;
   disabled: boolean;
@@ -117,10 +136,12 @@ function CantidadEditable({
   if (editable && editando) {
     return (
       <EnteroStepperInput
-        className="h-9 flex-nowrap"
+        variante="formulario"
+        className="mx-auto w-24"
         value={valor}
         onChange={onChange}
         min={1}
+        max={max}
         allowEmpty={false}
         clampAlMinimo
         disabled={disabled}
@@ -129,26 +150,26 @@ function CantidadEditable({
     );
   }
   return (
-    <div className="flex items-center justify-center gap-1.5">
+    <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "h-9 flex-nowrap")}>
       <span className="text-sm font-bold tabular-nums">{fmtCantidad(cantidad)}</span>
       {editable ? (
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
-          className="text-primary hover:text-primary"
+          size="icon"
+          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
           aria-label={`Editar ${ariaLabel}`}
           disabled={disabled}
           onClick={onEditar}
         >
-          <Pencil />
+          <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} />
         </Button>
       ) : null}
     </div>
   );
 }
 
-function CeldaItem({ item }: { item: ItemMovimientoVenta }) {
+function CeldaItem({ item, detalle }: { item: ItemMovimientoVenta; detalle?: string }) {
   return (
     <span className="min-w-0 text-left text-sm text-foreground">
       <span className="tabular-nums text-muted-foreground">{item.codTienda}</span>{" "}
@@ -158,6 +179,7 @@ function CeldaItem({ item }: { item: ItemMovimientoVenta }) {
           {item.colores.map((c) => `COD. ${c.codColor} × ${fmtCantidad(c.cantidad)}`).join(" · ")}
         </span>
       ) : null}
+      {detalle ? <span className="block text-xs uppercase text-muted-foreground">{detalle}</span> : null}
     </span>
   );
 }
@@ -225,22 +247,36 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
     };
   }, [open, codigosKey]);
 
-  /** COMPRAS = faltante del plan + lo que se pasó desde TRANSFERENCIAS con «Pedir a Proveedor». */
+  /**
+   * COMPRAS = faltante del plan + lo que se pasó desde TRANSFERENCIAS con «Pedir a Proveedor»
+   * + lo que se dejó de transferir al bajar la cantidad de «Pedir transferencia».
+   */
   const compras = useMemo(() => {
     const porCod = new Map<string, ItemMovimientoVenta>();
-    for (const i of plan?.compras ?? []) porCod.set(i.codTienda, { ...i });
+    const sumar = (item: ItemMovimientoVenta) => {
+      const previo = porCod.get(item.codTienda);
+      if (previo) {
+        previo.cantidad = Math.round((previo.cantidad + item.cantidad) * 10) / 10;
+        previo.colores = sumarColoresMovimiento(previo.colores, item.colores);
+      } else porCod.set(item.codTienda, { ...item });
+    };
+    for (const i of plan?.compras ?? []) sumar(i);
     for (const g of plan?.transferencias ?? []) {
       for (const i of g.items) {
-        if (accTransf[claveTransf(g.origenCodigo, i.codTienda)] !== "proveedor") continue;
-        const previo = porCod.get(i.codTienda);
-        if (previo) {
-          previo.cantidad = Math.round((previo.cantidad + i.cantidad) * 10) / 10;
-          previo.colores = sumarColoresMovimiento(previo.colores, i.colores);
-        } else porCod.set(i.codTienda, { ...i });
+        const k = claveTransf(g.origenCodigo, i.codTienda);
+        const accion = accTransf[k];
+        if (accion === "proveedor") {
+          sumar({ codTienda: i.codTienda, descripcion: i.descripcion, cantidad: i.cantidad, colores: i.colores });
+          continue;
+        }
+        if (accion !== "transferir") continue;
+        const resto =
+          Math.round((i.cantidad - cantidadEfectiva(i.cantidad, cantTransf[k], maxTransferible(i))) * 10) / 10;
+        if (resto > 0) sumar({ codTienda: i.codTienda, descripcion: i.descripcion, cantidad: resto, colores: [] });
       }
     }
     return [...porCod.values()];
-  }, [plan, accTransf]);
+  }, [plan, accTransf, cantTransf]);
 
   if (!plan || !sucursalDestino) return null;
 
@@ -275,24 +311,30 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
     });
   }
 
-  function iniciarEdicion(clave: string, cantidad: number, setCant: (v: string) => void) {
-    setCant(String(Math.max(1, Math.round(cantidad))));
+  function iniciarEdicion(clave: string, cantidad: number, setCant: (v: string) => void, max?: number) {
+    const inicial = Math.max(1, Math.round(cantidad));
+    setCant(String(max != null ? Math.min(inicial, max) : inicial));
     setEditando((prev) => new Set(prev).add(clave));
   }
 
+  /** La cantidad de COMPRAS del ítem cambió (acción o cantidad de transferencia): vuelve a la calculada. */
   function descartarCantCompra(codTienda: string) {
     setCantCompra(({ [codTienda]: _quitada, ...resto }) => resto);
     quitarEdicion(`c|${codTienda}`);
   }
 
   function elegirAccionTransf(k: string, codTienda: string, accion: AccionTransferencia) {
-    const previa = accTransf[k];
     setAccTransf((prev) => ({ ...prev, [k]: accion }));
     if (accion !== "transferir") {
       setCantTransf(({ [k]: _quitada, ...resto }) => resto);
       quitarEdicion(`t|${k}`);
     }
-    if ((previa === "proveedor") !== (accion === "proveedor")) descartarCantCompra(codTienda);
+    descartarCantCompra(codTienda);
+  }
+
+  function cambiarCantTransf(k: string, codTienda: string, valor: string) {
+    setCantTransf((prev) => ({ ...prev, [k]: valor }));
+    descartarCantCompra(codTienda);
   }
 
   function elegirAccionCompra(codTienda: string, accion: AccionCompra) {
@@ -357,7 +399,11 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
           personalId: usuario.idPersonal,
           items: items.map((i) => ({
             codItem: i.codTienda,
-            cantidad: cantidadEfectiva(i.cantidad, cantTransf[claveTransf(g.origenCodigo, i.codTienda)]),
+            cantidad: cantidadEfectiva(
+              i.cantidad,
+              cantTransf[claveTransf(g.origenCodigo, i.codTienda)],
+              maxTransferible(i)
+            ),
           })),
         });
         if (!res.ok) {
@@ -463,18 +509,25 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                     const hecho = hechos.has(`t|${k}`);
                     return (
                       <div key={k} className={FILA_GRID_CLASS}>
-                        <CeldaItem item={i} />
+                        <CeldaItem
+                          item={i}
+                          detalle={`Stock en ${g.origenNombre}: ${fmtCantidad(i.stockOrigen)}`}
+                        />
                         <CantidadEditable
-                          cantidad={cantidadEfectiva(i.cantidad, cantTransf[k])}
-                          editable={accTransf[k] === "transferir"}
+                          cantidad={cantidadEfectiva(i.cantidad, cantTransf[k], maxTransferible(i))}
+                          editable={accTransf[k] === "transferir" && transferenciaEditable(i)}
                           editando={editando.has(`t|${k}`)}
                           valor={cantTransf[k] ?? ""}
+                          max={maxTransferible(i)}
                           onEditar={() =>
-                            iniciarEdicion(`t|${k}`, i.cantidad, (v) =>
-                              setCantTransf((prev) => ({ ...prev, [k]: v }))
+                            iniciarEdicion(
+                              `t|${k}`,
+                              i.cantidad,
+                              (v) => cambiarCantTransf(k, i.codTienda, v),
+                              maxTransferible(i)
                             )
                           }
-                          onChange={(v) => setCantTransf((prev) => ({ ...prev, [k]: v }))}
+                          onChange={(v) => cambiarCantTransf(k, i.codTienda, v)}
                           disabled={pending || hecho}
                           ariaLabel={`cantidad a transferir de ${i.descripcion}`}
                         />

@@ -41,11 +41,16 @@ export type ItemMovimientoVenta = {
   colores: ColorMovimientoVenta[];
 };
 
+export type TransferenciaVentaItem = ItemMovimientoVenta & {
+  /** Stock disponible (≥ 0) en la sucursal origen: tope de la cantidad a transferir. */
+  stockOrigen: number;
+};
+
 /** Ítems a pedir a otra sucursal (origen de la transferencia; destino = sucursal de la venta). */
 export type TransferenciaVentaGrupo = {
   origenCodigo: SucursalTransf;
   origenNombre: string;
-  items: ItemMovimientoVenta[];
+  items: TransferenciaVentaItem[];
 };
 
 export type PlanMovimientosVenta = {
@@ -173,7 +178,12 @@ export function armarPlanMovimientosVenta(params: {
         origenNombre: aporte.nombre,
         items: [],
       };
-      grupo.items.push({ ...item, cantidad: aporte.aTraer, colores });
+      grupo.items.push({
+        ...item,
+        cantidad: aporte.aTraer,
+        colores,
+        stockOrigen: Math.max(0, unDecimal(aporte.stock)),
+      });
       grupos.set(origen.data, grupo);
     }
     coloresCompra = sumarColoresMovimiento(coloresCompra, tomarColores(cobertura.faltanteTotal));

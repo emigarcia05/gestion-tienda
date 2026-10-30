@@ -36,16 +36,16 @@ const stepperInputVariants = cva("text-center tabular-nums", {
 const STEPPER_BTN_APILADO_CLASS =
   "h-auto min-h-0 w-full flex-1 rounded-sm border-0 bg-[#0072BB] p-0 text-xs leading-none text-white shadow-none hover:bg-[#0072BB]/90 hover:text-white disabled:cursor-not-allowed disabled:opacity-50";
 
-function parseEnteroLibre(raw: string): number | null {
+function parseEnteroLibre(raw: string, max = MAX_ENTERO_STEPPER): number | null {
   const t = raw.trim();
   if (t === "") return null;
   const n = Number(t);
   if (!Number.isFinite(n)) return null;
-  return Math.min(Math.trunc(n), MAX_ENTERO_STEPPER);
+  return Math.min(Math.trunc(n), max);
 }
 
-function parseEnteroDraft(raw: string, min: number): number | null {
-  const i = parseEnteroLibre(raw);
+function parseEnteroDraft(raw: string, min: number, max?: number): number | null {
+  const i = parseEnteroLibre(raw, max);
   return i == null || i < min ? null : i;
 }
 
@@ -55,12 +55,14 @@ function parseEnteroDraft(raw: string, min: number): number | null {
  * Si el padre persiste por campo, usa `onCommit` (blur o paso).
  * `clampAlMinimo`: `min` es un piso duro (no se tipea un 0 inicial, − se detiene en `min`
  * y un número menor se sube a `min` al salir del campo).
+ * `max`: tope duro (+ se detiene y lo tipeado de más baja a `max`).
  */
 export default function EnteroStepperInput({
   value,
   onChange,
   onCommit,
   min = 1,
+  max = MAX_ENTERO_STEPPER,
   allowEmpty = true,
   disabled = false,
   ariaLabel,
@@ -76,6 +78,7 @@ export default function EnteroStepperInput({
   onChange: (next: string) => void;
   onCommit?: (next: string) => void;
   min?: number;
+  max?: number;
   allowEmpty?: boolean;
   disabled?: boolean;
   ariaLabel: string;
@@ -89,8 +92,8 @@ export default function EnteroStepperInput({
   clampAlMinimo?: boolean;
 }) {
   function commitParsed(raw: string) {
-    const libre = parseEnteroLibre(raw);
-    const parsed = parseEnteroDraft(raw, min);
+    const libre = parseEnteroLibre(raw, max);
+    const parsed = parseEnteroDraft(raw, min, max);
     let next: string;
     if (parsed != null) next = String(parsed);
     else if (clampAlMinimo && libre != null) next = String(min);
@@ -101,11 +104,12 @@ export default function EnteroStepperInput({
 
   function cambiarTexto(raw: string) {
     if (clampAlMinimo && min >= 1 && /^\s*[0-]/.test(raw)) return;
-    onChange(raw);
+    const n = Number(raw);
+    onChange(raw.trim() !== "" && Number.isFinite(n) && n > max ? String(max) : raw);
   }
 
   function ajustar(delta: -1 | 1) {
-    const parsed = parseEnteroDraft(value, min);
+    const parsed = parseEnteroDraft(value, min, max);
     let nextN: number | null;
     if (parsed == null) {
       const libre = clampAlMinimo ? parseEnteroLibre(value) : null;
@@ -116,7 +120,7 @@ export default function EnteroStepperInput({
       if (candidato < min) {
         nextN = clampAlMinimo || !allowEmpty ? min : null;
       } else {
-        nextN = Math.min(candidato, MAX_ENTERO_STEPPER);
+        nextN = Math.min(candidato, max);
       }
     }
     const next = nextN == null ? "" : String(nextN);
@@ -128,7 +132,7 @@ export default function EnteroStepperInput({
     <Input
       type="number"
       min={min}
-      max={MAX_ENTERO_STEPPER}
+      max={max}
       step={1}
       value={value}
       disabled={disabled}
