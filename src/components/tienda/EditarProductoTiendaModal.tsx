@@ -13,7 +13,6 @@ import ProductoTiendaCampos, {
   type CamposProductoTiendaForm,
 } from "@/components/tienda/ProductoTiendaCampos";
 import VinculosCostoProductoTienda from "@/components/tienda/VinculosCostoProductoTienda";
-import ComponentesProductoCompuesto from "@/components/tienda/ComponentesProductoCompuesto";
 import GestionarCatalogosProductoTienda, {
   type CatalogoProductoTienda,
 } from "@/components/tienda/GestionarCatalogosProductoTienda";
@@ -48,7 +47,6 @@ export default function EditarProductoTiendaModal({
     bulto: item.bulto != null ? String(item.bulto) : "",
   });
   const [pending, setPending] = useState(false);
-  const [esCompuesto, setEsCompuesto] = useState(item.esProductoCompuesto);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
   const cerrarGestion = useCallback(() => {
@@ -107,30 +105,20 @@ export default function EditarProductoTiendaModal({
             />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
-            <h3 className={SECCION_TITULO_CLASS}>PRODUCTO COMPUESTO</h3>
-            <ComponentesProductoCompuesto
+            <h3 className={SECCION_TITULO_CLASS}>TIPO DE PRODUCTO Y COSTO</h3>
+            <VinculosCostoProductoTienda
               codTienda={item.codItem}
-              esCompuestoInicial={item.esProductoCompuesto}
-              puedeEditar={puedeEditarCosto}
-              onCompuestoChange={setEsCompuesto}
+              descripcion={item.descripcion}
+              marca={item.marca}
+              rubro={item.rubro}
+              subRubro={item.subRubro}
+              prefijoProveedor={item.proveedorDux}
+              esProductoPropioInicial={item.esProductoPropio}
+              esProductoCompuestoInicial={item.esProductoCompuesto}
+              puedeVincular={puedeVincular}
+              puedeEditarCosto={puedeEditarCosto}
             />
           </section>
-          {esCompuesto ? null : (
-            <section className="modal-seccion-formulario flex flex-col gap-3">
-              <h3 className={SECCION_TITULO_CLASS}>VINCULACIÓN CON COSTO</h3>
-              <VinculosCostoProductoTienda
-                codTienda={item.codItem}
-                descripcion={item.descripcion}
-                marca={item.marca}
-                rubro={item.rubro}
-                subRubro={item.subRubro}
-                prefijoProveedor={item.proveedorDux}
-                esProductoPropioInicial={item.esProductoPropio}
-                puedeVincular={puedeVincular}
-                puedeEditarCosto={puedeEditarCosto}
-              />
-            </section>
-          )}
         </div>
       </AppModal>
       <GestionarCatalogosProductoTienda

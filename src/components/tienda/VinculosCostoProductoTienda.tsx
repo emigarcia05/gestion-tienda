@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Link2, Loader2, Trash2 } from "lucide-react";
+import { Link2, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,9 @@ import { PRODUCTO_TIENDA_GRID_CLASS } from "@/components/tienda/ProductoTiendaCa
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
+import SeleccionarComponenteCompuestoModal from "@/components/tienda/SeleccionarComponenteCompuestoModal";
+import TablaComponentesCompuesto from "@/components/tienda/TablaComponentesCompuesto";
+import { useProductoCompuestoTienda } from "@/lib/hooks/useProductoCompuestoTienda";
 import { setProductoPropioTiendaAction } from "@/actions/tienda";
 import {
   desvincularProducto,
@@ -61,8 +64,10 @@ function costoManualANormalizado(costo: number | null): string {
 }
 
 /**
- * Editar producto · VINCULACIÓN CON COSTO. CX COMPRA = proveedor elegido en la columna CX (con un único
- * vínculo se toma por defecto); sin vínculos (PROD. PROPIO o sin vincular) = COSTO MANUAL.
+ * Editar producto · TIPO DE PRODUCTO Y COSTO. Fila PROD. PROPIO | PROD. COMPUESTO (solo si es propio)
+ * y un botón: **Vincular Cx Proveedor** o, si es compuesto, **Adherir Productos** (componentes).
+ * CX COMPRA = proveedor elegido en la columna CX (con un único vínculo se toma por defecto); sin
+ * vínculos (PROD. PROPIO o sin vincular) = COSTO MANUAL; compuesto = costo de sus componentes.
  * Cada cambio se guarda al instante.
  */
 export default function VinculosCostoProductoTienda({
@@ -73,6 +78,7 @@ export default function VinculosCostoProductoTienda({
   subRubro,
   prefijoProveedor,
   esProductoPropioInicial,
+  esProductoCompuestoInicial,
   puedeVincular,
   puedeEditarCosto,
 }: {
@@ -83,6 +89,7 @@ export default function VinculosCostoProductoTienda({
   subRubro: string | null;
   prefijoProveedor: string | null;
   esProductoPropioInicial: boolean;
+  esProductoCompuestoInicial: boolean;
   puedeVincular: boolean;
   puedeEditarCosto: boolean;
 }) {
@@ -96,6 +103,13 @@ export default function VinculosCostoProductoTienda({
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [recarga, setRecarga] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const compuesto = useProductoCompuestoTienda({
+    codTienda,
+    esCompuestoInicial: esProductoCompuestoInicial,
+    puedeEditar: puedeEditarCosto,
+    onCompuestoChange: () => setRecarga((n) => n + 1),
+  });
+  const esCompuesto = compuesto.esCompuesto;
 
   useEffect(() => {
     let activo = true;
@@ -209,8 +223,33 @@ export default function VinculosCostoProductoTienda({
           label="PROD. PROPIO"
           value={esPropio}
           onChange={cambiarPropio}
-          disabled={!puedeVincular || isPending || cargando}
+          disabled={!puedeVincular || isPending || cargando || esCompuesto}
         />
+        {esPropio ? (
+          <ModalSiNoChoice
+            label="PROD. COMPUESTO"
+            value={esCompuesto}
+            onChange={compuesto.cambiarCompuesto}
+            disabled={compuesto.bloqueado || (!esCompuesto && compuesto.esComponenteDe > 0)}
+          />
+        ) : (
+          <div className="invisible pointer-events-none" aria-hidden>
+            <ModalSiNoChoice label="PROD. COMPUESTO" value={false} onChange={() => undefined} disabled />
+          </div>
+        )}
+      </div>
+      {esCompuesto ? (
+        <Button
+          type="button"
+          variant="default"
+          className="w-full gap-2"
+          disabled={compuesto.bloqueado}
+          onClick={() => compuesto.setSelectorAbierto(true)}
+        >
+          <Plus aria-hidden />
+          Adherir Productos
+        </Button>
+      ) : (
         <Button
           type="button"
           variant="default"
@@ -221,8 +260,23 @@ export default function VinculosCostoProductoTienda({
           <Link2 aria-hidden />
           Vincular Cx Proveedor
         </Button>
-      </div>
-      {usaCostoManual && !cargando ? (
+      )}
+      {esPropio && !esCompuesto && compuesto.esComponenteDe > 0 ? (
+        <p className="text-center text-sm text-muted-foreground">
+          Es componente de {compuesto.esComponenteDe} producto(s) compuesto(s): no puede ser compuesto.
+        </p>
+      ) : null}
+      {esCompuesto ? (
+        <TablaComponentesCompuesto
+          filas={compuesto.filas}
+          cargando={compuesto.cargando}
+          bloqueado={compuesto.bloqueado}
+          puedeQuitar={puedeEditarCosto}
+          onCantidadChange={compuesto.editarCantidad}
+          onCantidadBlur={compuesto.confirmarCantidad}
+          onQuitar={compuesto.quitar}
+        />
+      ) : usaCostoManual && !cargando ? (
         <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-center")}>
           <label htmlFor={`costo-manual-${codTienda}`} className="text-sm font-medium uppercase text-foreground">
             COSTO MANUAL
@@ -239,7 +293,7 @@ export default function VinculosCostoProductoTienda({
           </div>
         </div>
       ) : null}
-      {esPropio ? (
+      {esCompuesto ? null : esPropio ? (
         <p className="text-center text-sm text-muted-foreground">
           Producto propio TiendaColor: sin vínculos con proveedores.
         </p>
@@ -349,6 +403,14 @@ export default function VinculosCostoProductoTienda({
         rubro={rubro}
         subRubro={subRubro}
       />
+      {compuesto.selectorAbierto ? (
+        <SeleccionarComponenteCompuestoModal
+          codTienda={codTienda}
+          excluir={compuesto.filas.map((f) => f.codTienda)}
+          onSeleccionar={compuesto.agregar}
+          onClose={() => compuesto.setSelectorAbierto(false)}
+        />
+      ) : null}
     </div>
   );
 }
