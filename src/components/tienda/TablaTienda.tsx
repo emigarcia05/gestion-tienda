@@ -66,7 +66,13 @@ export default function TablaTienda({
         toast.error(res.error);
         return;
       }
-      toast.success(`Producto ${borrando.codItem} borrado.`);
+      if (res.data.deshabilitadoPor) {
+        toast.success(`Producto ${borrando.codItem} deshabilitado.`, {
+          description: `No se puede borrar porque tiene ${res.data.deshabilitadoPor.join(", ")}. Ya no se muestra en la lista.`,
+        });
+      } else {
+        toast.success(`Producto ${borrando.codItem} borrado.`);
+      }
       setBorrando(null);
       router.refresh();
     } finally {
@@ -207,7 +213,8 @@ export default function TablaTienda({
           <p className="text-sm text-muted-foreground">
             ¿Borrar <span className="font-semibold text-foreground">{borrando?.codItem}</span> ·{" "}
             <span className="font-semibold text-foreground">{borrando?.descripcion}</span>? Sus vínculos con
-            proveedores quedan libres. Si tiene stock, compras, ventas o estadísticas no se podrá borrar.
+            proveedores quedan libres. Si tiene stock, compras, ventas o estadísticas no se puede borrar: se
+            deshabilita y deja de mostrarse.
           </p>
         </AppModal>
       </Dialog>

@@ -87,7 +87,7 @@ export async function editarProductoTiendaAction(
 
 export async function eliminarProductoTiendaAction(
   raw: unknown
-): Promise<ActionResult<{ codTienda: string }>> {
+): Promise<ActionResult<{ codTienda: string; deshabilitadoPor: string[] | null }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
   const parsed = eliminarProductoTiendaSchema.safeParse(raw);

@@ -73,13 +73,18 @@ function isType(child: React.ReactElement, component: unknown, name: string): bo
 
 /**
  * Filtra hijos de SelectContent por query (SelectItem / SelectGroup).
- * Oculta labels/separadores mientras hay búsqueda activa.
+ * Los ítems (y grupos) que no coinciden se **ocultan** (`hidden`), no se desmontan: si se desmonta el
+ * ítem seleccionado, Radix Select cambia su `selectedItem` y vuelve a enfocarlo (o al contenido),
+ * sacándole el foco al buscador en cada tecla.
+ * Labels/separadores se ocultan mientras hay búsqueda activa. Se recorre **siempre** (también con query
+ * vacío) para que el árbol y las keys sean idénticos entre teclas y React no remonte los ítems.
  */
 function filterSelectChildren(
   children: React.ReactNode,
   query: string
 ): { nodes: React.ReactNode; matchCount: number } {
   let matchCount = 0;
+  const busquedaActiva = query.trim() !== "";
 
   function walk(nodes: React.ReactNode): React.ReactNode[] {
     return React.Children.toArray(nodes).flatMap((child) => {
@@ -91,6 +96,7 @@ function filterSelectChildren(
         const props = child.props as {
           value?: string;
           textValue?: string;
+          className?: string;
           children?: React.ReactNode;
         };
         const label =
@@ -98,34 +104,44 @@ function filterSelectChildren(
             ? props.textValue
             : getReactNodeText(props.children)) || String(props.value ?? "");
         if (!selectOptionMatchesQuery(label, query)) {
-          return [];
+          return [
+            React.cloneElement(child, {
+              className: cn(props.className, "hidden"),
+              "aria-hidden": true,
+            } as never),
+          ];
         }
         matchCount += 1;
         return [child];
       }
 
       if (isType(child, SelectGroup, "SelectGroup")) {
-        const props = child.props as { children?: React.ReactNode };
+        const props = child.props as { className?: string; children?: React.ReactNode };
+        const antes = matchCount;
         const nextChildren = walk(props.children);
-        const hasItem = nextChildren.some(
-          (c) => React.isValidElement(c) && isType(c, SelectItem, "SelectItem")
-        );
-        if (!hasItem) {
-          return [];
-        }
-        return [React.cloneElement(child, { children: nextChildren } as never)];
+        const sinCoincidencias = matchCount === antes;
+        return [
+          React.cloneElement(child, {
+            children: nextChildren,
+            ...(sinCoincidencias ? { className: cn(props.className, "hidden"), "aria-hidden": true } : {}),
+          } as never),
+        ];
       }
 
       if (child.type === React.Fragment) {
         const props = child.props as { children?: React.ReactNode };
-        return walk(props.children);
+        return [React.cloneElement(child, { children: walk(props.children) } as never)];
       }
 
-      if (isType(child, SelectLabel, "SelectLabel")) {
-        return [];
-      }
-      if (isType(child, SelectSeparator, "SelectSeparator")) {
-        return [];
+      if (isType(child, SelectLabel, "SelectLabel") || isType(child, SelectSeparator, "SelectSeparator")) {
+        if (!busquedaActiva) return [child];
+        const props = child.props as { className?: string };
+        return [
+          React.cloneElement(child, {
+            className: cn(props.className, "hidden"),
+            "aria-hidden": true,
+          } as never),
+        ];
       }
 
       const props = child.props as { children?: React.ReactNode };
@@ -167,7 +183,7 @@ function SelectContent({
   const [query, setQuery] = React.useState("");
 
   const { nodes, matchCount } = React.useMemo(() => {
-    if (!searchable || !query.trim()) {
+    if (!searchable) {
       return { nodes: children, matchCount: null as number | null };
     }
     return filterSelectChildren(children, query);

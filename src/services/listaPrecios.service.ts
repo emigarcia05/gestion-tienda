@@ -1304,6 +1304,8 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   const listaWhereBaseParts: Prisma.ListaPrecioProveedorWhereInput[] = [
     { habilitado: true },
     { proveedor: { proveedorMercaderia: true, esFabrica: false } },
+    // Líneas vinculadas a un ítem de tienda deshabilitado (baja lógica) no se piden.
+    { OR: [{ codTiendaVinculo: null }, { prodTienda: { is: { habilitado: true } } }] },
   ];
 
   /**
@@ -1386,6 +1388,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       orderBy: [{ codTiendaVinculo: "asc" }, { codExt: "asc" }],
     }),
     prisma.prodPropio.findMany({
+      where: { habilitado: true },
       select: { codTienda: true, descripcionTienda: true, costoCompraCodExt: true },
     }),
   ]);

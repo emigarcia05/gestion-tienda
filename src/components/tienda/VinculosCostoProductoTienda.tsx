@@ -299,19 +299,6 @@ export default function VinculosCostoProductoTienda({
         </p>
       ) : (
         <>
-          {usaCostoManual ? null : (
-            <p className="text-sm font-medium uppercase text-foreground">
-              CX COMPRA:{" "}
-              {filaBase ? (
-                <>
-                  <span className="tabular-nums">${fmtPrecio(filaBase.px)}</span>{" "}
-                  <span className="text-xs text-muted-foreground">({filaBase.producto.proveedor.prefijo})</span>
-                </>
-              ) : (
-                <span className="text-xs text-destructive">ELEGÍ EL PROVEEDOR EN LA COLUMNA CX</span>
-              )}
-            </p>
-          )}
           <Table variant="compact" scrollX={false} className="table-fixed w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">

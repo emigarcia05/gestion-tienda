@@ -201,6 +201,7 @@ export async function buscarComponentesCandidatos(
       where: {
         AND: [
           texto,
+          { habilitado: true },
           { esProductoCompuesto: false },
           ...(codTienda ? [{ codTienda: { not: codTienda } }] : []),
         ],

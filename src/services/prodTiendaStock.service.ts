@@ -45,9 +45,12 @@ export async function obtenerIdDepositoPorCodigoSucursal(
   return getIdDepositoPorSucursalCodigo(codigo);
 }
 
-/** `prod_tienda_stock` eliminada: no hay filtro stockeable persistido. */
+/**
+ * Ítems operables en Control Stock y Transf. Depósitos: solo `habilitado` (sin baja lógica).
+ * `prod_tienda_stock` eliminada: no hay otro filtro stockeable persistido.
+ */
 export function whereProdTiendaStockeable(): Prisma.ProdPropioWhereInput {
-  return {};
+  return { habilitado: true };
 }
 
 /** `prod_tienda_stock` eliminada: stockeable queda en false hasta definir regla. */

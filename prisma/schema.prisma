@@ -1581,6 +1581,9 @@ model ProdPropio {
   idColor                     String?   @map("id_color")
   /// Acabado: BRILLANTE / SATINADO / MATE. `null` = vacío. Sync DUX no escribe.
   terminacion                 TerminacionProdLista?
+  /// Baja lógica: `false` = borrado con historia (no se puede borrar físicamente). Oculto en Lista Productos
+  /// y en buscadores operativos (factura, pedidos, stock, transferencias, componentes); informes lo siguen viendo.
+  habilitado                  Boolean   @default(true)
 
   rubroRelation             ProdRubro?                     @relation(fields: [idRubro], references: [id], onDelete: Restrict)
   subRubroRelation          ProdSubRubro?                  @relation(fields: [idSubRubro, idRubro], references: [id, idRubro], onDelete: Restrict)

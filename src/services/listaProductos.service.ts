@@ -211,15 +211,16 @@ export async function editarProductoTienda(
 }
 
 /**
- * Baja bloqueada si el producto tiene historia (stock, transferencias, compras, ventas o estadísticas).
+ * Con historia (stock, transferencias, compras, ventas, estadísticas o componente de un compuesto) no se
+ * puede borrar: queda `habilitado = false` (baja lógica) y devuelve los usos que lo impidieron.
  * Sin historia: borra sus reglas de reposición; los vínculos con proveedores quedan libres (FK SET NULL)
  * y precios de lista / competencia se borran en cascada.
  */
 export async function eliminarProductoTienda(
   codTienda: string
-): Promise<ServiceResult<{ codTienda: string }>> {
+): Promise<ServiceResult<{ codTienda: string; deshabilitadoPor: string[] | null }>> {
   try {
-    await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const existe = await tx.prodPropio.findUnique({ where: { codTienda }, select: { codTienda: true } });
       if (!existe) throw new ErrorNegocio("El producto ya no existe.");
       const [movStock, transferencias, compras, ventas, estadisticas, componenteDe] = await Promise.all([
@@ -239,12 +240,13 @@ export async function eliminarProductoTienda(
         estadisticas > 0 && "estadísticas de ventas",
       ].filter((u): u is string => Boolean(u));
       if (usos.length > 0) {
-        throw new ErrorNegocio(`No se puede borrar: el producto tiene ${usos.join(", ")}.`);
+        await tx.prodPropio.update({ where: { codTienda }, data: { habilitado: false } });
+        return { success: true as const, data: { codTienda, deshabilitadoPor: usos } };
       }
       await tx.prodPedMerc2.deleteMany({ where: { reposicionCodTienda: codTienda } });
       await tx.prodPropio.delete({ where: { codTienda } });
+      return { success: true as const, data: { codTienda, deshabilitadoPor: null } };
     });
-    return { success: true, data: { codTienda } };
   } catch (error) {
     if (error instanceof ErrorNegocio) return { success: false, error: error.message };
     console.error("[listaProductos.service] eliminarProductoTienda:", error);

@@ -32,12 +32,14 @@ export async function buscarProductosTiendaPorDescripcion(params: {
       tokens.length === 0
         ? {
             AND: [
+              { habilitado: true },
               { descripcionTienda: { not: null } },
               { descripcionTienda: { not: "" } },
             ],
           }
         : {
             AND: [
+              { habilitado: true },
               { descripcionTienda: { not: null } },
               { descripcionTienda: { not: "" } },
               {

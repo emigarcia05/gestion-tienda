@@ -218,7 +218,7 @@ export async function getTiendaPageData(params: {
   const vNorm = (vinculadoRaw ?? "").toLowerCase();
   const vinculado = vNorm === "no" || vNorm === "si" ? vNorm : "";
 
-  const andParts: Prisma.ProdPropioWhereInput[] = [];
+  const andParts: Prisma.ProdPropioWhereInput[] = [{ habilitado: true }];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
   if (textFilter.AND?.length) andParts.push(textFilter);
   andParts.push(...whereCatalogoProdPropio({ rubro, subRubro, marca }));
@@ -251,7 +251,7 @@ export async function getTiendaPageData(params: {
     andParts.push({ costoCompraCodExt: { not: null } });
   }
 
-  const where: Prisma.ProdPropioWhereInput = andParts.length ? { AND: andParts } : {};
+  const where: Prisma.ProdPropioWhereInput = { AND: andParts };
 
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const skip = (paginaNum - 1) * PAGE_SIZE;

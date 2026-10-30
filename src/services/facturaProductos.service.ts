@@ -97,6 +97,7 @@ export async function buscarProductosParaFactura(params: {
     const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
 
     const and: Prisma.ProdPropioWhereInput[] = [
+      { habilitado: true },
       { descripcionTienda: { not: null } },
       { descripcionTienda: { not: "" } },
     ];
