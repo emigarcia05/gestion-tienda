@@ -385,3 +385,50 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     idListaGeneral: metaEstatico.idListaGeneral,
   };
 }
+
+function itemPxVentaVacio(
+  listas: ListaPrecioPxListasColumna[],
+  codTienda: string
+): ItemPxListasPreciosTabla {
+  return {
+    codTienda,
+    descripcion: "",
+    costoCompra: 0,
+    competenciaIdPxListaGeneral: null,
+    opcionesCompetenciaRef: [],
+    preciosPorLista: listas.map((lista) =>
+      armarCeldaPrecioPxListas({
+        idLista: lista.idLista,
+        costoCompra: 0,
+        pxDux: null,
+        pxEdicion: null,
+      })
+    ),
+  };
+}
+
+/** Fila de Px Listas para la sección PX VENTA de Nuevo (`codTienda` null) o Editar Item. */
+export async function getPxVentaItemParaModal(codTienda: string | null): Promise<{
+  listas: ListaPrecioPxListasColumna[];
+  idListaGeneral: number | null;
+  item: ItemPxListasPreciosTabla;
+}> {
+  const listas = await listarColumnasListas();
+  const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
+  if (!codTienda) {
+    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, "") };
+  }
+  const row = await prisma.prodPropio.findUnique({
+    where: { codTienda },
+    select: SELECT_FILA_LISTADO,
+  });
+  if (!row) {
+    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, codTienda) };
+  }
+  const [item] = await enriquecerItemsPxListas(
+    [row],
+    listas,
+    listas.map((lista) => lista.idLista)
+  );
+  return { listas, idListaGeneral, item: item ?? itemPxVentaVacio(listas, codTienda) };
+}

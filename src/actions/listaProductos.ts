@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireEditorTienda, requireTiendaLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
-import { REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
+import { GP_ROUTES, REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
 import type {
   MarcaCatalogoItem,
   OpcionCatalogoItem,
@@ -22,6 +22,11 @@ import {
   eliminarProductoTiendaSchema,
   idCatalogoInputSchema,
 } from "@/lib/validations/listaProductos";
+import {
+  getPxVentaItemModalSchema,
+  guardarPxVentaDesdeItemSchema,
+} from "@/lib/validations/pxListasPrecios";
+import type { ItemPxListasPreciosTabla, ListaPrecioPxListasColumna } from "@/lib/pxListasPrecios";
 import {
   crearMarca,
   crearProductosTiendaLote,
@@ -56,9 +61,13 @@ import {
   guardarComponentesCompuesto,
   setProductoCompuestoTienda,
 } from "@/services/productoCompuesto.service";
+import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
+import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
+import { getPxVentaItemParaModal } from "@/services/pxListasPreciosPage.service";
 
 function revalidateListaProductos(): void {
   for (const path of REVALIDATE_LISTA_PRODUCTOS) revalidatePath(path);
+  revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
 }
 
 export async function crearProductosTiendaLoteAction(
@@ -285,4 +294,57 @@ export async function buscarComponentesCandidatosAction(
   const parsed = buscarComponentesCandidatosSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
   return fromServiceResult(await buscarComponentesCandidatos(parsed.data.codTienda, parsed.data.q));
+}
+
+export async function getPxVentaItemModalAction(
+  codTienda: string | null
+): Promise<
+  ActionResult<{
+    listas: ListaPrecioPxListasColumna[];
+    idListaGeneral: number | null;
+    item: ItemPxListasPreciosTabla;
+  }>
+> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = getPxVentaItemModalSchema.safeParse({ codTienda });
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  try {
+    return { ok: true, data: await getPxVentaItemParaModal(parsed.data.codTienda) };
+  } catch (e) {
+    console.error("[getPxVentaItemModalAction]", e);
+    return { ok: false, error: "No se pudo cargar PX VENTA." };
+  }
+}
+
+export async function guardarPxVentaDesdeItemAction(
+  raw: unknown
+): Promise<ActionResult<{ guardados: number }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = guardarPxVentaDesdeItemSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+
+  const errores: string[] = [];
+  let guardados = 0;
+  if (parsed.data.cambios.length > 0) {
+    const resultados = await guardarCambiosPxListasLote(parsed.data.cambios);
+    for (const resultado of resultados) {
+      if (resultado.ok) guardados += 1;
+      else errores.push(resultado.error);
+    }
+  }
+  if (parsed.data.actualizarCompetencia && errores.length === 0) {
+    const ref = await guardarCompetenciaRefPxListaGeneral(
+      parsed.data.codTienda,
+      parsed.data.competenciaId
+    );
+    if (!ref.success) errores.push(ref.error);
+    else guardados += 1;
+  }
+  if (errores.length > 0) {
+    return { ok: false, error: [...new Set(errores)].join(" · ") };
+  }
+  revalidateListaProductos();
+  return { ok: true, data: { guardados } };
 }

@@ -618,13 +618,14 @@ export async function listarPagosCobroHabilitadosSucursal(
     listarFinAnaCosFinaPagos(),
     prisma.cobrosPorSucursal.findMany({
       where: { sucursal: { codigo: sucursalCodigo } },
-      select: { pagoId: true, entidadId: true, esCheque: true },
+      select: { pagoId: true, entidadId: true, esCheque: true, alias: true },
     }),
   ]);
 
   const pagosConFila = new Set<string>();
   const entidadesPorPago = new Map<string, Set<string>>();
   const chequePorPago = new Map<string, boolean>();
+  const aliasPorEntidad = new Map<string, string>();
   for (const vinculo of vinculos) {
     pagosConFila.add(vinculo.pagoId);
     if (vinculo.esCheque) chequePorPago.set(vinculo.pagoId, true);
@@ -632,6 +633,12 @@ export async function listarPagosCobroHabilitadosSucursal(
     const entidades = entidadesPorPago.get(vinculo.pagoId) ?? new Set<string>();
     entidades.add(vinculo.entidadId);
     entidadesPorPago.set(vinculo.pagoId, entidades);
+    const alias = vinculo.alias?.trim();
+    if (!alias) continue;
+    const clave = `${vinculo.pagoId}|${vinculo.entidadId}`;
+    if (!aliasPorEntidad.has(clave)) {
+      aliasPorEntidad.set(clave, alias.toLocaleUpperCase("es-AR"));
+    }
   }
 
   return pagos.flatMap((pago) => {
@@ -644,6 +651,7 @@ export async function listarPagosCobroHabilitadosSucursal(
           ...pago,
           entidadIds: [],
           entidadNombres: [],
+          entidadAlias: [],
           esCheque,
           fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
         },
@@ -657,6 +665,9 @@ export async function listarPagosCobroHabilitadosSucursal(
         ...pago,
         entidadIds: pares.map((entidad) => entidad.id),
         entidadNombres: pares.map((entidad) => entidad.nombre),
+        entidadAlias: pares.map(
+          (entidad) => aliasPorEntidad.get(`${pago.id}|${entidad.id}`) ?? ""
+        ),
         esCheque,
         fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
       },
