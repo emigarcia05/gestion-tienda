@@ -26,3 +26,4 @@ Cuando pidan la lista o un prompt para copiar:
 | # | Nombre | Para qué | Archivo |
 |---|--------|----------|---------|
 | 1 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
+| 2 | FULL STACK | Modificar y crear código de punta a punta, guiado por las guías, y dejar la documentación al día | [full-stack.md](./full-stack.md) |
