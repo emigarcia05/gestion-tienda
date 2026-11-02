@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import {
   crearMarcaAction,
   editarMarcaAction,
@@ -36,6 +37,7 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MarcaCatalogoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
+  const [formAcepta, setFormAcepta] = useState(false);
   const [formFormato, setFormFormato] = useState("");
   const [pending, setPending] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<MarcaCatalogoItem | null>(null);
@@ -72,11 +74,12 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
 
   const formatoTrim = formFormato.trim();
   const formatoParse = formatoTrim ? parsearFormatoCod(formatoTrim) : null;
-  const errorFormato = formatoParse && !formatoParse.ok ? formatoParse.error : null;
+  const errorFormato = formAcepta && formatoParse && !formatoParse.ok ? formatoParse.error : null;
   function abrirForm(item: MarcaCatalogoItem | null) {
     if (!esEditor || pending) return;
     setEditing(item);
     setFormNombre(item?.nombre ?? "");
+    setFormAcepta(item?.codTintometrico ?? false);
     setFormFormato(item?.formatoCodTintometrico ?? "");
     setFormOpen(true);
   }
@@ -85,7 +88,12 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
     if (!esEditor || !formNombre.trim() || errorFormato || pending) return;
     setPending(true);
     try {
-      const payload = { nombre: formNombre, formatoCodTintometrico: formatoTrim || null };
+      const formatoGuardado = formatoTrim && formatoParse?.ok ? formatoTrim : null;
+      const payload = {
+        nombre: formNombre,
+        codTintometrico: formAcepta,
+        formatoCodTintometrico: formatoGuardado,
+      };
       const res = editing
         ? await editarMarcaAction({ id: editing.id, ...payload })
         : await crearMarcaAction(payload);
@@ -243,19 +251,25 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
                 autoFocus
               />
             </div>
+            <ModalSiNoChoice
+              label="ACEPTA TINTOMÉTRICO"
+              value={formAcepta}
+              onChange={setFormAcepta}
+              disabled={pending}
+            />
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>FORMATO TINTOMÉTRICO</ModalMicroLabel>
               <Input
                 value={formFormato}
                 onChange={(e) => setFormFormato(e.target.value)}
                 placeholder='EJ.: LLNN NN/NNN  ·  "SW"NNNN  (VACÍO = CÓDIGO LIBRE)'
-                disabled={pending}
+                disabled={pending || !formAcepta}
                 aria-invalid={Boolean(errorFormato) || undefined}
                 className={cn("tabular-nums", errorFormato && "border-destructive")}
               />
               <p className={cn("text-xs", errorFormato ? "text-destructive" : "text-muted-foreground")}>
                 {errorFormato ??
-                  (formatoTrim
+                  (formatoTrim && formatoParse?.ok
                     ? describirFormatoCod(formatoTrim)
                     : 'L = letra · N = número · "…" = texto fijo · espacio / - . = literales')}
               </p>

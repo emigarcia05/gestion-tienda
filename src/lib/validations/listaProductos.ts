@@ -86,6 +86,7 @@ export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCo
 
 export const crearMarcaSchema = z.object({
   nombre: nombreCatalogoSchema,
+  codTintometrico: z.boolean(),
   formatoCodTintometrico: formatoCodSchema.nullable(),
 });
 
