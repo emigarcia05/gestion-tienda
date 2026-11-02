@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import {
   Table,
@@ -12,7 +12,6 @@ import {
   EmptyTableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { guardarPxListaCompetenciaRefAction } from "@/actions/pxListasPrecios";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import PxListaEnteroInput from "@/components/shared/PxListaEnteroInput";
 import {
@@ -70,8 +69,13 @@ interface Props {
   mensajeVacio: string;
   /** Cambios sin guardar (clave `claveCambioPxListas`); se graban con **Guardar Cambios**. */
   cambios: ReadonlyMap<string, CambioPxListas>;
+  /**
+   * REF. de GENERAL sin guardar. `null` = quitar el vínculo.
+   * Ausente en el mapa = sigue el valor de la BD.
+   */
+  refsPendientes: ReadonlyMap<string, string | null>;
   onCambio: OnCambioPxListas;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
 }
 
 type DraftCeldaPxListas = {
@@ -90,19 +94,6 @@ const PX_LISTAS_MIN_ANCHO_REF_REM = 5.5;
 
 /** Celda con valor en pantalla distinto al de la BD (pendiente de **Guardar Cambios**). */
 const FILA_PENDIENTE_CLASS = "fila-px-listas-pendiente";
-
-function actualizarCeldaEnItem(
-  item: ItemPxListasPreciosTabla,
-  idLista: number,
-  celdaNueva: PrecioListaPxListasCelda
-): ItemPxListasPreciosTabla {
-  return {
-    ...item,
-    preciosPorLista: item.preciosPorLista.map((c) =>
-      c.idLista === idLista ? celdaNueva : c
-    ),
-  };
-}
 
 function aplicarDraftCelda(
   celda: PrecioListaPxListasCelda,
@@ -266,59 +257,29 @@ function CeldaMargenLista({
 function CeldaCompetenciaRefGeneral({
   item,
   puedeEditar,
-  idListaGeneral,
   hayCambioGeneral,
-  onItemChange,
-  onCambio,
+  refPendiente,
+  onRefPendiente,
 }: {
   item: ItemPxListasPreciosTabla;
   puedeEditar: boolean;
-  idListaGeneral: number;
-  /** Con PX/PORC. de GENERAL editado sin guardar, al guardar se quita el competidor: se muestra "-". */
+  /** Con PX/PORC. de GENERAL editado a mano, al guardar se quita el competidor: se muestra "-". */
   hayCambioGeneral: boolean;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
-  onCambio: OnCambioPxListas;
+  /** `undefined` = sin pendiente; `null` = quitar el vínculo al guardar. */
+  refPendiente: string | null | undefined;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
 }) {
-  const [saving, startTransition] = useTransition();
   const value = hayCambioGeneral
     ? PX_LISTAS_COMP_REF_NINGUNO
-    : (item.competenciaIdPxListaGeneral ?? PX_LISTAS_COMP_REF_NINGUNO);
+    : refPendiente !== undefined
+      ? (refPendiente ?? PX_LISTAS_COMP_REF_NINGUNO)
+      : (item.competenciaIdPxListaGeneral ?? PX_LISTAS_COMP_REF_NINGUNO);
 
   function handleChange(next: string) {
-    startTransition(async () => {
-      const res = await guardarPxListaCompetenciaRefAction({
-        codTienda: item.codTienda,
-        competenciaId: next === PX_LISTAS_COMP_REF_NINGUNO ? null : next,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-
-      let nextItem: ItemPxListasPreciosTabla = {
-        ...item,
-        competenciaIdPxListaGeneral: res.data.competenciaIdPxListaGeneral,
-      };
-
-      if (res.data.pxActualizado) {
-        nextItem = actualizarCeldaEnItem(
-          nextItem,
-          idListaGeneral,
-          armarCeldaPrecioPxListas({
-            idLista: idListaGeneral,
-            costoCompra: item.costoCompra,
-            pxDux:
-              item.preciosPorLista.find((c) => c.idLista === idListaGeneral)
-                ?.pxDux ?? null,
-            pxEdicion: res.data.pxEdicion,
-          })
-        );
-        /** El competidor ya grabó el PX de GENERAL: el pendiente de esa celda queda obsoleto. */
-        onCambio(item.codTienda, idListaGeneral, null);
-      }
-
-      onItemChange(nextItem);
-    });
+    onRefPendiente(
+      item.codTienda,
+      next === PX_LISTAS_COMP_REF_NINGUNO ? null : next
+    );
   }
 
   if (!puedeEditar) {
@@ -334,7 +295,7 @@ function CeldaCompetenciaRefGeneral({
   }
 
   return (
-    <Select value={value} onValueChange={handleChange} disabled={saving}>
+    <Select value={value} onValueChange={handleChange}>
       <SelectTrigger
         className="input-filtro-unificado h-[calc(var(--tabla-body-row-min-height)-0.5rem)] min-h-0 w-full min-w-0 px-1.5 text-xs"
         aria-label="Competidor de referencia"
@@ -367,16 +328,18 @@ function FilaPxListasPrecios({
   item,
   puedeEditar,
   cambios,
+  refsPendientes,
   onCambio,
-  onItemChange,
+  onRefPendiente,
   categoriasMc,
   idListaGeneral,
 }: {
   item: ItemPxListasPreciosTabla;
   puedeEditar: boolean;
   cambios: ReadonlyMap<string, CambioPxListas>;
+  refsPendientes: ReadonlyMap<string, string | null>;
   onCambio: OnCambioPxListas;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
   categoriasMc: FinAnaMcCategoriaItem[];
   idListaGeneral: number | null;
 }) {
@@ -386,12 +349,36 @@ function FilaPxListasPrecios({
 
   const cambioDe = (idLista: number) =>
     cambios.get(claveCambioPxListas(item.codTienda, idLista));
-  const filaPendiente = item.preciosPorLista.some((c) => cambioDe(c.idLista) != null);
+  const tieneRefPendiente = refsPendientes.has(item.codTienda);
+  const refPendiente = tieneRefPendiente
+    ? (refsPendientes.get(item.codTienda) ?? null)
+    : undefined;
+  const filaPendiente =
+    tieneRefPendiente ||
+    item.preciosPorLista.some((c) => cambioDe(c.idLista) != null);
 
   /** Celda en pantalla: la de la BD con el cambio pendiente aplicado (sin el borrador de tipeo). */
   const celdaEnPantalla = (celda: PrecioListaPxListasCelda) => {
     const cambio = cambioDe(celda.idLista);
-    return cambio ? celdaConCambioPxListas(celda, item.costoCompra, cambio) : celda;
+    if (cambio) return celdaConCambioPxListas(celda, item.costoCompra, cambio);
+    if (
+      refPendiente &&
+      idListaGeneral != null &&
+      celda.idLista === idListaGeneral
+    ) {
+      const op = item.opcionesCompetenciaRef.find(
+        (o) => o.competenciaId === refPendiente
+      );
+      if (op && op.px > 0) {
+        return armarCeldaPrecioPxListas({
+          idLista: celda.idLista,
+          costoCompra: item.costoCompra,
+          pxDux: celda.pxDux,
+          pxEdicion: op.px,
+        });
+      }
+    }
+    return celda;
   };
 
   const limpiarDraft = (idLista: number) => {
@@ -577,10 +564,9 @@ function FilaPxListasPrecios({
               <CeldaCompetenciaRefGeneral
                 item={item}
                 puedeEditar={puedeEditar}
-                idListaGeneral={idListaGeneral}
                 hayCambioGeneral={pendiente}
-                onItemChange={onItemChange}
-                onCambio={onCambio}
+                refPendiente={refPendiente}
+                onRefPendiente={onRefPendiente}
               />
             </TableCell>
           );
@@ -632,8 +618,9 @@ export default function TablaPxListasPrecios({
   idListaGeneral,
   mensajeVacio,
   cambios,
+  refsPendientes,
   onCambio,
-  onItemChange,
+  onRefPendiente,
 }: Props) {
   const tieneGeneral =
     idListaGeneral != null &&
@@ -762,8 +749,9 @@ export default function TablaPxListasPrecios({
               item={item}
               puedeEditar={puedeEditar}
               cambios={cambios}
+              refsPendientes={refsPendientes}
               onCambio={onCambio}
-              onItemChange={onItemChange}
+              onRefPendiente={onRefPendiente}
               categoriasMc={categoriasMc}
               idListaGeneral={idListaGeneral}
             />
