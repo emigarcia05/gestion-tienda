@@ -18,7 +18,10 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
+import {
+  PX_LISTAS_PX_VINCULADO_SIN_VINCULAR,
+  type OpcionFiltroPxVinculado,
+} from "@/lib/pxListasCompetenciaRef";
 const FOCUS_KEY = "filtros-px-listas-precios-focus";
 
 interface Props {
@@ -236,6 +239,9 @@ export default function FiltrosPxListasPrecios({
                 align="start"
                 className="select-content-filtro"
               >
+                <SelectItem value={PX_LISTAS_PX_VINCULADO_SIN_VINCULAR}>
+                  SIN VINCULAR
+                </SelectItem>
                 {opcionesPxVinculado.map((op) => (
                   <SelectItem
                     key={op.competenciaId}

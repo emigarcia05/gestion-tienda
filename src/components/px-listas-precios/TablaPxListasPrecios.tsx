@@ -89,7 +89,7 @@ const PX_LISTAS_MIN_ANCHO_SUBCOL_REM = 2.75;
 const PX_LISTAS_MIN_ANCHO_REF_REM = 5.5;
 
 /** Celda con valor en pantalla distinto al de la BD (pendiente de **Guardar Cambios**). */
-const CELDA_PENDIENTE_CLASS = "celda-px-listas-pendiente";
+const FILA_PENDIENTE_CLASS = "fila-px-listas-pendiente";
 
 function actualizarCeldaEnItem(
   item: ItemPxListasPreciosTabla,
@@ -510,22 +510,16 @@ function FilaPxListasPrecios({
   );
 
   return (
-    <TableRow>
+    <TableRow className={cn(filaPendiente && FILA_PENDIENTE_CLASS)}>
       <TableCell
-        className={cn(
-          "celda-datos celda-px-listas-col-fija celda-px-listas-col-fija-desc",
-          filaPendiente && CELDA_PENDIENTE_CLASS
-        )}
+        className="celda-datos celda-px-listas-col-fija celda-px-listas-col-fija-desc"
       >
         <span className="block truncate" title={item.descripcion}>
           {item.descripcion}
         </span>
       </TableCell>
       <TableCell
-        className={cn(
-          "celda-datos whitespace-nowrap celda-px-listas-col-fija celda-px-listas-col-fija-cat",
-          filaPendiente && CELDA_PENDIENTE_CLASS
-        )}
+        className="celda-datos whitespace-nowrap celda-px-listas-col-fija celda-px-listas-col-fija-cat"
         title={categoriaMargen || undefined}
       >
         <span className="block truncate">{categoriaMargen}</span>
@@ -543,10 +537,7 @@ function FilaPxListasPrecios({
           celdas.push(
             <TableCell
               key={`${item.codTienda}-${celda.idLista}-ref`}
-              className={cn(
-                "celda-datos celda-px-lista-ref-col border-l border-border",
-                pendiente && CELDA_PENDIENTE_CLASS
-              )}
+              className="celda-datos celda-px-lista-ref-col border-l border-border"
             >
               <CeldaCompetenciaRefGeneral
                 item={item}
@@ -565,8 +556,7 @@ function FilaPxListasPrecios({
             key={`${item.codTienda}-${celda.idLista}-px`}
             className={cn(
               "celda-datos celda-numero celda-px-lista-col",
-              !esGeneral && "border-l border-border",
-              pendiente && CELDA_PENDIENTE_CLASS
+              !esGeneral && "border-l border-border"
             )}
           >
             <CeldaPxLista
@@ -580,10 +570,7 @@ function FilaPxListasPrecios({
           </TableCell>,
           <TableCell
             key={`${item.codTienda}-${celda.idLista}-mg`}
-            className={cn(
-              "celda-datos celda-numero celda-marcacion-col",
-              pendiente && CELDA_PENDIENTE_CLASS
-            )}
+            className="celda-datos celda-numero celda-marcacion-col"
           >
             <CeldaMargenLista
               key={`${item.codTienda}-${celda.idLista}-mg`}

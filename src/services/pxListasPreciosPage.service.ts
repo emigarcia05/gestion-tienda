@@ -2,7 +2,11 @@ import type { Prisma } from "@prisma/client";
 import { filtroTexto } from "@/lib/busqueda";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import { PAGE_SIZE } from "@/lib/pagination";
-import type { OpcionCompetenciaRefPxListas, OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
+import {
+  PX_LISTAS_PX_VINCULADO_SIN_VINCULAR,
+  type OpcionCompetenciaRefPxListas,
+  type OpcionFiltroPxVinculado,
+} from "@/lib/pxListasCompetenciaRef";
 import type {
   ItemPxListasPreciosTabla,
   ListaPrecioPxListasColumna,
@@ -104,7 +108,13 @@ function buildWhere(params: {
   andParts.push(
     ...whereCatalogoProdPropio({ rubro: params.rubro, marca: params.marca, subRubro: params.subRubro })
   );
-  if (params.pxVinculado) {
+  if (params.pxVinculado === PX_LISTAS_PX_VINCULADO_SIN_VINCULAR) {
+    andParts.push({
+      competenciaIdPxListaGeneral: null,
+      preciosCompetencia: { none: {} },
+      listaPreciosProveedores: { none: {} },
+    });
+  } else if (params.pxVinculado) {
     andParts.push({ competenciaIdPxListaGeneral: params.pxVinculado });
   }
   if (params.actualizar === FILTRO_ACTUALIZAR_SI) {

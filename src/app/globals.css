@@ -1686,8 +1686,9 @@
   max-width: 8cqw;
   box-shadow: 2px 0 0 0 var(--border);
 }
-.tabla-px-listas-precios tbody td.celda-px-listas-col-fija.celda-px-listas-pendiente {
-  background-color: color-mix(in srgb, var(--accent2) 22%, var(--tabla-row-bg, var(--card)));
+/* Fila con valor en pantalla distinto al de la BD. Más oscuro que el cebra (8 %) y el hover (20 %). */
+.tabla-px-listas-precios tbody tr.fila-px-listas-pendiente td {
+  background-color: color-mix(in oklab, var(--primary) 32%, var(--card));
 }
 
 /* Bloque desplazable: REF. (solo 1 - GENERAL) + PX + PORC. UTILIDAD por lista. */
@@ -1769,10 +1770,6 @@
   cursor: pointer;
 }
 
-/* Px Listas: valor en pantalla distinto al de la BD (pendiente de «Guardar Cambios»). */
-.tabla-px-listas-precios tbody td.celda-px-listas-pendiente {
-  background-color: color-mix(in srgb, var(--accent2) 22%, transparent);
-}
 
 /* Margen Contribución — línea divisora primary (sobre separador de bloques). */
 .tabla-fin-ana-margen-contribucion tbody tr.tabla-fila-mc-sep-linea td {
