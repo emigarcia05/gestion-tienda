@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
@@ -103,6 +103,8 @@ export default function PxListasPreciosPageClient({
 
   /** Cambios sin guardar; sobreviven a cambios de filtro / página hasta **Guardar Cambios**. */
   const [cambios, setCambios] = useState<Map<string, CambioPxListas>>(() => new Map());
+  const cambiosRef = useRef(cambios);
+  cambiosRef.current = cambios;
   const [guardando, setGuardando] = useState(false);
   const cantCambios = cambios.size;
   const codigosPendientes = useMemo(
@@ -166,6 +168,7 @@ export default function PxListasPreciosPageClient({
       const next = new Map(prev);
       if (cambio) next.set(clave, cambio);
       else next.delete(clave);
+      cambiosRef.current = next;
       return next;
     });
   }, []);
@@ -177,7 +180,7 @@ export default function PxListasPreciosPageClient({
   }, []);
 
   async function guardarCambios() {
-    const lista = [...cambios.values()];
+    const lista = [...cambiosRef.current.values()];
     if (lista.length === 0) return;
     setGuardando(true);
     try {
@@ -220,6 +223,7 @@ export default function PxListasPreciosPageClient({
       setCambios((prev) => {
         const next = new Map(prev);
         for (const clave of okPorClave.keys()) next.delete(clave);
+        cambiosRef.current = next;
         return next;
       });
 
