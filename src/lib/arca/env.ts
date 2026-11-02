@@ -364,14 +364,17 @@ export const ARCA_URLS = {
     homo: "https://wswhomo.afip.gov.ar/wsfev1/service.asmx",
     prod: "https://servicios1.afip.gov.ar/wsfev1/service.asmx",
   },
-  /** Constancia de Inscripción (manual v3.7). Hosts AFIP = alias histórico. */
+  /**
+   * Constancia de Inscripción (manual v3.7).
+   * `*.arca.gov.ar` no resuelve DNS. Se llama primero el alias `*.afip.gov.ar`, que sí responde.
+   */
   constancia: {
-    homo: "https://awshomo.arca.gov.ar/sr-padron/webservices/personaServiceA5",
-    prod: "https://aws.arca.gov.ar/sr-padron/webservices/personaServiceA5",
-  },
-  constanciaAfip: {
     homo: "https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5",
     prod: "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5",
+  },
+  constanciaAfip: {
+    homo: "https://awshomo.arca.gov.ar/sr-padron/webservices/personaServiceA5",
+    prod: "https://aws.arca.gov.ar/sr-padron/webservices/personaServiceA5",
   },
 } as const;
 
