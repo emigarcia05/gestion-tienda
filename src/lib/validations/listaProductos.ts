@@ -29,6 +29,8 @@ const camposProductoTiendaSchema = z.object({
   /** `null` = sin terminación. */
   terminacion: z.enum(TERMINACIONES_PROD_LISTA).nullable(),
   bulto: z.number().int("El bulto debe ser entero.").min(1, "El bulto debe ser ≥ 1.").nullable(),
+  /** `prod_lista.precio_editable`: el remito puede tipear el PX. LISTA. */
+  precioEditable: z.boolean(),
 });
 
 /**

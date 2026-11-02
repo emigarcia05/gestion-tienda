@@ -45,6 +45,7 @@ export default function EditarProductoTiendaModal({
     idColor: item.idColor ?? SIN_VALOR_PRODUCTO_TIENDA,
     terminacion: item.terminacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     bulto: item.bulto != null ? String(item.bulto) : "",
+    precioEditable: item.precioEditable,
   });
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);

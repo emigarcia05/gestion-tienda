@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import {
@@ -39,6 +40,8 @@ export type CamposProductoTiendaForm = {
   terminacion: string;
   /** Texto del input UN. POR BULTO (solo dígitos; vacío = sin bulto). */
   bulto: string;
+  /** `prod_lista.precio_editable`. */
+  precioEditable: boolean;
 };
 
 export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
@@ -50,6 +53,7 @@ export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
   idColor: SIN_VALOR_PRODUCTO_TIENDA,
   terminacion: SIN_VALOR_PRODUCTO_TIENDA,
   bulto: "",
+  precioEditable: false,
 };
 
 export function parsearBultoProductoTienda(value: string): { bulto: number | null; invalido: boolean } {
@@ -81,6 +85,7 @@ export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm)
         ? campos.terminacion
         : null,
     bulto: parsearBultoProductoTienda(campos.bulto).bulto,
+    precioEditable: campos.precioEditable,
   };
 }
 
@@ -162,7 +167,7 @@ function SelectCatalogo({
 
 /**
  * Agregar / Editar producto:
- * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO.
+ * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO | PX. EDITABLE.
  */
 export default function ProductoTiendaCampos({
   campos,
@@ -271,6 +276,12 @@ export default function ProductoTiendaCampos({
             aria-invalid={bultoInvalido || undefined}
           />
         </div>
+        <ModalSiNoChoice
+          label="PX. EDITABLE"
+          value={campos.precioEditable}
+          onChange={(precioEditable) => onChange({ precioEditable })}
+          disabled={disabled}
+        />
       </div>
     </>
   );

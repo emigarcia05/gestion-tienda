@@ -40,6 +40,8 @@ export interface ProductoFacturaBusquedaItem {
   idRubro: string | null;
   /** FK `prod_lista.id_sub_rubro`. */
   idSubRubro: string | null;
+  /** `prod_lista.precio_editable`: en el remito el PX. LISTA se tipea. */
+  precioEditable: boolean;
   /** Promos de alcance ITEMS (DESC. ESPECIAL) de este código. */
   descEspeciales: DescPromoEspecialFactura[];
 }
@@ -123,6 +125,7 @@ export async function buscarProductosParaFactura(params: {
         idSubRubro: true,
         rubroRelation: { select: { nombre: true } },
         idMarca: true,
+        precioEditable: true,
       },
       orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
       take,
@@ -178,6 +181,7 @@ export async function buscarProductosParaFactura(params: {
         idMarca: r.idMarca,
         idRubro: r.idRubro,
         idSubRubro: r.idSubRubro,
+        precioEditable: r.precioEditable,
         descEspeciales: especialesPorCod.get(r.codTienda) ?? [],
       };
     });
@@ -231,24 +235,35 @@ export async function rubrosPorCodigosTienda(
 ): Promise<
   Map<
     string,
-    { idMarca: string | null; idRubro: string | null; idSubRubro: string | null }
+    {
+      idMarca: string | null;
+      idRubro: string | null;
+      idSubRubro: string | null;
+      precioEditable: boolean;
+    }
   >
 > {
   const unicos = [...new Set(codigos.map((c) => c.trim()).filter(Boolean))];
   const out = new Map<
     string,
-    { idMarca: string | null; idRubro: string | null; idSubRubro: string | null }
+    {
+      idMarca: string | null;
+      idRubro: string | null;
+      idSubRubro: string | null;
+      precioEditable: boolean;
+    }
   >();
   if (unicos.length === 0) return out;
   const rows = await prisma.prodPropio.findMany({
     where: { codTienda: { in: unicos } },
-    select: { codTienda: true, idMarca: true, idRubro: true, idSubRubro: true },
+    select: { codTienda: true, idMarca: true, idRubro: true, idSubRubro: true, precioEditable: true },
   });
   for (const r of rows) {
     out.set(r.codTienda, {
       idMarca: r.idMarca,
       idRubro: r.idRubro,
       idSubRubro: r.idSubRubro,
+      precioEditable: r.precioEditable,
     });
   }
   return out;

@@ -890,6 +890,8 @@ export type FacturaLineaLocal = {
   descripcion: string;
   cantidad: number;
   pxLista: number;
+  /** `prod_lista.precio_editable`: la celda PX. LISTA del remito es un importe. */
+  precioEditable: boolean;
   /**
    * Descuento especial de la línea.
    * `null` = hereda el % global del pie; número = override (p. ej. 20 con global 25).

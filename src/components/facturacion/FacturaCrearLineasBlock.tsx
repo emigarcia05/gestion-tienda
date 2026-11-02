@@ -15,6 +15,7 @@ import FacturaDescEspecialesItemModal from "@/components/facturacion/FacturaDesc
 import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import FacturaTintometricoModal from "@/components/facturacion/FacturaTintometricoModal";
+import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,10 @@ import {
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import { evaluarCoberturaStock } from "@/lib/facturaStockCobertura";
 import { fmtNumero, fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
+import {
+  montoArNormalizedStringToPesosNumber,
+  montoArNumberToNormalizedString,
+} from "@/lib/montoArMask";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   FACTURA_LINEA_STOCK_BTN_ACTIVA_CLASS,
@@ -338,6 +343,7 @@ export default function FacturaCrearLineasBlock({
         descripcion: item.descripcion,
         cantidad: 1,
         pxLista: tintometrico?.pxLista ?? item.pxLista,
+        precioEditable: item.precioEditable,
         descuentoPctEspecial,
         comentario: "",
         codColor: tintometrico?.codColor ?? null,
@@ -363,6 +369,12 @@ export default function FacturaCrearLineasBlock({
     setLoading(false);
     setHighlight(0);
     ref.current?.focus();
+  }
+
+  function actualizarPxLista(key: string, raw: string) {
+    const px = montoArNormalizedStringToPesosNumber(raw);
+    if (!Number.isFinite(px) || px < 0) return;
+    setLineas((prev) => prev.map((l) => (l.key === key ? { ...l, pxLista: px } : l)));
   }
 
   function actualizarCantidad(key: string, raw: string) {
@@ -741,6 +753,7 @@ export default function FacturaCrearLineasBlock({
                                   idMarca: linea.idMarca,
                                   idRubro: linea.idRubro,
                                   idSubRubro: linea.idSubRubro,
+                                  precioEditable: linea.precioEditable,
                                   descEspeciales: [],
                                 });
                               }}
@@ -795,8 +808,17 @@ export default function FacturaCrearLineasBlock({
                         }}
                       />
                     </TableCell>
-                    <TableCell className="celda-datos min-w-0 truncate text-center tabular-nums">
-                      {`$${fmtPrecio(linea.pxLista)}`}
+                    <TableCell className="celda-datos min-w-0 text-center tabular-nums">
+                      {linea.precioEditable ? (
+                        <MontoArInput
+                          valueNormalized={montoArNumberToNormalizedString(linea.pxLista)}
+                          onValueNormalizedChange={(next) => actualizarPxLista(linea.key, next)}
+                          className="h-8 w-full min-w-0 text-center tabular-nums"
+                          aria-label={`Px. lista de ${linea.descripcion}`}
+                        />
+                      ) : (
+                        <span className="truncate">{`$${fmtPrecio(linea.pxLista)}`}</span>
+                      )}
                     </TableCell>
                     <TableCell className="celda-datos min-w-0 text-center">
                       <PorcentajeCentInput

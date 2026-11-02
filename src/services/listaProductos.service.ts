@@ -63,6 +63,7 @@ type CamposProductoTienda = Pick<
   | "idColor"
   | "terminacion"
   | "bulto"
+  | "precioEditable"
 >;
 
 /** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_lista`. */
@@ -102,6 +103,7 @@ async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos
       idColor: color?.id ?? null,
       terminacion: campos.terminacion,
       bulto: campos.bulto,
+      precioEditable: campos.precioEditable,
     },
   };
 }
