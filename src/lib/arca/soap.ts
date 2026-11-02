@@ -1,7 +1,18 @@
 import "server-only";
 
+import https from "node:https";
 import { XMLParser } from "fast-xml-parser";
 import { isRecord, xmlText } from "@/lib/arca/xml";
+
+/**
+ * WSFEv1 de producción (`servicios1.afip.gov.ar`) negocia DHE con un grupo
+ * que OpenSSL 3 rechaza: `ERR_SSL_DH_KEY_TOO_SMALL`. `SECLEVEL=1` lo acepta
+ * y el canal sigue en TLS 1.2 con AES-256-GCM. Solo este agente.
+ */
+const agenteTlsArca = new https.Agent({
+  keepAlive: true,
+  ciphers: "DEFAULT@SECLEVEL=1",
+});
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -26,7 +37,7 @@ function textoCodigo(value: unknown): string | null {
   return typeof value === "string" && /^[A-Z][A-Z0-9_]{1,40}$/.test(value) ? value : null;
 }
 
-/** Código de red de `fetch` (undici lo deja en `cause`, no en el mensaje). */
+/** Código de red o TLS. OpenSSL a veces lo deja en `cause`. */
 function codigoFalloRed(error: unknown): string | null {
   let actual: unknown = error;
   for (let i = 0; i < 5 && isRecord(actual); i++) {
@@ -74,6 +85,49 @@ function soapFaultMessage(body: Record<string, unknown>): string | null {
   return msg && msg.trim() ? msg.trim() : "Error SOAP de ARCA.";
 }
 
+function pedirSoap(opts: {
+  url: string;
+  soapAction: string;
+  envelope: string;
+  signal: AbortSignal;
+}): Promise<{ status: number; raw: string }> {
+  const url = new URL(opts.url);
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port === "" ? 443 : Number(url.port),
+        path: `${url.pathname}${url.search}`,
+        method: "POST",
+        agent: agenteTlsArca,
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction: `"${opts.soapAction}"`,
+          "Content-Length": Buffer.byteLength(opts.envelope),
+        },
+        signal: opts.signal,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer | string) => {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        });
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            raw: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", reject);
+    req.write(opts.envelope);
+    req.end();
+  });
+}
+
 export async function postSoap(opts: {
   url: string;
   soapAction: string;
@@ -83,17 +137,13 @@ export async function postSoap(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   try {
-    const res = await fetch(opts.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/xml; charset=utf-8",
-        SOAPAction: `"${opts.soapAction}"`,
-      },
-      body: opts.envelope,
+    const res = await pedirSoap({
+      url: opts.url,
+      soapAction: opts.soapAction,
+      envelope: opts.envelope,
       signal: controller.signal,
-      cache: "no-store",
     });
-    const raw = await res.text();
+    const raw = res.raw;
     let parsed: unknown;
     try {
       parsed = parser.parse(raw);
@@ -107,7 +157,7 @@ export async function postSoap(opts: {
     const envelope = isRecord(parsed.Envelope) ? parsed.Envelope : parsed;
     const bodyRaw = isRecord(envelope) ? envelope.Body : null;
     if (!isRecord(bodyRaw)) {
-      if (!res.ok) {
+      if (res.status < 200 || res.status >= 300) {
         return {
           ok: false,
           error: `ARCA respondió HTTP ${res.status}.`,
@@ -120,7 +170,7 @@ export async function postSoap(opts: {
       console.error("[arca][soap] Fault", fault);
       return { ok: false, error: fault };
     }
-    if (!res.ok) {
+    if (res.status < 200 || res.status >= 300) {
       return { ok: false, error: `ARCA respondió HTTP ${res.status}.` };
     }
     return { ok: true, body: bodyRaw, raw };
