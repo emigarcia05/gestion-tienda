@@ -7,7 +7,7 @@
 | [AGENTEIA_GUIDELINES.md](./AGENTEIA_GUIDELINES.md) | IA Diseño: capas, CSV, scraper, UI Asistente IA |
 | [IA_DISEÑO/](./IA_DISEÑO/) | Índice del módulo, reglas, prompt GPT, ADRs, CSVs |
 
-Prompts operativos de agentes (FullStack / Front / Back / **ARCA-AFIP** / Auditoría / Auditor BackEnd): [`.cursor/prompts.md`](../.cursor/prompts.md).
+Prompts de agentes (pedir la lista y copiar uno a un chat nuevo): [Agentes/README.md](./Agentes/README.md).
 
 ---
 

@@ -1,0 +1,14 @@
+---
+description: Entregar la lista de prompts de agentes y el texto para copiar a un chat nuevo
+alwaysApply: true
+---
+
+# Prompts de agentes
+
+Si piden la lista de prompts, un prompt para copiar, o el agente con el que quieren trabajar:
+
+1. Leer `docs/Agentes/README.md`. La única lista es la tabla de ese archivo.
+2. No inventar agentes. No ofrecer los prompts viejos de `.cursor/prompts.md` ni de `.cursor/*_promp.md`.
+3. Si la tabla está vacía: decir que todavía no hay agentes.
+4. Si piden la lista: número, nombre y para qué sirve. No pegar el texto del prompt.
+5. Si eligen uno: leer el archivo de esa fila y devolverlo entero, en un solo bloque de texto, listo para copiar. No resumirlo y no empezar el trabajo de ese agente en este chat.
