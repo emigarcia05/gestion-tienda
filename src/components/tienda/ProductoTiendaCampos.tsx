@@ -276,12 +276,16 @@ export default function ProductoTiendaCampos({
             aria-invalid={bultoInvalido || undefined}
           />
         </div>
-        <ModalSiNoChoice
-          label="PX. EDITABLE"
-          value={campos.precioEditable}
-          onChange={(precioEditable) => onChange({ precioEditable })}
-          disabled={disabled}
-        />
+        <div className="flex min-w-0 flex-col gap-1">
+          <ModalMicroLabel>PX. EDITABLE</ModalMicroLabel>
+          <ModalSiNoChoice
+            label="PX. EDITABLE"
+            value={campos.precioEditable}
+            onChange={(precioEditable) => onChange({ precioEditable })}
+            disabled={disabled}
+            className="h-9 py-0"
+          />
+        </div>
       </div>
     </>
   );
