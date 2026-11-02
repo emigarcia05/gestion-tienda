@@ -54,6 +54,41 @@ export const guardarPxListasCambiosSchema = z.object({
     .max(2000, "Demasiados cambios en una sola vez."),
 });
 
+/**
+ * PX VENTA de Nuevo / Editar Item: staging de PX o PORC. y, si cambió, el competidor de GENERAL.
+ * `cambios` puede ir vacío cuando solo se actualiza el vínculo.
+ */
+export const guardarPxVentaDesdeItemSchema = z
+  .object({
+    codTienda: listaPreciosCodTiendaSchema,
+    cambios: z.array(cambioPxListasSchema).max(50, "Demasiadas listas."),
+    competenciaId: z.union([
+      prismaCuidSchema,
+      z.literal(PX_LISTAS_COMP_REF_NINGUNO),
+      z.null(),
+    ]),
+    actualizarCompetencia: z.boolean(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.cambios.length === 0 && !value.actualizarCompetencia) {
+      ctx.addIssue({ code: "custom", message: "No hay cambios de PX VENTA." });
+    }
+    for (const cambio of value.cambios) {
+      if (cambio.codTienda !== value.codTienda) {
+        ctx.addIssue({
+          code: "custom",
+          message: "El cambio de precio no corresponde al producto.",
+        });
+        break;
+      }
+    }
+  });
+
+/** Lectura de la fila PX VENTA en Nuevo (`null`) o Editar Item. */
+export const getPxVentaItemModalSchema = z.object({
+  codTienda: listaPreciosCodTiendaSchema.nullable(),
+});
+
 /** Competidor de referencia para **1 - GENERAL**. `"-"` / null = sin referencia (no toca PX). */
 export const guardarPxListaCompetenciaRefSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
@@ -11,7 +12,10 @@ import FiltrosPxListasPrecios from "@/components/px-listas-precios/FiltrosPxList
 import TablaPxListasPrecios, {
   type OnCambioPxListas,
 } from "@/components/px-listas-precios/TablaPxListasPrecios";
-import { guardarPxListasCambiosAction } from "@/actions/pxListasPrecios";
+import {
+  guardarPxListaCompetenciaRefAction,
+  guardarPxListasCambiosAction,
+} from "@/actions/pxListasPrecios";
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
@@ -23,11 +27,23 @@ import {
 import type { CambioPxListas } from "@/lib/validations/pxListasPrecios";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
 import {
+  FILTRO_ACTUALIZAR_NO,
+  FILTRO_ACTUALIZAR_SI,
   hayFiltroActivoPxListas,
   MENSAJE_SIN_FILTRO_PX_LISTAS,
 } from "@/lib/pxListasPreciosFiltros";
 
 const BASE_PATH = GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas;
+
+function codigosConCambioPendiente(
+  cambios: ReadonlyMap<string, CambioPxListas>,
+  refsPendientes: ReadonlyMap<string, string | null>
+): Set<string> {
+  const codigos = new Set<string>();
+  for (const cambio of cambios.values()) codigos.add(cambio.codTienda);
+  for (const cod of refsPendientes.keys()) codigos.add(cod);
+  return codigos;
+}
 
 interface Props {
   items: ItemPxListasPreciosTabla[];
@@ -70,6 +86,7 @@ export default function PxListasPreciosPageClient({
   pxVinculado,
   paginaNum,
 }: Props) {
+  const router = useRouter();
   const puedeEditar = puede(rol, PERMISOS.cxPxTienda.acceso);
   const hayFiltro = hayFiltroActivoPxListas({
     q,
@@ -91,8 +108,62 @@ export default function PxListasPreciosPageClient({
 
   /** Cambios sin guardar; sobreviven a cambios de filtro / página hasta **Guardar Cambios**. */
   const [cambios, setCambios] = useState<Map<string, CambioPxListas>>(() => new Map());
+  const cambiosRef = useRef(cambios);
+  cambiosRef.current = cambios;
+  /** REF. de GENERAL elegido en pantalla y todavía no persistido. `null` = quitar el vínculo. */
+  const [refsPendientes, setRefsPendientes] = useState<Map<string, string | null>>(
+    () => new Map()
+  );
+  const refsRef = useRef(refsPendientes);
+  refsRef.current = refsPendientes;
+  const itemsBdRef = useRef(itemsBd);
+  itemsBdRef.current = itemsBd;
   const [guardando, setGuardando] = useState(false);
-  const cantCambios = cambios.size;
+  const cantCambios = cambios.size + refsPendientes.size;
+  const codigosPendientes = useMemo(
+    () => codigosConCambioPendiente(cambios, refsPendientes),
+    [cambios, refsPendientes]
+  );
+  /** Filas editadas que el listado del servidor puede dejar afuera al cambiar el filtro. */
+  const [retenidos, setRetenidos] = useState<
+    Map<string, ItemPxListasPreciosTabla>
+  >(() => new Map());
+
+  useEffect(() => {
+    setRetenidos((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const item of itemsBd) {
+        if (!codigosPendientes.has(item.codTienda)) continue;
+        if (next.get(item.codTienda) !== item) {
+          next.set(item.codTienda, item);
+          changed = true;
+        }
+      }
+      for (const cod of next.keys()) {
+        if (!codigosPendientes.has(cod)) {
+          next.delete(cod);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [itemsBd, codigosPendientes]);
+
+  const itemsVisibles = useMemo(() => {
+    if (actualizar === FILTRO_ACTUALIZAR_NO) {
+      return itemsBd.filter((item) => !codigosPendientes.has(item.codTienda));
+    }
+    if (actualizar === FILTRO_ACTUALIZAR_SI) {
+      const enPagina = new Set(itemsBd.map((item) => item.codTienda));
+      const extras: ItemPxListasPreciosTabla[] = [];
+      for (const [cod, item] of retenidos) {
+        if (codigosPendientes.has(cod) && !enPagina.has(cod)) extras.push(item);
+      }
+      return extras.length > 0 ? [...extras, ...itemsBd] : itemsBd;
+    }
+    return itemsBd;
+  }, [actualizar, itemsBd, codigosPendientes, retenidos]);
 
   useEffect(() => {
     if (cantCambios === 0) return;
@@ -103,6 +174,16 @@ export default function PxListasPreciosPageClient({
     return () => window.removeEventListener("beforeunload", avisar);
   }, [cantCambios]);
 
+  const quitarRefPendiente = useCallback((codTienda: string) => {
+    setRefsPendientes((prev) => {
+      if (!prev.has(codTienda)) return prev;
+      const next = new Map(prev);
+      next.delete(codTienda);
+      refsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const handleCambio = useCallback<OnCambioPxListas>((codTienda, idLista, cambio) => {
     setCambios((prev) => {
       const clave = claveCambioPxListas(codTienda, idLista);
@@ -110,66 +191,137 @@ export default function PxListasPreciosPageClient({
       const next = new Map(prev);
       if (cambio) next.set(clave, cambio);
       else next.delete(clave);
+      cambiosRef.current = next;
       return next;
     });
-  }, []);
+    if (cambio && idListaGeneral != null && idLista === idListaGeneral) {
+      quitarRefPendiente(codTienda);
+    }
+  }, [idListaGeneral, quitarRefPendiente]);
 
-  const handleItemChange = useCallback((updated: ItemPxListasPreciosTabla) => {
-    setItemsBd((prev) =>
-      prev.map((item) => (item.codTienda === updated.codTienda ? updated : item))
-    );
-  }, []);
-
-  async function guardarCambios() {
-    const lista = [...cambios.values()];
-    if (lista.length === 0) return;
-    setGuardando(true);
-    try {
-      const res = await guardarPxListasCambiosAction({ cambios: lista });
-      if (!res.ok) {
-        toast.error(res.error);
+  const handleRefPendiente = useCallback((codTienda: string, competenciaId: string | null) => {
+    const item = itemsBdRef.current.find((row) => row.codTienda === codTienda);
+    const enBd = item?.competenciaIdPxListaGeneral ?? null;
+    if (enBd === competenciaId) {
+      quitarRefPendiente(codTienda);
+      return;
+    }
+    if (competenciaId != null) {
+      const op = item?.opcionesCompetenciaRef.find((o) => o.competenciaId === competenciaId);
+      if (!op || !(op.px > 0)) {
+        toast.error("No hay precio de referencia para este competidor.");
         return;
       }
-      const okPorClave = new Map<string, number | null>();
-      const errores: string[] = [];
-      for (const r of res.data.resultados) {
-        if (r.ok) okPorClave.set(claveCambioPxListas(r.codTienda, r.idLista), r.pxEdicion);
-        else errores.push(r.error);
+    }
+    setRefsPendientes((prev) => {
+      const next = new Map(prev);
+      next.set(codTienda, competenciaId);
+      refsRef.current = next;
+      return next;
+    });
+    if (idListaGeneral != null) handleCambio(codTienda, idListaGeneral, null);
+  }, [handleCambio, idListaGeneral, quitarRefPendiente]);
+
+  async function guardarCambios() {
+    const lista = [...cambiosRef.current.values()];
+    const refs = [...refsRef.current.entries()];
+    if (lista.length === 0 && refs.length === 0) return;
+    setGuardando(true);
+    const errores: string[] = [];
+    let guardados = 0;
+    try {
+      for (const [codTienda, competenciaId] of refs) {
+        const res = await guardarPxListaCompetenciaRefAction({
+          codTienda,
+          competenciaId,
+        });
+        if (!res.ok) {
+          errores.push(res.error);
+          continue;
+        }
+        guardados += 1;
+        setRefsPendientes((prev) => {
+          if (!prev.has(codTienda)) return prev;
+          const next = new Map(prev);
+          next.delete(codTienda);
+          refsRef.current = next;
+          return next;
+        });
+        setItemsBd((prev) =>
+          prev.map((item) => {
+            if (item.codTienda !== codTienda) return item;
+            const competenciaIdPxListaGeneral = res.data.competenciaIdPxListaGeneral;
+            if (!res.data.pxActualizado || idListaGeneral == null) {
+              return { ...item, competenciaIdPxListaGeneral };
+            }
+            return {
+              ...item,
+              competenciaIdPxListaGeneral,
+              preciosPorLista: item.preciosPorLista.map((c) =>
+                c.idLista === idListaGeneral
+                  ? armarCeldaPrecioPxListas({
+                      idLista: idListaGeneral,
+                      costoCompra: item.costoCompra,
+                      pxDux: c.pxDux,
+                      pxEdicion: res.data.pxEdicion,
+                    })
+                  : c
+              ),
+            };
+          })
+        );
       }
 
-      setItemsBd((prev) =>
-        prev.map((item) => {
-          let tocado = false;
-          let quitarRef = false;
-          const preciosPorLista = item.preciosPorLista.map((c) => {
-            const clave = claveCambioPxListas(item.codTienda, c.idLista);
-            if (!okPorClave.has(clave)) return c;
-            tocado = true;
-            if (idListaGeneral != null && c.idLista === idListaGeneral) quitarRef = true;
-            return armarCeldaPrecioPxListas({
-              idLista: c.idLista,
-              costoCompra: item.costoCompra,
-              pxDux: c.pxDux,
-              pxEdicion: okPorClave.get(clave) ?? null,
-            });
+      if (lista.length > 0) {
+        const res = await guardarPxListasCambiosAction({ cambios: lista });
+        if (!res.ok) {
+          errores.push(res.error);
+        } else {
+          const okPorClave = new Map<string, number | null>();
+          for (const r of res.data.resultados) {
+            if (r.ok) okPorClave.set(claveCambioPxListas(r.codTienda, r.idLista), r.pxEdicion);
+            else errores.push(r.error);
+          }
+          guardados += okPorClave.size;
+
+          setItemsBd((prev) =>
+            prev.map((item) => {
+              let tocado = false;
+              let quitarRef = false;
+              const preciosPorLista = item.preciosPorLista.map((c) => {
+                const clave = claveCambioPxListas(item.codTienda, c.idLista);
+                if (!okPorClave.has(clave)) return c;
+                tocado = true;
+                if (idListaGeneral != null && c.idLista === idListaGeneral) quitarRef = true;
+                return armarCeldaPrecioPxListas({
+                  idLista: c.idLista,
+                  costoCompra: item.costoCompra,
+                  pxDux: c.pxDux,
+                  pxEdicion: okPorClave.get(clave) ?? null,
+                });
+              });
+              if (!tocado) return item;
+              return {
+                ...item,
+                preciosPorLista,
+                ...(quitarRef ? { competenciaIdPxListaGeneral: null } : {}),
+              };
+            })
+          );
+          setCambios((prev) => {
+            const next = new Map(prev);
+            for (const clave of okPorClave.keys()) next.delete(clave);
+            cambiosRef.current = next;
+            return next;
           });
-          if (!tocado) return item;
-          return {
-            ...item,
-            preciosPorLista,
-            ...(quitarRef ? { competenciaIdPxListaGeneral: null } : {}),
-          };
-        })
-      );
-      setCambios((prev) => {
-        const next = new Map(prev);
-        for (const clave of okPorClave.keys()) next.delete(clave);
-        return next;
-      });
+        }
+      }
+
+      if (guardados > 0) router.refresh();
 
       if (errores.length === 0) {
         toast.success(
-          okPorClave.size === 1 ? "Cambio guardado." : `${okPorClave.size} cambios guardados.`
+          guardados === 1 ? "Cambio guardado." : `${guardados} cambios guardados.`
         );
       } else {
         toast.error(
@@ -217,15 +369,16 @@ export default function PxListasPreciosPageClient({
         <div className="flex h-full min-h-0 flex-col gap-0.5">
           <div className="contenedor-tabla-gestion flex-1 min-h-0">
             <TablaPxListasPrecios
-              items={itemsBd}
+              items={itemsVisibles}
               listas={listas}
               puedeEditar={puedeEditar}
               categoriasMc={categoriasMc}
               idListaGeneral={idListaGeneral}
               mensajeVacio={mensajeVacio}
               cambios={cambios}
+              refsPendientes={refsPendientes}
               onCambio={handleCambio}
-              onItemChange={handleItemChange}
+              onRefPendiente={handleRefPendiente}
             />
           </div>
           {totalPaginas > 1 ? (

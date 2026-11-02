@@ -63,6 +63,7 @@ type CamposProductoTienda = Pick<
   | "idColor"
   | "terminacion"
   | "bulto"
+  | "precioEditable"
 >;
 
 /** Valida los catálogos elegidos (sub-rubro del rubro elegido) y arma las FKs de `prod_lista`. */
@@ -102,6 +103,7 @@ async function resolverCamposProductoTienda(tx: Prisma.TransactionClient, campos
       idColor: color?.id ?? null,
       terminacion: campos.terminacion,
       bulto: campos.bulto,
+      precioEditable: campos.precioEditable,
     },
   };
 }
@@ -284,6 +286,7 @@ export async function listarMarcasCatalogo(): Promise<MarcaCatalogoItem[]> {
       id: true,
       nombre: true,
       formatoCodTintometrico: true,
+      codTintometrico: true,
       _count: { select: { prodTiendas: true } },
     },
   });
@@ -291,6 +294,7 @@ export async function listarMarcasCatalogo(): Promise<MarcaCatalogoItem[]> {
     id: r.id,
     nombre: r.nombre,
     formatoCodTintometrico: r.formatoCodTintometrico,
+    codTintometrico: r.codTintometrico,
     productos: r._count.prodTiendas,
   }));
 }
@@ -299,7 +303,11 @@ export async function crearMarca(input: CrearMarcaInput): Promise<ServiceResult<
   const nombre = normalizarNombreCatalogo(input.nombre);
   try {
     const created = await prisma.marca.create({
-      data: { nombre, formatoCodTintometrico: normalizarFormato(input.formatoCodTintometrico) },
+      data: {
+        nombre,
+        codTintometrico: input.codTintometrico,
+        formatoCodTintometrico: normalizarFormato(input.formatoCodTintometrico),
+      },
       select: { id: true },
     });
     return { success: true, data: created };
@@ -325,7 +333,11 @@ export async function editarMarca(input: EditarMarcaInput): Promise<ServiceResul
     await prisma.$transaction([
       prisma.marca.update({
         where: { id: input.id },
-        data: { nombre, formatoCodTintometrico: normalizarFormato(input.formatoCodTintometrico) },
+        data: {
+          nombre,
+          codTintometrico: input.codTintometrico,
+          formatoCodTintometrico: normalizarFormato(input.formatoCodTintometrico),
+        },
       }),
       ...(renombra
         ? [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import {
   Table,
@@ -12,7 +12,6 @@ import {
   EmptyTableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { guardarPxListaCompetenciaRefAction } from "@/actions/pxListasPrecios";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import PxListaEnteroInput from "@/components/shared/PxListaEnteroInput";
 import {
@@ -70,8 +69,13 @@ interface Props {
   mensajeVacio: string;
   /** Cambios sin guardar (clave `claveCambioPxListas`); se graban con **Guardar Cambios**. */
   cambios: ReadonlyMap<string, CambioPxListas>;
+  /**
+   * REF. de GENERAL sin guardar. `null` = quitar el vínculo.
+   * Ausente en el mapa = sigue el valor de la BD.
+   */
+  refsPendientes: ReadonlyMap<string, string | null>;
   onCambio: OnCambioPxListas;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
 }
 
 type DraftCeldaPxListas = {
@@ -89,20 +93,7 @@ const PX_LISTAS_MIN_ANCHO_SUBCOL_REM = 2.75;
 const PX_LISTAS_MIN_ANCHO_REF_REM = 5.5;
 
 /** Celda con valor en pantalla distinto al de la BD (pendiente de **Guardar Cambios**). */
-const CELDA_PENDIENTE_CLASS = "celda-px-listas-pendiente";
-
-function actualizarCeldaEnItem(
-  item: ItemPxListasPreciosTabla,
-  idLista: number,
-  celdaNueva: PrecioListaPxListasCelda
-): ItemPxListasPreciosTabla {
-  return {
-    ...item,
-    preciosPorLista: item.preciosPorLista.map((c) =>
-      c.idLista === idLista ? celdaNueva : c
-    ),
-  };
-}
+const FILA_PENDIENTE_CLASS = "fila-px-listas-pendiente";
 
 function aplicarDraftCelda(
   celda: PrecioListaPxListasCelda,
@@ -133,10 +124,11 @@ function CeldaPxLista({
   celda: PrecioListaPxListasCelda;
   puedeEditar: boolean;
   onDraft: (idLista: number, px: number | null) => void;
-  /** Al salir de la celda tras tipear: texto normalizado de la máscara. */
+  /** Al salir de la celda: texto normalizado de la máscara (el pendiente ya se anotó al tipear). */
   onConfirmar: (idLista: number, texto: string) => void;
 }) {
   const [draftLocal, setDraftLocal] = useState<string | null>(null);
+  const draftLocalRef = useRef<string | null>(null);
   const tieneEdicion = celda.pxEdicion != null;
   const draft = draftLocal ?? pxListaEnteroFromNumber(celda.pxEfectivo);
 
@@ -162,6 +154,7 @@ function CeldaPxLista({
     <PxListaEnteroInput
       valueNormalized={draft}
       onValueNormalizedChange={(next) => {
+        draftLocalRef.current = next;
         setDraftLocal(next);
         if (next.trim() === "") {
           onDraft(idLista, null);
@@ -171,9 +164,11 @@ function CeldaPxLista({
         if (px !== undefined) onDraft(idLista, px);
       }}
       onCommit={() => {
-        if (draftLocal === null) return;
-        onConfirmar(idLista, draftLocal);
+        const texto = draftLocalRef.current;
+        if (texto === null) return;
+        draftLocalRef.current = null;
         setDraftLocal(null);
+        onConfirmar(idLista, texto);
       }}
       className={cn(
         INPUT_PX_LISTA_CLASS,
@@ -200,6 +195,7 @@ function CeldaMargenLista({
   onConfirmar: (idLista: number, texto: string) => void;
 }) {
   const [draftLocal, setDraftLocal] = useState<string | null>(null);
+  const draftLocalRef = useRef<string | null>(null);
   const tieneEdicion = celda.pxEdicion != null;
   const draft =
     draftLocal ??
@@ -231,6 +227,7 @@ function CeldaMargenLista({
       valueNormalized={draft}
       maxCents={MARGEN_PX_LISTA_MAX_CENTS}
       onValueNormalizedChange={(next) => {
+        draftLocalRef.current = next;
         setDraftLocal(next);
         if (next.trim() === "") {
           onDraft(idLista, null);
@@ -240,9 +237,11 @@ function CeldaMargenLista({
         if (margen !== undefined) onDraft(idLista, margen);
       }}
       onCommit={() => {
-        if (draftLocal === null) return;
-        onConfirmar(idLista, draftLocal);
+        const texto = draftLocalRef.current;
+        if (texto === null) return;
+        draftLocalRef.current = null;
         setDraftLocal(null);
+        onConfirmar(idLista, texto);
       }}
       className={cn(
         INPUT_MARGEN_PX_LISTA_CLASS,
@@ -258,59 +257,29 @@ function CeldaMargenLista({
 function CeldaCompetenciaRefGeneral({
   item,
   puedeEditar,
-  idListaGeneral,
   hayCambioGeneral,
-  onItemChange,
-  onCambio,
+  refPendiente,
+  onRefPendiente,
 }: {
   item: ItemPxListasPreciosTabla;
   puedeEditar: boolean;
-  idListaGeneral: number;
-  /** Con PX/PORC. de GENERAL editado sin guardar, al guardar se quita el competidor: se muestra "-". */
+  /** Con PX/PORC. de GENERAL editado a mano, al guardar se quita el competidor: se muestra "-". */
   hayCambioGeneral: boolean;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
-  onCambio: OnCambioPxListas;
+  /** `undefined` = sin pendiente; `null` = quitar el vínculo al guardar. */
+  refPendiente: string | null | undefined;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
 }) {
-  const [saving, startTransition] = useTransition();
   const value = hayCambioGeneral
     ? PX_LISTAS_COMP_REF_NINGUNO
-    : (item.competenciaIdPxListaGeneral ?? PX_LISTAS_COMP_REF_NINGUNO);
+    : refPendiente !== undefined
+      ? (refPendiente ?? PX_LISTAS_COMP_REF_NINGUNO)
+      : (item.competenciaIdPxListaGeneral ?? PX_LISTAS_COMP_REF_NINGUNO);
 
   function handleChange(next: string) {
-    startTransition(async () => {
-      const res = await guardarPxListaCompetenciaRefAction({
-        codTienda: item.codTienda,
-        competenciaId: next === PX_LISTAS_COMP_REF_NINGUNO ? null : next,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-
-      let nextItem: ItemPxListasPreciosTabla = {
-        ...item,
-        competenciaIdPxListaGeneral: res.data.competenciaIdPxListaGeneral,
-      };
-
-      if (res.data.pxActualizado) {
-        nextItem = actualizarCeldaEnItem(
-          nextItem,
-          idListaGeneral,
-          armarCeldaPrecioPxListas({
-            idLista: idListaGeneral,
-            costoCompra: item.costoCompra,
-            pxDux:
-              item.preciosPorLista.find((c) => c.idLista === idListaGeneral)
-                ?.pxDux ?? null,
-            pxEdicion: res.data.pxEdicion,
-          })
-        );
-        /** El competidor ya grabó el PX de GENERAL: el pendiente de esa celda queda obsoleto. */
-        onCambio(item.codTienda, idListaGeneral, null);
-      }
-
-      onItemChange(nextItem);
-    });
+    onRefPendiente(
+      item.codTienda,
+      next === PX_LISTAS_COMP_REF_NINGUNO ? null : next
+    );
   }
 
   if (!puedeEditar) {
@@ -326,7 +295,7 @@ function CeldaCompetenciaRefGeneral({
   }
 
   return (
-    <Select value={value} onValueChange={handleChange} disabled={saving}>
+    <Select value={value} onValueChange={handleChange}>
       <SelectTrigger
         className="input-filtro-unificado h-[calc(var(--tabla-body-row-min-height)-0.5rem)] min-h-0 w-full min-w-0 px-1.5 text-xs"
         aria-label="Competidor de referencia"
@@ -359,16 +328,18 @@ function FilaPxListasPrecios({
   item,
   puedeEditar,
   cambios,
+  refsPendientes,
   onCambio,
-  onItemChange,
+  onRefPendiente,
   categoriasMc,
   idListaGeneral,
 }: {
   item: ItemPxListasPreciosTabla;
   puedeEditar: boolean;
   cambios: ReadonlyMap<string, CambioPxListas>;
+  refsPendientes: ReadonlyMap<string, string | null>;
   onCambio: OnCambioPxListas;
-  onItemChange: (item: ItemPxListasPreciosTabla) => void;
+  onRefPendiente: (codTienda: string, competenciaId: string | null) => void;
   categoriasMc: FinAnaMcCategoriaItem[];
   idListaGeneral: number | null;
 }) {
@@ -378,12 +349,36 @@ function FilaPxListasPrecios({
 
   const cambioDe = (idLista: number) =>
     cambios.get(claveCambioPxListas(item.codTienda, idLista));
-  const filaPendiente = item.preciosPorLista.some((c) => cambioDe(c.idLista) != null);
+  const tieneRefPendiente = refsPendientes.has(item.codTienda);
+  const refPendiente = tieneRefPendiente
+    ? (refsPendientes.get(item.codTienda) ?? null)
+    : undefined;
+  const filaPendiente =
+    tieneRefPendiente ||
+    item.preciosPorLista.some((c) => cambioDe(c.idLista) != null);
 
   /** Celda en pantalla: la de la BD con el cambio pendiente aplicado (sin el borrador de tipeo). */
   const celdaEnPantalla = (celda: PrecioListaPxListasCelda) => {
     const cambio = cambioDe(celda.idLista);
-    return cambio ? celdaConCambioPxListas(celda, item.costoCompra, cambio) : celda;
+    if (cambio) return celdaConCambioPxListas(celda, item.costoCompra, cambio);
+    if (
+      refPendiente &&
+      idListaGeneral != null &&
+      celda.idLista === idListaGeneral
+    ) {
+      const op = item.opcionesCompetenciaRef.find(
+        (o) => o.competenciaId === refPendiente
+      );
+      if (op && op.px > 0) {
+        return armarCeldaPrecioPxListas({
+          idLista: celda.idLista,
+          costoCompra: item.costoCompra,
+          pxDux: celda.pxDux,
+          pxEdicion: op.px,
+        });
+      }
+    }
+    return celda;
   };
 
   const limpiarDraft = (idLista: number) => {
@@ -393,30 +388,6 @@ function FilaPxListasPrecios({
       delete next[idLista];
       return next;
     });
-  };
-
-  const handleMargenDraft = (idLista: number, margen: number | null) => {
-    if (margen == null) {
-      limpiarDraft(idLista);
-      return;
-    }
-    const px = calcPxListaDesdeMargenSinIvaPct(margen, item.costoCompra);
-    setDraftPorLista((prev) => ({
-      ...prev,
-      [idLista]: { px, margen },
-    }));
-  };
-
-  const handlePxDraft = (idLista: number, px: number | null) => {
-    if (px == null) {
-      limpiarDraft(idLista);
-      return;
-    }
-    const margen = margenDesdePrecioDux(px, item.costoCompra);
-    setDraftPorLista((prev) => ({
-      ...prev,
-      [idLista]: { px, margen },
-    }));
   };
 
   const celdaBd = (idLista: number) =>
@@ -441,17 +412,12 @@ function FilaPxListasPrecios({
     );
   };
 
-  const confirmarPx = (idLista: number, texto: string) => {
-    limpiarDraft(idLista);
+  /** Anota el pendiente en cuanto el valor difiere de la BD, sin esperar a salir de la celda. */
+  const registrarPx = (idLista: number, px: number | null) => {
     const bd = celdaBd(idLista);
     if (!bd) return;
-    if (texto.trim() === "") {
+    if (px == null || !(px > 0)) {
       registrarVaciado(idLista, bd, "px");
-      return;
-    }
-    const px = parsePxListaEnteroNormalized(texto);
-    if (px === undefined || !(px > 0)) {
-      toast.error("Precio inválido.");
       return;
     }
     if (bd.pxEfectivo != null && preciosPxListaEnterosIguales(px, bd.pxEfectivo)) {
@@ -466,17 +432,15 @@ function FilaPxListasPrecios({
     });
   };
 
-  const confirmarMargen = (idLista: number, texto: string) => {
-    limpiarDraft(idLista);
+  const registrarMargen = (
+    idLista: number,
+    margen: number | null,
+    avisarSinCosto: boolean
+  ) => {
     const bd = celdaBd(idLista);
     if (!bd) return;
-    if (texto.trim() === "") {
+    if (margen == null) {
       registrarVaciado(idLista, bd, "margen");
-      return;
-    }
-    const margen = parsePorcentajeCentNormalized(texto, MARGEN_PX_LISTA_MAX_CENTS);
-    if (margen === undefined) {
-      toast.error("Margen inválido.");
       return;
     }
     if (bd.margenPct != null && !margenesPorcUtilidadDifieren(margen, bd.margenPct)) {
@@ -484,7 +448,9 @@ function FilaPxListasPrecios({
       return;
     }
     if (!(item.costoCompra > 0)) {
-      toast.error("Sin costo de compra no se puede calcular el precio desde el margen.");
+      if (avisarSinCosto) {
+        toast.error("Sin costo de compra no se puede calcular el precio desde el margen.");
+      }
       return;
     }
     onCambio(item.codTienda, idLista, {
@@ -493,6 +459,62 @@ function FilaPxListasPrecios({
       tipo: "margen",
       margenManual: margen,
     });
+  };
+
+  const handleMargenDraft = (idLista: number, margen: number | null) => {
+    if (margen == null) {
+      limpiarDraft(idLista);
+      registrarMargen(idLista, null, false);
+      return;
+    }
+    const px = calcPxListaDesdeMargenSinIvaPct(margen, item.costoCompra);
+    setDraftPorLista((prev) => ({
+      ...prev,
+      [idLista]: { px, margen },
+    }));
+    registrarMargen(idLista, margen, false);
+  };
+
+  const handlePxDraft = (idLista: number, px: number | null) => {
+    if (px == null) {
+      limpiarDraft(idLista);
+      registrarPx(idLista, null);
+      return;
+    }
+    const margen = margenDesdePrecioDux(px, item.costoCompra);
+    setDraftPorLista((prev) => ({
+      ...prev,
+      [idLista]: { px, margen },
+    }));
+    registrarPx(idLista, px);
+  };
+
+  const confirmarPx = (idLista: number, texto: string) => {
+    limpiarDraft(idLista);
+    if (texto.trim() === "") {
+      registrarPx(idLista, null);
+      return;
+    }
+    const px = parsePxListaEnteroNormalized(texto);
+    if (px === undefined || !(px > 0)) {
+      toast.error("Precio inválido.");
+      return;
+    }
+    registrarPx(idLista, px);
+  };
+
+  const confirmarMargen = (idLista: number, texto: string) => {
+    limpiarDraft(idLista);
+    if (texto.trim() === "") {
+      registrarMargen(idLista, null, false);
+      return;
+    }
+    const margen = parsePorcentajeCentNormalized(texto, MARGEN_PX_LISTA_MAX_CENTS);
+    if (margen === undefined) {
+      toast.error("Margen inválido.");
+      return;
+    }
+    registrarMargen(idLista, margen, true);
   };
 
   const celdaGeneral =
@@ -510,22 +532,16 @@ function FilaPxListasPrecios({
   );
 
   return (
-    <TableRow>
+    <TableRow className={cn(filaPendiente && FILA_PENDIENTE_CLASS)}>
       <TableCell
-        className={cn(
-          "celda-datos celda-px-listas-col-fija celda-px-listas-col-fija-desc",
-          filaPendiente && CELDA_PENDIENTE_CLASS
-        )}
+        className="celda-datos celda-px-listas-col-fija celda-px-listas-col-fija-desc"
       >
         <span className="block truncate" title={item.descripcion}>
           {item.descripcion}
         </span>
       </TableCell>
       <TableCell
-        className={cn(
-          "celda-datos whitespace-nowrap celda-px-listas-col-fija celda-px-listas-col-fija-cat",
-          filaPendiente && CELDA_PENDIENTE_CLASS
-        )}
+        className="celda-datos whitespace-nowrap celda-px-listas-col-fija celda-px-listas-col-fija-cat"
         title={categoriaMargen || undefined}
       >
         <span className="block truncate">{categoriaMargen}</span>
@@ -543,18 +559,14 @@ function FilaPxListasPrecios({
           celdas.push(
             <TableCell
               key={`${item.codTienda}-${celda.idLista}-ref`}
-              className={cn(
-                "celda-datos celda-px-lista-ref-col border-l border-border",
-                pendiente && CELDA_PENDIENTE_CLASS
-              )}
+              className="celda-datos celda-px-lista-ref-col border-l border-border"
             >
               <CeldaCompetenciaRefGeneral
                 item={item}
                 puedeEditar={puedeEditar}
-                idListaGeneral={idListaGeneral}
                 hayCambioGeneral={pendiente}
-                onItemChange={onItemChange}
-                onCambio={onCambio}
+                refPendiente={refPendiente}
+                onRefPendiente={onRefPendiente}
               />
             </TableCell>
           );
@@ -565,8 +577,7 @@ function FilaPxListasPrecios({
             key={`${item.codTienda}-${celda.idLista}-px`}
             className={cn(
               "celda-datos celda-numero celda-px-lista-col",
-              !esGeneral && "border-l border-border",
-              pendiente && CELDA_PENDIENTE_CLASS
+              !esGeneral && "border-l border-border"
             )}
           >
             <CeldaPxLista
@@ -580,10 +591,7 @@ function FilaPxListasPrecios({
           </TableCell>,
           <TableCell
             key={`${item.codTienda}-${celda.idLista}-mg`}
-            className={cn(
-              "celda-datos celda-numero celda-marcacion-col",
-              pendiente && CELDA_PENDIENTE_CLASS
-            )}
+            className="celda-datos celda-numero celda-marcacion-col"
           >
             <CeldaMargenLista
               key={`${item.codTienda}-${celda.idLista}-mg`}
@@ -610,8 +618,9 @@ export default function TablaPxListasPrecios({
   idListaGeneral,
   mensajeVacio,
   cambios,
+  refsPendientes,
   onCambio,
-  onItemChange,
+  onRefPendiente,
 }: Props) {
   const tieneGeneral =
     idListaGeneral != null &&
@@ -740,8 +749,9 @@ export default function TablaPxListasPrecios({
               item={item}
               puedeEditar={puedeEditar}
               cambios={cambios}
+              refsPendientes={refsPendientes}
               onCambio={onCambio}
-              onItemChange={onItemChange}
+              onRefPendiente={onRefPendiente}
               categoriasMc={categoriasMc}
               idListaGeneral={idListaGeneral}
             />

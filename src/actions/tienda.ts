@@ -133,6 +133,8 @@ export interface ItemTiendaParaTabla {
   esProductoCompuesto: boolean;
   /** Unidades por bulto (`prod_lista.bulto`); `null` = vacío. */
   bulto: number | null;
+  /** `prod_lista.precio_editable`: el remito puede tipear el PX. LISTA. */
+  precioEditable: boolean;
   idRubro: string | null;
   idSubRubro: string | null;
   idMarca: string | null;
@@ -334,6 +336,7 @@ export async function getTiendaPageData(params: {
       esProductoPropio: r.esProductoPropio,
       esProductoCompuesto: r.esProductoCompuesto,
       bulto: bultoProdTiendaValido(r.bulto),
+      precioEditable: r.precioEditable,
       idMarca: r.idMarca,
       idPresentacion: r.idPresentacion,
       presentacion: r.presentacion?.texto ?? null,

@@ -44,6 +44,7 @@ function mapPago(row: PagoRowConEntidades): FinAnaCosFinaPagoItem {
     esCheque: false,
     entidadIds: row.entidades.map((e) => e.entidadId),
     entidadNombres: row.entidades.map((e) => e.entidad.nombre.toUpperCase()),
+    entidadAlias: row.entidades.map(() => ""),
   };
 }
 

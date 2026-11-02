@@ -2,7 +2,11 @@ import type { Prisma } from "@prisma/client";
 import { filtroTexto } from "@/lib/busqueda";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import { PAGE_SIZE } from "@/lib/pagination";
-import type { OpcionCompetenciaRefPxListas, OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
+import {
+  PX_LISTAS_PX_VINCULADO_SIN_VINCULAR,
+  type OpcionCompetenciaRefPxListas,
+  type OpcionFiltroPxVinculado,
+} from "@/lib/pxListasCompetenciaRef";
 import type {
   ItemPxListasPreciosTabla,
   ListaPrecioPxListasColumna,
@@ -104,7 +108,13 @@ function buildWhere(params: {
   andParts.push(
     ...whereCatalogoProdPropio({ rubro: params.rubro, marca: params.marca, subRubro: params.subRubro })
   );
-  if (params.pxVinculado) {
+  if (params.pxVinculado === PX_LISTAS_PX_VINCULADO_SIN_VINCULAR) {
+    andParts.push({
+      competenciaIdPxListaGeneral: null,
+      preciosCompetencia: { none: {} },
+      listaPreciosProveedores: { none: {} },
+    });
+  } else if (params.pxVinculado) {
     andParts.push({ competenciaIdPxListaGeneral: params.pxVinculado });
   }
   if (params.actualizar === FILTRO_ACTUALIZAR_SI) {
@@ -374,4 +384,51 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     categoriasMc: metaEstatico.categoriasMc,
     idListaGeneral: metaEstatico.idListaGeneral,
   };
+}
+
+function itemPxVentaVacio(
+  listas: ListaPrecioPxListasColumna[],
+  codTienda: string
+): ItemPxListasPreciosTabla {
+  return {
+    codTienda,
+    descripcion: "",
+    costoCompra: 0,
+    competenciaIdPxListaGeneral: null,
+    opcionesCompetenciaRef: [],
+    preciosPorLista: listas.map((lista) =>
+      armarCeldaPrecioPxListas({
+        idLista: lista.idLista,
+        costoCompra: 0,
+        pxDux: null,
+        pxEdicion: null,
+      })
+    ),
+  };
+}
+
+/** Fila de Px Listas para la sección PX VENTA de Nuevo (`codTienda` null) o Editar Item. */
+export async function getPxVentaItemParaModal(codTienda: string | null): Promise<{
+  listas: ListaPrecioPxListasColumna[];
+  idListaGeneral: number | null;
+  item: ItemPxListasPreciosTabla;
+}> {
+  const listas = await listarColumnasListas();
+  const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
+  if (!codTienda) {
+    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, "") };
+  }
+  const row = await prisma.prodPropio.findUnique({
+    where: { codTienda },
+    select: SELECT_FILA_LISTADO,
+  });
+  if (!row) {
+    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, codTienda) };
+  }
+  const [item] = await enriquecerItemsPxListas(
+    [row],
+    listas,
+    listas.map((lista) => lista.idLista)
+  );
+  return { listas, idListaGeneral, item: item ?? itemPxVentaVacio(listas, codTienda) };
 }

@@ -118,12 +118,17 @@ export async function resolverCodColorLineas(
     idsMarca.length > 0
       ? prisma.marca.findMany({
           where: { id: { in: idsMarca } },
-          select: { id: true, formatoCodTintometrico: true },
+          select: { id: true, formatoCodTintometrico: true, codTintometrico: true },
         })
       : Promise.resolve([]),
   ]);
   const esTintometrico = new Set(tintometricos.map((r) => r.codTienda));
-  const formatoPorMarca = new Map(marcas.map((m) => [m.id, m.formatoCodTintometrico?.trim() || null]));
+  const marcaPorId = new Map(
+    marcas.map((m) => [
+      m.id,
+      { formato: m.formatoCodTintometrico?.trim() || null, acepta: m.codTintometrico },
+    ])
+  );
 
   const out: CodColorLineaResuelto[] = [];
   for (let i = 0; i < lineas.length; i += 1) {
@@ -134,10 +139,17 @@ export async function resolverCodColorLineas(
       continue;
     }
     const idMarca = l.codColorIdMarca?.trim() || null;
-    if (idMarca && !formatoPorMarca.has(idMarca)) {
+    const marca = idMarca ? marcaPorId.get(idMarca) : undefined;
+    if (idMarca && !marca) {
       return { success: false, error: `La marca del COD. COLOR de la línea ${i + 1} no existe.` };
     }
-    const formato = idMarca ? (formatoPorMarca.get(idMarca) ?? null) : null;
+    if (idMarca && marca && !marca.acepta) {
+      return {
+        success: false,
+        error: `La marca del COD. COLOR de la línea ${i + 1} no acepta tintométrico.`,
+      };
+    }
+    const formato = marca?.formato ?? null;
     if (formato && !codigoCumpleFormatoCod(cod, formato)) {
       return {
         success: false,
@@ -150,12 +162,12 @@ export async function resolverCodColorLineas(
 }
 
 /**
- * Marcas elegibles como **MARCA COD.** (marcas de las bases tintométricas, con su máscara).
+ * Marcas elegibles como **MARCA COD.** (`prod_marcas.cod_tintometrico = true`, con su máscara).
  * Un código de una marca sirve para cualquier base tintométrica.
  */
 export async function listarMarcasCodColorTintometrico(): Promise<MarcaTintometricaCatalogo[]> {
   const marcas = await prisma.marca.findMany({
-    where: { prodTiendas: { some: WHERE_BASE_TINTOMETRICA } },
+    where: { codTintometrico: true },
     select: { id: true, nombre: true, formatoCodTintometrico: true },
     orderBy: { nombre: "asc" },
   });

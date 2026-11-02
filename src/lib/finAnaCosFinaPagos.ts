@@ -19,6 +19,11 @@ export type FinAnaCosFinaPagoItem = {
   entidadIds: string[];
   /** Nombres MAYÚSCULAS de las entidades vinculadas (mismo orden que `entidadIds`). */
   entidadNombres: string[];
+  /**
+   * Alias de `cobros_vinc_cajas` de la sucursal (mismo orden que `entidadIds`).
+   * Vacío en el catálogo global. Si la forma tiene `alias`, el cobro muestra esto en lugar del nombre.
+   */
+  entidadAlias: string[];
   /** El cobro pide la fecha de acreditación a mano (también true si el vínculo de esa sucursal es cheque). */
   fechaAcreditacionVariable: boolean;
   /** `cobros_forma_pago.alias`. */
@@ -51,6 +56,25 @@ export function filtrarPagosCostosFinancieros(
 
 export function etiquetaPagoDesdeItem(item: FinAnaCosFinaPagoItem): string {
   return item.nombre;
+}
+
+/** La forma pide alias (`cobros_forma_pago.alias`): el select de cobro se titula ALIAS. */
+export function cobroMuestraAlias(
+  pago: Pick<FinAnaCosFinaPagoItem, "alias"> | null | undefined
+): boolean {
+  return pago?.alias === true;
+}
+
+/** Texto de la opción: alias del vínculo de la sucursal, o el nombre de la entidad si no hay. */
+export function etiquetaOpcionEntidadCobro(
+  pago: FinAnaCosFinaPagoItem,
+  indice: number
+): string {
+  if (pago.alias) {
+    const alias = pago.entidadAlias[indice]?.trim();
+    if (alias) return alias;
+  }
+  return pago.entidadNombres[indice] ?? "";
 }
 
 export function buscarPagoPorId(

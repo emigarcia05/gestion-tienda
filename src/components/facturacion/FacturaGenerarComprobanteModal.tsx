@@ -40,6 +40,8 @@ import {
   parseDdMmYyyyToIsoYmdArgentina,
 } from "@/lib/fechaArgentina";
 import {
+  cobroMuestraAlias,
+  etiquetaOpcionEntidadCobro,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
@@ -80,12 +82,13 @@ const COBRO_RESUMEN_LINEA_GRUESA_CLASS = "border-b-2 border-primary";
 function etiquetaFormaPagoCobroRegistrado(cobro: {
   pagoNombre: string;
   entidadNombre: string;
+  entidadVisible: string;
   cuotaEtiqueta: string | null;
   fechaAcreditacionIso?: string;
 }): string {
   return [
     cobro.pagoNombre,
-    cobro.entidadNombre,
+    cobro.entidadVisible || cobro.entidadNombre,
     cobro.cuotaEtiqueta,
     cobro.fechaAcreditacionIso
       ? `ACR. ${formatIsoYmdDdMmYyyyArgentina(cobro.fechaAcreditacionIso)}`
@@ -121,7 +124,10 @@ const ACCIONES_GENERAR: {
 type CobroRegistrado = {
   id: string;
   pagoNombre: string;
+  /** Nombre de la entidad: es lo que se envía al emitir. */
   entidadNombre: string;
+  /** Texto del select (alias si la forma lo usa). */
+  entidadVisible: string;
   cuotaEtiqueta: string | null;
   fechaAcreditacionIso?: string;
   montoCents: number;
@@ -303,7 +309,10 @@ export default function FacturaGenerarComprobanteModal({
     | { ok: false; error: string } {
     if (!pagoSel) return { ok: true, cobro: null };
     if ((pagoSel.entidadIds.length > 0) && !entidadId) {
-      return { ok: false, error: "Seleccioná una entidad." };
+      return {
+        ok: false,
+        error: cobroMuestraAlias(pagoSel) ? "Seleccioná un alias." : "Seleccioná una entidad.",
+      };
     }
     if (muestraCuotas && !cuotaId) {
       return { ok: false, error: "Seleccioná las cuotas." };
@@ -320,12 +329,16 @@ export default function FacturaGenerarComprobanteModal({
     }
     const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
     const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
+    const entidadVisible = cobroMuestraAlias(pagoSel)
+      ? etiquetaOpcionEntidadCobro(pagoSel, entidadIdx)
+      : entidadNombre;
     const cuota = cuotas.find((c) => c.id === cuotaId);
     return {
       ok: true,
       cobro: {
         pagoNombre: pagoSel.nombre,
         entidadNombre,
+        entidadVisible,
         cuotaEtiqueta: cuota?.cuotas ?? null,
         fechaAcreditacionIso: pagoSel.fechaAcreditacionVariable
           ? fechaAcreditacionIso
@@ -350,6 +363,7 @@ export default function FacturaGenerarComprobanteModal({
       id: crypto.randomUUID(),
       pagoNombre: res.cobro.pagoNombre,
       entidadNombre: res.cobro.entidadNombre,
+      entidadVisible: res.cobro.entidadVisible,
       cuotaEtiqueta: res.cobro.cuotaEtiqueta,
       fechaAcreditacionIso: res.cobro.fechaAcreditacionIso,
       montoCents: res.cobro.montoCents,
@@ -523,14 +537,18 @@ export default function FacturaGenerarComprobanteModal({
                   <div className="flex items-end justify-center gap-2">
                     {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
-                      <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                      <ModalMicroLabel>
+                        {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                      </ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
                         onValueChange={handleEntidadChange}
                         disabled={ocupado || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                          <SelectValue placeholder="ENTIDAD" />
+                          <SelectValue
+                            placeholder={cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          />
                         </SelectTrigger>
                         <SelectContent
                           position="popper"
@@ -538,11 +556,13 @@ export default function FacturaGenerarComprobanteModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          <SelectItem value={VACIO}>
+                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          </SelectItem>
                           {pagoSel
                             ? pagoSel.entidadIds.map((id, idx) => (
                                 <SelectItem key={id} value={id}>
-                                  {pagoSel.entidadNombres[idx] ?? ""}
+                                  {etiquetaOpcionEntidadCobro(pagoSel, idx)}
                                 </SelectItem>
                               ))
                             : null}

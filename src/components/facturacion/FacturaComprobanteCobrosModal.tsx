@@ -49,6 +49,8 @@ import {
 } from "@/lib/fechaArgentina";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import {
+  cobroMuestraAlias,
+  etiquetaOpcionEntidadCobro,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
@@ -307,7 +309,7 @@ export default function FacturaComprobanteCobrosModal({
       return;
     }
     if ((pagoSel.entidadIds.length > 0) && !entidadId) {
-      toast.error("Seleccioná una entidad.");
+      toast.error(cobroMuestraAlias(pagoSel) ? "Seleccioná un alias." : "Seleccioná una entidad.");
       return;
     }
     if (muestraCuotas && !cuotaId) {
@@ -551,7 +553,9 @@ export default function FacturaComprobanteCobrosModal({
                 <div className="flex items-end justify-center gap-2">
                   {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
-                      <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                      <ModalMicroLabel>
+                        {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                      </ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
                         onValueChange={(value) => {
@@ -561,7 +565,9 @@ export default function FacturaComprobanteCobrosModal({
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                          <SelectValue placeholder="ENTIDAD" />
+                          <SelectValue
+                            placeholder={cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          />
                         </SelectTrigger>
                         <SelectContent
                           position="popper"
@@ -569,11 +575,13 @@ export default function FacturaComprobanteCobrosModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          <SelectItem value={VACIO}>
+                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          </SelectItem>
                           {pagoSel
                             ? pagoSel.entidadIds.map((id, idx) => (
                                 <SelectItem key={id} value={id}>
-                                  {pagoSel.entidadNombres[idx] ?? ""}
+                                  {etiquetaOpcionEntidadCobro(pagoSel, idx)}
                                 </SelectItem>
                               ))
                             : null}
@@ -759,7 +767,9 @@ export default function FacturaComprobanteCobrosModal({
                 <div className="flex items-end justify-center gap-2">
                   {muestraEntidad ? (
                     <label className="flex min-w-0 flex-1 flex-col gap-1">
-                      <ModalMicroLabel>ENTIDAD</ModalMicroLabel>
+                      <ModalMicroLabel>
+                        {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                      </ModalMicroLabel>
                       <Select
                         value={entidadId || VACIO}
                         onValueChange={(value) => {
@@ -769,7 +779,9 @@ export default function FacturaComprobanteCobrosModal({
                         disabled={guardando || !pagoSel}
                       >
                         <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                          <SelectValue placeholder="ENTIDAD" />
+                          <SelectValue
+                            placeholder={cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          />
                         </SelectTrigger>
                         <SelectContent
                           position="popper"
@@ -777,11 +789,13 @@ export default function FacturaComprobanteCobrosModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          <SelectItem value={VACIO}>
+                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
+                          </SelectItem>
                           {pagoSel
                             ? pagoSel.entidadIds.map((id, idx) => (
                                 <SelectItem key={id} value={id}>
-                                  {pagoSel.entidadNombres[idx] ?? ""}
+                                  {etiquetaOpcionEntidadCobro(pagoSel, idx)}
                                 </SelectItem>
                               ))
                             : null}

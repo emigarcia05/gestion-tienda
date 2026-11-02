@@ -3,6 +3,8 @@ export type MarcaCatalogoItem = {
   id: string;
   nombre: string;
   formatoCodTintometrico: string | null;
+  /** `prod_marcas.cod_tintometrico`: se puede elegir como marca del COD. COLOR. */
+  codTintometrico: boolean;
   productos: number;
 };
 

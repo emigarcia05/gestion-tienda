@@ -1,6 +1,12 @@
 /** Valor del Select “sin referencia” en Px Listas · 1 - GENERAL. */
 export const PX_LISTAS_COMP_REF_NINGUNO = "-";
 
+/**
+ * Query `pxVinculado`: ítem sin competidor de referencia, sin precio de competencia
+ * y sin vínculo de proveedor. No usar `PX_LISTAS_COMP_REF_NINGUNO` (`"-"`).
+ */
+export const PX_LISTAS_PX_VINCULADO_SIN_VINCULAR = "sin-vincular";
+
 export type OpcionCompetenciaRefPxListas = {
   competenciaId: string;
   /** Nombre completo (tooltip / fallback). */

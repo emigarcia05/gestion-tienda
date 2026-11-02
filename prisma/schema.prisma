@@ -1444,8 +1444,10 @@ model Marca {
   nombre                 String   @unique(map: "prod_marcas_nombre_key")
   /// Máscara del código de color tintométrico (`@/lib/tintometricoFormatoCod`): `L` letra, `N` número,
   /// `"…"` texto fijo, espacio / `/` / `-` / `.` literales. Ej.: `LLNN NN/NNN` (YY12 05/132), `"SW"NNNN` (SW2365).
-  /// `null` = sin formato (código libre).
+  /// `null` = sin formato (código libre). Solo se usa si `codTintometrico` es true.
   formatoCodTintometrico String?  @map("formato_cod_tintometrico")
+  /// La marca se puede elegir como marca del COD. COLOR. Default false.
+  codTintometrico        Boolean  @default(false) @map("cod_tintometrico")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
@@ -1575,6 +1577,8 @@ model ProdPropio {
   /// Unidades por bulto. `null` = vacío (Cx Compra / Reposición). Entero ≥ 1.
   /// CHECK SQL `prod_lista_bulto_positivo`. Sync DUX no escribe esta columna.
   bulto                       Int?
+  /// En Crear (remito y presupuesto) el PX. LISTA de la línea se puede tipear. Default false.
+  precioEditable              Boolean   @default(false) @map("precio_editable")
   /// Presentación elegida al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
   idPresentacion              String?   @map("id_presentacion")
   /// Color elegido al dar de alta (Lista Productos · Agregar Item). Sync DUX no escribe.
