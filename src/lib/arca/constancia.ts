@@ -119,7 +119,12 @@ function mapRaw(idPersona: string, ret: Record<string, unknown>): ArcaConstancia
 
 function esErrorConexionSoap(mensaje: string): boolean {
   const lower = mensaje.toLowerCase();
-  return lower.includes("no se pudo conectar") || lower.includes("tiempo de espera agotado");
+  return (
+    lower.includes("no se pudo conectar") ||
+    lower.includes("no se pudo resolver") ||
+    lower.includes("cortó la conexión") ||
+    lower.includes("tiempo de espera agotado")
+  );
 }
 
 function mensajePersonaInexistente(ambiente: ArcaConexionConfig["ambiente"]): string {
