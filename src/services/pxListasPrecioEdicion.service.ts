@@ -192,30 +192,36 @@ export async function guardarPrecioListaEdicionDesdePx(
   };
 }
 
-export type PrecioDefinitivoPublicado = {
-  codTienda: string;
-  idLista: number;
-  precio: number;
-};
+/** Ítems con al menos una lista cuyo entero de edición difiere del precio de Ventas. */
+export async function contarItemsConPrecioDeVentaDistinto(): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ items: number }>>`
+    SELECT COUNT(DISTINCT e.cod_tienda)::int AS items
+    FROM prod_lista_precios_edicion e
+    WHERE e.precio > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM prod_lista_precios p
+        WHERE p.cod_tienda = e.cod_tienda
+          AND p.id_lista = e.id_lista
+          AND round(p.precio) = round(e.precio)
+      )
+  `;
+  return Number(rows[0]?.items ?? 0);
+}
 
 /**
- * Copia `prod_lista_precios_edicion` → `prod_lista_precios` en los productos indicados
- * cuando el entero difiere (o falta la fila definitiva). Ventas lee la tabla definitiva.
+ * Copia `prod_lista_precios_edicion` → `prod_lista_precios` en todos los ítems
+ * cuyo entero difiere (o falta la fila definitiva), aunque no estén en la grilla.
  */
-export async function publicarPreciosDefinitivosDesdeEdicion(
-  codTiendas: readonly string[]
-): Promise<PrecioDefinitivoPublicado[]> {
-  const codigos = [...new Set(codTiendas.map((c) => c.trim()).filter(Boolean))];
-  if (codigos.length === 0) return [];
-
-  const filas = await prisma.$queryRaw<
-    Array<{ cod_tienda: string; id_lista: number; precio: Prisma.Decimal }>
-  >`
+export async function publicarPreciosDefinitivosDesdeEdicion(): Promise<{
+  precios: number;
+  items: number;
+}> {
+  const filas = await prisma.$queryRaw<Array<{ precios: number; items: number }>>`
     WITH objetivo AS (
       SELECT e.cod_tienda, e.id_lista, e.precio
       FROM prod_lista_precios_edicion e
-      WHERE e.cod_tienda IN (${Prisma.join(codigos)})
-        AND e.precio > 0
+      WHERE e.precio > 0
         AND NOT EXISTS (
           SELECT 1
           FROM prod_lista_precios p
@@ -245,14 +251,18 @@ export async function publicarPreciosDefinitivosDesdeEdicion(
       )
       RETURNING cod_tienda, id_lista, precio
     )
-    SELECT cod_tienda, id_lista, precio FROM actualizados
-    UNION ALL
-    SELECT cod_tienda, id_lista, precio FROM insertados
+    SELECT
+      COUNT(*)::int AS precios,
+      COUNT(DISTINCT cod_tienda)::int AS items
+    FROM (
+      SELECT cod_tienda FROM actualizados
+      UNION ALL
+      SELECT cod_tienda FROM insertados
+    ) publicados
   `;
 
-  return filas.map((fila) => ({
-    codTienda: fila.cod_tienda,
-    idLista: fila.id_lista,
-    precio: roundPxListaEntero(Number(fila.precio)),
-  }));
+  return {
+    precios: Number(filas[0]?.precios ?? 0),
+    items: Number(filas[0]?.items ?? 0),
+  };
 }

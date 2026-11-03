@@ -105,21 +105,17 @@ export async function guardarPxListaCompetenciaRefAction(
 
 /**
  * Copia a `prod_lista_precios` el precio de `prod_lista_precios_edicion`
- * de los productos indicados, cuando el entero difiere.
+ * de todos los ítems cuyo entero difiere, estén o no en la grilla.
  */
 export async function publicarPxListasPreciosDefinitivosAction(
   raw: unknown
-): Promise<
-  ActionResult<{
-    publicados: Array<{ codTienda: string; idLista: number; precio: number }>;
-  }>
-> {
+): Promise<ActionResult<{ precios: number; items: number }>> {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
     return { ok: false, error: "Sin acceso." };
   }
 
-  const parsed = publicarPxListasPreciosDefinitivosSchema.safeParse(raw);
+  const parsed = publicarPxListasPreciosDefinitivosSchema.safeParse(raw ?? {});
   if (!parsed.success) {
     const first =
       parsed.error.issues[0]?.message ?? "Datos de publicación inválidos.";
@@ -127,11 +123,9 @@ export async function publicarPxListasPreciosDefinitivosAction(
   }
 
   try {
-    const publicados = await publicarPreciosDefinitivosDesdeEdicion(
-      parsed.data.codTiendas
-    );
-    if (publicados.length > 0) revalidatePxListasPaths();
-    return { ok: true, data: { publicados } };
+    const publicados = await publicarPreciosDefinitivosDesdeEdicion();
+    if (publicados.items > 0) revalidatePxListasPaths();
+    return { ok: true, data: publicados };
   } catch (e) {
     return {
       ok: false,

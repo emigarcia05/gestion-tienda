@@ -53,19 +53,6 @@ function codigosConCambioPendiente(
   return codigos;
 }
 
-function codigosParaPublicarDesdeEdicion(
-  filas: readonly ItemPxListasPreciosTabla[],
-  visibles: ReadonlySet<string>
-): string[] {
-  return filas
-    .filter(
-      (item) =>
-        visibles.has(item.codTienda) &&
-        item.preciosPorLista.some(precioEdicionDifiereDefinitivo)
-    )
-    .map((item) => item.codTienda);
-}
-
 function precioEdicionDifiereDefinitivo(celda: PrecioListaPxListasCelda): boolean {
   if (celda.pxEdicion == null || !(celda.pxEdicion > 0)) return false;
   if (celda.pxDux == null || !(celda.pxDux > 0)) return true;
@@ -114,6 +101,8 @@ interface Props {
   actualizar: string;
   pxVinculado: string;
   paginaNum: number;
+  /** Ítems de toda la base con edición distinta del precio de Ventas. */
+  itemsConDiferencia: number;
 }
 
 export default function PxListasPreciosPageClient({
@@ -135,6 +124,7 @@ export default function PxListasPreciosPageClient({
   actualizar,
   pxVinculado,
   paginaNum,
+  itemsConDiferencia,
 }: Props) {
   const router = useRouter();
   const puedeEditar = puede(rol, PERMISOS.cxPxTienda.acceso);
@@ -225,7 +215,12 @@ export default function PxListasPreciosPageClient({
       idListaGeneral
     );
   }, [itemsVisibles, cambios, refsPendientes, idListaGeneral]);
-  const puedeGuardar = cantCambios > 0 || codigosDistintos.length > 0;
+  const [itemsDistintos, setItemsDistintos] = useState(itemsConDiferencia);
+  useEffect(() => {
+    setItemsDistintos(itemsConDiferencia);
+  }, [itemsConDiferencia]);
+  const totalAGuardar = Math.max(itemsDistintos, codigosDistintos.length);
+  const puedeGuardar = cantCambios > 0 || totalAGuardar > 0;
 
   useEffect(() => {
     if (cantCambios === 0) return;
@@ -287,11 +282,8 @@ export default function PxListasPreciosPageClient({
   async function guardarCambios() {
     const lista = [...cambiosRef.current.values()];
     const refs = [...refsRef.current.entries()];
-    const visibles = new Set(itemsVisibles.map((item) => item.codTienda));
     let filas = itemsBdRef.current;
-    const hayEdicionDistinta =
-      codigosParaPublicarDesdeEdicion(filas, visibles).length > 0;
-    if (lista.length === 0 && refs.length === 0 && !hayEdicionDistinta) return;
+    if (lista.length === 0 && refs.length === 0 && totalAGuardar === 0) return;
     setGuardando(true);
     const errores: string[] = [];
     let guardados = 0;
@@ -379,48 +371,42 @@ export default function PxListasPreciosPageClient({
         }
       }
 
-      const aPublicar = codigosParaPublicarDesdeEdicion(filas, visibles);
-      let publicados: Array<{ codTienda: string; idLista: number; precio: number }> = [];
-      if (aPublicar.length > 0) {
-        const resPub = await publicarPxListasPreciosDefinitivosAction({
-          codTiendas: aPublicar,
-        });
-        if (!resPub.ok) {
-          errores.push(resPub.error);
-        } else {
-          publicados = resPub.data.publicados;
-          const porClave = new Map(
-            publicados.map((p) => [claveCambioPxListas(p.codTienda, p.idLista), p.precio])
-          );
+      const resPub = await publicarPxListasPreciosDefinitivosAction({});
+      let itemsPublicados = 0;
+      if (!resPub.ok) {
+        errores.push(resPub.error);
+      } else {
+        itemsPublicados = resPub.data.items;
+        if (itemsPublicados > 0) {
           filas = filas.map((item) => {
             let tocado = false;
             const preciosPorLista = item.preciosPorLista.map((c) => {
-              const precio = porClave.get(claveCambioPxListas(item.codTienda, c.idLista));
-              if (precio == null) return c;
+              if (!precioEdicionDifiereDefinitivo(c) || c.pxEdicion == null) return c;
               tocado = true;
               return armarCeldaPrecioPxListas({
                 idLista: c.idLista,
                 costoCompra: item.costoCompra,
-                pxDux: precio,
-                pxEdicion: c.pxEdicion ?? precio,
+                pxDux: c.pxEdicion,
+                pxEdicion: c.pxEdicion,
               });
             });
             return tocado ? { ...item, preciosPorLista } : item;
           });
+          setItemsDistintos(0);
         }
       }
 
       setItemsBd(filas);
       itemsBdRef.current = filas;
 
-      if (guardados > 0 || publicados.length > 0) router.refresh();
+      if (guardados > 0 || itemsPublicados > 0) router.refresh();
 
       if (errores.length === 0) {
-        if (publicados.length > 0) {
+        if (itemsPublicados > 0) {
           toast.success(
-            publicados.length === 1
+            itemsPublicados === 1
               ? "Precio de venta actualizado."
-              : `${publicados.length} precios de venta actualizados.`
+              : `${itemsPublicados} ítems actualizados en el precio de venta.`
           );
         } else {
           toast.success(
@@ -446,8 +432,8 @@ export default function PxListasPreciosPageClient({
           puedeEditar ? (
             <ToolbarActionButton
               label={
-                codigosDistintos.length > 0
-                  ? `Guardar Cambios (${codigosDistintos.length})`
+                totalAGuardar > 0
+                  ? `Guardar Cambios (${totalAGuardar})`
                   : cantCambios > 0
                     ? `Guardar Cambios (${cantCambios})`
                     : "Guardar Cambios"

@@ -47,15 +47,10 @@ export const cambioPxListasSchema = z.discriminatedUnion("tipo", [
 export type CambioPxListas = z.infer<typeof cambioPxListasSchema>;
 
 /**
- * **Guardar Cambios** publica en `prod_lista_precios` los productos visibles
- * cuya edición ya difiere del precio de Ventas. Tope: una página de la grilla.
+ * **Guardar Cambios** publica en `prod_lista_precios` todos los ítems cuya
+ * edición difiere del precio de Ventas. No recibe la página visible.
  */
-export const publicarPxListasPreciosDefinitivosSchema = z.object({
-  codTiendas: z
-    .array(listaPreciosCodTiendaSchema)
-    .min(1, "No hay precios de venta para actualizar.")
-    .max(120, "Demasiados productos en una sola vez."),
-});
+export const publicarPxListasPreciosDefinitivosSchema = z.object({});
 
 /** **Guardar Cambios** de Px Listas: todos los pendientes en una llamada. */
 export const guardarPxListasCambiosSchema = z.object({

@@ -47,6 +47,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
     rubros,
     subRubros,
     opcionesPxVinculado,
+    itemsConDiferencia,
   } = await getPxListasPreciosPageDataFromDb({
     q,
     rubro,
@@ -79,6 +80,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
       actualizar={actualizar}
       pxVinculado={pxVinculado}
       paginaNum={paginaNum}
+      itemsConDiferencia={itemsConDiferencia}
     />
   );
 }

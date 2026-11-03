@@ -28,6 +28,7 @@ import {
   listarOpcionesCompetenciaRefPorCodTiendas,
   listarOpcionesFiltroPxVinculado,
 } from "@/services/pxListasCompetenciaRef.service";
+import { contarItemsConPrecioDeVentaDistinto } from "@/services/pxListasPrecioEdicion.service";
 import { listarFinAnaMcCategorias } from "@/services/finAnaMcCategorias.service";
 import {
   resolverCostoCompraTienda,
@@ -52,6 +53,8 @@ export type PxListasPreciosPageData = {
   categoriasMc: FinAnaMcCategoriaItem[];
   /** `idLista` de **1 - GENERAL**; `null` si no existe en el catálogo. */
   idListaGeneral: number | null;
+  /** Ítems de toda la base con edición distinta del precio de Ventas. */
+  itemsConDiferencia: number;
 };
 
 /** Shape vacío sin Prisma (gate de permiso / Zod). */
@@ -67,6 +70,7 @@ export function emptyPxListasPreciosPageData(): PxListasPreciosPageData {
     opcionesPxVinculado: [],
     categoriasMc: [],
     idListaGeneral: null,
+    itemsConDiferencia: 0,
   };
 }
 
@@ -353,12 +357,13 @@ export async function getPxListasPreciosPageDataFromDb(params: {
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
-  const [metaEstatico, distincts, listado] = await Promise.all([
+  const [metaEstatico, distincts, listado, itemsConDiferencia] = await Promise.all([
     cargarMetaEstaticoPxListas(),
     listarOpcionesDistinctFiltrosCached(qDistinct),
     listarItems
       ? listarPaginaProdTiendaPxListas(where, skip)
       : Promise.resolve({ rows: [] as FilaListadoPxListas[], total: 0 }),
+    contarItemsConPrecioDeVentaDistinto(),
   ]);
 
   const items: ItemPxListasPreciosTabla[] = listarItems
@@ -383,6 +388,7 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     opcionesPxVinculado: metaEstatico.opcionesPxVinculado,
     categoriasMc: metaEstatico.categoriasMc,
     idListaGeneral: metaEstatico.idListaGeneral,
+    itemsConDiferencia,
   };
 }
 

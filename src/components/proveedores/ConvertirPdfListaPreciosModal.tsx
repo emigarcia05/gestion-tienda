@@ -282,7 +282,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const [estado, setEstado] = useState<Estado>("idle");
   const [archivoPendiente, setArchivoPendiente] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [paginaInicio, setPaginaInicio] = useState(String(PAGINA_INICIO_PDF_MATRIZ_DEFAULT));
   const [proveedorId, setProveedorId] = useState("");
   const [filasPdf, setFilasPdf] = useState<FilaPdfMatrizNormalizadaDto[]>([]);
@@ -327,16 +326,20 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
 
   const seleccionarArchivo = useCallback(
     (file: File) => {
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Solo se aceptan archivos PDF.");
-      return;
-    }
-    setArchivoPendiente(file);
-    setFileName(file.name);
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        toast.error("Solo se aceptan archivos PDF.");
+        return;
+      }
+      if (!proveedorId.trim()) {
+        toast.error("Seleccioná el proveedor de la lista.");
+        return;
+      }
+      setArchivoPendiente(file);
+      setFileName(file.name);
       limpiarResultado();
-    setEstado("config");
+      setEstado("config");
     },
-    [limpiarResultado]
+    [limpiarResultado, proveedorId]
   );
 
   function cambiarProveedor(id: string) {
@@ -520,17 +523,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     }
   }
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) seleccionarArchivo(file);
-    },
-    [seleccionarArchivo]
-  );
-
-  const enConfig = (estado === "config" || estado === "error") && !!archivoPendiente;
   const mostrarBotonConversion =
     !!archivoPendiente && (estado === "config" || estado === "procesando" || estado === "error");
   const sinPrecio = preview?.listaSinPrecio ?? [];
@@ -605,7 +597,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
             </Select>
           </div>
 
-          {enConfig && (
+          {!preview && (
             <div className="rounded-lg border border-primary/30 bg-muted/30 p-3">
               <div className="grid grid-cols-[1fr_8rem] gap-x-4 items-center">
                 <span className="text-sm font-medium text-foreground">LOS DATOS COMIENZAN EN LA PÁGINA</span>
@@ -614,7 +606,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                   min={1}
                   value={paginaInicio}
                   onChange={(e) => setPaginaInicio(e.target.value)}
-                  disabled={ocupado}
+                  disabled={ocupado || !proveedorId.trim()}
                   className="input-filtro-unificado w-full text-sm focus:outline-none focus:ring-2 focus:ring-ring border-primary tabular-nums"
                   aria-label="Página desde la que se procesa el PDF"
                 />
@@ -623,21 +615,17 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
           )}
 
           {!fileName ? (
-          <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
-            <span className="text-sm font-medium text-foreground min-w-0 truncate">
-                ADJUNTAR PDF
-            </span>
-              <div className="flex w-full min-w-0">
+            <div className="w-full min-w-0">
               <Button
                 type="button"
                 variant="default"
                 size="default"
-                disabled={ocupado}
-                className="min-w-0 flex-1"
-                  onClick={() => fileInputRef.current?.click()}
+                disabled={ocupado || !proveedorId.trim()}
+                className="w-full"
+                onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
-                  Adjuntar PDF
+                Adjuntar PDF
               </Button>
               <input
                 ref={fileInputRef}
@@ -650,26 +638,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 }}
               />
             </div>
-          </div>
           ) : null}
-
-          {!fileName && (
-            <div
-              className={cn(
-                "rounded-lg border-2 border-dashed transition-colors flex items-center justify-center gap-2 py-4 px-3",
-                isDragging ? "border-primary bg-primary/5" : "border-border/50 hover:border-border"
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={onDrop}
-            >
-              <Upload className="h-5 w-5 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground">Arrastrá un PDF; luego indicá la página donde comienzan los datos</span>
-            </div>
-          )}
 
           {estado === "procesando" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-2" role="status">
