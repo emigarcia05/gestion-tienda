@@ -1505,12 +1505,12 @@ model ProdPropioListaPrecio {
   lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
 
   @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_listas_precios_id_lista_idx")
-  @@map("prod_listas_precios")
+  @@index([idLista], map: "prod_lista_precios_id_lista_idx")
+  @@map("prod_lista_precios")
 }
 
 /**
- * Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_listas_precios`.
+ * Precio editado en módulo Px Listas (no lo pisa el sync DUX). Comparación futura vs `prod_lista_precios`.
  */
 model ProdPropioListaPrecioEdicion {
   codTienda String   @map("cod_tienda")
@@ -1522,8 +1522,8 @@ model ProdPropioListaPrecioEdicion {
   lista      ProdPropioListaPrecioNombre @relation(fields: [idLista], references: [idLista], onDelete: Restrict)
 
   @@id([codTienda, idLista])
-  @@index([idLista], map: "prod_listas_precios_edicion_id_lista_idx")
-  @@map("prod_listas_precios_edicion")
+  @@index([idLista], map: "prod_lista_precios_edicion_id_lista_idx")
+  @@map("prod_lista_precios_edicion")
 }
 
 /**

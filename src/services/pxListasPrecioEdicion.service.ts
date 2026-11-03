@@ -93,7 +93,7 @@ async function persistirStagingPrecioLista(
 }
 
 /**
- * Guarda el PX calculado desde el margen en `prod_listas_precios_edicion` (staging hasta Act. Px).
+ * Guarda el PX calculado desde el margen en `prod_lista_precios_edicion` (staging hasta Act. Px).
  * `margenManual: null` elimina la fila pendiente.
  */
 export async function guardarPrecioListaEdicionDesdeMargen(
@@ -190,4 +190,69 @@ export async function guardarPrecioListaEdicionDesdePx(
       pxEfectivo: pxEntero,
     },
   };
+}
+
+export type PrecioDefinitivoPublicado = {
+  codTienda: string;
+  idLista: number;
+  precio: number;
+};
+
+/**
+ * Copia `prod_lista_precios_edicion` → `prod_lista_precios` en los productos indicados
+ * cuando el entero difiere (o falta la fila definitiva). Ventas lee la tabla definitiva.
+ */
+export async function publicarPreciosDefinitivosDesdeEdicion(
+  codTiendas: readonly string[]
+): Promise<PrecioDefinitivoPublicado[]> {
+  const codigos = [...new Set(codTiendas.map((c) => c.trim()).filter(Boolean))];
+  if (codigos.length === 0) return [];
+
+  const filas = await prisma.$queryRaw<
+    Array<{ cod_tienda: string; id_lista: number; precio: Prisma.Decimal }>
+  >`
+    WITH objetivo AS (
+      SELECT e.cod_tienda, e.id_lista, e.precio
+      FROM prod_lista_precios_edicion e
+      WHERE e.cod_tienda IN (${Prisma.join(codigos)})
+        AND e.precio > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM prod_lista_precios p
+          WHERE p.cod_tienda = e.cod_tienda
+            AND p.id_lista = e.id_lista
+            AND round(p.precio) = round(e.precio)
+        )
+    ),
+    actualizados AS (
+      UPDATE prod_lista_precios p
+      SET precio = o.precio,
+          updated_at = NOW()
+      FROM objetivo o
+      WHERE p.cod_tienda = o.cod_tienda
+        AND p.id_lista = o.id_lista
+      RETURNING p.cod_tienda, p.id_lista, p.precio
+    ),
+    insertados AS (
+      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, updated_at)
+      SELECT o.cod_tienda, o.id_lista, o.precio, NOW()
+      FROM objetivo o
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM prod_lista_precios p
+        WHERE p.cod_tienda = o.cod_tienda
+          AND p.id_lista = o.id_lista
+      )
+      RETURNING cod_tienda, id_lista, precio
+    )
+    SELECT cod_tienda, id_lista, precio FROM actualizados
+    UNION ALL
+    SELECT cod_tienda, id_lista, precio FROM insertados
+  `;
+
+  return filas.map((fila) => ({
+    codTienda: fila.cod_tienda,
+    idLista: fila.id_lista,
+    precio: roundPxListaEntero(Number(fila.precio)),
+  }));
 }

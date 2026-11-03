@@ -15,15 +15,23 @@ import TablaPxListasPrecios, {
 import {
   guardarPxListaCompetenciaRefAction,
   guardarPxListasCambiosAction,
+  publicarPxListasPreciosDefinitivosAction,
 } from "@/actions/pxListasPrecios";
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import type { OpcionFiltroPxVinculado } from "@/lib/pxListasCompetenciaRef";
-import type { ItemPxListasPreciosTabla, ListaPrecioPxListasColumna } from "@/lib/pxListasPrecios";
+import type {
+  ItemPxListasPreciosTabla,
+  ListaPrecioPxListasColumna,
+  PrecioListaPxListasCelda,
+} from "@/lib/pxListasPrecios";
 import {
   armarCeldaPrecioPxListas,
+  celdaPxListasEnPantalla,
   claveCambioPxListas,
+  precioListaMostradoDifiereDefinitivo,
 } from "@/lib/pxListasPreciosCelda";
+import { preciosPxListaEnterosIguales } from "@/lib/pxListasPreciosFormat";
 import type { CambioPxListas } from "@/lib/validations/pxListasPrecios";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
 import {
@@ -42,6 +50,48 @@ function codigosConCambioPendiente(
   const codigos = new Set<string>();
   for (const cambio of cambios.values()) codigos.add(cambio.codTienda);
   for (const cod of refsPendientes.keys()) codigos.add(cod);
+  return codigos;
+}
+
+function codigosParaPublicarDesdeEdicion(
+  filas: readonly ItemPxListasPreciosTabla[],
+  visibles: ReadonlySet<string>
+): string[] {
+  return filas
+    .filter(
+      (item) =>
+        visibles.has(item.codTienda) &&
+        item.preciosPorLista.some(precioEdicionDifiereDefinitivo)
+    )
+    .map((item) => item.codTienda);
+}
+
+function precioEdicionDifiereDefinitivo(celda: PrecioListaPxListasCelda): boolean {
+  if (celda.pxEdicion == null || !(celda.pxEdicion > 0)) return false;
+  if (celda.pxDux == null || !(celda.pxDux > 0)) return true;
+  return !preciosPxListaEnterosIguales(celda.pxEdicion, celda.pxDux);
+}
+
+function codigosConPrecioDeVentaDistinto(
+  filas: readonly ItemPxListasPreciosTabla[],
+  visibles: ReadonlySet<string>,
+  cambios: ReadonlyMap<string, CambioPxListas>,
+  refsPendientes: ReadonlyMap<string, string | null>,
+  idListaGeneral: number | null
+): string[] {
+  const codigos: string[] = [];
+  for (const item of filas) {
+    if (!visibles.has(item.codTienda)) continue;
+    const refPendiente = refsPendientes.has(item.codTienda)
+      ? (refsPendientes.get(item.codTienda) ?? null)
+      : undefined;
+    const difiere = item.preciosPorLista.some((celda) =>
+      precioListaMostradoDifiereDefinitivo(
+        celdaPxListasEnPantalla(item, celda, cambios, refPendiente, idListaGeneral)
+      )
+    );
+    if (difiere) codigos.push(item.codTienda);
+  }
   return codigos;
 }
 
@@ -165,6 +215,18 @@ export default function PxListasPreciosPageClient({
     return itemsBd;
   }, [actualizar, itemsBd, codigosPendientes, retenidos]);
 
+  const codigosDistintos = useMemo(() => {
+    const visibles = new Set(itemsVisibles.map((item) => item.codTienda));
+    return codigosConPrecioDeVentaDistinto(
+      itemsVisibles,
+      visibles,
+      cambios,
+      refsPendientes,
+      idListaGeneral
+    );
+  }, [itemsVisibles, cambios, refsPendientes, idListaGeneral]);
+  const puedeGuardar = cantCambios > 0 || codigosDistintos.length > 0;
+
   useEffect(() => {
     if (cantCambios === 0) return;
     const avisar = (e: BeforeUnloadEvent) => {
@@ -225,7 +287,11 @@ export default function PxListasPreciosPageClient({
   async function guardarCambios() {
     const lista = [...cambiosRef.current.values()];
     const refs = [...refsRef.current.entries()];
-    if (lista.length === 0 && refs.length === 0) return;
+    const visibles = new Set(itemsVisibles.map((item) => item.codTienda));
+    let filas = itemsBdRef.current;
+    const hayEdicionDistinta =
+      codigosParaPublicarDesdeEdicion(filas, visibles).length > 0;
+    if (lista.length === 0 && refs.length === 0 && !hayEdicionDistinta) return;
     setGuardando(true);
     const errores: string[] = [];
     let guardados = 0;
@@ -247,29 +313,27 @@ export default function PxListasPreciosPageClient({
           refsRef.current = next;
           return next;
         });
-        setItemsBd((prev) =>
-          prev.map((item) => {
-            if (item.codTienda !== codTienda) return item;
-            const competenciaIdPxListaGeneral = res.data.competenciaIdPxListaGeneral;
-            if (!res.data.pxActualizado || idListaGeneral == null) {
-              return { ...item, competenciaIdPxListaGeneral };
-            }
-            return {
-              ...item,
-              competenciaIdPxListaGeneral,
-              preciosPorLista: item.preciosPorLista.map((c) =>
-                c.idLista === idListaGeneral
-                  ? armarCeldaPrecioPxListas({
-                      idLista: idListaGeneral,
-                      costoCompra: item.costoCompra,
-                      pxDux: c.pxDux,
-                      pxEdicion: res.data.pxEdicion,
-                    })
-                  : c
-              ),
-            };
-          })
-        );
+        filas = filas.map((item) => {
+          if (item.codTienda !== codTienda) return item;
+          const competenciaIdPxListaGeneral = res.data.competenciaIdPxListaGeneral;
+          if (!res.data.pxActualizado || idListaGeneral == null) {
+            return { ...item, competenciaIdPxListaGeneral };
+          }
+          return {
+            ...item,
+            competenciaIdPxListaGeneral,
+            preciosPorLista: item.preciosPorLista.map((c) =>
+              c.idLista === idListaGeneral
+                ? armarCeldaPrecioPxListas({
+                    idLista: idListaGeneral,
+                    costoCompra: item.costoCompra,
+                    pxDux: c.pxDux,
+                    pxEdicion: res.data.pxEdicion,
+                  })
+                : c
+            ),
+          };
+        });
       }
 
       if (lista.length > 0) {
@@ -284,30 +348,28 @@ export default function PxListasPreciosPageClient({
           }
           guardados += okPorClave.size;
 
-          setItemsBd((prev) =>
-            prev.map((item) => {
-              let tocado = false;
-              let quitarRef = false;
-              const preciosPorLista = item.preciosPorLista.map((c) => {
-                const clave = claveCambioPxListas(item.codTienda, c.idLista);
-                if (!okPorClave.has(clave)) return c;
-                tocado = true;
-                if (idListaGeneral != null && c.idLista === idListaGeneral) quitarRef = true;
-                return armarCeldaPrecioPxListas({
-                  idLista: c.idLista,
-                  costoCompra: item.costoCompra,
-                  pxDux: c.pxDux,
-                  pxEdicion: okPorClave.get(clave) ?? null,
-                });
+          filas = filas.map((item) => {
+            let tocado = false;
+            let quitarRef = false;
+            const preciosPorLista = item.preciosPorLista.map((c) => {
+              const clave = claveCambioPxListas(item.codTienda, c.idLista);
+              if (!okPorClave.has(clave)) return c;
+              tocado = true;
+              if (idListaGeneral != null && c.idLista === idListaGeneral) quitarRef = true;
+              return armarCeldaPrecioPxListas({
+                idLista: c.idLista,
+                costoCompra: item.costoCompra,
+                pxDux: c.pxDux,
+                pxEdicion: okPorClave.get(clave) ?? null,
               });
-              if (!tocado) return item;
-              return {
-                ...item,
-                preciosPorLista,
-                ...(quitarRef ? { competenciaIdPxListaGeneral: null } : {}),
-              };
-            })
-          );
+            });
+            if (!tocado) return item;
+            return {
+              ...item,
+              preciosPorLista,
+              ...(quitarRef ? { competenciaIdPxListaGeneral: null } : {}),
+            };
+          });
           setCambios((prev) => {
             const next = new Map(prev);
             for (const clave of okPorClave.keys()) next.delete(clave);
@@ -317,12 +379,54 @@ export default function PxListasPreciosPageClient({
         }
       }
 
-      if (guardados > 0) router.refresh();
+      const aPublicar = codigosParaPublicarDesdeEdicion(filas, visibles);
+      let publicados: Array<{ codTienda: string; idLista: number; precio: number }> = [];
+      if (aPublicar.length > 0) {
+        const resPub = await publicarPxListasPreciosDefinitivosAction({
+          codTiendas: aPublicar,
+        });
+        if (!resPub.ok) {
+          errores.push(resPub.error);
+        } else {
+          publicados = resPub.data.publicados;
+          const porClave = new Map(
+            publicados.map((p) => [claveCambioPxListas(p.codTienda, p.idLista), p.precio])
+          );
+          filas = filas.map((item) => {
+            let tocado = false;
+            const preciosPorLista = item.preciosPorLista.map((c) => {
+              const precio = porClave.get(claveCambioPxListas(item.codTienda, c.idLista));
+              if (precio == null) return c;
+              tocado = true;
+              return armarCeldaPrecioPxListas({
+                idLista: c.idLista,
+                costoCompra: item.costoCompra,
+                pxDux: precio,
+                pxEdicion: c.pxEdicion ?? precio,
+              });
+            });
+            return tocado ? { ...item, preciosPorLista } : item;
+          });
+        }
+      }
+
+      setItemsBd(filas);
+      itemsBdRef.current = filas;
+
+      if (guardados > 0 || publicados.length > 0) router.refresh();
 
       if (errores.length === 0) {
-        toast.success(
-          guardados === 1 ? "Cambio guardado." : `${guardados} cambios guardados.`
-        );
+        if (publicados.length > 0) {
+          toast.success(
+            publicados.length === 1
+              ? "Precio de venta actualizado."
+              : `${publicados.length} precios de venta actualizados.`
+          );
+        } else {
+          toast.success(
+            guardados === 1 ? "Cambio guardado." : `${guardados} cambios guardados.`
+          );
+        }
       } else {
         toast.error(
           `${errores.length} cambio(s) no se guardaron (siguen marcados).`,
@@ -341,12 +445,18 @@ export default function PxListasPreciosPageClient({
         actions={
           puedeEditar ? (
             <ToolbarActionButton
-              label={cantCambios > 0 ? `Guardar Cambios (${cantCambios})` : "Guardar Cambios"}
+              label={
+                codigosDistintos.length > 0
+                  ? `Guardar Cambios (${codigosDistintos.length})`
+                  : cantCambios > 0
+                    ? `Guardar Cambios (${cantCambios})`
+                    : "Guardar Cambios"
+              }
               loadingLabel="Guardando…"
               loading={guardando}
               icon={<Save />}
               className="w-full justify-start"
-              disabled={cantCambios === 0}
+              disabled={!puedeGuardar}
               onClick={() => void guardarCambios()}
             />
           ) : undefined

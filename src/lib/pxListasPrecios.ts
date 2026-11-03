@@ -9,9 +9,9 @@ export type ListaPrecioPxListasColumna = {
 /** Precio por lista en una fila del listado Px Listas. */
 export type PrecioListaPxListasCelda = {
   idLista: number;
-  /** Espejo DUX (`prod_listas_precios`). */
+  /** Espejo DUX (`prod_lista_precios`). */
   pxDux: number | null;
-  /** PX pendiente de Act. Px (`prod_listas_precios_edicion`); `null` = sin edición staging. */
+  /** PX pendiente de Act. Px (`prod_lista_precios_edicion`); `null` = sin edición staging. */
   pxEdicion: number | null;
   /** Margen % derivado de `pxEdicion` cuando hay staging; si no, `null`. */
   margenManual: number | null;

@@ -1,5 +1,5 @@
 /**
- * Query `actualizar`: ítems con PX en `prod_listas_precios_edicion`.
+ * Query `actualizar`: ítems con PX en `prod_lista_precios_edicion`.
  * En pantalla, un valor distinto al de la BD también cuenta como SI (cambio sin guardar).
  */
 export const FILTRO_ACTUALIZAR_SI = "si" as const;

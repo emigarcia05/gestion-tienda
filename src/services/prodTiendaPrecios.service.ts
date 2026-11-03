@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-/** `id_lista` de la lista principal en `prod_listas_precios` (id heredado de DUX). */
+/** `id_lista` de la lista principal en `prod_lista_precios` (id heredado de DUX). */
 const ID_LISTA_PRECIO_PRINCIPAL = 56994;
 
 export function getIdPrecioListaPrincipal(): number {

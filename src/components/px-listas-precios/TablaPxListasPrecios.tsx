@@ -29,9 +29,9 @@ import {
 import { PX_LISTAS_COMP_REF_NINGUNO } from "@/lib/pxListasCompetenciaRef";
 import {
   margenDesdePrecioDux,
-  armarCeldaPrecioPxListas,
-  celdaConCambioPxListas,
+  celdaPxListasEnPantalla,
   claveCambioPxListas,
+  precioListaMostradoDifiereDefinitivo,
 } from "@/lib/pxListasPreciosCelda";
 import {
   parsePxListaEnteroNormalized,
@@ -92,7 +92,7 @@ const PX_LISTAS_MIN_ANCHO_SUBCOL_REM = 2.75;
 /** Ancho mínimo de la columna REF (competidor) en 1 - GENERAL. */
 const PX_LISTAS_MIN_ANCHO_REF_REM = 5.5;
 
-/** Celda con valor en pantalla distinto al de la BD (pendiente de **Guardar Cambios**). */
+/** Fila cuyo precio en pantalla difiere del definitivo de Ventas (`prod_lista_precios`). */
 const FILA_PENDIENTE_CLASS = "fila-px-listas-pendiente";
 
 function aplicarDraftCelda(
@@ -353,33 +353,16 @@ function FilaPxListasPrecios({
   const refPendiente = tieneRefPendiente
     ? (refsPendientes.get(item.codTienda) ?? null)
     : undefined;
-  const filaPendiente =
-    tieneRefPendiente ||
-    item.preciosPorLista.some((c) => cambioDe(c.idLista) != null);
 
   /** Celda en pantalla: la de la BD con el cambio pendiente aplicado (sin el borrador de tipeo). */
-  const celdaEnPantalla = (celda: PrecioListaPxListasCelda) => {
-    const cambio = cambioDe(celda.idLista);
-    if (cambio) return celdaConCambioPxListas(celda, item.costoCompra, cambio);
-    if (
-      refPendiente &&
-      idListaGeneral != null &&
-      celda.idLista === idListaGeneral
-    ) {
-      const op = item.opcionesCompetenciaRef.find(
-        (o) => o.competenciaId === refPendiente
-      );
-      if (op && op.px > 0) {
-        return armarCeldaPrecioPxListas({
-          idLista: celda.idLista,
-          costoCompra: item.costoCompra,
-          pxDux: celda.pxDux,
-          pxEdicion: op.px,
-        });
-      }
-    }
-    return celda;
-  };
+  const celdaEnPantalla = (celda: PrecioListaPxListasCelda) =>
+    celdaPxListasEnPantalla(item, celda, cambios, refPendiente, idListaGeneral);
+
+  const filaPendiente = item.preciosPorLista.some((celda) =>
+    precioListaMostradoDifiereDefinitivo(
+      aplicarDraftCelda(celdaEnPantalla(celda), draftPorLista[celda.idLista])
+    )
+  );
 
   const limpiarDraft = (idLista: number) => {
     setDraftPorLista((prev) => {

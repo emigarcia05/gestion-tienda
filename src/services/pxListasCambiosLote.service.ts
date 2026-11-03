@@ -11,7 +11,7 @@ export type ResultadoCambioPxListas = { codTienda: string; idLista: number } & (
 );
 
 /**
- * **Guardar Cambios** de Px Listas: aplica cada cambio en `prod_listas_precios_edicion` (en orden).
+ * **Guardar Cambios** de Px Listas: aplica cada cambio en `prod_lista_precios_edicion` (en orden).
  * Un error no corta el lote: se devuelve por celda para que la UI deje pendientes solo las fallidas.
  * Edición manual en 1 - GENERAL quita el competidor de referencia (igual que la edición por celda).
  */

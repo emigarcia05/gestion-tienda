@@ -1,5 +1,6 @@
 "use server";
 
+import { APP_ROUTES } from "@/lib/appRoutes";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 
 import { revalidatePath } from "next/cache";
@@ -9,18 +10,21 @@ import type { ActionResult } from "@/lib/types";
 import {
   guardarPxListaCompetenciaRefSchema,
   guardarPxListasCambiosSchema,
+  publicarPxListasPreciosDefinitivosSchema,
 } from "@/lib/validations/pxListasPrecios";
 import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
+import { publicarPreciosDefinitivosDesdeEdicion } from "@/services/pxListasPrecioEdicion.service";
 import {
   guardarCambiosPxListasLote,
   type ResultadoCambioPxListas,
 } from "@/services/pxListasCambiosLote.service";
 function revalidatePxListasPaths() {
   revalidatePath(GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas);
+  revalidatePath(APP_ROUTES.ventas.ventas.crear);
 }
 
 /**
- * **Guardar Cambios** de Px Listas: persiste en `prod_listas_precios_edicion` todos los cambios
+ * **Guardar Cambios** de Px Listas: persiste en `prod_lista_precios_edicion` todos los cambios
  * pendientes de la pantalla (PX o PORC. UTILIDAD; `null` elimina el staging). Resultado por celda.
  */
 export async function guardarPxListasCambiosAction(
@@ -95,6 +99,46 @@ export async function guardarPxListaCompetenciaRefAction(
         e instanceof Error
           ? e.message
           : "No se pudo guardar el competidor de referencia.",
+    };
+  }
+}
+
+/**
+ * Copia a `prod_lista_precios` el precio de `prod_lista_precios_edicion`
+ * de los productos indicados, cuando el entero difiere.
+ */
+export async function publicarPxListasPreciosDefinitivosAction(
+  raw: unknown
+): Promise<
+  ActionResult<{
+    publicados: Array<{ codTienda: string; idLista: number; precio: number }>;
+  }>
+> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.cxPxTienda.acceso)) {
+    return { ok: false, error: "Sin acceso." };
+  }
+
+  const parsed = publicarPxListasPreciosDefinitivosSchema.safeParse(raw);
+  if (!parsed.success) {
+    const first =
+      parsed.error.issues[0]?.message ?? "Datos de publicación inválidos.";
+    return { ok: false, error: first };
+  }
+
+  try {
+    const publicados = await publicarPreciosDefinitivosDesdeEdicion(
+      parsed.data.codTiendas
+    );
+    if (publicados.length > 0) revalidatePxListasPaths();
+    return { ok: true, data: { publicados } };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error
+          ? e.message
+          : "No se pudieron actualizar los precios de venta.",
     };
   }
 }

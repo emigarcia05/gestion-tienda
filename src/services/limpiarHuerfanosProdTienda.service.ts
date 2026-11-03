@@ -18,14 +18,14 @@ export type TablaHuerfanoProdTiendaConfig = {
 /** Tablas hijas / referencias a `prod_lista.cod_tienda` que deben quedar sin huérfanos tras sync DUX. */
 export const TABLAS_HUERFANOS_PROD_TIENDA: TablaHuerfanoProdTiendaConfig[] = [
   {
-    tabla: "prod_listas_precios",
+    tabla: "prod_lista_precios",
     columna: "cod_tienda",
     accion: "delete",
     descripcion: "Precios DUX por lista",
     incluirPorDefecto: true,
   },
   {
-    tabla: "prod_listas_precios_edicion",
+    tabla: "prod_lista_precios_edicion",
     columna: "cod_tienda",
     accion: "delete",
     descripcion: "Precio staging Px Listas (MARG. MAN. → precio)",
