@@ -3,6 +3,7 @@ import {
   calcPxListaDesdeMargenSinIvaPct,
   roundPrecioListaTienda,
 } from "@/lib/calculos";
+import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import { margenDesdePrecioDux } from "@/lib/pxListasPreciosCelda";
 import {
   preciosPxListaEnterosIguales,
@@ -265,4 +266,70 @@ export async function publicarPreciosDefinitivosDesdeEdicion(): Promise<{
     precios: Number(filas[0]?.precios ?? 0),
     items: Number(filas[0]?.items ?? 0),
   };
+}
+
+/**
+ * Copia a `prod_lista_precios` el precio de trabajo de un solo ítem,
+ * en las listas que el alta o la edición acaba de guardar.
+ */
+export async function publicarPreciosDefinitivosDeItem(
+  codTienda: string,
+  idListas: readonly number[],
+  incluirListaGeneral = false
+): Promise<number> {
+  const ids = new Set(idListas);
+  if (incluirListaGeneral) {
+    const listas = await prisma.prodPropioListaPrecioNombre.findMany({
+      select: { idLista: true, nombreLista: true },
+      orderBy: [{ idLista: "asc" }],
+    });
+    const idGeneral = encontrarIdListaGeneralPxListas(listas);
+    if (idGeneral != null) ids.add(idGeneral);
+  }
+  if (ids.size === 0) return 0;
+
+  const filas = await prisma.$queryRaw<Array<{ precios: number }>>`
+    WITH objetivo AS (
+      SELECT e.cod_tienda, e.id_lista, e.precio
+      FROM prod_lista_precios_edicion e
+      WHERE e.cod_tienda = ${codTienda}
+        AND e.id_lista IN (${Prisma.join([...ids])})
+        AND e.precio > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM prod_lista_precios p
+          WHERE p.cod_tienda = e.cod_tienda
+            AND p.id_lista = e.id_lista
+            AND round(p.precio) = round(e.precio)
+        )
+    ),
+    actualizados AS (
+      UPDATE prod_lista_precios p
+      SET precio = o.precio,
+          updated_at = NOW()
+      FROM objetivo o
+      WHERE p.cod_tienda = o.cod_tienda
+        AND p.id_lista = o.id_lista
+      RETURNING p.cod_tienda
+    ),
+    insertados AS (
+      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, updated_at)
+      SELECT o.cod_tienda, o.id_lista, o.precio, NOW()
+      FROM objetivo o
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM prod_lista_precios p
+        WHERE p.cod_tienda = o.cod_tienda
+          AND p.id_lista = o.id_lista
+      )
+      RETURNING cod_tienda
+    )
+    SELECT COUNT(*)::int AS precios
+    FROM (
+      SELECT cod_tienda FROM actualizados
+      UNION ALL
+      SELECT cod_tienda FROM insertados
+    ) publicados
+  `;
+  return Number(filas[0]?.precios ?? 0);
 }

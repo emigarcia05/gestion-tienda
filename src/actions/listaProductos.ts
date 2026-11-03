@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireEditorTienda, requireTiendaLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
+import { APP_ROUTES } from "@/lib/appRoutes";
 import { GP_ROUTES, REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
 import type {
   MarcaCatalogoItem,
@@ -64,6 +65,7 @@ import {
 } from "@/services/productoCompuesto.service";
 import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
 import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
+import { publicarPreciosDefinitivosDeItem } from "@/services/pxListasPrecioEdicion.service";
 import { getPxVentaItemParaModal } from "@/services/pxListasPreciosPage.service";
 
 function revalidateListaProductos(): void {
@@ -328,12 +330,18 @@ export async function guardarPxVentaDesdeItemAction(
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
 
   const errores: string[] = [];
+  const idListas = new Set<number>();
   let guardados = 0;
+  let incluirListaGeneral = false;
   if (parsed.data.cambios.length > 0) {
     const resultados = await guardarCambiosPxListasLote(parsed.data.cambios);
     for (const resultado of resultados) {
-      if (resultado.ok) guardados += 1;
-      else errores.push(resultado.error);
+      if (!resultado.ok) {
+        errores.push(resultado.error);
+        continue;
+      }
+      guardados += 1;
+      if (resultado.pxEdicion != null) idListas.add(resultado.idLista);
     }
   }
   if (parsed.data.actualizarCompetencia && errores.length === 0) {
@@ -342,11 +350,27 @@ export async function guardarPxVentaDesdeItemAction(
       parsed.data.competenciaId
     );
     if (!ref.success) errores.push(ref.error);
-    else guardados += 1;
+    else {
+      guardados += 1;
+      if (ref.data.pxActualizado) incluirListaGeneral = true;
+    }
   }
   if (errores.length > 0) {
     return { ok: false, error: [...new Set(errores)].join(" · ") };
   }
+  if (idListas.size > 0 || incluirListaGeneral) {
+    try {
+      await publicarPreciosDefinitivosDeItem(
+        parsed.data.codTienda,
+        [...idListas],
+        incluirListaGeneral
+      );
+    } catch (e) {
+      console.error("[guardarPxVentaDesdeItemAction] publicar", e);
+      return { ok: false, error: "No se pudo actualizar el precio de venta." };
+    }
+  }
   revalidateListaProductos();
+  revalidatePath(APP_ROUTES.ventas.ventas.crear);
   return { ok: true, data: { guardados } };
 }

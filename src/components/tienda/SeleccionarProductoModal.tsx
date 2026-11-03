@@ -48,6 +48,8 @@ export type ProductoConProveedor = {
   codProdProv: string;
   descripcion: string;
   precioLista: number;
+  /** `px_compra_final_sin_iva` de la línea elegida. Costo para calcular Px Venta. */
+  costoCompra: number;
   proveedor: { nombre: string; prefijo: string };
 };
 
@@ -193,6 +195,7 @@ export default function SeleccionarProductoModal({
       codProdProv: row.codProdProv,
       descripcion: row.descripcionProveedor,
       precioLista: 0,
+      costoCompra: row.pxCompraFinalSinIva != null && row.pxCompraFinalSinIva > 0 ? row.pxCompraFinalSinIva : 0,
       proveedor: { nombre: row.proveedor.nombre, prefijo: row.proveedor.prefijo },
     };
   }

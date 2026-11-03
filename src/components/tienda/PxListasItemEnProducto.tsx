@@ -74,12 +74,24 @@ function textoPx(valor: number | null): string {
   return `$${fmtPrecio(valor)}`;
 }
 
+function itemConCostoElegido(
+  item: ItemPxListasPreciosTabla,
+  costoElegido: number | null | undefined
+): ItemPxListasPreciosTabla {
+  if (costoElegido == null || !(costoElegido > 0)) return item;
+  if (costoElegido === item.costoCompra) return item;
+  return { ...item, costoCompra: costoElegido };
+}
+
 function PxListasItemEnProductoInner(
   {
     codTienda,
+    costoCompra = null,
     disabled = false,
   }: {
     codTienda: string | null;
+    /** Costo del ítem de proveedor elegido, antes de que exista el producto de tienda. */
+    costoCompra?: number | null;
     disabled?: boolean;
   },
   ref: Ref<PxVentaItemHandle>
@@ -90,10 +102,15 @@ function PxListasItemEnProductoInner(
   const cambiosRef = useRef(cambios);
   const refPendienteRef = useRef(refPendiente);
   const datosRef = useRef(datos);
+  const costoElegidoRef = useRef(costoCompra);
 
   useEffect(() => {
     datosRef.current = datos;
   }, [datos]);
+
+  useEffect(() => {
+    costoElegidoRef.current = costoCompra;
+  }, [costoCompra]);
 
   useEffect(() => {
     let cancelado = false;
@@ -147,7 +164,7 @@ function PxListasItemEnProductoInner(
   function registrarMargen(idLista: number, margen: number | null, avisarSinCosto: boolean) {
     const actual = datosRef.current;
     if (!actual) return;
-    const item = actual.item;
+    const item = itemConCostoElegido(actual.item, costoElegidoRef.current);
     const bd = item.preciosPorLista.find((c) => c.idLista === idLista);
     if (!bd) return;
     const cod = item.codTienda;
@@ -216,7 +233,8 @@ function PxListasItemEnProductoInner(
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
 
-  const { listas, idListaGeneral, categoriasMc, item } = datos;
+  const { listas, idListaGeneral, categoriasMc } = datos;
+  const item = itemConCostoElegido(datos.item, costoCompra);
   const refVista =
     refPendiente !== undefined
       ? refPendiente

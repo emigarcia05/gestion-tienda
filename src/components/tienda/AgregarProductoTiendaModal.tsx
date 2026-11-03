@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -29,7 +29,11 @@ import TablaComponentesCompuesto, {
   type FilaComponente,
 } from "@/components/tienda/TablaComponentesCompuesto";
 import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
-import { parseCantidadComponente, type ComponenteCandidatoItem } from "@/lib/productoCompuesto";
+import {
+  costoProductoCompuesto,
+  parseCantidadComponente,
+  type ComponenteCandidatoItem,
+} from "@/lib/productoCompuesto";
 import { useCatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import type { CrearProductoTiendaItemInput } from "@/lib/validations/listaProductos";
 import { cn } from "@/lib/utils";
@@ -80,6 +84,20 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     (esPropio || !!vinculo) &&
     (!esCompuesto || componentesValidos) &&
     !pending;
+
+  const costoElegido = useMemo(() => {
+    if (esPropio && esCompuesto) {
+      const costo = costoProductoCompuesto(
+        componentes.map((c) => ({
+          cantidad: parseCantidadComponente(c.cantidadInput) ?? 0,
+          costoUnitario: c.costoUnitario,
+        }))
+      );
+      return costo > 0 ? costo : null;
+    }
+    if (!esPropio && vinculo != null && vinculo.costoCompra > 0) return vinculo.costoCompra;
+    return null;
+  }, [esPropio, esCompuesto, componentes, vinculo]);
 
   const rubroSel = catalogos.rubros.find((r) => r.id === campos.idRubro);
   const rubroNombre = rubroSel?.nombre ?? null;
@@ -274,7 +292,12 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Px Venta</h3>
-            <PxListasItemEnProducto ref={pxVentaRef} codTienda={null} disabled={pending} />
+            <PxListasItemEnProducto
+              ref={pxVentaRef}
+              codTienda={null}
+              costoCompra={costoElegido}
+              disabled={pending}
+            />
             <ModalSiNoChoice
               label="PX. EDITABLE"
               value={campos.precioEditable}
