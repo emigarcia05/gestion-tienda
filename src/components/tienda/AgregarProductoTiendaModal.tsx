@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -10,7 +10,9 @@ import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
-import PxListasItemEnProducto from "@/components/tienda/PxListasItemEnProducto";
+import PxListasItemEnProducto, {
+  type PxVentaItemHandle,
+} from "@/components/tienda/PxListasItemEnProducto";
 import ProductoTiendaCampos, {
   CAMPOS_PRODUCTO_TIENDA_VACIOS,
   PRODUCTO_TIENDA_GRID_CLASS,
@@ -46,6 +48,7 @@ function etiquetaVinculo(p: ProductoConProveedor): string {
 
 export default function AgregarProductoTiendaModal({ open, onOpenChange, onCreado }: Props) {
   const catalogos = useCatalogosProductoTienda(open);
+  const pxVentaRef = useRef<PxVentaItemHandle>(null);
   const [campos, setCampos] = useState<CamposProductoTiendaForm>(CAMPOS_PRODUCTO_TIENDA_VACIOS);
   const [vinculo, setVinculo] = useState<ProductoConProveedor | null>(null);
   const [esPropio, setEsPropio] = useState(false);
@@ -143,6 +146,10 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         return;
       }
       const codigo = res.data.codTiendas[0];
+      if (codigo) {
+        const px = await pxVentaRef.current?.guardar(codigo);
+        if (px && !px.ok) toast.error(px.error);
+      }
       toast.success(
         mantenerAbierto
           ? `Producto creado con código ${codigo}. El formulario sigue con los mismos datos.`
@@ -264,10 +271,10 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
               />
             ) : null}
-            <PxListasItemEnProducto codTienda={null} />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Px Venta</h3>
+            <PxListasItemEnProducto ref={pxVentaRef} codTienda={null} disabled={pending} />
             <ModalSiNoChoice
               label="PX. EDITABLE"
               value={campos.precioEditable}

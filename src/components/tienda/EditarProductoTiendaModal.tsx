@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
-import PxListasItemEnProducto from "@/components/tienda/PxListasItemEnProducto";
+import PxListasItemEnProducto, {
+  type PxVentaItemHandle,
+} from "@/components/tienda/PxListasItemEnProducto";
 import ProductoTiendaCampos, {
   SIN_VALOR_PRODUCTO_TIENDA,
   camposProductoTiendaCompletos,
@@ -37,6 +39,7 @@ export default function EditarProductoTiendaModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const pxVentaRef = useRef<PxVentaItemHandle>(null);
   const catalogos = useCatalogosProductoTienda(true);
   const [campos, setCampos] = useState<CamposProductoTiendaForm>({
     descripcion: item.descripcion,
@@ -69,6 +72,11 @@ export default function EditarProductoTiendaModal({
       });
       if (!res.ok) {
         toast.error(res.error);
+        return;
+      }
+      const px = await pxVentaRef.current?.guardar(item.codItem);
+      if (px && !px.ok) {
+        toast.error(px.error);
         return;
       }
       toast.success("Producto actualizado.");
@@ -121,10 +129,14 @@ export default function EditarProductoTiendaModal({
               puedeVincular={puedeVincular}
               puedeEditarCosto={puedeEditarCosto}
             />
-            <PxListasItemEnProducto codTienda={item.codItem} />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Px Venta</h3>
+            <PxListasItemEnProducto
+              ref={pxVentaRef}
+              codTienda={item.codItem}
+              disabled={pending}
+            />
             <ModalSiNoChoice
               label="PX. EDITABLE"
               value={campos.precioEditable}
