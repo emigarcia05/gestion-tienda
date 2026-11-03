@@ -202,10 +202,18 @@ export async function sumarPedidoMercaderiaUrgenteItem(params: {
   try {
     const item = await prisma.listaPrecioProveedor.findUnique({
       where: { codExt: params.listaPrecioProveedorId },
-      select: { codExt: true, codTiendaVinculo: true, habilitado: true },
+      select: {
+        codExt: true,
+        codTiendaVinculo: true,
+        habilitado: true,
+        proveedor: { select: { pedidoUrgente: true } },
+      },
     });
     if (!item || item.codTiendaVinculo !== params.codTienda || !item.habilitado) {
       return { success: false, error: "El proveedor elegido no está vinculado y habilitado para el ítem." };
+    }
+    if (!item.proveedor.pedidoUrgente) {
+      return { success: false, error: "Este proveedor no admite pedido urgente." };
     }
     const sucursalId = await getSucursalIdByCodigo(params.sucursal);
     const cantTotal = await prisma.$transaction(async (tx) => {
@@ -707,7 +715,7 @@ export async function getProveedoresConPedidoActivo(params?: {
     where: {
       id: { in: ids },
       proveedorMercaderia: true,
-      ...(soloNoFabrica ? { esFabrica: false } : {}),
+      ...(soloNoFabrica ? { esFabrica: false, pedidoUrgente: true } : {}),
     },
     select: { id: true, nombre: true, prefijo: true },
     orderBy: [{ prefijo: "asc" }, { nombre: "asc" }],

@@ -6,7 +6,7 @@ import type { ProductoFacturaStockSucursal } from "@/services/facturaProductos.s
 
 /**
  * Proveedor al que se puede dirigir la compra de un ítem.
- * - `lista`: vínculo habilitado de `proveedores_prod_lista` → PEDIDO URGENTE (`id` = `cod_ext`).
+ * - `lista`: vínculo habilitado de `proveedores_prod_lista` con `pedido_urgente = true` → PEDIDO URGENTE (`id` = `cod_ext`).
  * - `tintometrico`: ítem rubro Tintométrico → proveedor con COEF. TINTOMÉTRICO > 1 → pedido TINTOMETRICO
  *   (`id` = `proveedores.id`).
  */

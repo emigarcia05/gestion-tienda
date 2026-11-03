@@ -52,6 +52,7 @@ export default function TablaProveedoresLista({ proveedores }: Props) {
       tiempoEntregaEnDias: prov.tiempoEntregaEnDias ?? undefined,
       proveedorMercaderia: prov.proveedorMercaderia,
       esFabrica: prov.esFabrica,
+      pedidoUrgente: prov.pedidoUrgente,
       iva: prov.iva,
     });
     setModalOpen(true);

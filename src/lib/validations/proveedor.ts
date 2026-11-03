@@ -129,6 +129,16 @@ export const esFabricaFormSchema = z
   .transform((s) => s === "si");
 
 /**
+ * Flag "Pedido Urgente" desde el form (hidden `si` / `no`).
+ * TRUE: el proveedor sale en Pedir Mercadería y admite reposición y urgente.
+ */
+export const pedidoUrgenteFormSchema = z
+  .string()
+  .transform((s) => (s ?? "").trim().toLowerCase())
+  .refine((s) => s === "si" || s === "no", "Seleccioná SI o NO en Pedido Urgente.")
+  .transform((s) => s === "si");
+
+/**
  * Política de IVA del proveedor desde el form. Reutiliza el módulo
  * compartido `@/lib/validations/iva` (la fuente de verdad para los 3
  * valores del enum Postgres `IvaProveedor`); acá se mantienen los aliases
@@ -194,9 +204,14 @@ export const createProveedorSchema = z
     tiempoEntregaEnDias: tiempoEntregaEnDiasSchema,
     proveedorMercaderia: proveedorMercaderiaFormSchema,
     esFabrica: esFabricaFormSchema,
+    pedidoUrgente: pedidoUrgenteFormSchema,
     iva: ivaProveedorFormSchema,
   })
-  .and(planPlazosProveedorFormSchema);
+  .and(planPlazosProveedorFormSchema)
+  .transform((data) => ({
+    ...data,
+    pedidoUrgente: data.esFabrica ? false : data.pedidoUrgente,
+  }));
 export type CreateProveedorFormData = z.infer<typeof createProveedorSchema>;
 
 /** Misma validación que crear. Reutilizable en editar. */

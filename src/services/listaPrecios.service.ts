@@ -1303,7 +1303,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
 
   const listaWhereBaseParts: Prisma.ListaPrecioProveedorWhereInput[] = [
     { habilitado: true },
-    { proveedor: { proveedorMercaderia: true, esFabrica: false } },
+    { proveedor: { proveedorMercaderia: true, esFabrica: false, pedidoUrgente: true } },
     // Líneas vinculadas a un ítem de tienda deshabilitado (baja lógica) no se piden.
     { OR: [{ codTiendaVinculo: null }, { prodTienda: { is: { habilitado: true } } }] },
   ];
@@ -1694,6 +1694,7 @@ export async function getProveedoresParaPedidoUrgente(): Promise<
     where: {
       proveedorMercaderia: true,
       esFabrica: false,
+      pedidoUrgente: true,
       listaPrecios: { some: { habilitado: true } },
     },
     select: { id: true, nombre: true, prefijo: true },

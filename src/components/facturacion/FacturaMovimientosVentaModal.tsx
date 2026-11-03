@@ -310,6 +310,11 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
     return tipo ? tipo === "tintometrico" : item.colores.length > 0;
   }
 
+  /** Hay al menos un vínculo cuyo proveedor admite pedido urgente. */
+  function admitePedidoUrgente(codTienda: string): boolean {
+    return (proveedores?.[codTienda] ?? []).some((p) => p.tipo === "lista");
+  }
+
   function cantidadCompra(c: ItemMovimientoVenta): number {
     return esCompraTintometrica(c) ? c.cantidad : cantidadEfectiva(c.cantidad, cantCompra[c.codTienda]);
   }
@@ -553,7 +558,11 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                           ariaLabel={`cantidad a transferir de ${i.descripcion}`}
                         />
                         <OpcionesAccion
-                          opciones={OPCIONES_TRANSFERENCIA}
+                          opciones={
+                            proveedores != null && admitePedidoUrgente(i.codTienda)
+                              ? OPCIONES_TRANSFERENCIA
+                              : OPCIONES_TRANSFERENCIA.filter((o) => o.value !== "proveedor")
+                          }
                           valor={accTransf[k]}
                           onChange={(v) => elegirAccionTransf(k, i.codTienda, v)}
                           disabled={pending || hecho}
@@ -606,21 +615,25 @@ export default function FacturaMovimientosVentaModal({ open, onOpenChange, plan,
                       <span className="truncate text-sm uppercase text-foreground" title={prov?.proveedor}>
                         {prov?.proveedor ?? ""}
                       </span>
-                      <Button
-                        type="button"
-                        aria-pressed={accion === "comprar"}
-                        variant={accion === "comprar" ? "default" : "ghost"}
-                        className={cn(
-                          OPCION_BTN_CLASS,
-                          "w-full rounded-md border border-primary",
-                          accion !== "comprar" && OPCION_BTN_INACTIVA_CLASS
-                        )}
-                        disabled={pending || hecho}
-                        onClick={() => elegirAccionCompra(c.codTienda, accion === "comprar" ? "nada" : "comprar")}
-                      >
-                        <span>Agregar a</span>
-                        <span>{esCompraTintometrica(c) ? "Tintométrico" : "Ped. urgente"}</span>
-                      </Button>
+                      {esCompraTintometrica(c) || (proveedores != null && admitePedidoUrgente(c.codTienda)) ? (
+                        <Button
+                          type="button"
+                          aria-pressed={accion === "comprar"}
+                          variant={accion === "comprar" ? "default" : "ghost"}
+                          className={cn(
+                            OPCION_BTN_CLASS,
+                            "w-full rounded-md border border-primary",
+                            accion !== "comprar" && OPCION_BTN_INACTIVA_CLASS
+                          )}
+                          disabled={pending || hecho}
+                          onClick={() => elegirAccionCompra(c.codTienda, accion === "comprar" ? "nada" : "comprar")}
+                        >
+                          <span>Agregar a</span>
+                          <span>{esCompraTintometrica(c) ? "Tintométrico" : "Ped. urgente"}</span>
+                        </Button>
+                      ) : (
+                        <span />
+                      )}
                     </div>
                   );
                 })}

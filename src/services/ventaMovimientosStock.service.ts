@@ -1,7 +1,8 @@
 /**
  * Movimientos de stock tras registrar una venta (modal **MOVIMIENTOS**): proveedores a los que
  * se puede dirigir la compra de cada ítem. Rubro Tintométrico → proveedores con COEF. TINTOMÉTRICO > 1
- * (pedido TINTOMETRICO); resto → vínculos `proveedores_prod_lista` habilitados (PEDIDO URGENTE).
+ * (pedido TINTOMETRICO); resto → vínculos `proveedores_prod_lista` habilitados cuyo
+ * proveedor tiene `pedido_urgente = true` (PEDIDO URGENTE).
  */
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
@@ -34,7 +35,11 @@ export async function listarProveedoresCompraPorCodTiendas(
     const [vinculos, provTint] = await Promise.all([
       codigosLista.length > 0
         ? prisma.listaPrecioProveedor.findMany({
-            where: { codTiendaVinculo: { in: codigosLista }, habilitado: true },
+            where: {
+              codTiendaVinculo: { in: codigosLista },
+              habilitado: true,
+              proveedor: { pedidoUrgente: true },
+            },
             select: {
               codExt: true,
               codTiendaVinculo: true,

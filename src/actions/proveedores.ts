@@ -7,6 +7,7 @@ import type { ActionResult } from "@/lib/types";
 import { prismaCuidSchema } from "@/lib/validations/common";
 import { createProveedorSchema, updateProveedorSchema } from "@/lib/validations/proveedor";
 import {
+  GP_ROUTES,
   REVALIDATE_AYUDA_VENDEDOR_CALC,
   REVALIDATE_LISTA_PROVEEDORES_TABLERO,
 } from "@/lib/gestionProductosRoutes";
@@ -17,6 +18,7 @@ function revalidateCatalogoProveedores() {
   for (const path of REVALIDATE_LISTA_PROVEEDORES_TABLERO) {
     revalidatePath(path);
   }
+  revalidatePath(GP_ROUTES.pedidoMercaderia.pedirMercaderia);
 }
 
 function puedeConsultarCatalogoProveedores(rol: Rol): boolean {
@@ -74,6 +76,7 @@ export async function crearProveedor(formData: FormData): Promise<ActionResult<{
     proveedorMercaderia:
       (formData.get("proveedorMercaderia") as string | null) ?? "",
     esFabrica: (formData.get("esFabrica") as string | null) ?? "",
+    pedidoUrgente: (formData.get("pedidoUrgente") as string | null) ?? "",
     iva: (formData.get("iva") as string | null) ?? "",
   };
   const parsed = createProveedorSchema.safeParse(raw);
@@ -83,6 +86,7 @@ export async function crearProveedor(formData: FormData): Promise<ActionResult<{
       first.nombre?.[0] ??
       first.proveedorMercaderia?.[0] ??
       first.esFabrica?.[0] ??
+      first.pedidoUrgente?.[0] ??
       first.prefijo?.[0] ??
       first.whatsapp?.[0] ??
       first.coeficienteTintometrico?.[0] ??
@@ -144,6 +148,7 @@ export async function editarProveedor(id: string, formData: FormData): Promise<A
     proveedorMercaderia:
       (formData.get("proveedorMercaderia") as string | null) ?? "",
     esFabrica: (formData.get("esFabrica") as string | null) ?? "",
+    pedidoUrgente: (formData.get("pedidoUrgente") as string | null) ?? "",
     iva: (formData.get("iva") as string | null) ?? "",
   };
   const parsed = updateProveedorSchema.safeParse(raw);
@@ -153,6 +158,7 @@ export async function editarProveedor(id: string, formData: FormData): Promise<A
       first.nombre?.[0] ??
       first.proveedorMercaderia?.[0] ??
       first.esFabrica?.[0] ??
+      first.pedidoUrgente?.[0] ??
       first.prefijo?.[0] ??
       first.whatsapp?.[0] ??
       first.coeficienteTintometrico?.[0] ??

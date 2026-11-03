@@ -43,6 +43,8 @@ export interface CreateProveedorInput {
   proveedorMercaderia: boolean;
   /** Flag fábrica (Pedido A Fábrica); formulario SI/NO. */
   esFabrica: boolean;
+  /** TRUE: sale en Pedir Mercadería y admite reposición y urgente. */
+  pedidoUrgente: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA (default DB: PREGUNTA). */
   iva: IvaProveedor;
 }
@@ -65,6 +67,8 @@ export interface UpdateProveedorInput {
   proveedorMercaderia: boolean;
   /** Flag fábrica (Pedido A Fábrica); formulario SI/NO. */
   esFabrica: boolean;
+  /** TRUE: sale en Pedir Mercadería y admite reposición y urgente. */
+  pedidoUrgente: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA. */
   iva: IvaProveedor;
 }
@@ -100,6 +104,8 @@ export interface ProveedorListItem {
   proveedorMercaderia: boolean;
   /** True si el proveedor es fábrica (Pedido A Fábrica). */
   esFabrica: boolean;
+  /** True: sale en Pedir Mercadería y admite reposición y urgente. */
+  pedidoUrgente: boolean;
   /** Política IVA: SIEMPRE | NUNCA | PREGUNTA (default BD: PREGUNTA). */
   iva: IvaProveedor;
   /** Cantidad de ítems en proveedores_prod_lista. */
@@ -272,6 +278,7 @@ async function listarProveedoresInterno(
     tiempoEntregaEnDias: p.tiempoEntregaEnDias ?? null,
     proveedorMercaderia: p.proveedorMercaderia,
     esFabrica: p.esFabrica,
+    pedidoUrgente: p.pedidoUrgente,
     iva: p.iva,
     cantProductos: p._count.listaPrecios,
     cantVinculados: vinculadosMap.get(p.id) ?? 0,
@@ -357,6 +364,7 @@ export async function createProveedor(
       tiempoEntregaEnDias: input.tiempoEntregaEnDias ?? null,
       proveedorMercaderia: input.proveedorMercaderia,
       esFabrica: input.esFabrica,
+      pedidoUrgente: input.esFabrica ? false : input.pedidoUrgente,
       iva: input.iva,
     },
   });
@@ -389,6 +397,7 @@ export async function updateProveedor(
       tiempoEntregaEnDias: input.tiempoEntregaEnDias ?? null,
       proveedorMercaderia: input.proveedorMercaderia,
       esFabrica: input.esFabrica,
+      pedidoUrgente: input.esFabrica ? false : input.pedidoUrgente,
       iva: input.iva,
     },
   });

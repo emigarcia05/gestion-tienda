@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ export interface ProveedorParaModal {
   proveedorMercaderia?: boolean;
   /** Flag fábrica (edición). */
   esFabrica?: boolean;
+  /** TRUE: sale en Pedir Mercadería y admite reposición y urgente. */
+  pedidoUrgente?: boolean;
   /** Política IVA persistida (edición). */
   iva?: "SIEMPRE" | "NUNCA" | "PREGUNTA";
 }
@@ -42,13 +44,14 @@ interface Props {
 export default function ProveedorModal({ open, onOpenChange, proveedor, onSuccess }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [mercaderiaListo, setMercaderiaListo] = useState(false);
   const isEdit = !!proveedor;
-
-  useEffect(() => {
-    if (!open) return;
+  const modoKey = `${open ? "abierto" : "cerrado"}:${proveedor?.id ?? "nuevo"}`;
+  const [modoVisto, setModoVisto] = useState(modoKey);
+  const [mercaderiaListo, setMercaderiaListo] = useState(isEdit);
+  if (modoKey !== modoVisto) {
+    setModoVisto(modoKey);
     setMercaderiaListo(isEdit);
-  }, [open, isEdit, proveedor?.id]);
+  }
 
   function handleSuccess() {
     onOpenChange(false);

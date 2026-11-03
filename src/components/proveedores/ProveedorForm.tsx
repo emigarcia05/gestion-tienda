@@ -36,6 +36,8 @@ interface Props {
     proveedorMercaderia?: boolean;
     /** Flag fábrica (solo edición: precarga SI/NO). */
     esFabrica?: boolean;
+    /** TRUE: sale en Pedir Mercadería (reposición y urgente). */
+    pedidoUrgente?: boolean;
     /** Política IVA persistida (solo edición: precarga SIEMPRE/NUNCA/PREGUNTA). */
     iva?: IvaProveedorValue;
   };
@@ -96,6 +98,15 @@ export default function ProveedorForm({
   );
 
   /**
+   * SI/NO de `pedidoUrgente`. Alta: SI (entra en Pedir Mercadería).
+   * Edición: precarga el valor persistido.
+   */
+  const [pedidoUrgente, setPedidoUrgente] = useState<EsFabricaSel>(() => {
+    if (!proveedor) return "si";
+    return proveedor.pedidoUrgente === true ? "si" : "no";
+  });
+
+  /**
    * Política IVA. Controlled + hidden `name="iva"`.
    * Alta: default `PREGUNTA` (mismo default que la columna `proveedores.iva`).
    * Edición: precarga el valor persistido.
@@ -123,9 +134,11 @@ export default function ProveedorForm({
     if (!proveedor) {
       setProveedorMercaderia("");
       setEsFabrica("no");
+      setPedidoUrgente("si");
     } else {
       setProveedorMercaderia(proveedor.proveedorMercaderia === false ? "no" : "si");
       setEsFabrica(proveedor.esFabrica === true ? "si" : "no");
+      setPedidoUrgente(proveedor.pedidoUrgente === true ? "si" : "no");
     }
   }, [modalOpen, proveedor]);
 
@@ -230,10 +243,23 @@ export default function ProveedorForm({
         <ModalSiNoChoice
           label="ES FÁBRICA"
           value={esFabrica === "si"}
-          onChange={(checked) => setEsFabrica(checked ? "si" : "no")}
+          onChange={(checked) => {
+            setEsFabrica(checked ? "si" : "no");
+            if (checked) setPedidoUrgente("no");
+          }}
           disabled={pending}
         />
         <input type="hidden" name="esFabrica" value={esFabrica} />
+      </div>
+
+      <div className="space-y-1.5">
+        <ModalSiNoChoice
+          label="PEDIDO URGENTE"
+          value={esFabrica === "si" ? false : pedidoUrgente === "si"}
+          onChange={(checked) => setPedidoUrgente(checked ? "si" : "no")}
+          disabled={pending || esFabrica === "si"}
+        />
+        <input type="hidden" name="pedidoUrgente" value={esFabrica === "si" ? "no" : pedidoUrgente} />
       </div>
 
       <div className="space-y-1.5">

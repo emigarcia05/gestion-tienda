@@ -189,6 +189,14 @@ model Proveedor {
    */
   esFabrica               Boolean      @default(false) @map("es_fabrica")
   /**
+   * Si es true, el proveedor sale en Pedir Mercadería y admite
+   * pedido de reposición y pedido urgente.
+   * Default DB: false. La UI de alta arranca en SI.
+   * Si `es_fabrica` es true, este flag queda en false
+   * (CHECK `proveedores_es_fabrica_pedido_urgente_check`).
+   */
+  pedidoUrgente           Boolean      @default(false) @map("pedido_urgente")
+  /**
    * Política de IVA del proveedor. Default DB `PREGUNTA` (la UI debe pedir
    * decisión al operador caso por caso hasta que se registre la política).
    */
@@ -210,6 +218,7 @@ model Proveedor {
 
   @@index([proveedorMercaderia], map: "proveedores_proveedor_mercaderia_idx")
   @@index([esFabrica], map: "proveedores_es_fabrica_idx")
+  @@index([pedidoUrgente], map: "proveedores_pedido_urgente_idx")
   @@map("proveedores")
 }
 
