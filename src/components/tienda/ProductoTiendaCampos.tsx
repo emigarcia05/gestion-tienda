@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import type { CatalogoProductoTienda } from "@/components/tienda/GestionarCatalogosProductoTienda";
 import type { CatalogosProductoTienda } from "@/lib/hooks/useCatalogosProductoTienda";
 import {
@@ -167,7 +166,8 @@ function SelectCatalogo({
 
 /**
  * Agregar / Editar producto:
- * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO | PX. EDITABLE.
+ * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO.
+ * PX. EDITABLE vive en la sección Px Venta.
  */
 export default function ProductoTiendaCampos({
   campos,
@@ -274,16 +274,6 @@ export default function ProductoTiendaCampos({
             placeholder="UN. POR BULTO"
             disabled={disabled}
             aria-invalid={bultoInvalido || undefined}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <ModalMicroLabel>PX. EDITABLE</ModalMicroLabel>
-          <ModalSiNoChoice
-            label="PX. EDITABLE"
-            value={campos.precioEditable}
-            onChange={(precioEditable) => onChange({ precioEditable })}
-            disabled={disabled}
-            className="h-9 py-0"
           />
         </div>
       </div>

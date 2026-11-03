@@ -26,6 +26,7 @@ import {
   getPxVentaItemModalSchema,
   guardarPxVentaDesdeItemSchema,
 } from "@/lib/validations/pxListasPrecios";
+import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import type { ItemPxListasPreciosTabla, ListaPrecioPxListasColumna } from "@/lib/pxListasPrecios";
 import {
   crearMarca,
@@ -302,6 +303,7 @@ export async function getPxVentaItemModalAction(
   ActionResult<{
     listas: ListaPrecioPxListasColumna[];
     idListaGeneral: number | null;
+    categoriasMc: FinAnaMcCategoriaItem[];
     item: ItemPxListasPreciosTabla;
   }>
 > {

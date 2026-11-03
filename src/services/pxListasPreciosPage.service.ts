@@ -413,28 +413,37 @@ function itemPxVentaVacio(
   };
 }
 
-/** Fila de Px Listas para la sección PX VENTA de Nuevo (`codTienda` null) o Editar Item. */
+/** Fila de Px Listas para la sección Tipo & Costo de Nuevo (`codTienda` null) o Editar Item. */
 export async function getPxVentaItemParaModal(codTienda: string | null): Promise<{
   listas: ListaPrecioPxListasColumna[];
   idListaGeneral: number | null;
+  categoriasMc: FinAnaMcCategoriaItem[];
   item: ItemPxListasPreciosTabla;
 }> {
-  const listas = await listarColumnasListas();
+  const [listas, categoriasMc] = await Promise.all([
+    listarColumnasListas(),
+    listarFinAnaMcCategorias(),
+  ]);
   const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
   if (!codTienda) {
-    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, "") };
+    return { listas, idListaGeneral, categoriasMc, item: itemPxVentaVacio(listas, "") };
   }
   const row = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: SELECT_FILA_LISTADO,
   });
   if (!row) {
-    return { listas, idListaGeneral, item: itemPxVentaVacio(listas, codTienda) };
+    return { listas, idListaGeneral, categoriasMc, item: itemPxVentaVacio(listas, codTienda) };
   }
   const [item] = await enriquecerItemsPxListas(
     [row],
     listas,
     listas.map((lista) => lista.idLista)
   );
-  return { listas, idListaGeneral, item: item ?? itemPxVentaVacio(listas, codTienda) };
+  return {
+    listas,
+    idListaGeneral,
+    categoriasMc,
+    item: item ?? itemPxVentaVacio(listas, codTienda),
+  };
 }

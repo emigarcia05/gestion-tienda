@@ -10,6 +10,7 @@ import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import SeleccionarProductoModal, {
   type ProductoConProveedor,
 } from "@/components/tienda/SeleccionarProductoModal";
+import PxListasItemEnProducto from "@/components/tienda/PxListasItemEnProducto";
 import ProductoTiendaCampos, {
   CAMPOS_PRODUCTO_TIENDA_VACIOS,
   PRODUCTO_TIENDA_GRID_CLASS,
@@ -187,7 +188,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
             />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
-            <h3 className={SECCION_TITULO_CLASS}>TIPO DE PRODUCTO</h3>
+            <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>
               <ModalSiNoChoice label="PROD. PROPIO" value={esPropio} onChange={cambiarPropio} disabled={pending} />
               {esPropio ? (
@@ -263,6 +264,17 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
                 onQuitar={(cod) => setComponentes((prev) => prev.filter((c) => c.codTienda !== cod))}
               />
             ) : null}
+            <PxListasItemEnProducto codTienda={null} />
+          </section>
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>Px Venta</h3>
+            <ModalSiNoChoice
+              label="PX. EDITABLE"
+              value={campos.precioEditable}
+              onChange={(precioEditable) => setCampos((prev) => ({ ...prev, precioEditable }))}
+              disabled={pending}
+              className="h-9 py-0"
+            />
           </section>
         </div>
       </AppModal>

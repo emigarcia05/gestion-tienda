@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
+import PxListasItemEnProducto from "@/components/tienda/PxListasItemEnProducto";
 import ProductoTiendaCampos, {
   SIN_VALOR_PRODUCTO_TIENDA,
   camposProductoTiendaCompletos,
@@ -106,7 +108,7 @@ export default function EditarProductoTiendaModal({
             />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">
-            <h3 className={SECCION_TITULO_CLASS}>TIPO DE PRODUCTO Y COSTO</h3>
+            <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <VinculosCostoProductoTienda
               codTienda={item.codItem}
               descripcion={item.descripcion}
@@ -118,6 +120,17 @@ export default function EditarProductoTiendaModal({
               esProductoCompuestoInicial={item.esProductoCompuesto}
               puedeVincular={puedeVincular}
               puedeEditarCosto={puedeEditarCosto}
+            />
+            <PxListasItemEnProducto codTienda={item.codItem} />
+          </section>
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>Px Venta</h3>
+            <ModalSiNoChoice
+              label="PX. EDITABLE"
+              value={campos.precioEditable}
+              onChange={(precioEditable) => setCampos((prev) => ({ ...prev, precioEditable }))}
+              disabled={pending}
+              className="h-9 py-0"
             />
           </section>
         </div>
