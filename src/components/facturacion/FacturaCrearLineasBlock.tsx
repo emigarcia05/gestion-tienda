@@ -414,6 +414,7 @@ export default function FacturaCrearLineasBlock({
         pxLista: px,
         omitirTintometrico: true,
       });
+      setPxSugeridosOpen(false);
       toast.success("Ítem cargado en el comprobante.");
     } finally {
       setCargandoPxSugerido(false);
