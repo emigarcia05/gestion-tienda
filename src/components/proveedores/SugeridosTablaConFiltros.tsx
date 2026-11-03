@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,11 @@ import {
   tableEmptyStateContainerVariants,
   tableEmptyStateMessageVariants,
 } from "@/components/shared/TableEmptyState";
+import { Button } from "@/components/ui/button";
+import {
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import type { FilaListaPrecioParaCliente } from "@/services/listaPrecios.service";
 import type { ListaPreciosConOpcionesResult, ListaPreciosFiltrosLecturaInput } from "@/actions/listaPrecios";
@@ -55,6 +61,9 @@ interface SugeridosTablaConFiltrosProps {
   proveedores: ProveedorOption[];
   marcas: MarcaOption[];
   fetchListaPreciosConOpcionesAction: FetchListaPreciosConOpcionesAction;
+  /** Si está, cada fila ofrece un tilde (carga en el remito). */
+  onElegir?: (fila: FilaListaPrecioParaCliente) => void;
+  elegirOcupado?: boolean;
 }
 
 const MIN_CARACTERES_BUSQUEDA = 3;
@@ -65,6 +74,8 @@ export default function SugeridosTablaConFiltros({
   proveedores,
   marcas,
   fetchListaPreciosConOpcionesAction,
+  onElegir,
+  elegirOcupado = false,
 }: SugeridosTablaConFiltrosProps) {
   const [proveedorId, setProveedorId] = useState<string>("");
   const [marcaNombre, setMarcaNombre] = useState<string>("");
@@ -156,6 +167,7 @@ export default function SugeridosTablaConFiltros({
   }, [proveedorId, marcaNombre, busqueda]);
 
   const filteredFilas = filasData;
+  const columnas = onElegir ? 4 : 3;
 
 
   function limpiarFiltros() {
@@ -246,6 +258,11 @@ export default function SugeridosTablaConFiltros({
               <TableHead className="w-28">COD. EXT.</TableHead>
               <TableHead className="min-w-0">DESCRIPCIÓN</TableHead>
               <TableHead className="w-28">PX. LISTA GENERAL</TableHead>
+              {onElegir ? (
+                <TableHead className="w-12 text-center" aria-label="Cargar">
+                  <Check className="mx-auto h-4 w-4" aria-hidden />
+                </TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -262,6 +279,24 @@ export default function SugeridosTablaConFiltros({
                 <TableCell className="celda-datos celda-numero celda-destacado">
                   {fila.pxVtaSugerido != null ? `$${fmtPrecio(Number(fila.pxVtaSugerido))}` : ""}
                 </TableCell>
+                {onElegir ? (
+                  <TableCell className="celda-datos text-center">
+                    <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-center")}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        title="Cargar en el comprobante"
+                        aria-label="Cargar en el comprobante"
+                        disabled={elegirOcupado}
+                        onClick={() => onElegir(fila)}
+                      >
+                        <Check className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </div>
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))}
             {(!hasFilterActive || loading || filteredFilas.length === 0) && (
@@ -274,7 +309,7 @@ export default function SugeridosTablaConFiltros({
                       textSize: "sm",
                     })
                   )}
-                  colSpan={3}
+                  colSpan={columnas}
                 >
                   <span
                     className={tableEmptyStateMessageVariants({

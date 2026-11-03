@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
+import { ListChecks, Loader2, MessageSquare, Percent, Search, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listarDescPromosFormaPagoFacturaAction } from "@/actions/descPromo";
 import {
   buscarProductosFacturaAction,
   listarStockSucursalesFacturaAction,
+  obtenerProductoFacturaPorCodAction,
 } from "@/actions/factura";
 import FacturaBusquedaAvanzadaModal from "@/components/facturacion/FacturaBusquedaAvanzadaModal";
+import FacturaPxSugeridosModal from "@/components/facturacion/FacturaPxSugeridosModal";
 import FacturaDescuentoModal from "@/components/facturacion/FacturaDescuentoModal";
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import FacturaDescEspecialesItemModal from "@/components/facturacion/FacturaDescEspecialesItemModal";
@@ -31,6 +33,7 @@ import {
 import {
   aplicarPromoFormaPagoALineas,
   clampDescuentoPct,
+  COD_TIENDA_LINEA_PX_SUGERIDO,
   FACTURA_BUSQUEDA_PRODUCTOS_MIN_CHARS,
   FACTURA_BUSQUEDA_PRODUCTOS_TAKE,
   FACTURA_DESCUENTO_MAX_CENTS,
@@ -73,6 +76,7 @@ import type {
   ProductoFacturaBusquedaItem,
   ProductoFacturaStockSucursal,
 } from "@/services/facturaProductos.service";
+import type { FilaListaPrecioParaCliente } from "@/services/listaPrecios.service";
 
 const DESC_INPUT_CLASS =
   "h-8 w-full min-w-0 tabular-nums border-primary text-sm text-center";
@@ -158,6 +162,9 @@ export default function FacturaCrearLineasBlock({
   const [especialesModalItem, setEspecialesModalItem] =
     useState<ProductoFacturaBusquedaItem | null>(null);
   const [busquedaAvanzadaOpen, setBusquedaAvanzadaOpen] = useState(false);
+  const [pxSugeridosOpen, setPxSugeridosOpen] = useState(false);
+  const [cargandoPxSugerido, setCargandoPxSugerido] = useState(false);
+  const productoPxSugeridoRef = useRef<ProductoFacturaBusquedaItem | null>(null);
   const [tintometricoPendiente, setTintometricoPendiente] = useState<{
     item: ProductoFacturaBusquedaItem;
     mantenerBusqueda: boolean;
@@ -273,6 +280,7 @@ export default function FacturaCrearLineasBlock({
         descuentoModalOpen ||
         comentarioModalOpen ||
         busquedaAvanzadaOpen ||
+        pxSugeridosOpen ||
         tintometricoPendiente != null
       )
         return;
@@ -290,6 +298,7 @@ export default function FacturaCrearLineasBlock({
     descuentoModalOpen,
     comentarioModalOpen,
     busquedaAvanzadaOpen,
+    pxSugeridosOpen,
     tintometricoPendiente,
   ]);
 
@@ -310,16 +319,23 @@ export default function FacturaCrearLineasBlock({
       el.scrollIntoView({ block: "nearest" });
     }
 
+    if (pxSugeridosOpen) return;
     el.focus();
     el.select();
-  }, [lineas]);
+  }, [lineas, pxSugeridosOpen]);
 
   function agregarItem(
     item: ProductoFacturaBusquedaItem,
-    opts?: { mantenerBusqueda?: boolean },
+    opts?: {
+      mantenerBusqueda?: boolean;
+      comentario?: string;
+      pxLista?: number;
+      omitirTintometrico?: boolean;
+      enfocarCantidad?: boolean;
+    },
     tintometrico?: { codColor: string; codColorIdMarca: string; pxLista: number }
   ) {
-    if (item.tintometrico && !tintometrico) {
+    if (item.tintometrico && !tintometrico && !opts?.omitirTintometrico) {
       setAbierto(false);
       setTintometricoPendiente({ item, mantenerBusqueda: opts?.mantenerBusqueda ?? false });
       return;
@@ -342,10 +358,10 @@ export default function FacturaCrearLineasBlock({
         codTienda: item.codTienda,
         descripcion: item.descripcion,
         cantidad: 1,
-        pxLista: tintometrico?.pxLista ?? item.pxLista,
+        pxLista: opts?.pxLista ?? tintometrico?.pxLista ?? item.pxLista,
         precioEditable: item.precioEditable,
         descuentoPctEspecial,
-        comentario: "",
+        comentario: opts?.comentario ?? "",
         codColor: tintometrico?.codColor ?? null,
         codColorIdMarca: tintometrico?.codColorIdMarca ?? null,
         idMarca: item.idMarca,
@@ -359,7 +375,49 @@ export default function FacturaCrearLineasBlock({
       setHighlight(0);
       setAbierto(false);
     }
-    pendingFocusCantidadKeyRef.current = keyFoco;
+    if (opts?.enfocarCantidad !== false) {
+      pendingFocusCantidadKeyRef.current = keyFoco;
+    }
+  }
+
+  async function agregarDesdePxSugerido(fila: FilaListaPrecioParaCliente) {
+    const px = fila.pxVtaSugerido != null ? Number(fila.pxVtaSugerido) : Number.NaN;
+    if (!Number.isFinite(px) || px <= 0) {
+      toast.error("El ítem no tiene PX. LISTA GENERAL.");
+      return;
+    }
+    const comentario = (fila.descripcionProveedor || fila.descripcion)
+      .trim()
+      .toLocaleUpperCase("es")
+      .slice(0, 2000);
+    if (!comentario) {
+      toast.error("El ítem no tiene descripción.");
+      return;
+    }
+    setCargandoPxSugerido(true);
+    try {
+      let producto = productoPxSugeridoRef.current;
+      if (!producto) {
+        const res = await obtenerProductoFacturaPorCodAction({
+          codTienda: COD_TIENDA_LINEA_PX_SUGERIDO,
+        });
+        if (!res.ok) {
+          toast.error(res.error);
+          return;
+        }
+        producto = res.data;
+        productoPxSugeridoRef.current = producto;
+      }
+      agregarItem(producto, {
+        mantenerBusqueda: true,
+        comentario,
+        pxLista: px,
+        omitirTintometrico: true,
+      });
+      toast.success("Ítem cargado en el comprobante.");
+    } finally {
+      setCargandoPxSugerido(false);
+    }
   }
 
   function limpiarBusquedaProducto() {
@@ -482,12 +540,12 @@ export default function FacturaCrearLineasBlock({
       ref={wrapRef}
       className="relative flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
     >
-      <div className="flex shrink-0 items-start gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Button
           type="button"
           variant="default"
           size="sm"
-          className="h-9 shrink-0 gap-1 px-2.5 text-xs"
+          className="h-10 shrink-0 gap-1 px-2.5"
           title="Aplicar descuento"
           aria-label="Aplicar descuento"
           onClick={() => {
@@ -498,23 +556,7 @@ export default function FacturaCrearLineasBlock({
           Desc.
         </Button>
         <div className="relative z-30 min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              className="size-9 shrink-0"
-              title="Búsqueda avanzada"
-              aria-label="Búsqueda avanzada"
-              onClick={() => {
-                setAbierto(false);
-                setBusquedaAvanzadaOpen(true);
-              }}
-            >
-              <Search className="h-4 w-4 shrink-0" aria-hidden />
-            </Button>
-
-          <div className="filtro-individual-container relative min-w-0 flex-1">
+          <div className="filtro-individual-container relative min-w-0">
             <Input
               ref={ref}
               id="factura-crear-buscar-producto"
@@ -569,7 +611,7 @@ export default function FacturaCrearLineasBlock({
               aria-controls={listboxId}
               aria-autocomplete="list"
               className={cn(
-                "w-full",
+                "h-10 w-full",
                 q && (isDebouncing || loading) && "pr-14",
                 q && !(isDebouncing || loading) && "pr-10",
                 !q && (isDebouncing || loading) && "pr-10"
@@ -598,8 +640,36 @@ export default function FacturaCrearLineasBlock({
               </Button>
             ) : null}
           </div>
-          </div>
         </div>
+        <Button
+          type="button"
+          variant="default"
+          size="icon"
+          className="size-10 shrink-0"
+          title="Búsqueda avanzada"
+          aria-label="Búsqueda avanzada"
+          onClick={() => {
+            setAbierto(false);
+            setBusquedaAvanzadaOpen(true);
+          }}
+        >
+          <Search className="h-4 w-4 shrink-0" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="h-10 shrink-0 gap-1 px-2.5"
+          title="Px Sugeridos"
+          aria-label="Px Sugeridos"
+          onClick={() => {
+            setAbierto(false);
+            setPxSugeridosOpen(true);
+          }}
+        >
+          <ListChecks className="h-3 w-3 shrink-0" aria-hidden />
+          Px Sugeridos
+        </Button>
       </div>
 
       <div
@@ -920,6 +990,15 @@ export default function FacturaCrearLineasBlock({
           </div>
         </div>
       ) : null}
+
+      <FacturaPxSugeridosModal
+        open={pxSugeridosOpen}
+        onOpenChange={setPxSugeridosOpen}
+        onElegir={(fila) => {
+          void agregarDesdePxSugerido(fila);
+        }}
+        elegirOcupado={cargandoPxSugerido}
+      />
 
       <FacturaBusquedaAvanzadaModal
         key={busquedaAvanzadaOpen ? "busqueda-avanzada-abierta" : "busqueda-avanzada-cerrada"}

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { esRubroTintometrico } from "@/lib/codColorTintometrico";
+import { getProveedoresMercaderia } from "@/services/proveedor.service";
 import type { DescPromoEspecialFactura } from "@/lib/descPromo";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import { listarDescPromosEspecialesPorCodigos } from "@/services/descPromo.service";
@@ -191,6 +192,124 @@ export async function buscarProductosParaFactura(params: {
     const msg =
       e instanceof Error ? e.message : "Error al buscar productos para factura.";
     console.error("[facturacion][buscarProductosParaFactura]", e);
+    return { success: false, error: msg };
+  }
+}
+
+/** Un ítem de `prod_lista` por código exacto (Px Sugeridos carga el 1503). */
+export async function obtenerProductoFacturaPorCodTienda(
+  codTienda: string
+): Promise<ServiceResult<ProductoFacturaBusquedaItem>> {
+  const cod = codTienda.trim();
+  if (!cod) return { success: false, error: "Falta el código de tienda." };
+
+  try {
+    const [listas, sucursales, row] = await Promise.all([
+      prisma.prodPropioListaPrecioNombre.findMany({
+        select: { idLista: true, nombreLista: true },
+      }),
+      prisma.sucursal.findMany({
+        select: { id: true, codigo: true, nombre: true },
+        orderBy: { nombre: "asc" },
+      }),
+      prisma.prodPropio.findUnique({
+        where: { codTienda: cod },
+        select: {
+          codTienda: true,
+          descripcionTienda: true,
+          idRubro: true,
+          idSubRubro: true,
+          rubroRelation: { select: { nombre: true } },
+          idMarca: true,
+          precioEditable: true,
+        },
+      }),
+    ]);
+    const descripcion = (row?.descripcionTienda ?? "").trim();
+    if (!row || !descripcion) {
+      return { success: false, error: `No se encontró el producto ${cod}.` };
+    }
+
+    const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
+    let pxLista = 0;
+    if (idListaGeneral != null) {
+      const precio = await prisma.prodPropioListaPrecio.findUnique({
+        where: { codTienda_idLista: { codTienda: cod, idLista: idListaGeneral } },
+        select: { precio: true },
+      });
+      const n = Number(precio?.precio);
+      pxLista = Number.isFinite(n) ? n : 0;
+    }
+
+    const [saldos, especialesPorCod] = await Promise.all([
+      buildMapSaldoStockItemsSucursales(
+        [cod],
+        sucursales.map((s) => s.id)
+      ),
+      listarDescPromosEspecialesPorCodigos([cod]),
+    ]);
+    const stockPorSucursal: ProductoFacturaStockSucursal[] = sucursales.map((s) => ({
+      codigo: s.codigo,
+      nombre: s.nombre,
+      stock: saldos.get(claveSaldoStock(cod, s.id)) ?? 0,
+    }));
+
+    return {
+      success: true,
+      data: {
+        codTienda: row.codTienda,
+        descripcion,
+        pxLista,
+        stock: stockPorSucursal.reduce((acc, x) => acc + x.stock, 0),
+        stockPorSucursal,
+        tintometrico: esRubroTintometrico(row.rubroRelation?.nombre)
+          ? { idMarca: row.idMarca }
+          : null,
+        idMarca: row.idMarca,
+        idRubro: row.idRubro,
+        idSubRubro: row.idSubRubro,
+        precioEditable: row.precioEditable,
+        descEspeciales: especialesPorCod.get(cod) ?? [],
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error al cargar el producto.";
+    console.error("[facturacion][obtenerProductoFacturaPorCodTienda]", e);
+    return { success: false, error: msg };
+  }
+}
+
+export interface CatalogoPxSugeridosFactura {
+  proveedores: { id: string; nombre: string; prefijo: string }[];
+  marcas: { id: string; nombre: string }[];
+}
+
+/** Proveedores de mercadería y marcas para el modal Px Sugeridos de Crear. */
+export async function listarCatalogoPxSugeridosFactura(): Promise<
+  ServiceResult<CatalogoPxSugeridosFactura>
+> {
+  try {
+    const [proveedores, marcas] = await Promise.all([
+      getProveedoresMercaderia(),
+      prisma.marca.findMany({
+        orderBy: { nombre: "asc" },
+        select: { id: true, nombre: true },
+      }),
+    ]);
+    return {
+      success: true,
+      data: {
+        proveedores: proveedores.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          prefijo: p.prefijo,
+        })),
+        marcas,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "No se pudo abrir Px Sugeridos.";
+    console.error("[facturacion][listarCatalogoPxSugeridosFactura]", e);
     return { success: false, error: msg };
   }
 }

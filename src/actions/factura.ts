@@ -21,6 +21,7 @@ import {
   obtenerClienteFacturaSchema,
   buscarProductosFacturaAvanzadaSchema,
   buscarProductosFacturaSchema,
+  obtenerProductoFacturaPorCodSchema,
   listarStockSucursalesFacturaSchema,
   compartirLinkCuentaCorrienteSchema,
   obtenerCuentaCorrienteClienteSchema,
@@ -46,7 +47,10 @@ import {
 } from "@/services/clientes.service";
 import {
   buscarProductosParaFactura,
+  listarCatalogoPxSugeridosFactura,
+  obtenerProductoFacturaPorCodTienda,
   listarStockSucursalesItemsFactura,
+  type CatalogoPxSugeridosFactura,
   type ProductoFacturaBusquedaItem,
   type ProductoFacturaStockSucursal,
 } from "@/services/facturaProductos.service";
@@ -157,6 +161,28 @@ export async function buscarProductosFacturaAction(
     sucursalCodigo: parsed.data.sucursalCodigo,
   });
   return fromServiceResult(res);
+}
+
+export async function obtenerProductoFacturaPorCodAction(
+  raw: unknown
+): Promise<ActionResult<ProductoFacturaBusquedaItem>> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+
+  const parsed = obtenerProductoFacturaPorCodSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  return fromServiceResult(
+    await obtenerProductoFacturaPorCodTienda(parsed.data.codTienda)
+  );
+}
+
+export async function listarCatalogoPxSugeridosFacturaAction(): Promise<
+  ActionResult<CatalogoPxSugeridosFactura>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  return fromServiceResult(await listarCatalogoPxSugeridosFactura());
 }
 
 /** Stock por sucursal de los ítems cargados en el remito. */

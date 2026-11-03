@@ -442,6 +442,12 @@ export function mensajeClienteFacturaNoSeleccionado(
   return MENSAJE_CLIENTE_FACTURA_NO_SELECCIONADO;
 }
 
+/**
+ * Código de tienda que representa un Px Sugerido en el remito.
+ * El comentario y el PX. LISTA salen de la fila elegida, no de este ítem.
+ */
+export const COD_TIENDA_LINEA_PX_SUGERIDO = "1503";
+
 /** Máximo de sugerencias en el typeahead de productos (Crear). */
 export const FACTURA_BUSQUEDA_PRODUCTOS_TAKE = 10;
 

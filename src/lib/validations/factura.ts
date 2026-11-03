@@ -68,6 +68,15 @@ export const buscarProductosFacturaSchema = z.object({
 
 export type BuscarProductosFacturaInput = z.infer<typeof buscarProductosFacturaSchema>;
 
+/** Ítem de tienda por código exacto (el remito de Px Sugeridos usa el 1503). */
+export const obtenerProductoFacturaPorCodSchema = z.object({
+  codTienda: listaPreciosCodTiendaSchema,
+});
+
+export type ObtenerProductoFacturaPorCodInput = z.infer<
+  typeof obtenerProductoFacturaPorCodSchema
+>;
+
 /** Stock por sucursal de los ítems del remito (Factura · Crear). */
 export const listarStockSucursalesFacturaSchema = z.object({
   codTiendas: z

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo } from "react";
+import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -281,55 +282,133 @@ function etiquetaItems(n: number): string {
   return `${n} ${n === 1 ? "Ítem" : "Ítems"}`;
 }
 
-function TablaVinculosAutomaticos({ filas }: { filas: FilaPreviewImportPdf[] }) {
-  const pares = filas.flatMap((fila) => fila.items.map((item) => ({ fila, item })));
+function etiquetaPdf(fila: FilaPreviewImportPdf): string {
+  return `${fila.descripcionBase} · ${fila.presentacion}`;
+}
+
+function TablaVinculosAutomaticos({
+  filas,
+  clavesOverride,
+  onCambiar,
+  ocupado,
+}: {
+  filas: FilaPreviewImportPdf[];
+  clavesOverride: Map<string, string>;
+  onCambiar: (codExt: string, clave: string) => void;
+  ocupado: boolean;
+}) {
+  const [qFiltro, setQFiltro] = useState("");
+  const [filaAbierta, setFilaAbierta] = useState<string | null>(null);
+  const { q, handleQChange, isDebouncing, ref } = useFiltrosConBusqueda({
+    qActual: qFiltro,
+    debounceMs: 300,
+    onDebouncedSearch: setQFiltro,
+  });
+  const pdfPorClave = useMemo(() => new Map(filas.map((f) => [f.clave, f])), [filas]);
+  const pares = useMemo(
+    () => filas.flatMap((fila) => fila.items.map((item) => ({ fila, item }))),
+    [filas]
+  );
+  const visibles = useMemo(
+    () =>
+      pares.filter(({ fila, item }) => {
+        const clave = clavesOverride.get(item.codExt) ?? fila.clave;
+        const pdf = pdfPorClave.get(clave) ?? fila;
+        return matchByMultiTerm(
+          [item.codProdProveedor, item.descripcionProveedor, pdf.descripcionBase, pdf.presentacion],
+          qFiltro
+        );
+      }),
+    [pares, clavesOverride, pdfPorClave, qFiltro]
+  );
 
   return (
-    <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
-      <Table variant="compact" scrollX={false} className="table-fixed w-full">
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[34%]">ÍTEM LISTA</TableHead>
-            <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
-            <TableHead>ÍTEM PDF</TableHead>
-            <TableHead className="w-24 text-center">PX. PDF</TableHead>
-            <TableHead className="w-20 text-center">VAR.</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pares.length === 0 ? (
+    <div className="space-y-2 min-w-0">
+      <FiltroBusquedaInput
+        id="buscar-vinculo-automatico"
+        placeholder="BUSCAR POR DESCRIPCIÓN…"
+        value={q}
+        onChange={handleQChange}
+        isDebouncing={isDebouncing}
+        inputRef={ref}
+      />
+      <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
+        <Table variant="compact" scrollX={false} className="table-fixed w-full">
+          <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={5}>
-                <TableEmptyState message="NO HAY VINCULACIONES AUTOMÁTICAS." placement="panel" />
-              </TableCell>
+              <TableHead className="w-[34%]">ÍTEM LISTA</TableHead>
+              <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
+              <TableHead>ÍTEM PDF</TableHead>
+              <TableHead className="w-24 text-center">PX. PDF</TableHead>
+              <TableHead className="w-20 text-center">VAR.</TableHead>
             </TableRow>
-          ) : (
-            pares.map(({ fila, item }) => (
-              <TableRow key={`${item.codExt}|${fila.clave}`}>
-                <TableCell className="celda-datos min-w-0">
-                  <span className="block truncate text-xs" title={item.descripcionProveedor}>
-                    <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
-                  </span>
-                </TableCell>
-                <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                  ${fmtPrecio(item.pxActual)}
-                </TableCell>
-                <TableCell className="celda-datos min-w-0">
-                  <span className="block truncate text-xs" title={fila.clave}>
-                    {fila.descripcionBase} · {fila.presentacion}
-                  </span>
-                </TableCell>
-                <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                  ${fmtPrecio(fila.precio)}
-                </TableCell>
-                <TableCell className="celda-datos text-center">
-                  <Variacion precio={fila.precio} pxActual={item.pxActual} />
+          </TableHeader>
+          <TableBody>
+            {visibles.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5}>
+                  <TableEmptyState
+                    message={
+                      pares.length === 0
+                        ? "NO HAY VINCULACIONES AUTOMÁTICAS."
+                        : "NINGÚN ÍTEM COINCIDE CON LA BÚSQUEDA."
+                    }
+                    placement="panel"
+                  />
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              visibles.map(({ fila, item }) => {
+                const clave = clavesOverride.get(item.codExt) ?? fila.clave;
+                const pdf = pdfPorClave.get(clave) ?? fila;
+                const abierto = filaAbierta === item.codExt;
+                return (
+                  <TableRow key={item.codExt}>
+                    <TableCell className="celda-datos min-w-0">
+                      <span className="block truncate text-xs" title={item.descripcionProveedor}>
+                        <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
+                      </span>
+                    </TableCell>
+                    <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                      ${fmtPrecio(item.pxActual)}
+                    </TableCell>
+                    <TableCell className="celda-datos min-w-0 whitespace-normal">
+                      <Select
+                        value={clave}
+                        open={abierto}
+                        onOpenChange={(next) => setFilaAbierta(next ? item.codExt : null)}
+                        onValueChange={(nueva) => onCambiar(item.codExt, nueva)}
+                        disabled={ocupado}
+                      >
+                        <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full min-w-0")}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent position="popper" side="bottom" align="start" className="select-content-filtro">
+                          {abierto ? (
+                            [...pdfPorClave.values()].map((opcion) => (
+                              <SelectItem key={opcion.clave} value={opcion.clave}>
+                                {etiquetaPdf(opcion)}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value={clave}>{etiquetaPdf(pdf)}</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                      ${fmtPrecio(pdf.precio)}
+                    </TableCell>
+                    <TableCell className="celda-datos text-center">
+                      <Variacion precio={pdf.precio} pxActual={item.pxActual} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -454,6 +533,9 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const [preview, setPreview] = useState<PreviewImportListaPdf | null>(null);
   /** Vínculos elegidos a mano: `cod_ext` del ítem de lista → clave del ítem PDF. */
   const [manuales, setManuales] = useState<Map<string, string>>(new Map());
+  /** Corrección de un vínculo automático: `cod_ext` → clave PDF elegida. */
+  const [clavesAuto, setClavesAuto] = useState<Map<string, string>>(new Map());
+  const [guardandoAuto, setGuardandoAuto] = useState(false);
   const [indiceVincular, setIndiceVincular] = useState<number | null>(null);
   /** Pantalla de revisión abierta desde el resumen: automáticas o sin precio. */
   const [vistaRevision, setVistaRevision] = useState<"auto" | "sin-precio" | null>(null);
@@ -467,6 +549,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     setFilasPdf([]);
     setPreview(null);
     setManuales(new Map());
+    setClavesAuto(new Map());
+    setGuardandoAuto(false);
     setIndiceVincular(null);
     setVistaRevision(null);
     setItemEliminar(null);
@@ -584,8 +668,11 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   }
 
   const vinculosAuto = useMemo(
-    () => (preview?.filas ?? []).flatMap((f) => f.items.map((it) => ({ clave: f.clave, codExt: it.codExt }))),
-    [preview]
+    () =>
+      (preview?.filas ?? []).flatMap((f) =>
+        f.items.map((it) => ({ clave: clavesAuto.get(it.codExt) ?? f.clave, codExt: it.codExt }))
+      ),
+    [preview, clavesAuto]
   );
 
   const pdfPorClave = useMemo(
@@ -594,6 +681,37 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   );
 
   const totalVinculos = vinculosAuto.length + manuales.size;
+
+  async function cambiarVinculoAuto(codExt: string, clave: string) {
+    const original = preview?.filas.find((f) => f.items.some((it) => it.codExt === codExt))?.clave;
+    const actual = clavesAuto.get(codExt) ?? original;
+    if (!actual || actual === clave) return;
+    const pdf = pdfPorClave.get(clave);
+    if (!pdf) {
+      toast.error("Ese ítem del PDF ya no está disponible.");
+      return;
+    }
+    setGuardandoAuto(true);
+    try {
+      const res = await guardarVinculoListaPdfAction({
+        proveedorId,
+        codExt,
+        clave,
+        precio: pdf.precio,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? "No se pudo guardar el vínculo.");
+        return;
+      }
+      setClavesAuto((prev) => {
+        const next = new Map(prev);
+        next.set(codExt, clave);
+        return next;
+      });
+    } finally {
+      setGuardandoAuto(false);
+    }
+  }
 
   async function asignarManual(codExt: string, clave: string | null): Promise<boolean> {
     if (clave) {
@@ -764,7 +882,12 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       >
         <div className="space-y-3 pt-2 min-w-0 overflow-hidden" aria-busy={ocupado}>
           {vistaRevision === "auto" && preview ? (
-            <TablaVinculosAutomaticos filas={preview.filas} />
+            <TablaVinculosAutomaticos
+              filas={preview.filas}
+              clavesOverride={clavesAuto}
+              onCambiar={(codExt, clave) => void cambiarVinculoAuto(codExt, clave)}
+              ocupado={ocupado || guardandoAuto}
+            />
           ) : null}
 
           {vistaRevision === "sin-precio" && preview ? (
