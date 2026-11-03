@@ -55,6 +55,7 @@ import {
 import type {
   FilaPreviewImportPdf,
   ItemListaMatchPdf,
+  ItemListaSinPrecioPdf,
   PreviewImportListaPdf,
 } from "@/lib/importListaPdf";
 
@@ -202,7 +203,7 @@ function VincularItemPdfModal({
     if (!item || indice === null) return;
     const ok = await onAsignar(item.codExt, clave);
     if (!ok) return;
-    onIndice(indice < ultimo ? indice + 1 : null);
+    onIndice(null);
   }
 
   return (
@@ -276,6 +277,171 @@ function VincularItemPdfModal({
   );
 }
 
+function etiquetaItems(n: number): string {
+  return `${n} ${n === 1 ? "Ítem" : "Ítems"}`;
+}
+
+function TablaVinculosAutomaticos({ filas }: { filas: FilaPreviewImportPdf[] }) {
+  const pares = filas.flatMap((fila) => fila.items.map((item) => ({ fila, item })));
+
+  return (
+    <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
+      <Table variant="compact" scrollX={false} className="table-fixed w-full">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[34%]">ÍTEM LISTA</TableHead>
+            <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
+            <TableHead>ÍTEM PDF</TableHead>
+            <TableHead className="w-24 text-center">PX. PDF</TableHead>
+            <TableHead className="w-20 text-center">VAR.</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pares.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={5}>
+                <TableEmptyState message="NO HAY VINCULACIONES AUTOMÁTICAS." placement="panel" />
+              </TableCell>
+            </TableRow>
+          ) : (
+            pares.map(({ fila, item }) => (
+              <TableRow key={`${item.codExt}|${fila.clave}`}>
+                <TableCell className="celda-datos min-w-0">
+                  <span className="block truncate text-xs" title={item.descripcionProveedor}>
+                    <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
+                  </span>
+                </TableCell>
+                <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                  ${fmtPrecio(item.pxActual)}
+                </TableCell>
+                <TableCell className="celda-datos min-w-0">
+                  <span className="block truncate text-xs" title={fila.clave}>
+                    {fila.descripcionBase} · {fila.presentacion}
+                  </span>
+                </TableCell>
+                <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                  ${fmtPrecio(fila.precio)}
+                </TableCell>
+                <TableCell className="celda-datos text-center">
+                  <Variacion precio={fila.precio} pxActual={item.pxActual} />
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function TablaSinPrecioPdf({
+  sinPrecio,
+  manuales,
+  pdfPorClave,
+  ocupado,
+  onVincular,
+  onQuitar,
+  onEliminar,
+}: {
+  sinPrecio: ItemListaSinPrecioPdf[];
+  manuales: Map<string, string>;
+  pdfPorClave: Map<string, FilaPreviewImportPdf>;
+  ocupado: boolean;
+  onVincular: (indice: number) => void;
+  onQuitar: (codExt: string) => void;
+  onEliminar: (item: ItemListaMatchPdf) => void;
+}) {
+  return (
+    <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
+      <Table variant="compact" scrollX={false} className="table-fixed w-full">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[48%]">ÍTEM LISTA</TableHead>
+            <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
+            <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
+            <TableHead className="w-12 text-center">ACCIONES</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sinPrecio.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={4}>
+                <TableEmptyState message="TODOS LOS ÍTEMS DE LA LISTA ENCONTRARON SU PRECIO EN EL PDF." placement="panel" />
+              </TableCell>
+            </TableRow>
+          ) : (
+            sinPrecio.map((item, i) => {
+              const clave = manuales.get(item.codExt);
+              const pdf = clave ? pdfPorClave.get(clave) : undefined;
+              const esSugerido = !!pdf && clave === item.claveSugerida;
+              return (
+                <TableRow key={item.codExt}>
+                  <TableCell className="celda-datos min-w-0">
+                    <span className="block truncate text-xs" title={item.descripcionProveedor}>
+                      <span className="celda-mono">{item.codProdProveedor}</span> · {item.descripcionProveedor}
+                    </span>
+                  </TableCell>
+                  <TableCell className="celda-datos celda-numero tabular-nums text-center">
+                    ${fmtPrecio(item.pxActual)}
+                  </TableCell>
+                  <TableCell className="celda-datos min-w-0">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 text-xs font-normal",
+                          !pdf && "text-muted-foreground"
+                        )}
+                        onClick={() => onVincular(i)}
+                        disabled={ocupado}
+                        title={pdf?.clave}
+                      >
+                        <Search className="h-3.5 w-3.5 shrink-0" />
+                        {esSugerido && (
+                          <span className="shrink-0 text-xs font-semibold text-primary">SUGERIDO</span>
+                        )}
+                        <span className="truncate">{pdf ? pdf.clave : "ELEGIR ÍTEM DEL PDF…"}</span>
+                      </Button>
+                      {pdf && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => onQuitar(item.codExt)}
+                          disabled={ocupado}
+                          aria-label={`Quitar vínculo de ${item.codProdProveedor}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
+                    <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                        aria-label={`Eliminar ${item.codProdProveedor} de la lista`}
+                        disabled={ocupado}
+                        onClick={() => onEliminar(item)}
+                      >
+                        <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -289,6 +455,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   /** Vínculos elegidos a mano: `cod_ext` del ítem de lista → clave del ítem PDF. */
   const [manuales, setManuales] = useState<Map<string, string>>(new Map());
   const [indiceVincular, setIndiceVincular] = useState<number | null>(null);
+  /** Pantalla de revisión abierta desde el resumen: automáticas o sin precio. */
+  const [vistaRevision, setVistaRevision] = useState<"auto" | "sin-precio" | null>(null);
   const [itemEliminar, setItemEliminar] = useState<ItemListaMatchPdf | null>(null);
   const [pendingEliminar, setPendingEliminar] = useState(false);
   const [advertencias, setAdvertencias] = useState<string[]>([]);
@@ -300,6 +468,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     setPreview(null);
     setManuales(new Map());
     setIndiceVincular(null);
+    setVistaRevision(null);
     setItemEliminar(null);
     setAdvertencias([]);
     setErrorMsg(null);
@@ -456,6 +625,15 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       else next.delete(codExt);
       return next;
     });
+    if (clave) {
+      setPreview((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          listaSinPrecio: prev.listaSinPrecio.filter((it) => it.codExt !== codExt),
+        };
+      });
+    }
     return true;
   }
 
@@ -526,9 +704,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
   const mostrarBotonConversion =
     !!archivoPendiente && (estado === "config" || estado === "procesando" || estado === "error");
   const sinPrecio = preview?.listaSinPrecio ?? [];
-  const sugeridosVigentes = sinPrecio.filter(
-    (i) => i.claveSugerida !== null && manuales.get(i.codExt) === i.claveSugerida
-  ).length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -540,11 +715,23 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       </DialogTrigger>
 
       <AppModal
-        className={sinPrecio.length > 0 ? "max-w-5xl" : "max-w-3xl"}
+        className={vistaRevision || sinPrecio.length > 0 ? "max-w-5xl" : "max-w-3xl"}
         bodyClassName="max-w-full min-w-0"
-        title="Importar Lista PDF"
+        title={
+          vistaRevision === "auto"
+            ? "Actualización Automática"
+            : vistaRevision === "sin-precio"
+              ? "Sin Precio en el PDF"
+              : "Importar Lista PDF"
+        }
         actions={
           <>
+            {vistaRevision ? (
+              <Button variant="outline" onClick={() => setVistaRevision(null)} disabled={ocupado} className="gap-1">
+                <ChevronLeft className="h-4 w-4" />
+                Volver
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => handleClose(false)} disabled={ocupado}>
               Cancelar
             </Button>
@@ -558,11 +745,11 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 Iniciar Conversión
               </Button>
             )}
-            {preview && (
+            {preview && !vistaRevision && (
                 <Button
                 onClick={() => void aplicar()}
                   className="gap-2 min-w-[150px]"
-                disabled={ocupado || totalVinculos === 0}
+                disabled={ocupado || totalVinculos === 0 || sinPrecio.length > 0}
                 >
                 {estado === "aplicando" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -576,6 +763,24 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
         }
       >
         <div className="space-y-3 pt-2 min-w-0 overflow-hidden" aria-busy={ocupado}>
+          {vistaRevision === "auto" && preview ? (
+            <TablaVinculosAutomaticos filas={preview.filas} />
+          ) : null}
+
+          {vistaRevision === "sin-precio" && preview ? (
+            <TablaSinPrecioPdf
+              sinPrecio={sinPrecio}
+              manuales={manuales}
+              pdfPorClave={pdfPorClave}
+              ocupado={ocupado}
+              onVincular={setIndiceVincular}
+              onQuitar={(codExt) => void asignarManual(codExt, null)}
+              onEliminar={setItemEliminar}
+            />
+          ) : null}
+
+          {vistaRevision ? null : (
+          <>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">PROVEEDOR</label>
             <Select
@@ -607,7 +812,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                   value={paginaInicio}
                   onChange={(e) => setPaginaInicio(e.target.value)}
                   disabled={ocupado || !proveedorId.trim()}
-                  className="input-filtro-unificado w-full text-sm focus:outline-none focus:ring-2 focus:ring-ring border-primary tabular-nums"
+                  className="input-filtro-unificado w-full text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring border-primary tabular-nums"
                   aria-label="Página desde la que se procesa el PDF"
                 />
               </div>
@@ -662,111 +867,33 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
           )}
 
           {preview && (
-            <div className="space-y-2 min-h-0">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium uppercase text-foreground">
-                <span>ÍTEMS PDF: {preview.filas.length}</span>
-                <span>SE ACTUALIZAN SOLOS: {vinculosAuto.length}</span>
-                <span className={cn(sinPrecio.length > 0 ? "text-primary" : "text-muted-foreground")}>
-                  SIN PRECIO EN EL PDF: {sinPrecio.length}
-                </span>
-                {sugeridosVigentes > 0 && (
-                  <span className="text-primary">SUGERIDOS POR SIMILITUD: {sugeridosVigentes}</span>
-                )}
-                {manuales.size - sugeridosVigentes > 0 && (
-                  <span>ELEGIDOS A MANO: {manuales.size - sugeridosVigentes}</span>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="default"
+                className="w-full"
+                disabled={vinculosAuto.length === 0}
+                onClick={() => setVistaRevision("auto")}
+              >
+                Actualización Automática: {etiquetaItems(vinculosAuto.length)}
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                className="w-full"
+                disabled={sinPrecio.length === 0}
+                onClick={() => setVistaRevision("sin-precio")}
+              >
+                Sin Precio en el PDF: {etiquetaItems(sinPrecio.length)}
+              </Button>
+            </div>
+          )}
+          </>
+          )}
 
-              {sinPrecio.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Todos los ítems de la lista encontraron su precio en el PDF.
-                </p>
-              ) : (
-                <>
-                  <div className="contenedor-tabla-gestion max-h-[min(28rem,55vh)] overflow-y-auto overflow-x-hidden border border-border rounded-lg">
-                    <Table variant="compact" scrollX={false} className="table-fixed w-full">
-                  <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[48%]">ÍTEM LISTA</TableHead>
-                          <TableHead className="w-24 text-center">PX. ACTUAL</TableHead>
-                          <TableHead className="w-[34%]">ÍTEM PDF</TableHead>
-                          <TableHead className="w-12 text-center">ACCIONES</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                        {sinPrecio.map((item, i) => {
-                          const clave = manuales.get(item.codExt);
-                          const pdf = clave ? pdfPorClave.get(clave) : undefined;
-                          const esSugerido = !!pdf && clave === item.claveSugerida;
-                          return (
-                            <TableRow key={item.codExt}>
-                              <TableCell className="celda-datos min-w-0">
-                                <span className="block truncate text-xs" title={item.descripcionProveedor}>
-                                  <span className="celda-mono">{item.codProdProveedor}</span> ·{" "}
-                                  {item.descripcionProveedor}
-                                </span>
-                              </TableCell>
-                              <TableCell className="celda-datos celda-numero tabular-nums text-center">
-                                ${fmtPrecio(item.pxActual)}
-                              </TableCell>
-                              <TableCell className="celda-datos min-w-0">
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className={cn(
-                                      "h-8 min-w-0 flex-1 justify-start gap-1.5 px-2 text-xs font-normal",
-                                      !pdf && "text-muted-foreground"
-                                    )}
-                                    onClick={() => setIndiceVincular(i)}
-                                    disabled={ocupado}
-                                    title={pdf?.clave}
-                                  >
-                                    <Search className="h-3.5 w-3.5 shrink-0" />
-                                    {esSugerido && (
-                                      <span className="shrink-0 text-xs font-semibold text-primary">SUGERIDO</span>
-                                    )}
-                                    <span className="truncate">{pdf ? pdf.clave : "ELEGIR ÍTEM DEL PDF…"}</span>
-                                  </Button>
-                                  {pdf && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      onClick={() => void asignarManual(item.codExt, null)}
-                                      disabled={ocupado}
-                                      aria-label={`Quitar vínculo de ${item.codProdProveedor}`}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="celda-datos celda-datos--accion-relleno-fila p-0">
-                                <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                    aria-label={`Eliminar ${item.codProdProveedor} de la lista`}
-                                    disabled={ocupado}
-                                    onClick={() => setItemEliminar(item)}
-                                  >
-                                    <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                      </TableRow>
-                          );
-                        })}
-                  </TableBody>
-                </Table>
-              </div>
-                </>
-              )}
-
-              <VincularItemPdfModal
+          {vistaRevision === "sin-precio" && preview ? (
+            <>
+            <VincularItemPdfModal
                 itemsLista={sinPrecio}
                 itemsPdf={preview.filas}
                 indice={indiceVincular}
@@ -824,8 +951,8 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                   </p>
                 </AppModal>
               </Dialog>
-            </div>
-          )}
+            </>
+          ) : null}
         </div>
       </AppModal>
     </Dialog>
