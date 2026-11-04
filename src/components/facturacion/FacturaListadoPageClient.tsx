@@ -77,7 +77,6 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { hrefFacturaCrear } from "@/lib/facturacionRoutes";
-import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import {
   bytesPdfAAdjuntoEnvio,
   generarBytesPdfFacturaComprobante,

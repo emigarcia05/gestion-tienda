@@ -43,7 +43,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const FORM_GRID_CLASS = "grid grid-cols-[1.35fr_minmax(0,1fr)] gap-x-4 gap-y-2 items-center";
+const FORM_GRID_CLASS = "grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-2 items-center";
 const LABEL_CLASS = "text-right font-medium text-sm";
 const SELECT_CLASS = "input-filtro-unificado w-full min-w-0";
 
@@ -246,6 +246,7 @@ export default function CrearEditarReglaDescuentoListaPrecioModal({
                 valueNormalized={valorNorm}
                 onValueNormalizedChange={setValorNorm}
                 placeholder="0,00%"
+                className="h-9"
               />
             </ModalFormRow>
           </div>
