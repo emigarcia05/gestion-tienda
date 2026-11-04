@@ -34,19 +34,27 @@ export function useImportResult() {
   return ctx;
 }
 
-async function descargarResumenAumentos(): Promise<void> {
-  const res = await fetch("/api/import-lista-precios/resumen-pdf");
-  if (!res.ok) {
-    toast.error("No se pudo descargar el resumen de aumentos.");
+async function descargarResumenAumentos(avisoSiVacio: boolean): Promise<void> {
+  const res = await fetch("/api/import-lista-precios/resumen-pdf").catch(() => null);
+  if (!res || !res.ok) {
+    if (avisoSiVacio && res?.status !== 204) {
+      toast.error("No se pudo descargar el resumen de costos.");
+    }
+    return;
+  }
+  if (res.status === 204) {
+    if (avisoSiVacio) toast.message("Ningún producto de la tienda cambió de costo.");
     return;
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const enlace = document.createElement("a");
   enlace.href = url;
-  enlace.download = "resumen-aumentos-lista.pdf";
+  enlace.download = "resumen-cambios-costo.pdf";
+  document.body.appendChild(enlace);
   enlace.click();
-  URL.revokeObjectURL(url);
+  enlace.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export function ImportResultProvider({ children }: { children: React.ReactNode }) {
@@ -72,7 +80,7 @@ export function ImportResultProvider({ children }: { children: React.ReactNode }
     }
     if (resumenDescargado.current) return;
     resumenDescargado.current = true;
-    void descargarResumenAumentos();
+    void descargarResumenAumentos(false);
   }, [state]);
 
   const open = state.type !== "closed";
@@ -86,7 +94,7 @@ export function ImportResultProvider({ children }: { children: React.ReactNode }
           actions={
             <>
               {state.type === "result" ? (
-                <Button type="button" variant="outline" onClick={() => void descargarResumenAumentos()}>
+                <Button type="button" variant="outline" onClick={() => void descargarResumenAumentos(true)}>
                   Descargar Resumen
                 </Button>
               ) : null}

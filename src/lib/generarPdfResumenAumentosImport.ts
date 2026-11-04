@@ -1,5 +1,5 @@
 /**
- * PDF del resumen de aumentos de una importación de lista de precios.
+ * PDF de los productos de tienda cuyo costo de compra cambió en la importación.
  * Sección 1: promedio por marca y rubro. La marca y el rubro enlazan a la sección 2.
  * Sección 2: ítems agrupados por marca y, dentro, por rubro.
  */
@@ -64,7 +64,7 @@ export function generarPdfResumenAumentosImport(resumen: ResumenAumentosImportLi
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text("RESUMEN DE AUMENTOS", PAGE_W / 2, y, { align: "center" });
+  doc.text("RESUMEN DE CAMBIOS DE COSTO", PAGE_W / 2, y, { align: "center" });
   y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -108,7 +108,7 @@ export function generarPdfResumenAumentosImport(resumen: ResumenAumentosImportLi
   if (marcas.length === 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("SIN AUMENTOS.", MARGIN, y);
+    doc.text("SIN CAMBIOS DE COSTO.", MARGIN, y);
     y += 8;
   } else {
     const wMarca = 70;
@@ -123,7 +123,7 @@ export function generarPdfResumenAumentosImport(resumen: ResumenAumentosImportLi
     doc.setFontSize(8);
     doc.text("MARCA", MARGIN + 2, y);
     doc.text("RUBRO", MARGIN + wMarca + 2, y);
-    doc.text("AUMENTO PROMEDIO", MARGIN + wMarca + wRubro + wAum - 2, y, { align: "right" });
+    doc.text("VARIACIÓN PROMEDIO", MARGIN + wMarca + wRubro + wAum - 2, y, { align: "right" });
     y += altoFila - 1;
     doc.setTextColor(INK.r, INK.g, INK.b);
 
@@ -182,13 +182,13 @@ export function generarPdfResumenAumentosImport(resumen: ResumenAumentosImportLi
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text("2. AUMENTO POR ÍTEM", MARGIN, y);
+  doc.text("2. VARIACIÓN POR ÍTEM", MARGIN, y);
   y += 7;
 
   if (marcas.length === 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("SIN AUMENTOS.", MARGIN, y);
+    doc.text("SIN CAMBIOS DE COSTO.", MARGIN, y);
   } else {
     for (const marca of marcas) {
       const rubros = [...(porMarcaRubro.get(marca)?.entries() ?? [])].sort((a, b) =>

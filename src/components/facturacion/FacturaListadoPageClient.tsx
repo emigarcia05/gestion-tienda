@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Truck, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -67,6 +67,7 @@ import {
 import { ultimosDigitosNroComprobante } from "@/lib/facturaFiscal";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import { matchByMultiTerm } from "@/lib/busqueda";
+import { EVENTO_USUARIO_SESION, leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
@@ -168,6 +169,23 @@ export default function FacturaListadoPageClient({
   const [rangoHasta, setRangoHasta] = useState("");
   const [rangoModalOpen, setRangoModalOpen] = useState(false);
   const [filtroSucursal, setFiltroSucursal] = useState("");
+  const [sucursalUsuario, setSucursalUsuario] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => {
+      setSucursalUsuario(leerUsuarioSesion()?.sucursalPorDefecto ?? null);
+    };
+    sync();
+    window.addEventListener(EVENTO_USUARIO_SESION, sync);
+    return () => window.removeEventListener(EVENTO_USUARIO_SESION, sync);
+  }, []);
+
+  function puedeMutarComprobante(item: FacturaComprobanteListItem): boolean {
+    if (!sucursalUsuario) return false;
+    const propia = sucursalUsuario.trim().toLowerCase();
+    return item.sucursalCodigos.some(
+      (codigo) => codigo.trim().toLowerCase() === propia
+    );
+  }
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroFiscal, setFiltroFiscal] = useState("");
@@ -906,6 +924,7 @@ export default function FacturaListadoPageClient({
                           aria-label={`Cobro ${item.nroComprobante}`}
                           disabled={
                             busyId === item.id ||
+                            !puedeMutarComprobante(item) ||
                             (!esFacturaTipoVenta(item.tipo) &&
                               !esFacturaTipoNotaCredito(item.tipo))
                           }
@@ -931,6 +950,7 @@ export default function FacturaListadoPageClient({
                           aria-label={`Envío ${item.nroComprobante}`}
                           disabled={
                             busyId === item.id ||
+                            !puedeMutarComprobante(item) ||
                             !esFacturaTipoVenta(item.tipo) ||
                             item.estado === "rechazado"
                           }
@@ -951,7 +971,9 @@ export default function FacturaListadoPageClient({
                           title="Nota de crédito"
                           aria-label={`Nota de crédito ${item.nroComprobante}`}
                           disabled={
-                            busyId === item.id || !esFacturaTipoVenta(item.tipo)
+                            busyId === item.id ||
+                            !puedeMutarComprobante(item) ||
+                            !esFacturaTipoVenta(item.tipo)
                           }
                           onClick={() => irNotaCredito(item.id)}
                         >
@@ -969,7 +991,9 @@ export default function FacturaListadoPageClient({
                         title="Borrar"
                         aria-label={`Borrar ${item.nroComprobante}`}
                         disabled={
-                          busyId === item.id || !puedeEliminarComprobante(item.tipo)
+                          busyId === item.id ||
+                          !puedeMutarComprobante(item) ||
+                          !puedeEliminarComprobante(item.tipo)
                         }
                         onClick={() =>
                           setModalAccion({ open: true, kind: "borrar", item })
@@ -986,7 +1010,9 @@ export default function FacturaListadoPageClient({
                           title="Convertir en fiscal"
                           aria-label={`Convertir en fiscal ${item.nroComprobante}`}
                           disabled={
-                            busyId === item.id || item.tipo !== "factura_no_fiscal"
+                            busyId === item.id ||
+                            !puedeMutarComprobante(item) ||
+                            item.tipo !== "factura_no_fiscal"
                           }
                           onClick={() =>
                             setModalAccion({

@@ -595,7 +595,14 @@ function etiquetaGrupoImport(valor: string | null | undefined, vacio: string): s
   return texto.length > 0 ? texto.toLocaleUpperCase("es") : vacio;
 }
 
-/** Costo de compra posterior menos el anterior, solo cuando subió. */
+function centavosCosto(valor: number): number {
+  return Math.round(valor * 100);
+}
+
+/**
+ * Ítems de `prod_lista` cuyo costo de compra (`costo_compra_cod_ext` →
+ * `px_compra_final_sin_iva`) cambió con esta importación. Suba o baja.
+ */
 async function aumentosCostoTrasImport(
   proveedorId: string,
   costoAntesPorCod: ReadonlyMap<string, number>,
@@ -609,26 +616,38 @@ async function aumentosCostoTrasImport(
   for (let i = 0; i < cods.length; i += CHUNK) {
     const chunk = cods.slice(i, i + CHUNK);
     const filas = await prisma.listaPrecioProveedor.findMany({
-      where: { idProveedor: proveedorId, codProdProveedor: { in: chunk } },
+      where: {
+        idProveedor: proveedorId,
+        codProdProveedor: { in: chunk },
+        costoListaEnTiendas: { some: {} },
+      },
       select: {
         codProdProveedor: true,
-        descripcionProveedor: true,
-        marca: true,
-        rubro: true,
         pxCompraFinalSinIva: true,
+        costoListaEnTiendas: {
+          select: {
+            codTienda: true,
+            descripcionTienda: true,
+            marcaRelation: { select: { nombre: true } },
+            rubroRelation: { select: { nombre: true } },
+          },
+        },
       },
     });
     for (const fila of filas) {
       const antes = costoAntesPorCod.get(fila.codProdProveedor);
       const despues = fila.pxCompraFinalSinIva != null ? Number(fila.pxCompraFinalSinIva) : 0;
-      if (antes == null || !(antes > 0) || !(despues > antes)) continue;
+      if (antes == null || !(antes > 0)) continue;
+      if (centavosCosto(despues) === centavosCosto(antes)) continue;
       const aumentoPct = Math.round(((despues - antes) / antes) * 10000) / 100;
-      aumentos.push({
-        marca: etiquetaGrupoImport(fila.marca, "SIN MARCA"),
-        rubro: etiquetaGrupoImport(fila.rubro, "SIN RUBRO"),
-        descripcion: etiquetaGrupoImport(fila.descripcionProveedor, fila.codProdProveedor),
-        aumentoPct,
-      });
+      for (const item of fila.costoListaEnTiendas) {
+        aumentos.push({
+          marca: etiquetaGrupoImport(item.marcaRelation?.nombre, "SIN MARCA"),
+          rubro: etiquetaGrupoImport(item.rubroRelation?.nombre, "SIN RUBRO"),
+          descripcion: etiquetaGrupoImport(item.descripcionTienda, item.codTienda),
+          aumentoPct,
+        });
+      }
     }
   }
   return aumentos;

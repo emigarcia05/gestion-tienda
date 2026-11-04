@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sucursalCodigoSesion } from "@/services/facturaSucursalAutorizada.service";
 import {
   esFacturaTipo,
   esFacturaTipoNotaCredito,
@@ -725,5 +726,15 @@ export async function listarVentasPendientesPagoCuentaCorriente(
       saldoPendiente,
     });
   }
-  return out;
+  const sucursal = await sucursalCodigoSesion();
+  if (!sucursal || out.length === 0) return [];
+  const propias = await prisma.comprobanteVta.findMany({
+    where: {
+      id: { in: out.map((venta) => venta.id) },
+      ptoVta: { sucursales: { some: { sucursal: { codigo: sucursal } } } },
+    },
+    select: { id: true },
+  });
+  const ids = new Set(propias.map((row) => row.id));
+  return out.filter((venta) => ids.has(venta.id));
 }

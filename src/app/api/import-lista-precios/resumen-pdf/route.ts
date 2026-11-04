@@ -25,11 +25,8 @@ export async function GET() {
 
   const crudo = await getResumenAumentosImportFromDb();
   const parsed = resumenSchema.safeParse(crudo);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: "No hay un resumen de la última importación." },
-      { status: 404 }
-    );
+  if (!parsed.success || parsed.data.items.length === 0) {
+    return new NextResponse(null, { status: 204 });
   }
 
   const pdf = generarPdfResumenAumentosImport(parsed.data);

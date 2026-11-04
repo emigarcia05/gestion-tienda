@@ -7,6 +7,12 @@ import {
 } from "@/services/tintometrico.service";
 import { prisma } from "@/lib/prisma";
 import {
+  exigirComprobanteDeSucursalSesion,
+  exigirPersonalDeSesion,
+  MENSAJE_SUCURSAL_VENTA_NO_AUTORIZADA,
+  sucursalCodigoSesion,
+} from "@/services/facturaSucursalAutorizada.service";
+import {
   arcaCertificadosConfigurados,
   topeCfSinDocDesdeEnv,
   wsfeCaeSolicitar,
@@ -781,6 +787,8 @@ export async function obtenerBorradorNotaCreditoComprobante(
 export async function eliminarComprobanteNoFiscal(
   id: string
 ): Promise<ServiceResult<void>> {
+  const propia = await exigirComprobanteDeSucursalSesion(id);
+  if (!propia.success) return propia;
   try {
     const row = await prisma.comprobanteVta.findUnique({
       where: { id },
@@ -850,6 +858,10 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
   id: string;
   personalId: number;
 }): Promise<ServiceResult<FacturaEmitirResultado>> {
+  const personalOk = await exigirPersonalDeSesion(input.personalId);
+  if (!personalOk.success) return personalOk;
+  const propia = await exigirComprobanteDeSucursalSesion(input.id);
+  if (!propia.success) return propia;
   try {
     const MSG_CLIENTE_SIN_CUIT_CONVERSION_FISCAL =
       '"Para emitir Factura Fiscal" primero debe cargar un CUIT a este cliente';
@@ -1273,6 +1285,12 @@ export async function emitirFacturaComprobante(
   input: EmitirFacturaComprobanteInput,
   opciones?: { omitirTopeCtaCorriente?: boolean }
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
+  const personalOk = await exigirPersonalDeSesion(input.personalId);
+  if (!personalOk.success) return personalOk;
+  if (input.cbteAsocId) {
+    const asociada = await exigirComprobanteDeSucursalSesion(input.cbteAsocId);
+    if (!asociada.success) return asociada;
+  }
   const tipo = await tipoEmisionConFacturaObligatoria(input);
   if (tipo === input.tipo) return emitirFacturaComprobanteSegunTipo(input, opciones);
   const forzado = await emitirFacturaComprobanteSegunTipo({ ...input, tipo }, opciones);
@@ -1960,6 +1978,10 @@ export async function emitirNotaCreditoDesdeComprobante(
   comprobanteId: string,
   personalId: number
 ): Promise<ServiceResult<FacturaEmitirResultado>> {
+  const personalOk = await exigirPersonalDeSesion(personalId);
+  if (!personalOk.success) return personalOk;
+  const propia = await exigirComprobanteDeSucursalSesion(comprobanteId);
+  if (!propia.success) return propia;
   const orig = await prisma.comprobanteVta.findUnique({
     where: { id: comprobanteId },
     include: { items: { orderBy: { orden: "asc" } } },
@@ -2067,6 +2089,8 @@ export async function consultarFacturaComprobanteArca(
 export async function guardarDiasVencimientoComprobante(
   input: GuardarDiasVencimientoFacturaInput
 ): Promise<ServiceResult<void>> {
+  const propia = await exigirComprobanteDeSucursalSesion(input.id);
+  if (!propia.success) return propia;
   try {
     const row = await prisma.comprobanteVta.findUnique({
       where: { id: input.id },
@@ -2147,6 +2171,8 @@ export async function guardarDiasVencimientoComprobante(
 export async function registrarCobroComprobanteVta(
   input: RegistrarCobroComprobanteFacturaInput
 ): Promise<ServiceResult<void>> {
+  const propia = await exigirComprobanteDeSucursalSesion(input.id);
+  if (!propia.success) return propia;
   try {
     const row = await prisma.comprobanteVta.findUnique({
       where: { id: input.id },
@@ -2312,6 +2338,12 @@ export async function registrarCobroComprobanteVta(
 export async function registrarPagoCuentaCorriente(
   input: RegistrarPagoCuentaCorrienteInput
 ): Promise<ServiceResult<void>> {
+  const personalOk = await exigirPersonalDeSesion(input.personalId);
+  if (!personalOk.success) return personalOk;
+  const sucursal = await sucursalCodigoSesion();
+  if (!sucursal || sucursal !== input.sucursalCodigo.trim().toLowerCase()) {
+    return { success: false, error: MENSAJE_SUCURSAL_VENTA_NO_AUTORIZADA };
+  }
   try {
     if (esCobroNotaCreditoNombre(input.pagoNombre)) {
       return {
@@ -2486,6 +2518,8 @@ export async function registrarPagoCuentaCorriente(
 export async function asignarClienteCobroComoCobro(
   input: AsignarClienteCobroComoCobroInput
 ): Promise<ServiceResult<void>> {
+  const propia = await exigirComprobanteDeSucursalSesion(input.ventaId);
+  if (!propia.success) return propia;
   try {
     const cobro = await prisma.clienteCobro.findUnique({
       where: { id: input.cobroId },
@@ -2641,6 +2675,10 @@ export async function asignarNotaCreditoComoCobro(input: {
   notaCreditoId: string;
   ventaId: string;
 }): Promise<ServiceResult<void>> {
+  const ventaOk = await exigirComprobanteDeSucursalSesion(input.ventaId);
+  if (!ventaOk.success) return ventaOk;
+  const ncOk = await exigirComprobanteDeSucursalSesion(input.notaCreditoId);
+  if (!ncOk.success) return ncOk;
   try {
     const [nc, venta] = await Promise.all([
       prisma.comprobanteVta.findUnique({
