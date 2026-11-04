@@ -465,10 +465,20 @@ export async function listarProductosProveedoresParaVincular(
   );
 }
 
+export interface AumentoImportListaItem {
+  marca: string;
+  rubro: string;
+  descripcion: string;
+  /** Variación porcentual del costo de compra (`px_compra_final_sin_iva`). */
+  aumentoPct: number;
+}
+
 export interface UpsertListaPreciosResult {
   creados: number;
   actualizados: number;
   errores: string[];
+  /** Ítems cuyo costo de compra subió. El PDF de la importación sale de acá. */
+  aumentos: AumentoImportListaItem[];
 }
 
 export interface UpsertListaPreciosOptions {
@@ -504,6 +514,7 @@ export async function upsertListaPrecios(
   // Solo usamos esto para el conteo (creados/actualizados); el estado final lo define el `upsert`.
   const uniqueCodProdProvs = [...new Set(filas.map((f) => f.codProdProv))];
   const existentesCodProdSet = new Set<string>();
+  const costoAntesPorCod = new Map<string, number>();
   const CHUNK_PREFETCH = 500;
   for (let i = 0; i < uniqueCodProdProvs.length; i += CHUNK_PREFETCH) {
     const chunk = uniqueCodProdProvs.slice(i, i + CHUNK_PREFETCH);
@@ -512,10 +523,15 @@ export async function upsertListaPrecios(
         idProveedor: proveedorId,
         codProdProveedor: { in: chunk },
       },
-      select: { codProdProveedor: true },
+      select: { codProdProveedor: true, pxCompraFinalSinIva: true },
     });
-    for (const row of existentes) existentesCodProdSet.add(row.codProdProveedor);
+    for (const row of existentes) {
+      existentesCodProdSet.add(row.codProdProveedor);
+      const costo = row.pxCompraFinalSinIva != null ? Number(row.pxCompraFinalSinIva) : 0;
+      if (costo > 0) costoAntesPorCod.set(row.codProdProveedor, costo);
+    }
   }
+  const codsActualizados = new Set<string>();
 
   for (let i = 0; i < filas.length; i++) {
     if (onProgress && (i % 10 === 0 || i === total - 1)) {
@@ -558,6 +574,7 @@ export async function upsertListaPrecios(
       else creados++;
       // Para duplicados en el input: si lo creamos en esta corrida, luego debe contarse como "update".
       existentesCodProdSet.add(fila.codProdProv);
+      codsActualizados.add(fila.codProdProv);
       codExtsMaterializar.push(codExt);
     } catch (e) {
       errores.push(`Fila ${i + 1}: ${e instanceof Error ? e.message : String(e)}`);
@@ -568,7 +585,53 @@ export async function upsertListaPrecios(
     await materializarDescuentosEnFilas(codExtsMaterializar);
   }
 
-  return { creados, actualizados, errores };
+  const aumentos = await aumentosCostoTrasImport(proveedorId, costoAntesPorCod, codsActualizados);
+
+  return { creados, actualizados, errores, aumentos };
+}
+
+function etiquetaGrupoImport(valor: string | null | undefined, vacio: string): string {
+  const texto = (valor ?? "").trim();
+  return texto.length > 0 ? texto.toLocaleUpperCase("es") : vacio;
+}
+
+/** Costo de compra posterior menos el anterior, solo cuando subió. */
+async function aumentosCostoTrasImport(
+  proveedorId: string,
+  costoAntesPorCod: ReadonlyMap<string, number>,
+  codsActualizados: ReadonlySet<string>
+): Promise<AumentoImportListaItem[]> {
+  const cods = [...costoAntesPorCod.keys()].filter((cod) => codsActualizados.has(cod));
+  if (cods.length === 0) return [];
+
+  const aumentos: AumentoImportListaItem[] = [];
+  const CHUNK = 500;
+  for (let i = 0; i < cods.length; i += CHUNK) {
+    const chunk = cods.slice(i, i + CHUNK);
+    const filas = await prisma.listaPrecioProveedor.findMany({
+      where: { idProveedor: proveedorId, codProdProveedor: { in: chunk } },
+      select: {
+        codProdProveedor: true,
+        descripcionProveedor: true,
+        marca: true,
+        rubro: true,
+        pxCompraFinalSinIva: true,
+      },
+    });
+    for (const fila of filas) {
+      const antes = costoAntesPorCod.get(fila.codProdProveedor);
+      const despues = fila.pxCompraFinalSinIva != null ? Number(fila.pxCompraFinalSinIva) : 0;
+      if (antes == null || !(antes > 0) || !(despues > antes)) continue;
+      const aumentoPct = Math.round(((despues - antes) / antes) * 10000) / 100;
+      aumentos.push({
+        marca: etiquetaGrupoImport(fila.marca, "SIN MARCA"),
+        rubro: etiquetaGrupoImport(fila.rubro, "SIN RUBRO"),
+        descripcion: etiquetaGrupoImport(fila.descripcionProveedor, fila.codProdProveedor),
+        aumentoPct,
+      });
+    }
+  }
+  return aumentos;
 }
 
 export interface CrearProductoListaPrecioServiceInput {
