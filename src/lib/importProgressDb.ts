@@ -96,8 +96,12 @@ export async function setImportProgressInDb(processed: number, total: number): P
 
 export async function setImportResultInDb(
   result: ImportProgressResult,
-  resumen: Prisma.InputJsonValue | null
+  resumen: unknown
 ): Promise<void> {
+  const resultResumen =
+    resumen == null
+      ? Prisma.DbNull
+      : (JSON.parse(JSON.stringify(resumen)) as Prisma.InputJsonValue);
   await prisma.importProgress.update({
     where: { id: IMPORT_PROGRESS_ID },
     data: {
@@ -106,7 +110,7 @@ export async function setImportResultInDb(
       resultActualizados: result.actualizados,
       resultEliminados: result.eliminados,
       resultErrores: result.errores,
-      resultResumen: resumen ?? Prisma.DbNull,
+      resultResumen,
       error: null,
       updatedAt: new Date(),
     },
