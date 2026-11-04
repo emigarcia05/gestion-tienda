@@ -113,8 +113,8 @@ export default function ReposicionCorpPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="Administrador"
-        subtitle="Reposición Corp."
+        title="COMPRAS CORP."
+        subtitle="Conf. Reposición"
         contentWidth="full"
         filters={
           <FiltrosReposicionCorp

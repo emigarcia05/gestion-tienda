@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ClipboardList,
@@ -419,11 +420,29 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
         >
           <SidebarAreaSwitcher usuario={usuario} />
         </div>
-        <img
-          src="/logo_tiendacolor_letras_blancas.png"
-          alt="TiendaColor Pinturerías"
-          className="mx-auto h-auto w-[50%] object-contain"
-        />
+        {mainAreaId === "gestion-productos" ? (
+          <Link
+            href={GP_ROUTES.defaultEntry}
+            title="Tablero"
+            className="mx-auto block w-[50%]"
+          >
+            <Image
+              src="/logo_tiendacolor_letras_blancas.png"
+              alt="TiendaColor Pinturerías"
+              width={615}
+              height={375}
+              className="h-auto w-full object-contain"
+            />
+          </Link>
+        ) : (
+          <Image
+            src="/logo_tiendacolor_letras_blancas.png"
+            alt="TiendaColor Pinturerías"
+            width={615}
+            height={375}
+            className="mx-auto h-auto w-[50%] object-contain"
+          />
+        )}
       </div>
     </aside>
   );

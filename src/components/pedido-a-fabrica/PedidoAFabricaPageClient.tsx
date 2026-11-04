@@ -386,7 +386,7 @@ export default function PedidoAFabricaPageClient({
   return (
     <>
       <ClassicFilteredTableLayout
-        title="PEDIDOS A FÁBRICA"
+        title="COMPRAS CORP."
         subtitle="Pedidos A Fábrica"
         contentWidth="full"
         actions={

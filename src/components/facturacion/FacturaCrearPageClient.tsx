@@ -59,7 +59,6 @@ import {
   condicionFiscalDesdeFacturaTipo,
   clienteSuperaTopeCtaCorriente,
   esClienteConsumidorFinalCargado,
-  etiquetaClienteVisorFactura,
   esFacturaTipoNotaCredito,
   esFacturaTipoFiscal,
   esFacturaTipoVenta,
@@ -68,7 +67,6 @@ import {
   nombreClienteFactura,
   ptoVtaIdParaSucursal,
   descuentoEstadoParaEmitir,
-  textoFormasPagoRestringidasDescPromo,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   type FacturaClase,
@@ -146,16 +144,6 @@ const CABECERA_CAMPO_ALTO_CLASS = "!h-9 !min-h-9 !max-h-9";
 /** Fila CLIENTE / PROYECTO / SALDO: mismo alto que el Select PROYECTO (`.input-filtro-unificado`, 2.5rem). */
 const CABECERA_FILA2_ALTO_CLASS = "!h-10 !min-h-10 !max-h-10";
 
-/** Lápiz + fecha · tipo · fiscal, tres columnas iguales centradas. */
-const CABECERA_VISOR_TIPO_GRID_CLASS =
-  "grid min-w-0 w-full grid-cols-[1.25rem_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2";
-
-const CABECERA_VISOR_SEP_CLASS = "h-6 w-0.5 shrink-0 self-center bg-primary";
-
-/** Punto azul a media altura entre fecha, tipo y fiscal. */
-const CABECERA_VISOR_PUNTO_CLASS =
-  "h-1.5 w-1.5 shrink-0 self-center rounded-full bg-primary";
-
 function emisorPdfDePtoVta(
   ptoVtas: readonly FacturaPtoVtaOpcion[],
   ptoVtaId: string
@@ -203,8 +191,6 @@ export default function FacturaCrearPageClient({
   const [tipo, setTipo] = useState<FacturaTipo>(
     () => duplicarBorrador?.tipo ?? tipoInicial ?? FACTURA_TIPO_DEFAULT
   );
-  const [cabeceraModo, setCabeceraModo] = useState<"editor" | "visor">("editor");
-  const [focoClientePendiente, setFocoClientePendiente] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(
     () => duplicarBorrador?.clienteId ?? null
   );
@@ -283,13 +269,8 @@ export default function FacturaCrearPageClient({
   const [clientesAbierto, setClientesAbierto] = useState(false);
   const [clienteHighlight, setClienteHighlight] = useState(0);
 
-  const [descuentoVisor, setDescuentoVisor] = useState(
-    () => duplicarBorrador?.descuento ?? null
-  );
-
   const handleRemitoChange = useCallback((snapshot: FacturaRemitoSnapshot) => {
     remitoRef.current = snapshot;
-    setDescuentoVisor(snapshot.descuento);
   }, []);
 
   const fetchSugerenciasClientes = useCallback(async (value: string) => {
@@ -327,12 +308,6 @@ export default function FacturaCrearPageClient({
       void fetchSugerenciasClientes(value);
     },
   });
-
-  useEffect(() => {
-    if (!focoClientePendiente || cabeceraModo !== "editor") return;
-    clienteInputRef.current?.focus();
-    setFocoClientePendiente(false);
-  }, [focoClientePendiente, cabeceraModo, clienteInputRef]);
 
   const clienteTrim = cliente.trim();
   const puedeBuscarClientes =
@@ -441,9 +416,6 @@ export default function FacturaCrearPageClient({
     };
   }
 
-  const etiquetaFormasPagoVisor =
-    textoFormasPagoRestringidasDescPromo(descuentoVisor);
-  const etiquetaClienteVisor = etiquetaClienteVisorFactura(cliente, clienteId);
   const mostrarBotonConsumidorFinal =
     !esClienteConsumidorFinalCargado(cliente) && clienteId == null;
 
@@ -515,8 +487,7 @@ export default function FacturaCrearPageClient({
     const clienteNoSel = mensajeClienteFacturaNoSeleccionado(cliente, clienteId);
     if (clienteNoSel) {
       toast.error(clienteNoSel);
-      setCabeceraModo("editor");
-      setFocoClientePendiente(true);
+      clienteInputRef.current?.focus();
       return;
     }
     if (
@@ -733,41 +704,6 @@ export default function FacturaCrearPageClient({
             clientesAbierto && TYPEAHEAD_LISTBOX_ANCHOR_OPEN_CLASS
           )}
         >
-          {cabeceraModo === "visor" ? (
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                className="boton-encubierto boton-encubierto--cabecera-visor min-w-0 flex-1"
-                onClick={() => setCabeceraModo("editor")}
-                aria-label="Editar cabecera del comprobante"
-                title="Editar cabecera"
-              >
-                <span className={CABECERA_VISOR_TIPO_GRID_CLASS}>
-                  <Pencil className="size-4 shrink-0 justify-self-start text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 truncate text-center tabular-nums">
-                    {formatIsoYmdDdMmYyyyArgentina(fechaIso)}
-                  </span>
-                  <span className={CABECERA_VISOR_PUNTO_CLASS} aria-hidden />
-                  <span className="min-w-0 truncate text-center">
-                    {FACTURA_CLASE_LABELS[claseActual]}
-                  </span>
-                  <span className={CABECERA_VISOR_PUNTO_CLASS} aria-hidden />
-                  <span className="min-w-0 truncate text-center">
-                    {FACTURA_CONDICION_FISCAL_LABELS[fiscalActual ?? "no_fiscal"]}
-                  </span>
-                </span>
-                <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
-                <span className="min-w-0 truncate text-center uppercase">
-                  {etiquetaClienteVisor}
-                </span>
-                <span className={CABECERA_VISOR_SEP_CLASS} aria-hidden />
-                <span className="min-w-0 truncate text-center uppercase">
-                  {etiquetaFormasPagoVisor}
-                </span>
-              </button>
-              {botonComentariosCabecera}
-            </div>
-          ) : (
           <div className="flex flex-col gap-3">
           <div className={CABECERA_EDITOR_FILA1_CLASS}>
             <label className={cn(CABECERA_EDITOR_SLOT_CLASS, "w-full")}>
@@ -1217,7 +1153,6 @@ export default function FacturaCrearPageClient({
           </div>
 
           </div>
-          )}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
@@ -1233,7 +1168,6 @@ export default function FacturaCrearPageClient({
             onRemitoChange={handleRemitoChange}
             onBusquedaProductoFocus={() => {
               setClientesAbierto(false);
-              setCabeceraModo("visor");
             }}
           />
         </div>

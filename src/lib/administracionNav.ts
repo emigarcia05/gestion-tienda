@@ -17,8 +17,7 @@ export type AdmPillarId =
   | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
-  | "usuarios"
-  | "reposicion-corp";
+  | "usuarios";
 
 export type AdmIconId =
   | "landmark"
@@ -273,6 +272,20 @@ const proveedoresScreens: AdmScreenDef[] = [
 
 const pedidosAFabricaScreens: AdmScreenDef[] = [
   {
+    id: "pedido-reposicion",
+    label: "Pedido Reposición",
+    href: A.pedidosAFabrica.pedidoReposicion,
+    icon: "package",
+    permiso: PERMISOS.estadisticasProductos.acceso,
+  },
+  {
+    id: "conf-reposicion",
+    label: "Conf. Reposición",
+    href: A.pedidosAFabrica.confReposicion,
+    icon: "settings",
+    permiso: PERMISOS.reposicionCorp.acceso,
+  },
+  {
     id: "pedido-a-fabrica",
     label: "Pedidos A Fábrica",
     href: A.pedidosAFabrica.pedidosAFabrica,
@@ -312,16 +325,6 @@ const usuariosScreens: AdmScreenDef[] = [
     href: A.usuarios.usuarios,
     icon: "users",
     permiso: PERMISOS.usuarios.acceso,
-  },
-];
-
-const reposicionCorpScreens: AdmScreenDef[] = [
-  {
-    id: "reposicion-corp",
-    label: "Reposición Corp.",
-    href: A.reposicionCorp.reposicionCorp,
-    icon: "package",
-    permiso: PERMISOS.reposicionCorp.acceso,
   },
 ];
 
@@ -373,7 +376,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
   },
   {
     id: "pedido-a-fabrica",
-    label: "PEDIDOS A FÁBRICA",
+    label: "COMPRAS CORP.",
     icon: "factory",
     basePath: `${A.hub}/pedidos-a-fabrica`,
     screens: pedidosAFabricaScreens,
@@ -391,13 +394,6 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     icon: "users",
     basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,
-  },
-  {
-    id: "reposicion-corp",
-    label: "REPOSICION CORP.",
-    icon: "package",
-    basePath: `${A.hub}/reposicion-corp`,
-    screens: reposicionCorpScreens,
   },
 ];
 
