@@ -31,9 +31,22 @@ const TIPOS_VENTA = [
 
 const TIPOS_VENTA_SALDO = ["factura_fiscal", "factura_no_fiscal"] as const;
 
+/** Variación de ventas contra el período anterior. `pct` es el entero absoluto. */
+export interface ComparacionVentas {
+  sentido: "mas" | "menos" | "igual" | "sin_base";
+  pct: number;
+}
+
 export interface TableroVentasMontos {
   ventas: number;
   cobrado: number;
+  /**
+   * `cobrado / ventas`, entero, sin tope (cobros de otros días pueden pasar de 100).
+   * Null si no hubo ventas y sí cobros: no hay base.
+   */
+  pctCobrado: number | null;
+  /** Día: contra ayer. Mes: contra el mismo día del mes anterior. */
+  comparacion: ComparacionVentas;
 }
 
 export interface TableroVentasClienteVencido {
@@ -42,11 +55,20 @@ export interface TableroVentasClienteVencido {
   saldoVencido: number;
 }
 
+/** Parte de las ventas del mes de una sucursal sobre el total global. */
+export interface TableroVentasParticipacion {
+  id: string;
+  nombre: string;
+  pct: number;
+}
+
 export interface TableroVentasDatos {
   /** Nombre de la sucursal del usuario. Null si no tiene sucursal. */
   sucursalNombre: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
+  /** Sucursales con `genera_est` o con ventas en el mes. Orden: mayor % primero. */
+  participacionSucursales: TableroVentasParticipacion[];
   clientesVencidos: TableroVentasClienteVencido[];
 }
 
@@ -54,8 +76,35 @@ function redondear2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function comparacionIgual(): ComparacionVentas {
+  return { sentido: "igual", pct: 0 };
+}
+
+/** Entero. Null si las ventas son 0 y hubo cobros. */
+export function pctCobradoSobreVentas(cobrado: number, ventas: number): number | null {
+  if (ventas <= 0.009) return cobrado <= 0.009 ? 0 : null;
+  return Math.round((cobrado / ventas) * 100);
+}
+
 function montosVacios(): TableroVentasMontos {
-  return { ventas: 0, cobrado: 0 };
+  return { ventas: 0, cobrado: 0, pctCobrado: 0, comparacion: comparacionIgual() };
+}
+
+/** `(actual − anterior) / |anterior|`. Sin base si el anterior es 0 y este período no. */
+function compararVentas(actual: number, anterior: number): ComparacionVentas {
+  const a = redondear2(actual);
+  const b = redondear2(anterior);
+  if (Math.abs(b) < 0.005) {
+    return Math.abs(a) < 0.005 ? comparacionIgual() : { sentido: "sin_base", pct: 0 };
+  }
+  const pct = Math.round(((a - b) / Math.abs(b)) * 100);
+  if (pct === 0) return comparacionIgual();
+  if (pct < 0) return { sentido: "menos", pct: -pct };
+  return { sentido: "mas", pct };
+}
+
+function diasDelMes(anio: number, mes: number): number {
+  return new Date(Date.UTC(anio, mes, 0)).getUTCDate();
 }
 
 function isoMes(anio: number, mes: number): string {
@@ -82,16 +131,23 @@ async function sumarCobrado(
 export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVentasDatos>> {
   try {
     const hoyIso = dateToIsoYmdArgentina(new Date());
-    const [anioRaw, mesRaw] = hoyIso.split("-");
+    const [anioRaw, mesRaw, diaRaw] = hoyIso.split("-");
     const anio = Number(anioRaw);
     const mes = Number(mesRaw);
+    const diaHoy = Number(diaRaw);
+    const mesPrev = mes === 1 ? 12 : mes - 1;
+    const anioPrev = mes === 1 ? anio - 1 : anio;
     const desdeMesIso = isoMes(anio, mes);
+    const desdeMesAntIso = isoMes(anioPrev, mesPrev);
+    const diaEquivalente = Math.min(diaHoy, diasDelMes(anioPrev, mesPrev));
+    const hastaEqIso = `${anioPrev}-${String(mesPrev).padStart(2, "0")}-${String(diaEquivalente).padStart(2, "0")}`;
+    const ayerIso = addDaysToIsoYmdArgentina(hoyIso, -1);
     const hastaMesIso = mes === 12 ? isoMes(anio + 1, 1) : isoMes(anio, mes + 1);
     const hastaDiaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
     const desdeMesCalendario = prismaDateOnlyFromIsoYmd(desdeMesIso);
-    const desdeMesVentas = prismaDateOnlyFromIsoYmd(
-      desdeMesIso < VENTAS_MENSUALES_DESDE_ISO ? VENTAS_MENSUALES_DESDE_ISO : desdeMesIso
-    );
+    const desdeComparacionIso =
+      desdeMesAntIso < VENTAS_MENSUALES_DESDE_ISO ? VENTAS_MENSUALES_DESDE_ISO : desdeMesAntIso;
+    const desdeMesVentas = prismaDateOnlyFromIsoYmd(desdeComparacionIso);
     const hastaMes = prismaDateOnlyFromIsoYmd(hastaMesIso);
     const desdeDia = prismaDateOnlyFromIsoYmd(hoyIso);
     const hastaDia = prismaDateOnlyFromIsoYmd(hastaDiaIso);
@@ -102,7 +158,9 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const codigo = await sucursalCodigoSesion();
     const [sucursalIdPorCodigo, sucursales] = await Promise.all([
       mapaSucursalIdPorCodigo(),
-      prisma.sucursal.findMany({ select: { id: true, nombre: true, codigo: true } }),
+      prisma.sucursal.findMany({
+        select: { id: true, nombre: true, codigo: true, generaEst: true },
+      }),
     ]);
     const sucursalId = codigo ? sucursalIdPorCodigo.get(codigo) : undefined;
     const sucursalNombre =
@@ -158,20 +216,48 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       ]);
 
     let ventasMes = 0;
+    let ventasMesHastaHoy = 0;
     let ventasDia = 0;
+    let ventasAyer = 0;
+    let ventasMesAnt = 0;
     let ventasMesSuc = 0;
+    let ventasMesHastaHoySuc = 0;
     let ventasDiaSuc = 0;
+    let ventasAyerSuc = 0;
+    let ventasMesAntSuc = 0;
+    const ventasMesPorSucursal = new Map<string, number>();
     for (const row of ventas) {
       if (!esFacturaTipo(row.tipoComprobante)) continue;
       const signo = esFacturaTipoNotaCredito(row.tipoComprobante) ? -1 : 1;
       const importe = signo * Number(row.impTotal) * Number(row.cotizacion);
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
       const deLaSucursal = sucursalId != null && sucursalIdDeVenta(row, sucursalIdPorCodigo) === sucursalId;
-      ventasMes += importe;
-      if (deLaSucursal) ventasMesSuc += importe;
+      const enMesActual = fechaIso >= desdeMesIso && fechaIso < hastaMesIso;
+      const enMesHastaHoy = fechaIso >= desdeMesIso && fechaIso <= hoyIso;
+      const enMesAnteriorEq = fechaIso >= desdeMesAntIso && fechaIso <= hastaEqIso;
+      if (enMesActual) {
+        ventasMes += importe;
+        if (deLaSucursal) ventasMesSuc += importe;
+        const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
+        if (idVenta) {
+          ventasMesPorSucursal.set(idVenta, (ventasMesPorSucursal.get(idVenta) ?? 0) + importe);
+        }
+      }
+      if (enMesHastaHoy) {
+        ventasMesHastaHoy += importe;
+        if (deLaSucursal) ventasMesHastaHoySuc += importe;
+      }
+      if (enMesAnteriorEq) {
+        ventasMesAnt += importe;
+        if (deLaSucursal) ventasMesAntSuc += importe;
+      }
       if (fechaIso === hoyIso) {
         ventasDia += importe;
         if (deLaSucursal) ventasDiaSuc += importe;
+      }
+      if (fechaIso === ayerIso) {
+        ventasAyer += importe;
+        if (deLaSucursal) ventasAyerSuc += importe;
       }
     }
 
@@ -195,6 +281,24 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         saldoVencido: redondear2((previo?.saldoVencido ?? 0) + vencido),
       });
     }
+    const totalMes = redondear2(ventasMes);
+    const participacionSucursales: TableroVentasParticipacion[] = sucursales
+      .filter((s) => s.generaEst || (ventasMesPorSucursal.get(s.id) ?? 0) !== 0)
+      .map((s) => {
+        const monto = redondear2(ventasMesPorSucursal.get(s.id) ?? 0);
+        const pct =
+          Math.abs(totalMes) < 0.005 ? 0 : Math.round((monto / totalMes) * 100);
+        return {
+          id: s.id,
+          nombre: s.nombre.toLocaleUpperCase("es"),
+          pct,
+        };
+      })
+      .sort((a, b) => {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        return a.nombre.localeCompare(b.nombre, "es");
+      });
+
     const clientesVencidos = [...porCliente.values()].sort((a, b) => {
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
       return a.nombre.localeCompare(b.nombre, "es");
@@ -205,13 +309,34 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       data: {
         sucursalNombre: sucursalId ? sucursalNombre : null,
         sucursal: {
-          dia: { ventas: redondear2(ventasDiaSuc), cobrado: cobradoDiaSuc },
-          mes: { ventas: redondear2(ventasMesSuc), cobrado: cobradoMesSuc },
+          dia: {
+            ventas: redondear2(ventasDiaSuc),
+            cobrado: cobradoDiaSuc,
+            pctCobrado: pctCobradoSobreVentas(cobradoDiaSuc, ventasDiaSuc),
+            comparacion: compararVentas(ventasDiaSuc, ventasAyerSuc),
+          },
+          mes: {
+            ventas: redondear2(ventasMesSuc),
+            cobrado: cobradoMesSuc,
+            pctCobrado: pctCobradoSobreVentas(cobradoMesSuc, ventasMesSuc),
+            comparacion: compararVentas(ventasMesHastaHoySuc, ventasMesAntSuc),
+          },
         },
         globales: {
-          dia: { ventas: redondear2(ventasDia), cobrado: cobradoDia },
-          mes: { ventas: redondear2(ventasMes), cobrado: cobradoMes },
+          dia: {
+            ventas: redondear2(ventasDia),
+            cobrado: cobradoDia,
+            pctCobrado: pctCobradoSobreVentas(cobradoDia, ventasDia),
+            comparacion: compararVentas(ventasDia, ventasAyer),
+          },
+          mes: {
+            ventas: redondear2(ventasMes),
+            cobrado: cobradoMes,
+            pctCobrado: pctCobradoSobreVentas(cobradoMes, ventasMes),
+            comparacion: compararVentas(ventasMesHastaHoy, ventasMesAnt),
+          },
         },
+        participacionSucursales,
         clientesVencidos,
       },
     };
@@ -226,6 +351,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
     sucursalNombre: null,
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
+    participacionSucursales: [],
     clientesVencidos: [],
   };
 }

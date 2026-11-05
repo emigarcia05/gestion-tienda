@@ -24,6 +24,7 @@ import FilterBar, {
   SELECT_TRIGGER_FILTER_CLASS,
 } from "@/components/FilterBar";
 import FacturaCobroDetalleModal from "@/components/facturacion/FacturaCobroDetalleModal";
+import FacturaComprobanteCobrosModal from "@/components/facturacion/FacturaComprobanteCobrosModal";
 import FacturaComprobanteDetalleModal from "@/components/facturacion/FacturaComprobanteDetalleModal";
 import FacturaComprobantePdfAccionModal from "@/components/facturacion/FacturaComprobantePdfAccionModal";
 import FacturaPagoCuentaCorrienteModal from "@/components/facturacion/FacturaPagoCuentaCorrienteModal";
@@ -151,6 +152,9 @@ export default function FacturaCuentaCorrientePageClient({
   const [loadingLedger, setLoadingLedger] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cobroId, setCobroId] = useState<string | null>(null);
+  const [cobroVentaId, setCobroVentaId] = useState<string | null>(null);
+  const [cobroVentaNro, setCobroVentaNro] = useState("");
+  const [cobroVentaEsNc, setCobroVentaEsNc] = useState(false);
   const [pdfId, setPdfId] = useState<string | null>(null);
   const [pdfNro, setPdfNro] = useState("");
   const [periodo, setPeriodo] =
@@ -1269,10 +1273,23 @@ export default function FacturaCuentaCorrientePageClient({
                           title="Cobro"
                           aria-label={`Cobro ${item.detalle || item.nroComprobante}`}
                           disabled={
-                            item.tipo !== "cobro" ||
-                            item.id.startsWith("imp-cobrado-")
+                            item.id.startsWith("imp-cobrado-") ||
+                            (item.tipo === "cobro"
+                              ? false
+                              : esPublico ||
+                                (item.tipo !== "venta" &&
+                                  item.tipo !== "nota_credito") ||
+                                !item.comprobanteId)
                           }
-                          onClick={() => setCobroId(item.id)}
+                          onClick={() => {
+                            if (item.tipo === "cobro") {
+                              setCobroId(item.id);
+                              return;
+                            }
+                            setCobroVentaId(item.comprobanteId);
+                            setCobroVentaNro(item.nroComprobante);
+                            setCobroVentaEsNc(item.tipo === "nota_credito");
+                          }}
                         >
                           <CircleDollarSign
                             className={TABLE_ROW_ACTION_ICON_CLASS}
@@ -1350,6 +1367,22 @@ export default function FacturaCuentaCorrientePageClient({
         onOpenChange={setPagoCcOpen}
         clienteId={clienteId}
         onRegistrado={() => {
+          if (clienteId) void cargarLedger(clienteId);
+        }}
+      />
+      <FacturaComprobanteCobrosModal
+        open={cobroVentaId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCobroVentaId(null);
+            setCobroVentaNro("");
+            setCobroVentaEsNc(false);
+          }
+        }}
+        comprobanteId={cobroVentaId}
+        nroComprobante={cobroVentaNro}
+        esNotaCredito={cobroVentaEsNc}
+        onActualizado={() => {
           if (clienteId) void cargarLedger(clienteId);
         }}
       />

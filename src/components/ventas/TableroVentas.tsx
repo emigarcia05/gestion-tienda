@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, Wallet } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,12 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
-import type { TableroVentasDatos, TableroVentasMontos } from "@/services/tableroVentas.service";
+import type {
+  ComparacionVentas,
+  TableroVentasDatos,
+  TableroVentasMontos,
+  TableroVentasParticipacion,
+} from "@/services/tableroVentas.service";
 
 const TITULO_SECCION_CLASS =
   "rounded-md bg-sidebar px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-sidebar-foreground";
@@ -27,24 +32,97 @@ function pesos(n: number): string {
   return `$${fmtPrecio(n)}`;
 }
 
-function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: TableroVentasMontos } }) {
-  const celdas = [
-    { label: "Ventas del día", valor: montos.dia.ventas },
-    { label: "Cobrado del día", valor: montos.dia.cobrado },
-    { label: "Ventas del mes", valor: montos.mes.ventas },
-    { label: "Cobrado del mes", valor: montos.mes.cobrado },
-  ];
+function textoComparacion(comparacion: ComparacionVentas, referencia: string): string {
+  if (comparacion.sentido === "igual") return `Igual que ${referencia}`;
+  if (comparacion.sentido === "sin_base") {
+    return referencia === "ayer" ? "Sin ventas ayer" : "Sin ventas el mes anterior";
+  }
+  return `${comparacion.pct}% que ${referencia}`;
+}
+
+function LineaComparacion({
+  comparacion,
+  referencia,
+}: {
+  comparacion: ComparacionVentas;
+  referencia: string;
+}) {
+  const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
+  const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-center text-xs font-bold uppercase tracking-wide">Ventas</h3>
-      <div className="grid grid-cols-2 gap-3">
-        {celdas.map((celda) => (
-          <div key={celda.label} className="finanzas-resumen-tarjeta min-h-16">
-            <span className="text-[10px] font-semibold uppercase tracking-wide">{celda.label}</span>
-            <span className="text-sm font-semibold tabular-nums">{pesos(celda.valor)}</span>
-          </div>
-        ))}
-      </div>
+    <span className="inline-flex items-center justify-center gap-1 text-[10px] font-semibold uppercase leading-tight tracking-wide">
+      {muestraFlecha ? <Icono className="h-3 w-3 shrink-0" aria-hidden /> : null}
+      {textoComparacion(comparacion, referencia)}
+    </span>
+  );
+}
+
+function textoCobrado(pct: number | null): string {
+  if (pct == null) return "Cobros sin ventas";
+  return `${pct}% cobrado`;
+}
+
+function TarjetaPeriodo({
+  label,
+  montos,
+  referencia,
+}: {
+  label: string;
+  montos: TableroVentasMontos;
+  referencia: string;
+}) {
+  return (
+    <div className="finanzas-resumen-tarjeta min-h-16">
+      <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
+      <span className="text-sm font-semibold tabular-nums">{pesos(montos.ventas)}</span>
+      <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
+      <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide">
+        {textoCobrado(montos.pctCobrado)}
+      </span>
+    </div>
+  );
+}
+
+function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] }) {
+  return (
+    <div className="flex min-h-0 flex-col gap-3">
+      <h3 className="text-center text-xs font-bold uppercase tracking-wide">
+        Participación del mes
+      </h3>
+      {filas.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground">Sin ventas en el mes.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filas.map((fila) => {
+            const ancho = Math.min(100, Math.max(0, fila.pct));
+            return (
+              <li key={fila.id} className="flex min-w-0 items-center gap-2">
+                <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
+                  {fila.nombre}
+                </span>
+                <div className="h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
+                  <div
+                    className="h-full rounded-sm bg-primary"
+                    style={{ width: `${ancho}%` }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums">
+                  {fila.pct}%
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: TableroVentasMontos } }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <TarjetaPeriodo label="Día" montos={montos.dia} referencia="ayer" />
+      <TarjetaPeriodo label="Mes" montos={montos.mes} referencia="el mes anterior" />
     </div>
   );
 }
@@ -127,7 +205,7 @@ export default function TableroVentas({
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
           <div className="grid grid-cols-2 gap-4">
             <MetricasVentas montos={datos.globales} />
-            <div aria-hidden />
+            <BarrasParticipacion filas={datos.participacionSucursales} />
           </div>
         </section>
       </div>

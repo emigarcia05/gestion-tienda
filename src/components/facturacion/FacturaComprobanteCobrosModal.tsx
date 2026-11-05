@@ -79,6 +79,8 @@ type Props = {
   esNotaCredito?: boolean;
   /** Solo el detalle: sin agregar cobros, asignar ni devolver NC (p. ej. Cx Fin Cobros). */
   soloLectura?: boolean;
+  /** Tras registrar un cobro, una devolución o asignar una NC. */
+  onActualizado?: () => void;
 };
 
 export default function FacturaComprobanteCobrosModal({
@@ -88,6 +90,7 @@ export default function FacturaComprobanteCobrosModal({
   nroComprobante,
   esNotaCredito = false,
   soloLectura = false,
+  onActualizado,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<FacturaComprobanteCobroItem[]>([]);
@@ -253,6 +256,7 @@ export default function FacturaComprobanteCobrosModal({
     toast.success("Nota de crédito asignada como pago.");
     await cargarVistaNc(comprobanteId);
     router.refresh();
+    onActualizado?.();
   }
 
   useEffect(() => {
@@ -352,6 +356,7 @@ export default function FacturaComprobanteCobrosModal({
     }
     toast.success(esNotaCredito ? "Devolución registrada." : "Cobro registrado.");
     setFormAbierto(false);
+    onActualizado?.();
     if (esNotaCredito) {
       await cargarVistaNc(comprobanteId);
     } else {
