@@ -101,6 +101,7 @@ function mapRow(row: {
   modulosPermitidos: string[];
   titularFinanciero: boolean;
   superUsuario: boolean;
+  vistaTablero: string;
   contrasena: string | null;
 }): GlobalPersonalItem {
   return {
