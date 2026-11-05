@@ -85,14 +85,16 @@ export interface TableroVentasSerieMes {
   meses: TableroVentasMesGrafico[];
 }
 
-/** Parte de las ventas de una sucursal sobre el total global del mes y del año. */
+/** Parte de las ventas del mes de una sucursal sobre el total global, y su promedio mensual. */
 export interface TableroVentasParticipacion {
   id: string;
   nombre: string;
   pctMes: number;
-  pctAnio: number;
   montoMes: number;
-  montoAnio: number;
+  /** Total del año / meses con ventas netas mayores a 0. */
+  montoPromedio: number;
+  /** Posición de la marca sobre la misma escala que `pctMes` (0–100). */
+  pctPromedio: number;
 }
 
 export interface TableroVentasDatos {
@@ -100,7 +102,7 @@ export interface TableroVentasDatos {
   sucursalNombre: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
-  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. */
+  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. El promedio es el total del año / meses con ventas. */
   participacionSucursales: TableroVentasParticipacion[];
   /** GLOBAL y cada sucursal `genera_est`. Siempre 12 meses, de enero a diciembre. */
   seriesMeses: TableroVentasSerieMes[];
@@ -289,7 +291,6 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     let ventasDiaSuc = 0;
     let ventasAyerSuc = 0;
     let ventasMesAntSuc = 0;
-    let ventasAnio = 0;
     const ventasMesPorSucursal = new Map<string, number>();
     const ventasAnioPorSucursal = new Map<string, number>();
     const ventasPorMes = new Map<number, number>();
@@ -314,7 +315,6 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         }
       }
       if (enAnio) {
-        ventasAnio += importe;
         const mesFila = Number(fechaIso.slice(5, 7));
         ventasPorMes.set(mesFila, (ventasPorMes.get(mesFila) ?? 0) + importe);
         if (idVenta) {
@@ -369,9 +369,12 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       });
     }
     const totalMes = redondear2(ventasMes);
-    const totalAnio = redondear2(ventasAnio);
     const pctSobre = (monto: number, total: number) =>
       Math.abs(total) < 0.005 ? 0 : Math.round((monto / total) * 100);
+    const pctMarca = (monto: number, total: number) => {
+      if (Math.abs(total) < 0.005 || monto <= 0) return 0;
+      return Math.min(100, Math.max(0, Math.round((monto / total) * 1000) / 10));
+    };
     const participacionSucursales: TableroVentasParticipacion[] = sucursales
       .filter(
         (s) =>
@@ -379,17 +382,28 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           (ventasMesPorSucursal.get(s.id) ?? 0) !== 0 ||
           (ventasAnioPorSucursal.get(s.id) ?? 0) !== 0
       )
-      .map((s) => ({
-        id: s.id,
-        nombre: s.nombre.toLocaleUpperCase("es"),
-        pctMes: pctSobre(redondear2(ventasMesPorSucursal.get(s.id) ?? 0), totalMes),
-        pctAnio: pctSobre(redondear2(ventasAnioPorSucursal.get(s.id) ?? 0), totalAnio),
-        montoMes: redondear2(ventasMesPorSucursal.get(s.id) ?? 0),
-        montoAnio: redondear2(ventasAnioPorSucursal.get(s.id) ?? 0),
-      }))
+      .map((s) => {
+        const porMes = ventasPorMesSucursal.get(s.id);
+        let mesesConVentas = 0;
+        if (porMes) {
+          for (const neto of porMes.values()) {
+            if (neto > 0.009) mesesConVentas += 1;
+          }
+        }
+        const montoAnio = redondear2(ventasAnioPorSucursal.get(s.id) ?? 0);
+        const montoPromedio =
+          mesesConVentas === 0 ? 0 : redondear2(montoAnio / mesesConVentas);
+        return {
+          id: s.id,
+          nombre: s.nombre.toLocaleUpperCase("es"),
+          pctMes: pctSobre(redondear2(ventasMesPorSucursal.get(s.id) ?? 0), totalMes),
+          montoMes: redondear2(ventasMesPorSucursal.get(s.id) ?? 0),
+          montoPromedio,
+          pctPromedio: pctMarca(montoPromedio, totalMes),
+        };
+      })
       .sort((a, b) => {
         if (b.pctMes !== a.pctMes) return b.pctMes - a.pctMes;
-        if (b.pctAnio !== a.pctAnio) return b.pctAnio - a.pctAnio;
         return a.nombre.localeCompare(b.nombre, "es");
       });
 

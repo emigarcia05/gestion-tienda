@@ -22,23 +22,30 @@ function esMedida(valor: string): valor is MedidaParticipacion {
 function BarraParticipacion({
   pct,
   monto,
-  tono,
+  pctPromedio,
+  montoPromedio,
   medida,
 }: {
   pct: number;
   monto: number;
-  tono: "mes" | "anio";
+  pctPromedio: number;
+  montoPromedio: number;
   medida: MedidaParticipacion;
 }) {
   const ancho = Math.min(100, Math.max(0, pct));
+  const marca = Math.min(100, Math.max(0, pctPromedio));
   const texto = medida === "monto" ? `$${fmtPrecio(monto)}` : `${pct}%`;
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <div className="h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
-        <div
-          className={tono === "mes" ? "h-full rounded-sm bg-primary" : "h-full rounded-sm bg-accent2"}
-          style={{ width: `${ancho}%` }}
-        />
+      <div className="relative h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
+        <div className="h-full rounded-sm bg-primary" style={{ width: `${ancho}%` }} />
+        {marca > 0 ? (
+          <div
+            className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-accent2"
+            style={{ left: `${marca}%` }}
+            title={`Promedio $${fmtPrecio(montoPromedio)}`}
+          />
+        ) : null}
       </div>
       <span
         className={
@@ -98,8 +105,8 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
             Mes
           </span>
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-            <span className="h-2.5 w-2.5 rounded-sm bg-accent2" aria-hidden />
-            Año
+            <span className="h-2.5 w-0.5 bg-accent2" aria-hidden />
+            Promedio
           </span>
         </div>
         {visibles.length === 0 ? (
@@ -111,10 +118,13 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
                 <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
                   {fila.nombre}
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <BarraParticipacion pct={fila.pctMes} monto={fila.montoMes} tono="mes" medida={medida} />
-                  <BarraParticipacion pct={fila.pctAnio} monto={fila.montoAnio} tono="anio" medida={medida} />
-                </div>
+                <BarraParticipacion
+                  pct={fila.pctMes}
+                  monto={fila.montoMes}
+                  pctPromedio={fila.pctPromedio}
+                  montoPromedio={fila.montoPromedio}
+                  medida={medida}
+                />
               </li>
             ))}
           </ul>
