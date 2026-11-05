@@ -70,12 +70,19 @@ const ETIQUETAS_MES = [
   "DIC",
 ] as const;
 
-/** Mes del gráfico global. `proyectado` solo en el mes en curso. */
+/** Mes del gráfico. `proyectado` solo en el mes en curso. */
 export interface TableroVentasMesGrafico {
   mes: number;
   etiqueta: string;
   ventas: number;
   proyectado: number | null;
+}
+
+/** Una serie del gráfico: GLOBAL o una sucursal `genera_est`. */
+export interface TableroVentasSerieMes {
+  id: string;
+  etiqueta: string;
+  meses: TableroVentasMesGrafico[];
 }
 
 /** Parte de las ventas de una sucursal sobre el total global del mes y del año. */
@@ -93,8 +100,8 @@ export interface TableroVentasDatos {
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. */
   participacionSucursales: TableroVentasParticipacion[];
-  /** Meses del año en curso, desde el piso de ventas hasta el mes actual. */
-  mesesGlobales: TableroVentasMesGrafico[];
+  /** GLOBAL y cada sucursal `genera_est`. Siempre 12 meses, de enero a diciembre. */
+  seriesMeses: TableroVentasSerieMes[];
   clientesVencidos: TableroVentasClienteVencido[];
 }
 
@@ -110,6 +117,32 @@ function comparacionIgual(): ComparacionVentas {
 export function pctCobradoSobreVentas(cobrado: number, ventas: number): number | null {
   if (ventas <= 0.009) return cobrado <= 0.009 ? 0 : null;
   return Math.round((cobrado / ventas) * 100);
+}
+
+function mesesDelAnio(
+  mesActual: number,
+  vendidoMes: number,
+  diasMes: number,
+  diaHoy: number,
+  ventasPorMes: Map<number, number>
+): TableroVentasMesGrafico[] {
+  const proyectado =
+    diaHoy > 0 ? redondear2((vendidoMes / diaHoy) * diasMes) : vendidoMes;
+  return ETIQUETAS_MES.map((etiqueta, indice) => {
+    const m = indice + 1;
+    if (m === mesActual) {
+      return { mes: m, etiqueta, ventas: vendidoMes, proyectado };
+    }
+    if (m > mesActual) {
+      return { mes: m, etiqueta, ventas: 0, proyectado: null };
+    }
+    return {
+      mes: m,
+      etiqueta,
+      ventas: redondear2(ventasPorMes.get(m) ?? 0),
+      proyectado: null,
+    };
+  });
 }
 
 function montosVacios(): TableroVentasMontos {
@@ -258,12 +291,15 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const ventasMesPorSucursal = new Map<string, number>();
     const ventasAnioPorSucursal = new Map<string, number>();
     const ventasPorMes = new Map<number, number>();
+    const ventasPorMesSucursal = new Map<string, Map<number, number>>();
+    const ventasHastaHoyPorSucursal = new Map<string, number>();
     for (const row of ventas) {
       if (!esFacturaTipo(row.tipoComprobante)) continue;
       const signo = esFacturaTipoNotaCredito(row.tipoComprobante) ? -1 : 1;
       const importe = signo * Number(row.impTotal) * Number(row.cotizacion);
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
-      const deLaSucursal = sucursalId != null && sucursalIdDeVenta(row, sucursalIdPorCodigo) === sucursalId;
+      const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
+      const deLaSucursal = sucursalId != null && idVenta === sucursalId;
       const enMesActual = fechaIso >= desdeMesIso && fechaIso < hastaMesIso;
       const enAnio = fechaIso >= desdeAnioIso && fechaIso < hastaAnioIso;
       const enMesHastaHoy = fechaIso >= desdeMesIso && fechaIso <= hoyIso;
@@ -271,7 +307,6 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       if (enMesActual) {
         ventasMes += importe;
         if (deLaSucursal) ventasMesSuc += importe;
-        const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
         if (idVenta) {
           ventasMesPorSucursal.set(idVenta, (ventasMesPorSucursal.get(idVenta) ?? 0) + importe);
         }
@@ -280,14 +315,22 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         ventasAnio += importe;
         const mesFila = Number(fechaIso.slice(5, 7));
         ventasPorMes.set(mesFila, (ventasPorMes.get(mesFila) ?? 0) + importe);
-        const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
         if (idVenta) {
           ventasAnioPorSucursal.set(idVenta, (ventasAnioPorSucursal.get(idVenta) ?? 0) + importe);
+          const porMes = ventasPorMesSucursal.get(idVenta) ?? new Map<number, number>();
+          porMes.set(mesFila, (porMes.get(mesFila) ?? 0) + importe);
+          ventasPorMesSucursal.set(idVenta, porMes);
         }
       }
       if (enMesHastaHoy) {
         ventasMesHastaHoy += importe;
         if (deLaSucursal) ventasMesHastaHoySuc += importe;
+        if (idVenta) {
+          ventasHastaHoyPorSucursal.set(
+            idVenta,
+            (ventasHastaHoyPorSucursal.get(idVenta) ?? 0) + importe
+          );
+        }
       }
       if (enMesAnteriorEq) {
         ventasMesAnt += importe;
@@ -346,25 +389,28 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         return a.nombre.localeCompare(b.nombre, "es");
       });
 
-    const vendidoMes = redondear2(ventasMesHastaHoy);
     const diasMes = diasDelMes(anio, mes);
-    const proyectadoMes =
-      diaHoy > 0 ? redondear2((vendidoMes / diaHoy) * diasMes) : vendidoMes;
-    const mesesGlobales: TableroVentasMesGrafico[] = ETIQUETAS_MES.map((etiqueta, indice) => {
-      const m = indice + 1;
-      if (m === mes) {
-        return { mes: m, etiqueta, ventas: vendidoMes, proyectado: proyectadoMes };
-      }
-      if (m > mes) {
-        return { mes: m, etiqueta, ventas: 0, proyectado: null };
-      }
-      return {
-        mes: m,
-        etiqueta,
-        ventas: redondear2(ventasPorMes.get(m) ?? 0),
-        proyectado: null,
-      };
-    });
+    const seriesMeses: TableroVentasSerieMes[] = [
+      {
+        id: "global",
+        etiqueta: "GLOBAL",
+        meses: mesesDelAnio(mes, redondear2(ventasMesHastaHoy), diasMes, diaHoy, ventasPorMes),
+      },
+      ...sucursales
+        .filter((s) => s.generaEst)
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+        .map((s) => ({
+          id: s.id,
+          etiqueta: s.nombre.toLocaleUpperCase("es"),
+          meses: mesesDelAnio(
+            mes,
+            redondear2(ventasHastaHoyPorSucursal.get(s.id) ?? 0),
+            diasMes,
+            diaHoy,
+            ventasPorMesSucursal.get(s.id) ?? new Map()
+          ),
+        })),
+    ];
 
     const clientesVencidos = [...porCliente.values()].sort((a, b) => {
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
@@ -404,7 +450,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           },
         },
         participacionSucursales,
-        mesesGlobales,
+        seriesMeses,
         clientesVencidos,
       },
     };
@@ -420,12 +466,18 @@ export function tableroVentasVacio(): TableroVentasDatos {
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
-    mesesGlobales: ETIQUETAS_MES.map((etiqueta, indice) => ({
-      mes: indice + 1,
-      etiqueta,
-      ventas: 0,
-      proyectado: null,
-    })),
+    seriesMeses: [
+      {
+        id: "global",
+        etiqueta: "GLOBAL",
+        meses: ETIQUETAS_MES.map((etiqueta, indice) => ({
+          mes: indice + 1,
+          etiqueta,
+          ventas: 0,
+          proyectado: null,
+        })),
+      },
+    ],
     clientesVencidos: [],
   };
 }

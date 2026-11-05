@@ -18,11 +18,11 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import GraficoMesesTablero from "@/components/ventas/GraficoMesesTablero";
 import type {
   ComparacionVentas,
   TableroVentasDatos,
   TableroVentasMontos,
-  TableroVentasMesGrafico,
   TableroVentasParticipacion,
 } from "@/services/tableroVentas.service";
 
@@ -51,8 +51,8 @@ function LineaComparacion({
   const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
   const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <span className="inline-flex items-center justify-center gap-1 text-[10px] font-semibold uppercase leading-tight tracking-wide">
-      {muestraFlecha ? <Icono className="h-3 w-3 shrink-0" aria-hidden /> : null}
+    <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold uppercase leading-tight tracking-wide">
+      {muestraFlecha ? <Icono className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
       {textoComparacion(comparacion, referencia)}
     </span>
   );
@@ -74,10 +74,10 @@ function TarjetaPeriodo({
 }) {
   return (
     <div className="finanzas-resumen-tarjeta min-h-16">
-      <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
-      <span className="text-sm font-semibold tabular-nums">{pesos(montos.ventas)}</span>
+      <span className="text-base font-semibold uppercase tracking-wide">{label}</span>
+      <span className="text-2xl font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
       <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
-      <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide">
+      <span className="text-base font-semibold uppercase leading-tight tracking-wide">
         {textoCobrado(montos.pctCobrado)}
       </span>
     </div>
@@ -130,66 +130,6 @@ function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] })
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function GraficoMeses({ meses }: { meses: TableroVentasMesGrafico[] }) {
-  const techo = meses.reduce((max, mes) => {
-    const candidato = Math.max(mes.ventas, mes.proyectado ?? 0);
-    return candidato > max ? candidato : max;
-  }, 0);
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-center gap-4">
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden />
-          Vendido
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-          <span className="h-2.5 w-2.5 border-x-2 border-t-2 border-dotted border-foreground" aria-hidden />
-          Proyectado
-        </span>
-      </div>
-      <div className="flex h-40 items-end gap-2">
-        {meses.map((mes) => {
-          const altoVendido =
-            techo <= 0 || mes.ventas <= 0
-              ? 0
-              : Math.min(100, Math.max(0, (mes.ventas / techo) * 100));
-          const altoProyectado =
-            techo <= 0 || mes.proyectado == null || mes.proyectado <= 0
-              ? null
-              : Math.min(100, Math.max(0, (mes.proyectado / techo) * 100));
-          const titulo =
-            mes.proyectado != null && mes.proyectado > 0
-              ? `${mes.etiqueta} vendido ${pesos(mes.ventas)}, proyectado ${pesos(mes.proyectado)}`
-              : mes.ventas > 0
-                ? `${mes.etiqueta} ${pesos(mes.ventas)}`
-                : mes.etiqueta;
-          return (
-            <div key={mes.mes} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1" title={titulo}>
-              <div className="relative min-h-0 w-full flex-1">
-                {altoVendido > 0 ? (
-                  <div
-                    className="absolute inset-x-0 bottom-0 rounded-sm bg-primary"
-                    style={{ height: `${altoVendido}%` }}
-                  />
-                ) : null}
-                {altoProyectado != null ? (
-                  <div
-                    className="absolute inset-x-0 bottom-0 border-x-2 border-t-2 border-dotted border-foreground"
-                    style={{ height: `${altoProyectado}%` }}
-                  />
-                ) : null}
-              </div>
-              <span className="text-center text-[10px] font-semibold uppercase tracking-wide">
-                {mes.etiqueta}
-              </span>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -282,7 +222,7 @@ export default function TableroVentas({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex min-w-0 flex-col gap-3">
               <MetricasVentas montos={datos.globales} />
-              <GraficoMeses meses={datos.mesesGlobales} />
+              <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
             <BarrasParticipacion filas={datos.participacionSucursales} />
           </div>
