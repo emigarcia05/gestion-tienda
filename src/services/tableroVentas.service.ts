@@ -55,11 +55,35 @@ export interface TableroVentasClienteVencido {
   saldoVencido: number;
 }
 
-/** Parte de las ventas del mes de una sucursal sobre el total global. */
+const ETIQUETAS_MES = [
+  "ENE",
+  "FEB",
+  "MAR",
+  "ABR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DIC",
+] as const;
+
+/** Mes del gráfico global. `proyectado` solo en el mes en curso. */
+export interface TableroVentasMesGrafico {
+  mes: number;
+  etiqueta: string;
+  ventas: number;
+  proyectado: number | null;
+}
+
+/** Parte de las ventas de una sucursal sobre el total global del mes y del año. */
 export interface TableroVentasParticipacion {
   id: string;
   nombre: string;
-  pct: number;
+  pctMes: number;
+  pctAnio: number;
 }
 
 export interface TableroVentasDatos {
@@ -67,8 +91,10 @@ export interface TableroVentasDatos {
   sucursalNombre: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
-  /** Sucursales con `genera_est` o con ventas en el mes. Orden: mayor % primero. */
+  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. */
   participacionSucursales: TableroVentasParticipacion[];
+  /** Meses del año en curso, desde el piso de ventas hasta el mes actual. */
+  mesesGlobales: TableroVentasMesGrafico[];
   clientesVencidos: TableroVentasClienteVencido[];
 }
 
@@ -145,8 +171,11 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const hastaMesIso = mes === 12 ? isoMes(anio + 1, 1) : isoMes(anio, mes + 1);
     const hastaDiaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
     const desdeMesCalendario = prismaDateOnlyFromIsoYmd(desdeMesIso);
+    const desdeAnioIso = `${anio}-01-01`;
+    const hastaAnioIso = `${anio + 1}-01-01`;
+    const desdeConsultaIso = desdeMesAntIso < desdeAnioIso ? desdeMesAntIso : desdeAnioIso;
     const desdeComparacionIso =
-      desdeMesAntIso < VENTAS_MENSUALES_DESDE_ISO ? VENTAS_MENSUALES_DESDE_ISO : desdeMesAntIso;
+      desdeConsultaIso < VENTAS_MENSUALES_DESDE_ISO ? VENTAS_MENSUALES_DESDE_ISO : desdeConsultaIso;
     const desdeMesVentas = prismaDateOnlyFromIsoYmd(desdeComparacionIso);
     const hastaMes = prismaDateOnlyFromIsoYmd(hastaMesIso);
     const desdeDia = prismaDateOnlyFromIsoYmd(hoyIso);
@@ -225,7 +254,10 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     let ventasDiaSuc = 0;
     let ventasAyerSuc = 0;
     let ventasMesAntSuc = 0;
+    let ventasAnio = 0;
     const ventasMesPorSucursal = new Map<string, number>();
+    const ventasAnioPorSucursal = new Map<string, number>();
+    const ventasPorMes = new Map<number, number>();
     for (const row of ventas) {
       if (!esFacturaTipo(row.tipoComprobante)) continue;
       const signo = esFacturaTipoNotaCredito(row.tipoComprobante) ? -1 : 1;
@@ -233,6 +265,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
       const deLaSucursal = sucursalId != null && sucursalIdDeVenta(row, sucursalIdPorCodigo) === sucursalId;
       const enMesActual = fechaIso >= desdeMesIso && fechaIso < hastaMesIso;
+      const enAnio = fechaIso >= desdeAnioIso && fechaIso < hastaAnioIso;
       const enMesHastaHoy = fechaIso >= desdeMesIso && fechaIso <= hoyIso;
       const enMesAnteriorEq = fechaIso >= desdeMesAntIso && fechaIso <= hastaEqIso;
       if (enMesActual) {
@@ -241,6 +274,15 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
         if (idVenta) {
           ventasMesPorSucursal.set(idVenta, (ventasMesPorSucursal.get(idVenta) ?? 0) + importe);
+        }
+      }
+      if (enAnio) {
+        ventasAnio += importe;
+        const mesFila = Number(fechaIso.slice(5, 7));
+        ventasPorMes.set(mesFila, (ventasPorMes.get(mesFila) ?? 0) + importe);
+        const idVenta = sucursalIdDeVenta(row, sucursalIdPorCodigo);
+        if (idVenta) {
+          ventasAnioPorSucursal.set(idVenta, (ventasAnioPorSucursal.get(idVenta) ?? 0) + importe);
         }
       }
       if (enMesHastaHoy) {
@@ -282,22 +324,46 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       });
     }
     const totalMes = redondear2(ventasMes);
+    const totalAnio = redondear2(ventasAnio);
+    const pctSobre = (monto: number, total: number) =>
+      Math.abs(total) < 0.005 ? 0 : Math.round((monto / total) * 100);
     const participacionSucursales: TableroVentasParticipacion[] = sucursales
-      .filter((s) => s.generaEst || (ventasMesPorSucursal.get(s.id) ?? 0) !== 0)
-      .map((s) => {
-        const monto = redondear2(ventasMesPorSucursal.get(s.id) ?? 0);
-        const pct =
-          Math.abs(totalMes) < 0.005 ? 0 : Math.round((monto / totalMes) * 100);
-        return {
-          id: s.id,
-          nombre: s.nombre.toLocaleUpperCase("es"),
-          pct,
-        };
-      })
+      .filter(
+        (s) =>
+          s.generaEst ||
+          (ventasMesPorSucursal.get(s.id) ?? 0) !== 0 ||
+          (ventasAnioPorSucursal.get(s.id) ?? 0) !== 0
+      )
+      .map((s) => ({
+        id: s.id,
+        nombre: s.nombre.toLocaleUpperCase("es"),
+        pctMes: pctSobre(redondear2(ventasMesPorSucursal.get(s.id) ?? 0), totalMes),
+        pctAnio: pctSobre(redondear2(ventasAnioPorSucursal.get(s.id) ?? 0), totalAnio),
+      }))
       .sort((a, b) => {
-        if (b.pct !== a.pct) return b.pct - a.pct;
+        if (b.pctMes !== a.pctMes) return b.pctMes - a.pctMes;
+        if (b.pctAnio !== a.pctAnio) return b.pctAnio - a.pctAnio;
         return a.nombre.localeCompare(b.nombre, "es");
       });
+
+    const vendidoMes = redondear2(ventasMesHastaHoy);
+    const diasMes = diasDelMes(anio, mes);
+    const proyectadoMes =
+      diaHoy > 0 ? redondear2((vendidoMes / diaHoy) * diasMes) : vendidoMes;
+    const mesInicio =
+      VENTAS_MENSUALES_DESDE_ISO.slice(0, 4) === String(anio)
+        ? Number(VENTAS_MENSUALES_DESDE_ISO.slice(5, 7))
+        : 1;
+    const mesesGlobales: TableroVentasMesGrafico[] = [];
+    for (let m = mesInicio; m <= mes; m += 1) {
+      const esActual = m === mes;
+      mesesGlobales.push({
+        mes: m,
+        etiqueta: ETIQUETAS_MES[m - 1] ?? String(m),
+        ventas: esActual ? vendidoMes : redondear2(ventasPorMes.get(m) ?? 0),
+        proyectado: esActual ? proyectadoMes : null,
+      });
+    }
 
     const clientesVencidos = [...porCliente.values()].sort((a, b) => {
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
@@ -337,6 +403,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           },
         },
         participacionSucursales,
+        mesesGlobales,
         clientesVencidos,
       },
     };
@@ -352,6 +419,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
+    mesesGlobales: [],
     clientesVencidos: [],
   };
 }

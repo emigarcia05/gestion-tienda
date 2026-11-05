@@ -22,6 +22,7 @@ import type {
   ComparacionVentas,
   TableroVentasDatos,
   TableroVentasMontos,
+  TableroVentasMesGrafico,
   TableroVentasParticipacion,
 } from "@/services/tableroVentas.service";
 
@@ -83,36 +84,108 @@ function TarjetaPeriodo({
   );
 }
 
+function BarraParticipacion({ pct, tono }: { pct: number; tono: "mes" | "anio" }) {
+  const ancho = Math.min(100, Math.max(0, pct));
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
+        <div
+          className={tono === "mes" ? "h-full rounded-sm bg-primary" : "h-full rounded-sm bg-accent2"}
+          style={{ width: `${ancho}%` }}
+        />
+      </div>
+      <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums">{pct}%</span>
+    </div>
+  );
+}
+
 function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] }) {
   return (
     <div className="flex min-h-0 flex-col gap-3">
-      <h3 className="text-center text-xs font-bold uppercase tracking-wide">
-        Participación del mes
-      </h3>
+      <h3 className="text-center text-xs font-bold uppercase tracking-wide">Participación</h3>
+      <div className="flex items-center justify-center gap-4">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden />
+          Mes
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
+          <span className="h-2.5 w-2.5 rounded-sm bg-accent2" aria-hidden />
+          Año
+        </span>
+      </div>
       {filas.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">Sin ventas en el mes.</p>
+        <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {filas.map((fila) => {
-            const ancho = Math.min(100, Math.max(0, fila.pct));
+        <ul className="flex flex-col gap-3">
+          {filas.map((fila) => (
+            <li key={fila.id} className="flex min-w-0 items-center gap-2">
+              <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
+                {fila.nombre}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <BarraParticipacion pct={fila.pctMes} tono="mes" />
+                <BarraParticipacion pct={fila.pctAnio} tono="anio" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function GraficoMeses({ meses }: { meses: TableroVentasMesGrafico[] }) {
+  const techo = meses.reduce((max, mes) => {
+    const candidato = Math.max(mes.ventas, mes.proyectado ?? 0);
+    return candidato > max ? candidato : max;
+  }, 0);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-center gap-4">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden />
+          Vendido
+        </span>
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
+          <span className="h-0 w-4 border-t-2 border-dotted border-foreground" aria-hidden />
+          Proyectado
+        </span>
+      </div>
+      {techo <= 0 ? (
+        <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
+      ) : (
+        <div className="flex h-40 items-end gap-2">
+          {meses.map((mes) => {
+            const altoVendido = Math.min(100, Math.max(0, (mes.ventas / techo) * 100));
+            const altoProyectado =
+              mes.proyectado == null
+                ? null
+                : Math.min(100, Math.max(0, (mes.proyectado / techo) * 100));
+            const titulo =
+              mes.proyectado == null
+                ? `${mes.etiqueta} ${pesos(mes.ventas)}`
+                : `${mes.etiqueta} vendido ${pesos(mes.ventas)}, proyectado ${pesos(mes.proyectado)}`;
             return (
-              <li key={fila.id} className="flex min-w-0 items-center gap-2">
-                <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
-                  {fila.nombre}
-                </span>
-                <div className="h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
+              <div key={mes.mes} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1" title={titulo}>
+                <div className="relative min-h-0 w-full flex-1">
                   <div
-                    className="h-full rounded-sm bg-primary"
-                    style={{ width: `${ancho}%` }}
+                    className="absolute inset-x-0 bottom-0 rounded-sm bg-primary"
+                    style={{ height: `${altoVendido}%` }}
                   />
+                  {altoProyectado != null ? (
+                    <div
+                      className="absolute inset-x-0 border-t-2 border-dotted border-foreground"
+                      style={{ bottom: `${altoProyectado}%` }}
+                    />
+                  ) : null}
                 </div>
-                <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums">
-                  {fila.pct}%
+                <span className="text-center text-[10px] font-semibold uppercase tracking-wide">
+                  {mes.etiqueta}
                 </span>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -207,6 +280,7 @@ export default function TableroVentas({
             <MetricasVentas montos={datos.globales} />
             <BarrasParticipacion filas={datos.participacionSucursales} />
           </div>
+          <GraficoMeses meses={datos.mesesGlobales} />
         </section>
       </div>
     </ClassicFilteredTableLayout>
