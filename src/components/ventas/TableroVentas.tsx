@@ -52,8 +52,8 @@ function LineaComparacion({
   const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
   const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <span className="mb-4 inline-flex items-center justify-center gap-1 text-xs font-semibold uppercase leading-tight tracking-wide">
-      {muestraFlecha ? <Icono className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+    <span className="mb-[0.7rem] inline-flex items-center justify-center gap-1 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+      {muestraFlecha ? <Icono className="h-2.5 w-2.5 shrink-0" aria-hidden /> : null}
       {textoComparacion(comparacion, referencia)}
     </span>
   );
@@ -74,11 +74,13 @@ function TarjetaPeriodo({
   referencia: string;
 }) {
   return (
-    <div className="finanzas-resumen-tarjeta min-h-16">
-      <span className="mb-4 text-base font-semibold uppercase tracking-wide">{label}</span>
-      <span className="text-2xl font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
+    <div className="finanzas-resumen-tarjeta py-[0.35rem]">
+      <span className="mb-[0.7rem] text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
+        {label}
+      </span>
+      <span className="text-[1.05rem] font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
       <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
-      <span className="text-base font-semibold uppercase leading-tight tracking-wide">
+      <span className="text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
         {textoCobrado(montos.pctCobrado)}
       </span>
     </div>
