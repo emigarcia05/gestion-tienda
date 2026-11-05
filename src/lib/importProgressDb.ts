@@ -80,6 +80,7 @@ export async function startImportInDb(total: number): Promise<void> {
       resultActualizados: null,
       resultEliminados: null,
       resultErrores: Prisma.DbNull,
+      resultResumen: Prisma.DbNull,
       error: null,
       updatedAt: new Date(),
     },
@@ -93,7 +94,14 @@ export async function setImportProgressInDb(processed: number, total: number): P
   });
 }
 
-export async function setImportResultInDb(result: ImportProgressResult): Promise<void> {
+export async function setImportResultInDb(
+  result: ImportProgressResult,
+  resumen: unknown
+): Promise<void> {
+  const resultResumen =
+    resumen == null
+      ? Prisma.DbNull
+      : (JSON.parse(JSON.stringify(resumen)) as Prisma.InputJsonValue);
   await prisma.importProgress.update({
     where: { id: IMPORT_PROGRESS_ID },
     data: {
@@ -102,10 +110,20 @@ export async function setImportResultInDb(result: ImportProgressResult): Promise
       resultActualizados: result.actualizados,
       resultEliminados: result.eliminados,
       resultErrores: result.errores,
+      resultResumen,
       error: null,
       updatedAt: new Date(),
     },
   });
+}
+
+export async function getResumenAumentosImportFromDb(): Promise<unknown> {
+  const row = await prisma.importProgress.findUnique({
+    where: { id: IMPORT_PROGRESS_ID },
+    select: { resultResumen: true, running: true },
+  });
+  if (!row || row.running || row.resultResumen == null) return null;
+  return row.resultResumen;
 }
 
 export async function setImportErrorInDb(message: string): Promise<void> {

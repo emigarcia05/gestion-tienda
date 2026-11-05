@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +21,16 @@ import {
   crearUsuarioPersonalAction,
 } from "@/actions/globalPersonal";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
-import { MODULOS_PERMITIDOS_USUARIO } from "@/lib/usuarios";
+import {
+  MODULOS_PERMITIDOS_USUARIO,
+  ordenarModulosPermitidos,
+  type VistaTablero,
+} from "@/lib/usuarios";
 import {
   SUCURSALES_PREFERIDAS,
   type SucursalPreferida,
 } from "@/lib/sucursalPreferida";
 import type { MainAppAreaId } from "@/lib/main-app-areas";
-import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -50,6 +54,7 @@ export default function EditarUsuarioModal({
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
   const [titularFinanciero, setTitularFinanciero] = useState(false);
   const [superUsuario, setSuperUsuario] = useState(false);
+  const [vistaTablero, setVistaTablero] = useState<VistaTablero>("gerente");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -61,6 +66,7 @@ export default function EditarUsuarioModal({
       setModulos(item.modulosPermitidos);
       setTitularFinanciero(item.titularFinanciero);
       setSuperUsuario(item.superUsuario);
+      setVistaTablero(item.vistaTablero);
       return;
     }
     setNombre("");
@@ -69,17 +75,11 @@ export default function EditarUsuarioModal({
     setModulos([]);
     setTitularFinanciero(false);
     setSuperUsuario(false);
-    setSuperUsuario(false);
+    setVistaTablero("gerente");
   }, [open, item]);
 
   const puedeGuardar =
     (superUsuario || modulos.length > 0) && (esAlta ? nombre.trim() !== "" : item != null);
-
-  function toggleModulo(id: MainAppAreaId) {
-    setModulos((prev) =>
-      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
-    );
-  }
 
   async function handleSubmit() {
     if (saving || !puedeGuardar) return;
@@ -95,6 +95,7 @@ export default function EditarUsuarioModal({
             modulosPermitidos: modulos,
             titularFinanciero,
             superUsuario,
+            vistaTablero,
           })
         : item
           ? await actualizarUsuarioPersonalAction({
@@ -104,6 +105,7 @@ export default function EditarUsuarioModal({
               modulosPermitidos: modulos,
               titularFinanciero,
               superUsuario,
+              vistaTablero,
             })
           : { ok: false as const, error: "Usuario no encontrado." };
       if (!res.ok) {
@@ -223,25 +225,42 @@ export default function EditarUsuarioModal({
               onChange={setSuperUsuario}
               disabled={saving}
             />
-            <div className="flex flex-col gap-2">
-              {MODULOS_PERMITIDOS_USUARIO.map((m) => {
-                const activo = superUsuario || modulos.includes(m.id);
-                return (
-                  <Button
-                    key={m.id}
-                    type="button"
-                    size="sm"
-                    variant={activo ? "default" : "outline"}
-                    disabled={saving || superUsuario}
-                    className={cn("justify-start", activo && "font-semibold")}
-                    onClick={() => toggleModulo(m.id)}
-                    aria-pressed={activo}
-                  >
-                    {m.label}
-                  </Button>
-                );
-              })}
-            </div>
+            <FiltroMultiSelect
+              opciones={MODULOS_PERMITIDOS_USUARIO.map((m) => ({
+                value: m.id,
+                label: m.label,
+              }))}
+              selected={
+                superUsuario ? MODULOS_PERMITIDOS_USUARIO.map((m) => m.id) : modulos
+              }
+              onChange={(values) => setModulos(ordenarModulosPermitidos(values))}
+              placeholder="MÓDULOS PERMITIDOS"
+              ariaLabel="Módulos permitidos"
+              disabled={saving || superUsuario}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Tablero de control</ModalMicroLabel>
+            <Select
+              value={vistaTablero}
+              onValueChange={(valor) => {
+                if (valor === "gerente" || valor === "vendedor") setVistaTablero(valor);
+              }}
+              disabled={saving}
+            >
+              <SelectTrigger className="input-filtro-unificado w-full" aria-label="Tablero de control">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="select-content-filtro"
+              >
+                <SelectItem value="gerente">GERENTE</SelectItem>
+                <SelectItem value="vendedor">VENDEDOR</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <ModalSiNoChoice

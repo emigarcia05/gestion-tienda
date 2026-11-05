@@ -6,6 +6,7 @@ import { PERMISOS, puede } from "@/lib/permisos";
 import { requireFinanzasLectura } from "@/lib/actionGates";
 import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { USUARIOS_PATH } from "@/lib/usuarios";
 import {
   actualizarUsuarioPersonalSchema,
@@ -75,7 +76,10 @@ export async function crearUsuarioPersonalAction(
   }
 
   const result = await crearUsuarioPersonal(parsed.data);
-  if (result.success) revalidatePath(USUARIOS_PATH);
+  if (result.success) {
+    revalidatePath(USUARIOS_PATH);
+    revalidatePath(GP_ROUTES.defaultEntry);
+  }
   return fromServiceResult(result);
 }
 
@@ -96,7 +100,10 @@ export async function actualizarUsuarioPersonalAction(
   }
 
   const result = await actualizarUsuarioPersonal(parsed.data);
-  if (result.success) revalidatePath(USUARIOS_PATH);
+  if (result.success) {
+    revalidatePath(USUARIOS_PATH);
+    revalidatePath(GP_ROUTES.defaultEntry);
+  }
   return fromServiceResult(result);
 }
 

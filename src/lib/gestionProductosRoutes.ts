@@ -9,7 +9,7 @@ const V = APP_ROUTES.ventas;
 const A = APP_ROUTES.administrador;
 
 export const GP_ROUTES = {
-  /** Hub de Ventas: panel vacío hasta elegir una ruta hoja en el sidenav. */
+  /** Hub de Ventas: tablero de control. */
   defaultEntry: V.hub,
   pedidoMercaderia: {
     pedirMercaderia: V.compras.pedirMercaderia,

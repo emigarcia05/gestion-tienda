@@ -11,6 +11,14 @@ import {
 
 export const USUARIOS_PATH = APP_ROUTES.administrador.usuarios.usuarios;
 
+/** Qué muestra el tablero de Ventas. */
+export const VISTAS_TABLERO = ["gerente", "vendedor"] as const;
+export type VistaTablero = (typeof VISTAS_TABLERO)[number];
+
+export function esVistaTablero(valor: string): valor is VistaTablero {
+  return valor === "gerente" || valor === "vendedor";
+}
+
 export const MODULOS_PERMITIDOS_USUARIO: {
   id: MainAppAreaId;
   label: string;

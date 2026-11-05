@@ -20,6 +20,8 @@ export const idPersonalSchema = z.coerce
   .positive("El ID Personal debe ser mayor a 0.")
   .max(2_147_483_647, "El ID Personal es demasiado grande.");
 
+export const vistaTableroSchema = z.enum(["gerente", "vendedor"]);
+
 const nombrePersonalSchema = z
   .string()
   .trim()
@@ -68,6 +70,7 @@ export const crearUsuarioPersonalSchema = z
     modulosPermitidos: modulosPermitidosSchema,
     titularFinanciero: z.boolean(),
     superUsuario: z.boolean(),
+    vistaTablero: vistaTableroSchema,
   })
   .superRefine(exigirModuloSiNoSuper);
 
@@ -79,6 +82,7 @@ export const actualizarUsuarioPersonalSchema = z
     modulosPermitidos: modulosPermitidosSchema,
     titularFinanciero: z.boolean(),
     superUsuario: z.boolean(),
+    vistaTablero: vistaTableroSchema,
   })
   .superRefine(exigirModuloSiNoSuper);
 

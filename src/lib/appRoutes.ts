@@ -68,6 +68,8 @@ export const APP_ROUTES = {
       proveedores: `${ADMINISTRADOR}/proveedores/proveedores`,
     },
     pedidosAFabrica: {
+      pedidoReposicion: `${ADMINISTRADOR}/pedidos-a-fabrica/pedido-reposicion`,
+      confReposicion: `${ADMINISTRADOR}/pedidos-a-fabrica/conf-reposicion`,
       pedidosAFabrica: `${ADMINISTRADOR}/pedidos-a-fabrica/pedidos-a-fabrica`,
     },
     estadisticas: {
@@ -79,7 +81,8 @@ export const APP_ROUTES = {
       usuarios: `${ADMINISTRADOR}/usuarios/usuarios`,
     },
     reposicionCorp: {
-      reposicionCorp: `${ADMINISTRADOR}/reposicion-corp/reposicion-corp`,
+      /** Misma pantalla que COMPRAS CORP. · Conf. Reposición. */
+      reposicionCorp: `${ADMINISTRADOR}/pedidos-a-fabrica/conf-reposicion`,
     },
   },
   finanzas: {
@@ -223,10 +226,11 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/administrador/productos", R.administrador.productos.listaProductos],
   ["/administrador/cobros-desc", R.administrador.cobrosDesc.descuentos],
   ["/administrador/proveedores", R.administrador.proveedores.listaProdProv],
-  ["/administrador/pedidos-a-fabrica", R.administrador.pedidosAFabrica.pedidosAFabrica],
+  ["/administrador/pedidos-a-fabrica", R.administrador.pedidosAFabrica.pedidoReposicion],
   ["/administrador/estadisticas", R.administrador.estadisticas.ventas],
   ["/administrador/usuarios", R.administrador.usuarios.usuarios],
   ["/administrador/reposicion-corp", R.administrador.reposicionCorp.reposicionCorp],
+  ["/administrador/reposicion-corp/reposicion-corp", R.administrador.reposicionCorp.reposicionCorp],
 
   // Administrador · PRODUCTOS
   ["/gestion-productos/analisis-precios/lista-propia/lista-productos", R.administrador.productos.listaProductos],
@@ -267,7 +271,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/proveedores/lista", R.administrador.proveedores.proveedores],
   ["/proveedores/gestion", R.administrador.proveedores.proveedores],
 
-  // Administrador · PEDIDOS A FÁBRICA / ESTADÍSTICAS / USUARIOS
+  // Administrador · COMPRAS CORP. / ESTADÍSTICAS / USUARIOS
   ["/pedido-a-fabrica", R.administrador.pedidosAFabrica.pedidosAFabrica],
   ["/estadisticas-productos/est-para-compra", R.administrador.pedidosAFabrica.pedidosAFabrica],
   ["/estadisticas-productos", R.administrador.estadisticas.ventas],

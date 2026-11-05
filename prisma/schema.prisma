@@ -588,6 +588,10 @@ model GlobalPersonal {
    */
   superUsuario       Boolean  @default(false) @map("super_usuario")
   /**
+   * Qué ve en el tablero de Ventas. `gerente` = completo. `vendedor` = solo su sucursal.
+   */
+  vistaTablero       String   @default("gerente") @map("vista_tablero")
+  /**
    * Hash de la contraseña (scrypt, `src/lib/contrasena.ts`); **nunca** texto plano. Null = sin contraseña.
    * Omitido por defecto en el cliente Prisma (`src/lib/prisma.ts`): leer solo con `omit: { contrasena: false }`.
    */
@@ -1976,6 +1980,8 @@ model ImportProgress {
   resultActualizados Int?     @map("result_actualizados")
   resultEliminados   Int?     @map("result_eliminados")
   resultErrores      Json?    @map("result_errores") // string[]
+  /** Aumentos de la última importación de lista (`px_compra_final_sin_iva`). */
+  resultResumen      Json?    @map("result_resumen")
   error              String?
   updatedAt          DateTime @updatedAt @map("updated_at")
 

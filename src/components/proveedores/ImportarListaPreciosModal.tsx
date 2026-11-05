@@ -77,6 +77,7 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
   const [precioEnDolares, setPrecioEnDolares] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [archivoTexto, setArchivoTexto] = useState<string | null>(null);
 
   const [encabezados, setEncabezados] = useState<string[] | null>(null);
   const [filasCrudas, setFilasCrudas] = useState<string[][]>([]);
@@ -92,6 +93,7 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
     setPrecioEnDolares(false);
     setIsDragging(false);
     setFileName(null);
+    setArchivoTexto(null);
     setEncabezados(null);
     setFilasCrudas([]);
     setMapeo({});
@@ -102,34 +104,43 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
     setOpen(val);
   }
 
+  const aplicarCsv = useCallback((raw: string, conEncabezados: boolean) => {
+    try {
+      const { encabezados: enc, filas } = parsearCSVCrudo(raw, conEncabezados);
+      setEncabezados(enc);
+      setFilasCrudas(filas);
+      const inicialMapeo: MapeoColumnasListaPrecios = {};
+      const cols = enc ?? (filas[0] ? filas[0].map((_, i) => String(i)) : []);
+      cols.forEach((_, i) => {
+        inicialMapeo[i] = "ignorar";
+      });
+      setMapeo(inicialMapeo);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al leer el archivo.");
+      setFileName(null);
+      setArchivoTexto(null);
+      setEncabezados(null);
+      setFilasCrudas([]);
+      setMapeo({});
+    }
+  }, []);
+
   const loadFile = useCallback(
     (file: File) => {
       if (!file.name.toLowerCase().endsWith(".csv")) {
         toast.error("Solo se aceptan archivos .csv");
         return;
       }
-      setFileName(file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
         const raw = (e.target?.result as string) ?? "";
-        try {
-          const { encabezados: enc, filas } = parsearCSVCrudo(raw, tieneEncabezados);
-          setEncabezados(enc);
-          setFilasCrudas(filas);
-          const inicialMapeo: MapeoColumnasListaPrecios = {};
-          const cols = enc ?? (filas[0] ? filas[0].map((_, i) => String(i)) : []);
-          cols.forEach((_, i) => {
-            inicialMapeo[i] = "ignorar";
-          });
-          setMapeo(inicialMapeo);
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : "Error al leer el archivo.");
-          setFileName(null);
-        }
+        setFileName(file.name);
+        setArchivoTexto(raw);
+        aplicarCsv(raw, tieneEncabezados);
       };
       reader.readAsText(file, "UTF-8");
     },
-    [tieneEncabezados]
+    [aplicarCsv, tieneEncabezados]
   );
 
   const onDrop = useCallback(
@@ -187,7 +198,8 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
       </DialogTrigger>
 
       <AppModal
-        className="max-w-3xl"
+        size="xl"
+        className="h-[min(52rem,85vh)]"
         bodyClassName="max-w-full min-w-0"
         title="Importar Lista De Precios"
         actions={
@@ -234,68 +246,31 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
               </Select>
             </div>
 
-            {/* Tres filas: mismo tipo/tamaño/color de texto; botones en la misma columna alineados */}
-            <div className="grid grid-cols-[1fr_10rem] gap-x-4 gap-y-3 items-center">
-              {/* Fila 1: Adjuntar / Modificar archivo */}
-              <span className="text-sm font-medium text-foreground min-w-0 truncate">
-                {fileName ? "MODIFICAR ARCHIVO" : "ADJUNTAR UN ARCHIVO"}
-              </span>
-              <div className="flex w-full min-w-0">
-                <Button
-                  type="button"
-                  variant="default"
-                  size="default"
-                  className="min-w-0 flex-1"
-                  onClick={() => {
-                    if (fileName) {
-                      setFileName(null);
-                      setEncabezados(null);
-                      setFilasCrudas([]);
-                      setMapeo({});
-                    } else {
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
-                  {fileName ? "Modificar Archivo" : "Adjuntar Archivo"}
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) loadFile(f);
-                  }}
-                />
-              </div>
-            </div>
-
-            <ModalSiNoChoice
-              label="LOS DATOS TIENEN ENCABEZADOS"
-              value={tieneEncabezados}
-              onChange={setTieneEncabezados}
-            />
-            <ModalSiNoChoice label="HABILITADO" value={habilitado} onChange={setHabilitado} />
-            <ModalSiNoChoice
-              label="PRECIO EN DÓLARES"
-              value={precioEnDolares}
-              onChange={setPrecioEnDolares}
-            />
-            {precioEnDolares ? (
-              <p className="text-xs text-muted-foreground">
-                Se aplicará la cotización global vigente:{" "}
-                <strong className="text-foreground tabular-nums">
-                  $ {cotizacionUsd.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                </strong>
-                . Editá el valor en <strong className="text-foreground">Cotiz. US$</strong> en la barra de acciones.
-              </p>
+            {proveedorId ? (
+              <Button
+                type="button"
+                variant="default"
+                size="default"
+                className="w-full"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                {fileName ? "Modificar Archivo" : "Adjuntar Archivo"}
+              </Button>
             ) : null}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) loadFile(f);
+                e.target.value = "";
+              }}
+            />
 
-            {/* Zona de arrastre cuando no hay archivo (opcional, para drag & drop) */}
-            {!fileName && (
+            {proveedorId && !fileName ? (
               <div
                 className={cn(
                   "rounded-lg border-2 border-dashed transition-colors flex items-center justify-center gap-2 py-4 px-3",
@@ -307,17 +282,54 @@ export default function ImportarListaPreciosModal({ proveedores, cotizacionUsd }
               >
                 <span className="text-sm text-muted-foreground">O arrastrá un archivo .csv aquí</span>
               </div>
-            )}
-            {fileName && (
+            ) : null}
+            {proveedorId && fileName ? (
+              <>
+                <ModalSiNoChoice
+                  label="LOS DATOS TIENEN ENCABEZADOS"
+                  value={tieneEncabezados}
+                  onChange={(valor) => {
+                    setTieneEncabezados(valor);
+                    if (archivoTexto) aplicarCsv(archivoTexto, valor);
+                  }}
+                />
+                <ModalSiNoChoice
+                  label="HABILITADO"
+                  value={habilitado}
+                  onChange={setHabilitado}
+                />
+                <ModalSiNoChoice
+                  label="PRECIO EN DÓLARES"
+                  value={precioEnDolares}
+                  onChange={setPrecioEnDolares}
+                />
+                {precioEnDolares ? (
+                  <p className="text-xs text-muted-foreground">
+                    Se aplicará la cotización global vigente:{" "}
+                    <strong className="text-foreground tabular-nums">
+                      ${" "}
+                      {cotizacionUsd.toLocaleString("es-AR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      })}
+                    </strong>
+                    . Editá el valor en <strong className="text-foreground">Cotiz. US$</strong> en
+                    la barra de acciones.
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+
+            {proveedorId && fileName ? (
               <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/30 px-3 py-2 min-w-0">
                 <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm truncate">{fileName}</span>
                 <span className="text-xs text-muted-foreground shrink-0">({filasCrudas.length} filas)</span>
               </div>
-            )}
+            ) : null}
 
             {/* Cuando hay archivo: 2 columnas — Valor de la primera fila | Opciones para mapear */}
-            {fileName && colLabels.length > 0 && (
+            {proveedorId && fileName && colLabels.length > 0 && (
               <>
                 <div className="rounded-lg border border-border/50 overflow-hidden bg-card max-h-[220px] overflow-y-auto w-full min-w-0">
                   <Table variant="compact" className="table-fixed w-full">

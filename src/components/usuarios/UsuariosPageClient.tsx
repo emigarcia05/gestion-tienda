@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/table";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import { fmtCelda } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   etiquetaModulosPermitidos,
@@ -61,7 +60,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
       matchByMultiTerm(
         [
           item.nombrePersonal,
-          item.idDux ?? "",
+          item.vistaTablero === "vendedor" ? "VENDEDOR" : "GERENTE",
           etiquetaSucursalPorDefecto(item.sucursalPorDefecto),
           item.superUsuario ? "SUPER" : etiquetaModulosPermitidos(item.modulosPermitidos),
           item.titularFinanciero ? "TITULAR FINANCIERO SI" : "NO",
@@ -76,7 +75,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
     setQDebounced("");
   }
 
-  const colSpan = esEditor ? 7 : 6;
+  const colSpan = esEditor ? 6 : 5;
 
   return (
     <>
@@ -103,7 +102,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-usuarios-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, ID DUX, SUCURSAL, MÓDULO O TITULAR..."
+                  placeholder="BUSCAR POR NOMBRE, TABLERO, SUCURSAL, MÓDULO O TITULAR..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -119,21 +118,19 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
               <col className="w-[22%]" />
-              <col className="w-[10%]" />
-              <col className="w-[14%]" />
-              <col className={esEditor ? "w-[20%]" : "w-[32%]"} />
-              <col className="w-[11%]" />
-              <col className="w-[11%]" />
+              <col className="w-[16%]" />
+              <col className={esEditor ? "w-[22%]" : "w-[34%]"} />
+              <col className="w-[16%]" />
+              <col className="w-[12%]" />
               {esEditor ? <col className="w-[12%]" /> : null}
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>NOMBRE</TableHead>
-                <TableHead className="text-center">ID DUX</TableHead>
-                <TableHead className="text-center">SUCURSAL POR DEFECTO</TableHead>
-                <TableHead>MÓDULOS PERMITIDOS</TableHead>
+                <TableHead className="text-center">SUCURSAL</TableHead>
+                <TableHead>MÓDULOS</TableHead>
+                <TableHead className="text-center">TABLERO CONTROL</TableHead>
                 <TableHead className="text-center">TITULAR FINANCIERO</TableHead>
-                <TableHead className="text-center">CONTRASEÑA</TableHead>
                 {esEditor ? (
                   <TableHead className="tabla-bloque-secundario-head-divider text-center">
                     ACCIONES
@@ -157,9 +154,6 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                     <TableCell className="celda-datos font-medium uppercase">
                       {item.nombrePersonal}
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
-                      {fmtCelda(item.idDux)}
-                    </TableCell>
                     <TableCell className="celda-datos text-center">
                       {etiquetaSucursalPorDefecto(item.sucursalPorDefecto)}
                     </TableCell>
@@ -169,10 +163,10 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                         : etiquetaModulosPermitidos(item.modulosPermitidos)}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
-                      {item.titularFinanciero ? "SI" : "NO"}
+                      {item.vistaTablero === "vendedor" ? "VENDEDOR" : "GERENTE"}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
-                      {item.tieneContrasena ? "SI" : "NO"}
+                      {item.titularFinanciero ? "SI" : "NO"}
                     </TableCell>
                     {esEditor ? (
                       <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">

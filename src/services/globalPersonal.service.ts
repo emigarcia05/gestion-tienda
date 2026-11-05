@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
 import type { MainAppAreaId } from "@/lib/main-app-areas";
-import { ordenarModulosPermitidos } from "@/lib/usuarios";
+import { esVistaTablero, ordenarModulosPermitidos, type VistaTablero } from "@/lib/usuarios";
 import { parseSucursalPreferida, type SucursalPreferida } from "@/lib/sucursalPreferida";
 import type {
   ActualizarUsuarioPersonalInput,
@@ -18,6 +18,8 @@ export interface GlobalPersonalItem {
   titularFinanciero: boolean;
   /** Modo SUPER: `modulosPermitidos` guardados se ignoran; ver `modulosEfectivosUsuario`. */
   superUsuario: boolean;
+  /** `gerente` ve el tablero completo. `vendedor` solo su sucursal. */
+  vistaTablero: VistaTablero;
   /** Hay hash en `usuarios.contrasena` (el hash nunca sale del servicio). */
   tieneContrasena: boolean;
 }
@@ -30,6 +32,7 @@ const PERSONAL_SELECT = {
   modulosPermitidos: true,
   titularFinanciero: true,
   superUsuario: true,
+  vistaTablero: true,
   contrasena: true,
 } as const;
 
@@ -96,6 +99,7 @@ function mapRow(row: {
   modulosPermitidos: string[];
   titularFinanciero: boolean;
   superUsuario: boolean;
+  vistaTablero: string;
   contrasena: string | null;
 }): GlobalPersonalItem {
   return {
@@ -106,6 +110,7 @@ function mapRow(row: {
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
     titularFinanciero: row.titularFinanciero,
     superUsuario: row.superUsuario,
+    vistaTablero: esVistaTablero(row.vistaTablero) ? row.vistaTablero : "gerente",
     tieneContrasena: row.contrasena != null,
   };
 }
@@ -182,6 +187,7 @@ export async function crearUsuarioPersonal(
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
         superUsuario: input.superUsuario,
+        vistaTablero: input.vistaTablero,
       },
       select: PERSONAL_SELECT,
     });
@@ -215,6 +221,7 @@ export async function actualizarUsuarioPersonal(
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
         superUsuario: input.superUsuario,
+        vistaTablero: input.vistaTablero,
       },
       select: PERSONAL_SELECT,
     });
@@ -223,6 +230,14 @@ export async function actualizarUsuarioPersonal(
     console.error("[globalPersonal][actualizar]", e);
     return { success: false, error: mapDbError(e, "Error al guardar el usuario.") };
   }
+}
+
+export async function vistaTableroDeUsuario(idPersonal: number): Promise<VistaTablero> {
+  const row = await prisma.globalPersonal.findUnique({
+    where: { idPersonal },
+    select: { vistaTablero: true },
+  });
+  return row && esVistaTablero(row.vistaTablero) ? row.vistaTablero : "gerente";
 }
 
 export async function eliminarUsuarioPersonal(

@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   await startImportInDb(filas.length);
 
   try {
-    const { creados, actualizados, errores } = await listaPreciosService.upsertListaPrecios(
+    const { creados, actualizados, errores, aumentos } = await listaPreciosService.upsertListaPrecios(
       proveedorId,
       proveedor.prefijo,
       filas,
@@ -71,7 +71,10 @@ export async function POST(request: Request) {
       }
     );
 
-    await setImportResultInDb({ creados, actualizados, eliminados: 0, errores });
+    await setImportResultInDb(
+      { creados, actualizados, eliminados: 0, errores },
+      { proveedor: proveedor.nombre, items: aumentos }
+    );
 
     for (const path of REVALIDATE_LISTA_PRECIOS) {
       revalidatePath(path);

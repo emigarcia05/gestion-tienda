@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
@@ -33,8 +34,32 @@ export function useImportResult() {
   return ctx;
 }
 
+async function descargarResumenAumentos(avisoSiVacio: boolean): Promise<void> {
+  const res = await fetch("/api/import-lista-precios/resumen-pdf").catch(() => null);
+  if (!res || !res.ok) {
+    if (avisoSiVacio && res?.status !== 204) {
+      toast.error("No se pudo descargar el resumen de costos.");
+    }
+    return;
+  }
+  if (res.status === 204) {
+    if (avisoSiVacio) toast.message("Ningún producto de la tienda cambió de costo.");
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = "resumen-cambios-costo.pdf";
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export function ImportResultProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ImportResultModalState>({ type: "closed" });
+  const resumenDescargado = useRef(false);
 
   const openResult = useCallback((result: ImportProgressResult) => {
     setState({ type: "result", data: result });
@@ -48,6 +73,16 @@ export function ImportResultProvider({ children }: { children: React.ReactNode }
     setState({ type: "closed" });
   }, []);
 
+  useEffect(() => {
+    if (state.type !== "result") {
+      resumenDescargado.current = false;
+      return;
+    }
+    if (resumenDescargado.current) return;
+    resumenDescargado.current = true;
+    void descargarResumenAumentos(false);
+  }, [state]);
+
   const open = state.type !== "closed";
 
   return (
@@ -57,9 +92,16 @@ export function ImportResultProvider({ children }: { children: React.ReactNode }
         <AppModal
           title={state.type === "error" ? "Error En La Importación" : "Resultado De Importación"}
           actions={
-            <Button variant="default" onClick={close}>
-              Cerrar
-            </Button>
+            <>
+              {state.type === "result" ? (
+                <Button type="button" variant="outline" onClick={() => void descargarResumenAumentos(true)}>
+                  Descargar Resumen
+                </Button>
+              ) : null}
+              <Button variant="default" onClick={close}>
+                Cerrar
+              </Button>
+            </>
           }
         >
           {state.type === "error" && (

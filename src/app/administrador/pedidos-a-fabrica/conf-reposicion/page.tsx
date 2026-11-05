@@ -17,7 +17,7 @@ interface Props {
   }>;
 }
 
-export default async function ReposicionCorpPage({ searchParams }: Props) {
+export default async function ConfReposicionPage({ searchParams }: Props) {
   const rol = await getRol();
   if (!puede(rol, PERMISOS.reposicionCorp.acceso)) {
     redirect(GP_ROUTES.defaultEntry);
