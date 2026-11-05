@@ -35,7 +35,7 @@ function BarrasMes({ meses }: { meses: TableroVentasMesGrafico[] }) {
   const altoDe = (monto: number) =>
     techo <= 0 || monto <= 0 ? 0 : (monto / techo) * ALTO_BARRA_MAX;
   return (
-    <div className="flex h-40 items-end gap-2">
+    <div className="flex h-full min-h-0 flex-1 items-end gap-2">
       {meses.map((mes) => {
         const altoVendido = altoDe(mes.ventas);
         const altoProyectado =
@@ -89,8 +89,8 @@ export default function GraficoMesesTablero({ series }: { series: TableroVentasS
   const serie = series.find((item) => item.id === serieId) ?? series[0];
   if (!serie) return null;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 items-center justify-between gap-2">
         <Select value={serie.id} onValueChange={setSerieId}>
           <SelectTrigger size="sm" className="w-fit min-w-40 uppercase" aria-label="Filtrar gráfico por sucursal">
             <SelectValue />

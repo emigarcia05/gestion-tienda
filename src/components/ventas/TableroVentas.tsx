@@ -51,7 +51,7 @@ function LineaComparacion({
   const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
   const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold uppercase leading-tight tracking-wide">
+    <span className="mb-4 inline-flex items-center justify-center gap-1 text-xs font-semibold uppercase leading-tight tracking-wide">
       {muestraFlecha ? <Icono className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
       {textoComparacion(comparacion, referencia)}
     </span>
@@ -74,7 +74,7 @@ function TarjetaPeriodo({
 }) {
   return (
     <div className="finanzas-resumen-tarjeta min-h-16">
-      <span className="text-base font-semibold uppercase tracking-wide">{label}</span>
+      <span className="mb-4 text-base font-semibold uppercase tracking-wide">{label}</span>
       <span className="text-2xl font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
       <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
       <span className="text-base font-semibold uppercase leading-tight tracking-wide">
@@ -101,7 +101,7 @@ function BarraParticipacion({ pct, tono }: { pct: number; tono: "mes" | "anio" }
 
 function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] }) {
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col justify-center gap-3">
       <h3 className="text-center text-xs font-bold uppercase tracking-wide">Participación</h3>
       <div className="flex items-center justify-center gap-4">
         <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
@@ -136,7 +136,7 @@ function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] })
 
 function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: TableroVentasMontos } }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid w-full shrink-0 grid-cols-2 gap-3">
       <TarjetaPeriodo label="Día" montos={montos.dia} referencia="ayer" />
       <TarjetaPeriodo label="Mes" montos={montos.mes} referencia="el mes anterior" />
     </div>
@@ -156,17 +156,19 @@ export default function TableroVentas({
 
   return (
     <ClassicFilteredTableLayout title="Ventas" subtitle="Tablero" contentWidth="full">
-      <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <section className="flex flex-col gap-3" aria-label={tituloSucursal}>
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+        {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
+        <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label={tituloSucursal}>
           <h2 className={TITULO_SECCION_CLASS}>{tituloSucursal}</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <MetricasVentas montos={datos.sucursal} />
-            <div className="flex min-h-0 flex-col gap-3">
-              <h3 className="text-center text-xs font-bold uppercase tracking-wide">
+          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
+            <div className="flex min-h-0 items-center">
+              <MetricasVentas montos={datos.sucursal} />
+            </div>
+            <div className="flex min-h-0 flex-col gap-2">
+              <h3 className="shrink-0 text-center text-xs font-bold uppercase tracking-wide">
                 Clientes con saldos vencidos
               </h3>
-              <div className="contenedor-tabla-gestion max-h-80 min-h-0 overflow-auto">
+              <div className="contenedor-tabla-gestion min-h-0 flex-1">
                 <Table>
                   <colgroup>
                     <col style={{ width: "62%" }} />
@@ -217,10 +219,10 @@ export default function TableroVentas({
             </div>
           </div>
         </section>
-        <section className="flex flex-col gap-3" aria-label="Ventas globales">
+        <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label="Ventas globales">
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex min-w-0 flex-col gap-3">
+          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
+            <div className="flex min-h-0 min-w-0 flex-col gap-2">
               <MetricasVentas montos={datos.globales} />
               <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
