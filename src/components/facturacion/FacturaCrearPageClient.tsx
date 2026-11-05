@@ -115,6 +115,7 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { sucursalPorDefectoSchema } from "@/lib/validations/globalPersonal";
 import type { SucursalTransf } from "@/lib/transfDepositosTypes";
@@ -569,11 +570,11 @@ export default function FacturaCrearPageClient({
   }
 
   function irAListado() {
-    router.push(
-      tipo === "presupuesto"
-        ? FACTURACION_ROUTES.factura.presupuestos
-        : FACTURACION_ROUTES.factura.facturas
-    );
+    if (tipo === "presupuesto" || esFacturaTipoVenta(tipo)) {
+      router.push(GP_ROUTES.defaultEntry);
+      return;
+    }
+    router.push(FACTURACION_ROUTES.factura.facturas);
   }
 
   function finalizarComprobante() {

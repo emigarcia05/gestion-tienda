@@ -176,10 +176,8 @@ export default function TableroVentas({
         {vista === "vendedor" ? null : (
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label="Ventas globales">
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
-          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
-            <div className="flex min-h-0 items-center">
-              <MetricasVentas montos={datos.globales} />
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <MetricasVentas montos={datos.globales} />
             <ParticipacionTablero filas={datos.participacionSucursales} />
           </div>
         </section>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireFacturacionLectura } from "@/lib/actionGates";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import type {
   ClienteConSaldoCuentaCorriente,
   CuentaCorrienteClienteDatos,
@@ -67,6 +68,7 @@ function revalidateFacturacion(): void {
   revalidatePath(FACTURACION_ROUTES.factura.facturas);
   revalidatePath(FACTURACION_ROUTES.factura.presupuestos);
   revalidatePath(FACTURACION_ROUTES.clientes.cuentaCorriente);
+  revalidatePath(GP_ROUTES.defaultEntry);
 }
 
 export async function buscarClientesFacturaAction(

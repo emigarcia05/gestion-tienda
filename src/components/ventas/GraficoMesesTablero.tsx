@@ -92,7 +92,11 @@ export default function GraficoMesesTablero({ series }: { series: TableroVentasS
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 items-center justify-between gap-2">
         <Select value={serie.id} onValueChange={setSerieId}>
-          <SelectTrigger size="sm" className="w-fit min-w-40 uppercase" aria-label="Filtrar gráfico por sucursal">
+          <SelectTrigger
+            size="sm"
+            className="!h-6 w-fit min-w-0 gap-1 px-2 py-0 text-[10px] font-medium uppercase tracking-wide shadow-none [&_svg]:!size-3"
+            aria-label="Filtrar gráfico por sucursal"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">

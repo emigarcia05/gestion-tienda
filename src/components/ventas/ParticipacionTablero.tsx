@@ -61,7 +61,7 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
   const visibles = sucursal === SUCURSAL_TODAS ? filas : filas.filter((fila) => fila.id === sucursal);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[10rem_minmax(0,1fr)] items-center gap-4">
+    <div className="grid h-full min-h-0 grid-cols-[10rem_minmax(0,1fr)] items-start gap-4">
       <div className="flex flex-col gap-2">
         <Select value={sucursal} onValueChange={setSucursalId}>
           <SelectTrigger size="sm" className="w-full uppercase" aria-label="Filtrar por sucursal">
