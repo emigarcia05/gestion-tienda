@@ -91,6 +91,8 @@ export interface TableroVentasParticipacion {
   nombre: string;
   pctMes: number;
   pctAnio: number;
+  montoMes: number;
+  montoAnio: number;
 }
 
 export interface TableroVentasDatos {
@@ -382,6 +384,8 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         nombre: s.nombre.toLocaleUpperCase("es"),
         pctMes: pctSobre(redondear2(ventasMesPorSucursal.get(s.id) ?? 0), totalMes),
         pctAnio: pctSobre(redondear2(ventasAnioPorSucursal.get(s.id) ?? 0), totalAnio),
+        montoMes: redondear2(ventasMesPorSucursal.get(s.id) ?? 0),
+        montoAnio: redondear2(ventasAnioPorSucursal.get(s.id) ?? 0),
       }))
       .sort((a, b) => {
         if (b.pctMes !== a.pctMes) return b.pctMes - a.pctMes;

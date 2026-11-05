@@ -22,13 +22,6 @@ export const idPersonalSchema = z.coerce
 
 export const vistaTableroSchema = z.enum(["gerente", "vendedor"]);
 
-export const asignarVistaTableroSchema = z.object({
-  idPersonal: idPersonalSchema,
-  vistaTablero: vistaTableroSchema,
-});
-
-export type AsignarVistaTableroInput = z.infer<typeof asignarVistaTableroSchema>;
-
 const nombrePersonalSchema = z
   .string()
   .trim()
@@ -77,6 +70,7 @@ export const crearUsuarioPersonalSchema = z
     modulosPermitidos: modulosPermitidosSchema,
     titularFinanciero: z.boolean(),
     superUsuario: z.boolean(),
+    vistaTablero: vistaTableroSchema,
   })
   .superRefine(exigirModuloSiNoSuper);
 
@@ -88,6 +82,7 @@ export const actualizarUsuarioPersonalSchema = z
     modulosPermitidos: modulosPermitidosSchema,
     titularFinanciero: z.boolean(),
     superUsuario: z.boolean(),
+    vistaTablero: vistaTableroSchema,
   })
   .superRefine(exigirModuloSiNoSuper);
 

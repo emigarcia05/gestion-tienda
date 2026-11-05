@@ -79,7 +79,6 @@ export const APP_ROUTES = {
     },
     usuarios: {
       usuarios: `${ADMINISTRADOR}/usuarios/usuarios`,
-      tableroControl: `${ADMINISTRADOR}/usuarios/tablero-control`,
     },
     reposicionCorp: {
       /** Misma pantalla que COMPRAS CORP. · Conf. Reposición. */

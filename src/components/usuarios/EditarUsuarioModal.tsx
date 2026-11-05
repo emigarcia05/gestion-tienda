@@ -20,7 +20,7 @@ import {
   crearUsuarioPersonalAction,
 } from "@/actions/globalPersonal";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
-import { MODULOS_PERMITIDOS_USUARIO } from "@/lib/usuarios";
+import { MODULOS_PERMITIDOS_USUARIO, type VistaTablero } from "@/lib/usuarios";
 import {
   SUCURSALES_PREFERIDAS,
   type SucursalPreferida,
@@ -50,6 +50,7 @@ export default function EditarUsuarioModal({
   const [modulos, setModulos] = useState<MainAppAreaId[]>([]);
   const [titularFinanciero, setTitularFinanciero] = useState(false);
   const [superUsuario, setSuperUsuario] = useState(false);
+  const [vistaTablero, setVistaTablero] = useState<VistaTablero>("gerente");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function EditarUsuarioModal({
       setModulos(item.modulosPermitidos);
       setTitularFinanciero(item.titularFinanciero);
       setSuperUsuario(item.superUsuario);
+      setVistaTablero(item.vistaTablero);
       return;
     }
     setNombre("");
@@ -69,7 +71,7 @@ export default function EditarUsuarioModal({
     setModulos([]);
     setTitularFinanciero(false);
     setSuperUsuario(false);
-    setSuperUsuario(false);
+    setVistaTablero("gerente");
   }, [open, item]);
 
   const puedeGuardar =
@@ -95,6 +97,7 @@ export default function EditarUsuarioModal({
             modulosPermitidos: modulos,
             titularFinanciero,
             superUsuario,
+            vistaTablero,
           })
         : item
           ? await actualizarUsuarioPersonalAction({
@@ -104,6 +107,7 @@ export default function EditarUsuarioModal({
               modulosPermitidos: modulos,
               titularFinanciero,
               superUsuario,
+              vistaTablero,
             })
           : { ok: false as const, error: "Usuario no encontrado." };
       if (!res.ok) {
@@ -242,6 +246,29 @@ export default function EditarUsuarioModal({
                 );
               })}
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Tablero de control</ModalMicroLabel>
+            <Select
+              value={vistaTablero}
+              onValueChange={(valor) => {
+                if (valor === "gerente" || valor === "vendedor") setVistaTablero(valor);
+              }}
+              disabled={saving}
+            >
+              <SelectTrigger className="input-filtro-unificado w-full" aria-label="Tablero de control">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="select-content-filtro"
+              >
+                <SelectItem value="gerente">GERENTE</SelectItem>
+                <SelectItem value="vendedor">VENDEDOR</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <ModalSiNoChoice

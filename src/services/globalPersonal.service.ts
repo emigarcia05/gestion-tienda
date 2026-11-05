@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types";
 import type { MainAppAreaId } from "@/lib/main-app-areas";
-import { ordenarModulosPermitidos } from "@/lib/usuarios";
+import { esVistaTablero, ordenarModulosPermitidos, type VistaTablero } from "@/lib/usuarios";
 import { parseSucursalPreferida, type SucursalPreferida } from "@/lib/sucursalPreferida";
-import { esVistaTablero, type VistaTablero } from "@/lib/usuarios";
 import type {
   ActualizarUsuarioPersonalInput,
-  AsignarVistaTableroInput,
   CrearUsuarioPersonalInput,
   EliminarUsuarioPersonalInput,
 } from "@/lib/validations/globalPersonal";
@@ -189,6 +187,7 @@ export async function crearUsuarioPersonal(
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
         superUsuario: input.superUsuario,
+        vistaTablero: input.vistaTablero,
       },
       select: PERSONAL_SELECT,
     });
@@ -222,6 +221,7 @@ export async function actualizarUsuarioPersonal(
         modulosPermitidos: ordenarModulosPermitidos(input.modulosPermitidos),
         titularFinanciero: input.titularFinanciero,
         superUsuario: input.superUsuario,
+        vistaTablero: input.vistaTablero,
       },
       select: PERSONAL_SELECT,
     });
@@ -238,28 +238,6 @@ export async function vistaTableroDeUsuario(idPersonal: number): Promise<VistaTa
     select: { vistaTablero: true },
   });
   return row && esVistaTablero(row.vistaTablero) ? row.vistaTablero : "gerente";
-}
-
-export async function asignarVistaTableroUsuario(
-  input: AsignarVistaTableroInput
-): Promise<ServiceResult<void>> {
-  try {
-    const existente = await prisma.globalPersonal.findUnique({
-      where: { idPersonal: input.idPersonal },
-      select: { idPersonal: true },
-    });
-    if (!existente) {
-      return { success: false, error: "Usuario no encontrado." };
-    }
-    await prisma.globalPersonal.update({
-      where: { idPersonal: input.idPersonal },
-      data: { vistaTablero: input.vistaTablero },
-    });
-    return { success: true, data: undefined };
-  } catch (e) {
-    console.error("[globalPersonal][vistaTablero]", e);
-    return { success: false, error: mapDbError(e, "No se pudo guardar la vista del tablero.") };
-  }
 }
 
 export async function eliminarUsuarioPersonal(

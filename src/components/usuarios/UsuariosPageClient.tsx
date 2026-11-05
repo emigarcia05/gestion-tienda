@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/table";
 import type { GlobalPersonalItem } from "@/services/globalPersonal.service";
 import { matchByMultiTerm } from "@/lib/busqueda";
-import { fmtCelda } from "@/lib/format";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import {
   etiquetaModulosPermitidos,
@@ -61,7 +60,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
       matchByMultiTerm(
         [
           item.nombrePersonal,
-          item.idDux ?? "",
+          item.vistaTablero === "vendedor" ? "VENDEDOR" : "GERENTE",
           etiquetaSucursalPorDefecto(item.sucursalPorDefecto),
           item.superUsuario ? "SUPER" : etiquetaModulosPermitidos(item.modulosPermitidos),
           item.titularFinanciero ? "TITULAR FINANCIERO SI" : "NO",
@@ -103,7 +102,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-usuarios-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, ID DUX, SUCURSAL, MÓDULO O TITULAR..."
+                  placeholder="BUSCAR POR NOMBRE, TABLERO, SUCURSAL, MÓDULO O TITULAR..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -118,10 +117,10 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[22%]" />
-              <col className="w-[10%]" />
+              <col className="w-[20%]" />
+              <col className="w-[16%]" />
               <col className="w-[14%]" />
-              <col className={esEditor ? "w-[20%]" : "w-[32%]"} />
+              <col className={esEditor ? "w-[16%]" : "w-[28%]"} />
               <col className="w-[11%]" />
               <col className="w-[11%]" />
               {esEditor ? <col className="w-[12%]" /> : null}
@@ -129,7 +128,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>NOMBRE</TableHead>
-                <TableHead className="text-center">ID DUX</TableHead>
+                <TableHead className="text-center">Tablero de control</TableHead>
                 <TableHead className="text-center">SUCURSAL POR DEFECTO</TableHead>
                 <TableHead>MÓDULOS PERMITIDOS</TableHead>
                 <TableHead className="text-center">TITULAR FINANCIERO</TableHead>
@@ -157,8 +156,8 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
                     <TableCell className="celda-datos font-medium uppercase">
                       {item.nombrePersonal}
                     </TableCell>
-                    <TableCell className="celda-datos text-center tabular-nums">
-                      {fmtCelda(item.idDux)}
+                    <TableCell className="celda-datos text-center">
+                      {item.vistaTablero === "vendedor" ? "VENDEDOR" : "GERENTE"}
                     </TableCell>
                     <TableCell className="celda-datos text-center">
                       {etiquetaSucursalPorDefecto(item.sucursalPorDefecto)}

@@ -326,13 +326,6 @@ const usuariosScreens: AdmScreenDef[] = [
     icon: "users",
     permiso: PERMISOS.usuarios.acceso,
   },
-  {
-    id: "tablero-control",
-    label: "Tablero Control",
-    href: A.usuarios.tableroControl,
-    icon: "pie-chart",
-    permiso: PERMISOS.usuarios.acceso,
-  },
 ];
 
 export const FIN_PILLARS: AdmPillarDef[] = [
