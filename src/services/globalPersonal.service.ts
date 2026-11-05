@@ -3,8 +3,10 @@ import type { ServiceResult } from "@/types";
 import type { MainAppAreaId } from "@/lib/main-app-areas";
 import { ordenarModulosPermitidos } from "@/lib/usuarios";
 import { parseSucursalPreferida, type SucursalPreferida } from "@/lib/sucursalPreferida";
+import { esVistaTablero, type VistaTablero } from "@/lib/usuarios";
 import type {
   ActualizarUsuarioPersonalInput,
+  AsignarVistaTableroInput,
   CrearUsuarioPersonalInput,
   EliminarUsuarioPersonalInput,
 } from "@/lib/validations/globalPersonal";
@@ -18,6 +20,8 @@ export interface GlobalPersonalItem {
   titularFinanciero: boolean;
   /** Modo SUPER: `modulosPermitidos` guardados se ignoran; ver `modulosEfectivosUsuario`. */
   superUsuario: boolean;
+  /** `gerente` ve el tablero completo. `vendedor` solo su sucursal. */
+  vistaTablero: VistaTablero;
   /** Hay hash en `usuarios.contrasena` (el hash nunca sale del servicio). */
   tieneContrasena: boolean;
 }
@@ -30,6 +34,7 @@ const PERSONAL_SELECT = {
   modulosPermitidos: true,
   titularFinanciero: true,
   superUsuario: true,
+  vistaTablero: true,
   contrasena: true,
 } as const;
 
@@ -106,6 +111,7 @@ function mapRow(row: {
     modulosPermitidos: ordenarModulosPermitidos(row.modulosPermitidos),
     titularFinanciero: row.titularFinanciero,
     superUsuario: row.superUsuario,
+    vistaTablero: esVistaTablero(row.vistaTablero) ? row.vistaTablero : "gerente",
     tieneContrasena: row.contrasena != null,
   };
 }
@@ -222,6 +228,36 @@ export async function actualizarUsuarioPersonal(
   } catch (e) {
     console.error("[globalPersonal][actualizar]", e);
     return { success: false, error: mapDbError(e, "Error al guardar el usuario.") };
+  }
+}
+
+export async function vistaTableroDeUsuario(idPersonal: number): Promise<VistaTablero> {
+  const row = await prisma.globalPersonal.findUnique({
+    where: { idPersonal },
+    select: { vistaTablero: true },
+  });
+  return row && esVistaTablero(row.vistaTablero) ? row.vistaTablero : "gerente";
+}
+
+export async function asignarVistaTableroUsuario(
+  input: AsignarVistaTableroInput
+): Promise<ServiceResult<void>> {
+  try {
+    const existente = await prisma.globalPersonal.findUnique({
+      where: { idPersonal: input.idPersonal },
+      select: { idPersonal: true },
+    });
+    if (!existente) {
+      return { success: false, error: "Usuario no encontrado." };
+    }
+    await prisma.globalPersonal.update({
+      where: { idPersonal: input.idPersonal },
+      data: { vistaTablero: input.vistaTablero },
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[globalPersonal][vistaTablero]", e);
+    return { success: false, error: mapDbError(e, "No se pudo guardar la vista del tablero.") };
   }
 }
 

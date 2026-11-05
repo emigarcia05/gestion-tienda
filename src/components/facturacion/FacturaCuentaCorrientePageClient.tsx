@@ -68,6 +68,8 @@ import {
   resumenIndicadoresCuentaCorriente,
   totalesPorItemCuentaCorriente,
   type ClienteConSaldoCuentaCorriente,
+  type CuentaCorrienteAlcancePintor,
+  type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteProductoLinea,
   type FiltroPeriodoCuentaCorriente,
@@ -173,6 +175,9 @@ export default function FacturaCuentaCorrientePageClient({
   >([]);
   const [loadingClientesSaldo, setLoadingClientesSaldo] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
+  const [alcancePintor, setAlcancePintor] = useState<
+    CuentaCorrienteAlcancePintor[] | null
+  >(null);
   const [pagoCcOpen, setPagoCcOpen] = useState(false);
   const [totalesItemVista, setTotalesItemVista] = useState(false);
   const esPublico = visorPublico != null;
@@ -301,11 +306,15 @@ export default function FacturaCuentaCorrientePageClient({
     return clientesConSaldo.filter((item) => item.saldoVencido > 0.009);
   }, [clientesConSaldo, filtroSaldoVencido]);
   const proyectosCliente = clienteSeleccionado?.proyectos ?? [];
-  const mostrarProyecto = proyectosCliente.length > 1;
-  const saldoClienteVisible =
-    clienteId != null && clienteSeleccionado != null
-      ? clienteSeleccionado.saldoCuentaCorriente
-      : null;
+  const modoPintorPublico =
+    esPublico && (visorPublico?.sesion.cuentas.length ?? 0) > 1;
+  const modoPintor = modoPintorPublico || (alcancePintor?.length ?? 0) > 1;
+  const cuentasDelPintor = modoPintorPublico
+    ? (visorPublico?.sesion.cuentas ?? [])
+    : (alcancePintor ?? []);
+  const etiquetaPintorSoloLectura =
+    visorPublico?.sesion.cuentas.find((c) => c.id === visorPublico.sesion.titularId)
+      ?.etiqueta ?? "";
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -319,7 +328,9 @@ export default function FacturaCuentaCorrientePageClient({
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, []);
 
-  async function cargarLedger(id: string) {
+  async function cargarLedger(
+    id: string
+  ): Promise<CuentaCorrienteClienteDatos | null> {
     setLoadingLedger(true);
     const res = visorPublico
       ? await obtenerCuentaCorrientePublicaAction({
@@ -332,11 +343,12 @@ export default function FacturaCuentaCorrientePageClient({
       toast.error(res.error ?? "No se pudo cargar la cuenta corriente.");
       setMovimientos([]);
       setProductos([]);
-      return;
+      return null;
     }
     setClienteSeleccionado(res.data.cliente);
     setMovimientos(res.data.movimientos);
     setProductos(res.data.productos);
+    return res.data;
   }
 
   /** El hook repone `qActual` si el input no tiene foco: fijar ambos para que el nombre quede. */
@@ -353,16 +365,32 @@ export default function FacturaCuentaCorrientePageClient({
     fijarTextoCliente(etiquetaClienteListado(item));
     setAbierto(false);
     setSugerencias([]);
-    void cargarLedger(item.id);
+    setAlcancePintor(null);
+    void cargarLedger(item.id).then((data) => {
+      if (clienteIdRef.current !== item.id) return;
+      setAlcancePintor(data?.alcancePintor ?? null);
+    });
   }
 
   function seleccionarCuentaPublica(id: string) {
-    const cuenta = visorPublico?.sesion.cuentas.find((c) => c.id === id);
+    const cuentas = visorPublico?.sesion.cuentas ?? [];
+    const cuenta = cuentas.find((c) => c.id === id);
     clienteIdRef.current = id;
     setClienteId(id);
     setClienteSeleccionado(null);
     setProyectoFiltroId(null);
-    fijarTextoCliente(cuenta?.etiqueta ?? "");
+    if (cuentas.length <= 1) {
+      fijarTextoCliente(cuenta?.etiqueta ?? "");
+    }
+    void cargarLedger(id);
+  }
+
+  function seleccionarClienteDelPintor(id: string) {
+    if (!alcancePintor?.some((c) => c.id === id)) return;
+    clienteIdRef.current = id;
+    setClienteId(id);
+    setClienteSeleccionado(null);
+    setProyectoFiltroId(null);
     void cargarLedger(id);
   }
 
@@ -376,7 +404,11 @@ export default function FacturaCuentaCorrientePageClient({
     setSugerencias([]);
     setTotalesItemVista(false);
     setVista("comprobantes");
-    void cargarLedger(fila.id);
+    setAlcancePintor(null);
+    void cargarLedger(fila.id).then((data) => {
+      if (clienteIdRef.current !== fila.id) return;
+      setAlcancePintor(data?.alcancePintor ?? null);
+    });
   }
 
   useEffect(() => {
@@ -459,6 +491,7 @@ export default function FacturaCuentaCorrientePageClient({
       setClienteId(null);
       setClienteSeleccionado(null);
       setProyectoFiltroId(null);
+      setAlcancePintor(null);
       setMovimientos([]);
       setProductos([]);
       setSugerencias([]);
@@ -481,6 +514,7 @@ export default function FacturaCuentaCorrientePageClient({
       setClienteId(null);
       setClienteSeleccionado(null);
       setProyectoFiltroId(null);
+      setAlcancePintor(null);
       setMovimientos([]);
       setProductos([]);
       setQClienteFijado("");
@@ -719,38 +753,15 @@ export default function FacturaCuentaCorrientePageClient({
             <div className="flex w-full min-w-0 items-end gap-3">
               <div className="flex min-w-0 flex-1 items-end gap-3">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <ModalMicroLabel>CLIENTE</ModalMicroLabel>
+                <ModalMicroLabel>{modoPintor ? "PINTOR" : "CLIENTE"}</ModalMicroLabel>
               <FilterRowSearch className="w-full max-w-none">
-                {esPublico && visorPublico ? (
-                  visorPublico.sesion.cuentas.length > 1 ? (
-                    <Select
-                      value={clienteId ?? undefined}
-                      onValueChange={seleccionarCuentaPublica}
-                    >
-                      <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                        <SelectValue placeholder="CLIENTE" />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="select-content-filtro"
-                        position="popper"
-                        side="bottom"
-                        align="start"
-                      >
-                        {visorPublico.sesion.cuentas.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.etiqueta}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      readOnly
-                      value={q}
-                      className={cn("w-full", INPUT_FILTER_CLASS)}
-                      aria-label="Cliente"
-                    />
-                  )
+                {esPublico ? (
+                  <Input
+                    readOnly
+                    value={modoPintor ? etiquetaPintorSoloLectura : q}
+                    className={cn("w-full", INPUT_FILTER_CLASS)}
+                    aria-label={modoPintor ? "Pintor" : "Cliente"}
+                  />
                 ) : (
                 <div
                   ref={wrapRef}
@@ -901,23 +912,19 @@ export default function FacturaCuentaCorrientePageClient({
                 )}
               </FilterRowSearch>
               </div>
-              <div
-                className={cn(
-                  "flex min-w-0 flex-1 flex-col gap-1",
-                  !mostrarProyecto && "invisible pointer-events-none"
-                )}
-                aria-hidden={!mostrarProyecto}
-                inert={mostrarProyecto ? undefined : true}
-              >
-                  <ModalMicroLabel>PROYECTO</ModalMicroLabel>
+              {modoPintor ? (
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <ModalMicroLabel>CLIENTES</ModalMicroLabel>
                   <Select
-                    value={proyectoFiltroId ?? "none"}
-                    onValueChange={(value) => {
-                      setProyectoFiltroId(value === "none" ? null : value);
-                    }}
+                    value={clienteId ?? undefined}
+                    onValueChange={
+                      esPublico
+                        ? seleccionarCuentaPublica
+                        : seleccionarClienteDelPintor
+                    }
                   >
                     <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                      <SelectValue placeholder="PROYECTO" />
+                      <SelectValue placeholder="CLIENTES" />
                     </SelectTrigger>
                     <SelectContent
                       className="select-content-filtro"
@@ -925,28 +932,40 @@ export default function FacturaCuentaCorrientePageClient({
                       side="bottom"
                       align="start"
                     >
-                      <SelectItem value="none">PROYECTO</SelectItem>
-                      {proyectosCliente.map((proyecto) => (
-                        <SelectItem key={proyecto.id} value={proyecto.id}>
-                          {etiquetaNombreProyecto(proyecto)}
+                      {cuentasDelPintor.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.etiqueta}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-              </div>
-              <div className="flex w-[10.5rem] shrink-0 flex-col items-center gap-1">
-                <ModalMicroLabel align="center">SALDO</ModalMicroLabel>
-                <p
-                  className={cn(
-                    INPUT_FILTER_CLASS,
-                    "justify-center text-center tabular-nums"
-                  )}
-                  aria-label="Saldo"
+                </div>
+              ) : null}
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <ModalMicroLabel>PROYECTOS</ModalMicroLabel>
+                <Select
+                  value={proyectoFiltroId ?? "none"}
+                  onValueChange={(value) => {
+                    setProyectoFiltroId(value === "none" ? null : value);
+                  }}
                 >
-                  {saldoClienteVisible != null
-                    ? `$${fmtPrecio(saldoClienteVisible)}`
-                    : ""}
-                </p>
+                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
+                    <SelectValue placeholder="PROYECTOS" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="select-content-filtro"
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                  >
+                    <SelectItem value="none">PROYECTOS</SelectItem>
+                    {proyectosCliente.map((proyecto) => (
+                      <SelectItem key={proyecto.id} value={proyecto.id}>
+                        {etiquetaNombreProyecto(proyecto)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               </div>
               <LimpiarFiltrosButton onClick={limpiarFiltros} />

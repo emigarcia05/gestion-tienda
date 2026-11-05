@@ -24,6 +24,7 @@ import {
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   montoSaldoVencidoVenta,
   type ClienteConSaldoCuentaCorriente,
+  type CuentaCorrienteAlcancePintor,
   type CuentaCorrienteClienteDatos,
   type CuentaCorrienteClienteMovimiento,
   type CuentaCorrienteMovimientoTipo,
@@ -922,6 +923,7 @@ export async function obtenerCuentaCorrienteCliente(
       return { success: false, error: "El cliente no existe." };
     }
 
+    const alcancePintor = await alcancePintorDeCliente(cliente);
     const tiposLedger = [...TIPOS_VENTA_CTA_CTE, ...TIPOS_NC_CTA_CTE];
     const rows = await prisma.comprobanteVta.findMany({
       where: {
@@ -1128,7 +1130,10 @@ export async function obtenerCuentaCorrienteCliente(
     });
     movimientos.reverse();
 
-    return { success: true, data: { cliente, movimientos, productos } };
+    return {
+      success: true,
+      data: { cliente, movimientos, productos, alcancePintor },
+    };
   } catch (error) {
     console.error("[clientes][cuentaCorriente]", error);
     return {
@@ -1179,13 +1184,52 @@ function sesionDesdeAlcance(
   titular: ClienteListaItem,
   alcance: readonly ClienteListaItem[]
 ): CuentaCorrientePublicaSesion {
-  return {
-    titularId: titular.id,
-    cuentas: alcance.map((c) => ({
+  const titularCuenta = {
+    id: titular.id,
+    etiqueta: etiquetaClienteListado(titular),
+  };
+  const resto = alcance
+    .filter((c) => c.id !== titular.id)
+    .map((c) => ({
       id: c.id,
       etiqueta: etiquetaClienteListado(c),
-    })),
+    }))
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
+  return {
+    titularId: titular.id,
+    cuentas: [titularCuenta, ...resto],
   };
+}
+
+/**
+ * Pintor primero y asociados A-Z. Null si no es pintor o no tiene asociados.
+ * El nombre del pintor queda en la lista para volver a sus proyectos.
+ */
+async function alcancePintorDeCliente(
+  titular: ClienteListaItem
+): Promise<CuentaCorrienteAlcancePintor[] | null> {
+  if (!titular.esPintor) return null;
+  const asociados = await prisma.cliente.findMany({
+    where: { pintorAsociadoId: titular.id },
+    select: {
+      id: true,
+      nombreCompleto: true,
+      cel: true,
+      esPintor: true,
+    },
+    orderBy: [{ nombreCompleto: "asc" }, { id: "asc" }],
+  });
+  if (asociados.length === 0) return null;
+  const resto = asociados
+    .map((row) => ({
+      id: row.id,
+      etiqueta: etiquetaClienteListado(row),
+    }))
+    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
+  return [
+    { id: titular.id, etiqueta: etiquetaClienteListado(titular) },
+    ...resto,
+  ];
 }
 
 export async function obtenerOCrearTokenCuentaCorriente(

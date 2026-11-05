@@ -19,11 +19,12 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import GraficoMesesTablero from "@/components/ventas/GraficoMesesTablero";
+import ParticipacionTablero from "@/components/ventas/ParticipacionTablero";
+import type { VistaTablero } from "@/lib/usuarios";
 import type {
   ComparacionVentas,
   TableroVentasDatos,
   TableroVentasMontos,
-  TableroVentasParticipacion,
 } from "@/services/tableroVentas.service";
 
 const TITULO_SECCION_CLASS =
@@ -84,56 +85,6 @@ function TarjetaPeriodo({
   );
 }
 
-function BarraParticipacion({ pct, tono }: { pct: number; tono: "mes" | "anio" }) {
-  const ancho = Math.min(100, Math.max(0, pct));
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <div className="h-3 min-w-0 flex-1 rounded-sm bg-muted" aria-hidden>
-        <div
-          className={tono === "mes" ? "h-full rounded-sm bg-primary" : "h-full rounded-sm bg-accent2"}
-          style={{ width: `${ancho}%` }}
-        />
-      </div>
-      <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums">{pct}%</span>
-    </div>
-  );
-}
-
-function BarrasParticipacion({ filas }: { filas: TableroVentasParticipacion[] }) {
-  return (
-    <div className="flex h-full min-h-0 flex-col justify-center gap-3">
-      <h3 className="text-center text-xs font-bold uppercase tracking-wide">Participación</h3>
-      <div className="flex items-center justify-center gap-4">
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden />
-          Mes
-        </span>
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-          <span className="h-2.5 w-2.5 rounded-sm bg-accent2" aria-hidden />
-          Año
-        </span>
-      </div>
-      {filas.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {filas.map((fila) => (
-            <li key={fila.id} className="flex min-w-0 items-center gap-2">
-              <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
-                {fila.nombre}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <BarraParticipacion pct={fila.pctMes} tono="mes" />
-                <BarraParticipacion pct={fila.pctAnio} tono="anio" />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: TableroVentasMontos } }) {
   return (
     <div className="grid w-full shrink-0 grid-cols-2 gap-3">
@@ -146,9 +97,12 @@ function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: T
 export default function TableroVentas({
   datos,
   error,
+  vista = "gerente",
 }: {
   datos: TableroVentasDatos;
   error?: string;
+  /** `vendedor` oculta Ventas globales. */
+  vista?: VistaTablero;
 }) {
   const tituloSucursal = datos.sucursalNombre
     ? `Ventas sucursal · ${datos.sucursalNombre}`
@@ -219,6 +173,7 @@ export default function TableroVentas({
             </div>
           </div>
         </section>
+        {vista === "vendedor" ? null : (
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label="Ventas globales">
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
           <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
@@ -226,9 +181,10 @@ export default function TableroVentas({
               <MetricasVentas montos={datos.globales} />
               <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
-            <BarrasParticipacion filas={datos.participacionSucursales} />
+            <ParticipacionTablero filas={datos.participacionSucursales} />
           </div>
         </section>
+        )}
       </div>
     </ClassicFilteredTableLayout>
   );

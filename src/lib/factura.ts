@@ -526,10 +526,21 @@ export type CuentaCorrienteProductoLinea = {
   proyectoId: string | null;
 };
 
+/** Cuenta elegible en CLIENTES: el pintor (primero) o un asociado. */
+export type CuentaCorrienteAlcancePintor = {
+  id: string;
+  etiqueta: string;
+};
+
 export type CuentaCorrienteClienteDatos = {
   cliente: ClienteListaItem;
   movimientos: CuentaCorrienteClienteMovimiento[];
   productos: CuentaCorrienteProductoLinea[];
+  /**
+   * Pintor primero y sus asociados. Null si el cliente no es pintor
+   * o no tiene asociados.
+   */
+  alcancePintor: CuentaCorrienteAlcancePintor[] | null;
 };
 
 export type CuentaCorrienteTotalPorItem = {

@@ -20,6 +20,15 @@ export const idPersonalSchema = z.coerce
   .positive("El ID Personal debe ser mayor a 0.")
   .max(2_147_483_647, "El ID Personal es demasiado grande.");
 
+export const vistaTableroSchema = z.enum(["gerente", "vendedor"]);
+
+export const asignarVistaTableroSchema = z.object({
+  idPersonal: idPersonalSchema,
+  vistaTablero: vistaTableroSchema,
+});
+
+export type AsignarVistaTableroInput = z.infer<typeof asignarVistaTableroSchema>;
+
 const nombrePersonalSchema = z
   .string()
   .trim()
