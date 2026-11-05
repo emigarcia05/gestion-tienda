@@ -116,15 +116,13 @@ export default function TableroVentas({
         {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label={tituloSucursal}>
           <h2 className={TITULO_SECCION_CLASS}>{tituloSucursal}</h2>
-          <div className="grid shrink-0 grid-cols-2 gap-4">
-            <div className="flex min-h-0 items-center">
+          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
+            <div className="flex min-h-0 min-w-0 flex-col gap-2">
               <MetricasVentas montos={datos.sucursal} />
+              <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
-            <div className="flex h-36 min-h-0 flex-col gap-2">
-              <h3 className="shrink-0 text-center text-xs font-bold uppercase tracking-wide">
-                Clientes con saldos vencidos
-              </h3>
-              <div className="contenedor-tabla-gestion min-h-0 flex-1">
+            <div className="flex min-h-0 flex-col">
+              <div className="contenedor-tabla-gestion min-h-0 flex-1" aria-label="Clientes con saldos vencidos">
                 <Table>
                   <colgroup>
                     <col style={{ width: "62%" }} />
@@ -174,7 +172,6 @@ export default function TableroVentas({
               </div>
             </div>
           </div>
-          <GraficoMesesTablero series={datos.seriesMeses} />
         </section>
         {vista === "vendedor" ? null : (
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label="Ventas globales">
