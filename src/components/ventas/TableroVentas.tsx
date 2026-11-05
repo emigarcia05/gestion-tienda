@@ -52,7 +52,7 @@ function LineaComparacion({
   const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
   const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <span className="mb-[0.7rem] inline-flex items-center justify-center gap-1 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+    <span className="mb-[0.35rem] inline-flex items-center justify-center gap-1 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
       {muestraFlecha ? <Icono className="h-2.5 w-2.5 shrink-0" aria-hidden /> : null}
       {textoComparacion(comparacion, referencia)}
     </span>
@@ -75,7 +75,7 @@ function TarjetaPeriodo({
 }) {
   return (
     <div className="finanzas-resumen-tarjeta py-[0.35rem]">
-      <span className="mb-[0.7rem] text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
+      <span className="mb-[0.35rem] text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
         {label}
       </span>
       <span className="text-[1.05rem] font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
@@ -116,11 +116,11 @@ export default function TableroVentas({
         {error ? <p className="shrink-0 text-sm text-destructive">{error}</p> : null}
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label={tituloSucursal}>
           <h2 className={TITULO_SECCION_CLASS}>{tituloSucursal}</h2>
-          <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
+          <div className="grid shrink-0 grid-cols-2 gap-4">
             <div className="flex min-h-0 items-center">
               <MetricasVentas montos={datos.sucursal} />
             </div>
-            <div className="flex min-h-0 flex-col gap-2">
+            <div className="flex h-36 min-h-0 flex-col gap-2">
               <h3 className="shrink-0 text-center text-xs font-bold uppercase tracking-wide">
                 Clientes con saldos vencidos
               </h3>
@@ -174,14 +174,14 @@ export default function TableroVentas({
               </div>
             </div>
           </div>
+          <GraficoMesesTablero series={datos.seriesMeses} />
         </section>
         {vista === "vendedor" ? null : (
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label="Ventas globales">
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
           <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
-            <div className="flex min-h-0 min-w-0 flex-col gap-2">
+            <div className="flex min-h-0 items-center">
               <MetricasVentas montos={datos.globales} />
-              <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
             <ParticipacionTablero filas={datos.participacionSucursales} />
           </div>
