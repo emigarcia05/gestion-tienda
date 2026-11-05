@@ -350,20 +350,21 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const diasMes = diasDelMes(anio, mes);
     const proyectadoMes =
       diaHoy > 0 ? redondear2((vendidoMes / diaHoy) * diasMes) : vendidoMes;
-    const mesInicio =
-      VENTAS_MENSUALES_DESDE_ISO.slice(0, 4) === String(anio)
-        ? Number(VENTAS_MENSUALES_DESDE_ISO.slice(5, 7))
-        : 1;
-    const mesesGlobales: TableroVentasMesGrafico[] = [];
-    for (let m = mesInicio; m <= mes; m += 1) {
-      const esActual = m === mes;
-      mesesGlobales.push({
+    const mesesGlobales: TableroVentasMesGrafico[] = ETIQUETAS_MES.map((etiqueta, indice) => {
+      const m = indice + 1;
+      if (m === mes) {
+        return { mes: m, etiqueta, ventas: vendidoMes, proyectado: proyectadoMes };
+      }
+      if (m > mes) {
+        return { mes: m, etiqueta, ventas: 0, proyectado: null };
+      }
+      return {
         mes: m,
-        etiqueta: ETIQUETAS_MES[m - 1] ?? String(m),
-        ventas: esActual ? vendidoMes : redondear2(ventasPorMes.get(m) ?? 0),
-        proyectado: esActual ? proyectadoMes : null,
-      });
-    }
+        etiqueta,
+        ventas: redondear2(ventasPorMes.get(m) ?? 0),
+        proyectado: null,
+      };
+    });
 
     const clientesVencidos = [...porCliente.values()].sort((a, b) => {
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
@@ -419,7 +420,12 @@ export function tableroVentasVacio(): TableroVentasDatos {
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
-    mesesGlobales: [],
+    mesesGlobales: ETIQUETAS_MES.map((etiqueta, indice) => ({
+      mes: indice + 1,
+      etiqueta,
+      ventas: 0,
+      proyectado: null,
+    })),
     clientesVencidos: [],
   };
 }

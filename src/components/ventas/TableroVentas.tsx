@@ -147,46 +147,49 @@ function GraficoMeses({ meses }: { meses: TableroVentasMesGrafico[] }) {
           Vendido
         </span>
         <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
-          <span className="h-0 w-4 border-t-2 border-dotted border-foreground" aria-hidden />
+          <span className="h-2.5 w-2.5 border-x-2 border-t-2 border-dotted border-foreground" aria-hidden />
           Proyectado
         </span>
       </div>
-      {techo <= 0 ? (
-        <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
-      ) : (
-        <div className="flex h-40 items-end gap-2">
-          {meses.map((mes) => {
-            const altoVendido = Math.min(100, Math.max(0, (mes.ventas / techo) * 100));
-            const altoProyectado =
-              mes.proyectado == null
-                ? null
-                : Math.min(100, Math.max(0, (mes.proyectado / techo) * 100));
-            const titulo =
-              mes.proyectado == null
+      <div className="flex h-40 items-end gap-2">
+        {meses.map((mes) => {
+          const altoVendido =
+            techo <= 0 || mes.ventas <= 0
+              ? 0
+              : Math.min(100, Math.max(0, (mes.ventas / techo) * 100));
+          const altoProyectado =
+            techo <= 0 || mes.proyectado == null || mes.proyectado <= 0
+              ? null
+              : Math.min(100, Math.max(0, (mes.proyectado / techo) * 100));
+          const titulo =
+            mes.proyectado != null && mes.proyectado > 0
+              ? `${mes.etiqueta} vendido ${pesos(mes.ventas)}, proyectado ${pesos(mes.proyectado)}`
+              : mes.ventas > 0
                 ? `${mes.etiqueta} ${pesos(mes.ventas)}`
-                : `${mes.etiqueta} vendido ${pesos(mes.ventas)}, proyectado ${pesos(mes.proyectado)}`;
-            return (
-              <div key={mes.mes} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1" title={titulo}>
-                <div className="relative min-h-0 w-full flex-1">
+                : mes.etiqueta;
+          return (
+            <div key={mes.mes} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1" title={titulo}>
+              <div className="relative min-h-0 w-full flex-1">
+                {altoVendido > 0 ? (
                   <div
                     className="absolute inset-x-0 bottom-0 rounded-sm bg-primary"
                     style={{ height: `${altoVendido}%` }}
                   />
-                  {altoProyectado != null ? (
-                    <div
-                      className="absolute inset-x-0 border-t-2 border-dotted border-foreground"
-                      style={{ bottom: `${altoProyectado}%` }}
-                    />
-                  ) : null}
-                </div>
-                <span className="text-center text-[10px] font-semibold uppercase tracking-wide">
-                  {mes.etiqueta}
-                </span>
+                ) : null}
+                {altoProyectado != null ? (
+                  <div
+                    className="absolute inset-x-0 bottom-0 border-x-2 border-t-2 border-dotted border-foreground"
+                    style={{ height: `${altoProyectado}%` }}
+                  />
+                ) : null}
               </div>
-            );
-          })}
-        </div>
-      )}
+              <span className="text-center text-[10px] font-semibold uppercase tracking-wide">
+                {mes.etiqueta}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -277,10 +280,12 @@ export default function TableroVentas({
         <section className="flex flex-col gap-3" aria-label="Ventas globales">
           <h2 className={TITULO_SECCION_CLASS}>Ventas globales</h2>
           <div className="grid grid-cols-2 gap-4">
-            <MetricasVentas montos={datos.globales} />
+            <div className="flex min-w-0 flex-col gap-3">
+              <MetricasVentas montos={datos.globales} />
+              <GraficoMeses meses={datos.mesesGlobales} />
+            </div>
             <BarrasParticipacion filas={datos.participacionSucursales} />
           </div>
-          <GraficoMeses meses={datos.mesesGlobales} />
         </section>
       </div>
     </ClassicFilteredTableLayout>
