@@ -1,6 +1,7 @@
 import { descargarPdfBytes } from "@/lib/descargarPdfBase64";
 import { ENVIOS_PDF_MAX_BYTES } from "@/lib/envios";
 import { dataUrlQrComprobanteFiscal } from "@/lib/facturaComprobanteQr";
+import { redesPdfDeWhatsapp } from "@/lib/facturaComprobantePdfRedes";
 import { esFacturaTipoFiscal } from "@/lib/factura";
 import type {
   FacturaComprobantePdfInput,
@@ -118,11 +119,12 @@ export async function generarBytesPdfFacturaComprobante(
     });
     listo = { ...input, fiscal: { ...input.fiscal, qrDataUrl } };
   }
-  const [{ generarPdfFacturaComprobante }, logo] = await Promise.all([
+  const [{ generarPdfFacturaComprobante }, logo, redes] = await Promise.all([
     import("@/lib/generarPdfFacturaComprobante"),
     cargarLogoTiendaColorPdf(),
+    redesPdfDeWhatsapp(listo.whatsapp),
   ]);
-  return generarPdfFacturaComprobante({ ...listo, logo });
+  return generarPdfFacturaComprobante({ ...listo, logo, redes });
 }
 
 export async function descargarPdfFacturaComprobante(

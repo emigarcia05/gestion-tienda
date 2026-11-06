@@ -234,7 +234,7 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       condicionIvaArca: { select: { descripcion: true } },
       sucursales: {
         select: {
-          sucursal: { select: { codigo: true } },
+          sucursal: { select: { codigo: true, whatsapp: true } },
           prioridadesFactura: { select: { grupo: true } },
         },
       },
@@ -255,6 +255,10 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
     sucursalCodigos: [
       ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
     ],
+    sucursalesWhatsapp: r.sucursales.map((link) => ({
+      codigo: link.sucursal.codigo,
+      whatsapp: link.sucursal.whatsapp,
+    })),
     gruposFactura: r.sucursales.flatMap((link) =>
       link.prioridadesFactura
         .map((p) => p.grupo)

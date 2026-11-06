@@ -124,6 +124,7 @@ import {
   type FacturaComprobantePdfEmisor,
   type FacturaComprobantePdfFiscal,
 } from "@/lib/facturaComprobantePdfEmisor";
+import { whatsappDeSucursales } from "@/lib/facturaComprobantePdfRedes";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
 import {
@@ -457,6 +458,8 @@ export type FacturaComprobantePdfDatos = {
   proyectoNombre: string | null;
   /** Null si no es un fiscal autorizado. */
   fiscal: FacturaComprobantePdfFiscal | null;
+  /** `sucursales.whatsapp` de la sucursal del comprobante. */
+  whatsapp: string | null;
 };
 
 function fiscalPdfDesdeRow(
@@ -565,6 +568,19 @@ async function domicilioReceptorParaFiscal(args: {
   return { success: true, data: texto };
 }
 
+function whatsappPdfDeComprobante(row: {
+  personal: { sucursalPorDefecto: string | null } | null;
+  stockComprobantes: { sucursal: { codigo: string; whatsapp: string | null } }[];
+  ptoVta: { sucursales: { sucursal: { codigo: string; whatsapp: string | null } }[] };
+}): string | null {
+  const deStock = row.stockComprobantes[0]?.sucursal ?? null;
+  const links = row.ptoVta.sucursales.map((link) => link.sucursal);
+  return whatsappDeSucursales(
+    deStock ? [deStock, ...links] : links,
+    deStock?.codigo ?? row.personal?.sucursalPorDefecto
+  );
+}
+
 export async function obtenerFacturaComprobantePdfDatos(
   id: string
 ): Promise<ServiceResult<FacturaComprobantePdfDatos>> {
@@ -581,7 +597,17 @@ export async function obtenerFacturaComprobantePdfDatos(
             domicilioComercial: true,
             inicioActividades: true,
             condicionIva: true,
+            sucursales: {
+              select: { sucursal: { select: { codigo: true, whatsapp: true } } },
+            },
           },
+        },
+        personal: { select: { sucursalPorDefecto: true } },
+        stockComprobantes: {
+          where: { tipo: { in: ["VENTA", "NOTA_CREDITO"] } },
+          select: { sucursal: { select: { codigo: true, whatsapp: true } } },
+          orderBy: { createdAt: "asc" },
+          take: 1,
         },
         emisorCondicionIvaArca: { select: { descripcion: true } },
         receptorCondicionIvaArca: { select: { descripcion: true } },
@@ -645,6 +671,7 @@ export async function obtenerFacturaComprobantePdfDatos(
             : null,
         }),
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
+        whatsapp: whatsappPdfDeComprobante(row),
       },
     };
   } catch (e) {

@@ -12,7 +12,12 @@ import { fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TableroVentasParticipacion } from "@/services/tableroVentas.service";
 
+type PeriodoParticipacion = "dia" | "mes";
 type MedidaParticipacion = "porcentaje" | "monto";
+
+function esPeriodo(valor: string): valor is PeriodoParticipacion {
+  return valor === "dia" || valor === "mes";
+}
 
 function esMedida(valor: string): valor is MedidaParticipacion {
   return valor === "porcentaje" || valor === "monto";
@@ -24,12 +29,14 @@ function BarraParticipacion({
   pctPromedio,
   montoPromedio,
   medida,
+  etiquetaPeriodo,
 }: {
   pct: number;
   monto: number;
   pctPromedio: number;
   montoPromedio: number;
   medida: MedidaParticipacion;
+  etiquetaPeriodo: string;
 }) {
   const ancho = Math.min(100, Math.max(0, pct));
   const marca = Math.min(100, Math.max(0, pctPromedio));
@@ -77,7 +84,7 @@ function BarraParticipacion({
             diferencia.tono === "menos" && "text-destructive",
             diferencia.tono === "igual" && "text-muted-foreground"
           )}
-          title="Mes menos el promedio"
+          title={`${etiquetaPeriodo} menos el promedio`}
         >
           {diferencia.texto}
         </span>
@@ -95,11 +102,33 @@ function diferenciaConSigno(
 }
 
 export default function ParticipacionTablero({ filas }: { filas: TableroVentasParticipacion[] }) {
+  const [periodo, setPeriodo] = useState<PeriodoParticipacion>("dia");
   const [medida, setMedida] = useState<MedidaParticipacion>("monto");
+  const etiquetaPeriodo = periodo === "dia" ? "Día" : "Mes";
+  const ordenadas = [...filas].sort((a, b) => {
+    const pa = periodo === "dia" ? a.pctDia : a.pctMes;
+    const pb = periodo === "dia" ? b.pctDia : b.pctMes;
+    if (pb !== pa) return pb - pa;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[7rem_minmax(0,1fr)] items-start gap-4">
       <div className="flex flex-col gap-2">
+        <Select
+          value={periodo}
+          onValueChange={(valor) => {
+            if (esPeriodo(valor)) setPeriodo(valor);
+          }}
+        >
+          <SelectTrigger size="sm" className="tablero-grafico-filtro w-full" aria-label="Día o mes">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
+            <SelectItem value="dia">DÍA</SelectItem>
+            <SelectItem value="mes">MES</SelectItem>
+          </SelectContent>
+        </Select>
         <Select
           value={medida}
           onValueChange={(valor) => {
@@ -110,8 +139,8 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
             <SelectValue />
           </SelectTrigger>
           <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
-            <SelectItem value="porcentaje">PORCENTAJE</SelectItem>
             <SelectItem value="monto">MONTO</SelectItem>
+            <SelectItem value="porcentaje">PORCENTAJE</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -119,28 +148,29 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
         <div className="flex items-center justify-center gap-4">
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
             <span className="h-2.5 w-2.5 rounded-sm bg-primary" aria-hidden />
-            Mes
+            {etiquetaPeriodo}
           </span>
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide">
             <span className="h-2.5 w-0.5 bg-accent2" aria-hidden />
             Promedio
           </span>
         </div>
-        {filas.length === 0 ? (
+        {ordenadas.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {filas.map((fila) => (
+            {ordenadas.map((fila) => (
               <li key={fila.id} className="flex min-w-0 items-center gap-2">
                 <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
                   {fila.nombre}
                 </span>
                 <BarraParticipacion
-                  pct={fila.pctMes}
-                  monto={fila.montoMes}
-                  pctPromedio={fila.pctPromedio}
-                  montoPromedio={fila.montoPromedio}
+                  pct={periodo === "dia" ? fila.pctDia : fila.pctMes}
+                  monto={periodo === "dia" ? fila.montoDia : fila.montoMes}
+                  pctPromedio={periodo === "dia" ? fila.pctPromedioDia : fila.pctPromedio}
+                  montoPromedio={periodo === "dia" ? fila.montoPromedioDia : fila.montoPromedio}
                   medida={medida}
+                  etiquetaPeriodo={etiquetaPeriodo}
                 />
               </li>
             ))}

@@ -30,6 +30,10 @@ import {
   LEYENDA_A_CONSUMIDOR_FINAL,
   LEYENDA_TRANSPARENCIA_FISCAL,
 } from "@/lib/facturaFiscal";
+import {
+  INSTAGRAM_COMPROBANTE,
+  type FacturaComprobantePdfRedes,
+} from "@/lib/facturaComprobantePdfRedes";
 
 const MARGIN = 14;
 const PRIMARY = { r: 0, g: 114, b: 187 };
@@ -70,6 +74,10 @@ export type FacturaComprobantePdfInput = {
   logo?: FacturaComprobantePdfLogo | null;
   /** Presente solo si ARCA autorizó el comprobante. */
   fiscal?: FacturaComprobantePdfFiscal | null;
+  /** `sucursales.whatsapp` de la sucursal del comprobante. */
+  whatsapp?: string | null;
+  /** QR de Instagram y WhatsApp. Lo arma el cliente antes de dibujar. */
+  redes?: FacturaComprobantePdfRedes | null;
 };
 
 function letraComprobantePdf(input: FacturaComprobantePdfInput): string {
@@ -262,6 +270,9 @@ export function generarPdfFacturaComprobante(
   if (fiscal?.qrDataUrl && input.cae?.trim()) {
     y = dibujarPieFiscal(doc, input, fiscal, y, contentWidth);
   }
+  if (input.redes) {
+    dibujarPieRedes(doc, input.redes, y);
+  }
 
   const buf = doc.output("arraybuffer");
   return new Uint8Array(
@@ -302,6 +313,60 @@ function dibujarDiscriminacionIva(
     y += 3.6;
   }
   return y;
+}
+
+function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yContenido: number): void {
+  const pageH = 297;
+  const boxH = 46;
+  const bottom = pageH - MARGIN;
+  if (yContenido + 4 + boxH > bottom) doc.addPage();
+  const y = bottom - boxH;
+  const contentWidth = 210 - 2 * MARGIN;
+  const colW = contentWidth / 2;
+  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setLineWidth(0.4);
+  doc.rect(MARGIN, y, contentWidth, boxH);
+  doc.line(MARGIN + colW, y, MARGIN + colW, y + boxH);
+  dibujarColumnaRed(
+    doc,
+    MARGIN,
+    y,
+    colW,
+    redes.instagramQr,
+    "Seguinos en INSTAGRAM",
+    INSTAGRAM_COMPROBANTE
+  );
+  dibujarColumnaRed(
+    doc,
+    MARGIN + colW,
+    y,
+    colW,
+    redes.whatsappQr,
+    "Escribinos por WHATSAPP",
+    redes.whatsappTexto
+  );
+}
+
+function dibujarColumnaRed(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  ancho: number,
+  qr: string | null,
+  titulo: string,
+  detalle: string | null
+): void {
+  const qrSize = 26;
+  const cx = x + ancho / 2;
+  if (qr) {
+    doc.addImage(qr, "PNG", cx - qrSize / 2, y + 3, qrSize, qrSize);
+  }
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text(titulo, cx, y + 3 + qrSize + 4.5, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  if (detalle) doc.text(detalle, cx, y + 3 + qrSize + 8.5, { align: "center" });
 }
 
 function dibujarPieFiscal(

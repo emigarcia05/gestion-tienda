@@ -861,6 +861,8 @@ export type FacturaPtoVtaOpcion = {
   condicionIvaDescripcion: string | null;
   /** Códigos de `sucursales` vía `pto_vta_sucursales`. */
   sucursalCodigos: string[];
+  /** WhatsApp de cada sucursal del punto de venta (`sucursales.whatsapp`). */
+  sucursalesWhatsapp: { codigo: string; whatsapp: string | null }[];
   /** Sucursal × grupo en que está configurado (`sucursal_ptos_vtas_factura`). */
   gruposFactura: { sucursalCodigo: string; grupo: GrupoFacturaPtoVta }[];
 };

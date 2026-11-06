@@ -90,6 +90,7 @@ import {
   type FacturaComprobantePdfEmisor,
 } from "@/lib/facturaComprobantePdfEmisor";
 import type { FacturaComprobantePdfInput } from "@/lib/generarPdfFacturaComprobante";
+import { whatsappDeSucursales } from "@/lib/facturaComprobantePdfRedes";
 import type { CobroFacturaEmitirInput } from "@/lib/validations/factura";
 import {
   dateToIsoYmdArgentina,
@@ -549,6 +550,10 @@ export default function FacturaCrearPageClient({
       caeVtoIso: null,
       letra: null,
       emisor: emisorPdfDePtoVta(ptoVtas, ptoVtaId),
+      whatsapp: whatsappDeSucursales(
+        ptoVtas.find((pto) => pto.id === ptoVtaId)?.sucursalesWhatsapp ?? [],
+        personalSesion.sucursalPorDefecto
+      ),
       ...datosClienteComprobantePdf(),
     });
     setComprobanteModalOpen(true);

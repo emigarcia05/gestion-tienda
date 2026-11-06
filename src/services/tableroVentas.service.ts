@@ -85,12 +85,18 @@ export interface TableroVentasSerieMes {
   meses: TableroVentasMesGrafico[];
 }
 
-/** Parte de las ventas del mes de una sucursal sobre el total global, y su promedio mensual. */
+/** Parte de las ventas de una sucursal sobre el total global del día o del mes, y su promedio. */
 export interface TableroVentasParticipacion {
   id: string;
   nombre: string;
+  pctDia: number;
+  montoDia: number;
   pctMes: number;
   montoMes: number;
+  /** Total del año / días con ventas netas mayores a 0. */
+  montoPromedioDia: number;
+  /** Posición de la marca sobre la misma escala que `pctDia` (0–100). */
+  pctPromedioDia: number;
   /** Total del año / meses con ventas netas mayores a 0. */
   montoPromedio: number;
   /** Posición de la marca sobre la misma escala que `pctMes` (0–100). */
@@ -102,7 +108,7 @@ export interface TableroVentasDatos {
   sucursalNombre: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
-  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. El promedio es el total del año / meses con ventas. */
+  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. El promedio del día es el total del año / días con ventas; el del mes, / meses con ventas. */
   participacionSucursales: TableroVentasParticipacion[];
   /** GLOBAL y cada sucursal `genera_est`. Siempre 12 meses, de enero a diciembre. */
   seriesMeses: TableroVentasSerieMes[];
@@ -291,8 +297,10 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     let ventasDiaSuc = 0;
     let ventasAyerSuc = 0;
     let ventasMesAntSuc = 0;
+    const ventasDiaPorSucursal = new Map<string, number>();
     const ventasMesPorSucursal = new Map<string, number>();
     const ventasAnioPorSucursal = new Map<string, number>();
+    const ventasPorDiaSucursal = new Map<string, Map<string, number>>();
     const ventasPorMes = new Map<number, number>();
     const ventasPorMesSucursal = new Map<string, Map<number, number>>();
     const ventasHastaHoyPorSucursal = new Map<string, number>();
@@ -322,6 +330,9 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           const porMes = ventasPorMesSucursal.get(idVenta) ?? new Map<number, number>();
           porMes.set(mesFila, (porMes.get(mesFila) ?? 0) + importe);
           ventasPorMesSucursal.set(idVenta, porMes);
+          const porDia = ventasPorDiaSucursal.get(idVenta) ?? new Map<string, number>();
+          porDia.set(fechaIso, (porDia.get(fechaIso) ?? 0) + importe);
+          ventasPorDiaSucursal.set(idVenta, porDia);
         }
       }
       if (enMesHastaHoy) {
@@ -341,6 +352,9 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       if (fechaIso === hoyIso) {
         ventasDia += importe;
         if (deLaSucursal) ventasDiaSuc += importe;
+        if (idVenta) {
+          ventasDiaPorSucursal.set(idVenta, (ventasDiaPorSucursal.get(idVenta) ?? 0) + importe);
+        }
       }
       if (fechaIso === ayerIso) {
         ventasAyer += importe;
@@ -368,6 +382,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         saldoVencido: redondear2((previo?.saldoVencido ?? 0) + vencido),
       });
     }
+    const totalDia = redondear2(ventasDia);
     const totalMes = redondear2(ventasMes);
     const pctSobre = (monto: number, total: number) =>
       Math.abs(total) < 0.005 ? 0 : Math.round((monto / total) * 100);
@@ -390,14 +405,28 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
             if (neto > 0.009) mesesConVentas += 1;
           }
         }
+        const porDia = ventasPorDiaSucursal.get(s.id);
+        let diasConVentas = 0;
+        if (porDia) {
+          for (const neto of porDia.values()) {
+            if (neto > 0.009) diasConVentas += 1;
+          }
+        }
         const montoAnio = redondear2(ventasAnioPorSucursal.get(s.id) ?? 0);
         const montoPromedio =
           mesesConVentas === 0 ? 0 : redondear2(montoAnio / mesesConVentas);
+        const montoPromedioDia =
+          diasConVentas === 0 ? 0 : redondear2(montoAnio / diasConVentas);
+        const montoDia = redondear2(ventasDiaPorSucursal.get(s.id) ?? 0);
         return {
           id: s.id,
           nombre: s.nombre.toLocaleUpperCase("es"),
+          pctDia: pctSobre(montoDia, totalDia),
+          montoDia,
           pctMes: pctSobre(redondear2(ventasMesPorSucursal.get(s.id) ?? 0), totalMes),
           montoMes: redondear2(ventasMesPorSucursal.get(s.id) ?? 0),
+          montoPromedioDia,
+          pctPromedioDia: pctMarca(montoPromedioDia, totalDia),
           montoPromedio,
           pctPromedio: pctMarca(montoPromedio, totalMes),
         };
