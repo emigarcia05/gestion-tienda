@@ -1,5 +1,7 @@
 /** Pie de redes del PDF de comprobante. Instagram es único; WhatsApp sale de `sucursales.whatsapp`. */
 
+import logoWhatsapp from "../../fuentes_logos/Logo Whatsapp.png";
+
 export const INSTAGRAM_COMPROBANTE = "tiendacolor.pinturerias";
 export const INSTAGRAM_COMPROBANTE_URL = "https://www.instagram.com/tiendacolor.pinturerias";
 
@@ -62,6 +64,8 @@ export type FacturaComprobantePdfRedes = {
   instagramQr: string;
   whatsappQr: string | null;
   whatsappTexto: string | null;
+  /** PNG de `fuentes_logos/Logo Whatsapp.png`, recortado al dibujo. */
+  whatsappIcono: string;
 };
 
 export async function redesPdfDeWhatsapp(
@@ -76,5 +80,52 @@ export async function redesPdfDeWhatsapp(
     instagramQr,
     whatsappQr,
     whatsappTexto: textoWhatsappPdf(whatsapp) || null,
+    whatsappIcono: await dataUrlLogoWhatsapp(),
   };
+}
+
+/** Logo nuevo de WhatsApp. Recorta el margen transparente para que ocupe el mismo cuadrado que el ícono de Instagram. */
+async function dataUrlLogoWhatsapp(): Promise<string> {
+  const img = new Image();
+  img.src = logoWhatsapp.src;
+  await img.decode();
+  const origen = document.createElement("canvas");
+  origen.width = img.naturalWidth;
+  origen.height = img.naturalHeight;
+  const ctx = origen.getContext("2d");
+  if (!ctx) throw new Error("No se pudo preparar el logo de WhatsApp.");
+  ctx.drawImage(img, 0, 0);
+  const { data, width, height } = ctx.getImageData(0, 0, origen.width, origen.height);
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) <= 8) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  const recorteAncho = Math.max(1, maxX - minX + 1);
+  const recorteAlto = Math.max(1, maxY - minY + 1);
+  const salida = document.createElement("canvas");
+  salida.width = recorteAncho;
+  salida.height = recorteAlto;
+  const ctxSalida = salida.getContext("2d");
+  if (!ctxSalida) throw new Error("No se pudo preparar el logo de WhatsApp.");
+  ctxSalida.drawImage(
+    origen,
+    minX,
+    minY,
+    recorteAncho,
+    recorteAlto,
+    0,
+    0,
+    recorteAncho,
+    recorteAlto
+  );
+  return salida.toDataURL("image/png");
 }

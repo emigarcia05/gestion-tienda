@@ -355,7 +355,8 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     "instagram",
     "Seguinos en INSTAGRAM",
     INSTAGRAM_COMPROBANTE,
-    ejes
+    ejes,
+    null
   );
   dibujarColumnaRed(
     doc,
@@ -367,7 +368,8 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     "whatsapp",
     "Escribinos por WHATSAPP",
     redes.whatsappTexto,
-    ejes
+    ejes,
+    redes.whatsappIcono
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
@@ -430,7 +432,8 @@ function dibujarColumnaRed(
   red: "instagram" | "whatsapp",
   titulo: string,
   detalle: string | null,
-  ejes: EjesPieRed
+  ejes: EjesPieRed,
+  iconoWhatsapp: string | null
 ): void {
   const qrSize = qr ? Math.min(24, alto - PIE_RED_PAD * 2) : 0;
   if (qr) {
@@ -440,7 +443,16 @@ function dibujarColumnaRed(
   const textW = Math.max(16, ancho - (textX - x) - PIE_RED_PAD);
   const centro = textX + textW / 2;
   if (red === "instagram") dibujarIconoInstagram(doc, centro, ejes.iconCy, PIE_RED_ICONO);
-  else dibujarIconoWhatsapp(doc, centro, ejes.iconCy, PIE_RED_ICONO);
+  else if (iconoWhatsapp) {
+    doc.addImage(
+      iconoWhatsapp,
+      "PNG",
+      centro - PIE_RED_ICONO / 2,
+      ejes.iconCy - PIE_RED_ICONO / 2,
+      PIE_RED_ICONO,
+      PIE_RED_ICONO
+    );
+  }
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
   doc.setFontSize(PIE_RED_TITULO);
@@ -474,15 +486,6 @@ function dibujarIconoInstagram(doc: jsPDF, cx: number, cy: number, size: number)
   doc.roundedRect(x, y, size, size, size * 0.22, size * 0.22);
   doc.circle(cx, cy + size * 0.04, size * 0.22);
   doc.circle(cx + size * 0.28, cy - size * 0.26, size * 0.07, "F");
-}
-
-function dibujarIconoWhatsapp(doc: jsPDF, cx: number, cy: number, size: number): void {
-  const r = size * 0.38;
-  doc.setDrawColor(INK.r, INK.g, INK.b);
-  doc.setLineWidth(0.35);
-  doc.circle(cx, cy - size * 0.04, r);
-  doc.line(cx - r * 0.45, cy + r * 0.45, cx - size * 0.42, cy + size * 0.46);
-  doc.line(cx - size * 0.42, cy + size * 0.46, cx - r * 0.02, cy + r * 0.62);
 }
 
 function dibujarPieFiscal(
