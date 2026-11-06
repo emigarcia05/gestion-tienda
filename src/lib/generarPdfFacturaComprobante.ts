@@ -326,8 +326,8 @@ function registrarFuenteVwText(doc: jsPDF): void {
 
 function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yContenido: number): void {
   const pageH = 297;
-  /** 4 cm en la hoja A4. El recuadro no puede pasar de esta altura. */
-  const boxH = 40;
+  /** 3 cm: un 25 % menos que los 4 cm anteriores. */
+  const boxH = 30;
   const bottom = pageH - MARGIN;
   if (yContenido + 4 + boxH > bottom) doc.addPage();
   const y = bottom - boxH;
@@ -344,6 +344,7 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     colW,
     boxH,
     redes.instagramQr,
+    "instagram",
     "Seguinos en INSTAGRAM",
     INSTAGRAM_COMPROBANTE
   );
@@ -354,6 +355,7 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     colW,
     boxH,
     redes.whatsappQr,
+    "whatsapp",
     "Escribinos por WHATSAPP",
     redes.whatsappTexto
   );
@@ -368,34 +370,72 @@ function dibujarColumnaRed(
   ancho: number,
   alto: number,
   qr: string | null,
+  red: "instagram" | "whatsapp",
   titulo: string,
   detalle: string | null
 ): void {
-  const pad = 3;
-  const qrSize = Math.min(34, alto - pad * 2);
+  const pad = 2.5;
+  const qrSize = Math.min(24, alto - pad * 2);
   if (qr) doc.addImage(qr, "PNG", x + pad, y + (alto - qrSize) / 2, qrSize, qrSize);
-  const textX = x + pad + (qr ? qrSize + 3 : 0);
-  const textW = Math.max(20, ancho - (textX - x) - pad);
+  const textX = x + pad + (qr ? qrSize + 2.5 : 0);
+  const textW = Math.max(16, ancho - (textX - x) - pad);
+  const centro = textX + textW / 2;
+  const icono = 5;
+  const tituloSize = 9;
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(tituloSize);
   const tituloLineas = doc.splitTextToSize(titulo, textW);
-  doc.setFont("VWText", "normal");
-  doc.setFontSize(14);
-  const detalleLineas = detalle ? doc.splitTextToSize(detalle, textW) : [];
-  const tituloAlto = tituloLineas.length * 4.8;
-  const detalleAlto = detalleLineas.length * 5.8;
-  const bloque = tituloAlto + (detalleLineas.length > 0 ? 1.4 + detalleAlto : 0);
-  let ty = y + alto / 2 - bloque / 2 + 3.6;
+  const tituloAlto = tituloLineas.length * 3.6;
+  const detalleSize = detalle ? tamanoUnaLinea(doc, detalle, textW, 11) : 0;
+  const detalleAlto = detalle ? 4.2 : 0;
+  const bloque = icono + 1.2 + tituloAlto + (detalle ? 1 + detalleAlto : 0);
+  let cursor = y + alto / 2 - bloque / 2;
+  if (red === "instagram") dibujarIconoInstagram(doc, centro, cursor + icono / 2, icono);
+  else dibujarIconoWhatsapp(doc, centro, cursor + icono / 2, icono);
+  cursor += icono + 1.2 + 3.2;
   doc.setFont("VWText", "bold");
-  doc.setFontSize(11);
-  doc.text(tituloLineas, textX, ty);
-  if (detalleLineas.length > 0) {
-    ty += tituloAlto + 1.4;
+  doc.setFontSize(tituloSize);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  doc.text(tituloLineas, centro, cursor, { align: "center" });
+  if (detalle) {
+    cursor += tituloAlto + 1;
     doc.setFont("VWText", "normal");
-    doc.setFontSize(14);
-    doc.text(detalleLineas, textX, ty);
+    doc.setFontSize(detalleSize);
+    doc.text(detalle, centro, cursor, { align: "center" });
   }
+}
+
+/** Baja el cuerpo hasta que el texto entra en una sola fila. */
+function tamanoUnaLinea(doc: jsPDF, texto: string, ancho: number, inicial: number): number {
+  let size = inicial;
+  doc.setFont("VWText", "normal");
+  while (size > 6) {
+    doc.setFontSize(size);
+    if (doc.getTextWidth(texto) <= ancho) return size;
+    size -= 0.25;
+  }
+  return 6;
+}
+
+function dibujarIconoInstagram(doc: jsPDF, cx: number, cy: number, size: number): void {
+  const x = cx - size / 2;
+  const y = cy - size / 2;
+  doc.setDrawColor(INK.r, INK.g, INK.b);
+  doc.setFillColor(INK.r, INK.g, INK.b);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(x, y, size, size, size * 0.22, size * 0.22);
+  doc.circle(cx, cy + size * 0.04, size * 0.22);
+  doc.circle(cx + size * 0.28, cy - size * 0.26, size * 0.07, "F");
+}
+
+function dibujarIconoWhatsapp(doc: jsPDF, cx: number, cy: number, size: number): void {
+  const r = size * 0.46;
+  doc.setDrawColor(INK.r, INK.g, INK.b);
+  doc.setLineWidth(0.35);
+  doc.circle(cx + size * 0.04, cy - size * 0.04, r);
+  doc.line(cx - r * 0.35, cy + r * 0.55, cx - r * 0.85, cy + r * 1.15);
+  doc.line(cx - r * 0.85, cy + r * 1.15, cx - r * 0.05, cy + r * 0.85);
 }
 
 function dibujarPieFiscal(
