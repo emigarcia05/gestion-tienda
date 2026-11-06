@@ -6,6 +6,7 @@
  */
 
 import { jsPDF } from "jspdf";
+import { VWTEXT_BOLD_BASE64, VWTEXT_REGULAR_BASE64 } from "@/lib/vwTextPdfFuente";
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import {
   esFacturaTipoFiscal,
@@ -111,6 +112,7 @@ export function generarPdfFacturaComprobante(
     }
   }
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  registrarFuenteVwText(doc);
   const contentWidth = 210 - 2 * MARGIN;
   let y = MARGIN;
 
@@ -315,9 +317,17 @@ function dibujarDiscriminacionIva(
   return y;
 }
 
+function registrarFuenteVwText(doc: jsPDF): void {
+  doc.addFileToVFS("VWText-Bold.ttf", VWTEXT_BOLD_BASE64);
+  doc.addFont("VWText-Bold.ttf", "VWText", "bold");
+  doc.addFileToVFS("VWText-Regular.ttf", VWTEXT_REGULAR_BASE64);
+  doc.addFont("VWText-Regular.ttf", "VWText", "normal");
+}
+
 function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yContenido: number): void {
   const pageH = 297;
-  const boxH = 46;
+  /** 4 cm en la hoja A4. El recuadro no puede pasar de esta altura. */
+  const boxH = 40;
   const bottom = pageH - MARGIN;
   if (yContenido + 4 + boxH > bottom) doc.addPage();
   const y = bottom - boxH;
@@ -332,6 +342,7 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     MARGIN,
     y,
     colW,
+    boxH,
     redes.instagramQr,
     "Seguinos en INSTAGRAM",
     INSTAGRAM_COMPROBANTE
@@ -341,10 +352,13 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     MARGIN + colW,
     y,
     colW,
+    boxH,
     redes.whatsappQr,
     "Escribinos por WHATSAPP",
     redes.whatsappTexto
   );
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
 }
 
 function dibujarColumnaRed(
@@ -352,21 +366,36 @@ function dibujarColumnaRed(
   x: number,
   y: number,
   ancho: number,
+  alto: number,
   qr: string | null,
   titulo: string,
   detalle: string | null
 ): void {
-  const qrSize = 26;
-  const cx = x + ancho / 2;
-  if (qr) {
-    doc.addImage(qr, "PNG", cx - qrSize / 2, y + 3, qrSize, qrSize);
-  }
+  const pad = 3;
+  const qrSize = Math.min(34, alto - pad * 2);
+  if (qr) doc.addImage(qr, "PNG", x + pad, y + (alto - qrSize) / 2, qrSize, qrSize);
+  const textX = x + pad + (qr ? qrSize + 3 : 0);
+  const textW = Math.max(20, ancho - (textX - x) - pad);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text(titulo, cx, y + 3 + qrSize + 4.5, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  if (detalle) doc.text(detalle, cx, y + 3 + qrSize + 8.5, { align: "center" });
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(11);
+  const tituloLineas = doc.splitTextToSize(titulo, textW);
+  doc.setFont("VWText", "normal");
+  doc.setFontSize(14);
+  const detalleLineas = detalle ? doc.splitTextToSize(detalle, textW) : [];
+  const tituloAlto = tituloLineas.length * 4.8;
+  const detalleAlto = detalleLineas.length * 5.8;
+  const bloque = tituloAlto + (detalleLineas.length > 0 ? 1.4 + detalleAlto : 0);
+  let ty = y + alto / 2 - bloque / 2 + 3.6;
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(11);
+  doc.text(tituloLineas, textX, ty);
+  if (detalleLineas.length > 0) {
+    ty += tituloAlto + 1.4;
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(14);
+    doc.text(detalleLineas, textX, ty);
+  }
 }
 
 function dibujarPieFiscal(
