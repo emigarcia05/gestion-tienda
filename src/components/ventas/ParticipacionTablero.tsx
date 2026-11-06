@@ -12,8 +12,6 @@ import { fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TableroVentasParticipacion } from "@/services/tableroVentas.service";
 
-const SUCURSAL_TODAS = "global";
-
 type MedidaParticipacion = "porcentaje" | "monto";
 
 function esMedida(valor: string): valor is MedidaParticipacion {
@@ -97,28 +95,11 @@ function diferenciaConSigno(
 }
 
 export default function ParticipacionTablero({ filas }: { filas: TableroVentasParticipacion[] }) {
-  const [sucursalId, setSucursalId] = useState(SUCURSAL_TODAS);
   const [medida, setMedida] = useState<MedidaParticipacion>("monto");
-  const sucursalValida = sucursalId === SUCURSAL_TODAS || filas.some((fila) => fila.id === sucursalId);
-  const sucursal = sucursalValida ? sucursalId : SUCURSAL_TODAS;
-  const visibles = sucursal === SUCURSAL_TODAS ? filas : filas.filter((fila) => fila.id === sucursal);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-[7rem_minmax(0,1fr)] items-start gap-4">
       <div className="flex flex-col gap-2">
-        <Select value={sucursal} onValueChange={setSucursalId}>
-          <SelectTrigger size="sm" className="tablero-grafico-filtro w-full" aria-label="Filtrar por sucursal">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
-            <SelectItem value={SUCURSAL_TODAS}>GLOBAL</SelectItem>
-            {filas.map((fila) => (
-              <SelectItem key={fila.id} value={fila.id}>
-                {fila.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select
           value={medida}
           onValueChange={(valor) => {
@@ -145,11 +126,11 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
             Promedio
           </span>
         </div>
-        {visibles.length === 0 ? (
+        {filas.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">Sin ventas.</p>
         ) : (
           <ul className="flex flex-col gap-3">
-            {visibles.map((fila) => (
+            {filas.map((fila) => (
               <li key={fila.id} className="flex min-w-0 items-center gap-2">
                 <span className="w-28 shrink-0 truncate text-xs font-semibold" title={fila.nombre}>
                   {fila.nombre}
