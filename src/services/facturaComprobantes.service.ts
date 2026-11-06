@@ -2250,6 +2250,7 @@ export async function registrarCobroComprobanteVta(
           {
             pagoNombre: input.pagoNombre,
             entidadNombre: input.entidadNombre,
+            alias: input.alias,
             cuotaEtiqueta: input.cuotaEtiqueta,
             montoCents: input.montoCents,
           },
@@ -2318,6 +2319,7 @@ export async function registrarCobroComprobanteVta(
         {
           pagoNombre: input.pagoNombre,
           entidadNombre: input.entidadNombre,
+          alias: input.alias,
           cuotaEtiqueta: input.cuotaEtiqueta,
           montoCents: input.montoCents,
         },
@@ -2391,6 +2393,7 @@ export async function registrarPagoCuentaCorriente(
         {
           pagoNombre: input.pagoNombre,
           entidadNombre: input.entidadNombre,
+          alias: input.alias,
           cuotaEtiqueta: input.cuotaEtiqueta,
           montoCents: input.montoCents,
         },

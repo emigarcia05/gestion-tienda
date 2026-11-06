@@ -47,6 +47,15 @@ function claveVinculo(pagoId: string, entidadId: string | null, sucursalId: stri
   return `${pagoId}|${entidadId ?? ""}|${sucursalId}`;
 }
 
+function claveVinculoCaja(
+  pagoId: string,
+  entidadId: string | null,
+  sucursalId: string,
+  cajaId: string
+): string {
+  return `${claveVinculo(pagoId, entidadId, sucursalId)}|${cajaId}`;
+}
+
 function redondear2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -96,6 +105,7 @@ export async function listarSeguimientoFiscalData(raw: {
         pagoId: true,
         entidadId: true,
         sucursalId: true,
+        cajaDestinoId: true,
         titular: { select: { nombre: true } },
       },
     }),
@@ -111,12 +121,16 @@ export async function listarSeguimientoFiscalData(raw: {
     resumenBalIvaPeriodo(periodo),
   ]);
 
-  // Si el trío forma × entidad × sucursal tiene varias filas (alias distintos), usa la primera.
-  const titularPorVinculo = new Map<string, string | null>();
+  // Varios alias del mismo trío se distinguen por la caja destino del movimiento.
+  const titularPorTrio = new Map<string, string | null>();
+  const titularPorCaja = new Map<string, string | null>();
   for (const v of vinculos) {
-    const clave = claveVinculo(v.pagoId, v.entidadId, v.sucursalId);
-    if (titularPorVinculo.has(clave)) continue;
-    titularPorVinculo.set(clave, v.titular ? v.titular.nombre.toLocaleUpperCase("es-AR") : null);
+    const nombre = v.titular ? v.titular.nombre.toLocaleUpperCase("es-AR") : null;
+    const trio = claveVinculo(v.pagoId, v.entidadId, v.sucursalId);
+    if (!titularPorTrio.has(trio)) titularPorTrio.set(trio, nombre);
+    if (!v.cajaDestinoId) continue;
+    const porCaja = claveVinculoCaja(v.pagoId, v.entidadId, v.sucursalId, v.cajaDestinoId);
+    if (!titularPorCaja.has(porCaja)) titularPorCaja.set(porCaja, nombre);
   }
 
   const movimientos =
@@ -132,7 +146,7 @@ export async function listarSeguimientoFiscalData(raw: {
               sucursalId: v.sucursalId,
             })),
           },
-          select: { monto: true, pagoId: true, entidadId: true, sucursalId: true },
+          select: { monto: true, pagoId: true, entidadId: true, sucursalId: true, cajaId: true },
         });
 
   const filas = new Map<string, FilaSeguimientoFiscalTitular>();
@@ -148,9 +162,13 @@ export async function listarSeguimientoFiscalData(raw: {
 
   for (const m of movimientos) {
     if (!m.pagoId) continue;
-    const clave = claveVinculo(m.pagoId, m.entidadId, m.sucursalId);
-    if (!titularPorVinculo.has(clave)) continue;
-    filaDe(titularPorVinculo.get(clave) ?? null).cobro += m.monto;
+    const trio = claveVinculo(m.pagoId, m.entidadId, m.sucursalId);
+    const porCaja = titularPorCaja.get(
+      claveVinculoCaja(m.pagoId, m.entidadId, m.sucursalId, m.cajaId)
+    );
+    const titular = porCaja !== undefined ? porCaja : titularPorTrio.get(trio);
+    if (titular === undefined) continue;
+    filaDe(titular).cobro += m.monto;
   }
 
   for (const v of ventas) {

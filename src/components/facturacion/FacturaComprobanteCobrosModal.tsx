@@ -50,6 +50,8 @@ import {
 import { fmtCelda, fmtPrecio } from "@/lib/format";
 import {
   cobroMuestraAlias,
+  idSiOpcionEntidadUnica,
+  opcionEntidadCobroPorId,
   opcionesEntidadCobro,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
@@ -121,8 +123,11 @@ export default function FacturaComprobanteCobrosModal({
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
     [pagosDisponibles, pagoId]
   );
+  const entidadRealId = pagoSel
+    ? (opcionEntidadCobroPorId(pagoSel, entidadId)?.entidadId ?? "")
+    : "";
   const muestraCuotas =
-    cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).length > 0;
+    cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const historialNc = useMemo(() => {
     const asign = (vistaNc?.asignaciones ?? []).map((fila) => ({
@@ -294,9 +299,7 @@ export default function FacturaComprobanteCobrosModal({
     if (nextId === pagoId) return;
     setPagoId(nextId);
     const next = pagosDisponibles.find((p) => p.id === nextId);
-    const unicas =
-      next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
-    setEntidadId(unicas);
+    setEntidadId(idSiOpcionEntidadUnica(next));
     setCuotaId("");
   }
 
@@ -338,14 +341,15 @@ export default function FacturaComprobanteCobrosModal({
       );
       return;
     }
-    const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
-    const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
+    const opcion = opcionEntidadCobroPorId(pagoSel, entidadId);
+    const entidadNombre = opcion?.entidadNombre ?? "";
     const cuota = cuotas.find((c) => c.id === cuotaId);
     setGuardando(true);
     const res = await registrarCobroComprobanteFacturaAction({
       id: comprobanteId,
       pagoNombre: pagoSel.nombre,
       entidadNombre,
+      alias: opcion?.alias ?? "",
       cuotaEtiqueta: cuota?.cuotas ?? null,
       montoCents,
     });
@@ -562,7 +566,9 @@ export default function FacturaComprobanteCobrosModal({
                         {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
                       </ModalMicroLabel>
                       <Select
-                        value={entidadId || VACIO}
+                        value={
+                          cobroMuestraAlias(pagoSel) ? entidadId || undefined : entidadId || VACIO
+                        }
                         onValueChange={(value) => {
                           setEntidadId(value === VACIO ? "" : value);
                           setCuotaId("");
@@ -580,9 +586,9 @@ export default function FacturaComprobanteCobrosModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>
-                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
-                          </SelectItem>
+                          {cobroMuestraAlias(pagoSel) ? null : (
+                            <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          )}
                           {pagoSel
                             ? opcionesEntidadCobro(pagoSel).map((opcion) => (
                                 <SelectItem key={opcion.id} value={opcion.id}>
@@ -614,7 +620,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
+                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>
@@ -776,7 +782,9 @@ export default function FacturaComprobanteCobrosModal({
                         {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
                       </ModalMicroLabel>
                       <Select
-                        value={entidadId || VACIO}
+                        value={
+                          cobroMuestraAlias(pagoSel) ? entidadId || undefined : entidadId || VACIO
+                        }
                         onValueChange={(value) => {
                           setEntidadId(value === VACIO ? "" : value);
                           setCuotaId("");
@@ -794,9 +802,9 @@ export default function FacturaComprobanteCobrosModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>
-                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
-                          </SelectItem>
+                          {cobroMuestraAlias(pagoSel) ? null : (
+                            <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          )}
                           {pagoSel
                             ? opcionesEntidadCobro(pagoSel).map((opcion) => (
                                 <SelectItem key={opcion.id} value={opcion.id}>
@@ -828,7 +836,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadId).map((cuota) => (
+                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

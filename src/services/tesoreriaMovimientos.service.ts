@@ -998,6 +998,8 @@ export function conComprobanteEnMovimientos(
 export type CobroSnapshotParaTesoreria = {
   pagoNombre: string;
   entidadNombre: string;
+  /** Si viene, el vínculo es forma × entidad × sucursal × alias. */
+  alias?: string;
   cuotaEtiqueta: string | null;
   /** Si la forma tiene acreditación variable, este día es `fecha_acreditacion`. */
   fechaAcreditacionIso?: string;
@@ -1183,12 +1185,17 @@ export async function prepararMovimientosCobroDesdeSnapshots(
       }
     }
 
+    const aliasCobro = cobro.alias?.trim() ?? "";
     const vinculoCaja = await db.cobrosPorSucursal.findFirst({
       where: {
         pagoId: pago.id,
         sucursalId: sucursal.id,
         entidadId,
+        ...(aliasCobro
+          ? { alias: { equals: aliasCobro, mode: "insensitive" as const } }
+          : {}),
       },
+      orderBy: { createdAt: "asc" },
       select: {
         cajaDestinoId: true,
         generaIvaCredito: true,

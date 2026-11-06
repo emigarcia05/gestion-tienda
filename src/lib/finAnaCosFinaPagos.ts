@@ -29,6 +29,11 @@ export type FinAnaCosFinaPagoItem = {
    * va primero en el select, con la etiqueta PRIORITARIO. No impide elegir otro.
    */
   entidadPrioritaria?: boolean[];
+  /**
+   * Valor único de cada opción del select (id del vínculo cuando hay alias).
+   * Mismo orden que `entidadIds`. Si falta, el valor es el id de la entidad.
+   */
+  entidadOpcionIds?: string[];
   /** El cobro pide la fecha de acreditación a mano (también true si el vínculo de esa sucursal es cheque). */
   fechaAcreditacionVariable: boolean;
   /** `cobros_forma_pago.alias`. */
@@ -83,24 +88,60 @@ export function etiquetaOpcionEntidadCobro(
 }
 
 export type OpcionEntidadCobro = {
+  /** Valor del select. Único aunque dos alias compartan la entidad. */
   id: string;
+  entidadId: string;
+  entidadNombre: string;
+  /** Alias del vínculo. Vacío si la forma no usa alias. */
+  alias: string;
+  /** Texto del select. El prioritario lleva la etiqueta PRIORITARIO. */
   etiqueta: string;
+  /** Alias o entidad, sin la etiqueta PRIORITARIO. */
+  etiquetaBase: string;
 };
 
-/** Opciones del select de cobro. El alias PRIORITARIO queda primero; el resto conserva el orden. */
+/** Opciones del select de cobro. Cada alias es una opción. El PRIORITARIO queda primero. */
 export function opcionesEntidadCobro(pago: FinAnaCosFinaPagoItem): OpcionEntidadCobro[] {
-  const opciones = pago.entidadIds.map((id, indice) => {
+  const opciones = pago.entidadIds.map((entidadId, indice) => {
     const base = etiquetaOpcionEntidadCobro(pago, indice);
     const prioritario = pago.alias && pago.entidadPrioritaria?.[indice] === true;
+    const alias = pago.alias ? (pago.entidadAlias[indice]?.trim() ?? "") : "";
     return {
-      id,
+      id: pago.entidadOpcionIds?.[indice] || entidadId,
+      entidadId,
+      entidadNombre: pago.entidadNombres[indice] ?? "",
+      alias,
       etiqueta: prioritario && base ? `${base} · PRIORITARIO` : base,
+      etiquetaBase: base,
       prioritario,
       indice,
     };
   });
   opciones.sort((a, b) => Number(b.prioritario) - Number(a.prioritario) || a.indice - b.indice);
-  return opciones.map(({ id, etiqueta }) => ({ id, etiqueta }));
+  return opciones.map(({ id, entidadId, entidadNombre, alias, etiqueta, etiquetaBase }) => ({
+    id,
+    entidadId,
+    entidadNombre,
+    alias,
+    etiqueta,
+    etiquetaBase,
+  }));
+}
+
+export function opcionEntidadCobroPorId(
+  pago: FinAnaCosFinaPagoItem,
+  opcionId: string
+): OpcionEntidadCobro | null {
+  return opcionesEntidadCobro(pago).find((opcion) => opcion.id === opcionId) ?? null;
+}
+
+/** Si hay una sola opción, su id. Si hay varias, vacío: el usuario elige. */
+export function idSiOpcionEntidadUnica(
+  pago: FinAnaCosFinaPagoItem | null | undefined
+): string {
+  if (!pago) return "";
+  const opciones = opcionesEntidadCobro(pago);
+  return opciones.length === 1 ? opciones[0].id : "";
 }
 
 export function buscarPagoPorId(

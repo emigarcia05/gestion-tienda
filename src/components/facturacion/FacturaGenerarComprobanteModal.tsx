@@ -41,7 +41,8 @@ import {
 } from "@/lib/fechaArgentina";
 import {
   cobroMuestraAlias,
-  etiquetaOpcionEntidadCobro,
+  idSiOpcionEntidadUnica,
+  opcionEntidadCobroPorId,
   opcionesEntidadCobro,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
@@ -129,6 +130,8 @@ type CobroRegistrado = {
   entidadNombre: string;
   /** Texto del select (alias si la forma lo usa). */
   entidadVisible: string;
+  /** Alias elegido, para resolver el vínculo cuando hay más de uno. */
+  alias: string;
   cuotaEtiqueta: string | null;
   fechaAcreditacionIso?: string;
   montoCents: number;
@@ -200,11 +203,15 @@ export default function FacturaGenerarComprobanteModal({
   const cuotasOpciones = useMemo(
     () =>
       filtrarCuotasCatalogoPorDescPromo(
-        cuotasParaFormaYEntidad(cuotas, pagoId, entidadId),
+        cuotasParaFormaYEntidad(
+          cuotas,
+          pagoId,
+          pagoSel ? (opcionEntidadCobroPorId(pagoSel, entidadId)?.entidadId ?? "") : ""
+        ),
         pagoId,
         comprobante?.descuento ?? null
       ),
-    [cuotas, pagoId, entidadId, comprobante?.descuento]
+    [cuotas, pagoId, entidadId, pagoSel, comprobante?.descuento]
   );
   const muestraCuotas = cuotasOpciones.length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
@@ -272,7 +279,7 @@ export default function FacturaGenerarComprobanteModal({
     if (pagosDisponibles.length !== 1 || pagoId !== "") return;
     const unico = pagosDisponibles[0];
     setPagoId(unico.id);
-    setEntidadId(unico.entidadIds.length === 1 ? unico.entidadIds[0] : "");
+    setEntidadId(idSiOpcionEntidadUnica(unico));
     setCuotaId("");
     setFechaAcreditacionDdMmYyyy(
       unico.fechaAcreditacionVariable
@@ -285,9 +292,7 @@ export default function FacturaGenerarComprobanteModal({
     if (nextId === pagoId) return;
     setPagoId(nextId);
     const next = pagosDisponibles.find((p) => p.id === nextId);
-    const unicas =
-      next && next.entidadIds.length === 1 ? next.entidadIds[0] : "";
-    setEntidadId(unicas);
+    setEntidadId(idSiOpcionEntidadUnica(next));
     setCuotaId("");
     setFechaAcreditacionDdMmYyyy(
       next?.fechaAcreditacionVariable
@@ -328,11 +333,9 @@ export default function FacturaGenerarComprobanteModal({
     if (montoCents > montoArCentsTopePesoEntero(pendienteCents)) {
       return { ok: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
-    const entidadIdx = pagoSel.entidadIds.indexOf(entidadId);
-    const entidadNombre = pagoSel.entidadNombres[entidadIdx] ?? "";
-    const entidadVisible = cobroMuestraAlias(pagoSel)
-      ? etiquetaOpcionEntidadCobro(pagoSel, entidadIdx)
-      : entidadNombre;
+    const opcion = opcionEntidadCobroPorId(pagoSel, entidadId);
+    const entidadNombre = opcion?.entidadNombre ?? "";
+    const entidadVisible = opcion?.etiquetaBase || entidadNombre;
     const cuota = cuotas.find((c) => c.id === cuotaId);
     return {
       ok: true,
@@ -340,6 +343,7 @@ export default function FacturaGenerarComprobanteModal({
         pagoNombre: pagoSel.nombre,
         entidadNombre,
         entidadVisible,
+        alias: opcion?.alias ?? "",
         cuotaEtiqueta: cuota?.cuotas ?? null,
         fechaAcreditacionIso: pagoSel.fechaAcreditacionVariable
           ? fechaAcreditacionIso
@@ -365,6 +369,7 @@ export default function FacturaGenerarComprobanteModal({
       pagoNombre: res.cobro.pagoNombre,
       entidadNombre: res.cobro.entidadNombre,
       entidadVisible: res.cobro.entidadVisible,
+      alias: res.cobro.alias,
       cuotaEtiqueta: res.cobro.cuotaEtiqueta,
       fechaAcreditacionIso: res.cobro.fechaAcreditacionIso,
       montoCents: res.cobro.montoCents,
@@ -403,12 +408,14 @@ export default function FacturaGenerarComprobanteModal({
       ({
         pagoNombre,
         entidadNombre,
+        alias,
         cuotaEtiqueta,
         fechaAcreditacionIso,
         montoCents,
       }) => ({
         pagoNombre,
         entidadNombre: entidadNombre ?? "",
+        alias: alias ?? "",
         cuotaEtiqueta,
         fechaAcreditacionIso,
         montoCents,
@@ -542,7 +549,9 @@ export default function FacturaGenerarComprobanteModal({
                         {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
                       </ModalMicroLabel>
                       <Select
-                        value={entidadId || VACIO}
+                        value={
+                          cobroMuestraAlias(pagoSel) ? entidadId || undefined : entidadId || VACIO
+                        }
                         onValueChange={handleEntidadChange}
                         disabled={ocupado || !pagoSel}
                       >
@@ -557,9 +566,9 @@ export default function FacturaGenerarComprobanteModal({
                           align="start"
                           className="select-content-filtro"
                         >
-                          <SelectItem value={VACIO}>
-                            {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
-                          </SelectItem>
+                          {cobroMuestraAlias(pagoSel) ? null : (
+                            <SelectItem value={VACIO}>ENTIDAD</SelectItem>
+                          )}
                           {pagoSel
                             ? opcionesEntidadCobro(pagoSel).map((opcion) => (
                                 <SelectItem key={opcion.id} value={opcion.id}>

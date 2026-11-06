@@ -621,6 +621,7 @@ export async function listarPagosCobroHabilitadosSucursal(
     prisma.cobrosPorSucursal.findMany({
       where: { sucursal: { codigo: sucursalCodigo } },
       select: {
+        id: true,
         pagoId: true,
         entidadId: true,
         esCheque: true,
@@ -638,6 +639,10 @@ export async function listarPagosCobroHabilitadosSucursal(
   const chequePorPago = new Map<string, boolean>();
   const aliasPorEntidad = new Map<string, string>();
   const prioritarioPorEntidad = new Map<string, boolean>();
+  const aliasPorPago = new Map<
+    string,
+    { opcionId: string; entidadId: string; alias: string; prioritario: boolean }[]
+  >();
   for (const vinculo of vinculos) {
     pagosConFila.add(vinculo.pagoId);
     if (vinculo.esCheque) chequePorPago.set(vinculo.pagoId, true);
@@ -648,13 +653,21 @@ export async function listarPagosCobroHabilitadosSucursal(
     const alias = vinculo.alias?.trim();
     if (!alias) continue;
     const clave = `${vinculo.pagoId}|${vinculo.entidadId}`;
-    if (aliasPorEntidad.has(clave)) continue;
-    aliasPorEntidad.set(clave, alias.toLocaleUpperCase("es-AR"));
     const titular = vinculo.titular?.nombre.toLocaleUpperCase("es-AR") ?? "";
-    prioritarioPorEntidad.set(
-      clave,
-      vinculo.seguimientoFiscal && titularPrioritario != null && titular === titularPrioritario
-    );
+    const prioritario =
+      vinculo.seguimientoFiscal && titularPrioritario != null && titular === titularPrioritario;
+    if (!aliasPorEntidad.has(clave)) {
+      aliasPorEntidad.set(clave, alias.toLocaleUpperCase("es-AR"));
+      prioritarioPorEntidad.set(clave, prioritario);
+    }
+    const lista = aliasPorPago.get(vinculo.pagoId) ?? [];
+    lista.push({
+      opcionId: vinculo.id,
+      entidadId: vinculo.entidadId,
+      alias: alias.toLocaleUpperCase("es-AR"),
+      prioritario,
+    });
+    aliasPorPago.set(vinculo.pagoId, lista);
   }
 
   return pagos.flatMap((pago) => {
@@ -677,6 +690,28 @@ export async function listarPagosCobroHabilitadosSucursal(
     const pares = pago.entidadIds
       .map((id, indice) => ({ id, nombre: pago.entidadNombres[indice] ?? "" }))
       .filter((entidad) => permitidas.has(entidad.id));
+    if (pago.alias) {
+      const nombrePorEntidad = new Map(pares.map((entidad) => [entidad.id, entidad.nombre]));
+      const opciones = (aliasPorPago.get(pago.id) ?? [])
+        .filter((opcion) => nombrePorEntidad.has(opcion.entidadId))
+        .sort(
+          (a, b) =>
+            Number(b.prioritario) - Number(a.prioritario) ||
+            a.alias.localeCompare(b.alias, "es", { sensitivity: "base" })
+        );
+      return [
+        {
+          ...pago,
+          entidadIds: opciones.map((opcion) => opcion.entidadId),
+          entidadNombres: opciones.map((opcion) => nombrePorEntidad.get(opcion.entidadId) ?? ""),
+          entidadAlias: opciones.map((opcion) => opcion.alias),
+          entidadPrioritaria: opciones.map((opcion) => opcion.prioritario),
+          entidadOpcionIds: opciones.map((opcion) => opcion.opcionId),
+          esCheque,
+          fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
+        },
+      ];
+    }
     return [
       {
         ...pago,
