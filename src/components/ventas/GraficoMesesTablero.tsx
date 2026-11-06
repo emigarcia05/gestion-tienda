@@ -94,7 +94,7 @@ export default function GraficoMesesTablero({ series }: { series: TableroVentasS
         <Select value={serie.id} onValueChange={setSerieId}>
           <SelectTrigger
             size="sm"
-            className="!h-6 w-fit min-w-0 gap-0.5 border-transparent bg-transparent px-0 py-0 text-[10px] font-normal uppercase tracking-wide text-muted-foreground shadow-none hover:text-foreground focus-visible:border-transparent focus-visible:ring-0 [&_svg]:!size-3"
+            className="tablero-grafico-filtro w-fit min-w-0"
             aria-label="Filtrar gráfico por sucursal"
           >
             <SelectValue />

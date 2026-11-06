@@ -2412,6 +2412,39 @@ main button.boton-encubierto:active:not(:disabled) {
 main button.boton-encubierto:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent) !important;
 }
+
+/*
+ * Tablero · filtros de los gráficos (meses y participación).
+ * Anula `main button` (CTA relleno). Contorno azul, fondo transparente, texto negro.
+ */
+main button.tablero-grafico-filtro,
+main button.tablero-grafico-filtro:hover:not(:disabled),
+main button.tablero-grafico-filtro:focus-visible,
+main button.tablero-grafico-filtro:active:not(:disabled) {
+  height: 1.75rem !important;
+  min-height: 1.75rem !important;
+  max-height: 1.75rem !important;
+  padding: 0 0.5rem !important;
+  gap: 0.25rem !important;
+  justify-content: space-between !important;
+  border: 1px solid var(--primary) !important;
+  border-radius: var(--radius) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--foreground) !important;
+  font-size: 0.75rem !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-transform: uppercase;
+}
+main button.tablero-grafico-filtro svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  color: var(--foreground) !important;
+  opacity: 1 !important;
+}
 main button.boton-encubierto.boton-encubierto--cabecera-visor,
 main button.boton-encubierto.boton-encubierto--cabecera-visor:hover:not(:disabled),
 main button.boton-encubierto.boton-encubierto--cabecera-visor:focus-visible,

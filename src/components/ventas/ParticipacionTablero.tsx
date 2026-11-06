@@ -107,7 +107,7 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
     <div className="grid h-full min-h-0 grid-cols-[7rem_minmax(0,1fr)] items-start gap-4">
       <div className="flex flex-col gap-2">
         <Select value={sucursal} onValueChange={setSucursalId}>
-          <SelectTrigger size="sm" className="w-full uppercase" aria-label="Filtrar por sucursal">
+          <SelectTrigger size="sm" className="tablero-grafico-filtro w-full" aria-label="Filtrar por sucursal">
             <SelectValue />
           </SelectTrigger>
           <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
@@ -125,7 +125,7 @@ export default function ParticipacionTablero({ filas }: { filas: TableroVentasPa
             if (esMedida(valor)) setMedida(valor);
           }}
         >
-          <SelectTrigger size="sm" className="w-full uppercase" aria-label="Porcentaje o monto">
+          <SelectTrigger size="sm" className="tablero-grafico-filtro w-full" aria-label="Porcentaje o monto">
             <SelectValue />
           </SelectTrigger>
           <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
