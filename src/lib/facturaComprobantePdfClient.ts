@@ -8,7 +8,9 @@ import type {
   FacturaComprobantePdfLogo,
 } from "@/lib/generarPdfFacturaComprobante";
 
-const LOGO_COMPROBANTE_PDF_SRC = "/logo_tiendacolor_letras_negras.png";
+import logoLetrasNegras from "../../fuentes_logos/logo_tiendacolor_letras_negras.png";
+
+const LOGO_COMPROBANTE_PDF_SRC = logoLetrasNegras.src;
 
 /** `2026-03-15` → `15-03-26` (nombre de archivo). */
 export function formatIsoYmdDdMmYyGuionesArchivo(isoYmd: string): string {

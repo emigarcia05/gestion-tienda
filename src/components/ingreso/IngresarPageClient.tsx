@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import Image from "next/image";
+import logoLetrasBlancas from "../../../fuentes_logos/logo_tiendacolor_letras_blancas.png";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -164,7 +165,7 @@ export default function IngresarPageClient({ usuarios, errorCarga }: Props) {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-start overflow-hidden bg-primary px-4 pb-6 pt-16">
       <Image
-        src="/logo_tiendacolor_letras_blancas.png"
+        src={logoLetrasBlancas}
         alt="TiendaColor"
         width={615}
         height={375}

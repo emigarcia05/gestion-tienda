@@ -337,6 +337,14 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
   doc.setLineWidth(0.4);
   doc.rect(MARGIN, y, contentWidth, boxH);
   doc.line(MARGIN + colW, y, MARGIN + colW, y + boxH);
+  const ejes = ejesPieRedes(
+    doc,
+    y,
+    boxH,
+    colW,
+    Boolean(redes.instagramQr),
+    Boolean(redes.whatsappQr)
+  );
   dibujarColumnaRed(
     doc,
     MARGIN,
@@ -346,7 +354,8 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     redes.instagramQr,
     "instagram",
     "Seguinos en INSTAGRAM",
-    INSTAGRAM_COMPROBANTE
+    INSTAGRAM_COMPROBANTE,
+    ejes
   );
   dibujarColumnaRed(
     doc,
@@ -357,10 +366,58 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     redes.whatsappQr,
     "whatsapp",
     "Escribinos por WHATSAPP",
-    redes.whatsappTexto
+    redes.whatsappTexto,
+    ejes
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
+}
+
+const PIE_RED_PAD = 2.5;
+const PIE_RED_ICONO = 5;
+const PIE_RED_TITULO = 9;
+const PIE_RED_LINEA = 3.6;
+
+type EjesPieRed = {
+  iconCy: number;
+  tituloY: number;
+  valorY: number;
+};
+
+/** Ícono, título y valor de las dos columnas comparten el mismo eje horizontal. */
+function ejesPieRedes(
+  doc: jsPDF,
+  y: number,
+  alto: number,
+  ancho: number,
+  instagramTieneQr: boolean,
+  whatsappTieneQr: boolean
+): EjesPieRed {
+  const igW = anchoTextoRed(ancho, alto, instagramTieneQr);
+  const waW = anchoTextoRed(ancho, alto, whatsappTieneQr);
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(PIE_RED_TITULO);
+  const lineas = Math.max(
+    doc.splitTextToSize("Seguinos en INSTAGRAM", igW).length,
+    doc.splitTextToSize("Escribinos por WHATSAPP", waW).length,
+    1
+  );
+  const tituloAlto = lineas * PIE_RED_LINEA;
+  const gap = 1.6;
+  const valorAlto = 4.2;
+  const bloque = PIE_RED_ICONO + gap + tituloAlto + gap + valorAlto;
+  const top = y + (alto - bloque) / 2;
+  return {
+    iconCy: top + PIE_RED_ICONO / 2,
+    tituloY: top + PIE_RED_ICONO + gap + 3.1,
+    valorY: top + PIE_RED_ICONO + gap + tituloAlto + gap + 3.2,
+  };
+}
+
+function anchoTextoRed(ancho: number, alto: number, tieneQr: boolean): number {
+  const qrSize = tieneQr ? Math.min(24, alto - PIE_RED_PAD * 2) : 0;
+  const usado = PIE_RED_PAD + (tieneQr ? qrSize + 2.5 : 0);
+  return Math.max(16, ancho - usado - PIE_RED_PAD);
 }
 
 function dibujarColumnaRed(
@@ -372,37 +429,27 @@ function dibujarColumnaRed(
   qr: string | null,
   red: "instagram" | "whatsapp",
   titulo: string,
-  detalle: string | null
+  detalle: string | null,
+  ejes: EjesPieRed
 ): void {
-  const pad = 2.5;
-  const qrSize = Math.min(24, alto - pad * 2);
-  if (qr) doc.addImage(qr, "PNG", x + pad, y + (alto - qrSize) / 2, qrSize, qrSize);
-  const textX = x + pad + (qr ? qrSize + 2.5 : 0);
-  const textW = Math.max(16, ancho - (textX - x) - pad);
+  const qrSize = qr ? Math.min(24, alto - PIE_RED_PAD * 2) : 0;
+  if (qr) {
+    doc.addImage(qr, "PNG", x + PIE_RED_PAD, y + (alto - qrSize) / 2, qrSize, qrSize);
+  }
+  const textX = x + PIE_RED_PAD + (qr ? qrSize + 2.5 : 0);
+  const textW = Math.max(16, ancho - (textX - x) - PIE_RED_PAD);
   const centro = textX + textW / 2;
-  const icono = 5;
-  const tituloSize = 9;
+  if (red === "instagram") dibujarIconoInstagram(doc, centro, ejes.iconCy, PIE_RED_ICONO);
+  else dibujarIconoWhatsapp(doc, centro, ejes.iconCy, PIE_RED_ICONO);
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
-  doc.setFontSize(tituloSize);
+  doc.setFontSize(PIE_RED_TITULO);
   const tituloLineas = doc.splitTextToSize(titulo, textW);
-  const tituloAlto = tituloLineas.length * 3.6;
-  const detalleSize = detalle ? tamanoUnaLinea(doc, detalle, textW, 11) : 0;
-  const detalleAlto = detalle ? 4.2 : 0;
-  const bloque = icono + 1.2 + tituloAlto + (detalle ? 1 + detalleAlto : 0);
-  let cursor = y + alto / 2 - bloque / 2;
-  if (red === "instagram") dibujarIconoInstagram(doc, centro, cursor + icono / 2, icono);
-  else dibujarIconoWhatsapp(doc, centro, cursor + icono / 2, icono);
-  cursor += icono + 1.2 + 3.2;
-  doc.setFont("VWText", "bold");
-  doc.setFontSize(tituloSize);
-  doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.text(tituloLineas, centro, cursor, { align: "center" });
+  doc.text(tituloLineas, centro, ejes.tituloY, { align: "center" });
   if (detalle) {
-    cursor += tituloAlto + 1;
     doc.setFont("VWText", "normal");
-    doc.setFontSize(detalleSize);
-    doc.text(detalle, centro, cursor, { align: "center" });
+    doc.setFontSize(tamanoUnaLinea(doc, detalle, textW, 11));
+    doc.text(detalle, centro, ejes.valorY, { align: "center" });
   }
 }
 
@@ -430,12 +477,12 @@ function dibujarIconoInstagram(doc: jsPDF, cx: number, cy: number, size: number)
 }
 
 function dibujarIconoWhatsapp(doc: jsPDF, cx: number, cy: number, size: number): void {
-  const r = size * 0.46;
+  const r = size * 0.38;
   doc.setDrawColor(INK.r, INK.g, INK.b);
   doc.setLineWidth(0.35);
-  doc.circle(cx + size * 0.04, cy - size * 0.04, r);
-  doc.line(cx - r * 0.35, cy + r * 0.55, cx - r * 0.85, cy + r * 1.15);
-  doc.line(cx - r * 0.85, cy + r * 1.15, cx - r * 0.05, cy + r * 0.85);
+  doc.circle(cx, cy - size * 0.04, r);
+  doc.line(cx - r * 0.45, cy + r * 0.45, cx - size * 0.42, cy + size * 0.46);
+  doc.line(cx - size * 0.42, cy + size * 0.46, cx - r * 0.02, cy + r * 0.62);
 }
 
 function dibujarPieFiscal(

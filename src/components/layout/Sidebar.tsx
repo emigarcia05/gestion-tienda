@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import logoLetrasBlancas from "../../../fuentes_logos/logo_tiendacolor_letras_blancas.png";
 import Link from "next/link";
 import {
   ClipboardList,
@@ -427,7 +428,7 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
             className="mx-auto block w-[50%]"
           >
             <Image
-              src="/logo_tiendacolor_letras_blancas.png"
+              src={logoLetrasBlancas}
               alt="TiendaColor Pinturerías"
               width={615}
               height={375}
@@ -436,7 +437,7 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
           </Link>
         ) : (
           <Image
-            src="/logo_tiendacolor_letras_blancas.png"
+            src={logoLetrasBlancas}
             alt="TiendaColor Pinturerías"
             width={615}
             height={375}

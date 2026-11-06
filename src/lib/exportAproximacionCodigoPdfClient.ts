@@ -1,3 +1,4 @@
+import logoConFondo from "../../fuentes_logos/logo_tiendacolor_con_fondo.jpg";
 import { formatDdMmHhMmGuionesBajosArchivoArgentina } from "@/lib/fechaArgentina";
 import { descargarPdfBytes } from "@/lib/descargarPdfBase64";
 import {
@@ -9,7 +10,7 @@ import {
 
 async function cargarLogoTiendaColor(): Promise<LogoTiendaColorPdf | null> {
   try {
-    const res = await fetch("/logo_tiendacolor_con_fondo.jpg");
+    const res = await fetch(logoConFondo.src);
     if (!res.ok) return null;
     const blob = await res.blob();
     const dataUrl = await new Promise<string>((resolve, reject) => {
