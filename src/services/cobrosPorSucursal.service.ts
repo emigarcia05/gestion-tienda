@@ -8,7 +8,9 @@ import type {
 } from "@/lib/validations/cobrosPorSucursal";
 import { Prisma, type TipoCajaTesoreria } from "@prisma/client";
 import type { ServiceResult } from "@/types";
+import { titularPrioritarioCobro } from "@/lib/seguimientoFiscalAlias";
 import { listarFinAnaCosFinaPagos } from "@/services/finAnaCosFinaPago.service";
+import { listarSeguimientoFiscalData } from "@/services/seguimientoFiscal.service";
 import type { FinAnaCosFinaPagoItem } from "@/lib/finAnaCosFinaPagos";
 
 export type CobrosPorSucursalSucursalCol = {
@@ -614,18 +616,28 @@ export async function eliminarCobroPorSucursal(
 export async function listarPagosCobroHabilitadosSucursal(
   sucursalCodigo: string
 ): Promise<FinAnaCosFinaPagoItem[]> {
-  const [pagos, vinculos] = await Promise.all([
+  const [pagos, vinculos, seguimiento] = await Promise.all([
     listarFinAnaCosFinaPagos(),
     prisma.cobrosPorSucursal.findMany({
       where: { sucursal: { codigo: sucursalCodigo } },
-      select: { pagoId: true, entidadId: true, esCheque: true, alias: true },
+      select: {
+        pagoId: true,
+        entidadId: true,
+        esCheque: true,
+        alias: true,
+        seguimientoFiscal: true,
+        titular: { select: { nombre: true } },
+      },
     }),
+    listarSeguimientoFiscalData({}),
   ]);
+  const titularPrioritario = titularPrioritarioCobro(seguimiento.filas);
 
   const pagosConFila = new Set<string>();
   const entidadesPorPago = new Map<string, Set<string>>();
   const chequePorPago = new Map<string, boolean>();
   const aliasPorEntidad = new Map<string, string>();
+  const prioritarioPorEntidad = new Map<string, boolean>();
   for (const vinculo of vinculos) {
     pagosConFila.add(vinculo.pagoId);
     if (vinculo.esCheque) chequePorPago.set(vinculo.pagoId, true);
@@ -636,9 +648,13 @@ export async function listarPagosCobroHabilitadosSucursal(
     const alias = vinculo.alias?.trim();
     if (!alias) continue;
     const clave = `${vinculo.pagoId}|${vinculo.entidadId}`;
-    if (!aliasPorEntidad.has(clave)) {
-      aliasPorEntidad.set(clave, alias.toLocaleUpperCase("es-AR"));
-    }
+    if (aliasPorEntidad.has(clave)) continue;
+    aliasPorEntidad.set(clave, alias.toLocaleUpperCase("es-AR"));
+    const titular = vinculo.titular?.nombre.toLocaleUpperCase("es-AR") ?? "";
+    prioritarioPorEntidad.set(
+      clave,
+      vinculo.seguimientoFiscal && titularPrioritario != null && titular === titularPrioritario
+    );
   }
 
   return pagos.flatMap((pago) => {
@@ -652,6 +668,7 @@ export async function listarPagosCobroHabilitadosSucursal(
           entidadIds: [],
           entidadNombres: [],
           entidadAlias: [],
+          entidadPrioritaria: [],
           esCheque,
           fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,
         },
@@ -667,6 +684,9 @@ export async function listarPagosCobroHabilitadosSucursal(
         entidadNombres: pares.map((entidad) => entidad.nombre),
         entidadAlias: pares.map(
           (entidad) => aliasPorEntidad.get(`${pago.id}|${entidad.id}`) ?? ""
+        ),
+        entidadPrioritaria: pares.map(
+          (entidad) => prioritarioPorEntidad.get(`${pago.id}|${entidad.id}`) === true
         ),
         esCheque,
         fechaAcreditacionVariable: pago.fechaAcreditacionVariable || esCheque,

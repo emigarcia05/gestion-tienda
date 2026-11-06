@@ -24,6 +24,11 @@ export type FinAnaCosFinaPagoItem = {
    * Vacío en el catálogo global. Si la forma tiene `alias`, el cobro muestra esto en lugar del nombre.
    */
   entidadAlias: string[];
+  /**
+   * Mismo orden que `entidadIds`. El alias sugerido del mes (Seguimiento Fiscal)
+   * va primero en el select, con la etiqueta PRIORITARIO. No impide elegir otro.
+   */
+  entidadPrioritaria?: boolean[];
   /** El cobro pide la fecha de acreditación a mano (también true si el vínculo de esa sucursal es cheque). */
   fechaAcreditacionVariable: boolean;
   /** `cobros_forma_pago.alias`. */
@@ -75,6 +80,27 @@ export function etiquetaOpcionEntidadCobro(
     if (alias) return alias;
   }
   return pago.entidadNombres[indice] ?? "";
+}
+
+export type OpcionEntidadCobro = {
+  id: string;
+  etiqueta: string;
+};
+
+/** Opciones del select de cobro. El alias PRIORITARIO queda primero; el resto conserva el orden. */
+export function opcionesEntidadCobro(pago: FinAnaCosFinaPagoItem): OpcionEntidadCobro[] {
+  const opciones = pago.entidadIds.map((id, indice) => {
+    const base = etiquetaOpcionEntidadCobro(pago, indice);
+    const prioritario = pago.alias && pago.entidadPrioritaria?.[indice] === true;
+    return {
+      id,
+      etiqueta: prioritario && base ? `${base} · PRIORITARIO` : base,
+      prioritario,
+      indice,
+    };
+  });
+  opciones.sort((a, b) => Number(b.prioritario) - Number(a.prioritario) || a.indice - b.indice);
+  return opciones.map(({ id, etiqueta }) => ({ id, etiqueta }));
 }
 
 export function buscarPagoPorId(

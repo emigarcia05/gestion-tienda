@@ -42,6 +42,7 @@ import {
 import {
   cobroMuestraAlias,
   etiquetaOpcionEntidadCobro,
+  opcionesEntidadCobro,
   iconoFormaPagoDesdeNombre,
   type FinAnaCosFinaPagoItem,
 } from "@/lib/finAnaCosFinaPagos";
@@ -560,9 +561,9 @@ export default function FacturaGenerarComprobanteModal({
                             {cobroMuestraAlias(pagoSel) ? "ALIAS" : "ENTIDAD"}
                           </SelectItem>
                           {pagoSel
-                            ? pagoSel.entidadIds.map((id, idx) => (
-                                <SelectItem key={id} value={id}>
-                                  {etiquetaOpcionEntidadCobro(pagoSel, idx)}
+                            ? opcionesEntidadCobro(pagoSel).map((opcion) => (
+                                <SelectItem key={opcion.id} value={opcion.id}>
+                                  {opcion.etiqueta}
                                 </SelectItem>
                               ))
                             : null}
