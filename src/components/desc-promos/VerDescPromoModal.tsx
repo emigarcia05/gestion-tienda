@@ -160,6 +160,18 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                 ))
               )}
             </Seccion>
+            <Seccion titulo="PRESUPUESTO">
+              <LineaLecturaModal
+                etiqueta="SE MUESTRA EN PRESUPUESTOS"
+                valor={item.enPresupuesto ? "TRUE" : "FALSE"}
+              />
+              {item.enPresupuesto ? (
+                <LineaLecturaModal
+                  etiqueta="INCLUYE DESCUENTO"
+                  valor={item.incluyeDescuento ? "TRUE" : "FALSE"}
+                />
+              ) : null}
+            </Seccion>
             <Seccion titulo="DESC. EN PDF">
               {item.lineasPdf.length === 0 ? (
                 <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>

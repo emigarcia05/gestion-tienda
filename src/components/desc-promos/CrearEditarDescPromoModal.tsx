@@ -9,6 +9,7 @@ import FiltroMultiSelect, {
   type FiltroMultiSelectOpcion,
 } from "@/components/shared/FiltroMultiSelect";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
@@ -210,6 +211,10 @@ export default function CrearEditarDescPromoModal({
   const [lineasPdf, setLineasPdf] = useState<string[]>(
     () => (item?.lineasPdf.length ? [...item.lineasPdf] : [""])
   );
+  const [enPresupuesto, setEnPresupuesto] = useState(item?.enPresupuesto ?? false);
+  const [incluyeDescuento, setIncluyeDescuento] = useState(
+    () => (item?.enPresupuesto ? item.incluyeDescuento : false)
+  );
   const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
     () => cuotaIdsPorPagoDesdeItem(item)
   );
@@ -373,6 +378,8 @@ export default function CrearEditarDescPromoModal({
       alcance,
       nombre: nombre.trim(),
       descuento,
+      enPresupuesto,
+      incluyeDescuento: enPresupuesto && incluyeDescuento,
       lineasPdf: lineasPdf.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
       idMarca: pideMarca ? idMarca : null,
       idRubro: pideRubro ? idRubro : null,
@@ -554,8 +561,27 @@ export default function CrearEditarDescPromoModal({
               />
             </div>
           ))}
-          <section className="flex flex-col gap-2 rounded-md border border-primary p-3">
+          <section className="flex flex-col gap-3 rounded-md border border-primary p-3">
             <p className="text-sm font-semibold uppercase tracking-wide text-foreground">DESC. EN PDF</p>
+            <ModalSiNoChoice
+              className="w-full"
+              label="SE MUESTRA EN PRESUPUESTOS"
+              value={enPresupuesto}
+              onChange={(value) => {
+                setEnPresupuesto(value);
+                if (!value) setIncluyeDescuento(false);
+              }}
+              disabled={saving}
+            />
+            {enPresupuesto ? (
+              <ModalSiNoChoice
+                className="w-full"
+                label="INCLUYE DESCUENTO"
+                value={incluyeDescuento}
+                onChange={setIncluyeDescuento}
+                disabled={saving}
+              />
+            ) : null}
             {lineasPdf.map((linea, indice) => (
               <div key={indice} className="flex items-center gap-2">
                 <Input

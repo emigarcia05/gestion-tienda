@@ -16,6 +16,8 @@ const TITULO_TODAS = "FORMAS DE PAGO";
 export type FilaFormaPagoPresupuestoPdf = {
   descuento: number;
   formas: readonly string[];
+  /** FALSE: las formas se imprimen juntas, en una sola fila y sin el %. */
+  incluyeDescuento: boolean;
 };
 
 export function lineasDesdeTextosFormasPagoPresupuesto(
@@ -23,6 +25,10 @@ export function lineasDesdeTextosFormasPagoPresupuesto(
 ): LineaFormaPagoPdf[] {
   const utiles = filas.flatMap((fila) => {
     const textos = fila.formas.map((forma) => forma.trim()).filter((forma) => forma.length > 0);
+    if (!fila.incluyeDescuento) {
+      const texto = textos.join(" - ");
+      return texto ? [{ tipo: "simple" as const, texto }] : [];
+    }
     return textos.map((texto, indice) =>
       indice === 0
         ? { tipo: "grupo" as const, pct: `${fila.descuento}%`, texto }

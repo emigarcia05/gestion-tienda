@@ -99,6 +99,7 @@ function mapPromo(row: PromoRow): DescPromoFila {
     nombre: row.nombre,
     descuento: row.descuento,
     enPresupuesto: row.enPresupuesto,
+    incluyeDescuento: row.incluyeDescuento,
     prioridad: row.prioridad,
     idMarca: row.idMarca,
     marcaNombre: row.marca
@@ -294,7 +295,8 @@ function dataCabecera(input: CrearDescPromoInput) {
       conFechas && input.fechaHasta ? prismaDateOnlyFromIsoYmd(input.fechaHasta) : null,
     alcance: input.alcance,
     descuento: input.descuento,
-    enPresupuesto: input.lineasPdf.length > 0,
+    enPresupuesto: input.enPresupuesto,
+    incluyeDescuento: input.enPresupuesto && input.incluyeDescuento,
     idMarca: ejes.idMarca,
     idRubro: ejes.idRubro,
   };
@@ -528,10 +530,11 @@ export async function listarDescPromosEspecialesPorCodigos(
 /** Recuadro del presupuesto: líneas DESC. EN PDF, agrupadas por %. */
 export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresupuestoPdf[]> {
   const rows = await prisma.descPromo.findMany({
-    where: { lineasPdf: { some: {} } },
+    where: { enPresupuesto: true, lineasPdf: { some: {} } },
     orderBy: { prioridad: "asc" },
     select: {
       descuento: true,
+      incluyeDescuento: true,
       lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
     },
   });
@@ -540,10 +543,14 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
   for (const row of rows) {
     const formas = row.lineasPdf.map((linea) => linea.texto.trim()).filter((texto) => texto.length > 0);
     if (formas.length === 0) continue;
+    if (!row.incluyeDescuento) {
+      grupos.push({ descuento: row.descuento, formas, incluyeDescuento: false });
+      continue;
+    }
     const actual = indice.get(row.descuento);
     if (actual == null) {
       indice.set(row.descuento, grupos.length);
-      grupos.push({ descuento: row.descuento, formas });
+      grupos.push({ descuento: row.descuento, formas, incluyeDescuento: true });
       continue;
     }
     grupos[actual].formas.push(...formas);

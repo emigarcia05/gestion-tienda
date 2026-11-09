@@ -67,6 +67,8 @@ const camposDescPromoSchema = z.object({
   alcance: z.enum(ALCANCES_DESC_PROMO),
   nombre: nombreDescPromoSchema,
   descuento: descuentoDescPromoSchema,
+  enPresupuesto: z.boolean(),
+  incluyeDescuento: z.boolean(),
   lineasPdf: z
     .array(
       z

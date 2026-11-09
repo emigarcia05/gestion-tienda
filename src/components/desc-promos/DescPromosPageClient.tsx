@@ -144,7 +144,7 @@ export default function DescPromosPageClient({
     router.refresh();
   }
 
-  const colSpan = 8;
+  const colSpan = 10;
 
   return (
     <>
@@ -256,14 +256,16 @@ export default function DescPromosPageClient({
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
-              <col className="w-[7%]" />
-              <col className="w-[17%]" />
-              <col className="w-[11%]" />
-              <col className="w-[10%]" />
               <col className="w-[6%]" />
+              <col className="w-[14%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[6%]" />
+              <col className="w-[10%]" />
+              <col className={esEditor ? "w-[13%]" : "w-[19%]"} />
               <col className="w-[12%]" />
-              <col className={esEditor ? "w-[17%]" : "w-[27%]"} />
-              <col className={esEditor ? "w-[20%]" : "w-[10%]"} />
+              <col className="w-[10%]" />
+              <col className={esEditor ? "w-[12%]" : "w-[6%]"} />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -274,6 +276,8 @@ export default function DescPromosPageClient({
                 <TableHead className="text-center">DESC.</TableHead>
                 <TableHead className="text-center">ESTADO</TableHead>
                 <TableHead>VÍNCULOS</TableHead>
+                <TableHead className="text-center">SE MUESTRA EN PRESUPUESTOS</TableHead>
+                <TableHead className="text-center">INCLUYE DESCUENTO</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -323,6 +327,12 @@ export default function DescPromosPageClient({
                       </TableCell>
                       <TableCell className="celda-datos truncate" title={vinculos}>
                         {fmtCelda(vinculos)}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center">
+                        {item.enPresupuesto ? "TRUE" : "FALSE"}
+                      </TableCell>
+                      <TableCell className="celda-datos text-center">
+                        {item.enPresupuesto ? (item.incluyeDescuento ? "TRUE" : "FALSE") : ""}
                       </TableCell>
                       <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                         <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>

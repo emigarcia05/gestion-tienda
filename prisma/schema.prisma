@@ -2254,6 +2254,8 @@ model DescPromo {
   descuento  Int                @map("desc")
   /** Si entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
   enPresupuesto Boolean         @default(true) @map("en_presupuesto")
+  /** Con `enPresupuesto`: el PDF muestra el % y una fila por línea. Si no, las líneas van en una sola fila. */
+  incluyeDescuento Boolean      @default(false) @map("incluye_descuento")
   /** Entero único 1…N. 1 = máxima prioridad. */
   prioridad  Int                @unique(map: "desc_promo_prioridad_key")
   idMarca    String?            @map("id_marca")

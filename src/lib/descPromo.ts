@@ -166,6 +166,8 @@ export type DescPromoFila = {
   descuento: number;
   /** Entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
   enPresupuesto: boolean;
+  /** Si entra, el % va en el recuadro. Si no, las líneas van en una sola fila. */
+  incluyeDescuento: boolean;
   prioridad: number;
   idMarca: string | null;
   marcaNombre: string | null;
