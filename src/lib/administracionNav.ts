@@ -219,7 +219,7 @@ const cobrosDescScreens: AdmScreenDef[] = [
   },
   {
     id: "formas-pago-presupuesto",
-    label: "Formas de Pago en Presupuesto",
+    label: "Form. Pag. en Presp.",
     href: A.cobrosDesc.formasPagoPresupuesto,
     icon: "receipt",
     permiso: PERMISOS.finanzas.acceso,

@@ -1,6 +1,6 @@
 /**
  * Bloque FORMAS DE PAGO del PDF de presupuesto.
- * Cada fila sale del catálogo escrito en Cobros & Desc.: DESC. | formas.
+ * Cada DESC. agrupa renglones de texto libre: el % va en el primero y las formas siguientes quedan debajo.
  */
 
 export type LineaFormaPagoPdf =
@@ -15,36 +15,19 @@ const TITULO_TODAS = "FORMAS DE PAGO";
 
 export type FilaFormaPagoPresupuestoPdf = {
   descuento: number;
-  formas: readonly { nombre: string; cuotas: readonly { nombre: string }[] }[];
+  formas: readonly string[];
 };
-
-/** Formas sin cuotas por su nombre; las que tienen, por cada cuota elegida. */
-export function textoFormasPagoPresupuesto(
-  formas: readonly { nombre: string; cuotas: readonly { nombre: string }[] }[]
-): string {
-  const partes: string[] = [];
-  for (const forma of formas) {
-    const nombre = forma.nombre.trim();
-    if (forma.cuotas.length === 0) {
-      if (nombre) partes.push(nombre);
-      continue;
-    }
-    for (const cuota of forma.cuotas) {
-      const texto = cuota.nombre.trim();
-      if (!texto) continue;
-      partes.push(nombre ? `${nombre} · ${texto}` : texto);
-    }
-  }
-  return partes.join(" - ");
-}
 
 export function lineasDesdeTextosFormasPagoPresupuesto(
   filas: readonly FilaFormaPagoPresupuestoPdf[]
 ): LineaFormaPagoPdf[] {
   const utiles = filas.flatMap((fila) => {
-    const texto = textoFormasPagoPresupuesto(fila.formas);
-    if (!texto) return [];
-    return [{ tipo: "grupo" as const, pct: `${fila.descuento}%`, texto }];
+    const textos = fila.formas.map((forma) => forma.trim()).filter((forma) => forma.length > 0);
+    return textos.map((texto, indice) =>
+      indice === 0
+        ? { tipo: "grupo" as const, pct: `${fila.descuento}%`, texto }
+        : { tipo: "grupoSigue" as const, texto }
+    );
   });
   if (utiles.length === 0) return [];
   return [{ tipo: "titulo", texto: TITULO_TODAS }, { tipo: "vacia" }, ...utiles];

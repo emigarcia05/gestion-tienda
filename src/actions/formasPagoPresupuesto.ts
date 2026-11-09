@@ -60,7 +60,7 @@ export async function guardarTextoFormaPagoPresupuestoAction(
       ? await editarTextoFormaPagoPresupuesto({
           id: parsed.data.id,
           descuento: parsed.data.descuento,
-          vinculos: parsed.data.vinculos,
+          formas: parsed.data.formas,
         })
       : await crearTextoFormaPagoPresupuesto(parsed.data);
     if (!res.success) return { ok: false, error: res.error };

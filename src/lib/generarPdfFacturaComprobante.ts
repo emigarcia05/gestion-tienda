@@ -96,7 +96,7 @@ export type FacturaComprobantePdfInput = {
   ocultarFormasPago?: boolean;
 };
 
-/** Recuadro de formas de pago: el % es más grande y comparte columna; las formas cierran a la derecha. */
+/** Recuadro de formas de pago: texto negro; el % comparte columna y las formas arrancan a su derecha, alineadas a la izquierda. */
 const FORMAS_GAP = 4;
 const FORMAS_PAD_X = 4;
 const FORMAS_TITULO_H = 8;
@@ -149,9 +149,9 @@ function dibujarBloqueFormasPago(
   doc.setLineWidth(0.35);
   doc.roundedRect(MARGIN, boxY, contentWidth, boxH, 1.4, 1.4, "S");
 
+  doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
   doc.setFontSize(10);
-  doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.text(titulo, MARGIN + contentWidth / 2, boxY + 5.4, { align: "center" });
 
   doc.setFont("VWText", "bold");
@@ -161,15 +161,15 @@ function dibujarBloqueFormasPago(
     ...filas.map((fila) => (fila.pct ? doc.getTextWidth(fila.pct) : 0))
   );
   const pctRight = MARGIN + FORMAS_PAD_X + anchoPct;
-  const textoRight = boxRight - FORMAS_PAD_X;
-  const maxTexto = Math.max(12, textoRight - pctRight - 6);
+  const textoX = pctRight + 6;
+  const maxTexto = Math.max(12, boxRight - FORMAS_PAD_X - textoX);
 
   filas.forEach((fila, indice) => {
     const baseline = boxY + FORMAS_TITULO_H + indice * FORMAS_FILA_H + FORMAS_FILA_H * 0.72;
     if (fila.pct) {
       doc.setFont("VWText", "bold");
       doc.setFontSize(FORMAS_FONT_PCT);
-      doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+      doc.setTextColor(INK.r, INK.g, INK.b);
       doc.text(fila.pct, pctRight, baseline, { align: "right" });
     }
     doc.setFont("VWText", "normal");
@@ -180,7 +180,7 @@ function dibujarBloqueFormasPago(
       size -= 0.25;
       doc.setFontSize(size);
     }
-    doc.text(fila.texto, textoRight, baseline, { align: "right" });
+    doc.text(fila.texto, textoX, baseline, { align: "left" });
   });
 
   doc.setDrawColor(0, 0, 0);

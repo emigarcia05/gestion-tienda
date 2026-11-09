@@ -10,12 +10,12 @@ import {
 } from "@/actions/formasPagoPresupuesto";
 import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
-import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import PorcentajeEnteroMaskInput from "@/components/shared/PorcentajeEnteroMaskInput";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -24,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { textoFormasPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -32,26 +31,26 @@ import {
 } from "@/lib/ui-classes";
 import type { TextoFormaPagoPresupuesto } from "@/services/formasPagoPresupuesto.service";
 
-type CuotaOpcion = { id: string; cuotas: string };
-
-type FormaOpcion = { id: string; nombre: string; cuotas: CuotaOpcion[] };
+const MAX_FORMAS = 30;
+const MAX_LARGO = 80;
 
 type Borrador = {
   id?: string;
   descuento: number;
-  pagoIds: string[];
-  cuotaIdsPorPago: Record<string, string[]>;
+  formas: string[];
 };
 
-const BORRADOR_NUEVO: Borrador = { descuento: 0, pagoIds: [], cuotaIdsPorPago: {} };
+const BORRADOR_NUEVO: Borrador = { descuento: 0, formas: [""] };
+
+function formasParaGuardar(formas: readonly string[]): string[] {
+  return formas.map((forma) => forma.trim()).filter((forma) => forma.length > 0);
+}
 
 export default function FormasPagoPresupuestoPageClient({
   filasIniciales,
-  formas,
   esEditor,
 }: {
   filasIniciales: TextoFormaPagoPresupuesto[];
-  formas: FormaOpcion[];
   esEditor: boolean;
 }) {
   const [filas, setFilas] = useState(filasIniciales);
@@ -59,17 +58,13 @@ export default function FormasPagoPresupuestoPageClient({
   const [borrar, setBorrar] = useState<TextoFormaPagoPresupuesto | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
-  const opciones = formas.map((forma) => ({ value: forma.id, label: forma.nombre }));
-  const formasConCuotas = borrador
-    ? borrador.pagoIds
-        .map((pagoId) => formas.find((forma) => forma.id === pagoId))
-        .filter((forma): forma is FormaOpcion => Boolean(forma && forma.cuotas.length > 0))
-    : [];
-  const cuotasCompletas = formasConCuotas.every(
-    (forma) => (borrador?.cuotaIdsPorPago[forma.id]?.length ?? 0) > 0
-  );
+  const formasLimpias = borrador ? formasParaGuardar(borrador.formas) : [];
   const puedeGuardar =
-    esEditor && !ocupado && Boolean(borrador) && (borrador?.pagoIds.length ?? 0) > 0 && cuotasCompletas;
+    esEditor &&
+    !ocupado &&
+    Boolean(borrador) &&
+    formasLimpias.length > 0 &&
+    formasLimpias.every((forma) => forma.length <= MAX_LARGO);
 
   async function aplicar(res: Awaited<ReturnType<typeof guardarTextoFormaPagoPresupuestoAction>>) {
     if (!res.ok) {
@@ -86,13 +81,7 @@ export default function FormasPagoPresupuestoPageClient({
     const res = await guardarTextoFormaPagoPresupuestoAction({
       id: borrador.id,
       descuento: borrador.descuento,
-      vinculos: borrador.pagoIds.map((pagoId) => ({
-        pagoId,
-        cuotaIds:
-          (formas.find((forma) => forma.id === pagoId)?.cuotas.length ?? 0) > 0
-            ? (borrador.cuotaIdsPorPago[pagoId] ?? [])
-            : [],
-      })),
+      formas: formasLimpias,
     });
     setOcupado(false);
     if (await aplicar(res)) {
@@ -120,11 +109,18 @@ export default function FormasPagoPresupuestoPageClient({
     if (!(await aplicar(res))) return;
   }
 
+  function cambiarForma(indice: number, valor: string) {
+    if (!borrador) return;
+    const formas = borrador.formas.slice();
+    formas[indice] = valor;
+    setBorrador({ ...borrador, formas });
+  }
+
   return (
     <>
       <ClassicFilteredTableLayout
         title="Administrador"
-        subtitle="Formas de Pago en Presupuesto"
+        subtitle="Form. Pag. en Presp."
         actions={
           esEditor ? (
             <ToolbarActionButton
@@ -146,7 +142,7 @@ export default function FormasPagoPresupuestoPageClient({
             <TableHeader>
               <TableRow>
                 <TableHead>DESC.</TableHead>
-                <TableHead>FORMAS DE PAGO</TableHead>
+                <TableHead>FORMA DE PAGO</TableHead>
                 <TableHead className="text-center">ACCIONES</TableHead>
               </TableRow>
             </TableHeader>
@@ -158,71 +154,75 @@ export default function FormasPagoPresupuestoPageClient({
                   </TableCell>
                 </TableRow>
               ) : (
-                filas.map((fila, indice) => (
-                  <TableRow key={fila.id}>
-                    <TableCell className="font-medium">{fila.descuento}%</TableCell>
-                    <TableCell>{textoFormasPagoPresupuesto(fila.formas)}</TableCell>
-                    <TableCell>
-                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          aria-label="Subir"
-                          disabled={!esEditor || ocupado || indice === 0}
-                          onClick={() => void mover(fila.id, "subir")}
-                        >
-                          <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          aria-label="Bajar"
-                          disabled={!esEditor || ocupado || indice === filas.length - 1}
-                          onClick={() => void mover(fila.id, "bajar")}
-                        >
-                          <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          aria-label="Editar"
-                          disabled={!esEditor || ocupado}
-                          onClick={() =>
-                            setBorrador({
-                              id: fila.id,
-                              descuento: fila.descuento,
-                              pagoIds: fila.formas.map((forma) => forma.pagoId),
-                              cuotaIdsPorPago: Object.fromEntries(
-                                fila.formas
-                                  .filter((forma) => forma.cuotas.length > 0)
-                                  .map((forma) => [forma.pagoId, forma.cuotas.map((cuota) => cuota.cuotaId)])
-                              ),
-                            })
-                          }
-                        >
-                          <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          aria-label="Eliminar"
-                          disabled={!esEditor || ocupado}
-                          onClick={() => setBorrar(fila)}
-                        >
-                          <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filas.flatMap((fila, indiceFila) => {
+                  const lineas = fila.formas.length > 0 ? fila.formas : [""];
+                  return lineas.map((texto, indice) => (
+                    <TableRow key={`${fila.id}-${indice}`}>
+                      {indice === 0 ? (
+                        <TableCell rowSpan={lineas.length} className="align-top font-medium">
+                          {fila.descuento}%
+                        </TableCell>
+                      ) : null}
+                      <TableCell className="text-left">{texto}</TableCell>
+                      {indice === 0 ? (
+                        <TableCell rowSpan={lineas.length} className="align-top">
+                          <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              aria-label="Subir"
+                              disabled={!esEditor || ocupado || indiceFila === 0}
+                              onClick={() => void mover(fila.id, "subir")}
+                            >
+                              <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              aria-label="Bajar"
+                              disabled={!esEditor || ocupado || indiceFila === filas.length - 1}
+                              onClick={() => void mover(fila.id, "bajar")}
+                            >
+                              <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              aria-label="Editar"
+                              disabled={!esEditor || ocupado}
+                              onClick={() =>
+                                setBorrador({
+                                  id: fila.id,
+                                  descuento: fila.descuento,
+                                  formas: fila.formas.length > 0 ? [...fila.formas] : [""],
+                                })
+                              }
+                            >
+                              <Pencil className={TABLE_ROW_ACTION_ICON_CLASS} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                              aria-label="Eliminar"
+                              disabled={!esEditor || ocupado}
+                              onClick={() => setBorrar(fila)}
+                            >
+                              <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      ) : null}
+                    </TableRow>
+                  ));
+                })
               )}
             </TableBody>
           </Table>
@@ -259,47 +259,45 @@ export default function FormasPagoPresupuestoPageClient({
                   aria-label="DESC."
                 />
               </label>
-              <div className="flex flex-col gap-1.5">
-                <ModalMicroLabel>FORMAS DE PAGO</ModalMicroLabel>
-                <FiltroMultiSelect
-                  opciones={opciones}
-                  selected={borrador.pagoIds}
-                  onChange={(pagoIds) =>
-                    setBorrador({
-                      ...borrador,
-                      pagoIds,
-                      cuotaIdsPorPago: Object.fromEntries(
-                        pagoIds
-                          .filter((pagoId) => borrador.cuotaIdsPorPago[pagoId])
-                          .map((pagoId) => [pagoId, borrador.cuotaIdsPorPago[pagoId] ?? []])
-                      ),
-                    })
-                  }
-                  placeholder="ELEGIR"
-                  ariaLabel="Formas de pago"
-                  disabled={ocupado}
-                />
+              <div className="flex flex-col gap-2">
+                <ModalMicroLabel>FORMA DE PAGO</ModalMicroLabel>
+                {borrador.formas.map((forma, indice) => (
+                  <div key={indice} className="flex items-center gap-2">
+                    <Input
+                      value={forma}
+                      maxLength={MAX_LARGO}
+                      disabled={ocupado}
+                      aria-label={`Forma de pago ${indice + 1}`}
+                      onChange={(event) => cambiarForma(indice, event.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="Quitar forma de pago"
+                      disabled={ocupado || borrador.formas.length === 1}
+                      onClick={() =>
+                        setBorrador({
+                          ...borrador,
+                          formas: borrador.formas.filter((_, actual) => actual !== indice),
+                        })
+                      }
+                    >
+                      <Trash2 className={TABLE_ROW_ACTION_ICON_CLASS} />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="self-start"
+                  disabled={ocupado || borrador.formas.length >= MAX_FORMAS}
+                  onClick={() => setBorrador({ ...borrador, formas: [...borrador.formas, ""] })}
+                >
+                  <Plus />
+                  Nueva Forma
+                </Button>
               </div>
-              {formasConCuotas.map((forma) => (
-                <div key={forma.id} className="flex flex-col gap-1.5">
-                  <ModalMicroLabel>
-                    {formasConCuotas.length === 1 ? "CANT. CUOTAS" : `CANT. CUOTAS · ${forma.nombre}`}
-                  </ModalMicroLabel>
-                  <FiltroMultiSelect
-                    opciones={forma.cuotas.map((cuota) => ({ value: cuota.id, label: cuota.cuotas }))}
-                    selected={borrador.cuotaIdsPorPago[forma.id] ?? []}
-                    onChange={(cuotaIds) =>
-                      setBorrador({
-                        ...borrador,
-                        cuotaIdsPorPago: { ...borrador.cuotaIdsPorPago, [forma.id]: cuotaIds },
-                      })
-                    }
-                    placeholder="CANT. CUOTAS"
-                    ariaLabel={`Cuotas de ${forma.nombre}`}
-                    disabled={ocupado}
-                  />
-                </div>
-              ))}
             </div>
           </AppModal>
         ) : null}
