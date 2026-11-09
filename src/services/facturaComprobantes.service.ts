@@ -878,6 +878,65 @@ async function borrarComprobanteVtaConCobros(
 }
 
 /**
+ * El ledger no guarda el alias. Se toma el del vínculo cuya caja destino
+ * es la `caja_id` del movimiento (misma forma × entidad × sucursal).
+ */
+async function aliasPorMovimientoCobro(
+  movimientoIds: readonly string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = [...new Set(movimientoIds.filter(Boolean))];
+  if (ids.length === 0) return out;
+
+  const movimientos = await prisma.tesoreriaMovimiento.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      pagoId: true,
+      entidadId: true,
+      sucursalId: true,
+      cajaId: true,
+    },
+  });
+  const conCaja = movimientos.flatMap((m) => {
+    if (m.pagoId == null || m.cajaId == null) return [];
+    return [{ ...m, pagoId: m.pagoId, cajaId: m.cajaId }];
+  });
+  if (conCaja.length === 0) return out;
+
+  const vinculos = await prisma.cobrosPorSucursal.findMany({
+    where: {
+      OR: conCaja.map((m) => ({
+        pagoId: m.pagoId,
+        entidadId: m.entidadId,
+        sucursalId: m.sucursalId,
+        cajaDestinoId: m.cajaId,
+      })),
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      pagoId: true,
+      entidadId: true,
+      sucursalId: true,
+      cajaDestinoId: true,
+      alias: true,
+    },
+  });
+
+  for (const m of conCaja) {
+    const vinculo = vinculos.find(
+      (v) =>
+        v.pagoId === m.pagoId &&
+        v.entidadId === m.entidadId &&
+        v.sucursalId === m.sucursalId &&
+        v.cajaDestinoId === m.cajaId
+    );
+    out.set(m.id, vinculo?.alias?.trim() ?? "");
+  }
+  return out;
+}
+
+/**
  * Emite un fiscal con los mismos datos (fecha = hoy AR) y borra el no fiscal
  * solo si el fiscal quedó autorizado.
  */
@@ -930,11 +989,13 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
     }
 
     const cobrosActuales = await listarCobrosDeComprobante(row.id);
+    const aliasPorId = await aliasPorMovimientoCobro(cobrosActuales.map((c) => c.id));
     const cobros = cobrosActuales
       .filter((c) => !c.esCuentaCorriente && c.montoCents > 0)
       .map((c) => ({
         pagoNombre: c.pagoNombre,
         entidadNombre: c.entidadNombre,
+        alias: aliasPorId.get(c.id) ?? "",
         cuotaEtiqueta: c.cuotaEtiqueta,
         montoCents: c.montoCents,
       }));
