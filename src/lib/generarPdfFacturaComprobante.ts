@@ -108,18 +108,21 @@ const FORMAS_FONT_TEXTO_MIN = 6.5;
 
 function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
   titulo: string;
-  filas: { pct: string; texto: string }[];
+  filas: { pct: string; texto: string; centrada: boolean }[];
 } {
   let titulo = "FORMAS DE PAGO";
-  const filas: { pct: string; texto: string }[] = [];
+  const filas: { pct: string; texto: string; centrada: boolean }[] = [];
   for (const linea of lineas) {
     if (linea.tipo === "titulo" && linea.texto.trim()) {
       titulo = linea.texto.trim();
     } else if (linea.tipo === "grupo") {
-      filas.push({ pct: linea.pct.trim(), texto: linea.texto.trim() });
-    } else if (linea.tipo === "grupoSigue" || linea.tipo === "indentada" || linea.tipo === "simple") {
+      filas.push({ pct: linea.pct.trim(), texto: linea.texto.trim(), centrada: false });
+    } else if (linea.tipo === "simple") {
       const texto = linea.texto.replace(/^&\s*/, "").trim();
-      if (texto) filas.push({ pct: "", texto });
+      if (texto) filas.push({ pct: "", texto, centrada: true });
+    } else if (linea.tipo === "grupoSigue" || linea.tipo === "indentada") {
+      const texto = linea.texto.replace(/^&\s*/, "").trim();
+      if (texto) filas.push({ pct: "", texto, centrada: false });
     }
   }
   return { titulo, filas };
@@ -164,16 +167,27 @@ function dibujarBloqueFormasPago(
   const textoX = pctRight + 6;
   const maxTexto = Math.max(12, boxRight - FORMAS_PAD_X - textoX);
 
+  const maxCentrada = Math.max(12, contentWidth - FORMAS_PAD_X * 2);
   filas.forEach((fila, indice) => {
     const baseline = boxY + FORMAS_TITULO_H + indice * FORMAS_FILA_H + FORMAS_FILA_H * 0.72;
+    doc.setTextColor(INK.r, INK.g, INK.b);
+    if (fila.centrada) {
+      doc.setFont("VWText", "normal");
+      let size = FORMAS_FONT_TEXTO;
+      doc.setFontSize(size);
+      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxCentrada) {
+        size -= 0.25;
+        doc.setFontSize(size);
+      }
+      doc.text(fila.texto, MARGIN + contentWidth / 2, baseline, { align: "center" });
+      return;
+    }
     if (fila.pct) {
       doc.setFont("VWText", "bold");
       doc.setFontSize(FORMAS_FONT_PCT);
-      doc.setTextColor(INK.r, INK.g, INK.b);
       doc.text(fila.pct, pctRight, baseline, { align: "right" });
     }
     doc.setFont("VWText", "normal");
-    doc.setTextColor(INK.r, INK.g, INK.b);
     let size = FORMAS_FONT_TEXTO;
     doc.setFontSize(size);
     while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxTexto) {
