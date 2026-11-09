@@ -430,8 +430,13 @@ function ejesPieRedes(
   };
 }
 
+/** Mismo cuadrado en Instagram, WhatsApp y Maps. */
+function tamanoQrPie(alto: number): number {
+  return Math.min(24, alto - PIE_RED_PAD * 2);
+}
+
 function anchoTextoRed(ancho: number, alto: number, tieneQr: boolean): number {
-  const qrSize = tieneQr ? Math.min(24, alto - PIE_RED_PAD * 2) : 0;
+  const qrSize = tieneQr ? tamanoQrPie(alto) : 0;
   const usado = PIE_RED_PAD + (tieneQr ? qrSize + 2.5 : 0);
   return Math.max(16, ancho - usado - PIE_RED_PAD);
 }
@@ -449,7 +454,7 @@ function dibujarColumnaRed(
   ejes: EjesPieRed,
   iconoWhatsapp: string | null
 ): void {
-  const qrSize = qr ? Math.min(24, alto - PIE_RED_PAD * 2) : 0;
+  const qrSize = qr ? tamanoQrPie(alto) : 0;
   if (qr) {
     doc.addImage(qr, "PNG", x + PIE_RED_PAD, y + (alto - qrSize) / 2, qrSize, qrSize);
   }
@@ -480,18 +485,24 @@ function dibujarColumnaRed(
 }
 
 /** Baja el cuerpo hasta que el texto entra en una sola fila. */
-function tamanoUnaLinea(doc: jsPDF, texto: string, ancho: number, inicial: number): number {
+function tamanoUnaLinea(
+  doc: jsPDF,
+  texto: string,
+  ancho: number,
+  inicial: number,
+  minimo = 6
+): number {
   let size = inicial;
   doc.setFont("VWText", "normal");
-  while (size > 6) {
+  while (size > minimo) {
     doc.setFontSize(size);
     if (doc.getTextWidth(texto) <= ancho) return size;
     size -= 0.25;
   }
-  return 6;
+  return minimo;
 }
 
-/** Tercera columna: QR de Maps a la izquierda; dirección y horarios a la derecha. */
+/** Tercera columna: QR de Maps a la izquierda; dirección y horarios centrados a la derecha. */
 function dibujarColumnaSucursal(
   doc: jsPDF,
   x: number,
@@ -502,30 +513,69 @@ function dibujarColumnaSucursal(
   direccion: string | null,
   horario: string | null
 ): void {
-  const qrSize = qr ? Math.min(18, alto - PIE_RED_PAD * 2) : 0;
+  const qrSize = qr ? tamanoQrPie(alto) : 0;
   if (qr) {
     doc.addImage(qr, "PNG", x + PIE_RED_PAD, y + (alto - qrSize) / 2, qrSize, qrSize);
   }
-  const textX = x + PIE_RED_PAD + (qr ? qrSize + 1.6 : 0);
+  const textX = x + PIE_RED_PAD + (qr ? qrSize + 2.5 : 0);
   const textW = Math.max(14, ancho - (textX - x) - PIE_RED_PAD);
+  const centro = textX + textW / 2;
   doc.setTextColor(INK.r, INK.g, INK.b);
-  let cursor = y + 5.2;
-  const bloque = (titulo: string, valor: string, maxLineas: number) => {
+
+  const direccionTexto = (direccion ?? "").trim();
+  doc.setFont("VWText", "normal");
+  doc.setFontSize(6.5);
+  const lineasDireccion = direccionTexto
+    ? (doc.splitTextToSize(direccionTexto, textW) as string[]).slice(0, 3)
+    : [];
+  const dias = (horario ?? "")
+    .split("\n")
+    .map((linea) => linea.trim())
+    .filter((linea) => linea.length > 0);
+  const fontDia =
+    dias.length > 0
+      ? Math.min(...dias.map((dia) => tamanoUnaLinea(doc, dia, textW, 6.5, 4.5)))
+      : 6.5;
+
+  const altoLabel = 3.2;
+  const altoLinea = 2.7;
+  const gap = 1.5;
+  let altoBloque = 0;
+  if (lineasDireccion.length > 0) {
+    altoBloque += altoLabel + lineasDireccion.length * altoLinea;
+  }
+  if (dias.length > 0) {
+    if (altoBloque > 0) altoBloque += gap;
+    altoBloque += altoLabel + dias.length * altoLinea;
+  }
+  if (altoBloque === 0) return;
+
+  let cursor = y + Math.max(3.2, (alto - altoBloque) / 2) + 2.2;
+  const label = (titulo: string) => {
     doc.setFont("VWText", "bold");
     doc.setFontSize(6.5);
-    doc.text(titulo, textX, cursor);
-    cursor += 3;
-    doc.setFont("VWText", "normal");
-    doc.setFontSize(6);
-    const lineas = doc.splitTextToSize(valor.trim() || "", textW).slice(0, maxLineas);
-    if (lineas.length > 0) {
-      doc.text(lineas, textX, cursor);
-      cursor += lineas.length * 2.6;
-    }
-    cursor += 1.4;
+    doc.text(titulo, centro, cursor, { align: "center" });
+    cursor += altoLabel;
   };
-  bloque("DIRECCIÓN", direccion ?? "", 2);
-  bloque("HORARIOS", horario ?? "", 3);
+  if (lineasDireccion.length > 0) {
+    label("DIRECCIÓN");
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(6.5);
+    for (const linea of lineasDireccion) {
+      doc.text(linea, centro, cursor, { align: "center" });
+      cursor += altoLinea;
+    }
+  }
+  if (dias.length > 0) {
+    if (lineasDireccion.length > 0) cursor += gap;
+    label("HORARIOS");
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(fontDia);
+    for (const dia of dias) {
+      doc.text(dia, centro, cursor, { align: "center" });
+      cursor += altoLinea;
+    }
+  }
 }
 
 function dibujarIconoInstagram(doc: jsPDF, cx: number, cy: number, size: number): void {
