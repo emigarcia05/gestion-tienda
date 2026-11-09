@@ -23,11 +23,11 @@ export default function CrearProveedorModal() {
           <DialogTrigger asChild>
             <Button variant="default" size="default" className="btn-primario-gestion gap-2">
               <Plus className="h-4 w-4" />
-              Crear Proveedor
+              Nuevo Proveedor
             </Button>
           </DialogTrigger>
         </TooltipTrigger>
-        <TooltipContent>Crear nuevo proveedor</TooltipContent>
+        <TooltipContent>Nuevo Proveedor</TooltipContent>
       </Tooltip>
       <ProveedorModal
         open={open}

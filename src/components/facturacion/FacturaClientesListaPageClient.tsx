@@ -183,7 +183,7 @@ export default function FacturaClientesListaPageClient({ items, condicionesIva }
           <ToolbarActionButton
             type="button"
             icon={<Plus />}
-            label="Crear Cliente"
+            label="Nuevo Cliente"
             onClick={() => setModalCliente({ open: true, modo: "crear", item: null })}
           />
         }

@@ -88,7 +88,7 @@ export default function UsuariosPageClient({ items, esEditor }: Props) {
             <ToolbarActionButton
               type="button"
               icon={<Plus />}
-              label="Crear Usuario"
+              label="Nuevo Usuario"
               onClick={() => {
                 setItemEditar(null);
                 setOpenCrear(true);

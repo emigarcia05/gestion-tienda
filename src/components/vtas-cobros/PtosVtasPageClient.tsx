@@ -154,7 +154,7 @@ export default function PtosVtasPageClient({
                 <ToolbarActionButton
                   type="button"
                   icon={<Plus />}
-                  label="Crear Punto De Venta"
+                  label="Nuevo Punto De Venta"
                   onClick={abrirCrear}
                 />
               </>

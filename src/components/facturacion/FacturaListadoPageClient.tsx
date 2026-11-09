@@ -1103,6 +1103,7 @@ export default function FacturaListadoPageClient({
         }}
         comprobanteId={pdfId}
         nroComprobante={pdfNro}
+        esPresupuesto={!esFacturas}
       />
       {esFacturas ? (
         <CrearEnvioWizardModal

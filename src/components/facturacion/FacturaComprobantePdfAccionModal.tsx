@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { obtenerFacturaComprobantePdfAction } from "@/actions/factura";
+import { listarTextosFormasPagoPresupuestoAction } from "@/actions/formasPagoPresupuesto";
 import AppModal from "@/components/shared/AppModal";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -12,6 +14,7 @@ import {
   imprimirPdfFacturaComprobante,
   imprimirYDescargarPdfFacturaComprobante,
 } from "@/lib/facturaComprobantePdfClient";
+import { lineasDesdeTextosFormasPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
 
 type AccionPdf = "imprimir" | "descargar" | "ambos";
 
@@ -42,6 +45,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   comprobanteId: string | null;
   nroComprobante: string;
+  /** Listado de presupuestos: vuelve a preguntar si el PDF lleva formas de pago. */
+  esPresupuesto?: boolean;
   obtenerPdf?: (input: {
     id: string;
   }) => Promise<ActionResult<FacturaComprobantePdfDatos>>;
@@ -52,10 +57,16 @@ export default function FacturaComprobantePdfAccionModal({
   onOpenChange,
   comprobanteId,
   nroComprobante,
+  esPresupuesto = false,
   obtenerPdf = obtenerFacturaComprobantePdfAction,
 }: Props) {
   const [pending, setPending] = useState<AccionPdf | null>(null);
+  const [mostrarFormasPago, setMostrarFormasPago] = useState(true);
   const ocupado = pending != null;
+
+  useEffect(() => {
+    if (open) setMostrarFormasPago(true);
+  }, [open]);
 
   function cerrar() {
     if (ocupado) return;
@@ -74,12 +85,35 @@ export default function FacturaComprobantePdfAccionModal({
         toast.error(res.error);
         return;
       }
+      let datos = res.data;
+      if (esPresupuesto) {
+        if (mostrarFormasPago) {
+          const textos = await listarTextosFormasPagoPresupuestoAction();
+          if (!textos.ok) {
+            toast.error(textos.error);
+            return;
+          }
+          datos = {
+            ...datos,
+            ocultarFormasPago: false,
+            formasPagoDescuento: null,
+            formasPagoPresupuesto: lineasDesdeTextosFormasPagoPresupuesto(textos.data),
+          };
+        } else {
+          datos = {
+            ...datos,
+            ocultarFormasPago: true,
+            formasPagoDescuento: null,
+            formasPagoPresupuesto: null,
+          };
+        }
+      }
       if (accion === "imprimir") {
-        await imprimirPdfFacturaComprobante(res.data);
+        await imprimirPdfFacturaComprobante(datos);
       } else if (accion === "descargar") {
-        await descargarPdfFacturaComprobante(res.data);
+        await descargarPdfFacturaComprobante(datos);
       } else {
-        await imprimirYDescargarPdfFacturaComprobante(res.data);
+        await imprimirYDescargarPdfFacturaComprobante(datos);
       }
       onOpenChange(false);
     } catch (e) {
@@ -108,6 +142,7 @@ export default function FacturaComprobantePdfAccionModal({
           </Button>
         }
       >
+        <div className="flex flex-col gap-3">
         <div className="grid grid-cols-3 gap-2">
           {ACCIONES.map((accion) => (
             <Button
@@ -129,6 +164,16 @@ export default function FacturaComprobantePdfAccionModal({
               )}
             </Button>
           ))}
+        </div>
+        {esPresupuesto ? (
+          <ModalSiNoChoice
+            className="w-full"
+            label="MOSTRAR FORMAS DE PAGO"
+            value={mostrarFormasPago}
+            onChange={setMostrarFormasPago}
+            disabled={ocupado}
+          />
+        ) : null}
         </div>
       </AppModal>
     </Dialog>

@@ -320,7 +320,7 @@ export default function TransfDepositosPageClient() {
             onClick={() => setCrearOpen(true)}
           >
             <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />
-            Crear Transferencia
+            Nueva Transferencia
           </Button>
         }
       >

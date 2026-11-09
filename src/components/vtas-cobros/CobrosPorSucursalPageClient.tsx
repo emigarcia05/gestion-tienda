@@ -175,7 +175,7 @@ export default function CobrosPorSucursalPageClient({
             <ToolbarActionButton
               type="button"
               icon={<Plus aria-hidden />}
-              label="Crear Cobro"
+              label="Nuevo Cobro"
               onClick={() => setModal({ open: true, mode: "crear" })}
             />
           ) : undefined
@@ -309,7 +309,7 @@ export default function CobrosPorSucursalPageClient({
                       className="celda-datos text-center text-muted-foreground"
                     >
                       {filas.length === 0
-                        ? "No hay cobros creados. Usá Crear Cobro en ACCIONES."
+                        ? "No hay cobros creados. Usá Nuevo Cobro en ACCIONES."
                         : "Ninguna combinación coincide con los filtros."}
                     </TableCell>
                   </TableRow>

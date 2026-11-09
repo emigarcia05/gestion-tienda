@@ -249,7 +249,7 @@ export default function EnviosPageClient({ envios, clientes, direcciones, sucurs
             <ToolbarActionButton
               type="button"
               icon={<Plus />}
-              label="Crear Envío"
+              label="Nuevo Envío"
               className="w-full justify-start"
               onClick={() => setModalWizard({ open: true, item: null })}
             />

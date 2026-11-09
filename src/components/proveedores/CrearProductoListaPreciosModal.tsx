@@ -228,7 +228,7 @@ export default function CrearProductoListaPreciosModal({
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="btn-primario-gestion gap-2 shrink-0">
           <Plus className="h-4 w-4 shrink-0" />
-          Crear Prod.
+          Nuevo Producto
         </Button>
       </DialogTrigger>
 
