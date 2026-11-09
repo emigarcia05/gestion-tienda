@@ -144,7 +144,7 @@ export default function DescPromosPageClient({
     router.refresh();
   }
 
-  const colSpan = 10;
+  const colSpan = 9;
 
   return (
     <>
@@ -262,9 +262,8 @@ export default function DescPromosPageClient({
               <col className="w-[8%]" />
               <col className="w-[6%]" />
               <col className="w-[10%]" />
-              <col className={esEditor ? "w-[13%]" : "w-[19%]"} />
+              <col className={esEditor ? "w-[23%]" : "w-[29%]"} />
               <col className="w-[12%]" />
-              <col className="w-[10%]" />
               <col className={esEditor ? "w-[12%]" : "w-[6%]"} />
             </colgroup>
             <TableHeader>
@@ -277,7 +276,6 @@ export default function DescPromosPageClient({
                 <TableHead className="text-center">ESTADO</TableHead>
                 <TableHead>VÍNCULOS</TableHead>
                 <TableHead className="text-center">SE MUESTRA EN PRESUPUESTOS</TableHead>
-                <TableHead className="text-center">INCLUYE DESCUENTO</TableHead>
                 <TableHead className="tabla-bloque-secundario-head-divider text-center">
                   ACCIONES
                 </TableHead>
@@ -330,9 +328,6 @@ export default function DescPromosPageClient({
                       </TableCell>
                       <TableCell className="celda-datos text-center">
                         {item.enPresupuesto ? "TRUE" : "FALSE"}
-                      </TableCell>
-                      <TableCell className="celda-datos text-center">
-                        {item.enPresupuesto ? (item.incluyeDescuento ? "TRUE" : "FALSE") : ""}
                       </TableCell>
                       <TableCell className="celda-datos celda-datos--accion-relleno-fila tabla-bloque-secundario-cell-divider">
                         <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
