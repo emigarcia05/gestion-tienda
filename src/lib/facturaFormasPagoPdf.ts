@@ -23,16 +23,16 @@ export type FilaFormaPagoPresupuestoPdf = {
 export function lineasDesdeTextosFormasPagoPresupuesto(
   filas: readonly FilaFormaPagoPresupuestoPdf[]
 ): LineaFormaPagoPdf[] {
-  const utiles = filas.flatMap((fila) => {
+  const utiles = filas.flatMap((fila): LineaFormaPagoPdf[] => {
     const textos = fila.formas.map((forma) => forma.trim()).filter((forma) => forma.length > 0);
     if (!fila.incluyeDescuento) {
       const texto = textos.join(" - ");
-      return texto ? [{ tipo: "simple" as const, texto }] : [];
+      return texto ? [{ tipo: "simple", texto }] : [];
     }
     return textos.map((texto, indice) =>
       indice === 0
-        ? { tipo: "grupo" as const, pct: `${fila.descuento}%`, texto }
-        : { tipo: "grupoSigue" as const, texto }
+        ? { tipo: "grupo", pct: `${fila.descuento}%`, texto }
+        : { tipo: "grupoSigue", texto }
     );
   });
   if (utiles.length === 0) return [];
