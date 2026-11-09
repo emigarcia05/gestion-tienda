@@ -56,6 +56,7 @@ export const APP_ROUTES = {
     },
     cobrosDesc: {
       descuentos: `${ADMINISTRADOR}/cobros-desc/descuentos`,
+      formasPagoPresupuesto: `${ADMINISTRADOR}/cobros-desc/formas-pago-presupuesto`,
       cobrosCajas: `${ADMINISTRADOR}/cobros-desc/cobros-cajas`,
       cobrosCxFina: `${ADMINISTRADOR}/cobros-desc/cobros-cx-fina`,
       margenContribucion: `${ADMINISTRADOR}/cobros-desc/margen-contribucion`,

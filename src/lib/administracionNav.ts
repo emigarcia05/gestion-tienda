@@ -218,6 +218,13 @@ const cobrosDescScreens: AdmScreenDef[] = [
     permiso: PERMISOS.descPromos.acceso,
   },
   {
+    id: "formas-pago-presupuesto",
+    label: "Formas de Pago en Presupuesto",
+    href: A.cobrosDesc.formasPagoPresupuesto,
+    icon: "receipt",
+    permiso: PERMISOS.finanzas.acceso,
+  },
+  {
     id: "cobros-por-sucursal",
     label: "Cobros & Cajas",
     href: A.cobrosDesc.cobrosCajas,

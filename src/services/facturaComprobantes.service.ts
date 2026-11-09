@@ -74,7 +74,6 @@ import {
   porcentajeDescuentoLinea,
   totalLineaConDescuento,
   resumenTotalesFactura,
-  textoFormasPagoRestringidasDescPromo,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
@@ -84,12 +83,12 @@ import {
 } from "@/lib/factura";
 import { montoArCentsTopePesoEntero } from "@/lib/montoArMask";
 import {
-  lineasFormasPagoPresupuestoPdf,
+  lineasDesdeTextosFormasPagoPresupuesto,
   parsearLineasFormasPagoPdf,
   serializarLineasFormasPagoPdf,
   type LineaFormaPagoPdf,
 } from "@/lib/facturaFormasPagoPdf";
-import { listarOfertasFormaPagoPresupuesto } from "@/services/descPromo.service";
+import { listarTextosFormasPagoPresupuesto } from "@/services/formasPagoPresupuesto.service";
 import {
   ETIQUETA_GRUPO_FACTURA_PTO_VTA,
   grupoFacturaPorReceptor,
@@ -1704,11 +1703,7 @@ async function emitirFacturaComprobanteSegunTipo(
   const formasPagoPdf =
     input.tipo === "presupuesto" && input.mostrarFormasPago
       ? serializarLineasFormasPagoPdf(
-          lineasFormasPagoPresupuestoPdf({
-            ofertas: await listarOfertasFormaPagoPresupuesto(),
-            hayDescuento: resumen.hayDescuento,
-            vinculos: input.descuento?.promoVinculos ?? [],
-          })
+          lineasDesdeTextosFormasPagoPresupuesto(await listarTextosFormasPagoPresupuesto())
         )
       : null;
 
@@ -1742,11 +1737,7 @@ async function emitirFacturaComprobanteSegunTipo(
             impTotal,
             descPct: roundArs2(resumen.descPctPromedio),
             descImporte: roundArs2(resumen.descPesos),
-            descFormasPago:
-              input.tipo === "presupuesto"
-                ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() ||
-                  null
-                : null,
+            descFormasPago: null,
             mostrarFormasPago: input.tipo === "presupuesto" ? input.mostrarFormasPago : true,
             formasPagoPdf,
             ambiente,

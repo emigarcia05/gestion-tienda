@@ -2183,8 +2183,40 @@ model FinAnaCosFinaPagoCat {
   movimientosTesoreria TesoreriaMovimiento[]
   cxFinanciero         BalCxFinanciero[]
   descPromos           DescPromoFormaPago[]
+  textosPresupuesto    PresupuestoFormaPagoTextoForma[]
 
   @@map("cobros_forma_pago")
+}
+
+/**
+ * Texto de formas de pago del presupuesto. `desc_texto` se escribe a mano.
+ * Cada fila asocia N formas existentes (`cobros_forma_pago`).
+ */
+model PresupuestoFormaPagoTexto {
+  id        String   @id @default(cuid())
+  descTexto String   @map("desc_texto") @db.VarChar(80)
+  orden     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  formas PresupuestoFormaPagoTextoForma[]
+
+  @@unique([descTexto], map: "presupuesto_formas_pago_texto_desc_key")
+  @@unique([orden], map: "presupuesto_formas_pago_texto_orden_key")
+  @@map("presupuesto_formas_pago_texto")
+}
+
+model PresupuestoFormaPagoTextoForma {
+  textoId String @map("texto_id")
+  pagoId  String @map("pago_id")
+  orden   Int
+
+  texto PresupuestoFormaPagoTexto @relation(fields: [textoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pago  FinAnaCosFinaPagoCat      @relation(fields: [pagoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([textoId, pagoId], map: "presupuesto_formas_pago_texto_forma_pkey")
+  @@index([pagoId], map: "presupuesto_formas_pago_texto_forma_pago_idx")
+  @@map("presupuesto_formas_pago_texto_forma")
 }
 
 /**

@@ -20,7 +20,7 @@ import {
   obtenerClienteFacturaAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
-import { listarOfertasFormaPagoPresupuestoAction } from "@/actions/descPromo";
+import { listarTextosFormasPagoPresupuestoAction } from "@/actions/formasPagoPresupuesto";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
@@ -69,7 +69,6 @@ import {
   ptoVtaIdParaSucursal,
   descuentoEstadoParaEmitir,
   porcentajeDescuentoGlobal,
-  resumenTotalesFactura,
   porcentajeDescuentoLinea,
   type FacturaClase,
   type FacturaComprobanteDuplicarBorrador,
@@ -116,7 +115,7 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
-import { lineasFormasPagoPresupuestoPdf, type OfertaFormaPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
+import { lineasDesdeTextosFormasPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
 import { cn } from "@/lib/utils";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
@@ -233,15 +232,17 @@ export default function FacturaCrearPageClient({
   );
   const [mostrarFormasPago, setMostrarFormasPago] = useState(true);
   const mostrarFormasPagoRef = useRef(true);
-  const [ofertasFormaPago, setOfertasFormaPago] = useState<OfertaFormaPagoPresupuesto[]>([]);
+  const [textosFormasPago, setTextosFormasPago] = useState<
+    { descTexto: string; formas: { nombre: string }[] }[]
+  >([]);
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const cbteAsocId = duplicarBorrador?.cbteAsocId ?? "";
 
   useEffect(() => {
     let vigente = true;
-    void listarOfertasFormaPagoPresupuestoAction().then((res) => {
+    void listarTextosFormasPagoPresupuestoAction().then((res) => {
       if (!vigente) return;
-      if (res.ok) setOfertasFormaPago(res.data);
+      if (res.ok) setTextosFormasPago(res.data);
     });
     return () => {
       vigente = false;
@@ -497,7 +498,7 @@ export default function FacturaCrearPageClient({
     </Button>
   );
 
-  function abrirGenerarComprobante() {
+  async function abrirGenerarComprobante() {
     const { lineas, descuento } = remitoRef.current;
     if (lineas.length === 0) {
       toast.error("Agregá al menos un ítem antes de generar el comprobante.");
@@ -557,6 +558,14 @@ export default function FacturaCrearPageClient({
     };
     mostrarFormasPagoRef.current = true;
     setMostrarFormasPago(true);
+    let textos = textosFormasPago;
+    if (tipo === "presupuesto") {
+      const res = await listarTextosFormasPagoPresupuestoAction();
+      if (res.ok) {
+        textos = res.data;
+        setTextosFormasPago(res.data);
+      }
+    }
     setComprobantePdf({
       tipo,
       fechaIso,
@@ -579,11 +588,7 @@ export default function FacturaCrearPageClient({
       ),
       formasPagoPresupuesto:
         tipo === "presupuesto"
-          ? lineasFormasPagoPresupuestoPdf({
-              ofertas: ofertasFormaPago,
-              hayDescuento: resumenTotalesFactura(lineas, descuento).hayDescuento,
-              vinculos: descuento?.promoVinculos ?? [],
-            })
+          ? lineasDesdeTextosFormasPagoPresupuesto(textos)
           : null,
       ocultarFormasPago: false,
       ...datosClienteComprobantePdf(),
@@ -692,7 +697,7 @@ export default function FacturaCrearPageClient({
           variant="default"
           label="Generar Comprobante"
           icon={<FileText className="h-4 w-4 shrink-0" aria-hidden />}
-          onClick={() => abrirGenerarComprobante()}
+          onClick={() => void abrirGenerarComprobante()}
         />
       }
     >
