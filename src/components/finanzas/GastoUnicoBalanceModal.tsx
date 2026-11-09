@@ -444,7 +444,7 @@ export default function GastoUnicoBalanceModal({
                 </Select>
                 {sucursalesCentroCosto.length === 0 ? (
                   <span className="text-xs text-muted-foreground">
-                    No hay sucursales con centro de costo para imputar.
+                    No hay sucursales para imputar.
                   </span>
                 ) : null}
               </label>

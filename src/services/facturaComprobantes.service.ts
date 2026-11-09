@@ -124,7 +124,13 @@ import {
   type FacturaComprobantePdfEmisor,
   type FacturaComprobantePdfFiscal,
 } from "@/lib/facturaComprobantePdfEmisor";
-import { whatsappDeSucursales } from "@/lib/facturaComprobantePdfRedes";
+import {
+  sucursalPieDeLinks,
+  whatsappDeSucursales,
+  type SucursalPiePdf,
+  type SucursalWhatsappPdf,
+} from "@/lib/facturaComprobantePdfRedes";
+import { textoHorarioSucursalDesdeDb } from "@/lib/horarioSucursal";
 import { etiquetaCondicionIvaArca } from "@/lib/globalPtoVtas";
 import type { ServiceResult } from "@/types/service.types";
 import {
@@ -460,6 +466,8 @@ export type FacturaComprobantePdfDatos = {
   fiscal: FacturaComprobantePdfFiscal | null;
   /** `sucursales.whatsapp` de la sucursal del comprobante. */
   whatsapp: string | null;
+  /** Dirección, Maps y horario de esa sucursal. */
+  sucursalPie: SucursalPiePdf;
 };
 
 function fiscalPdfDesdeRow(
@@ -568,17 +576,63 @@ async function domicilioReceptorParaFiscal(args: {
   return { success: true, data: texto };
 }
 
-function whatsappPdfDeComprobante(row: {
+const SUCURSAL_PDF_SELECT = {
+  codigo: true,
+  whatsapp: true,
+  direccion: true,
+  maps: true,
+  horario: true,
+} as const;
+
+function linkSucursalPdf(row: {
+  codigo: string;
+  whatsapp: string | null;
+  direccion: string | null;
+  maps: string | null;
+  horario: unknown;
+}): SucursalWhatsappPdf {
+  return {
+    codigo: row.codigo,
+    whatsapp: row.whatsapp,
+    direccion: row.direccion,
+    maps: row.maps,
+    horario: textoHorarioSucursalDesdeDb(row.horario),
+  };
+}
+
+function datosSucursalPdf(row: {
   personal: { sucursalPorDefecto: string | null } | null;
-  stockComprobantes: { sucursal: { codigo: string; whatsapp: string | null } }[];
-  ptoVta: { sucursales: { sucursal: { codigo: string; whatsapp: string | null } }[] };
-}): string | null {
+  stockComprobantes: {
+    sucursal: {
+      codigo: string;
+      whatsapp: string | null;
+      direccion: string | null;
+      maps: string | null;
+      horario: unknown;
+    };
+  }[];
+  ptoVta: {
+    sucursales: {
+      sucursal: {
+        codigo: string;
+        whatsapp: string | null;
+        direccion: string | null;
+        maps: string | null;
+        horario: unknown;
+      };
+    }[];
+  };
+}): { whatsapp: string | null; sucursalPie: SucursalPiePdf } {
   const deStock = row.stockComprobantes[0]?.sucursal ?? null;
-  const links = row.ptoVta.sucursales.map((link) => link.sucursal);
-  return whatsappDeSucursales(
-    deStock ? [deStock, ...links] : links,
-    deStock?.codigo ?? row.personal?.sucursalPorDefecto
-  );
+  const links = [
+    ...(deStock ? [linkSucursalPdf(deStock)] : []),
+    ...row.ptoVta.sucursales.map((link) => linkSucursalPdf(link.sucursal)),
+  ];
+  const codigo = deStock?.codigo ?? row.personal?.sucursalPorDefecto;
+  return {
+    whatsapp: whatsappDeSucursales(links, codigo),
+    sucursalPie: sucursalPieDeLinks(links, codigo),
+  };
 }
 
 export async function obtenerFacturaComprobantePdfDatos(
@@ -598,14 +652,14 @@ export async function obtenerFacturaComprobantePdfDatos(
             inicioActividades: true,
             condicionIva: true,
             sucursales: {
-              select: { sucursal: { select: { codigo: true, whatsapp: true } } },
+              select: { sucursal: { select: SUCURSAL_PDF_SELECT } },
             },
           },
         },
         personal: { select: { sucursalPorDefecto: true } },
         stockComprobantes: {
           where: { tipo: { in: ["VENTA", "NOTA_CREDITO"] } },
-          select: { sucursal: { select: { codigo: true, whatsapp: true } } },
+          select: { sucursal: { select: SUCURSAL_PDF_SELECT } },
           orderBy: { createdAt: "asc" },
           take: 1,
         },
@@ -671,7 +725,7 @@ export async function obtenerFacturaComprobantePdfDatos(
             : null,
         }),
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
-        whatsapp: whatsappPdfDeComprobante(row),
+        ...datosSucursalPdf(row),
       },
     };
   } catch (e) {

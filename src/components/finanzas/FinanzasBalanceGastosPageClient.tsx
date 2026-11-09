@@ -140,7 +140,7 @@ interface Props {
   /** Meses 1–12 seleccionados (URL `mes=6` o `mes=6,7,8`). */
   meses: number[];
   anio: number;
-  /** Selectores de sucursal (centro de costo) para gasto eventual. */
+  /** Selectores de sucursal para gasto eventual. */
   sucursalesCentroCosto: { id: string; nombre: string }[];
 }
 

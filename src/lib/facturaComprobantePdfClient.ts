@@ -124,7 +124,7 @@ export async function generarBytesPdfFacturaComprobante(
   const [{ generarPdfFacturaComprobante }, logo, redes] = await Promise.all([
     import("@/lib/generarPdfFacturaComprobante"),
     cargarLogoTiendaColorPdf(),
-    redesPdfDeWhatsapp(listo.whatsapp),
+    redesPdfDeWhatsapp(listo.whatsapp, listo.sucursalPie),
   ]);
   return generarPdfFacturaComprobante({ ...listo, logo, redes });
 }

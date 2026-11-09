@@ -476,12 +476,12 @@ function mapFinBalGastoFinalRow(row: {
   };
 }
 
-async function sucursalEsCentroDeCosto(sucursalId: string): Promise<boolean> {
+async function sucursalExiste(sucursalId: string): Promise<boolean> {
   const s = await prisma.sucursal.findUnique({
     where: { id: sucursalId },
-    select: { centroCosto: true },
+    select: { id: true },
   });
-  return Boolean(s?.centroCosto);
+  return s != null;
 }
 
 /** Comentarios persistidos comparables (misma regla que Zod `comentariosFinBalGastoFinalSchema`). */
@@ -537,10 +537,10 @@ export async function crearFinBalGastoFinal(
     if (!input.sucursalId) {
       return { success: false, error: "La sucursal es obligatoria para gasto mensual." };
     }
-    if (!(await sucursalEsCentroDeCosto(input.sucursalId))) {
+    if (!(await sucursalExiste(input.sucursalId))) {
       return {
         success: false,
-        error: "La sucursal debe tener centro de costo y generar balance activados.",
+        error: "Elegí una sucursal válida.",
       };
     }
   } else if (input.sucursalId != null) {
@@ -600,11 +600,11 @@ export async function editarFinBalGastoFinal(
     }
     if (
       input.sucursalId !== prev.sucursalId &&
-      !(await sucursalEsCentroDeCosto(input.sucursalId))
+      !(await sucursalExiste(input.sucursalId))
     ) {
       return {
         success: false,
-        error: "La sucursal debe tener centro de costo y generar balance activados.",
+        error: "Elegí una sucursal válida.",
       };
     }
   } else if (input.sucursalId != null) {

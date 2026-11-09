@@ -78,7 +78,7 @@ export interface TableroVentasMesGrafico {
   proyectado: number | null;
 }
 
-/** Una serie del gráfico: GLOBAL o una sucursal `genera_est`. */
+/** Una serie del gráfico: GLOBAL o una sucursal. */
 export interface TableroVentasSerieMes {
   id: string;
   etiqueta: string;
@@ -108,9 +108,9 @@ export interface TableroVentasDatos {
   sucursalNombre: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
-  /** Sucursales con `genera_est` o con ventas en el mes o en el año. Orden: mayor % del mes primero. El promedio del día es el total del año / días con ventas; el del mes, / meses con ventas. */
+  /** Todas las sucursales. Orden: mayor % del mes primero. El promedio del día es el total del año / días con ventas; el del mes, / meses con ventas. */
   participacionSucursales: TableroVentasParticipacion[];
-  /** GLOBAL y cada sucursal `genera_est`. Siempre 12 meses, de enero a diciembre. */
+  /** GLOBAL y cada sucursal. Siempre 12 meses, de enero a diciembre. */
   seriesMeses: TableroVentasSerieMes[];
   clientesVencidos: TableroVentasClienteVencido[];
 }
@@ -231,7 +231,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const [sucursalIdPorCodigo, sucursales] = await Promise.all([
       mapaSucursalIdPorCodigo(),
       prisma.sucursal.findMany({
-        select: { id: true, nombre: true, codigo: true, generaEst: true },
+        select: { id: true, nombre: true, codigo: true },
       }),
     ]);
     const sucursalId = codigo ? sucursalIdPorCodigo.get(codigo) : undefined;
@@ -391,12 +391,6 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       return Math.min(100, Math.max(0, Math.round((monto / total) * 1000) / 10));
     };
     const participacionSucursales: TableroVentasParticipacion[] = sucursales
-      .filter(
-        (s) =>
-          s.generaEst ||
-          (ventasMesPorSucursal.get(s.id) ?? 0) !== 0 ||
-          (ventasAnioPorSucursal.get(s.id) ?? 0) !== 0
-      )
       .map((s) => {
         const porMes = ventasPorMesSucursal.get(s.id);
         let mesesConVentas = 0;
@@ -444,7 +438,6 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         meses: mesesDelAnio(mes, redondear2(ventasMesHastaHoy), diasMes, diaHoy, ventasPorMes),
       },
       ...sucursales
-        .filter((s) => s.generaEst)
         .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
         .map((s) => ({
           id: s.id,

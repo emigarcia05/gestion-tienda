@@ -8,7 +8,40 @@ export const INSTAGRAM_COMPROBANTE_URL = "https://www.instagram.com/tiendacolor.
 export type SucursalWhatsappPdf = {
   codigo: string;
   whatsapp: string | null;
+  direccion?: string | null;
+  maps?: string | null;
+  /** Texto ya armado de lun a vie, sábado y domingo. */
+  horario?: string | null;
 };
+
+export type SucursalPiePdf = {
+  direccion: string | null;
+  maps: string | null;
+  horario: string | null;
+};
+
+function sucursalPdfElegida(
+  links: readonly SucursalWhatsappPdf[],
+  sucursalCodigo: string | null | undefined
+): SucursalWhatsappPdf | null {
+  const codigo = sucursalCodigo?.trim().toLowerCase() ?? "";
+  if (!codigo) return null;
+  return links.find((link) => link.codigo.trim().toLowerCase() === codigo) ?? null;
+}
+
+/** Dirección, Maps y horario de la sucursal del comprobante. Sin código, no se toma otra sucursal. */
+export function sucursalPieDeLinks(
+  links: readonly SucursalWhatsappPdf[],
+  sucursalCodigo: string | null | undefined
+): SucursalPiePdf {
+  const propia = sucursalPdfElegida(links, sucursalCodigo);
+  const maps = propia?.maps?.trim() ?? "";
+  return {
+    direccion: propia?.direccion?.trim() || null,
+    maps: /^https?:\/\//i.test(maps) ? maps : null,
+    horario: propia?.horario?.trim() || null,
+  };
+}
 
 /** Número de la sucursal del comprobante. Si se conoce el código, no se toma el de otra sucursal. */
 export function whatsappDeSucursales(
@@ -17,7 +50,7 @@ export function whatsappDeSucursales(
 ): string | null {
   const codigo = sucursalCodigo?.trim().toLowerCase() ?? "";
   if (codigo) {
-    const propia = links.find((link) => link.codigo.trim().toLowerCase() === codigo);
+    const propia = sucursalPdfElegida(links, codigo);
     const texto = propia?.whatsapp?.trim() ?? "";
     return texto || null;
   }
@@ -66,21 +99,31 @@ export type FacturaComprobantePdfRedes = {
   whatsappTexto: string | null;
   /** PNG de `fuentes_logos/Logo Whatsapp.png`, recortado al dibujo. */
   whatsappIcono: string;
+  /** QR de `sucursales.maps`. Null si la sucursal no tiene URL. */
+  mapsQr: string | null;
+  direccion: string | null;
+  horario: string | null;
 };
 
 export async function redesPdfDeWhatsapp(
-  whatsapp: string | null | undefined
+  whatsapp: string | null | undefined,
+  sucursal?: SucursalPiePdf | null
 ): Promise<FacturaComprobantePdfRedes> {
   const urlWhatsapp = urlWhatsappPdf(whatsapp);
-  const [instagramQr, whatsappQr] = await Promise.all([
+  const maps = sucursal?.maps?.trim() ?? "";
+  const [instagramQr, whatsappQr, mapsQr] = await Promise.all([
     dataUrlQr(INSTAGRAM_COMPROBANTE_URL),
     urlWhatsapp ? dataUrlQr(urlWhatsapp) : Promise.resolve(null),
+    maps ? dataUrlQr(maps) : Promise.resolve(null),
   ]);
   return {
     instagramQr,
     whatsappQr,
     whatsappTexto: textoWhatsappPdf(whatsapp) || null,
     whatsappIcono: await dataUrlLogoWhatsapp(),
+    mapsQr,
+    direccion: sucursal?.direccion?.trim() || null,
+    horario: sucursal?.horario?.trim() || null,
   };
 }
 

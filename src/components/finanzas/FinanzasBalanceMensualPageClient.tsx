@@ -656,8 +656,7 @@ export default function FinanzasBalanceMensualPageClient({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
           {resumen.sucursales.length === 0 ? (
             <p className={CALLOUT_WARNING_CLASS}>
-              No hay sucursales con <strong>genera_balance</strong> activo: solo se muestra el bloque
-              global. Configurá al menos una sucursal en base de datos para ver el desglose.
+              No hay sucursales: solo se muestra el bloque global.
             </p>
           ) : null}
           <TablaBalanceMensualAlineada
@@ -834,7 +833,7 @@ export default function FinanzasBalanceMensualPageClient({
         filas={filasLineasGastoDetalle}
         notaInformativa={
           detalleLineasGastoCtx?.rubroClave === BALANCE_MENSUAL_RUBRO_REPARTO_CC
-            ? "Los importes son el total del mes imputado a cada centro de costo (sin balance). En la tabla del balance, ese total se reparte en partes iguales entre las sucursales que generan balance."
+            ? "Los importes son el total del mes sin sucursal. En la tabla del balance, ese total se reparte en partes iguales entre todas las sucursales."
             : null
         }
         onAbrirHistorico={({ gastoFinalId }) => {

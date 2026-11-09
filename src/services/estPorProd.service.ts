@@ -15,11 +15,10 @@ export type {
 
 const IMPORT_UPSERT_CHUNK = 100;
 
-/** Sucursales elegibles para Carga de Datos: `genera_est = true`. */
+/** Todas las sucursales, columnas de Carga de Datos. */
 export async function listarSucursalesParaEstPorProd(): Promise<SucursalEstOption[]> {
   try {
     const rows = await prisma.sucursal.findMany({
-      where: { generaEst: true },
       select: { id: true, nombre: true },
       orderBy: [{ nombre: "asc" }],
     });
@@ -52,12 +51,12 @@ export async function listarEstPorProdCeldasCargadas(): Promise<EstPorProdCeldaC
   }
 }
 
-async function sucursalGeneraEst(sucursalId: string): Promise<boolean> {
+async function sucursalExiste(sucursalId: string): Promise<boolean> {
   const s = await prisma.sucursal.findUnique({
     where: { id: sucursalId },
-    select: { generaEst: true },
+    select: { id: true },
   });
-  return s?.generaEst === true;
+  return s != null;
 }
 
 export interface EstPorProdPeriodoExistente {
@@ -140,10 +139,10 @@ export async function eliminarEstPorProdPorPeriodo(
 export async function importarEstPorProd(
   input: ImportarEstPorProdInput
 ): Promise<ServiceResult<ImportarEstPorProdResultado>> {
-  if (!(await sucursalGeneraEst(input.sucursalId))) {
+  if (!(await sucursalExiste(input.sucursalId))) {
     return {
       success: false,
-      error: "La sucursal no existe o no tiene genera_est habilitado.",
+      error: "La sucursal no existe.",
     };
   }
 

@@ -100,12 +100,11 @@ const VACIO: ProductosPedidoAFabricaResult = {
 
 type CampoFiltroTienda = "marca" | "rubro" | "subRubro";
 
-/** Sucursales con `genera_est = true` (PROM. VTA. / STOCK). Cada sucursal es depósito. */
+/** Todas las sucursales (PROM. VTA. / STOCK). Cada sucursal es depósito. */
 export async function listarSucursalesParaPedidoAFabrica(): Promise<
   SucursalPedidoAFabrica[]
 > {
   const rows = await prisma.sucursal.findMany({
-    where: { generaEst: true },
     select: {
       id: true,
       codigo: true,
@@ -276,7 +275,7 @@ async function opcionesCampoTienda(
  * Descripción: vinculada → `descripcion`; si no → `descripcion_proveedor`.
  * BULTO: vinculado → `prod_lista.bulto`; si no → vacío.
  * Solo filas `habilitado = true`. Filtros opcionales: marca / rubro / sub_rubro (tienda) + q + **PROD. VINCULADO** + **PEDIDO** (CANT. PED. persistida > 0).
- * Por cada sucursal `genera_est`: **PROM. VTA.** y STOCK / UN. ACT. del ledger `stock_movimientos`.
+ * Por cada sucursal: **PROM. VTA.** y STOCK / UN. ACT. del ledger `stock_movimientos`.
  */
 export async function listarProductosPorProveedorFabrica(
   proveedorId: string,

@@ -17,6 +17,7 @@ import {
   type FacturaVentaPendientePago,
 } from "@/lib/factura";
 import { formatoNroComprobante } from "@/lib/facturaFiscal";
+import { textoHorarioSucursalDesdeDb } from "@/lib/horarioSucursal";
 import { esGrupoFacturaPtoVta } from "@/lib/ptoVtaFactura";
 import {
   addDaysToIsoYmdArgentina,
@@ -208,7 +209,6 @@ export async function listarSucursalesFiltroFacturas(): Promise<
   FacturaSucursalFiltroOption[]
 > {
   const rows = await prisma.sucursal.findMany({
-    where: { generaEst: true },
     select: { codigo: true, nombre: true },
     orderBy: { nombre: "asc" },
   });
@@ -234,7 +234,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       condicionIvaArca: { select: { descripcion: true } },
       sucursales: {
         select: {
-          sucursal: { select: { codigo: true, whatsapp: true } },
+          sucursal: {
+            select: { codigo: true, whatsapp: true, direccion: true, maps: true, horario: true },
+          },
           prioridadesFactura: { select: { grupo: true } },
         },
       },
@@ -256,6 +258,9 @@ export async function listarFacturaPtoVtasActivos(): Promise<FacturaPtoVtaOpcion
       ...new Set(r.sucursales.map((link) => link.sucursal.codigo)),
     ],
     sucursalesWhatsapp: r.sucursales.map((link) => ({
+      direccion: link.sucursal.direccion,
+      maps: link.sucursal.maps,
+      horario: textoHorarioSucursalDesdeDb(link.sucursal.horario),
       codigo: link.sucursal.codigo,
       whatsapp: link.sucursal.whatsapp,
     })),

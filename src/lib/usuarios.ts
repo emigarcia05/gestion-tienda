@@ -10,6 +10,7 @@ import {
 } from "@/lib/sucursalPreferida";
 
 export const USUARIOS_PATH = APP_ROUTES.administrador.usuarios.usuarios;
+export const SUCURSALES_CATALOGO_PATH = APP_ROUTES.administrador.usuarios.sucursales;
 
 /** Qué muestra el tablero de Ventas. */
 export const VISTAS_TABLERO = ["gerente", "vendedor"] as const;

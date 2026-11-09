@@ -130,9 +130,9 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Administración · USUARIOS (`/administrador/usuarios/usuarios`) ─────────────────────
+  // ─── Administración · USU. & SUC. (`/administrador/usuarios/*`) ─────────────────────
   usuarios: {
-    /** Catálogo `personal`: sucursal, módulos y titular financiero. Solo editor. */
+    /** Usuarios y sucursales. Solo editor. */
     acceso: { simple: false, editor: true },
   },
 
