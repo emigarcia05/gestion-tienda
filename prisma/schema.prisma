@@ -3027,6 +3027,11 @@ model ComprobanteVta {
   impTotal    Decimal @map("imp_total") @db.Decimal(14, 2)
   descPct     Decimal @default(0) @map("desc_pct") @db.Decimal(5, 2)
   descImporte Decimal @default(0) @map("desc_importe") @db.Decimal(14, 2)
+  /**
+   * Formas de pago del descuento de un presupuesto (`textoFormasPagoRestringidasDescPromo`).
+   * Null si no es presupuesto o el descuento no restringe el medio de pago.
+   */
+  descFormasPago String? @map("desc_formas_pago") @db.Text
 
   cae               String?   @db.VarChar(14)
   caeVto            DateTime? @map("cae_vto") @db.Date

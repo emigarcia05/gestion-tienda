@@ -10,11 +10,13 @@ import { VWTEXT_BOLD_BASE64, VWTEXT_REGULAR_BASE64 } from "@/lib/vwTextPdfFuente
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import {
   esFacturaTipoFiscal,
+  esFacturaTipoVenta,
   FACTURA_CLIENTE_CONSUMIDOR_FINAL,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
   pxConDescuento,
   resumenTotalesFactura,
+  textoFormasPagoRestringidasDescPromo,
   totalLineaConDescuento,
   type FacturaDescuentoEstado,
   type FacturaLineaLocal,
@@ -82,7 +84,112 @@ export type FacturaComprobantePdfInput = {
   sucursalPie?: SucursalPiePdf | null;
   /** QR de Instagram y WhatsApp. Lo arma el cliente antes de dibujar. */
   redes?: FacturaComprobantePdfRedes | null;
+  /**
+   * Formas de pago del descuento ya guardadas en el presupuesto.
+   * La vista previa usa `descuento`; la reimpresión usa este texto.
+   */
+  formasPagoDescuento?: string | null;
 };
+
+function formasPagoDescuentoPdf(input: FacturaComprobantePdfInput): string {
+  const vivas = textoFormasPagoRestringidasDescPromo(input.descuento).trim();
+  if (vivas) return vivas;
+  return input.formasPagoDescuento?.trim() ?? "";
+}
+
+function dibujarPieTotales(
+  doc: jsPDF,
+  input: FacturaComprobantePdfInput,
+  resumen: ReturnType<typeof resumenTotalesFactura>,
+  yInicio: number,
+  contentWidth: number,
+  col: {
+    cod: number;
+    desc: number;
+    px: number;
+    descPct: number;
+    pxDesc: number;
+    cant: number;
+    total: number;
+  }
+): number {
+  const totalColCenterX =
+    MARGIN +
+    col.cod +
+    col.desc +
+    col.px +
+    col.descPct +
+    col.pxDesc +
+    col.cant +
+    col.total / 2;
+  const esPresupuesto = input.tipo === "presupuesto";
+  const pieConDescuento = esPresupuesto || esFacturaTipoVenta(input.tipo);
+  const formas = esPresupuesto ? formasPagoDescuentoPdf(input) : "";
+  const filas: { etiqueta: string; valor: string }[] = pieConDescuento
+    ? [
+        { etiqueta: "TOTAL S/ DESC.", valor: `$${fmtPrecio(resumen.totalLista)}` },
+        ...(resumen.hayDescuento
+          ? [
+              {
+                etiqueta: `DESC.   ${fmtPorcentajeTabla(resumen.descPctPromedio)}`,
+                valor: `$${fmtPrecio(resumen.descPesos)}`,
+              },
+              {
+                etiqueta: "TOTAL C/ DESC.",
+                valor: `$${fmtPrecio(resumen.totalConDesc)}`,
+              },
+            ]
+          : []),
+      ]
+    : [
+        {
+          etiqueta: "TOTAL:",
+          valor: `$${fmtPrecio(input.fiscal ? input.fiscal.impTotal : resumen.totalConDesc)}`,
+        },
+      ];
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  const paso = 4.5;
+  const barraH = 2.4 + filas.length * paso;
+  const lineasFormas =
+    esPresupuesto && resumen.hayDescuento && formas
+      ? (doc.splitTextToSize(formas, contentWidth - 10) as string[])
+      : [];
+  const formasH = lineasFormas.length > 0 ? 5 + 4 + lineasFormas.length * 3.4 : 0;
+  let y = yInicio + 2;
+  const tope = input.redes ? 249 : 270;
+  if (y + barraH + formasH > tope) {
+    doc.addPage();
+    y = MARGIN;
+  }
+
+  doc.setFillColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
+  doc.rect(MARGIN, y, contentWidth, barraH, "F");
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  const anchoMax = Math.max(...filas.map((fila) => doc.getTextWidth(fila.valor)));
+  const etiquetaX = totalColCenterX - anchoMax / 2 - 1.2;
+  filas.forEach((fila, idx) => {
+    const yy = y + 4 + idx * paso;
+    doc.text(fila.etiqueta, etiquetaX, yy, { align: "right" });
+    doc.text(fila.valor, totalColCenterX, yy, { align: "center" });
+  });
+  y += barraH;
+
+  if (lineasFormas.length > 0) {
+    y += 5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("Descuento válido abonando:", MARGIN, y);
+    y += 4;
+    doc.setFont("helvetica", "normal");
+    doc.text(lineasFormas, MARGIN + 8, y);
+    y += lineasFormas.length * 3.4;
+  }
+
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  return y;
+}
 
 function letraComprobantePdf(input: FacturaComprobantePdfInput): string {
   const letra = input.letra?.trim();
@@ -244,33 +351,10 @@ export function generarPdfFacturaComprobante(
 
   const resumen = resumenTotalesFactura(input.lineas, input.descuento);
   const fiscal = input.fiscal ?? null;
+  y = dibujarPieTotales(doc, input, resumen, y, contentWidth, col);
   if (fiscal?.discriminarIva) {
     y = dibujarDiscriminacionIva(doc, fiscal, y, contentWidth);
   }
-  const totalMostrado = fiscal ? fiscal.impTotal : resumen.totalConDesc;
-  const footerH = 8;
-  y += 2;
-  if (y + footerH > 270) {
-    doc.addPage();
-    y = MARGIN;
-  }
-  doc.setFillColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
-  doc.rect(MARGIN, y, contentWidth, footerH, "F");
-  const footerY = y + 5.2;
-  doc.setFont("helvetica", "bold");
-  /** Mismo tamaño que filas de tabla, conservando negrita. */
-  doc.setFontSize(7.5);
-  doc.setTextColor(INK.r, INK.g, INK.b);
-  const totalColX = MARGIN + col.cod + col.desc + col.px + col.descPct + col.pxDesc + col.cant;
-  const totalColCenterX = totalColX + col.total / 2;
-  const totalValue = `$${fmtPrecio(totalMostrado)}`;
-  /** Mantiene etiqueta y valor juntos, pero alinea el monto con la columna TOTAL. */
-  doc.text("TOTAL:", totalColCenterX - doc.getTextWidth(totalValue) / 2 - 0.8, footerY, {
-    align: "right",
-  });
-  doc.text(totalValue, totalColCenterX, footerY, { align: "center" });
-  y += footerH;
-  doc.setTextColor(INK.r, INK.g, INK.b);
 
   if (fiscal?.qrDataUrl && input.cae?.trim()) {
     y = dibujarPieFiscal(doc, input, fiscal, y, contentWidth);

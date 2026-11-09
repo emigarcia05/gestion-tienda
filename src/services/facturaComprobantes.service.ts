@@ -74,6 +74,7 @@ import {
   porcentajeDescuentoLinea,
   totalLineaConDescuento,
   resumenTotalesFactura,
+  textoFormasPagoRestringidasDescPromo,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
@@ -468,6 +469,8 @@ export type FacturaComprobantePdfDatos = {
   whatsapp: string | null;
   /** Dirección, Maps y horario de esa sucursal. */
   sucursalPie: SucursalPiePdf;
+  /** Formas de pago del descuento, si el presupuesto las guardó. */
+  formasPagoDescuento: string | null;
 };
 
 function fiscalPdfDesdeRow(
@@ -726,6 +729,7 @@ export async function obtenerFacturaComprobantePdfDatos(
         }),
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
         ...datosSucursalPdf(row),
+        formasPagoDescuento: row.descFormasPago?.trim() || null,
       },
     };
   } catch (e) {
@@ -1708,6 +1712,11 @@ async function emitirFacturaComprobanteSegunTipo(
             impTotal,
             descPct: roundArs2(resumen.descPctPromedio),
             descImporte: roundArs2(resumen.descPesos),
+            descFormasPago:
+              input.tipo === "presupuesto"
+                ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() ||
+                  null
+                : null,
             ambiente,
             comentarios: input.comentarios.trim().toLocaleUpperCase("es-AR"),
             estado: "autorizado",
