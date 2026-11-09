@@ -79,6 +79,7 @@ export const APP_ROUTES = {
     },
     usuarios: {
       usuarios: `${ADMINISTRADOR}/usuarios/usuarios`,
+      sucursales: `${ADMINISTRADOR}/usuarios/sucursales`,
     },
     reposicionCorp: {
       /** Misma pantalla que COMPRAS CORP. · Conf. Reposición. */

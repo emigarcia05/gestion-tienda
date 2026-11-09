@@ -402,7 +402,17 @@ model Sucursal {
   id            String   @id @default(cuid())
   codigo        String   @unique(map: "sucursales_codigo_key") // guaymallen | maipu | corporativo (estable en URLs y FKs)
   nombre        String
+  /**
+   * Teléfono de la sucursal. La columna sigue siendo `whatsapp`: el PDF del comprobante la lee así.
+   * En Usuarios & Suc. · Sucursales se muestra como TELÉFONO.
+   */
   whatsapp      String?  @map("whatsapp")
+  direccion     String?  @map("direccion") @db.Text
+  /**
+   * Horario de atención (`horarioSucursalSchema`): lunVie, sabado y domingo.
+   * Cada tramo es cerrado, corrido o cortado. Default en la migración: los tres cerrados.
+   */
+  horario       Json     @map("horario")
   pedido        Boolean  @default(true) @map("pedido")
   /**
    * ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo).

@@ -43,6 +43,7 @@ export type AdmIconId =
   | "tags"
   | "users"
   | "store"
+  | "map-pin"
   | "package";
 
 export interface AdmScreenDef {
@@ -326,6 +327,13 @@ const usuariosScreens: AdmScreenDef[] = [
     icon: "users",
     permiso: PERMISOS.usuarios.acceso,
   },
+  {
+    id: "sucursales",
+    label: "Sucursales",
+    href: A.usuarios.sucursales,
+    icon: "map-pin",
+    permiso: PERMISOS.usuarios.acceso,
+  },
 ];
 
 export const FIN_PILLARS: AdmPillarDef[] = [
@@ -390,7 +398,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
   },
   {
     id: "usuarios",
-    label: "USUARIOS",
+    label: "USUARIOS & SUC.",
     icon: "users",
     basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,
