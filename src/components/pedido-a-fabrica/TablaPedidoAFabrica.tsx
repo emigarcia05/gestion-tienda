@@ -96,7 +96,7 @@ const PCT_INFO = 3;
 
 const COL_COUNT = 7;
 
-/** Suma STOCK de sucursales `genera_est` (cada una es depósito) y PROM. VTA. */
+/** Suma STOCK de todas las sucursales (cada una es depósito) y PROM. VTA. */
 export function totalPorSucursalesPedidoAFabrica(
   producto: ProductoPedidoAFabricaItem,
   sucursales: SucursalPedidoAFabrica[]
@@ -171,7 +171,7 @@ function productoPasaFiltrosDerivados(
  * Grilla Pedido A Fáb.
  * **DESCRIPCIÓN** · **STOCK** (unidades + Info por depósito)
  * · **COMPRA** (FORMA / BULTO / CANT. PEDIR / CANT. SUGERIDA UNIDAD techo / BULTO múltiplo)
- * · Info PROM. VTA. (`genera_est`).
+ * · Info PROM. VTA. (todas las sucursales).
  */
 export default function TablaPedidoAFabrica({
   sucursales,

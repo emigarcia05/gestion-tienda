@@ -29,8 +29,6 @@ type MontosPorSucursal = Map<string | null, number>;
 
 interface SucursalLibro {
   nombre: string;
-  generaBalance: boolean;
-  centroCosto: boolean;
 }
 
 function rangoMes(mes: number, anio: number): { gte: Date; lt: Date } {
@@ -148,8 +146,8 @@ function filasDeLibro(
       anio,
       fechaDevengoIso: fechaIso,
       sucursalNombre: suc?.nombre ?? SUCURSAL_REPARTO_LIBROS,
-      sucursalGeneraBalance: suc?.generaBalance ?? false,
-      sucursalCentroCosto: suc?.centroCosto ?? true,
+      sucursalGeneraBalance: suc != null,
+      sucursalCentroCosto: true,
       tipoGastoNombre: TIPO_GASTO_LIBROS_BALANCE,
       esGastoMensual: true,
       rubroNombre: def.rubro,
@@ -174,14 +172,14 @@ export async function listarFilasLibrosBalanceMensual(
   const fecha = rangoMes(mes, anio);
   const [sucursalesRows, sucursalIdPorCodigo] = await Promise.all([
     prisma.sucursal.findMany({
-      select: { id: true, nombre: true, generaBalance: true, centroCosto: true },
+      select: { id: true, nombre: true },
     }),
     mapaSucursalIdPorCodigo(),
   ]);
   const sucursales = new Map(
     sucursalesRows.map((s) => [
       s.id,
-      { nombre: s.nombre.toUpperCase(), generaBalance: s.generaBalance, centroCosto: s.centroCosto },
+      { nombre: s.nombre.toUpperCase() },
     ])
   );
   const [cxMercaderia, cxFinanciero, iva, iibb] = await Promise.all([

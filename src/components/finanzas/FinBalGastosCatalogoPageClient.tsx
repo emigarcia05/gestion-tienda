@@ -195,7 +195,7 @@ export default function FinBalGastosCatalogoPageClient({
     return proveedores.filter((p) => p.nombre.toLocaleLowerCase("es").includes(q));
   }, [proveedores, qProveedor]);
 
-  /** Centros de costo desde servidor; en edición agrega la sucursal actual si ya no está en la lista (legacy). */
+  /** Sucursales desde servidor; en edición agrega la sucursal actual si ya no está en la lista. */
   const sucursalesParaModalGastoFinal = useMemo(() => {
     const ids = new Set(sucursales.map((s) => s.id));
     if (

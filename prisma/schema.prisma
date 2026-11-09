@@ -405,25 +405,6 @@ model Sucursal {
   whatsapp      String?  @map("whatsapp")
   pedido        Boolean  @default(true) @map("pedido")
   /**
-   * Flag "Centro de costo": indica si la sucursal debe tratarse como centro
-   * de imputación de costos en reportes/balance (independiente de `pedido`,
-   * que rige participación en flujos de pedidos de mercadería). Default
-   * `false`; los registros preexistentes se inicializan en `false` (opt-in).
-   * El flag se marca directamente en DB / seed (no hay UI de alta de sucursal).
-   */
-  centroCosto   Boolean  @default(false) @map("centro_costo")
-  /**
-   * Si la sucursal participa en balance / selects de imputación de gastos finales.
-   * Independiente de `centro_costo`: una sucursal puede ser centro de costo sin generar balance.
-   */
-  generaBalance Boolean  @default(false) @map("genera_balance")
-  /**
-   * Si la sucursal aparece en Estadísticas Productos · Carga de Datos
-   * (columnas de la grilla periodo × sucursal). Independiente de stock / depósitos
-   * y de `genera_balance`. Default `false` (opt-in); se gestiona por seed / UPDATE en DB.
-   */
-  generaEst     Boolean  @default(false) @map("genera_est")
-  /**
    * ID de sucursal en DUX (`id_sucursal` de la API). Null = sin sucursal DUX (p. ej. corporativo).
    */
   idDux         String?  @unique(map: "sucursales_id_dux_key") @map("id_dux")
@@ -457,7 +438,7 @@ model Sucursal {
 /**
  * Catálogo de puntos de venta DUX (`ptos_vtas`, ex `global_pto_vtas`).
  * PK `id` = cuid (TEXT); no serial. `pto_venta` = CHAR(5) con ceros a la izquierda.
- * `suc_asociadas` = filas en `pto_vta_sucursales` (N:M con `sucursales` `genera_est = true`).
+ * `suc_asociadas` = filas en `pto_vta_sucursales` (N:M con cualquier `sucursales`).
  */
 model GlobalPtoVta {
   id                 String            @id @default(cuid())
@@ -1100,7 +1081,7 @@ model FinBalGastoMensual {
 
 /**
  * Estadísticas de ventas en unidades por producto y sucursal (`est_por_prod`).
- * La sucursal debe existir en `sucursales` con `genera_est = true` (validado en servicio).
+ * La sucursal debe existir en `sucursales` (validado en servicio).
  * `cod_tienda` referencia `prod_lista.cod_tienda` (código numérico DUX importado como texto).
  */
 model EstPorProd {

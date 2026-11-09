@@ -208,7 +208,6 @@ export async function listarSucursalesFiltroFacturas(): Promise<
   FacturaSucursalFiltroOption[]
 > {
   const rows = await prisma.sucursal.findMany({
-    where: { generaEst: true },
     select: { codigo: true, nombre: true },
     orderBy: { nombre: "asc" },
   });

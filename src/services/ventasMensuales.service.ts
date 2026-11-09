@@ -53,10 +53,9 @@ function fechaDesdeVentas(): Date {
   return d;
 }
 
-/** Sucursales con columna en Ventas Mensuales y Balance mensual: solo `genera_balance = true`. */
+/** Todas las sucursales: columnas de Ventas Mensuales y Balance mensual. */
 export async function listarSucursalesGeneraBalance(): Promise<SucursalGeneraBalanceOption[]> {
   const rows = await prisma.sucursal.findMany({
-    where: { generaBalance: true },
     select: { id: true, nombre: true },
     orderBy: [{ nombre: "asc" }],
   });

@@ -4,7 +4,7 @@ import {
   repartoIgualEnteros,
 } from "@/lib/balanceMensual";
 
-/** Clave sintética para la fila de reparto de centros de costo sin balance (pool). */
+/** Clave sintética para la fila de reparto de lo que no tiene sucursal (pool). */
 export const BALANCE_MENSUAL_RUBRO_REPARTO_CC = "__reparto_cc__" as const;
 
 export type BalanceMensualColumnaDetalle =
@@ -176,7 +176,7 @@ export function agruparRubrosCostoMensual(
       clave,
       etiqueta:
         clave === BALANCE_MENSUAL_RUBRO_REPARTO_CC
-          ? "Centros de costo (reparto entre sucursales)"
+          ? "Sin sucursal (reparto entre sucursales)"
           : clave,
       monto,
       esRepartoPool: clave === BALANCE_MENSUAL_RUBRO_REPARTO_CC,
@@ -285,7 +285,7 @@ export function agruparTiposYRubrosCostoMensual(
           rubros: [
             {
               clave: BALANCE_MENSUAL_RUBRO_REPARTO_CC,
-              etiqueta: "Centros de costo (reparto entre sucursales)",
+              etiqueta: "Sin sucursal (reparto entre sucursales)",
               monto: poolPart,
               esRepartoPool: true,
             },

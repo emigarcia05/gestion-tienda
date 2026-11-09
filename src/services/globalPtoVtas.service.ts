@@ -85,11 +85,11 @@ async function validarSucursales(
   sucursalIds: string[]
 ): Promise<ServiceResult<void>> {
   const encontradas = await prisma.sucursal.findMany({
-    where: { id: { in: sucursalIds }, generaEst: true },
+    where: { id: { in: sucursalIds } },
     select: { id: true },
   });
   if (encontradas.length !== sucursalIds.length) {
-    return { success: false, error: "Solo se pueden asociar sucursales que generan estadísticas." };
+    return { success: false, error: "Seleccioná una sucursal válida." };
   }
   return { success: true, data: undefined };
 }
@@ -140,12 +140,11 @@ export async function listarPtoVentasCodArca(): Promise<PtoVentasCodArcaItem[]> 
   }));
 }
 
-/** Sucursales elegibles para asociar a un pto. vta.: `genera_est = true`. */
+/** Todas las sucursales se pueden asociar a un pto. vta. */
 export async function listarSucursalesParaPtoVtas(): Promise<
   GlobalPtoVtaSucursalOption[]
 > {
   const rows = await prisma.sucursal.findMany({
-    where: { generaEst: true },
     select: sucursalSelect,
     orderBy: { nombre: "asc" },
   });

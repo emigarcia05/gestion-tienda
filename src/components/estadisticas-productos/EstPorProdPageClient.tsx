@@ -171,7 +171,7 @@ export default function EstPorProdPageClient({
                   {sucursales.length === 0 ? (
                     <EmptyTableRow
                       colSpan={colSpan}
-                      message="No hay sucursales con genera_est habilitado."
+                      message="No hay sucursales."
                     />
                   ) : periodos.length === 0 ? (
                     <EmptyTableRow

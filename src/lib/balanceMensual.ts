@@ -13,7 +13,7 @@ export interface BalanceMensualBloque {
 export interface BalanceMensualSucursalBloque {
   /** `sucursalNombre` en MAYÚSCULAS (como en imputaciones). */
   nombre: string;
-  /** `sucursales.id` si la sucursal está en el listado con `genera_balance` (vacío si solo aparece por imputaciones huérfanas). */
+  /** `sucursales.id` (vacío si solo aparece por imputaciones huérfanas). */
   sucursalId: string;
   bloque: BalanceMensualBloque;
 }
@@ -21,9 +21,9 @@ export interface BalanceMensualSucursalBloque {
 export interface BalanceMensualResumen {
   global: BalanceMensualBloque;
   /**
-   * Una entrada por sucursal con `genera_balance = true` en DB, orden alfabético por nombre.
-   * Cada bloque = imputaciones directas a esa sucursal + parte **igual** del pool de
-   * sucursales con `centro_costo = true` y `genera_balance = false`.
+   * Una entrada por sucursal, orden alfabético por nombre.
+   * Cada bloque = imputaciones directas a esa sucursal + parte **igual** de lo que
+   * no tiene sucursal (libros: compras y ajustes).
    */
   sucursales: BalanceMensualSucursalBloque[];
 }
@@ -93,14 +93,14 @@ export function repartoIgualEnteros(total: number, cantidad: number): number[] {
  * (Cx Merc., Cx Fin, IVA, IIBB; ver `listarFilasBalanceMensual`).
  *
  * - **Global:** todas las imputaciones (cualquier sucursal).
- * - **Por sucursal:** solo sucursales con `genera_balance === true`. A cada una se le suman
+ * - **Por sucursal:** todas las sucursales. A cada una se le suman
  *   los montos imputados directamente a esa sucursal **más** una parte **igual** del total de
- *   costos variables/fijos imputados a sucursales con `centro_costo === true` y `genera_balance === false`.
+ *   costos variables/fijos sin sucursal.
  *
  * Clasificación costos: tipo contiene `VARIABLE` → variable; `FIJO` → fijo; si no, **fijo**.
  *
  * **Ventas:** suma de comprobantes de venta por sucursal / mes (`ventasPorSucursalNombreMes`, NC restan).
- * El bloque **Global** usa la suma de esas ventas (solo sucursales que generan balance en el periodo).
+ * El bloque **Global** usa la suma de esas ventas.
  */
 export function resumenBalanceMensualDesdeFilas(
   filas: BalanceGastoMensualFila[],

@@ -38,7 +38,7 @@ function gastoFinalReemplazadoPorLibro(gf: {
   return esGastoReemplazadoPorLibro(gf.gasto.rubro.tipo.nombre, gf.gasto.nombre);
 }
 
-/** Sucursales con `centro_costo` — selectores en Balance · Gastos y catálogo de gastos. */
+/** Todas las sucursales — selectores en Balance · Gastos y catálogo de gastos. */
 export interface SucursalOption {
   id: string;
   nombre: string;
@@ -46,7 +46,6 @@ export interface SucursalOption {
 
 export async function listarSucursalesParaGastos(): Promise<SucursalOption[]> {
   return prisma.sucursal.findMany({
-    where: { centroCosto: true },
     select: { id: true, nombre: true },
     orderBy: [{ nombre: "asc" }],
   });
@@ -63,8 +62,12 @@ export interface BalanceGastoMensualFila {
   /** Fecha de devengo (mes/año de la fila + día devengado del catálogo). */
   fechaDevengoIso: string;
   sucursalNombre: string;
-  /** Flags de `sucursales` al momento de la imputación (lectura en vivo). */
+  /**
+   * La imputación tiene sucursal real (entra a su columna). Sin sucursal queda en false
+   * y, si `sucursalCentroCosto`, entra al reparto.
+   */
   sucursalGeneraBalance: boolean;
+  /** Sin sucursal (libros) entra al pool de reparto. */
   sucursalCentroCosto: boolean;
   tipoGastoNombre: string;
   /** `bal_gasto.gasto_mensual`: recurrente mensual vs eventual (único). */
@@ -376,7 +379,7 @@ export async function listarImputacionesMensualesBalance(params: {
     orderBy: [{ mes: "asc" }, { createdAt: "asc" }],
     include: {
       imputacionSucursal: {
-        select: { nombre: true, generaBalance: true, centroCosto: true },
+        select: { nombre: true },
       },
       gastoFinal: {
         select: {
@@ -384,7 +387,7 @@ export async function listarImputacionesMensualesBalance(params: {
           diaDevengado: true,
           vencimiento: true,
           comentarios: true,
-          sucursal: { select: { nombre: true, generaBalance: true, centroCosto: true } },
+          sucursal: { select: { nombre: true } },
           proveedor: { select: { nombre: true } },
           gasto: {
             select: {
@@ -432,8 +435,8 @@ export async function listarImputacionesMensualesBalance(params: {
       anio: anioFila,
       fechaDevengoIso,
       sucursalNombre: sucursalDisplay?.nombre.toUpperCase() ?? "—",
-      sucursalGeneraBalance: sucursalDisplay?.generaBalance ?? false,
-      sucursalCentroCosto: sucursalDisplay?.centroCosto ?? false,
+      sucursalGeneraBalance: sucursalDisplay != null,
+      sucursalCentroCosto: sucursalDisplay != null,
       tipoGastoNombre: gf.gasto.rubro.tipo.nombre.toUpperCase(),
       esGastoMensual: gf.gastoMensual,
       rubroNombre: gf.gasto.rubro.nombre.toUpperCase(),
@@ -644,12 +647,12 @@ export async function crearImputacionGastoUnicoBalance(params: {
     }
     const sucImputacion = await prisma.sucursal.findUnique({
       where: { id: sucursalId },
-      select: { id: true, centroCosto: true },
+      select: { id: true },
     });
-    if (!sucImputacion?.centroCosto) {
+    if (!sucImputacion) {
       return {
         success: false,
-        error: "Elegí una sucursal válida (centro de costo).",
+        error: "Elegí una sucursal válida.",
       };
     }
     const row = await prisma.$transaction(async (tx) => {
