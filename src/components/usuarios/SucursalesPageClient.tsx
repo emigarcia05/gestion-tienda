@@ -49,7 +49,13 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
     if (!qDebounced.trim()) return items;
     return items.filter((item) =>
       matchByMultiTerm(
-        [item.nombre, item.direccion ?? "", item.telefono ?? "", textoHorarioSucursal(item.horario)],
+        [
+          item.nombre,
+          item.direccion ?? "",
+          item.telefono ?? "",
+          item.maps ?? "",
+          textoHorarioSucursal(item.horario),
+        ],
         qDebounced
       )
     );
@@ -60,7 +66,7 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
     setQDebounced("");
   }
 
-  const colSpan = esEditor ? 5 : 4;
+  const colSpan = esEditor ? 6 : 5;
 
   return (
     <>
@@ -74,7 +80,7 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
               <FilterRowSearch className="flex-1">
                 <FiltroBusquedaInput
                   id="filtro-sucursales-busqueda"
-                  placeholder="BUSCAR POR NOMBRE, DIRECCIÓN, TELÉFONO O HORARIO..."
+                  placeholder="BUSCAR POR NOMBRE, DIRECCIÓN, MAPS, TELÉFONO O HORARIO..."
                   value={q}
                   onChange={handleQChange}
                   isDebouncing={isDebouncing}
@@ -89,9 +95,10 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
         <div className="contenedor-tabla-gestion min-h-0 flex-1">
           <Table variant="compact" className="tabla-gestion-compacta w-full">
             <colgroup>
+              <col className="w-[16%]" />
               <col className="w-[18%]" />
-              <col className="w-[24%]" />
-              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[12%]" />
               <col />
               {esEditor ? <col className="w-[12%]" /> : null}
             </colgroup>
@@ -99,6 +106,7 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
               <TableRow>
                 <TableHead>NOMBRE</TableHead>
                 <TableHead>DIRECCIÓN</TableHead>
+                <TableHead>MAPS</TableHead>
                 <TableHead>TELÉFONO</TableHead>
                 <TableHead>HORARIO</TableHead>
                 {esEditor ? (
@@ -125,6 +133,20 @@ export default function SucursalesPageClient({ items, esEditor }: Props) {
                       {item.nombre}
                     </TableCell>
                     <TableCell className="celda-datos">{fmtCelda(item.direccion)}</TableCell>
+                    <TableCell className="celda-datos celda-datos--crece">
+                      {item.maps ? (
+                        <a
+                          href={item.maps}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline"
+                        >
+                          {item.maps}
+                        </a>
+                      ) : (
+                        ""
+                      )}
+                    </TableCell>
                     <TableCell className="celda-datos">{fmtCelda(item.telefono)}</TableCell>
                     <TableCell className="celda-datos celda-datos--crece">
                       {textoHorarioSucursal(item.horario)}

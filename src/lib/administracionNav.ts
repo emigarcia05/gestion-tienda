@@ -398,7 +398,7 @@ export const ADM_PILLARS: AdmPillarDef[] = [
   },
   {
     id: "usuarios",
-    label: "USUARIOS & SUC.",
+    label: "USU. & SUC.",
     icon: "users",
     basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,

@@ -130,7 +130,7 @@ export const PERMISOS = {
     acceso: { simple: true, editor: true },
   },
 
-  // ─── Administración · USUARIOS & SUC. (`/administrador/usuarios/*`) ─────────────────────
+  // ─── Administración · USU. & SUC. (`/administrador/usuarios/*`) ─────────────────────
   usuarios: {
     /** Usuarios y sucursales. Solo editor. */
     acceso: { simple: false, editor: true },

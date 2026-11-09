@@ -6,6 +6,7 @@ import {
 import {
   horarioSucursalSchema,
   type ActualizarSucursalCatalogoInput,
+  type CrearSucursalCatalogoInput,
   type EliminarSucursalCatalogoInput,
   type HorarioSucursal,
 } from "@/lib/validations/sucursalCatalogo";
@@ -17,6 +18,8 @@ export type SucursalCatalogoItem = {
   direccion: string | null;
   /** `sucursales.whatsapp`. */
   telefono: string | null;
+  /** `sucursales.maps`. */
+  maps: string | null;
   horario: HorarioSucursal;
 };
 
@@ -33,6 +36,7 @@ function textoONull(value: string): string | null {
 function mapDbError(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: string }).code;
+    if (code === "P2002") return "Ya existe una sucursal con ese código.";
     if (code === "P2003") return "No se puede borrar: la sucursal está en uso.";
     if (code === "P2025") return "La sucursal no existe.";
   }
@@ -47,6 +51,7 @@ export async function listarSucursalesCatalogo(): Promise<SucursalCatalogoItem[]
       nombre: true,
       direccion: true,
       whatsapp: true,
+      maps: true,
       horario: true,
     },
   });
@@ -55,8 +60,42 @@ export async function listarSucursalesCatalogo(): Promise<SucursalCatalogoItem[]
     nombre: row.nombre,
     direccion: row.direccion,
     telefono: row.whatsapp,
+    maps: row.maps,
     horario: horarioDesdeDb(row.horario),
   }));
+}
+
+function datosSucursal(input: {
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  maps: string;
+  horario: HorarioSucursal;
+}) {
+  return {
+    nombre: input.nombre.trim().replace(/\s+/g, " "),
+    direccion: textoONull(input.direccion),
+    whatsapp: textoONull(input.telefono),
+    maps: textoONull(input.maps),
+    horario: input.horario as Prisma.InputJsonValue,
+  };
+}
+
+export async function crearSucursalCatalogo(
+  input: CrearSucursalCatalogoInput
+): Promise<ServiceResult<void>> {
+  try {
+    await prisma.sucursal.create({
+      data: {
+        codigo: input.codigo,
+        ...datosSucursal(input),
+      },
+    });
+    return { success: true, data: undefined };
+  } catch (e) {
+    console.error("[sucursalesCatalogo][crear]", e);
+    return { success: false, error: mapDbError(e, "No se pudo crear la sucursal.") };
+  }
 }
 
 export async function actualizarSucursalCatalogo(
@@ -70,12 +109,7 @@ export async function actualizarSucursalCatalogo(
     if (!existe) return { success: false, error: "La sucursal no existe." };
     await prisma.sucursal.update({
       where: { id: input.id },
-      data: {
-        nombre: input.nombre.trim().replace(/\s+/g, " "),
-        direccion: textoONull(input.direccion),
-        whatsapp: textoONull(input.telefono),
-        horario: input.horario as Prisma.InputJsonValue,
-      },
+      data: datosSucursal(input),
     });
     return { success: true, data: undefined };
   } catch (e) {

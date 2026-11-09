@@ -82,8 +82,18 @@ export const horarioSucursalSchema = z.object({
 export type HorarioBloque = z.infer<typeof horarioBloqueSchema>;
 export type HorarioSucursal = z.infer<typeof horarioSucursalSchema>;
 
-export const actualizarSucursalCatalogoSchema = z.object({
-  id: globalSucursalIdSchema,
+const codigoSucursalSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, "Ingresá el código.")
+  .max(40, "El código es demasiado largo.")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Usá minúsculas, números o guiones, sin espacios ni acentos."
+  );
+
+const sucursalCatalogoCamposSchema = z.object({
   nombre: z
     .string()
     .trim()
@@ -95,7 +105,26 @@ export const actualizarSucursalCatalogoSchema = z.object({
     .max(300, "La dirección es demasiado larga.")
     .default(""),
   telefono: z.string().trim().max(40, "El teléfono es demasiado largo.").default(""),
+  maps: z
+    .string()
+    .trim()
+    .max(2048, "La URL es demasiado larga.")
+    .refine(
+      (s) => s === "" || /^https?:\/\//i.test(s),
+      "Ingresá una URL válida (http/https)."
+    )
+    .default(""),
   horario: horarioSucursalSchema,
+});
+
+export const crearSucursalCatalogoSchema = sucursalCatalogoCamposSchema.extend({
+  codigo: codigoSucursalSchema,
+});
+
+export type CrearSucursalCatalogoInput = z.infer<typeof crearSucursalCatalogoSchema>;
+
+export const actualizarSucursalCatalogoSchema = sucursalCatalogoCamposSchema.extend({
+  id: globalSucursalIdSchema,
 });
 
 export type ActualizarSucursalCatalogoInput = z.infer<

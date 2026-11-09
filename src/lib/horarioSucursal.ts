@@ -1,4 +1,8 @@
-import type { HorarioBloque, HorarioSucursal } from "@/lib/validations/sucursalCatalogo";
+import {
+  horarioSucursalSchema,
+  type HorarioBloque,
+  type HorarioSucursal,
+} from "@/lib/validations/sucursalCatalogo";
 
 export const HORARIO_SUCURSAL_CERRADO: HorarioSucursal = {
   lunVie: { modo: "cerrado" },
@@ -21,4 +25,10 @@ function textoBloque(etiqueta: string, bloque: HorarioBloque): string {
 /** Una sola celda: los tres tramos, domingo incluido aunque esté cerrado. */
 export function textoHorarioSucursal(horario: HorarioSucursal): string {
   return TEXTOS_BLOQUE.map((fila) => textoBloque(fila.texto, horario[fila.clave])).join(" · ");
+}
+
+/** `sucursales.horario` tal como lo devuelve Prisma. Null si no tiene la forma esperada. */
+export function textoHorarioSucursalDesdeDb(value: unknown): string | null {
+  const parsed = horarioSucursalSchema.safeParse(value);
+  return parsed.success ? textoHorarioSucursal(parsed.data) : null;
 }

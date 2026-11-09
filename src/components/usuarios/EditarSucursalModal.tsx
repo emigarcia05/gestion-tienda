@@ -25,6 +25,9 @@ interface Props {
   onSuccess?: () => void;
 }
 
+const SECCION_TITULO_CLASS =
+  "text-center text-xs font-bold uppercase tracking-wide text-foreground";
+
 const BLOQUES: { clave: keyof HorarioSucursal; etiqueta: string }[] = [
   { clave: "lunVie", etiqueta: "LUN A VIE" },
   { clave: "sabado", etiqueta: "SÁBADO" },
@@ -71,6 +74,7 @@ export default function EditarSucursalModal({
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [maps, setMaps] = useState("");
   const [horario, setHorario] = useState<HorarioSucursal | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -79,6 +83,7 @@ export default function EditarSucursalModal({
     setNombre(item.nombre);
     setDireccion(item.direccion ?? "");
     setTelefono(item.telefono ?? "");
+    setMaps(item.maps ?? "");
     setHorario(item.horario);
   }, [open, item]);
 
@@ -91,6 +96,7 @@ export default function EditarSucursalModal({
         nombre,
         direccion,
         telefono,
+        maps,
         horario,
       });
       if (!res.ok) {
@@ -195,6 +201,16 @@ export default function EditarSucursalModal({
             />
           </div>
           <div className="flex flex-col gap-1">
+            <ModalMicroLabel>Maps</ModalMicroLabel>
+            <Input
+              value={maps}
+              onChange={(e) => setMaps(e.target.value)}
+              disabled={saving}
+              aria-label="Maps"
+              placeholder="HTTPS://..."
+            />
+          </div>
+          <div className="flex flex-col gap-1">
             <ModalMicroLabel>Teléfono</ModalMicroLabel>
             <Input
               value={telefono}
@@ -203,8 +219,10 @@ export default function EditarSucursalModal({
               aria-label="Teléfono"
             />
           </div>
-          {horario
-            ? BLOQUES.map((bloque) => {
+          {horario ? (
+            <section className="modal-seccion-formulario flex flex-col gap-3">
+              <h3 className={SECCION_TITULO_CLASS}>Horarios</h3>
+              {BLOQUES.map((bloque) => {
                 const valor = horario[bloque.clave];
                 return (
                   <div key={bloque.clave} className="flex flex-col gap-2">
@@ -281,8 +299,9 @@ export default function EditarSucursalModal({
                     ) : null}
                   </div>
                 );
-              })
-            : null}
+              })}
+            </section>
+          ) : null}
         </div>
       </AppModal>
     </Dialog>

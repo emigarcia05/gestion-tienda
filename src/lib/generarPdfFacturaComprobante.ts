@@ -34,6 +34,7 @@ import {
 import {
   INSTAGRAM_COMPROBANTE,
   type FacturaComprobantePdfRedes,
+  type SucursalPiePdf,
 } from "@/lib/facturaComprobantePdfRedes";
 
 const MARGIN = 14;
@@ -77,6 +78,8 @@ export type FacturaComprobantePdfInput = {
   fiscal?: FacturaComprobantePdfFiscal | null;
   /** `sucursales.whatsapp` de la sucursal del comprobante. */
   whatsapp?: string | null;
+  /** Dirección, Maps y horario de esa sucursal. El QR lo arma el cliente. */
+  sucursalPie?: SucursalPiePdf | null;
   /** QR de Instagram y WhatsApp. Lo arma el cliente antes de dibujar. */
   redes?: FacturaComprobantePdfRedes | null;
 };
@@ -332,11 +335,12 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
   if (yContenido + 4 + boxH > bottom) doc.addPage();
   const y = bottom - boxH;
   const contentWidth = 210 - 2 * MARGIN;
-  const colW = contentWidth / 2;
+  const colW = contentWidth / 3;
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setLineWidth(0.4);
   doc.rect(MARGIN, y, contentWidth, boxH);
   doc.line(MARGIN + colW, y, MARGIN + colW, y + boxH);
+  doc.line(MARGIN + colW * 2, y, MARGIN + colW * 2, y + boxH);
   const ejes = ejesPieRedes(
     doc,
     y,
@@ -370,6 +374,16 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
     redes.whatsappTexto,
     ejes,
     redes.whatsappIcono
+  );
+  dibujarColumnaSucursal(
+    doc,
+    MARGIN + colW * 2,
+    y,
+    colW,
+    boxH,
+    redes.mapsQr,
+    redes.direccion,
+    redes.horario
   );
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
@@ -475,6 +489,43 @@ function tamanoUnaLinea(doc: jsPDF, texto: string, ancho: number, inicial: numbe
     size -= 0.25;
   }
   return 6;
+}
+
+/** Tercera columna: QR de Maps a la izquierda; dirección y horarios a la derecha. */
+function dibujarColumnaSucursal(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  ancho: number,
+  alto: number,
+  qr: string | null,
+  direccion: string | null,
+  horario: string | null
+): void {
+  const qrSize = qr ? Math.min(18, alto - PIE_RED_PAD * 2) : 0;
+  if (qr) {
+    doc.addImage(qr, "PNG", x + PIE_RED_PAD, y + (alto - qrSize) / 2, qrSize, qrSize);
+  }
+  const textX = x + PIE_RED_PAD + (qr ? qrSize + 1.6 : 0);
+  const textW = Math.max(14, ancho - (textX - x) - PIE_RED_PAD);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  let cursor = y + 5.2;
+  const bloque = (titulo: string, valor: string, maxLineas: number) => {
+    doc.setFont("VWText", "bold");
+    doc.setFontSize(6.5);
+    doc.text(titulo, textX, cursor);
+    cursor += 3;
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(6);
+    const lineas = doc.splitTextToSize(valor.trim() || "", textW).slice(0, maxLineas);
+    if (lineas.length > 0) {
+      doc.text(lineas, textX, cursor);
+      cursor += lineas.length * 2.6;
+    }
+    cursor += 1.4;
+  };
+  bloque("DIRECCIÓN", direccion ?? "", 2);
+  bloque("HORARIOS", horario ?? "", 3);
 }
 
 function dibujarIconoInstagram(doc: jsPDF, cx: number, cy: number, size: number): void {

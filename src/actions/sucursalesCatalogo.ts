@@ -8,10 +8,12 @@ import { SUCURSALES_CATALOGO_PATH } from "@/lib/usuarios";
 import type { ActionResult } from "@/lib/types";
 import {
   actualizarSucursalCatalogoSchema,
+  crearSucursalCatalogoSchema,
   eliminarSucursalCatalogoSchema,
 } from "@/lib/validations/sucursalCatalogo";
 import {
   actualizarSucursalCatalogo,
+  crearSucursalCatalogo,
   eliminarSucursalCatalogo,
 } from "@/services/sucursalesCatalogo.service";
 
@@ -24,6 +26,22 @@ async function gateSucursales(): Promise<string | null> {
     return "Sin permisos de editor.";
   }
   return null;
+}
+
+export async function crearSucursalCatalogoAction(
+  raw: unknown
+): Promise<ActionResult<void>> {
+  const gate = await gateSucursales();
+  if (gate) return { ok: false, error: gate };
+
+  const parsed = crearSucursalCatalogoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  }
+
+  const result = await crearSucursalCatalogo(parsed.data);
+  if (result.success) revalidatePath(SUCURSALES_CATALOGO_PATH);
+  return fromServiceResult(result);
 }
 
 export async function actualizarSucursalCatalogoAction(

@@ -404,10 +404,12 @@ model Sucursal {
   nombre        String
   /**
    * Teléfono de la sucursal. La columna sigue siendo `whatsapp`: el PDF del comprobante la lee así.
-   * En Usuarios & Suc. · Sucursales se muestra como TELÉFONO.
+   * En USU. & SUC. · Sucursales se muestra como TELÉFONO.
    */
   whatsapp      String?  @map("whatsapp")
   direccion     String?  @map("direccion") @db.Text
+  /** URL del local (Google Maps u otra). Vacío = sin enlace. */
+  maps          String?  @map("maps") @db.Text
   /**
    * Horario de atención (`horarioSucursalSchema`): lunVie, sabado y domingo.
    * Cada tramo es cerrado, corrido o cortado. Default en la migración: los tres cerrados.
