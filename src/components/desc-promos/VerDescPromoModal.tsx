@@ -160,6 +160,19 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                 ))
               )}
             </Seccion>
+            <Seccion titulo="DESC. EN PDF">
+              {item.lineasPdf.length === 0 ? (
+                <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>
+              ) : (
+                item.lineasPdf.map((linea, indice) => (
+                  <LineaLecturaModal
+                    key={`${indice}-${linea}`}
+                    etiqueta={`LÍNEA (${indice + 1})`}
+                    valor={fmtCelda(linea)}
+                  />
+                ))
+              )}
+            </Seccion>
             <Seccion titulo="ALCANCE">
               <AlcanceLectura item={item} />
             </Seccion>

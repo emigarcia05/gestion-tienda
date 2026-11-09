@@ -1,6 +1,6 @@
 /**
  * Bloque FORMAS DE PAGO del PDF de presupuesto.
- * Cada DESC. agrupa renglones de texto libre: el % va en el primero y las formas siguientes quedan debajo.
+ * Cada descuento con MOSTRAR EN PRESUPUESTO agrupa sus formas: el % va en la primera y las siguientes quedan debajo.
  */
 
 export type LineaFormaPagoPdf =

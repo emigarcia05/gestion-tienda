@@ -164,6 +164,8 @@ export type DescPromoFila = {
   alcanceEtiqueta: string;
   nombre: string;
   descuento: number;
+  /** Entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
+  enPresupuesto: boolean;
   prioridad: number;
   idMarca: string | null;
   marcaNombre: string | null;
@@ -171,6 +173,8 @@ export type DescPromoFila = {
   rubroNombre: string | null;
   items: DescPromoItemRef[];
   formasPago: DescPromoFormaPagoRef[];
+  /** Renglones de DESC. EN PDF, en el orden del recuadro. */
+  lineasPdf: string[];
 };
 
 export type DescPromoItemMatch = {

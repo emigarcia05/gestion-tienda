@@ -2188,37 +2188,6 @@ model FinAnaCosFinaPagoCat {
 }
 
 /**
- * Form. Pag. en Presp. Un DESC. (entero 0–100) y N formas de pago de texto libre.
- */
-model PresupuestoFormaPagoTexto {
-  id        String   @id @default(cuid())
-  /** Entero 0–100. En pantalla el `%` es sufijo fijo. */
-  descuento Int
-  orden     Int
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  lineas PresupuestoFormaPagoTextoLinea[]
-
-  @@unique([descuento], map: "presupuesto_formas_pago_texto_descuento_key")
-  @@unique([orden], map: "presupuesto_formas_pago_texto_orden_key")
-  @@map("presupuesto_formas_pago_texto")
-}
-
-/** Un renglón de forma de pago escrito a mano, debajo de su DESC. */
-model PresupuestoFormaPagoTextoLinea {
-  id      String @id @default(cuid())
-  textoId String @map("texto_id")
-  orden   Int
-  texto   String @db.VarChar(80)
-
-  cabecera PresupuestoFormaPagoTexto @relation(fields: [textoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@unique([textoId, orden], map: "presupuesto_formas_pago_texto_linea_texto_orden_key")
-  @@map("presupuesto_formas_pago_texto_linea")
-}
-
-/**
  * N:M forma de pago ↔ entidad (`cobros_forma_pago` × `cobros_entidades`).
  * La vinculación es opcional: una forma puede no tener entidades.
  */
@@ -2283,6 +2252,8 @@ model DescPromo {
   nombre     String
   /** Porcentaje 0–100. Columna SQL `desc`. */
   descuento  Int                @map("desc")
+  /** Si entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
+  enPresupuesto Boolean         @default(true) @map("en_presupuesto")
   /** Entero único 1…N. 1 = máxima prioridad. */
   prioridad  Int                @unique(map: "desc_promo_prioridad_key")
   idMarca    String?            @map("id_marca")
@@ -2294,6 +2265,7 @@ model DescPromo {
 
   items        DescPromoItem[]
   formasPago   DescPromoFormaPago[]
+  lineasPdf    DescPromoLineaPdf[]
   cxMercaderia BalCxMercaderia[]
   marca        Marca?     @relation(fields: [idMarca], references: [id], onDelete: Restrict)
   rubro        ProdRubro? @relation(fields: [idRubro], references: [id], onDelete: Restrict)
@@ -2303,6 +2275,19 @@ model DescPromo {
   @@index([idMarca], map: "desc_promo_id_marca_idx")
   @@index([idRubro], map: "desc_promo_id_rubro_idx")
   @@map("desc_promo")
+}
+
+/** Líneas de texto libre de la sección DESC. EN PDF. */
+model DescPromoLineaPdf {
+  id      String @id @default(cuid())
+  promoId String @map("promo_id")
+  orden   Int
+  texto   String @db.VarChar(120)
+
+  promo DescPromo @relation(fields: [promoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([promoId, orden], map: "desc_promo_linea_pdf_promo_orden_key")
+  @@map("desc_promo_linea_pdf")
 }
 
 /**

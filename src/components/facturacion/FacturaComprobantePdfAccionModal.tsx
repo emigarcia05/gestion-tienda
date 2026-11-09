@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { obtenerFacturaComprobantePdfAction } from "@/actions/factura";
-import { listarTextosFormasPagoPresupuestoAction } from "@/actions/formasPagoPresupuesto";
+import { listarFormasPagoPresupuestoAction } from "@/actions/descPromo";
 import AppModal from "@/components/shared/AppModal";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,7 @@ export default function FacturaComprobantePdfAccionModal({
       let datos = res.data;
       if (esPresupuesto) {
         if (mostrarFormasPago) {
-          const textos = await listarTextosFormasPagoPresupuestoAction();
+          const textos = await listarFormasPagoPresupuestoAction();
           if (!textos.ok) {
             toast.error(textos.error);
             return;

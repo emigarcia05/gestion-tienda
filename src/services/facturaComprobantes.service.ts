@@ -88,7 +88,7 @@ import {
   serializarLineasFormasPagoPdf,
   type LineaFormaPagoPdf,
 } from "@/lib/facturaFormasPagoPdf";
-import { listarTextosFormasPagoPresupuesto } from "@/services/formasPagoPresupuesto.service";
+import { listarFormasPagoPresupuesto } from "@/services/descPromo.service";
 import {
   ETIQUETA_GRUPO_FACTURA_PTO_VTA,
   grupoFacturaPorReceptor,
@@ -1703,7 +1703,7 @@ async function emitirFacturaComprobanteSegunTipo(
   const formasPagoPdf =
     input.tipo === "presupuesto" && input.mostrarFormasPago
       ? serializarLineasFormasPagoPdf(
-          lineasDesdeTextosFormasPagoPresupuesto(await listarTextosFormasPagoPresupuesto())
+          lineasDesdeTextosFormasPagoPresupuesto(await listarFormasPagoPresupuesto())
         )
       : null;
 

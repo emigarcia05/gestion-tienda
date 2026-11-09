@@ -207,6 +207,9 @@ export default function CrearEditarDescPromoModal({
   );
   const [agregarProductosOpen, setAgregarProductosOpen] = useState(false);
   const [pagoIds, setPagoIds] = useState<string[]>(() => pagoIdsDesdeItem(item));
+  const [lineasPdf, setLineasPdf] = useState<string[]>(
+    () => (item?.lineasPdf.length ? [...item.lineasPdf] : [""])
+  );
   const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
     () => cuotaIdsPorPagoDesdeItem(item)
   );
@@ -370,6 +373,7 @@ export default function CrearEditarDescPromoModal({
       alcance,
       nombre: nombre.trim(),
       descuento,
+      lineasPdf: lineasPdf.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
       idMarca: pideMarca ? idMarca : null,
       idRubro: pideRubro ? idRubro : null,
       codTiendas: pideItems ? codTiendas : [],
@@ -550,6 +554,42 @@ export default function CrearEditarDescPromoModal({
               />
             </div>
           ))}
+          <section className="flex flex-col gap-2 rounded-md border border-primary p-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">DESC. EN PDF</p>
+            {lineasPdf.map((linea, indice) => (
+              <div key={indice} className="flex items-center gap-2">
+                <Input
+                  value={linea}
+                  maxLength={120}
+                  disabled={saving}
+                  aria-label={`Línea ${indice + 1} de DESC. EN PDF`}
+                  onChange={(event) =>
+                    setLineasPdf((prev) => prev.map((actual, i) => (i === indice ? event.target.value : actual)))
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Quitar línea"
+                  disabled={saving || lineasPdf.length === 1}
+                  onClick={() => setLineasPdf((prev) => prev.filter((_, i) => i !== indice))}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              disabled={saving || lineasPdf.length >= 30}
+              onClick={() => setLineasPdf((prev) => [...prev, ""])}
+            >
+              <Plus aria-hidden />
+              Nueva Línea
+            </Button>
+          </section>
           <div className="flex flex-col gap-1">
             <ModalMicroLabel>Alcance</ModalMicroLabel>
             <Select

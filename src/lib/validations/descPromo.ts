@@ -67,6 +67,15 @@ const camposDescPromoSchema = z.object({
   alcance: z.enum(ALCANCES_DESC_PROMO),
   nombre: nombreDescPromoSchema,
   descuento: descuentoDescPromoSchema,
+  lineasPdf: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, "Escribí el texto.")
+        .max(120, "Cada línea tiene hasta 120 caracteres.")
+    )
+    .max(30, "Hay demasiadas líneas."),
   idMarca: prismaIdOptionalNullableSchema,
   idRubro: prismaIdOptionalNullableSchema,
   codTiendas: z

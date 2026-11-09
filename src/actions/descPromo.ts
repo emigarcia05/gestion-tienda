@@ -23,8 +23,10 @@ import {
   eliminarDescPromo,
   listarDescPromos,
   listarDescPromosPorFormaPago,
+  listarFormasPagoPresupuesto,
   moverPrioridadDescPromo,
 } from "@/services/descPromo.service";
+import type { FilaFormaPagoPresupuestoPdf } from "@/lib/facturaFormasPagoPdf";
 
 function revalidateDescPromos() {
   revalidatePath(DESC_PROMOS_PATH);
@@ -38,6 +40,23 @@ export async function listarDescPromosAction(): Promise<ActionResult<DescPromoFi
   } catch (e) {
     console.error("[listarDescPromosAction]", e);
     return { ok: false, error: "No se pudieron listar los descuentos." };
+  }
+}
+
+/** Formas de pago del recuadro de presupuesto. Facturación o Descuentos. */
+export async function listarFormasPagoPresupuestoAction(): Promise<
+  ActionResult<FilaFormaPagoPresupuestoPdf[]>
+> {
+  const facturacion = await requireFacturacionLectura();
+  if (facturacion) {
+    const descuentos = await requireDescPromosLectura();
+    if (descuentos) return descuentos;
+  }
+  try {
+    return { ok: true, data: await listarFormasPagoPresupuesto() };
+  } catch (e) {
+    console.error("[listarFormasPagoPresupuestoAction]", e);
+    return { ok: false, error: "No se pudieron listar las formas de pago del presupuesto." };
   }
 }
 

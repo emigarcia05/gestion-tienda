@@ -20,7 +20,7 @@ import {
   obtenerClienteFacturaAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
-import { listarTextosFormasPagoPresupuestoAction } from "@/actions/formasPagoPresupuesto";
+import { listarFormasPagoPresupuestoAction } from "@/actions/descPromo";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
@@ -241,7 +241,7 @@ export default function FacturaCrearPageClient({
 
   useEffect(() => {
     let vigente = true;
-    void listarTextosFormasPagoPresupuestoAction().then((res) => {
+    void listarFormasPagoPresupuestoAction().then((res) => {
       if (!vigente) return;
       if (res.ok) setTextosFormasPago(res.data);
     });
@@ -561,7 +561,7 @@ export default function FacturaCrearPageClient({
     setMostrarFormasPago(true);
     let textos = textosFormasPago;
     if (tipo === "presupuesto") {
-      const res = await listarTextosFormasPagoPresupuestoAction();
+      const res = await listarFormasPagoPresupuestoAction();
       if (res.ok) {
         textos = res.data;
         setTextosFormasPago(res.data);
