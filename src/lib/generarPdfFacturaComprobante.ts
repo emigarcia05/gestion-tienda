@@ -131,7 +131,7 @@ function dibujarPieTotales(
         ...(resumen.hayDescuento
           ? [
               {
-                etiqueta: `DESC.   ${fmtPorcentajeTabla(resumen.descPctPromedio)}`,
+                etiqueta: `DESC. (${Math.round(resumen.descPctPromedio)}%)`,
                 valor: `$${fmtPrecio(resumen.descPesos)}`,
               },
               {
@@ -353,7 +353,9 @@ export function generarPdfFacturaComprobante(
   const fiscal = input.fiscal ?? null;
   y = dibujarPieTotales(doc, input, resumen, y, contentWidth, col);
   if (fiscal?.discriminarIva) {
-    y = dibujarDiscriminacionIva(doc, fiscal, y, contentWidth);
+    const totalColCenterX =
+      MARGIN + col.cod + col.desc + col.px + col.descPct + col.pxDesc + col.cant + col.total / 2;
+    y = dibujarDiscriminacionIva(doc, fiscal, y, totalColCenterX);
   }
 
   if (fiscal?.qrDataUrl && input.cae?.trim()) {
@@ -373,7 +375,7 @@ function dibujarDiscriminacionIva(
   doc: jsPDF,
   fiscal: FacturaComprobantePdfFiscal,
   y0: number,
-  contentWidth: number
+  totalColCenterX: number
 ): number {
   const filas: { etiqueta: string; valor: string }[] = [
     { etiqueta: "NETO GRAVADO", valor: `$${fmtPrecio(fiscal.impNeto)}` },
@@ -386,20 +388,24 @@ function dibujarDiscriminacionIva(
       valor: `$${fmtPrecio(fiscal.impTrib)}`,
     },
   ];
-  let y = y0 + 1.5;
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
+  const paso = 4.2;
+  const anchoMax = Math.max(...filas.map((fila) => doc.getTextWidth(fila.valor)));
+  const etiquetaX = totalColCenterX - anchoMax / 2 - 1.2;
+  /** Hueco bajo el pie azul: el texto no entra en el relleno. */
+  let y = y0 + 6;
   doc.setTextColor(INK.r, INK.g, INK.b);
   for (const fila of filas) {
     if (y > 272) {
       doc.addPage();
       y = MARGIN;
     }
-    const right = MARGIN + contentWidth;
     doc.setFont("helvetica", "bold");
-    doc.text(fila.etiqueta, right - 28, y, { align: "right" });
+    doc.text(fila.etiqueta, etiquetaX, y, { align: "right" });
     doc.setFont("helvetica", "normal");
-    doc.text(fila.valor, right, y, { align: "right" });
-    y += 3.6;
+    doc.text(fila.valor, totalColCenterX, y, { align: "center" });
+    y += paso;
   }
   return y;
 }
