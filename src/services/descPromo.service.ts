@@ -538,7 +538,7 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
       lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
     },
   });
-  const grupos: FilaFormaPagoPresupuestoPdf[] = [];
+  const grupos: { descuento: number; formas: string[]; incluyeDescuento: boolean }[] = [];
   const indice = new Map<number, number>();
   for (const row of rows) {
     const formas = row.lineasPdf.map((linea) => linea.texto.trim()).filter((texto) => texto.length > 0);
