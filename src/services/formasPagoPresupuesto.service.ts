@@ -5,15 +5,30 @@ import type { ServiceResult } from "@/types";
 
 export type TextoFormaPagoPresupuesto = {
   id: string;
-  descTexto: string;
+  descuento: number;
   orden: number;
-  formas: { pagoId: string; nombre: string }[];
+  formas: {
+    pagoId: string;
+    nombre: string;
+    cuotas: { cuotaId: string; nombre: string }[];
+  }[];
+};
+
+export type VinculoFormaPagoPresupuestoInput = {
+  pagoId: string;
+  cuotaIds: string[];
 };
 
 const includeFormas = {
   formas: {
     orderBy: { orden: "asc" as const },
-    include: { pago: { select: { id: true, nombre: true } } },
+    include: {
+      pago: { select: { id: true, nombre: true } },
+      cuotas: {
+        orderBy: { orden: "asc" as const },
+        include: { cuota: { select: { id: true, cuotas: true } } },
+      },
+    },
   },
 };
 
@@ -22,11 +37,15 @@ function mapFila(
 ): TextoFormaPagoPresupuesto {
   return {
     id: row.id,
-    descTexto: row.descTexto,
+    descuento: row.descuento,
     orden: row.orden,
     formas: row.formas.map((forma) => ({
       pagoId: forma.pago.id,
       nombre: forma.pago.nombre,
+      cuotas: forma.cuotas.map((cuota) => ({
+        cuotaId: cuota.cuota.id,
+        nombre: cuota.cuota.cuotas,
+      })),
     })),
   };
 }
@@ -35,11 +54,15 @@ function esUnico(error: unknown): error is Prisma.PrismaClientKnownRequestError 
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-async function validarPagos(
-  pagoIds: readonly string[]
-): Promise<ServiceResult<string[]>> {
+async function validarVinculos(
+  vinculos: readonly VinculoFormaPagoPresupuestoInput[]
+): Promise<ServiceResult<VinculoFormaPagoPresupuestoInput[]>> {
+  const pagoIds = vinculos.map((vinculo) => vinculo.pagoId);
+  if (new Set(pagoIds).size !== pagoIds.length) {
+    return { success: false, error: "Hay una forma de pago repetida." };
+  }
   const pagos = await prisma.finAnaCosFinaPagoCat.findMany({
-    where: { id: { in: [...pagoIds] } },
+    where: { id: { in: pagoIds } },
     select: { id: true, nombre: true },
   });
   if (pagos.length !== pagoIds.length) {
@@ -48,7 +71,46 @@ async function validarPagos(
   if (pagos.some((pago) => esCobroNotaCreditoNombre(pago.nombre))) {
     return { success: false, error: "NOTA DE CRÉDITO no se imprime en el presupuesto." };
   }
-  return { success: true, data: [...pagoIds] };
+  const nombres = new Map(pagos.map((pago) => [pago.id, pago.nombre]));
+  const catalogo = await prisma.cobrosCuotaVinculo.findMany({
+    where: { pagoId: { in: pagoIds } },
+    select: { pagoId: true, cuotaId: true },
+  });
+  const cuotasPorPago = new Map<string, Set<string>>();
+  for (const fila of catalogo) {
+    const actuales = cuotasPorPago.get(fila.pagoId) ?? new Set<string>();
+    actuales.add(fila.cuotaId);
+    cuotasPorPago.set(fila.pagoId, actuales);
+  }
+
+  const normalizados: VinculoFormaPagoPresupuestoInput[] = [];
+  for (const vinculo of vinculos) {
+    const nombre = nombres.get(vinculo.pagoId) ?? "la forma de pago";
+    const permitidas = cuotasPorPago.get(vinculo.pagoId) ?? new Set<string>();
+    const cuotaIds = [...new Set(vinculo.cuotaIds)];
+    if (permitidas.size === 0) {
+      normalizados.push({ pagoId: vinculo.pagoId, cuotaIds: [] });
+      continue;
+    }
+    if (cuotaIds.length === 0) {
+      return { success: false, error: `Elegí al menos una cuota de ${nombre}.` };
+    }
+    if (cuotaIds.some((cuotaId) => !permitidas.has(cuotaId))) {
+      return { success: false, error: `Hay una cuota que no corresponde a ${nombre}.` };
+    }
+    normalizados.push({ pagoId: vinculo.pagoId, cuotaIds });
+  }
+  return { success: true, data: normalizados };
+}
+
+function dataFormas(vinculos: readonly VinculoFormaPagoPresupuestoInput[]) {
+  return vinculos.map((vinculo, orden) => ({
+    pagoId: vinculo.pagoId,
+    orden,
+    cuotas: {
+      create: vinculo.cuotaIds.map((cuotaId, indice) => ({ cuotaId, orden: indice })),
+    },
+  }));
 }
 
 export async function listarTextosFormasPagoPresupuesto(): Promise<TextoFormaPagoPresupuesto[]> {
@@ -60,20 +122,18 @@ export async function listarTextosFormasPagoPresupuesto(): Promise<TextoFormaPag
 }
 
 export async function crearTextoFormaPagoPresupuesto(input: {
-  descTexto: string;
-  pagoIds: string[];
+  descuento: number;
+  vinculos: VinculoFormaPagoPresupuestoInput[];
 }): Promise<ServiceResult<void>> {
-  const pagos = await validarPagos(input.pagoIds);
-  if (!pagos.success) return pagos;
+  const vinculos = await validarVinculos(input.vinculos);
+  if (!vinculos.success) return vinculos;
   const max = await prisma.presupuestoFormaPagoTexto.aggregate({ _max: { orden: true } });
   try {
     await prisma.presupuestoFormaPagoTexto.create({
       data: {
-        descTexto: input.descTexto,
+        descuento: input.descuento,
         orden: (max._max.orden ?? 0) + 1,
-        formas: {
-          create: pagos.data.map((pagoId, orden) => ({ pagoId, orden })),
-        },
+        formas: { create: dataFormas(vinculos.data) },
       },
     });
     return { success: true, data: undefined };
@@ -88,11 +148,11 @@ export async function crearTextoFormaPagoPresupuesto(input: {
 
 export async function editarTextoFormaPagoPresupuesto(input: {
   id: string;
-  descTexto: string;
-  pagoIds: string[];
+  descuento: number;
+  vinculos: VinculoFormaPagoPresupuestoInput[];
 }): Promise<ServiceResult<void>> {
-  const pagos = await validarPagos(input.pagoIds);
-  if (!pagos.success) return pagos;
+  const vinculos = await validarVinculos(input.vinculos);
+  if (!vinculos.success) return vinculos;
   const existe = await prisma.presupuestoFormaPagoTexto.findUnique({
     where: { id: input.id },
     select: { id: true },
@@ -102,16 +162,14 @@ export async function editarTextoFormaPagoPresupuesto(input: {
     await prisma.$transaction(async (tx) => {
       await tx.presupuestoFormaPagoTexto.update({
         where: { id: input.id },
-        data: { descTexto: input.descTexto },
+        data: { descuento: input.descuento },
       });
       await tx.presupuestoFormaPagoTextoForma.deleteMany({ where: { textoId: input.id } });
-      await tx.presupuestoFormaPagoTextoForma.createMany({
-        data: pagos.data.map((pagoId, orden) => ({
-          textoId: input.id,
-          pagoId,
-          orden,
-        })),
-      });
+      for (const forma of dataFormas(vinculos.data)) {
+        await tx.presupuestoFormaPagoTextoForma.create({
+          data: { ...forma, textoId: input.id },
+        });
+      }
     });
     return { success: true, data: undefined };
   } catch (error) {

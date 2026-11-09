@@ -13,14 +13,38 @@ export type LineaFormaPagoPdf =
 
 const TITULO_TODAS = "FORMAS DE PAGO";
 
+export type FilaFormaPagoPresupuestoPdf = {
+  descuento: number;
+  formas: readonly { nombre: string; cuotas: readonly { nombre: string }[] }[];
+};
+
+/** Formas sin cuotas por su nombre; las que tienen, por cada cuota elegida. */
+export function textoFormasPagoPresupuesto(
+  formas: readonly { nombre: string; cuotas: readonly { nombre: string }[] }[]
+): string {
+  const partes: string[] = [];
+  for (const forma of formas) {
+    const nombre = forma.nombre.trim();
+    if (forma.cuotas.length === 0) {
+      if (nombre) partes.push(nombre);
+      continue;
+    }
+    for (const cuota of forma.cuotas) {
+      const texto = cuota.nombre.trim();
+      if (!texto) continue;
+      partes.push(nombre ? `${nombre} · ${texto}` : texto);
+    }
+  }
+  return partes.join(" - ");
+}
+
 export function lineasDesdeTextosFormasPagoPresupuesto(
-  filas: readonly { descTexto: string; formas: readonly { nombre: string }[] }[]
+  filas: readonly FilaFormaPagoPresupuestoPdf[]
 ): LineaFormaPagoPdf[] {
   const utiles = filas.flatMap((fila) => {
-    const desc = fila.descTexto.trim();
-    const formas = fila.formas.map((forma) => forma.nombre.trim()).filter(Boolean);
-    if (!desc || formas.length === 0) return [];
-    return [{ tipo: "grupo" as const, pct: desc, texto: formas.join(" - ") }];
+    const texto = textoFormasPagoPresupuesto(fila.formas);
+    if (!texto) return [];
+    return [{ tipo: "grupo" as const, pct: `${fila.descuento}%`, texto }];
   });
   if (utiles.length === 0) return [];
   return [{ tipo: "titulo", texto: TITULO_TODAS }, { tipo: "vacia" }, ...utiles];

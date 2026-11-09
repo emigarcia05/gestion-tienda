@@ -2194,14 +2194,15 @@ model FinAnaCosFinaPagoCat {
  */
 model PresupuestoFormaPagoTexto {
   id        String   @id @default(cuid())
-  descTexto String   @map("desc_texto") @db.VarChar(80)
+  /** Entero 0–100. En pantalla el `%` es sufijo fijo. */
+  descuento Int
   orden     Int
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   formas PresupuestoFormaPagoTextoForma[]
 
-  @@unique([descTexto], map: "presupuesto_formas_pago_texto_desc_key")
+  @@unique([descuento], map: "presupuesto_formas_pago_texto_descuento_key")
   @@unique([orden], map: "presupuesto_formas_pago_texto_orden_key")
   @@map("presupuesto_formas_pago_texto")
 }
@@ -2211,12 +2212,27 @@ model PresupuestoFormaPagoTextoForma {
   pagoId  String @map("pago_id")
   orden   Int
 
-  texto PresupuestoFormaPagoTexto @relation(fields: [textoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  pago  FinAnaCosFinaPagoCat      @relation(fields: [pagoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  texto  PresupuestoFormaPagoTexto       @relation(fields: [textoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pago   FinAnaCosFinaPagoCat            @relation(fields: [pagoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  cuotas PresupuestoFormaPagoTextoCuota[]
 
   @@id([textoId, pagoId], map: "presupuesto_formas_pago_texto_forma_pkey")
   @@index([pagoId], map: "presupuesto_formas_pago_texto_forma_pago_idx")
   @@map("presupuesto_formas_pago_texto_forma")
+}
+
+model PresupuestoFormaPagoTextoCuota {
+  textoId String @map("texto_id")
+  pagoId  String @map("pago_id")
+  cuotaId String @map("cuota_id")
+  orden   Int
+
+  forma PresupuestoFormaPagoTextoForma @relation(fields: [textoId, pagoId], references: [textoId, pagoId], onDelete: Cascade, onUpdate: Cascade)
+  cuota CobrosCuota                    @relation(fields: [cuotaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([textoId, pagoId, cuotaId], map: "presupuesto_formas_pago_texto_cuota_pkey")
+  @@index([cuotaId], map: "presupuesto_formas_pago_texto_cuota_cuota_idx")
+  @@map("presupuesto_formas_pago_texto_cuota")
 }
 
 /**
@@ -2368,6 +2384,7 @@ model CobrosCuota {
   movimientosTesoreria TesoreriaMovimiento[]
   cxFinanciero         BalCxFinanciero[]
   descPromoFormasPago  DescPromoFormaPago[]
+  textosPresupuesto    PresupuestoFormaPagoTextoCuota[]
 
   @@map("cobros_cuotas")
 }

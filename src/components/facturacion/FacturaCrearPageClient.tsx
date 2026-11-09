@@ -115,7 +115,10 @@ import {
   TYPEAHEAD_LISTBOX_PANEL_WIDER_THAN_INPUT_CLASS,
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
-import { lineasDesdeTextosFormasPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
+import {
+  lineasDesdeTextosFormasPagoPresupuesto,
+  type FilaFormaPagoPresupuestoPdf,
+} from "@/lib/facturaFormasPagoPdf";
 import { cn } from "@/lib/utils";
 import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
@@ -232,9 +235,7 @@ export default function FacturaCrearPageClient({
   );
   const [mostrarFormasPago, setMostrarFormasPago] = useState(true);
   const mostrarFormasPagoRef = useRef(true);
-  const [textosFormasPago, setTextosFormasPago] = useState<
-    { descTexto: string; formas: { nombre: string }[] }[]
-  >([]);
+  const [textosFormasPago, setTextosFormasPago] = useState<FilaFormaPagoPresupuestoPdf[]>([]);
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const cbteAsocId = duplicarBorrador?.cbteAsocId ?? "";
 

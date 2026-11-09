@@ -12,10 +12,10 @@ import AppModal from "@/components/shared/AppModal";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import FiltroMultiSelect from "@/components/shared/FiltroMultiSelect";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import PorcentajeEnteroMaskInput from "@/components/shared/PorcentajeEnteroMaskInput";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -24,17 +24,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TABLE_ROW_ACTION_ICON_CLASS, TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS } from "@/lib/ui-classes";
+import { textoFormasPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
+import {
+  TABLE_ROW_ACTION_ICON_CLASS,
+  TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
+  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
+} from "@/lib/ui-classes";
 import type { TextoFormaPagoPresupuesto } from "@/services/formasPagoPresupuesto.service";
-import { cn } from "@/lib/utils";
 
-type FormaOpcion = { id: string; nombre: string };
+type CuotaOpcion = { id: string; cuotas: string };
+
+type FormaOpcion = { id: string; nombre: string; cuotas: CuotaOpcion[] };
 
 type Borrador = {
   id?: string;
-  descTexto: string;
+  descuento: number;
   pagoIds: string[];
+  cuotaIdsPorPago: Record<string, string[]>;
 };
+
+const BORRADOR_NUEVO: Borrador = { descuento: 0, pagoIds: [], cuotaIdsPorPago: {} };
 
 export default function FormasPagoPresupuestoPageClient({
   filasIniciales,
@@ -51,11 +60,16 @@ export default function FormasPagoPresupuestoPageClient({
   const [ocupado, setOcupado] = useState(false);
 
   const opciones = formas.map((forma) => ({ value: forma.id, label: forma.nombre }));
+  const formasConCuotas = borrador
+    ? borrador.pagoIds
+        .map((pagoId) => formas.find((forma) => forma.id === pagoId))
+        .filter((forma): forma is FormaOpcion => Boolean(forma && forma.cuotas.length > 0))
+    : [];
+  const cuotasCompletas = formasConCuotas.every(
+    (forma) => (borrador?.cuotaIdsPorPago[forma.id]?.length ?? 0) > 0
+  );
   const puedeGuardar =
-    esEditor &&
-    !ocupado &&
-    Boolean(borrador?.descTexto.trim()) &&
-    (borrador?.pagoIds.length ?? 0) > 0;
+    esEditor && !ocupado && Boolean(borrador) && (borrador?.pagoIds.length ?? 0) > 0 && cuotasCompletas;
 
   async function aplicar(res: Awaited<ReturnType<typeof guardarTextoFormaPagoPresupuestoAction>>) {
     if (!res.ok) {
@@ -71,8 +85,14 @@ export default function FormasPagoPresupuestoPageClient({
     setOcupado(true);
     const res = await guardarTextoFormaPagoPresupuestoAction({
       id: borrador.id,
-      descTexto: borrador.descTexto,
-      pagoIds: borrador.pagoIds,
+      descuento: borrador.descuento,
+      vinculos: borrador.pagoIds.map((pagoId) => ({
+        pagoId,
+        cuotaIds:
+          (formas.find((forma) => forma.id === pagoId)?.cuotas.length ?? 0) > 0
+            ? (borrador.cuotaIdsPorPago[pagoId] ?? [])
+            : [],
+      })),
     });
     setOcupado(false);
     if (await aplicar(res)) {
@@ -110,7 +130,7 @@ export default function FormasPagoPresupuestoPageClient({
             <ToolbarActionButton
               label="Nuevo Ítem"
               icon={<Plus />}
-              onClick={() => setBorrador({ descTexto: "", pagoIds: [] })}
+              onClick={() => setBorrador(BORRADOR_NUEVO)}
               disabled={ocupado}
             />
           ) : null
@@ -140,14 +160,15 @@ export default function FormasPagoPresupuestoPageClient({
               ) : (
                 filas.map((fila, indice) => (
                   <TableRow key={fila.id}>
-                    <TableCell className="font-medium">{fila.descTexto}</TableCell>
-                    <TableCell>{fila.formas.map((forma) => forma.nombre).join(" - ")}</TableCell>
+                    <TableCell className="font-medium">{fila.descuento}%</TableCell>
+                    <TableCell>{textoFormasPagoPresupuesto(fila.formas)}</TableCell>
                     <TableCell>
-                      <div className={cn(TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS, "justify-center")}>
+                      <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           aria-label="Subir"
                           disabled={!esEditor || ocupado || indice === 0}
                           onClick={() => void mover(fila.id, "subir")}
@@ -158,6 +179,7 @@ export default function FormasPagoPresupuestoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           aria-label="Bajar"
                           disabled={!esEditor || ocupado || indice === filas.length - 1}
                           onClick={() => void mover(fila.id, "bajar")}
@@ -168,13 +190,19 @@ export default function FormasPagoPresupuestoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           aria-label="Editar"
                           disabled={!esEditor || ocupado}
                           onClick={() =>
                             setBorrador({
                               id: fila.id,
-                              descTexto: fila.descTexto,
+                              descuento: fila.descuento,
                               pagoIds: fila.formas.map((forma) => forma.pagoId),
+                              cuotaIdsPorPago: Object.fromEntries(
+                                fila.formas
+                                  .filter((forma) => forma.cuotas.length > 0)
+                                  .map((forma) => [forma.pagoId, forma.cuotas.map((cuota) => cuota.cuotaId)])
+                              ),
                             })
                           }
                         >
@@ -184,6 +212,7 @@ export default function FormasPagoPresupuestoPageClient({
                           type="button"
                           variant="ghost"
                           size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
                           aria-label="Eliminar"
                           disabled={!esEditor || ocupado}
                           onClick={() => setBorrar(fila)}
@@ -219,17 +248,15 @@ export default function FormasPagoPresupuestoPageClient({
             <div className="flex flex-col gap-4">
               <label className="flex flex-col gap-1.5">
                 <ModalMicroLabel>DESC.</ModalMicroLabel>
-                <Input
-                  value={borrador.descTexto}
-                  maxLength={80}
+                <PorcentajeEnteroMaskInput
+                  className="flex h-9 items-center rounded-md border border-primary bg-transparent"
+                  value={borrador.descuento}
+                  onValueChange={(descuento) => setBorrador({ ...borrador, descuento })}
+                  min={0}
+                  max={100}
                   autoFocus
                   disabled={ocupado}
-                  onChange={(event) =>
-                    setBorrador({
-                      ...borrador,
-                      descTexto: event.target.value.toLocaleUpperCase("es-AR"),
-                    })
-                  }
+                  aria-label="DESC."
                 />
               </label>
               <div className="flex flex-col gap-1.5">
@@ -237,12 +264,42 @@ export default function FormasPagoPresupuestoPageClient({
                 <FiltroMultiSelect
                   opciones={opciones}
                   selected={borrador.pagoIds}
-                  onChange={(pagoIds) => setBorrador({ ...borrador, pagoIds })}
+                  onChange={(pagoIds) =>
+                    setBorrador({
+                      ...borrador,
+                      pagoIds,
+                      cuotaIdsPorPago: Object.fromEntries(
+                        pagoIds
+                          .filter((pagoId) => borrador.cuotaIdsPorPago[pagoId])
+                          .map((pagoId) => [pagoId, borrador.cuotaIdsPorPago[pagoId] ?? []])
+                      ),
+                    })
+                  }
                   placeholder="ELEGIR"
                   ariaLabel="Formas de pago"
                   disabled={ocupado}
                 />
               </div>
+              {formasConCuotas.map((forma) => (
+                <div key={forma.id} className="flex flex-col gap-1.5">
+                  <ModalMicroLabel>
+                    {formasConCuotas.length === 1 ? "CANT. CUOTAS" : `CANT. CUOTAS · ${forma.nombre}`}
+                  </ModalMicroLabel>
+                  <FiltroMultiSelect
+                    opciones={forma.cuotas.map((cuota) => ({ value: cuota.id, label: cuota.cuotas }))}
+                    selected={borrador.cuotaIdsPorPago[forma.id] ?? []}
+                    onChange={(cuotaIds) =>
+                      setBorrador({
+                        ...borrador,
+                        cuotaIdsPorPago: { ...borrador.cuotaIdsPorPago, [forma.id]: cuotaIds },
+                      })
+                    }
+                    placeholder="CANT. CUOTAS"
+                    ariaLabel={`Cuotas de ${forma.nombre}`}
+                    disabled={ocupado}
+                  />
+                </div>
+              ))}
             </div>
           </AppModal>
         ) : null}
@@ -265,7 +322,7 @@ export default function FormasPagoPresupuestoPageClient({
             }
           >
             <p className="text-sm">
-              Se va a eliminar <span className="font-semibold">{borrar.descTexto}</span> del presupuesto.
+              Se va a eliminar <span className="font-semibold">{borrar.descuento}%</span> del presupuesto.
             </p>
           </AppModal>
         ) : null}

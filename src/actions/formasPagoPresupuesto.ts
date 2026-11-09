@@ -59,8 +59,8 @@ export async function guardarTextoFormaPagoPresupuestoAction(
     const res = parsed.data.id
       ? await editarTextoFormaPagoPresupuesto({
           id: parsed.data.id,
-          descTexto: parsed.data.descTexto,
-          pagoIds: parsed.data.pagoIds,
+          descuento: parsed.data.descuento,
+          vinculos: parsed.data.vinculos,
         })
       : await crearTextoFormaPagoPresupuesto(parsed.data);
     if (!res.success) return { ok: false, error: res.error };

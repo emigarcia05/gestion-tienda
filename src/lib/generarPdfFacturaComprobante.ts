@@ -96,61 +96,97 @@ export type FacturaComprobantePdfInput = {
   ocultarFormasPago?: boolean;
 };
 
-function pasoLineaFormaPago(linea: LineaFormaPagoPdf, paso: number): number {
-  if (linea.tipo === "vacia") return 3;
-  if (linea.tipo === "titulo") return paso + 1.2;
-  return paso;
+/** Recuadro de formas de pago: el % es más grande y comparte columna; las formas cierran a la derecha. */
+const FORMAS_GAP = 4;
+const FORMAS_PAD_X = 4;
+const FORMAS_TITULO_H = 8;
+const FORMAS_FILA_H = 8.5;
+const FORMAS_PAD_ABAJO = 2.5;
+const FORMAS_FONT_PCT = 16;
+const FORMAS_FONT_TEXTO = 10;
+const FORMAS_FONT_TEXTO_MIN = 6.5;
+
+function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
+  titulo: string;
+  filas: { pct: string; texto: string }[];
+} {
+  let titulo = "FORMAS DE PAGO";
+  const filas: { pct: string; texto: string }[] = [];
+  for (const linea of lineas) {
+    if (linea.tipo === "titulo" && linea.texto.trim()) {
+      titulo = linea.texto.trim();
+    } else if (linea.tipo === "grupo") {
+      filas.push({ pct: linea.pct.trim(), texto: linea.texto.trim() });
+    } else if (linea.tipo === "grupoSigue" || linea.tipo === "indentada" || linea.tipo === "simple") {
+      const texto = linea.texto.replace(/^&\s*/, "").trim();
+      if (texto) filas.push({ pct: "", texto });
+    }
+  }
+  return { titulo, filas };
 }
 
-function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], paso: number): number {
-  return 5 + lineas.reduce((suma, linea) => suma + pasoLineaFormaPago(linea, paso), 0);
+function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], _paso: number): number {
+  const { filas } = filasCajaFormasPago(lineas);
+  if (filas.length === 0) return 0;
+  return FORMAS_GAP + FORMAS_TITULO_H + filas.length * FORMAS_FILA_H + FORMAS_PAD_ABAJO;
 }
 
 function dibujarBloqueFormasPago(
   doc: jsPDF,
   lineas: readonly LineaFormaPagoPdf[],
   y0: number,
-  _contentWidth: number,
-  font: number,
-  paso: number
+  contentWidth: number,
+  _font: number,
+  _paso: number
 ): number {
-  let y = y0 + 5;
+  const { titulo, filas } = filasCajaFormasPago(lineas);
+  if (filas.length === 0) return y0;
+  const boxY = y0 + FORMAS_GAP;
+  const boxH = FORMAS_TITULO_H + filas.length * FORMAS_FILA_H + FORMAS_PAD_ABAJO;
+  const boxRight = MARGIN + contentWidth;
+
+  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(MARGIN, boxY, contentWidth, boxH, 1.4, 1.4, "S");
+
   doc.setFont("VWText", "bold");
-  doc.setFontSize(font);
-  const anchos = lineas.flatMap((linea) => (linea.tipo === "grupo" ? [doc.getTextWidth(linea.pct)] : []));
-  const pipeX = MARGIN + (anchos.length > 0 ? Math.max(...anchos) : 0);
-  const pipe = " | ";
-  for (const linea of lineas) {
-    if (linea.tipo === "vacia") {
-      y += 3;
-      continue;
-    }
-    if (linea.tipo === "titulo") {
+  doc.setFontSize(10);
+  doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.text(titulo, MARGIN + contentWidth / 2, boxY + 5.4, { align: "center" });
+
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(FORMAS_FONT_PCT);
+  const anchoPct = Math.max(
+    doc.getTextWidth("100%"),
+    ...filas.map((fila) => (fila.pct ? doc.getTextWidth(fila.pct) : 0))
+  );
+  const pctRight = MARGIN + FORMAS_PAD_X + anchoPct;
+  const textoRight = boxRight - FORMAS_PAD_X;
+  const maxTexto = Math.max(12, textoRight - pctRight - 6);
+
+  filas.forEach((fila, indice) => {
+    const baseline = boxY + FORMAS_TITULO_H + indice * FORMAS_FILA_H + FORMAS_FILA_H * 0.72;
+    if (fila.pct) {
       doc.setFont("VWText", "bold");
-      doc.setFontSize(font);
-      doc.text(linea.texto, MARGIN, y);
-      y += paso + 1.2;
-      continue;
+      doc.setFontSize(FORMAS_FONT_PCT);
+      doc.setTextColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+      doc.text(fila.pct, pctRight, baseline, { align: "right" });
     }
-    doc.setFontSize(font);
-    if (linea.tipo === "indentada") {
-      doc.setFont("VWText", "normal");
-      doc.text(linea.texto, MARGIN + 8, y);
-    } else if (linea.tipo === "grupo") {
-      doc.setFont("VWText", "bold");
-      doc.text(linea.pct, MARGIN, y);
-      doc.setFont("VWText", "normal");
-      doc.text(`${pipe}${linea.texto}`, pipeX, y);
-    } else if (linea.tipo === "grupoSigue") {
-      doc.setFont("VWText", "normal");
-      doc.text(`${pipe}${linea.texto}`, pipeX, y);
-    } else {
-      doc.setFont("VWText", "normal");
-      doc.text(linea.texto, MARGIN, y);
+    doc.setFont("VWText", "normal");
+    doc.setTextColor(INK.r, INK.g, INK.b);
+    let size = FORMAS_FONT_TEXTO;
+    doc.setFontSize(size);
+    while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxTexto) {
+      size -= 0.25;
+      doc.setFontSize(size);
     }
-    y += paso;
-  }
-  return y;
+    doc.text(fila.texto, textoRight, baseline, { align: "right" });
+  });
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.2);
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  return boxY + boxH;
 }
 
 function formasPagoDescuentoPdf(input: FacturaComprobantePdfInput): string {

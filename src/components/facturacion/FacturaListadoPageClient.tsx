@@ -500,7 +500,7 @@ export default function FacturaListadoPageClient({
       contentWidth="full"
       actions={
         <ToolbarActionButton
-          label={esFacturas ? "Nuevo Comprobante" : "NUEVO PRESUPUESTO"}
+          label={esFacturas ? "Nuevo Comprobante" : "Nuevo Presupuesto"}
           icon={<FilePlus2 />}
           onClick={() =>
             router.push(
