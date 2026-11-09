@@ -3032,6 +3032,14 @@ model ComprobanteVta {
    * Null si no es presupuesto o el descuento no restringe el medio de pago.
    */
   descFormasPago String? @map("desc_formas_pago") @db.Text
+  /**
+   * Presupuesto: imprimir el bloque de formas de pago. Default activo.
+   */
+  mostrarFormasPago Boolean @default(true) @map("mostrar_formas_pago")
+  /**
+   * Líneas del bloque (`LineaFormaPagoPdf` JSON). Null si el presupuesto lo apagó.
+   */
+  formasPagoPdf String? @map("formas_pago_pdf") @db.Text
 
   cae               String?   @db.VarChar(14)
   caeVto            DateTime? @map("cae_vto") @db.Date

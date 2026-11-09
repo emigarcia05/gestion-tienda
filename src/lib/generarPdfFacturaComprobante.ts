@@ -38,6 +38,7 @@ import {
   type FacturaComprobantePdfRedes,
   type SucursalPiePdf,
 } from "@/lib/facturaComprobantePdfRedes";
+import type { LineaFormaPagoPdf } from "@/lib/facturaFormasPagoPdf";
 
 const MARGIN = 14;
 const PRIMARY = { r: 0, g: 114, b: 187 };
@@ -89,7 +90,68 @@ export type FacturaComprobantePdfInput = {
    * La vista previa usa `descuento`; la reimpresión usa este texto.
    */
   formasPagoDescuento?: string | null;
+  /** Presupuesto: bloque de formas de pago bajo la tabla. */
+  formasPagoPresupuesto?: LineaFormaPagoPdf[] | null;
+  /** Presupuesto con el interruptor apagado: no imprime formas de pago. */
+  ocultarFormasPago?: boolean;
 };
+
+function pasoLineaFormaPago(linea: LineaFormaPagoPdf, paso: number): number {
+  if (linea.tipo === "vacia") return 3;
+  if (linea.tipo === "titulo") return paso + 1.2;
+  return paso;
+}
+
+function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], paso: number): number {
+  return 5 + lineas.reduce((suma, linea) => suma + pasoLineaFormaPago(linea, paso), 0);
+}
+
+function dibujarBloqueFormasPago(
+  doc: jsPDF,
+  lineas: readonly LineaFormaPagoPdf[],
+  y0: number,
+  _contentWidth: number,
+  font: number,
+  paso: number
+): number {
+  let y = y0 + 5;
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(font);
+  const anchos = lineas.flatMap((linea) => (linea.tipo === "grupo" ? [doc.getTextWidth(linea.pct)] : []));
+  const pipeX = MARGIN + (anchos.length > 0 ? Math.max(...anchos) : 0);
+  const pipe = " | ";
+  for (const linea of lineas) {
+    if (linea.tipo === "vacia") {
+      y += 3;
+      continue;
+    }
+    if (linea.tipo === "titulo") {
+      doc.setFont("VWText", "bold");
+      doc.setFontSize(font);
+      doc.text(linea.texto, MARGIN, y);
+      y += paso + 1.2;
+      continue;
+    }
+    doc.setFontSize(font);
+    if (linea.tipo === "indentada") {
+      doc.setFont("VWText", "normal");
+      doc.text(linea.texto, MARGIN + 8, y);
+    } else if (linea.tipo === "grupo") {
+      doc.setFont("VWText", "bold");
+      doc.text(linea.pct, MARGIN, y);
+      doc.setFont("VWText", "normal");
+      doc.text(`${pipe}${linea.texto}`, pipeX, y);
+    } else if (linea.tipo === "grupoSigue") {
+      doc.setFont("VWText", "normal");
+      doc.text(`${pipe}${linea.texto}`, pipeX, y);
+    } else {
+      doc.setFont("VWText", "normal");
+      doc.text(linea.texto, MARGIN, y);
+    }
+    y += paso;
+  }
+  return y;
+}
 
 function formasPagoDescuentoPdf(input: FacturaComprobantePdfInput): string {
   const vivas = textoFormasPagoRestringidasDescPromo(input.descuento).trim();
@@ -155,15 +217,28 @@ function dibujarPieTotales(
   /** 7,5 pt × 1,5. Título en VWText Bold; formas de pago en VWText Regular. */
   const fontFormas = 11.25;
   const pasoFormas = 5.1;
+  const bloqueFormas =
+    esPresupuesto && !input.ocultarFormasPago ? (input.formasPagoPresupuesto ?? []) : [];
   let lineasFormas: string[] = [];
-  if (esPresupuesto && resumen.hayDescuento && formas) {
+  if (
+    !input.ocultarFormasPago &&
+    bloqueFormas.length === 0 &&
+    esPresupuesto &&
+    resumen.hayDescuento &&
+    formas
+  ) {
     doc.setFont("VWText", "normal");
     doc.setFontSize(fontFormas);
     lineasFormas = doc.splitTextToSize(formas, contentWidth - 10) as string[];
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
   }
-  const formasH = lineasFormas.length > 0 ? 5 + 6 + lineasFormas.length * pasoFormas : 0;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  const formasH =
+    bloqueFormas.length > 0
+      ? altoBloqueFormasPago(bloqueFormas, pasoFormas)
+      : lineasFormas.length > 0
+        ? 5 + 6 + lineasFormas.length * pasoFormas
+        : 0;
   let y = yInicio + 2;
   const tope = input.redes ? 249 : 270;
   if (y + barraH + formasH > tope) {
@@ -183,11 +258,13 @@ function dibujarPieTotales(
   });
   y += barraH;
 
-  if (lineasFormas.length > 0) {
+  if (bloqueFormas.length > 0) {
+    y = dibujarBloqueFormasPago(doc, bloqueFormas, y, contentWidth, fontFormas, pasoFormas);
+  } else if (lineasFormas.length > 0) {
     y += 5;
     doc.setFont("VWText", "bold");
     doc.setFontSize(fontFormas);
-    doc.text("DESCUENTO VÁLIDO CON:", MARGIN, y);
+    doc.text("DESCUENTO VÁLIDO ABONANDO CON:", MARGIN, y);
     y += 6;
     doc.setFont("VWText", "normal");
     doc.setFontSize(fontFormas);
@@ -489,8 +566,14 @@ function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yConteni
 
 const PIE_RED_PAD = 2.5;
 const PIE_RED_ICONO = 5;
-const PIE_RED_TITULO = 9;
-const PIE_RED_LINEA = 3.6;
+/** Textos del pie de página: 20 % más que 9 / 11 / 6,5 pt. */
+const PIE_RED_ESCALA = 1.2;
+const PIE_RED_TITULO = 9 * PIE_RED_ESCALA;
+const PIE_RED_VALOR = 11 * PIE_RED_ESCALA;
+const PIE_RED_VALOR_MIN = 6 * PIE_RED_ESCALA;
+const PIE_RED_SUCURSAL = 6.5 * PIE_RED_ESCALA;
+const PIE_RED_SUCURSAL_MIN = 4.5 * PIE_RED_ESCALA;
+const PIE_RED_LINEA = 3.6 * PIE_RED_ESCALA;
 
 type EjesPieRed = {
   iconCy: number;
@@ -518,13 +601,13 @@ function ejesPieRedes(
   );
   const tituloAlto = lineas * PIE_RED_LINEA;
   const gap = 1.6;
-  const valorAlto = 4.2;
+  const valorAlto = 4.2 * PIE_RED_ESCALA;
   const bloque = PIE_RED_ICONO + gap + tituloAlto + gap + valorAlto;
   const top = y + (alto - bloque) / 2;
   return {
     iconCy: top + PIE_RED_ICONO / 2,
-    tituloY: top + PIE_RED_ICONO + gap + 3.1,
-    valorY: top + PIE_RED_ICONO + gap + tituloAlto + gap + 3.2,
+    tituloY: top + PIE_RED_ICONO + gap + 3.1 * PIE_RED_ESCALA,
+    valorY: top + PIE_RED_ICONO + gap + tituloAlto + gap + 3.2 * PIE_RED_ESCALA,
   };
 }
 
@@ -577,7 +660,7 @@ function dibujarColumnaRed(
   doc.text(tituloLineas, centro, ejes.tituloY, { align: "center" });
   if (detalle) {
     doc.setFont("VWText", "normal");
-    doc.setFontSize(tamanoUnaLinea(doc, detalle, textW, 11));
+    doc.setFontSize(tamanoUnaLinea(doc, detalle, textW, PIE_RED_VALOR, PIE_RED_VALOR_MIN));
     doc.text(detalle, centro, ejes.valorY, { align: "center" });
   }
 }
@@ -622,7 +705,7 @@ function dibujarColumnaSucursal(
 
   const direccionTexto = (direccion ?? "").trim();
   doc.setFont("VWText", "normal");
-  doc.setFontSize(6.5);
+  doc.setFontSize(PIE_RED_SUCURSAL);
   const lineasDireccion = direccionTexto
     ? (doc.splitTextToSize(direccionTexto, textW) as string[]).slice(0, 3)
     : [];
@@ -632,11 +715,13 @@ function dibujarColumnaSucursal(
     .filter((linea) => linea.length > 0);
   const fontDia =
     dias.length > 0
-      ? Math.min(...dias.map((dia) => tamanoUnaLinea(doc, dia, textW, 6.5, 4.5)))
-      : 6.5;
+      ? Math.min(
+          ...dias.map((dia) => tamanoUnaLinea(doc, dia, textW, PIE_RED_SUCURSAL, PIE_RED_SUCURSAL_MIN))
+        )
+      : PIE_RED_SUCURSAL;
 
-  const altoLabel = 3.2;
-  const altoLinea = 2.7;
+  const altoLabel = 3.2 * PIE_RED_ESCALA;
+  const altoLinea = 2.7 * PIE_RED_ESCALA;
   const gap = 1.5;
   let altoBloque = 0;
   if (lineasDireccion.length > 0) {
@@ -648,17 +733,17 @@ function dibujarColumnaSucursal(
   }
   if (altoBloque === 0) return;
 
-  let cursor = y + Math.max(3.2, (alto - altoBloque) / 2) + 2.2;
+  let cursor = y + Math.max(3.2 * PIE_RED_ESCALA, (alto - altoBloque) / 2) + 2.2 * PIE_RED_ESCALA;
   const label = (titulo: string) => {
     doc.setFont("VWText", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(PIE_RED_SUCURSAL);
     doc.text(titulo, centro, cursor, { align: "center" });
     cursor += altoLabel;
   };
   if (lineasDireccion.length > 0) {
     label("DIRECCIÓN");
     doc.setFont("VWText", "normal");
-    doc.setFontSize(6.5);
+    doc.setFontSize(PIE_RED_SUCURSAL);
     for (const linea of lineasDireccion) {
       doc.text(linea, centro, cursor, { align: "center" });
       cursor += altoLinea;

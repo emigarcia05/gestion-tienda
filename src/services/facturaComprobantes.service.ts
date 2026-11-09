@@ -84,6 +84,13 @@ import {
 } from "@/lib/factura";
 import { montoArCentsTopePesoEntero } from "@/lib/montoArMask";
 import {
+  lineasFormasPagoPresupuestoPdf,
+  parsearLineasFormasPagoPdf,
+  serializarLineasFormasPagoPdf,
+  type LineaFormaPagoPdf,
+} from "@/lib/facturaFormasPagoPdf";
+import { listarOfertasFormaPagoPresupuesto } from "@/services/descPromo.service";
+import {
   ETIQUETA_GRUPO_FACTURA_PTO_VTA,
   grupoFacturaPorReceptor,
   mensajePtoVtaFacturaSinConfigurar,
@@ -471,6 +478,10 @@ export type FacturaComprobantePdfDatos = {
   sucursalPie: SucursalPiePdf;
   /** Formas de pago del descuento, si el presupuesto las guardó. */
   formasPagoDescuento: string | null;
+  /** Bloque de formas de pago del presupuesto. Null si está apagado o no se guardó. */
+  formasPagoPresupuesto: LineaFormaPagoPdf[] | null;
+  /** Presupuesto con el interruptor apagado. */
+  ocultarFormasPago: boolean;
 };
 
 function fiscalPdfDesdeRow(
@@ -729,7 +740,15 @@ export async function obtenerFacturaComprobantePdfDatos(
         }),
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
         ...datosSucursalPdf(row),
-        formasPagoDescuento: row.descFormasPago?.trim() || null,
+        formasPagoDescuento:
+          tipo === "presupuesto" && row.mostrarFormasPago
+            ? row.descFormasPago?.trim() || null
+            : null,
+        formasPagoPresupuesto:
+          tipo === "presupuesto" && row.mostrarFormasPago
+            ? parsearLineasFormasPagoPdf(row.formasPagoPdf)
+            : null,
+        ocultarFormasPago: tipo === "presupuesto" && !row.mostrarFormasPago,
       },
     };
   } catch (e) {
@@ -1088,6 +1107,7 @@ export async function convertirComprobanteNoFiscalEnFiscal(input: {
           descPct > 0
             ? { fuente: "porcentaje", porcentaje: descPct, totalFacObjetivo: null }
             : null,
+        mostrarFormasPago: true,
         cobros,
       },
       { omitirTopeCtaCorriente: true }
@@ -1681,6 +1701,16 @@ async function emitirFacturaComprobanteSegunTipo(
   const ambiente = ambienteArcaActual();
   const concepto = pto.concepto || "1";
   const receptorNombre = nombreClienteFactura(input.cliente);
+  const formasPagoPdf =
+    input.tipo === "presupuesto" && input.mostrarFormasPago
+      ? serializarLineasFormasPagoPdf(
+          lineasFormasPagoPresupuestoPdf({
+            ofertas: await listarOfertasFormaPagoPresupuesto(),
+            hayDescuento: resumen.hayDescuento,
+            vinculos: input.descuento?.promoVinculos ?? [],
+          })
+        )
+      : null;
 
   if (!fiscal) {
     try {
@@ -1717,6 +1747,8 @@ async function emitirFacturaComprobanteSegunTipo(
                 ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() ||
                   null
                 : null,
+            mostrarFormasPago: input.tipo === "presupuesto" ? input.mostrarFormasPago : true,
+            formasPagoPdf,
             ambiente,
             comentarios: input.comentarios.trim().toLocaleUpperCase("es-AR"),
             estado: "autorizado",
@@ -2179,6 +2211,7 @@ export async function emitirNotaCreditoDesdeComprobante(
             totalFacObjetivo: null,
           }
         : null,
+    mostrarFormasPago: true,
     cobros: [],
   };
   return emitirFacturaComprobante(input);

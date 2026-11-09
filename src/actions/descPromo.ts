@@ -23,8 +23,10 @@ import {
   eliminarDescPromo,
   listarDescPromos,
   listarDescPromosPorFormaPago,
+  listarOfertasFormaPagoPresupuesto,
   moverPrioridadDescPromo,
 } from "@/services/descPromo.service";
+import type { OfertaFormaPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
 
 function revalidateDescPromos() {
   revalidatePath(DESC_PROMOS_PATH);
@@ -51,6 +53,19 @@ export async function listarDescPromosFormaPagoFacturaAction(): Promise<
   } catch (e) {
     console.error("[listarDescPromosFormaPagoFacturaAction]", e);
     return { ok: false, error: "No se pudieron listar los descuentos por forma de pago." };
+  }
+}
+
+export async function listarOfertasFormaPagoPresupuestoAction(): Promise<
+  ActionResult<OfertaFormaPagoPresupuesto[]>
+> {
+  const gate = await requireFacturacionLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarOfertasFormaPagoPresupuesto() };
+  } catch (e) {
+    console.error("[listarOfertasFormaPagoPresupuestoAction]", e);
+    return { ok: false, error: "No se pudieron listar las formas de pago del presupuesto." };
   }
 }
 

@@ -249,6 +249,8 @@ export const emitirFacturaComprobanteSchema = z
     cbteAsocId: prismaCuidSchema.optional(),
     lineas: z.array(facturaLineaEmitirSchema).min(1, "Agregá al menos un ítem.").max(200),
     descuento: descuentoEmitirSchema.optional().default(null),
+    /** Presupuesto: imprimir formas de pago bajo la tabla. Default activo. */
+    mostrarFormasPago: z.boolean().optional().default(true),
     cobros: z.array(cobroFacturaEmitirSchema).max(50).optional().default([]),
   })
   .superRefine((data, ctx) => {

@@ -11,6 +11,8 @@ import {
   type DescPromoFila,
   type DescPromoLoteRef,
 } from "@/lib/descPromo";
+import { esCobroNotaCreditoNombre } from "@/lib/factura";
+import type { OfertaFormaPagoPresupuesto } from "@/lib/facturaFormasPagoPdf";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -529,6 +531,75 @@ export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {
     console.error("[descPromo.service] listarDescPromosPorFormaPago:", e);
     return [];
   }
+}
+
+/** Medios del presupuesto: promos generales vigentes y el resto del catálogo al 0 %. */
+export async function listarOfertasFormaPagoPresupuesto(): Promise<OfertaFormaPagoPresupuesto[]> {
+  const promos = (await listarDescPromosPorFormaPago()).filter((promo) => promo.alcance !== "ITEMS");
+  const map = new Map<string, OfertaFormaPagoPresupuesto>();
+  for (const promo of promos) {
+    for (const fp of promo.formasPago) {
+      if (esCobroNotaCreditoNombre(fp.nombre)) continue;
+      const clave = `${fp.pagoId}:${fp.cuotaId ?? ""}`;
+      const etiqueta = (fp.cuotaEtiqueta ?? fp.nombre).trim().toLocaleUpperCase("es-AR");
+      if (!etiqueta) continue;
+      const actual = map.get(clave);
+      if (actual && actual.descuento >= promo.descuento) continue;
+      map.set(clave, {
+        clave,
+        pagoId: fp.pagoId,
+        cuotaId: fp.cuotaId,
+        etiqueta,
+        esCuota: Boolean(fp.cuotaId),
+        descuento: promo.descuento,
+      });
+    }
+  }
+
+  const cuotas = await prisma.cobrosCuota.findMany({
+    select: { id: true, cuotas: true, vinculos: { select: { pagoId: true, pago: { select: { nombre: true } } } } },
+  });
+  const cuotasEnPromo = new Set(
+    [...map.values()].filter((o) => o.cuotaId).map((o) => o.cuotaId)
+  );
+  for (const cuota of cuotas) {
+    if (cuotasEnPromo.has(cuota.id)) continue;
+    const vinculo = cuota.vinculos.find((v) => !esCobroNotaCreditoNombre(v.pago.nombre));
+    if (!vinculo) continue;
+    const etiqueta = cuota.cuotas.trim().toLocaleUpperCase("es-AR");
+    if (!etiqueta) continue;
+    const clave = `${vinculo.pagoId}:${cuota.id}`;
+    map.set(clave, {
+      clave,
+      pagoId: vinculo.pagoId,
+      cuotaId: cuota.id,
+      etiqueta,
+      esCuota: true,
+      descuento: 0,
+    });
+  }
+
+  const formas = await prisma.finAnaCosFinaPagoCat.findMany({
+    select: { id: true, nombre: true, _count: { select: { cuotaVinculos: true } } },
+  });
+  for (const forma of formas) {
+    if (esCobroNotaCreditoNombre(forma.nombre)) continue;
+    if (forma._count.cuotaVinculos > 0) continue;
+    if ([...map.values()].some((o) => o.pagoId === forma.id)) continue;
+    const etiqueta = forma.nombre.trim().toLocaleUpperCase("es-AR");
+    if (!etiqueta) continue;
+    const clave = `${forma.id}:`;
+    map.set(clave, {
+      clave,
+      pagoId: forma.id,
+      cuotaId: null,
+      etiqueta,
+      esCuota: false,
+      descuento: 0,
+    });
+  }
+
+  return [...map.values()];
 }
 
 export async function crearDescPromo(
