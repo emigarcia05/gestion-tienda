@@ -208,7 +208,7 @@ const cobroFacturaEmitirSchema = z
     pagoNombre: z.string().trim().min(1).max(200),
     entidadNombre: z.string().trim().max(200).optional().default(""),
     /** Alias del vínculo cuando la forma tiene varios para la misma entidad. */
-    alias: z.string().trim().max(100).optional().default(""),
+    alias: z.string().trim().max(100).optional(),
     cuotaEtiqueta: z.string().trim().max(100).nullable(),
     /** Día de acreditación elegido a mano (`fechaAcreditacionVariable`). */
     fechaAcreditacionIso: isoYmdSchema.optional(),

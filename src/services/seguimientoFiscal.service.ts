@@ -163,9 +163,9 @@ export async function listarSeguimientoFiscalData(raw: {
   for (const m of movimientos) {
     if (!m.pagoId) continue;
     const trio = claveVinculo(m.pagoId, m.entidadId, m.sucursalId);
-    const porCaja = titularPorCaja.get(
-      claveVinculoCaja(m.pagoId, m.entidadId, m.sucursalId, m.cajaId)
-    );
+    const porCaja = m.cajaId
+      ? titularPorCaja.get(claveVinculoCaja(m.pagoId, m.entidadId, m.sucursalId, m.cajaId))
+      : undefined;
     const titular = porCaja !== undefined ? porCaja : titularPorTrio.get(trio);
     if (titular === undefined) continue;
     filaDe(titular).cobro += m.monto;
