@@ -8,6 +8,7 @@ import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
+import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import MontoArInput from "@/components/shared/MontoArInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,6 +145,9 @@ interface Props {
   /** Persiste el comprobante (ARCA si aplica) y devuelve el PDF con nro/CAE. */
   onEmitir: (cobros: CobroFacturaEmitirInput[]) => Promise<FacturaComprobantePdfInput | null>;
   onFinalizado?: () => void;
+  /** Presupuesto: imprimir el bloque de formas de pago. Default TRUE. */
+  mostrarFormasPago: boolean;
+  onMostrarFormasPagoChange: (value: boolean) => void;
 }
 
 function tituloComprobante(comprobante: FacturaComprobantePdfInput | null): string {
@@ -170,6 +174,8 @@ export default function FacturaGenerarComprobanteModal({
   comprobante,
   onEmitir,
   onFinalizado,
+  mostrarFormasPago,
+  onMostrarFormasPagoChange,
 }: Props) {
   const [pending, setPending] = useState<FacturaGenerarComprobanteAccion | null>(null);
   const [pagos, setPagos] = useState<FinAnaCosFinaPagoItem[]>([]);
@@ -816,6 +822,15 @@ export default function FacturaGenerarComprobanteModal({
           </Button>
               ))}
             </div>
+            {comprobante?.tipo === "presupuesto" ? (
+              <ModalSiNoChoice
+                className="w-full"
+                label="MOSTRAR FORMAS DE PAGO"
+                value={mostrarFormasPago}
+                onChange={onMostrarFormasPagoChange}
+                disabled={ocupado}
+              />
+            ) : null}
           </section>
           ) : null}
         </div>

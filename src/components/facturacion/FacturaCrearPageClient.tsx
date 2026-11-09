@@ -31,7 +31,6 @@ import FacturaGenerarComprobanteModal from "@/components/facturacion/FacturaGene
 import FacturaLineaComentarioModal from "@/components/facturacion/FacturaLineaComentarioModal";
 import FacturaMovimientosVentaModal from "@/components/facturacion/FacturaMovimientosVentaModal";
 import FacturaSaldoClienteModal from "@/components/facturacion/FacturaSaldoClienteModal";
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
 import { SELECT_TRIGGER_FILTER_CLASS } from "@/components/FilterBar";
 import { Button } from "@/components/ui/button";
@@ -233,6 +232,7 @@ export default function FacturaCrearPageClient({
     () => duplicarBorrador?.comentarios ?? ""
   );
   const [mostrarFormasPago, setMostrarFormasPago] = useState(true);
+  const mostrarFormasPagoRef = useRef(true);
   const [ofertasFormaPago, setOfertasFormaPago] = useState<OfertaFormaPagoPresupuesto[]>([]);
   const [comentarioCabeceraOpen, setComentarioCabeceraOpen] = useState(false);
   const cbteAsocId = duplicarBorrador?.cbteAsocId ?? "";
@@ -264,7 +264,6 @@ export default function FacturaCrearPageClient({
     cbteAsocId?: string;
     lineas: FacturaRemitoSnapshot["lineas"];
     descuento: FacturaRemitoSnapshot["descuento"];
-    mostrarFormasPago: boolean;
   } | null>(null);
   /** Plan con el stock previo a emitir (la venta descuenta stock de la sucursal). */
   const planMovimientosRef = useRef<PlanMovimientosVenta | null>(null);
@@ -555,8 +554,9 @@ export default function FacturaCrearPageClient({
         esFacturaTipoNotaCredito(tipo) && cbteAsocId ? cbteAsocId : undefined,
       lineas,
       descuento,
-      mostrarFormasPago: tipo === "presupuesto" && mostrarFormasPago,
     };
+    mostrarFormasPagoRef.current = true;
+    setMostrarFormasPago(true);
     setComprobantePdf({
       tipo,
       fechaIso,
@@ -578,14 +578,14 @@ export default function FacturaCrearPageClient({
         personalSesion.sucursalPorDefecto
       ),
       formasPagoPresupuesto:
-        tipo === "presupuesto" && mostrarFormasPago
+        tipo === "presupuesto"
           ? lineasFormasPagoPresupuestoPdf({
               ofertas: ofertasFormaPago,
               hayDescuento: resumenTotalesFactura(lineas, descuento).hayDescuento,
               vinculos: descuento?.promoVinculos ?? [],
             })
           : null,
-      ocultarFormasPago: tipo === "presupuesto" && !mostrarFormasPago,
+      ocultarFormasPago: false,
       ...datosClienteComprobantePdf(),
     });
     setComprobanteModalOpen(true);
@@ -659,7 +659,7 @@ export default function FacturaCrearPageClient({
         codColorIdMarca: l.codColorIdMarca ?? null,
       })),
       descuento: descuentoEstadoParaEmitir(draft.lineas, draft.descuento),
-      mostrarFormasPago: draft.tipo === "presupuesto" && draft.mostrarFormasPago,
+      mostrarFormasPago: draft.tipo === "presupuesto" && mostrarFormasPagoRef.current,
       cobros,
     });
     if (!res.ok) {
@@ -815,15 +815,6 @@ export default function FacturaCrearPageClient({
               </Select>
             </label>
 
-            {claseActual === "presupuesto" ? (
-              <div className={cn(CABECERA_EDITOR_SLOT_CLASS, "justify-end")}>
-                <ModalSiNoChoice
-                  label="FORMAS DE PAGO"
-                  value={mostrarFormasPago}
-                  onChange={setMostrarFormasPago}
-                />
-              </div>
-            ) : (
             <div
               className={cn(!mostrarFiscal && "invisible pointer-events-none")}
               aria-hidden={!mostrarFiscal}
@@ -855,7 +846,6 @@ export default function FacturaCrearPageClient({
                 </Select>
               </label>
             </div>
-            )}
 
             {botonComentariosCabecera}
           </div>
@@ -1234,6 +1224,11 @@ export default function FacturaCrearPageClient({
         comprobante={comprobantePdf}
         onEmitir={emitirDesdeModal}
         onFinalizado={finalizarComprobante}
+        mostrarFormasPago={mostrarFormasPago}
+        onMostrarFormasPagoChange={(value) => {
+          mostrarFormasPagoRef.current = value;
+          setMostrarFormasPago(value);
+        }}
       />
       <FacturaMovimientosVentaModal
         open={movimientosOpen}
