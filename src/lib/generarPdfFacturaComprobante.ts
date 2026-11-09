@@ -152,11 +152,18 @@ function dibujarPieTotales(
   doc.setFontSize(7.5);
   const paso = 4.5;
   const barraH = 2.4 + filas.length * paso;
-  const lineasFormas =
-    esPresupuesto && resumen.hayDescuento && formas
-      ? (doc.splitTextToSize(formas, contentWidth - 10) as string[])
-      : [];
-  const formasH = lineasFormas.length > 0 ? 5 + 4 + lineasFormas.length * 3.4 : 0;
+  /** 7,5 pt × 1,5. Título en VWText Bold; formas de pago en VWText Regular. */
+  const fontFormas = 11.25;
+  const pasoFormas = 5.1;
+  let lineasFormas: string[] = [];
+  if (esPresupuesto && resumen.hayDescuento && formas) {
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(fontFormas);
+    lineasFormas = doc.splitTextToSize(formas, contentWidth - 10) as string[];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+  }
+  const formasH = lineasFormas.length > 0 ? 5 + 6 + lineasFormas.length * pasoFormas : 0;
   let y = yInicio + 2;
   const tope = input.redes ? 249 : 270;
   if (y + barraH + formasH > tope) {
@@ -178,13 +185,14 @@ function dibujarPieTotales(
 
   if (lineasFormas.length > 0) {
     y += 5;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.text("Descuento válido abonando:", MARGIN, y);
-    y += 4;
-    doc.setFont("helvetica", "normal");
+    doc.setFont("VWText", "bold");
+    doc.setFontSize(fontFormas);
+    doc.text("DESCUENTO VÁLIDO CON:", MARGIN, y);
+    y += 6;
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(fontFormas);
     doc.text(lineasFormas, MARGIN + 8, y);
-    y += lineasFormas.length * 3.4;
+    y += lineasFormas.length * pasoFormas;
   }
 
   doc.setTextColor(INK.r, INK.g, INK.b);
