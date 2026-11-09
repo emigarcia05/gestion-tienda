@@ -96,42 +96,51 @@ export type FacturaComprobantePdfInput = {
   ocultarFormasPago?: boolean;
 };
 
-/** Recuadro de formas de pago: texto negro; el % comparte columna y las formas arrancan a su derecha, alineadas a la izquierda. */
-const FORMAS_GAP = 4;
-const FORMAS_PAD_X = 4;
-const FORMAS_TITULO_H = 8;
-const FORMAS_FILA_H = 8.5;
-const FORMAS_PAD_ABAJO = 2.5;
-const FORMAS_FONT_PCT = 16;
-const FORMAS_FONT_TEXTO = 10;
-const FORMAS_FONT_TEXTO_MIN = 6.5;
+/** Recuadro de formas de pago: mitad del alto y de la tipografía; texto negro. */
+const FORMAS_GAP = 2;
+const FORMAS_PAD_X = 2;
+const FORMAS_TITULO_H = 4;
+const FORMAS_FILA_H = 4.25;
+const FORMAS_PAD_ABAJO = 1.25;
+const FORMAS_SEP = 1.2;
+const FORMAS_FONT_TITULO = 5;
+const FORMAS_FONT_PCT = 8;
+const FORMAS_FONT_TEXTO = 5;
+const FORMAS_FONT_TEXTO_MIN = 3.25;
+
+type FilaCajaFormasPago = { pct: string; texto: string; centrada: boolean; inicio: boolean };
 
 function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
   titulo: string;
-  filas: { pct: string; texto: string; centrada: boolean }[];
+  filas: FilaCajaFormasPago[];
 } {
   let titulo = "FORMAS DE PAGO";
-  const filas: { pct: string; texto: string; centrada: boolean }[] = [];
+  const filas: FilaCajaFormasPago[] = [];
   for (const linea of lineas) {
     if (linea.tipo === "titulo" && linea.texto.trim()) {
       titulo = linea.texto.trim();
     } else if (linea.tipo === "grupo") {
-      filas.push({ pct: linea.pct.trim(), texto: linea.texto.trim(), centrada: false });
+      filas.push({ pct: linea.pct.trim(), texto: linea.texto.trim(), centrada: false, inicio: true });
     } else if (linea.tipo === "simple") {
       const texto = linea.texto.replace(/^&\s*/, "").trim();
-      if (texto) filas.push({ pct: "", texto, centrada: true });
+      if (texto) filas.push({ pct: "", texto, centrada: true, inicio: true });
     } else if (linea.tipo === "grupoSigue" || linea.tipo === "indentada") {
       const texto = linea.texto.replace(/^&\s*/, "").trim();
-      if (texto) filas.push({ pct: "", texto, centrada: false });
+      if (texto) filas.push({ pct: "", texto, centrada: false, inicio: false });
     }
   }
   return { titulo, filas };
 }
 
+function altoFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): number {
+  const separadores = filas.filter((fila, indice) => indice > 0 && fila.inicio).length;
+  return filas.length * FORMAS_FILA_H + separadores * FORMAS_SEP;
+}
+
 function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], _paso: number): number {
   const { filas } = filasCajaFormasPago(lineas);
   if (filas.length === 0) return 0;
-  return FORMAS_GAP + FORMAS_TITULO_H + filas.length * FORMAS_FILA_H + FORMAS_PAD_ABAJO;
+  return FORMAS_GAP + FORMAS_TITULO_H + altoFilasCajaFormasPago(filas) + FORMAS_PAD_ABAJO;
 }
 
 function dibujarBloqueFormasPago(
@@ -145,17 +154,18 @@ function dibujarBloqueFormasPago(
   const { titulo, filas } = filasCajaFormasPago(lineas);
   if (filas.length === 0) return y0;
   const boxY = y0 + FORMAS_GAP;
-  const boxH = FORMAS_TITULO_H + filas.length * FORMAS_FILA_H + FORMAS_PAD_ABAJO;
+  const altoFilas = altoFilasCajaFormasPago(filas);
+  const boxH = FORMAS_TITULO_H + altoFilas + FORMAS_PAD_ABAJO;
   const boxRight = MARGIN + contentWidth;
 
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setLineWidth(0.35);
-  doc.roundedRect(MARGIN, boxY, contentWidth, boxH, 1.4, 1.4, "S");
+  doc.roundedRect(MARGIN, boxY, contentWidth, boxH, 0.7, 0.7, "S");
 
   doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
-  doc.setFontSize(10);
-  doc.text(titulo, MARGIN + contentWidth / 2, boxY + 5.4, { align: "center" });
+  doc.setFontSize(FORMAS_FONT_TITULO);
+  doc.text(titulo, MARGIN + contentWidth / 2, boxY + FORMAS_TITULO_H * 0.72, { align: "center" });
 
   doc.setFont("VWText", "bold");
   doc.setFontSize(FORMAS_FONT_PCT);
@@ -164,16 +174,34 @@ function dibujarBloqueFormasPago(
     ...filas.map((fila) => (fila.pct ? doc.getTextWidth(fila.pct) : 0))
   );
   const pctRight = MARGIN + FORMAS_PAD_X + anchoPct;
-  const textoX = pctRight + 6;
+  const pctCenterX = MARGIN + FORMAS_PAD_X + anchoPct / 2;
+  const textoX = pctRight + 3;
   const maxTexto = Math.max(12, boxRight - FORMAS_PAD_X - textoX);
-
   const maxCentrada = Math.max(12, contentWidth - FORMAS_PAD_X * 2);
-  filas.forEach((fila, indice) => {
-    const baseline = boxY + FORMAS_TITULO_H + indice * FORMAS_FILA_H + FORMAS_FILA_H * 0.72;
-    doc.setTextColor(INK.r, INK.g, INK.b);
+  const contenidoY = boxY + FORMAS_TITULO_H;
+
+  let cursor = 0;
+  const ubicadas = filas.map((fila, indice) => {
+    if (indice > 0 && fila.inicio) cursor += FORMAS_SEP;
+    const top = cursor;
+    cursor += FORMAS_FILA_H;
+    return { ...fila, top };
+  });
+
+  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setLineWidth(0.2);
+  ubicadas.forEach((fila, indice) => {
+    if (indice === 0 || !fila.inicio) return;
+    const yLinea = contenidoY + fila.top - FORMAS_SEP / 2;
+    doc.line(MARGIN, yLinea, boxRight, yLinea);
+  });
+
+  doc.setTextColor(INK.r, INK.g, INK.b);
+  ubicadas.forEach((fila) => {
+    const baseline = contenidoY + fila.top + FORMAS_FILA_H * 0.72;
     if (fila.centrada) {
-      doc.setFont("VWText", "normal");
-      let size = FORMAS_FONT_TEXTO;
+      doc.setFont("VWText", "bold");
+      let size = FORMAS_FONT_PCT;
       doc.setFontSize(size);
       while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxCentrada) {
         size -= 0.25;
@@ -181,11 +209,6 @@ function dibujarBloqueFormasPago(
       }
       doc.text(fila.texto, MARGIN + contentWidth / 2, baseline, { align: "center" });
       return;
-    }
-    if (fila.pct) {
-      doc.setFont("VWText", "bold");
-      doc.setFontSize(FORMAS_FONT_PCT);
-      doc.text(fila.pct, pctRight, baseline, { align: "right" });
     }
     doc.setFont("VWText", "normal");
     let size = FORMAS_FONT_TEXTO;
@@ -196,6 +219,20 @@ function dibujarBloqueFormasPago(
     }
     doc.text(fila.texto, textoX, baseline, { align: "left" });
   });
+
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(FORMAS_FONT_PCT);
+  for (let indice = 0; indice < ubicadas.length; indice += 1) {
+    const fila = ubicadas[indice];
+    if (!fila.pct) continue;
+    let fin = indice + 1;
+    while (fin < ubicadas.length && !ubicadas[fin].inicio) fin += 1;
+    const top = fila.top;
+    const bottom = ubicadas[fin - 1].top + FORMAS_FILA_H;
+    const baseline = contenidoY + (top + bottom) / 2 + FORMAS_FILA_H * 0.22;
+    doc.text(fila.pct, pctCenterX, baseline, { align: "center" });
+    indice = fin - 1;
+  }
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
