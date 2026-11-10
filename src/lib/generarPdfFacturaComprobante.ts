@@ -112,8 +112,13 @@ const FORMAS_FONT_DESC = 5.5;
 const FORMAS_FONT_TEXTO = 5;
 const FORMAS_FONT_TEXTO_MIN = 3.25;
 const FORMAS_ETIQUETA_DESC = "Desc.";
+const FORMAS_COLS = 3;
+const FORMAS_GAP_COL = 2;
+const FORMAS_TITULO_CONTACTO = "DATOS DE CONTACTO";
 
 type FilaCajaFormasPago = { pct: string; texto: string; centrada: boolean; inicio: boolean };
+
+type GrupoCajaFormas = { pct: string; centrada: boolean; textos: string[] };
 
 function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
   titulo: string;
@@ -137,41 +142,72 @@ function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
   return { titulo, filas };
 }
 
-type FilaCajaUbicada = FilaCajaFormasPago & { top: number; alto: number };
-
-function ubicarFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): FilaCajaUbicada[] {
-  let cursor = 0;
-  const ubicadas: FilaCajaUbicada[] = filas.map((fila, indice) => {
-    if (indice > 0 && fila.inicio) cursor += FORMAS_SEP;
-    const top = cursor;
-    cursor += FORMAS_FILA_H;
-    return { ...fila, top, alto: FORMAS_FILA_H };
-  });
-  for (let indice = 0; indice < ubicadas.length; indice += 1) {
-    if (!ubicadas[indice]?.pct) continue;
-    let fin = indice + 1;
-    while (fin < ubicadas.length && !ubicadas[fin]?.inicio) fin += 1;
-    const primera = ubicadas[indice];
-    const ultima = ubicadas[fin - 1];
-    if (!primera || !ultima) continue;
-    const falta = FORMAS_PCT_MIN - (ultima.top + ultima.alto - primera.top);
-    if (falta > 0) {
-      ultima.alto += falta;
-      for (let siguiente = fin; siguiente < ubicadas.length; siguiente += 1) {
-        const fila = ubicadas[siguiente];
-        if (fila) fila.top += falta;
-      }
+function gruposCajaFormasPago(filas: readonly FilaCajaFormasPago[]): GrupoCajaFormas[] {
+  const grupos: GrupoCajaFormas[] = [];
+  for (const fila of filas) {
+    if (fila.inicio || grupos.length === 0) {
+      grupos.push({
+        pct: fila.pct,
+        centrada: fila.centrada,
+        textos: fila.texto ? [fila.texto] : [],
+      });
+      continue;
     }
-    indice = fin - 1;
+    const actual = grupos[grupos.length - 1];
+    if (actual && fila.texto) actual.textos.push(fila.texto);
   }
-  return ubicadas;
+  return grupos;
+}
+
+function filasDeMatriz(cantidad: number): number {
+  if (cantidad <= 0) return 1;
+  return Math.ceil(cantidad / FORMAS_COLS);
+}
+
+function maxFilasMatriz(grupos: readonly GrupoCajaFormas[]): number {
+  let maximo = 1;
+  for (const grupo of grupos) {
+    if (grupo.centrada) continue;
+    maximo = Math.max(maximo, filasDeMatriz(grupo.textos.length));
+  }
+  return maximo;
+}
+
+function altoGrupoFormasPago(grupos: readonly GrupoCajaFormas[]): number {
+  const filas = maxFilasMatriz(grupos);
+  const hayPct = grupos.some((grupo) => grupo.pct.length > 0);
+  return Math.max(hayPct ? FORMAS_PCT_MIN : FORMAS_FILA_H, filas * FORMAS_FILA_H);
+}
+
+type GrupoCajaUbicado = GrupoCajaFormas & { top: number; alto: number };
+
+function ubicarGruposCajaFormasPago(filas: readonly FilaCajaFormasPago[]): GrupoCajaUbicado[] {
+  const grupos = gruposCajaFormasPago(filas);
+  const alto = altoGrupoFormasPago(grupos);
+  let cursor = 0;
+  return grupos.map((grupo, indice) => {
+    if (indice > 0) cursor += FORMAS_SEP;
+    const top = cursor;
+    cursor += alto;
+    return { ...grupo, top, alto };
+  });
 }
 
 function altoFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): number {
-  const ubicadas = ubicarFilasCajaFormasPago(filas);
+  const ubicadas = ubicarGruposCajaFormasPago(filas);
   const ultima = ubicadas[ubicadas.length - 1];
   if (!ultima) return 0;
   return ultima.top + ultima.alto;
+}
+
+function dibujarCabezalPie(doc: jsPDF, y: number, contentWidth: number, titulo: string): void {
+  doc.setFillColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.rect(MARGIN, y, contentWidth, FORMAS_TITULO_H, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(FORMAS_FONT_TITULO);
+  const cap = FORMAS_FONT_TITULO * 0.352778 * 0.72;
+  doc.text(titulo, MARGIN + contentWidth / 2, y + FORMAS_TITULO_H / 2 + cap / 2, { align: "center" });
 }
 
 function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], _paso: number): number {
@@ -186,115 +222,117 @@ function dibujarBloqueFormasPago(
   y0: number,
   contentWidth: number,
   _font: number,
-  _paso: number
+  _paso: number,
+  sinBordeAbajo = false
 ): number {
   const { titulo, filas } = filasCajaFormasPago(lineas);
   if (filas.length === 0) return y0;
   const boxY = y0;
-  const ubicadas = ubicarFilasCajaFormasPago(filas);
+  const ubicadas = ubicarGruposCajaFormasPago(filas);
   const altoFilas = altoFilasCajaFormasPago(filas);
   const boxH = FORMAS_TITULO_H + altoFilas + FORMAS_PAD_ABAJO;
   const boxRight = MARGIN + contentWidth;
   const contenidoY = boxY + FORMAS_TITULO_H;
 
-  doc.setFillColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
-  doc.rect(MARGIN, boxY, contentWidth, FORMAS_TITULO_H, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(FORMAS_FONT_TITULO);
-  const capTitulo = FORMAS_FONT_TITULO * 0.352778 * 0.72;
-  doc.text(titulo, MARGIN + contentWidth / 2, boxY + FORMAS_TITULO_H / 2 + capTitulo / 2, {
-    align: "center",
-  });
+  dibujarCabezalPie(doc, boxY, contentWidth, titulo);
 
   doc.setFont("VWText", "bold");
   doc.setFontSize(FORMAS_FONT_PCT);
   let anchoPct = doc.getTextWidth("100%");
-  for (const fila of filas) {
-    if (fila.pct) anchoPct = Math.max(anchoPct, doc.getTextWidth(fila.pct));
+  for (const grupo of ubicadas) {
+    if (grupo.pct) anchoPct = Math.max(anchoPct, doc.getTextWidth(grupo.pct));
   }
   doc.setFontSize(FORMAS_FONT_DESC);
   anchoPct = Math.max(anchoPct, doc.getTextWidth(FORMAS_ETIQUETA_DESC));
 
   doc.setFont("VWText", "normal");
   doc.setFontSize(FORMAS_FONT_TEXTO);
-  let anchoFormas = 0;
-  for (const fila of filas) {
-    if (fila.centrada) continue;
-    anchoFormas = Math.max(anchoFormas, doc.getTextWidth(fila.texto));
+  let anchoOpcion = 0;
+  for (const grupo of ubicadas) {
+    if (grupo.centrada) continue;
+    for (const texto of grupo.textos) anchoOpcion = Math.max(anchoOpcion, doc.getTextWidth(texto));
   }
-  const gapBloque = anchoFormas > 0 ? 4 : 0;
+  const hayMatriz = ubicadas.some((grupo) => !grupo.centrada && grupo.textos.length > 0);
+  const gapBloque = hayMatriz ? 4 : 0;
   const innerLeft = MARGIN + FORMAS_PAD_X;
   const innerW = Math.max(12, contentWidth - FORMAS_PAD_X * 2);
-  let bloqueW = anchoPct + gapBloque + anchoFormas;
-  if (bloqueW > innerW) {
-    anchoFormas = Math.max(8, innerW - anchoPct - gapBloque);
-    bloqueW = anchoPct + gapBloque + anchoFormas;
-  }
+  const huecoMatriz = Math.max(24, innerW - anchoPct - gapBloque);
+  let colW = hayMatriz ? (huecoMatriz - FORMAS_GAP_COL * (FORMAS_COLS - 1)) / FORMAS_COLS : 0;
+  if (hayMatriz && anchoOpcion > 0) colW = Math.min(colW, Math.max(anchoOpcion, 8));
+  const anchoFormas = hayMatriz ? colW * FORMAS_COLS + FORMAS_GAP_COL * (FORMAS_COLS - 1) : 0;
+  const bloqueW = Math.min(innerW, anchoPct + gapBloque + anchoFormas);
   const bloqueLeft = innerLeft + (innerW - bloqueW) / 2;
   const pctCenterX = bloqueLeft + anchoPct / 2;
   const textoX = bloqueLeft + anchoPct + gapBloque;
   const centroBloque = bloqueLeft + bloqueW / 2;
-  const maxCentrada = Math.max(12, innerW);
 
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setLineWidth(0.35);
-  doc.rect(MARGIN, boxY, contentWidth, boxH, "S");
+  doc.line(MARGIN, boxY, boxRight, boxY);
+  doc.line(MARGIN, boxY, MARGIN, boxY + boxH);
+  doc.line(boxRight, boxY, boxRight, boxY + boxH);
+  if (!sinBordeAbajo) doc.line(MARGIN, boxY + boxH, boxRight, boxY + boxH);
 
   doc.setLineWidth(0.2);
-  ubicadas.forEach((fila, indice) => {
-    if (indice === 0 || !fila.inicio) return;
-    const yLinea = contenidoY + fila.top - FORMAS_SEP / 2;
+  ubicadas.forEach((grupo, indice) => {
+    if (indice === 0) return;
+    const yLinea = contenidoY + grupo.top - FORMAS_SEP / 2;
     doc.line(MARGIN, yLinea, boxRight, yLinea);
   });
 
   doc.setTextColor(INK.r, INK.g, INK.b);
-  ubicadas.forEach((fila) => {
-    if (fila.centrada) {
+  for (const grupo of ubicadas) {
+    if (grupo.centrada) {
+      const texto = grupo.textos.join(" - ");
+      if (!texto) continue;
       doc.setFont("VWText", "bold");
       let size = FORMAS_FONT_PCT;
       doc.setFontSize(size);
-      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxCentrada) {
+      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > innerW) {
         size -= 0.25;
         doc.setFontSize(size);
       }
       const cap = size * 0.352778 * 0.72;
-      const baseline = contenidoY + fila.top + fila.alto / 2 + cap / 2;
-      doc.text(fila.texto, centroBloque, baseline, { align: "center" });
-      return;
+      doc.text(texto, centroBloque, contenidoY + grupo.top + grupo.alto / 2 + cap / 2, { align: "center" });
+      continue;
     }
-    doc.setFont("VWText", "normal");
-    let size = FORMAS_FONT_TEXTO;
-    doc.setFontSize(size);
-    while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > anchoFormas) {
-      size -= 0.25;
+    const cantidad = grupo.textos.length;
+    const filasMatriz = filasDeMatriz(cantidad);
+    const altoUsado = filasMatriz * FORMAS_FILA_H;
+    const yMatriz = grupo.top + (grupo.alto - altoUsado) / 2;
+    grupo.textos.forEach((texto, indice) => {
+      const fila = Math.floor(indice / FORMAS_COLS);
+      const inicioFila = fila * FORMAS_COLS;
+      const enFila = Math.min(FORMAS_COLS, cantidad - inicioFila);
+      const desplaza = filasMatriz > 1 && fila === filasMatriz - 1 ? FORMAS_COLS - enFila : 0;
+      const columna = indice - inicioFila + desplaza;
+      doc.setFont("VWText", "normal");
+      let size = FORMAS_FONT_TEXTO;
       doc.setFontSize(size);
-    }
-    const cap = size * 0.352778 * 0.72;
-    const baseline = contenidoY + fila.top + fila.alto / 2 + cap / 2;
-    doc.text(fila.texto, textoX, baseline, { align: "left" });
-  });
+      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > colW) {
+        size -= 0.25;
+        doc.setFontSize(size);
+      }
+      const cap = size * 0.352778 * 0.72;
+      const baseline = contenidoY + yMatriz + fila * FORMAS_FILA_H + FORMAS_FILA_H / 2 + cap / 2;
+      doc.text(texto, textoX + columna * (colW + FORMAS_GAP_COL), baseline, { align: "left" });
+    });
+  }
 
   const capPct = FORMAS_FONT_PCT * 0.352778 * 0.72;
   const capDesc = FORMAS_FONT_DESC * 0.352778 * 0.72;
   const saltoDesc = 0.5;
+  doc.setTextColor(INK.r, INK.g, INK.b);
   doc.setFont("VWText", "bold");
-  for (let indice = 0; indice < ubicadas.length; indice += 1) {
-    const fila = ubicadas[indice];
-    if (!fila?.pct) continue;
-    let fin = indice + 1;
-    while (fin < ubicadas.length && !ubicadas[fin]?.inicio) fin += 1;
-    const ultima = ubicadas[fin - 1];
-    if (!ultima) continue;
-    const medio = contenidoY + (fila.top + ultima.top + ultima.alto) / 2;
+  for (const grupo of ubicadas) {
+    if (!grupo.pct) continue;
+    const medio = contenidoY + grupo.top + grupo.alto / 2;
     const altoPar = capPct + saltoDesc + capDesc;
     const baselinePct = medio - altoPar / 2 + capPct;
-    const baselineDesc = baselinePct + saltoDesc + capDesc;
     doc.setFontSize(FORMAS_FONT_PCT);
-    doc.text(fila.pct, pctCenterX, baselinePct, { align: "center" });
+    doc.text(grupo.pct, pctCenterX, baselinePct, { align: "center" });
     doc.setFontSize(FORMAS_FONT_DESC);
-    doc.text(FORMAS_ETIQUETA_DESC, pctCenterX, baselineDesc, { align: "center" });
-    indice = fin - 1;
+    doc.text(FORMAS_ETIQUETA_DESC, pctCenterX, baselinePct + saltoDesc + capDesc, { align: "center" });
   }
 
   doc.setDrawColor(0, 0, 0);
@@ -456,9 +494,9 @@ export function generarPdfFacturaComprobante(
   const lineasFormasPie =
     input.tipo === "presupuesto" && !input.ocultarFormasPago ? (input.formasPagoPresupuesto ?? []) : [];
   const altoFormasPie = altoBloqueFormasPago(lineasFormasPie, 0);
-  const altoContactoPie = input.redes ? PIE_CONTACTO_ALTO : 0;
-  const gapPies = altoFormasPie > 0 && altoContactoPie > 0 ? 2 : 0;
-  const zonaPie = altoFormasPie + gapPies + altoContactoPie;
+  const unirPies = altoFormasPie > 0 && Boolean(input.redes);
+  const altoContactoPie = input.redes ? PIE_CONTACTO_ALTO + (unirPies ? FORMAS_TITULO_H : 0) : 0;
+  const zonaPie = altoFormasPie + altoContactoPie;
   const topeCuerpo = 297 - MARGIN - zonaPie - 2;
   let y = MARGIN;
 
@@ -602,10 +640,10 @@ export function generarPdfFacturaComprobante(
     if (y + 2 + zonaPie > bottom) doc.addPage();
     const contactoY = bottom - altoContactoPie;
     if (altoFormasPie > 0) {
-      const formasY = altoContactoPie > 0 ? contactoY - gapPies - altoFormasPie : bottom - altoFormasPie;
-      dibujarBloqueFormasPago(doc, lineasFormasPie, formasY, contentWidth, 0, 0);
+      const formasY = altoContactoPie > 0 ? contactoY - altoFormasPie : bottom - altoFormasPie;
+      dibujarBloqueFormasPago(doc, lineasFormasPie, formasY, contentWidth, 0, 0, unirPies);
     }
-    if (input.redes) dibujarPieRedes(doc, input.redes, y, contactoY);
+    if (input.redes) dibujarPieRedes(doc, input.redes, y, contactoY, unirPies);
   }
 
   const buf = doc.output("arraybuffer");
@@ -664,24 +702,33 @@ function dibujarPieRedes(
   doc: jsPDF,
   redes: FacturaComprobantePdfRedes,
   yContenido: number,
-  yAnclado?: number
+  yAnclado?: number,
+  conCabezal = false
 ): void {
   const pageH = 297;
-  /** 3 cm: un 25 % menos que los 4 cm anteriores. */
+  /** 3 cm de datos; con cabezal, el título va encima y no suma una línea contra formas de pago. */
   const boxH = PIE_CONTACTO_ALTO;
+  const altoTotal = boxH + (conCabezal ? FORMAS_TITULO_H : 0);
   const bottom = pageH - MARGIN;
-  if (yAnclado == null && yContenido + 4 + boxH > bottom) doc.addPage();
-  const y = yAnclado ?? bottom - boxH;
+  if (yAnclado == null && yContenido + 4 + altoTotal > bottom) doc.addPage();
+  const y = yAnclado ?? bottom - altoTotal;
   const contentWidth = 210 - 2 * MARGIN;
   const colW = contentWidth / 3;
+  const boxRight = MARGIN + contentWidth;
+  const yCuerpo = y + (conCabezal ? FORMAS_TITULO_H : 0);
+  if (conCabezal) dibujarCabezalPie(doc, y, contentWidth, FORMAS_TITULO_CONTACTO);
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setLineWidth(0.4);
-  doc.rect(MARGIN, y, contentWidth, boxH);
-  doc.line(MARGIN + colW, y, MARGIN + colW, y + boxH);
-  doc.line(MARGIN + colW * 2, y, MARGIN + colW * 2, y + boxH);
+  if (!conCabezal) doc.line(MARGIN, y, boxRight, y);
+  doc.line(MARGIN, y, MARGIN, yCuerpo + boxH);
+  doc.line(boxRight, y, boxRight, yCuerpo + boxH);
+  doc.line(MARGIN, yCuerpo + boxH, boxRight, yCuerpo + boxH);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN + colW, yCuerpo, MARGIN + colW, yCuerpo + boxH);
+  doc.line(MARGIN + colW * 2, yCuerpo, MARGIN + colW * 2, yCuerpo + boxH);
   const ejes = ejesPieRedes(
     doc,
-    y,
+    yCuerpo,
     boxH,
     colW,
     Boolean(redes.instagramQr),
@@ -690,7 +737,7 @@ function dibujarPieRedes(
   dibujarColumnaRed(
     doc,
     MARGIN,
-    y,
+    yCuerpo,
     colW,
     boxH,
     redes.instagramQr,
@@ -703,7 +750,7 @@ function dibujarPieRedes(
   dibujarColumnaRed(
     doc,
     MARGIN + colW,
-    y,
+    yCuerpo,
     colW,
     boxH,
     redes.whatsappQr,
@@ -716,7 +763,7 @@ function dibujarPieRedes(
   dibujarColumnaSucursal(
     doc,
     MARGIN + colW * 2,
-    y,
+    yCuerpo,
     colW,
     boxH,
     redes.mapsQr,
