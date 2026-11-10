@@ -108,6 +108,8 @@ const FORMAS_SEP = 1.2;
 const FORMAS_PCT_MIN = 7.6;
 const FORMAS_FONT_TITULO = 7.8;
 const FORMAS_FONT_PCT = 8;
+/** El número del descuento: 50 % más que `FORMAS_FONT_PCT`. La fila sin % sigue en 8 pt. */
+const FORMAS_FONT_NUMERO = 12;
 const FORMAS_FONT_DESC = 5.5;
 const FORMAS_FONT_TEXTO = 5;
 const FORMAS_FONT_TEXTO_MIN = 3.25;
@@ -234,7 +236,7 @@ function dibujarBloqueFormasPago(
   const altoBanda = ubicadas[0]?.altoBanda ?? FORMAS_FILA_H;
 
   doc.setFont("VWText", "bold");
-  doc.setFontSize(FORMAS_FONT_PCT);
+  doc.setFontSize(FORMAS_FONT_NUMERO);
   let anchoPct = doc.getTextWidth("100%");
   for (const grupo of ubicadas) {
     if (grupo.pct) anchoPct = Math.max(anchoPct, doc.getTextWidth(grupo.pct));
@@ -260,7 +262,7 @@ function dibujarBloqueFormasPago(
     }
   }
 
-  const capPct = FORMAS_FONT_PCT * 0.352778 * 0.72;
+  const capNum = FORMAS_FONT_NUMERO * 0.352778 * 0.72;
   const capDesc = FORMAS_FONT_DESC * 0.352778 * 0.72;
   const saltoDesc = 0.5;
   doc.setTextColor(INK.r, INK.g, INK.b);
@@ -284,8 +286,10 @@ function dibujarBloqueFormasPago(
     }
     const cantidad = Math.max(1, grupo.textos.length);
     const altoPila = cantidad * FORMAS_FILA_H;
-    const yPila = yBanda + (altoBanda - altoPila) / 2;
-    const medioPila = yPila + altoPila / 2;
+    const altoPar = capNum + saltoDesc + capDesc;
+    const altoBloque = Math.max(altoPila, altoPar);
+    const centro = yBanda + (altoBanda - altoBloque) / 2 + altoBloque / 2;
+    const yPila = centro - altoPila / 2;
     const xOpcion = xCol + FORMAS_PAD_X + anchoPct + 3;
     grupo.textos.forEach((texto, indice) => {
       doc.setFont("VWText", "normal");
@@ -301,10 +305,9 @@ function dibujarBloqueFormasPago(
       });
     });
     if (!grupo.pct) continue;
-    const altoPar = capPct + saltoDesc + capDesc;
-    const baselinePct = medioPila - altoPar / 2 + capPct;
+    const baselinePct = centro - altoPar / 2 + capNum;
     doc.setFont("VWText", "bold");
-    doc.setFontSize(FORMAS_FONT_PCT);
+    doc.setFontSize(FORMAS_FONT_NUMERO);
     doc.text(grupo.pct, xCol + FORMAS_PAD_X + anchoPct / 2, baselinePct, { align: "center" });
     doc.setFontSize(FORMAS_FONT_DESC);
     doc.text(FORMAS_ETIQUETA_DESC, xCol + FORMAS_PAD_X + anchoPct / 2, baselinePct + saltoDesc + capDesc, {
