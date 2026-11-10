@@ -89,7 +89,10 @@ import {
   serializarLineasFormasPagoPdf,
   type LineaFormaPagoPdf,
 } from "@/lib/facturaFormasPagoPdf";
-import { listarFormasPagoPresupuesto } from "@/services/descPromo.service";
+import {
+  listarFormasPagoPresupuesto,
+  textoFormasPagoHabilitadasPorDescuento,
+} from "@/services/descPromo.service";
 import {
   ETIQUETA_GRUPO_FACTURA_PTO_VTA,
   grupoFacturaPorReceptor,
@@ -649,6 +652,37 @@ function datosSucursalPdf(row: {
   };
 }
 
+function pctDescuentoDeLineasPdf(
+  descPct: number,
+  lineas: readonly {
+    pxLista: number;
+    cantidad: number;
+    descuentoPctEspecial: number | null;
+  }[]
+): number {
+  if (descPct > 0) return descPct;
+  let lista = 0;
+  let ponderado = 0;
+  for (const linea of lineas) {
+    const base = linea.pxLista * linea.cantidad;
+    if (base <= 0) continue;
+    lista += base;
+    ponderado += (linea.descuentoPctEspecial ?? 0) * base;
+  }
+  return lista > 0 ? ponderado / lista : 0;
+}
+
+/** Texto guardado al emitir, o las formas vigentes del descuento con ese %. */
+async function formasPagoDescuentoPresupuesto(
+  descPct: number,
+  guardado: string | null
+): Promise<string | null> {
+  const propio = guardado?.trim() ?? "";
+  if (propio) return propio;
+  const vivo = (await textoFormasPagoHabilitadasPorDescuento(descPct)).trim();
+  return vivo || null;
+}
+
 export async function obtenerFacturaComprobantePdfDatos(
   id: string
 ): Promise<ServiceResult<FacturaComprobantePdfDatos>> {
@@ -741,7 +775,12 @@ export async function obtenerFacturaComprobantePdfDatos(
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
         ...datosSucursalPdf(row),
         formasPagoDescuento:
-          tipo === "presupuesto" ? row.descFormasPago?.trim() || null : null,
+          tipo === "presupuesto"
+            ? await formasPagoDescuentoPresupuesto(
+                pctDescuentoDeLineasPdf(descPct, lineas),
+                row.descFormasPago
+              )
+            : null,
         formasPagoPresupuesto:
           tipo === "presupuesto" && row.mostrarFormasPago
             ? parsearLineasFormasPagoPdf(row.formasPagoPdf)
@@ -1705,6 +1744,12 @@ async function emitirFacturaComprobanteSegunTipo(
           lineasDesdeTextosFormasPagoPresupuesto(await listarFormasPagoPresupuesto())
         )
       : null;
+  const descFormasPago =
+    input.tipo === "presupuesto"
+      ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() ||
+        (await textoFormasPagoHabilitadasPorDescuento(resumen.descPctPromedio)).trim() ||
+        null
+      : null;
 
   if (!fiscal) {
     try {
@@ -1736,10 +1781,7 @@ async function emitirFacturaComprobanteSegunTipo(
             impTotal,
             descPct: roundArs2(resumen.descPctPromedio),
             descImporte: roundArs2(resumen.descPesos),
-            descFormasPago:
-              input.tipo === "presupuesto"
-                ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() || null
-                : null,
+            descFormasPago,
             mostrarFormasPago: input.tipo === "presupuesto" ? input.mostrarFormasPago : true,
             formasPagoPdf,
             ambiente,

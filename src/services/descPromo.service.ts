@@ -527,6 +527,61 @@ export async function listarDescPromosEspecialesPorCodigos(
   }
 }
 
+/**
+ * Formas con las que es válido el descuento de ese %: las líneas DESC. EN PDF
+ * de los descuentos que incluyen el %, y si no hay, las formas de cobro vinculadas.
+ */
+export async function textoFormasPagoHabilitadasPorDescuento(
+  descuentoPct: number
+): Promise<string> {
+  const pct = Math.round(descuentoPct);
+  if (!Number.isFinite(pct) || pct <= 0) return "";
+  const rows = await prisma.descPromo.findMany({
+    where: { descuento: pct },
+    orderBy: { prioridad: "asc" },
+    select: {
+      incluyeDescuento: true,
+      lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
+      formasPago: {
+        orderBy: { id: "asc" },
+        select: {
+          pago: { select: { nombre: true } },
+          cuota: { select: { cuotas: true } },
+        },
+      },
+    },
+  });
+  const textos: string[] = [];
+  const vistos = new Set<string>();
+  const push = (raw: string) => {
+    const texto = raw.trim();
+    if (!texto) return;
+    const clave = texto.toLocaleUpperCase("es-AR");
+    if (vistos.has(clave)) return;
+    vistos.add(clave);
+    textos.push(texto);
+  };
+  for (const row of rows) {
+    if (!row.incluyeDescuento) continue;
+    for (const linea of row.lineasPdf) push(linea.texto);
+  }
+  if (textos.length === 0) {
+    for (const row of rows) {
+      for (const fp of row.formasPago) {
+        push(
+          etiquetaFormaPagoCuotaDescPromo({
+            pagoId: "",
+            nombre: fp.pago.nombre,
+            cuotaId: null,
+            cuotaEtiqueta: fp.cuota?.cuotas ?? null,
+          })
+        );
+      }
+    }
+  }
+  return textos.join(" · ");
+}
+
 /** Recuadro del presupuesto: líneas DESC. EN PDF, agrupadas por %. */
 export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresupuestoPdf[]> {
   const rows = await prisma.descPromo.findMany({

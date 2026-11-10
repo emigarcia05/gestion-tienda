@@ -243,7 +243,6 @@ function dibujarBloqueFormasPago(
   }
   doc.setFontSize(FORMAS_FONT_DESC);
   anchoPct = Math.max(anchoPct, doc.getTextWidth(FORMAS_ETIQUETA_DESC));
-  const anchoOpciones = Math.max(10, colSlot - FORMAS_PAD_X * 2 - anchoPct - 3);
 
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.setLineWidth(0.35);
@@ -290,12 +289,23 @@ function dibujarBloqueFormasPago(
     const altoBloque = Math.max(altoPila, altoPar);
     const centro = yBanda + (altoBanda - altoBloque) / 2 + altoBloque / 2;
     const yPila = centro - altoPila / 2;
-    const xOpcion = xCol + FORMAS_PAD_X + anchoPct + 3;
+    const gap = 3;
+    const maxOpcion = Math.max(8, colSlot - FORMAS_PAD_X * 2 - anchoPct - gap);
+    doc.setFont("VWText", "normal");
+    doc.setFontSize(FORMAS_FONT_TEXTO);
+    let anchoTexto = 0;
+    for (const texto of grupo.textos) {
+      anchoTexto = Math.max(anchoTexto, doc.getTextWidth(texto));
+    }
+    const anchoUsado = Math.min(anchoTexto, maxOpcion);
+    const anchoBloqueX = anchoPct + gap + anchoUsado;
+    const xBloque = xCol + Math.max(FORMAS_PAD_X, (colSlot - anchoBloqueX) / 2);
+    const xOpcion = xBloque + anchoPct + gap;
     grupo.textos.forEach((texto, indice) => {
       doc.setFont("VWText", "normal");
       let size = FORMAS_FONT_TEXTO;
       doc.setFontSize(size);
-      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > anchoOpciones) {
+      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > maxOpcion) {
         size -= 0.25;
         doc.setFontSize(size);
       }
@@ -308,9 +318,9 @@ function dibujarBloqueFormasPago(
     const baselinePct = centro - altoPar / 2 + capNum;
     doc.setFont("VWText", "bold");
     doc.setFontSize(FORMAS_FONT_NUMERO);
-    doc.text(grupo.pct, xCol + FORMAS_PAD_X + anchoPct / 2, baselinePct, { align: "center" });
+    doc.text(grupo.pct, xBloque + anchoPct / 2, baselinePct, { align: "center" });
     doc.setFontSize(FORMAS_FONT_DESC);
-    doc.text(FORMAS_ETIQUETA_DESC, xCol + FORMAS_PAD_X + anchoPct / 2, baselinePct + saltoDesc + capDesc, {
+    doc.text(FORMAS_ETIQUETA_DESC, xBloque + anchoPct / 2, baselinePct + saltoDesc + capDesc, {
       align: "center",
     });
   }
