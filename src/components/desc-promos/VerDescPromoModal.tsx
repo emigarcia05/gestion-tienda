@@ -172,7 +172,7 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                 />
               ) : null}
             </Seccion>
-            <Seccion titulo="DESC. EN PDF">
+            <Seccion titulo="FORMA DE PAGO EN PRESUPUESTO">
               {item.lineasPdf.length === 0 ? (
                 <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>
               ) : (

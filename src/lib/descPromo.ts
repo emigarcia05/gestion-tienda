@@ -175,7 +175,7 @@ export type DescPromoFila = {
   rubroNombre: string | null;
   items: DescPromoItemRef[];
   formasPago: DescPromoFormaPagoRef[];
-  /** Renglones de DESC. EN PDF, en el orden del recuadro. */
+  /** Renglones de FORMA DE PAGO EN PRESUPUESTO, en el orden del recuadro. */
   lineasPdf: string[];
 };
 

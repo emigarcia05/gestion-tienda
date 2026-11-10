@@ -528,7 +528,7 @@ export async function listarDescPromosEspecialesPorCodigos(
 }
 
 /**
- * Formas con las que es válido el descuento de ese %: las líneas DESC. EN PDF
+ * Formas con las que es válido el descuento de ese %: las líneas de FORMA DE PAGO EN PRESUPUESTO
  * de los descuentos que incluyen el %, y si no hay, las formas de cobro vinculadas.
  */
 export async function textoFormasPagoHabilitadasPorDescuento(
@@ -582,7 +582,7 @@ export async function textoFormasPagoHabilitadasPorDescuento(
   return textos.join(" · ");
 }
 
-/** Recuadro del presupuesto: líneas DESC. EN PDF, agrupadas por %. */
+/** Recuadro del presupuesto: líneas de FORMA DE PAGO EN PRESUPUESTO, agrupadas por %. */
 export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresupuestoPdf[]> {
   const rows = await prisma.descPromo.findMany({
     where: { enPresupuesto: true, lineasPdf: { some: {} } },

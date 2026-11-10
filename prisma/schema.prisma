@@ -2241,7 +2241,7 @@ enum DescPromoCostoTipo {
 }
 
 /**
- * Una regla de descuento (%). Siempre 1+ formas `desc_promo_formas_pago`.
+ * Una regla de descuento (%). Siempre 1+ formas `cobro_desc_segun_formas_pago`.
  * Alcance ITEMS → N `desc_promo_items`. Menor `prioridad` gana (1 = máxima). Secuencia 1…N sin huecos.
  * Categoría FECHA exige `fecha_desde` ≤ `fecha_hasta`; STOCK exige alcance ITEMS (CHECKs en SQL).
  */
@@ -2279,7 +2279,7 @@ model DescPromo {
   @@map("desc_promo")
 }
 
-/** Líneas de texto libre de la sección DESC. EN PDF. */
+/** Líneas de texto libre de FORMA DE PAGO EN PRESUPUESTO. */
 model DescPromoLineaPdf {
   id      String @id @default(cuid())
   promoId String @map("promo_id")
@@ -2288,8 +2288,8 @@ model DescPromoLineaPdf {
 
   promo DescPromo @relation(fields: [promoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@unique([promoId, orden], map: "desc_promo_linea_pdf_promo_orden_key")
-  @@map("desc_promo_linea_pdf")
+  @@unique([promoId, orden], map: "desc_forma_pago_en_presupuesto_promo_orden_key")
+  @@map("desc_forma_pago_en_presupuesto")
 }
 
 /**
@@ -2333,10 +2333,10 @@ model DescPromoFormaPago {
   pago  FinAnaCosFinaPagoCat @relation(fields: [pagoId], references: [id], onDelete: Restrict)
   cuota CobrosCuota?         @relation(fields: [cuotaId], references: [id], onDelete: Restrict)
 
-  @@index([pagoId], map: "desc_promo_formas_pago_pago_id_idx")
-  @@index([cuotaId], map: "desc_promo_formas_pago_cuota_id_idx")
-  @@index([promoId], map: "desc_promo_formas_pago_promo_id_idx")
-  @@map("desc_promo_formas_pago")
+  @@index([pagoId], map: "cobro_desc_segun_formas_pago_pago_id_idx")
+  @@index([cuotaId], map: "cobro_desc_segun_formas_pago_cuota_id_idx")
+  @@index([promoId], map: "cobro_desc_segun_formas_pago_promo_id_idx")
+  @@map("cobro_desc_segun_formas_pago")
 }
 
 /**

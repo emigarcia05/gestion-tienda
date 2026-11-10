@@ -562,7 +562,7 @@ export default function CrearEditarDescPromoModal({
             </div>
           ))}
           <section className="flex flex-col gap-3 rounded-md border border-primary p-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">DESC. EN PDF</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">FORMA DE PAGO EN PRESUPUESTO</p>
             <ModalSiNoChoice
               className="w-full"
               label="SE MUESTRA EN PRESUPUESTOS"
@@ -588,7 +588,7 @@ export default function CrearEditarDescPromoModal({
                   value={linea}
                   maxLength={120}
                   disabled={saving}
-                  aria-label={`Línea ${indice + 1} de DESC. EN PDF`}
+                  aria-label={`Línea ${indice + 1} de FORMA DE PAGO EN PRESUPUESTO`}
                   onChange={(event) =>
                     setLineasPdf((prev) => prev.map((actual, i) => (i === indice ? event.target.value : actual)))
                   }
