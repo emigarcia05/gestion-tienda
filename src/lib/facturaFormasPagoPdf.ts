@@ -16,7 +16,7 @@ const TITULO_TODAS = "FORMAS DE PAGO";
 export type FilaFormaPagoPresupuestoPdf = {
   descuento: number;
   formas: readonly string[];
-  /** FALSE: las formas se imprimen juntas, en una sola fila, en negrita, al cuerpo del % y sin el %. */
+  /** FALSE: las formas se imprimen juntas, en una sola fila, en negrita, al cuerpo del % y centradas en el eje del bloque. */
   incluyeDescuento: boolean;
 };
 

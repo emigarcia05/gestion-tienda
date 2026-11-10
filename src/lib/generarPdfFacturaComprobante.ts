@@ -41,6 +41,8 @@ import {
 import type { LineaFormaPagoPdf } from "@/lib/facturaFormasPagoPdf";
 
 const MARGIN = 14;
+/** Recuadro de contacto (Instagram / WhatsApp / sucursal), en mm. */
+const PIE_CONTACTO_ALTO = 30;
 const PRIMARY = { r: 0, g: 114, b: 187 };
 /** Azul suave ya usado en guías (Balance mensual: `#A9D6F1`). */
 const PRIMARY_SOFT = { r: 169, g: 214, b: 241 };
@@ -96,17 +98,20 @@ export type FacturaComprobantePdfInput = {
   ocultarFormasPago?: boolean;
 };
 
-/** Recuadro de formas de pago: mitad del alto y de la tipografía; texto negro. */
-const FORMAS_GAP = 2;
+/** Recuadro de formas de pago: pie de página, encima del contacto. */
 const FORMAS_PAD_X = 2;
-const FORMAS_TITULO_H = 4;
+const FORMAS_TITULO_H = 7;
 const FORMAS_FILA_H = 4.25;
 const FORMAS_PAD_ABAJO = 1.25;
 const FORMAS_SEP = 1.2;
-const FORMAS_FONT_TITULO = 5;
+/** Alto mínimo de un descuento con % para que quepan el número y «Desc.». */
+const FORMAS_PCT_MIN = 7.6;
+const FORMAS_FONT_TITULO = 7.8;
 const FORMAS_FONT_PCT = 8;
+const FORMAS_FONT_DESC = 5.5;
 const FORMAS_FONT_TEXTO = 5;
 const FORMAS_FONT_TEXTO_MIN = 3.25;
+const FORMAS_ETIQUETA_DESC = "Desc.";
 
 type FilaCajaFormasPago = { pct: string; texto: string; centrada: boolean; inicio: boolean };
 
@@ -132,15 +137,47 @@ function filasCajaFormasPago(lineas: readonly LineaFormaPagoPdf[]): {
   return { titulo, filas };
 }
 
+type FilaCajaUbicada = FilaCajaFormasPago & { top: number; alto: number };
+
+function ubicarFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): FilaCajaUbicada[] {
+  let cursor = 0;
+  const ubicadas: FilaCajaUbicada[] = filas.map((fila, indice) => {
+    if (indice > 0 && fila.inicio) cursor += FORMAS_SEP;
+    const top = cursor;
+    cursor += FORMAS_FILA_H;
+    return { ...fila, top, alto: FORMAS_FILA_H };
+  });
+  for (let indice = 0; indice < ubicadas.length; indice += 1) {
+    if (!ubicadas[indice]?.pct) continue;
+    let fin = indice + 1;
+    while (fin < ubicadas.length && !ubicadas[fin]?.inicio) fin += 1;
+    const primera = ubicadas[indice];
+    const ultima = ubicadas[fin - 1];
+    if (!primera || !ultima) continue;
+    const falta = FORMAS_PCT_MIN - (ultima.top + ultima.alto - primera.top);
+    if (falta > 0) {
+      ultima.alto += falta;
+      for (let siguiente = fin; siguiente < ubicadas.length; siguiente += 1) {
+        const fila = ubicadas[siguiente];
+        if (fila) fila.top += falta;
+      }
+    }
+    indice = fin - 1;
+  }
+  return ubicadas;
+}
+
 function altoFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): number {
-  const separadores = filas.filter((fila, indice) => indice > 0 && fila.inicio).length;
-  return filas.length * FORMAS_FILA_H + separadores * FORMAS_SEP;
+  const ubicadas = ubicarFilasCajaFormasPago(filas);
+  const ultima = ubicadas[ubicadas.length - 1];
+  if (!ultima) return 0;
+  return ultima.top + ultima.alto;
 }
 
 function altoBloqueFormasPago(lineas: readonly LineaFormaPagoPdf[], _paso: number): number {
   const { filas } = filasCajaFormasPago(lineas);
   if (filas.length === 0) return 0;
-  return FORMAS_GAP + FORMAS_TITULO_H + altoFilasCajaFormasPago(filas) + FORMAS_PAD_ABAJO;
+  return FORMAS_TITULO_H + altoFilasCajaFormasPago(filas) + FORMAS_PAD_ABAJO;
 }
 
 function dibujarBloqueFormasPago(
@@ -153,42 +190,57 @@ function dibujarBloqueFormasPago(
 ): number {
   const { titulo, filas } = filasCajaFormasPago(lineas);
   if (filas.length === 0) return y0;
-  const boxY = y0 + FORMAS_GAP;
+  const boxY = y0;
+  const ubicadas = ubicarFilasCajaFormasPago(filas);
   const altoFilas = altoFilasCajaFormasPago(filas);
   const boxH = FORMAS_TITULO_H + altoFilas + FORMAS_PAD_ABAJO;
   const boxRight = MARGIN + contentWidth;
+  const contenidoY = boxY + FORMAS_TITULO_H;
 
-  doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
-  doc.setLineWidth(0.35);
-  doc.roundedRect(MARGIN, boxY, contentWidth, boxH, 0.7, 0.7, "S");
-
-  doc.setTextColor(INK.r, INK.g, INK.b);
-  doc.setFont("VWText", "bold");
+  doc.setFillColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.rect(MARGIN, boxY, contentWidth, FORMAS_TITULO_H, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(FORMAS_FONT_TITULO);
-  doc.text(titulo, MARGIN + contentWidth / 2, boxY + FORMAS_TITULO_H * 0.72, { align: "center" });
+  const capTitulo = FORMAS_FONT_TITULO * 0.352778 * 0.72;
+  doc.text(titulo, MARGIN + contentWidth / 2, boxY + FORMAS_TITULO_H / 2 + capTitulo / 2, {
+    align: "center",
+  });
 
   doc.setFont("VWText", "bold");
   doc.setFontSize(FORMAS_FONT_PCT);
-  const anchoPct = Math.max(
-    doc.getTextWidth("100%"),
-    ...filas.map((fila) => (fila.pct ? doc.getTextWidth(fila.pct) : 0))
-  );
-  const pctRight = MARGIN + FORMAS_PAD_X + anchoPct;
-  const pctCenterX = MARGIN + FORMAS_PAD_X + anchoPct / 2;
-  const textoX = pctRight + 3;
-  const maxTexto = Math.max(12, boxRight - FORMAS_PAD_X - textoX);
-  const maxCentrada = Math.max(12, contentWidth - FORMAS_PAD_X * 2);
-  const contenidoY = boxY + FORMAS_TITULO_H;
+  let anchoPct = doc.getTextWidth("100%");
+  for (const fila of filas) {
+    if (fila.pct) anchoPct = Math.max(anchoPct, doc.getTextWidth(fila.pct));
+  }
+  doc.setFontSize(FORMAS_FONT_DESC);
+  anchoPct = Math.max(anchoPct, doc.getTextWidth(FORMAS_ETIQUETA_DESC));
 
-  let cursor = 0;
-  const ubicadas = filas.map((fila, indice) => {
-    if (indice > 0 && fila.inicio) cursor += FORMAS_SEP;
-    const top = cursor;
-    cursor += FORMAS_FILA_H;
-    return { ...fila, top };
-  });
+  doc.setFont("VWText", "normal");
+  doc.setFontSize(FORMAS_FONT_TEXTO);
+  let anchoFormas = 0;
+  for (const fila of filas) {
+    if (fila.centrada) continue;
+    anchoFormas = Math.max(anchoFormas, doc.getTextWidth(fila.texto));
+  }
+  const gapBloque = anchoFormas > 0 ? 4 : 0;
+  const innerLeft = MARGIN + FORMAS_PAD_X;
+  const innerW = Math.max(12, contentWidth - FORMAS_PAD_X * 2);
+  let bloqueW = anchoPct + gapBloque + anchoFormas;
+  if (bloqueW > innerW) {
+    anchoFormas = Math.max(8, innerW - anchoPct - gapBloque);
+    bloqueW = anchoPct + gapBloque + anchoFormas;
+  }
+  const bloqueLeft = innerLeft + (innerW - bloqueW) / 2;
+  const pctCenterX = bloqueLeft + anchoPct / 2;
+  const textoX = bloqueLeft + anchoPct + gapBloque;
+  const centroBloque = bloqueLeft + bloqueW / 2;
+  const maxCentrada = Math.max(12, innerW);
 
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
+  doc.setLineWidth(0.35);
+  doc.rect(MARGIN, boxY, contentWidth, boxH, "S");
+
   doc.setLineWidth(0.2);
   ubicadas.forEach((fila, indice) => {
     if (indice === 0 || !fila.inicio) return;
@@ -198,7 +250,6 @@ function dibujarBloqueFormasPago(
 
   doc.setTextColor(INK.r, INK.g, INK.b);
   ubicadas.forEach((fila) => {
-    const baseline = contenidoY + fila.top + FORMAS_FILA_H * 0.72;
     if (fila.centrada) {
       doc.setFont("VWText", "bold");
       let size = FORMAS_FONT_PCT;
@@ -207,36 +258,49 @@ function dibujarBloqueFormasPago(
         size -= 0.25;
         doc.setFontSize(size);
       }
-      doc.text(fila.texto, MARGIN + contentWidth / 2, baseline, { align: "center" });
+      const cap = size * 0.352778 * 0.72;
+      const baseline = contenidoY + fila.top + fila.alto / 2 + cap / 2;
+      doc.text(fila.texto, centroBloque, baseline, { align: "center" });
       return;
     }
     doc.setFont("VWText", "normal");
     let size = FORMAS_FONT_TEXTO;
     doc.setFontSize(size);
-    while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > maxTexto) {
+    while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(fila.texto) > anchoFormas) {
       size -= 0.25;
       doc.setFontSize(size);
     }
+    const cap = size * 0.352778 * 0.72;
+    const baseline = contenidoY + fila.top + fila.alto / 2 + cap / 2;
     doc.text(fila.texto, textoX, baseline, { align: "left" });
   });
 
+  const capPct = FORMAS_FONT_PCT * 0.352778 * 0.72;
+  const capDesc = FORMAS_FONT_DESC * 0.352778 * 0.72;
+  const saltoDesc = 0.5;
   doc.setFont("VWText", "bold");
-  doc.setFontSize(FORMAS_FONT_PCT);
   for (let indice = 0; indice < ubicadas.length; indice += 1) {
     const fila = ubicadas[indice];
-    if (!fila.pct) continue;
+    if (!fila?.pct) continue;
     let fin = indice + 1;
-    while (fin < ubicadas.length && !ubicadas[fin].inicio) fin += 1;
-    const top = fila.top;
-    const bottom = ubicadas[fin - 1].top + FORMAS_FILA_H;
-    const baseline = contenidoY + (top + bottom) / 2 + FORMAS_FILA_H * 0.22;
-    doc.text(fila.pct, pctCenterX, baseline, { align: "center" });
+    while (fin < ubicadas.length && !ubicadas[fin]?.inicio) fin += 1;
+    const ultima = ubicadas[fin - 1];
+    if (!ultima) continue;
+    const medio = contenidoY + (fila.top + ultima.top + ultima.alto) / 2;
+    const altoPar = capPct + saltoDesc + capDesc;
+    const baselinePct = medio - altoPar / 2 + capPct;
+    const baselineDesc = baselinePct + saltoDesc + capDesc;
+    doc.setFontSize(FORMAS_FONT_PCT);
+    doc.text(fila.pct, pctCenterX, baselinePct, { align: "center" });
+    doc.setFontSize(FORMAS_FONT_DESC);
+    doc.text(FORMAS_ETIQUETA_DESC, pctCenterX, baselineDesc, { align: "center" });
     indice = fin - 1;
   }
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
   doc.setTextColor(INK.r, INK.g, INK.b);
+  doc.setFont("helvetica", "normal");
   return boxY + boxH;
 }
 
@@ -260,7 +324,8 @@ function dibujarPieTotales(
     pxDesc: number;
     cant: number;
     total: number;
-  }
+  },
+  yMax: number
 ): number {
   const totalColCenterX =
     MARGIN +
@@ -320,15 +385,9 @@ function dibujarPieTotales(
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  const formasH =
-    bloqueFormas.length > 0
-      ? altoBloqueFormasPago(bloqueFormas, pasoFormas)
-      : lineasFormas.length > 0
-        ? 5 + 6 + lineasFormas.length * pasoFormas
-        : 0;
+  const formasH = lineasFormas.length > 0 ? 5 + 6 + lineasFormas.length * pasoFormas : 0;
   let y = yInicio + 2;
-  const tope = input.redes ? 249 : 270;
-  if (y + barraH + formasH > tope) {
+  if (y + barraH + formasH > yMax) {
     doc.addPage();
     y = MARGIN;
   }
@@ -345,9 +404,7 @@ function dibujarPieTotales(
   });
   y += barraH;
 
-  if (bloqueFormas.length > 0) {
-    y = dibujarBloqueFormasPago(doc, bloqueFormas, y, contentWidth, fontFormas, pasoFormas);
-  } else if (lineasFormas.length > 0) {
+  if (lineasFormas.length > 0) {
     y += 5;
     doc.setFont("VWText", "bold");
     doc.setFontSize(fontFormas);
@@ -396,6 +453,13 @@ export function generarPdfFacturaComprobante(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   registrarFuenteVwText(doc);
   const contentWidth = 210 - 2 * MARGIN;
+  const lineasFormasPie =
+    input.tipo === "presupuesto" && !input.ocultarFormasPago ? (input.formasPagoPresupuesto ?? []) : [];
+  const altoFormasPie = altoBloqueFormasPago(lineasFormasPie, 0);
+  const altoContactoPie = input.redes ? PIE_CONTACTO_ALTO : 0;
+  const gapPies = altoFormasPie > 0 && altoContactoPie > 0 ? 2 : 0;
+  const zonaPie = altoFormasPie + gapPies + altoContactoPie;
+  const topeCuerpo = 297 - MARGIN - zonaPie - 2;
   let y = MARGIN;
 
   y = dibujarEncabezado(doc, input, y);
@@ -458,7 +522,7 @@ export function generarPdfFacturaComprobante(
     doc.setFontSize(7.5);
     for (let idx = 0; idx < input.lineas.length; idx += 1) {
       const linea = input.lineas[idx]!;
-      if (y > 270) {
+      if (y > topeCuerpo) {
         doc.addPage();
         y = MARGIN;
         drawHeader();
@@ -523,7 +587,7 @@ export function generarPdfFacturaComprobante(
 
   const resumen = resumenTotalesFactura(input.lineas, input.descuento);
   const fiscal = input.fiscal ?? null;
-  y = dibujarPieTotales(doc, input, resumen, y, contentWidth, col);
+  y = dibujarPieTotales(doc, input, resumen, y, contentWidth, col, topeCuerpo);
   if (fiscal?.discriminarIva) {
     const totalColCenterX =
       MARGIN + col.cod + col.desc + col.px + col.descPct + col.pxDesc + col.cant + col.total / 2;
@@ -533,8 +597,15 @@ export function generarPdfFacturaComprobante(
   if (fiscal?.qrDataUrl && input.cae?.trim()) {
     y = dibujarPieFiscal(doc, input, fiscal, y, contentWidth);
   }
-  if (input.redes) {
-    dibujarPieRedes(doc, input.redes, y);
+  if (zonaPie > 0) {
+    const bottom = 297 - MARGIN;
+    if (y + 2 + zonaPie > bottom) doc.addPage();
+    const contactoY = bottom - altoContactoPie;
+    if (altoFormasPie > 0) {
+      const formasY = altoContactoPie > 0 ? contactoY - gapPies - altoFormasPie : bottom - altoFormasPie;
+      dibujarBloqueFormasPago(doc, lineasFormasPie, formasY, contentWidth, 0, 0);
+    }
+    if (input.redes) dibujarPieRedes(doc, input.redes, y, contactoY);
   }
 
   const buf = doc.output("arraybuffer");
@@ -589,13 +660,18 @@ function registrarFuenteVwText(doc: jsPDF): void {
   doc.addFont("VWText-Regular.ttf", "VWText", "normal");
 }
 
-function dibujarPieRedes(doc: jsPDF, redes: FacturaComprobantePdfRedes, yContenido: number): void {
+function dibujarPieRedes(
+  doc: jsPDF,
+  redes: FacturaComprobantePdfRedes,
+  yContenido: number,
+  yAnclado?: number
+): void {
   const pageH = 297;
   /** 3 cm: un 25 % menos que los 4 cm anteriores. */
-  const boxH = 30;
+  const boxH = PIE_CONTACTO_ALTO;
   const bottom = pageH - MARGIN;
-  if (yContenido + 4 + boxH > bottom) doc.addPage();
-  const y = bottom - boxH;
+  if (yAnclado == null && yContenido + 4 + boxH > bottom) doc.addPage();
+  const y = yAnclado ?? bottom - boxH;
   const contentWidth = 210 - 2 * MARGIN;
   const colW = contentWidth / 3;
   doc.setDrawColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
