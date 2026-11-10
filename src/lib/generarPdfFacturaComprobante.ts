@@ -356,7 +356,6 @@ function dibujarPieTotales(
     col.total / 2;
   const esPresupuesto = input.tipo === "presupuesto";
   const pieConDescuento = esPresupuesto || esFacturaTipoVenta(input.tipo);
-  const formas = esPresupuesto ? formasPagoDescuentoPdf(input) : "";
   const filas: { etiqueta: string; valor: string }[] = pieConDescuento
     ? [
         { etiqueta: "TOTAL S/ DESC.", valor: `$${fmtPrecio(resumen.totalLista)}` },
@@ -384,28 +383,27 @@ function dibujarPieTotales(
   doc.setFontSize(7.5);
   const paso = 4.5;
   const barraH = 2.4 + filas.length * paso;
-  /** 7,5 pt × 1,5. Título en VWText Bold; formas de pago en VWText Regular. */
-  const fontFormas = 11.25;
-  const pasoFormas = 5.1;
-  const bloqueFormas =
-    esPresupuesto && !input.ocultarFormasPago ? (input.formasPagoPresupuesto ?? []) : [];
-  let lineasFormas: string[] = [];
-  if (
-    !input.ocultarFormasPago &&
-    bloqueFormas.length === 0 &&
-    esPresupuesto &&
-    resumen.hayDescuento &&
-    formas
-  ) {
+  const formas = esPresupuesto && resumen.hayDescuento ? formasPagoDescuentoPdf(input) : "";
+  const fontMensaje = 9;
+  const pasoMensaje = 4.2;
+  let lineasMensaje: string[] = [];
+  let anchoEtiqueta = 0;
+  const etiquetaMensaje = "Descuento válido abonando con: ";
+  if (formas) {
+    doc.setFont("VWText", "bold");
+    doc.setFontSize(fontMensaje);
+    anchoEtiqueta = doc.getTextWidth(etiquetaMensaje);
     doc.setFont("VWText", "normal");
-    doc.setFontSize(fontFormas);
-    lineasFormas = doc.splitTextToSize(formas, contentWidth - 10) as string[];
+    lineasMensaje = doc.splitTextToSize(
+      formas,
+      Math.max(20, contentWidth - anchoEtiqueta)
+    ) as string[];
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  const formasH = lineasFormas.length > 0 ? 5 + 6 + lineasFormas.length * pasoFormas : 0;
+  const mensajeH = lineasMensaje.length > 0 ? 4 + lineasMensaje.length * pasoMensaje : 0;
   let y = yInicio + 2;
-  if (y + barraH + formasH > yMax) {
+  if (y + barraH + mensajeH > yMax) {
     doc.addPage();
     y = MARGIN;
   }
@@ -422,16 +420,18 @@ function dibujarPieTotales(
   });
   y += barraH;
 
-  if (lineasFormas.length > 0) {
-    y += 5;
+  if (lineasMensaje.length > 0) {
+    y += 4;
+    doc.setTextColor(INK.r, INK.g, INK.b);
     doc.setFont("VWText", "bold");
-    doc.setFontSize(fontFormas);
-    doc.text("DESCUENTO VÁLIDO ABONANDO CON:", MARGIN, y);
-    y += 6;
+    doc.setFontSize(fontMensaje);
+    doc.text(etiquetaMensaje, MARGIN, y);
     doc.setFont("VWText", "normal");
-    doc.setFontSize(fontFormas);
-    doc.text(lineasFormas, MARGIN + 8, y);
-    y += lineasFormas.length * pasoFormas;
+    doc.text(lineasMensaje[0] ?? "", MARGIN + anchoEtiqueta, y);
+    if (lineasMensaje.length > 1) {
+      doc.text(lineasMensaje.slice(1), MARGIN, y + pasoMensaje);
+    }
+    y += lineasMensaje.length * pasoMensaje;
   }
 
   doc.setTextColor(INK.r, INK.g, INK.b);

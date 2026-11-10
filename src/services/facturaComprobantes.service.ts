@@ -74,6 +74,7 @@ import {
   porcentajeDescuentoLinea,
   totalLineaConDescuento,
   resumenTotalesFactura,
+  textoFormasPagoRestringidasDescPromo,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
@@ -740,9 +741,7 @@ export async function obtenerFacturaComprobantePdfDatos(
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
         ...datosSucursalPdf(row),
         formasPagoDescuento:
-          tipo === "presupuesto" && row.mostrarFormasPago
-            ? row.descFormasPago?.trim() || null
-            : null,
+          tipo === "presupuesto" ? row.descFormasPago?.trim() || null : null,
         formasPagoPresupuesto:
           tipo === "presupuesto" && row.mostrarFormasPago
             ? parsearLineasFormasPagoPdf(row.formasPagoPdf)
@@ -1737,7 +1736,10 @@ async function emitirFacturaComprobanteSegunTipo(
             impTotal,
             descPct: roundArs2(resumen.descPctPromedio),
             descImporte: roundArs2(resumen.descPesos),
-            descFormasPago: null,
+            descFormasPago:
+              input.tipo === "presupuesto"
+                ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() || null
+                : null,
             mostrarFormasPago: input.tipo === "presupuesto" ? input.mostrarFormasPago : true,
             formasPagoPdf,
             ambiente,

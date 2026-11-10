@@ -96,14 +96,12 @@ export default function FacturaComprobantePdfAccionModal({
           datos = {
             ...datos,
             ocultarFormasPago: false,
-            formasPagoDescuento: null,
             formasPagoPresupuesto: lineasDesdeTextosFormasPagoPresupuesto(textos.data),
           };
         } else {
           datos = {
             ...datos,
             ocultarFormasPago: true,
-            formasPagoDescuento: null,
             formasPagoPresupuesto: null,
           };
         }
