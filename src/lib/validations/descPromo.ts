@@ -68,8 +68,6 @@ const camposDescPromoSchema = z.object({
   nombre: nombreDescPromoSchema,
   descuento: descuentoDescPromoSchema,
   enPresupuesto: z.boolean(),
-  incluyeDescuento: z.boolean(),
-  formaPagoValidaDesc: z.boolean(),
   lineasPdf: z
     .array(
       z

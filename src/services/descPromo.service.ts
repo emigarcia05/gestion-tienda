@@ -100,8 +100,6 @@ function mapPromo(row: PromoRow): DescPromoFila {
     nombre: row.nombre,
     descuento: row.descuento,
     enPresupuesto: row.enPresupuesto,
-    incluyeDescuento: row.incluyeDescuento,
-    formaPagoValidaDesc: row.formaPagoValidaDesc,
     prioridad: row.prioridad,
     idMarca: row.idMarca,
     marcaNombre: row.marca
@@ -299,8 +297,6 @@ function dataCabecera(input: CrearDescPromoInput) {
     alcance: input.alcance,
     descuento: input.descuento,
     enPresupuesto: input.enPresupuesto,
-    incluyeDescuento: input.enPresupuesto && input.incluyeDescuento,
-    formaPagoValidaDesc: input.formaPagoValidaDesc,
     idMarca: ejes.idMarca,
     idRubro: ejes.idRubro,
   };
@@ -542,7 +538,7 @@ export async function textoFormasPagoHabilitadasPorDescuento(
   const pct = Math.round(descuentoPct);
   if (!Number.isFinite(pct) || pct <= 0) return "";
   const rows = await prisma.descPromo.findMany({
-    where: { descuento: pct, formaPagoValidaDesc: true },
+    where: { descuento: pct, enPresupuesto: true },
     orderBy: { prioridad: "asc" },
     select: {
       lineasValidaDesc: { orderBy: { orden: "asc" }, select: { texto: true } },
@@ -570,7 +566,6 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
     orderBy: { prioridad: "asc" },
     select: {
       descuento: true,
-      incluyeDescuento: true,
       lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
     },
   });
@@ -579,7 +574,7 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
   for (const row of rows) {
     const formas = row.lineasPdf.map((linea) => linea.texto.trim()).filter((texto) => texto.length > 0);
     if (formas.length === 0) continue;
-    if (!row.incluyeDescuento) {
+    if (row.descuento <= 0) {
       grupos.push({ descuento: row.descuento, formas, incluyeDescuento: false });
       continue;
     }

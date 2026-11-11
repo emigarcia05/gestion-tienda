@@ -160,27 +160,16 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                 ))
               )}
             </Seccion>
-            <Seccion titulo="PRESUPUESTO">
+            <Seccion titulo="EN PRESUPUESTO">
               <LineaLecturaModal
                 etiqueta="SE MUESTRA EN PRESUPUESTOS"
                 valor={item.enPresupuesto ? "TRUE" : "FALSE"}
               />
-              {item.enPresupuesto ? (
-                <LineaLecturaModal
-                  etiqueta="INCLUYE DESCUENTO"
-                  valor={item.incluyeDescuento ? "TRUE" : "FALSE"}
-                />
-              ) : null}
-            </Seccion>
-            <Seccion titulo="DESCUENTO VÁLIDO ABONANDO CON">
-              <LineaLecturaModal
-                etiqueta="SE MUESTRA EN PRESUPUESTOS"
-                valor={item.formaPagoValidaDesc ? "TRUE" : "FALSE"}
-              />
-              {item.lineasValidaDesc.length === 0 ? (
+              <p className={TITULO_SECCION_CLASS}>FORMA DE PAGO EN PRESUPUESTO</p>
+              {item.lineasPdf.length === 0 ? (
                 <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>
               ) : (
-                item.lineasValidaDesc.map((linea, indice) => (
+                item.lineasPdf.map((linea, indice) => (
                   <LineaLecturaModal
                     key={`${indice}-${linea}`}
                     etiqueta={`LÍNEA (${indice + 1})`}
@@ -188,12 +177,11 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                   />
                 ))
               )}
-            </Seccion>
-            <Seccion titulo="FORMA DE PAGO EN PRESUPUESTO">
-              {item.lineasPdf.length === 0 ? (
+              <p className={TITULO_SECCION_CLASS}>DESCUENTO VÁLIDO ABONANDO CON</p>
+              {item.lineasValidaDesc.length === 0 ? (
                 <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>
               ) : (
-                item.lineasPdf.map((linea, indice) => (
+                item.lineasValidaDesc.map((linea, indice) => (
                   <LineaLecturaModal
                     key={`${indice}-${linea}`}
                     etiqueta={`LÍNEA (${indice + 1})`}

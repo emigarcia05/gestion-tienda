@@ -162,7 +162,7 @@ function gruposCajaFormasPago(filas: readonly FilaCajaFormasPago[]): GrupoCajaFo
 function maxOpcionesGrupo(grupos: readonly GrupoCajaFormas[]): number {
   let maximo = 1;
   for (const grupo of grupos) {
-    maximo = Math.max(maximo, grupo.centrada ? 1 : Math.max(1, grupo.textos.length));
+    maximo = Math.max(maximo, Math.max(1, grupo.textos.length));
   }
   return maximo;
 }
@@ -287,18 +287,27 @@ function dibujarBloqueFormasPago(
     const yBanda = contenidoY + grupo.fila * (altoBanda + FORMAS_SEP);
     const xCol = MARGIN + grupo.columna * colSlot;
     if (grupo.centrada) {
-      const texto = grupo.textos.join(" - ");
-      if (!texto) continue;
+      const textos = grupo.textos.filter((texto) => texto.length > 0);
+      if (textos.length === 0) continue;
       doc.setFont("VWText", "bold");
       let size = FORMAS_FONT_PCT;
-      doc.setFontSize(size);
       const maxTexto = Math.max(8, colSlot - FORMAS_PAD_X * 2);
-      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > maxTexto) {
+      doc.setFontSize(size);
+      while (
+        size > FORMAS_FONT_TEXTO_MIN &&
+        textos.some((texto) => doc.getTextWidth(texto) > maxTexto)
+      ) {
         size -= 0.25;
         doc.setFontSize(size);
       }
       const cap = size * 0.352778 * 0.72;
-      doc.text(texto, xCol + colSlot / 2, yBanda + altoBanda / 2 + cap / 2, { align: "center" });
+      const altoPila = textos.length * FORMAS_FILA_H;
+      const yPila = yBanda + (altoBanda - altoPila) / 2;
+      textos.forEach((texto, indice) => {
+        doc.text(texto, xCol + colSlot / 2, yPila + indice * FORMAS_FILA_H + FORMAS_FILA_H / 2 + cap / 2, {
+          align: "center",
+        });
+      });
       continue;
     }
     const cantidad = Math.max(1, grupo.textos.length);
@@ -451,11 +460,14 @@ function dibujarPieTotales(
     const cap = fontMensaje * 0.352778 * 0.72;
     const altoBloque = (1 + lineasMensaje.length) * pasoMensaje;
     const yMensaje = y + (barraH - altoBloque) / 2 + pasoMensaje / 2 + cap / 2;
+    const xCentro = MARGIN + padMensajeX + anchoMensaje / 2;
     doc.setFont("VWText", "bold");
     doc.setFontSize(fontMensaje);
-    doc.text(etiquetaMensaje, MARGIN + padMensajeX, yMensaje);
+    doc.text(etiquetaMensaje, xCentro, yMensaje, { align: "center" });
     doc.setFont("VWText", "normal");
-    doc.text(lineasMensaje, MARGIN + padMensajeX, yMensaje + pasoMensaje);
+    lineasMensaje.forEach((linea, indice) => {
+      doc.text(linea, xCentro, yMensaje + (indice + 1) * pasoMensaje, { align: "center" });
+    });
   }
 
   doc.setFont("helvetica", "bold");

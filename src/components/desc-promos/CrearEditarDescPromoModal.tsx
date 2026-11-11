@@ -212,13 +212,9 @@ export default function CrearEditarDescPromoModal({
     () => (item?.lineasPdf.length ? [...item.lineasPdf] : [""])
   );
   const [enPresupuesto, setEnPresupuesto] = useState(item?.enPresupuesto ?? false);
-  const [incluyeDescuento, setIncluyeDescuento] = useState(
-    () => (item?.enPresupuesto ? item.incluyeDescuento : false)
-  );
   const [lineasValidaDesc, setLineasValidaDesc] = useState<string[]>(
     () => (item?.lineasValidaDesc.length ? [...item.lineasValidaDesc] : [""])
   );
-  const [formaPagoValidaDesc, setFormaPagoValidaDesc] = useState(item?.formaPagoValidaDesc ?? false);
   const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
     () => cuotaIdsPorPagoDesdeItem(item)
   );
@@ -383,9 +379,7 @@ export default function CrearEditarDescPromoModal({
       nombre: nombre.trim(),
       descuento,
       enPresupuesto,
-      incluyeDescuento: enPresupuesto && incluyeDescuento,
       lineasPdf: lineasPdf.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
-      formaPagoValidaDesc,
       lineasValidaDesc: lineasValidaDesc.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
       idMarca: pideMarca ? idMarca : null,
       idRubro: pideRubro ? idRubro : null,
@@ -568,26 +562,15 @@ export default function CrearEditarDescPromoModal({
             </div>
           ))}
           <section className="flex flex-col gap-3 rounded-md border border-primary p-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">FORMA DE PAGO EN PRESUPUESTO</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">EN PRESUPUESTO</p>
             <ModalSiNoChoice
               className="w-full"
               label="SE MUESTRA EN PRESUPUESTOS"
               value={enPresupuesto}
-              onChange={(value) => {
-                setEnPresupuesto(value);
-                if (!value) setIncluyeDescuento(false);
-              }}
+              onChange={setEnPresupuesto}
               disabled={saving}
             />
-            {enPresupuesto ? (
-              <ModalSiNoChoice
-                className="w-full"
-                label="INCLUYE DESCUENTO"
-                value={incluyeDescuento}
-                onChange={setIncluyeDescuento}
-                disabled={saving}
-              />
-            ) : null}
+            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">FORMA DE PAGO EN PRESUPUESTO</p>
             {lineasPdf.map((linea, indice) => (
               <div key={indice} className="flex items-center gap-2">
                 <Input
@@ -621,18 +604,9 @@ export default function CrearEditarDescPromoModal({
               <Plus aria-hidden />
               Nueva Línea
             </Button>
-          </section>
-          <section className="flex flex-col gap-3 rounded-md border border-primary p-3">
             <p className="text-sm font-semibold uppercase tracking-wide text-foreground">
               DESCUENTO VÁLIDO ABONANDO CON
             </p>
-            <ModalSiNoChoice
-              className="w-full"
-              label="SE MUESTRA EN PRESUPUESTOS"
-              value={formaPagoValidaDesc}
-              onChange={setFormaPagoValidaDesc}
-              disabled={saving}
-            />
             {lineasValidaDesc.map((linea, indice) => (
               <div key={indice} className="flex items-center gap-2">
                 <Input

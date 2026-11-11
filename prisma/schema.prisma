@@ -2252,12 +2252,8 @@ model DescPromo {
   nombre     String
   /** Porcentaje 0–100. Columna SQL `desc`. */
   descuento  Int                @map("desc")
-  /** Si entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
-  enPresupuesto Boolean         @default(true) @map("forma_pago_en_presp")
-  /** Con `enPresupuesto`: el PDF muestra el % y una fila por línea. Si no, las líneas van en una sola fila. */
-  incluyeDescuento Boolean      @default(false) @map("forma_pago_en_presp_incluye_desc")
-  /** Si el presupuesto con este descuento imprime «DESCUENTO VÁLIDO ABONANDO CON». */
-  formaPagoValidaDesc Boolean   @default(false) @map("forma_pago_valida_desc")
+  /** Si el presupuesto imprime el recuadro FORMAS DE PAGO y el cartel DESCUENTO VÁLIDO ABONANDO CON. El % del recuadro sale si `descuento` > 0. */
+  enPresupuesto Boolean         @default(true) @map("info_en_presp")
   /** Entero único 1…N. 1 = máxima prioridad. */
   prioridad  Int                @unique(map: "cobro_desc_promo_prioridad_key")
   idMarca    String?            @map("id_marca")

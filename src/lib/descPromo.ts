@@ -164,12 +164,8 @@ export type DescPromoFila = {
   alcanceEtiqueta: string;
   nombre: string;
   descuento: number;
-  /** Entra en el recuadro FORMAS DE PAGO del PDF de presupuesto. */
+  /** Imprime el recuadro FORMAS DE PAGO y el cartel DESCUENTO VÁLIDO ABONANDO CON. */
   enPresupuesto: boolean;
-  /** Si entra, el % va en el recuadro. Si no, las líneas van en una sola fila. */
-  incluyeDescuento: boolean;
-  /** Si el presupuesto con este descuento imprime «DESCUENTO VÁLIDO ABONANDO CON». */
-  formaPagoValidaDesc: boolean;
   prioridad: number;
   idMarca: string | null;
   marcaNombre: string | null;
