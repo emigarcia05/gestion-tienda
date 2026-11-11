@@ -16,7 +16,6 @@ import {
   porcentajeDescuentoLinea,
   pxConDescuento,
   resumenTotalesFactura,
-  textoFormasPagoRestringidasDescPromo,
   totalLineaConDescuento,
   type FacturaDescuentoEstado,
   type FacturaLineaLocal,
@@ -175,17 +174,36 @@ function altoBandaFormasPago(grupos: readonly GrupoCajaFormas[]): number {
 
 type GrupoCajaUbicado = GrupoCajaFormas & { fila: number; columna: number; altoBanda: number };
 
+function pctGrupoCaja(grupo: GrupoCajaFormas): number | null {
+  const n = Number.parseInt(grupo.pct, 10);
+  return grupo.pct.length > 0 && Number.isFinite(n) ? n : null;
+}
+
+/** Mayor % primero, de izquierda a derecha. Sin % (sin descuento) al final. */
+function ordenarGruposCajaFormasPago(grupos: readonly GrupoCajaFormas[]): GrupoCajaFormas[] {
+  return grupos
+    .map((grupo, indice) => ({ grupo, indice }))
+    .sort((a, b) => {
+      const pa = pctGrupoCaja(a.grupo);
+      const pb = pctGrupoCaja(b.grupo);
+      if (pa == null && pb == null) return a.indice - b.indice;
+      if (pa == null) return 1;
+      if (pb == null) return -1;
+      if (pa !== pb) return pb - pa;
+      return a.indice - b.indice;
+    })
+    .map((item) => item.grupo);
+}
+
 function ubicarGruposCajaFormasPago(filas: readonly FilaCajaFormasPago[]): GrupoCajaUbicado[] {
-  const grupos = gruposCajaFormasPago(filas);
+  const grupos = ordenarGruposCajaFormasPago(gruposCajaFormasPago(filas));
   const altoBanda = altoBandaFormasPago(grupos);
-  const filasGrilla = Math.max(1, Math.ceil(grupos.length / FORMAS_COLS));
-  return grupos.map((grupo, indice) => {
-    const fila = Math.floor(indice / FORMAS_COLS);
-    const inicio = fila * FORMAS_COLS;
-    const enFila = Math.min(FORMAS_COLS, grupos.length - inicio);
-    const desplaza = filasGrilla > 1 && fila === filasGrilla - 1 ? FORMAS_COLS - enFila : 0;
-    return { ...grupo, fila, columna: indice - inicio + desplaza, altoBanda };
-  });
+  return grupos.map((grupo, indice) => ({
+    ...grupo,
+    fila: Math.floor(indice / FORMAS_COLS),
+    columna: indice % FORMAS_COLS,
+    altoBanda,
+  }));
 }
 
 function altoFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): number {
@@ -333,8 +351,6 @@ function dibujarBloqueFormasPago(
 }
 
 function formasPagoDescuentoPdf(input: FacturaComprobantePdfInput): string {
-  const vivas = textoFormasPagoRestringidasDescPromo(input.descuento).trim();
-  if (vivas) return vivas;
   return input.formasPagoDescuento?.trim() ?? "";
 }
 
@@ -392,28 +408,31 @@ function dibujarPieTotales(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   const paso = 4.5;
-  const barraH = 2.4 + filas.length * paso;
+  const altoFilas = 2.4 + filas.length * paso;
+  const anchoValores = Math.max(...filas.map((fila) => doc.getTextWidth(fila.valor)));
+  const anchoEtiquetas = Math.max(...filas.map((fila) => doc.getTextWidth(fila.etiqueta)));
+  const etiquetaX = totalColCenterX - anchoValores / 2 - 1.2;
   const formas = esPresupuesto && resumen.hayDescuento ? formasPagoDescuentoPdf(input) : "";
-  const fontMensaje = 9;
-  const pasoMensaje = 4.2;
+  const fontMensaje = 8;
+  const pasoMensaje = 3.8;
+  const padMensajeX = 2.4;
+  const anchoMensaje = Math.max(
+    48,
+    etiquetaX - anchoEtiquetas - MARGIN - padMensajeX - 4
+  );
   let lineasMensaje: string[] = [];
-  let anchoEtiqueta = 0;
-  const etiquetaMensaje = "Descuento válido abonando con: ";
+  const etiquetaMensaje = "DESCUENTO VÁLIDO ABONANDO CON:";
   if (formas) {
-    doc.setFont("VWText", "bold");
-    doc.setFontSize(fontMensaje);
-    anchoEtiqueta = doc.getTextWidth(etiquetaMensaje);
     doc.setFont("VWText", "normal");
-    lineasMensaje = doc.splitTextToSize(
-      formas,
-      Math.max(20, contentWidth - anchoEtiqueta)
-    ) as string[];
+    doc.setFontSize(fontMensaje);
+    lineasMensaje = doc.splitTextToSize(formas, anchoMensaje) as string[];
   }
+  const altoMensaje = lineasMensaje.length > 0 ? (1 + lineasMensaje.length) * pasoMensaje + 3 : 0;
+  const barraH = Math.max(altoFilas, altoMensaje);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  const mensajeH = lineasMensaje.length > 0 ? 4 + lineasMensaje.length * pasoMensaje : 0;
   let y = yInicio + 2;
-  if (y + barraH + mensajeH > yMax) {
+  if (y + barraH > yMax) {
     doc.addPage();
     y = MARGIN;
   }
@@ -421,31 +440,28 @@ function dibujarPieTotales(
   doc.setFillColor(PRIMARY_SOFT.r, PRIMARY_SOFT.g, PRIMARY_SOFT.b);
   doc.rect(MARGIN, y, contentWidth, barraH, "F");
   doc.setTextColor(INK.r, INK.g, INK.b);
-  const anchoMax = Math.max(...filas.map((fila) => doc.getTextWidth(fila.valor)));
-  const etiquetaX = totalColCenterX - anchoMax / 2 - 1.2;
+  const yTotales = y + (barraH - filas.length * paso) / 2 + 2.8;
   filas.forEach((fila, idx) => {
-    const yy = y + 4 + idx * paso;
+    const yy = yTotales + idx * paso;
     doc.text(fila.etiqueta, etiquetaX, yy, { align: "right" });
     doc.text(fila.valor, totalColCenterX, yy, { align: "center" });
   });
-  y += barraH;
 
   if (lineasMensaje.length > 0) {
-    y += 4;
-    doc.setTextColor(INK.r, INK.g, INK.b);
+    const cap = fontMensaje * 0.352778 * 0.72;
+    const altoBloque = (1 + lineasMensaje.length) * pasoMensaje;
+    const yMensaje = y + (barraH - altoBloque) / 2 + pasoMensaje / 2 + cap / 2;
     doc.setFont("VWText", "bold");
     doc.setFontSize(fontMensaje);
-    doc.text(etiquetaMensaje, MARGIN, y);
+    doc.text(etiquetaMensaje, MARGIN + padMensajeX, yMensaje);
     doc.setFont("VWText", "normal");
-    doc.text(lineasMensaje[0] ?? "", MARGIN + anchoEtiqueta, y);
-    if (lineasMensaje.length > 1) {
-      doc.text(lineasMensaje.slice(1), MARGIN, y + pasoMensaje);
-    }
-    y += lineasMensaje.length * pasoMensaje;
+    doc.text(lineasMensaje, MARGIN + padMensajeX, yMensaje + pasoMensaje);
   }
 
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
   doc.setTextColor(INK.r, INK.g, INK.b);
-  return y;
+  return y + barraH;
 }
 
 function letraComprobantePdf(input: FacturaComprobantePdfInput): string {

@@ -168,6 +168,8 @@ export type DescPromoFila = {
   enPresupuesto: boolean;
   /** Si entra, el % va en el recuadro. Si no, las líneas van en una sola fila. */
   incluyeDescuento: boolean;
+  /** Si el presupuesto con este descuento imprime «DESCUENTO VÁLIDO ABONANDO CON». */
+  formaPagoValidaDesc: boolean;
   prioridad: number;
   idMarca: string | null;
   marcaNombre: string | null;
@@ -177,6 +179,8 @@ export type DescPromoFila = {
   formasPago: DescPromoFormaPagoRef[];
   /** Renglones de FORMA DE PAGO EN PRESUPUESTO, en el orden del recuadro. */
   lineasPdf: string[];
+  /** Renglones de DESCUENTO VÁLIDO ABONANDO CON. */
+  lineasValidaDesc: string[];
 };
 
 export type DescPromoItemMatch = {

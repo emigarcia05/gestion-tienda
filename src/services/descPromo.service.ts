@@ -59,6 +59,7 @@ const promoInclude = Prisma.validator<Prisma.DescPromoInclude>()({
     },
   },
   lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
+  lineasValidaDesc: { orderBy: { orden: "asc" }, select: { texto: true } },
   marca: { select: { nombre: true } },
   rubro: { select: { nombre: true } },
 });
@@ -100,6 +101,7 @@ function mapPromo(row: PromoRow): DescPromoFila {
     descuento: row.descuento,
     enPresupuesto: row.enPresupuesto,
     incluyeDescuento: row.incluyeDescuento,
+    formaPagoValidaDesc: row.formaPagoValidaDesc,
     prioridad: row.prioridad,
     idMarca: row.idMarca,
     marcaNombre: row.marca
@@ -141,6 +143,7 @@ function mapPromo(row: PromoRow): DescPromoFila {
         return na.localeCompare(nb, "es");
       }),
     lineasPdf: row.lineasPdf.map((linea) => linea.texto),
+    lineasValidaDesc: row.lineasValidaDesc.map((linea) => linea.texto),
   };
 }
 
@@ -297,6 +300,7 @@ function dataCabecera(input: CrearDescPromoInput) {
     descuento: input.descuento,
     enPresupuesto: input.enPresupuesto,
     incluyeDescuento: input.enPresupuesto && input.incluyeDescuento,
+    formaPagoValidaDesc: input.formaPagoValidaDesc,
     idMarca: ejes.idMarca,
     idRubro: ejes.idRubro,
   };
@@ -304,6 +308,10 @@ function dataCabecera(input: CrearDescPromoInput) {
 
 function dataLineasPdf(input: CrearDescPromoInput) {
   return input.lineasPdf.map((texto, orden) => ({ orden, texto }));
+}
+
+function dataLineasValidaDesc(input: CrearDescPromoInput) {
+  return input.lineasValidaDesc.map((texto, orden) => ({ orden, texto }));
 }
 
 function dataFormasPago(input: CrearDescPromoInput) {
@@ -527,59 +535,32 @@ export async function listarDescPromosEspecialesPorCodigos(
   }
 }
 
-/**
- * Formas con las que es válido el descuento de ese %: las líneas de FORMA DE PAGO EN PRESUPUESTO
- * de los descuentos que incluyen el %, y si no hay, las formas de cobro vinculadas.
- */
+/** Formas del cartel «DESCUENTO VÁLIDO ABONANDO CON» para el % aplicado. */
 export async function textoFormasPagoHabilitadasPorDescuento(
   descuentoPct: number
 ): Promise<string> {
   const pct = Math.round(descuentoPct);
   if (!Number.isFinite(pct) || pct <= 0) return "";
   const rows = await prisma.descPromo.findMany({
-    where: { descuento: pct },
+    where: { descuento: pct, formaPagoValidaDesc: true },
     orderBy: { prioridad: "asc" },
     select: {
-      incluyeDescuento: true,
-      lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
-      formasPago: {
-        orderBy: { id: "asc" },
-        select: {
-          pago: { select: { nombre: true } },
-          cuota: { select: { cuotas: true } },
-        },
-      },
+      lineasValidaDesc: { orderBy: { orden: "asc" }, select: { texto: true } },
     },
   });
   const textos: string[] = [];
   const vistos = new Set<string>();
-  const push = (raw: string) => {
-    const texto = raw.trim();
-    if (!texto) return;
-    const clave = texto.toLocaleUpperCase("es-AR");
-    if (vistos.has(clave)) return;
-    vistos.add(clave);
-    textos.push(texto);
-  };
   for (const row of rows) {
-    if (!row.incluyeDescuento) continue;
-    for (const linea of row.lineasPdf) push(linea.texto);
-  }
-  if (textos.length === 0) {
-    for (const row of rows) {
-      for (const fp of row.formasPago) {
-        push(
-          etiquetaFormaPagoCuotaDescPromo({
-            pagoId: "",
-            nombre: fp.pago.nombre,
-            cuotaId: null,
-            cuotaEtiqueta: fp.cuota?.cuotas ?? null,
-          })
-        );
-      }
+    for (const linea of row.lineasValidaDesc) {
+      const texto = linea.texto.trim();
+      if (!texto) continue;
+      const clave = texto.toLocaleUpperCase("es-AR");
+      if (vistos.has(clave)) continue;
+      vistos.add(clave);
+      textos.push(texto);
     }
   }
-  return textos.join(" · ");
+  return textos.join(" | ");
 }
 
 /** Recuadro del presupuesto: líneas de FORMA DE PAGO EN PRESUPUESTO, agrupadas por %. */
@@ -610,6 +591,10 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
     }
     grupos[actual].formas.push(...formas);
   }
+  grupos.sort((a, b) => {
+    if (a.incluyeDescuento !== b.incluyeDescuento) return a.incluyeDescuento ? -1 : 1;
+    return b.descuento - a.descuento;
+  });
   return grupos;
 }
 
@@ -652,6 +637,7 @@ export async function crearDescPromo(
         },
         formasPago: { create: dataFormasPago(input) },
         lineasPdf: { create: dataLineasPdf(input) },
+        lineasValidaDesc: { create: dataLineasValidaDesc(input) },
       },
       include: promoInclude,
     });
@@ -775,6 +761,12 @@ export async function editarDescPromo(
       if (input.lineasPdf.length > 0) {
         await tx.descPromoLineaPdf.createMany({
           data: dataLineasPdf(input).map((linea) => ({ ...linea, promoId: input.id })),
+        });
+      }
+      await tx.descPromoLineaValidaDesc.deleteMany({ where: { promoId: input.id } });
+      if (input.lineasValidaDesc.length > 0) {
+        await tx.descPromoLineaValidaDesc.createMany({
+          data: dataLineasValidaDesc(input).map((linea) => ({ ...linea, promoId: input.id })),
         });
       }
       const updated = await tx.descPromo.update({

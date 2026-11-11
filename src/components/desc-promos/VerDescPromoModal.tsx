@@ -172,6 +172,23 @@ export default function VerDescPromoModal({ open, onOpenChange, item }: Props) {
                 />
               ) : null}
             </Seccion>
+            <Seccion titulo="DESCUENTO VÁLIDO ABONANDO CON">
+              <LineaLecturaModal
+                etiqueta="SE MUESTRA EN PRESUPUESTOS"
+                valor={item.formaPagoValidaDesc ? "TRUE" : "FALSE"}
+              />
+              {item.lineasValidaDesc.length === 0 ? (
+                <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>
+              ) : (
+                item.lineasValidaDesc.map((linea, indice) => (
+                  <LineaLecturaModal
+                    key={`${indice}-${linea}`}
+                    etiqueta={`LÍNEA (${indice + 1})`}
+                    valor={fmtCelda(linea)}
+                  />
+                ))
+              )}
+            </Seccion>
             <Seccion titulo="FORMA DE PAGO EN PRESUPUESTO">
               {item.lineasPdf.length === 0 ? (
                 <p className="text-sm text-muted-foreground">SIN LÍNEAS.</p>

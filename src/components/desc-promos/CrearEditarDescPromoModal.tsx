@@ -215,6 +215,10 @@ export default function CrearEditarDescPromoModal({
   const [incluyeDescuento, setIncluyeDescuento] = useState(
     () => (item?.enPresupuesto ? item.incluyeDescuento : false)
   );
+  const [lineasValidaDesc, setLineasValidaDesc] = useState<string[]>(
+    () => (item?.lineasValidaDesc.length ? [...item.lineasValidaDesc] : [""])
+  );
+  const [formaPagoValidaDesc, setFormaPagoValidaDesc] = useState(item?.formaPagoValidaDesc ?? false);
   const [cuotaIdsPorPago, setCuotaIdsPorPago] = useState<Record<string, string[]>>(
     () => cuotaIdsPorPagoDesdeItem(item)
   );
@@ -381,6 +385,8 @@ export default function CrearEditarDescPromoModal({
       enPresupuesto,
       incluyeDescuento: enPresupuesto && incluyeDescuento,
       lineasPdf: lineasPdf.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
+      formaPagoValidaDesc,
+      lineasValidaDesc: lineasValidaDesc.map((linea) => linea.trim()).filter((linea) => linea.length > 0),
       idMarca: pideMarca ? idMarca : null,
       idRubro: pideRubro ? idRubro : null,
       codTiendas: pideItems ? codTiendas : [],
@@ -611,6 +617,53 @@ export default function CrearEditarDescPromoModal({
               className="self-start"
               disabled={saving || lineasPdf.length >= 30}
               onClick={() => setLineasPdf((prev) => [...prev, ""])}
+            >
+              <Plus aria-hidden />
+              Nueva Línea
+            </Button>
+          </section>
+          <section className="flex flex-col gap-3 rounded-md border border-primary p-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-foreground">
+              DESCUENTO VÁLIDO ABONANDO CON
+            </p>
+            <ModalSiNoChoice
+              className="w-full"
+              label="SE MUESTRA EN PRESUPUESTOS"
+              value={formaPagoValidaDesc}
+              onChange={setFormaPagoValidaDesc}
+              disabled={saving}
+            />
+            {lineasValidaDesc.map((linea, indice) => (
+              <div key={indice} className="flex items-center gap-2">
+                <Input
+                  value={linea}
+                  maxLength={120}
+                  disabled={saving}
+                  aria-label={`Línea ${indice + 1} de DESCUENTO VÁLIDO ABONANDO CON`}
+                  onChange={(event) =>
+                    setLineasValidaDesc((prev) =>
+                      prev.map((actual, i) => (i === indice ? event.target.value : actual))
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Quitar línea"
+                  disabled={saving || lineasValidaDesc.length === 1}
+                  onClick={() => setLineasValidaDesc((prev) => prev.filter((_, i) => i !== indice))}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              disabled={saving || lineasValidaDesc.length >= 30}
+              onClick={() => setLineasValidaDesc((prev) => [...prev, ""])}
             >
               <Plus aria-hidden />
               Nueva Línea

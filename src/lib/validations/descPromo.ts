@@ -69,7 +69,17 @@ const camposDescPromoSchema = z.object({
   descuento: descuentoDescPromoSchema,
   enPresupuesto: z.boolean(),
   incluyeDescuento: z.boolean(),
+  formaPagoValidaDesc: z.boolean(),
   lineasPdf: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, "Escribí el texto.")
+        .max(120, "Cada línea tiene hasta 120 caracteres.")
+    )
+    .max(30, "Hay demasiadas líneas."),
+  lineasValidaDesc: z
     .array(
       z
         .string()

@@ -74,7 +74,6 @@ import {
   porcentajeDescuentoLinea,
   totalLineaConDescuento,
   resumenTotalesFactura,
-  textoFormasPagoRestringidasDescPromo,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaComprobanteEstado,
   type FacturaDescuentoEstado,
@@ -1746,9 +1745,7 @@ async function emitirFacturaComprobanteSegunTipo(
       : null;
   const descFormasPago =
     input.tipo === "presupuesto"
-      ? textoFormasPagoRestringidasDescPromo(input.descuento ?? null).trim() ||
-        (await textoFormasPagoHabilitadasPorDescuento(resumen.descPctPromedio)).trim() ||
-        null
+      ? (await textoFormasPagoHabilitadasPorDescuento(resumen.descPctPromedio)).trim() || null
       : null;
 
   if (!fiscal) {
