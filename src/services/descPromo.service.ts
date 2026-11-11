@@ -431,7 +431,7 @@ async function siguientePrioridad(): Promise<number> {
 
 async function compactarPrioridad(): Promise<void> {
   await prisma.$executeRaw`
-    UPDATE desc_promo SET prioridad = prioridad + 100000
+    UPDATE cobro_desc_promo SET prioridad = prioridad + 100000
   `;
   await prisma.$executeRaw`
     UPDATE desc_promo AS d

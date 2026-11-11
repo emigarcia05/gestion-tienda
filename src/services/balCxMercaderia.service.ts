@@ -144,8 +144,8 @@ async function lotesConSaldoParaVenta(
   >`
     SELECT i.promo_id, i.cod_tienda,
            (i.cantidad - i.cantidad_consumida) AS saldo, i.costo_unitario
-    FROM desc_promo_items i
-    INNER JOIN desc_promo d ON d.id = i.promo_id
+    FROM cobro_desc_promo_items i
+    INNER JOIN cobro_desc_promo d ON d.id = i.promo_id
     WHERE d.categoria = 'STOCK'
       AND i.cod_tienda IN (${Prisma.join([...codItems])})
       AND i.cantidad IS NOT NULL
@@ -174,7 +174,7 @@ async function moverConsumoLote(
 ): Promise<void> {
   if (delta === 0) return;
   await tx.$executeRaw`
-    UPDATE desc_promo_items
+    UPDATE cobro_desc_promo_items
     SET cantidad_consumida = LEAST(cantidad, GREATEST(0, cantidad_consumida + ${delta}))
     WHERE promo_id = ${descPromoId}
       AND cod_tienda = ${codItem}
