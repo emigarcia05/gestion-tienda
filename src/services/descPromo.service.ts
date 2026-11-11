@@ -434,11 +434,11 @@ async function compactarPrioridad(): Promise<void> {
     UPDATE cobro_desc_promo SET prioridad = prioridad + 100000
   `;
   await prisma.$executeRaw`
-    UPDATE desc_promo AS d
+    UPDATE cobro_desc_promo AS d
     SET prioridad = s.rn
     FROM (
       SELECT id, ROW_NUMBER() OVER (ORDER BY prioridad ASC, id ASC) AS rn
-      FROM desc_promo
+      FROM cobro_desc_promo
     ) AS s
     WHERE d.id = s.id
   `;
@@ -713,7 +713,7 @@ export async function editarDescPromo(
       >`
         SELECT i.cod_tienda, i.cantidad_consumida, i.costo_tipo::text AS costo_tipo,
                i.costo_base, p.descripcion
-        FROM desc_promo_items i
+        FROM cobro_desc_promo_items i
         INNER JOIN prod_lista p ON p.cod_tienda = i.cod_tienda
         WHERE i.promo_id = ${input.id}
         FOR UPDATE OF i
