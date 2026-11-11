@@ -106,11 +106,11 @@ const FORMAS_SEP = 1.2;
 /** Alto mínimo de un descuento con % para que quepan el número y «Desc.». */
 const FORMAS_PCT_MIN = 7.6;
 const FORMAS_FONT_TITULO = 7.8;
+/** Texto de cada forma de pago, con % o sin él. */
 const FORMAS_FONT_PCT = 8;
-/** El número del descuento: 50 % más que `FORMAS_FONT_PCT`. La fila sin % sigue en 8 pt. */
+/** El número del descuento: 50 % más que el texto de las formas. */
 const FORMAS_FONT_NUMERO = 12;
 const FORMAS_FONT_DESC = 5.5;
-const FORMAS_FONT_TEXTO = 5;
 const FORMAS_FONT_TEXTO_MIN = 3.25;
 const FORMAS_ETIQUETA_DESC = "Desc.";
 const FORMAS_COLS = 3;
@@ -213,6 +213,34 @@ function altoFilasCajaFormasPago(filas: readonly FilaCajaFormasPago[]): number {
   return filasGrilla * altoBandaFormasPago(grupos) + Math.max(0, filasGrilla - 1) * FORMAS_SEP;
 }
 
+/** Misma negrita y el mismo paso entre líneas para todas las formas de pago. */
+function ajustarFuenteLineasFormaPago(doc: jsPDF, textos: readonly string[], anchoMax: number): number {
+  doc.setFont("VWText", "bold");
+  let size = FORMAS_FONT_PCT;
+  doc.setFontSize(size);
+  while (size > FORMAS_FONT_TEXTO_MIN && textos.some((texto) => doc.getTextWidth(texto) > anchoMax)) {
+    size -= 0.25;
+    doc.setFontSize(size);
+  }
+  return size;
+}
+
+function dibujarTextosFormaPago(
+  doc: jsPDF,
+  textos: readonly string[],
+  x: number,
+  yPila: number,
+  size: number,
+  align: "left" | "center"
+): void {
+  const cap = size * 0.352778 * 0.72;
+  doc.setFont("VWText", "bold");
+  doc.setFontSize(size);
+  textos.forEach((texto, indice) => {
+    doc.text(texto, x, yPila + indice * FORMAS_FILA_H + FORMAS_FILA_H / 2 + cap / 2, { align });
+  });
+}
+
 function dibujarCabezalPie(doc: jsPDF, y: number, contentWidth: number, titulo: string): void {
   doc.setFillColor(PRIMARY.r, PRIMARY.g, PRIMARY.b);
   doc.rect(MARGIN, y, contentWidth, FORMAS_TITULO_H, "F");
@@ -289,25 +317,11 @@ function dibujarBloqueFormasPago(
     if (grupo.centrada) {
       const textos = grupo.textos.filter((texto) => texto.length > 0);
       if (textos.length === 0) continue;
-      doc.setFont("VWText", "bold");
-      let size = FORMAS_FONT_PCT;
       const maxTexto = Math.max(8, colSlot - FORMAS_PAD_X * 2);
-      doc.setFontSize(size);
-      while (
-        size > FORMAS_FONT_TEXTO_MIN &&
-        textos.some((texto) => doc.getTextWidth(texto) > maxTexto)
-      ) {
-        size -= 0.25;
-        doc.setFontSize(size);
-      }
-      const cap = size * 0.352778 * 0.72;
+      const size = ajustarFuenteLineasFormaPago(doc, textos, maxTexto);
       const altoPila = textos.length * FORMAS_FILA_H;
       const yPila = yBanda + (altoBanda - altoPila) / 2;
-      textos.forEach((texto, indice) => {
-        doc.text(texto, xCol + colSlot / 2, yPila + indice * FORMAS_FILA_H + FORMAS_FILA_H / 2 + cap / 2, {
-          align: "center",
-        });
-      });
+      dibujarTextosFormaPago(doc, textos, xCol + colSlot / 2, yPila, size, "center");
       continue;
     }
     const cantidad = Math.max(1, grupo.textos.length);
@@ -318,8 +332,7 @@ function dibujarBloqueFormasPago(
     const yPila = centro - altoPila / 2;
     const gap = 3;
     const maxOpcion = Math.max(8, colSlot - FORMAS_PAD_X * 2 - anchoPct - gap);
-    doc.setFont("VWText", "normal");
-    doc.setFontSize(FORMAS_FONT_TEXTO);
+    const sizeTexto = ajustarFuenteLineasFormaPago(doc, grupo.textos, maxOpcion);
     let anchoTexto = 0;
     for (const texto of grupo.textos) {
       anchoTexto = Math.max(anchoTexto, doc.getTextWidth(texto));
@@ -328,19 +341,7 @@ function dibujarBloqueFormasPago(
     const anchoBloqueX = anchoPct + gap + anchoUsado;
     const xBloque = xCol + Math.max(FORMAS_PAD_X, (colSlot - anchoBloqueX) / 2);
     const xOpcion = xBloque + anchoPct + gap;
-    grupo.textos.forEach((texto, indice) => {
-      doc.setFont("VWText", "normal");
-      let size = FORMAS_FONT_TEXTO;
-      doc.setFontSize(size);
-      while (size > FORMAS_FONT_TEXTO_MIN && doc.getTextWidth(texto) > maxOpcion) {
-        size -= 0.25;
-        doc.setFontSize(size);
-      }
-      const cap = size * 0.352778 * 0.72;
-      doc.text(texto, xOpcion, yPila + indice * FORMAS_FILA_H + FORMAS_FILA_H / 2 + cap / 2, {
-        align: "left",
-      });
-    });
+    dibujarTextosFormaPago(doc, grupo.textos, xOpcion, yPila, sizeTexto, "left");
     if (!grupo.pct) continue;
     const baselinePct = centro - altoPar / 2 + capNum;
     doc.setFont("VWText", "bold");
