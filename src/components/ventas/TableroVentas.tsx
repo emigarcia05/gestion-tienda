@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fmtPrecio } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { hrefCuentaCorrienteCliente } from "@/lib/facturacionRoutes";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -47,14 +48,21 @@ function textoComparacion(comparacion: ComparacionVentas, referencia: string): s
 function LineaComparacion({
   comparacion,
   referencia,
+  className,
 }: {
   comparacion: ComparacionVentas;
   referencia: string;
+  className?: string;
 }) {
   const Icono = comparacion.sentido === "menos" ? ArrowDown : ArrowUp;
   const muestraFlecha = comparacion.sentido === "menos" || comparacion.sentido === "mas";
   return (
-    <span className="mb-[0.35rem] inline-flex items-center justify-center gap-1 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide">
+    <span
+      className={cn(
+        "inline-flex items-center justify-center gap-1 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide",
+        className
+      )}
+    >
       {muestraFlecha ? <Icono className="h-2.5 w-2.5 shrink-0" aria-hidden /> : null}
       {textoComparacion(comparacion, referencia)}
     </span>
@@ -82,7 +90,11 @@ function TarjetaPeriodo({
       </span>
       <span className="text-[1.05rem] font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
       <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
-      <LineaComparacion comparacion={montos.comparacionPromedio} referencia="el promedio" />
+      <LineaComparacion
+        comparacion={montos.comparacionPromedio}
+        referencia="el promedio"
+        className="mb-[0.35rem]"
+      />
       <span className="text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
         {textoCobrado(montos.pctCobrado)}
       </span>

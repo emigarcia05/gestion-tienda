@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { FilaFormaPagoPresupuestoPdf } from "@/lib/facturaFormasPagoPdf";
+import type { DescuentoMensajePresupuesto } from "@/lib/mensajeWhatsappPresupuesto";
 import { prisma } from "@/lib/prisma";
 import { cantidadDesdePrisma, fmtCantidad } from "@/lib/cantidadUnDecimal";
 import {
@@ -8,6 +9,7 @@ import {
   ETIQUETA_CATEGORIA_DESC_PROMO,
   etiquetaAlcanceDescPromo,
   etiquetaFormaPagoCuotaDescPromo,
+  lineasEtiquetaCuotaDescPromo,
   type DescPromoEspecialFactura,
   type DescPromoFila,
   type DescPromoLoteRef,
@@ -591,6 +593,43 @@ export async function listarFormasPagoPresupuesto(): Promise<FilaFormaPagoPresup
     return b.descuento - a.descuento;
   });
   return grupos;
+}
+
+function cuotaNumericaMensaje(etiqueta: string | null): number | null {
+  const n = Number.parseInt(lineasEtiquetaCuotaDescPromo(etiqueta).linea1, 10);
+  return Number.isFinite(n) && n > 1 ? n : null;
+}
+
+/** Descuentos con SE MUESTRA EN PRESUPUESTOS, para el mensaje de WhatsApp. */
+export async function listarDescuentosMensajePresupuesto(): Promise<DescuentoMensajePresupuesto[]> {
+  const rows = await prisma.descPromo.findMany({
+    where: { enPresupuesto: true },
+    orderBy: [{ descuento: "desc" }, { prioridad: "asc" }],
+    select: {
+      descuento: true,
+      lineasPdf: { orderBy: { orden: "asc" }, select: { texto: true } },
+      lineasValidaDesc: { orderBy: { orden: "asc" }, select: { texto: true } },
+      formasPago: { select: { cuota: { select: { cuotas: true } } } },
+    },
+  });
+  return rows.map((row) => {
+    const cuotas: number[] = [];
+    if (row.descuento <= 0) {
+      const vistos = new Set<number>();
+      for (const forma of row.formasPago) {
+        const cuota = cuotaNumericaMensaje(forma.cuota?.cuotas ?? null);
+        if (cuota == null || vistos.has(cuota)) continue;
+        vistos.add(cuota);
+        cuotas.push(cuota);
+      }
+    }
+    return {
+      descuento: row.descuento,
+      abonandoCon: row.lineasValidaDesc.map((linea) => linea.texto.trim()).filter((texto) => texto.length > 0),
+      lineasFormaPago: row.lineasPdf.map((linea) => linea.texto.trim()).filter((texto) => texto.length > 0),
+      cuotas,
+    };
+  });
 }
 
 export async function listarDescPromosPorFormaPago(): Promise<DescPromoFila[]> {

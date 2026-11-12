@@ -20,7 +20,10 @@ import {
   obtenerClienteFacturaAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
-import { listarFormasPagoPresupuestoAction } from "@/actions/descPromo";
+import {
+  listarDescuentosMensajePresupuestoAction,
+  listarFormasPagoPresupuestoAction,
+} from "@/actions/descPromo";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import CrearEditarClienteModal from "@/components/envios/CrearEditarClienteModal";
 import CrearEditarEnviosDireccionModal from "@/components/envios/CrearEditarEnviosDireccionModal";
@@ -70,6 +73,7 @@ import {
   descuentoEstadoParaEmitir,
   porcentajeDescuentoGlobal,
   porcentajeDescuentoLinea,
+  resumenTotalesFactura,
   type FacturaClase,
   type FacturaComprobanteDuplicarBorrador,
   type FacturaCondicionFiscal,
@@ -98,6 +102,7 @@ import {
   formatIsoYmdDdMmYyyyArgentina,
 } from "@/lib/fechaArgentina";
 import { fmtPrecio } from "@/lib/format";
+import { mensajeWhatsappPresupuesto } from "@/lib/mensajeWhatsappPresupuesto";
 import { grupoFacturaPorReceptor, mensajePtoVtaFacturaSinConfigurar } from "@/lib/ptoVtaFactura";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
@@ -675,6 +680,27 @@ export default function FacturaCrearPageClient({
     setNroComprobante(res.data.nroComprobante);
     if (res.data.cae) {
       toast.success(`CAE ${res.data.cae}`);
+    } else if (draft.tipo === "presupuesto") {
+      const descuentos = await listarDescuentosMensajePresupuestoAction();
+      const total = resumenTotalesFactura(draft.lineas, draft.descuento).totalConDesc;
+      const mensaje = descuentos.ok
+        ? mensajeWhatsappPresupuesto({
+            nroComprobante: res.data.nroComprobante,
+            total,
+            descuentos: descuentos.data,
+          })
+        : "";
+      let copiado = false;
+      if (mensaje) {
+        try {
+          await navigator.clipboard.writeText(mensaje);
+          copiado = true;
+        } catch {
+          copiado = false;
+        }
+      }
+      toast.success(copiado ? "Comprobante guardado. Mensaje copiado." : "Comprobante guardado.");
+      if (!copiado) toast.error("No se pudo copiar el mensaje de WhatsApp.");
     } else {
       toast.success("Comprobante guardado.");
     }

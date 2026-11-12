@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Truck, Undo2 } from "lucide-react";
+import { ClipboardCopy, Copy, CircleDollarSign, Eye, FilePlus2, FileText, Loader2, Stamp, Trash2, Truck, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   convertirComprobanteNoFiscalEnFiscalAction,
   eliminarComprobanteNoFiscalAction,
   obtenerFacturaComprobantePdfAction,
 } from "@/actions/factura";
+import { listarDescuentosMensajePresupuestoAction } from "@/actions/descPromo";
 import { listarCatalogoWizardEnvioAction } from "@/actions/envios";
 import FilterBar, {
   FILTER_SELECT_WRAPPER_CLASS,
@@ -66,6 +67,7 @@ import {
 } from "@/lib/fechaArgentina";
 import { ultimosDigitosNroComprobante } from "@/lib/facturaFiscal";
 import { fmtCelda, fmtPrecio } from "@/lib/format";
+import { mensajeWhatsappPresupuesto } from "@/lib/mensajeWhatsappPresupuesto";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import { EVENTO_USUARIO_SESION, leerUsuarioSesion } from "@/lib/usuarioSesion";
 import { useAplicarSucursalPreferidaSiVacia } from "@/lib/hooks/useAplicarSucursalPreferidaSiVacia";
@@ -377,6 +379,26 @@ export default function FacturaListadoPageClient({
         clase: variant === "facturas" ? "venta" : "presupuesto",
       })
     );
+  }
+
+  async function copiarMensajePresupuesto(item: FacturaComprobanteListItem) {
+    const descuentos = await listarDescuentosMensajePresupuestoAction();
+    if (!descuentos.ok) {
+      toast.error(descuentos.error);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(
+        mensajeWhatsappPresupuesto({
+          nroComprobante: item.nroComprobante,
+          total: item.impTotal,
+          descuentos: descuentos.data,
+        })
+      );
+      toast.success("Mensaje copiado.");
+    } catch {
+      toast.error("No se pudo copiar el mensaje.");
+    }
   }
 
   function irNotaCredito(id: string) {
@@ -901,6 +923,20 @@ export default function FacturaListadoPageClient({
                       >
                         <FileText className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
                       </Button>
+                      {esFacturas ? null : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                          title="Copiar mensaje"
+                          aria-label={`Copiar mensaje ${item.nroComprobante}`}
+                          disabled={busyId === item.id}
+                          onClick={() => void copiarMensajePresupuesto(item)}
+                        >
+                          <ClipboardCopy className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"

@@ -23,10 +23,12 @@ import {
   eliminarDescPromo,
   listarDescPromos,
   listarDescPromosPorFormaPago,
+  listarDescuentosMensajePresupuesto,
   listarFormasPagoPresupuesto,
   moverPrioridadDescPromo,
 } from "@/services/descPromo.service";
 import type { FilaFormaPagoPresupuestoPdf } from "@/lib/facturaFormasPagoPdf";
+import type { DescuentoMensajePresupuesto } from "@/lib/mensajeWhatsappPresupuesto";
 
 function revalidateDescPromos() {
   revalidatePath(DESC_PROMOS_PATH);
@@ -57,6 +59,23 @@ export async function listarFormasPagoPresupuestoAction(): Promise<
   } catch (e) {
     console.error("[listarFormasPagoPresupuestoAction]", e);
     return { ok: false, error: "No se pudieron listar las formas de pago del presupuesto." };
+  }
+}
+
+/** Descuentos que arman el mensaje de WhatsApp del presupuesto. */
+export async function listarDescuentosMensajePresupuestoAction(): Promise<
+  ActionResult<DescuentoMensajePresupuesto[]>
+> {
+  const facturacion = await requireFacturacionLectura();
+  if (facturacion) {
+    const descuentos = await requireDescPromosLectura();
+    if (descuentos) return descuentos;
+  }
+  try {
+    return { ok: true, data: await listarDescuentosMensajePresupuesto() };
+  } catch (e) {
+    console.error("[listarDescuentosMensajePresupuestoAction]", e);
+    return { ok: false, error: "No se pudieron listar los descuentos del presupuesto." };
   }
 }
 
