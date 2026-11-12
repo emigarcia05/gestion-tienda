@@ -19,6 +19,8 @@ import {
 } from "@/lib/fechaArgentina";
 import { prisma } from "@/lib/prisma";
 import { sucursalCodigoSesion } from "@/services/facturaSucursalAutorizada.service";
+import { getProveedoresConPedidoActivo } from "@/services/pedidosEnvio.service";
+import { TIPOS_PEDIDO } from "@/lib/pedidos";
 import {
   mapaSucursalIdPorCodigo,
   SELECT_SUCURSAL_VENTA,
@@ -121,6 +123,18 @@ export interface TableroVentasDatos {
   /** GLOBAL y cada sucursal. Siempre 12 meses, de enero a diciembre. */
   seriesMeses: TableroVentasSerieMes[];
   clientesVencidos: TableroVentasClienteVencido[];
+  /** Envíos de la sucursal con fecha de hoy y sin entregar. */
+  enviosPendientesHoy: number;
+  /** Una línea por proveedor y tipo con cantidad a pedir mayor a 0. */
+  pedidosGeneracion: TableroPendienteLinea[];
+  /** Un renglón por pedido emitido (ABIERTO) todavía sin recepcionar. */
+  pedidosRecepcion: TableroPendienteLinea[];
+}
+
+/** Renglón de los recuadros de pendientes del tablero. */
+export interface TableroPendienteLinea {
+  id: string;
+  etiqueta: string;
 }
 
 function redondear2(n: number): number {
@@ -166,6 +180,82 @@ function mesesDelAnio(
       proyectado: null,
     };
   });
+}
+
+const ORDEN_TIPO_PEDIDO = ["URGENTE", "TINTOMETRICO", "REPOSICION", "A FÁBRICA"] as const;
+
+function etiquetaTipoPedidoTablero(tipo: string): string {
+  if (tipo === "TINTOMETRICO") return "TINTOMÉTRICO";
+  if (tipo === "REPOSICION") return "REPOSICIÓN";
+  return tipo;
+}
+
+function etiquetaProveedorTablero(nombre: string, prefijo: string): string {
+  const pref = prefijo.trim();
+  const nom = nombre.trim();
+  const base = pref.length > 0 ? `[${pref}] ${nom}` : nom;
+  return base.toLocaleUpperCase("es");
+}
+
+function pendientesVacios(): {
+  enviosPendientesHoy: number;
+  pedidosGeneracion: TableroPendienteLinea[];
+  pedidosRecepcion: TableroPendienteLinea[];
+} {
+  return { enviosPendientesHoy: 0, pedidosGeneracion: [], pedidosRecepcion: [] };
+}
+
+/** Envíos de hoy y pedidos por generar o recepcionar, de la sucursal del usuario. */
+async function cargarPendientesTablero(
+  codigo: string | null,
+  sucursalId: string | undefined,
+  hoy: Date
+): Promise<{
+  enviosPendientesHoy: number;
+  pedidosGeneracion: TableroPendienteLinea[];
+  pedidosRecepcion: TableroPendienteLinea[];
+}> {
+  if (!codigo || !sucursalId) return pendientesVacios();
+  try {
+    const [enviosPendientesHoy, recepcion, proveedores] = await Promise.all([
+      prisma.enviosFinal.count({
+        where: { sucursalId, entregado: false, fechaEnvio: hoy },
+      }),
+      prisma.pedidoHistoria.findMany({
+        where: { sucursalId, estado: "ABIERTO" },
+        orderBy: { generadoAt: "desc" },
+        select: { id: true, proveedor: { select: { nombre: true } } },
+      }),
+      getProveedoresConPedidoActivo({
+        sucursalCodigo: codigo,
+        tipos: [...TIPOS_PEDIDO],
+      }),
+    ]);
+    const pedidosGeneracion = proveedores.flatMap((proveedor) => {
+      const nombre = etiquetaProveedorTablero(proveedor.nombre, proveedor.prefijo);
+      return [...proveedor.tipos]
+        .sort(
+          (a, b) =>
+            ORDEN_TIPO_PEDIDO.indexOf(a as (typeof ORDEN_TIPO_PEDIDO)[number]) -
+            ORDEN_TIPO_PEDIDO.indexOf(b as (typeof ORDEN_TIPO_PEDIDO)[number])
+        )
+        .map((tipo) => ({
+          id: `${proveedor.id}:${tipo}`,
+          etiqueta: `${nombre} - ${etiquetaTipoPedidoTablero(tipo)}`,
+        }));
+    });
+    return {
+      enviosPendientesHoy,
+      pedidosGeneracion,
+      pedidosRecepcion: recepcion.map((pedido) => ({
+        id: pedido.id,
+        etiqueta: (pedido.proveedor?.nombre ?? "").trim().toLocaleUpperCase("es"),
+      })),
+    };
+  } catch (error) {
+    console.error("[tableroVentas][pendientes]", error);
+    return pendientesVacios();
+  }
 }
 
 function montosVacios(): TableroVentasMontos {
@@ -257,6 +347,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const sucursalNombre =
       sucursales.find((s) => s.codigo.trim().toLowerCase() === codigo)?.nombre.toLocaleUpperCase("es") ??
       null;
+    const pendientesPromise = cargarPendientesTablero(codigo, sucursalId, desdeDia);
 
     const ventasPromise =
       desdeMesVentas < hastaMes
@@ -541,6 +632,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
       return a.nombre.localeCompare(b.nombre, "es");
     });
+    const pendientes = await pendientesPromise;
 
     return {
       success: true,
@@ -581,6 +673,9 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         participacionSucursales,
         seriesMeses,
         clientesVencidos,
+        enviosPendientesHoy: pendientes.enviosPendientesHoy,
+        pedidosGeneracion: pendientes.pedidosGeneracion,
+        pedidosRecepcion: pendientes.pedidosRecepcion,
       },
     };
   } catch (error) {
@@ -608,5 +703,8 @@ export function tableroVentasVacio(): TableroVentasDatos {
       },
     ],
     clientesVencidos: [],
+    enviosPendientesHoy: 0,
+    pedidosGeneracion: [],
+    pedidosRecepcion: [],
   };
 }

@@ -14,6 +14,7 @@ import {
 import { fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { hrefCuentaCorrienteCliente } from "@/lib/facturacionRoutes";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import {
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
@@ -24,6 +25,7 @@ import ParticipacionTablero from "@/components/ventas/ParticipacionTablero";
 import type { VistaTablero } from "@/lib/usuarios";
 import type {
   ComparacionVentas,
+  TableroPendienteLinea,
   TableroVentasDatos,
   TableroVentasMontos,
 } from "@/services/tableroVentas.service";
@@ -102,6 +104,63 @@ function TarjetaPeriodo({
   );
 }
 
+const RECUADRO_PENDIENTE_CLASS =
+  "flex min-h-0 flex-col gap-1 overflow-hidden rounded-md border border-border bg-card p-2";
+
+function ListaPendientes({
+  titulo,
+  lineas,
+}: {
+  titulo: string;
+  lineas: TableroPendienteLinea[];
+}) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-col gap-1">
+      <p className="shrink-0 text-[10px] font-bold uppercase tracking-wide">{titulo}</p>
+      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
+        {lineas.length === 0 ? (
+          <li className="text-xs text-muted-foreground">Sin pendientes</li>
+        ) : (
+          lineas.map((linea) => (
+            <li key={linea.id} className="truncate text-xs font-semibold" title={linea.etiqueta}>
+              {linea.etiqueta}
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function PendientesSucursalTablero({
+  envios,
+  generacion,
+  recepcion,
+}: {
+  envios: number;
+  generacion: TableroPendienteLinea[];
+  recepcion: TableroPendienteLinea[];
+}) {
+  return (
+    <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,4fr)] gap-2 overflow-hidden">
+      <div className={cn(RECUADRO_PENDIENTE_CLASS, "flex-row items-center justify-between")}>
+        <h3 className="text-xs font-bold uppercase tracking-wide">Envíos pendientes</h3>
+        <p className="text-xl font-bold tabular-nums leading-none">{envios}</p>
+        <Button asChild size="sm" variant="outline">
+          <Link href={GP_ROUTES.envios.programados}>Programados</Link>
+        </Button>
+      </div>
+      <div className={RECUADRO_PENDIENTE_CLASS}>
+        <h3 className="shrink-0 text-xs font-bold uppercase tracking-wide">Pedidos pendientes</h3>
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
+          <ListaPendientes titulo="Pendiente de generación" lineas={generacion} />
+          <ListaPendientes titulo="Pendiente de recepción" lineas={recepcion} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MetricasVentas({ montos }: { montos: { dia: TableroVentasMontos; mes: TableroVentasMontos } }) {
   return (
     <div className="grid w-full shrink-0 grid-cols-2 gap-3">
@@ -132,9 +191,19 @@ export default function TableroVentas({
         <section className="flex min-h-0 flex-1 flex-col gap-2" aria-label={tituloSucursal}>
           <h2 className={TITULO_SECCION_CLASS}>{tituloSucursal}</h2>
           <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
-            <div className="flex min-h-0 min-w-0 flex-col gap-2">
+            <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden">
               <MetricasVentas montos={datos.sucursal} />
-              <GraficoMesesTablero series={datos.seriesMeses} />
+              {vista === "vendedor" ? (
+                <div className="flex h-full min-h-0 flex-col">
+                  <GraficoMesesTablero series={datos.seriesMeses} />
+                </div>
+              ) : (
+                <PendientesSucursalTablero
+                  envios={datos.enviosPendientesHoy}
+                  generacion={datos.pedidosGeneracion}
+                  recepcion={datos.pedidosRecepcion}
+                />
+              )}
             </div>
             <div className="flex min-h-0 flex-col">
               <div className="contenedor-tabla-gestion min-h-0 flex-1" aria-label="Clientes con saldos vencidos">
@@ -195,6 +264,9 @@ export default function TableroVentas({
             <div className="flex min-h-0 min-w-0 flex-col gap-2">
               <MetricasVentas montos={datos.globales} />
               <ParticipacionTablero filas={datos.participacionSucursales} />
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-col">
+              <GraficoMesesTablero series={datos.seriesMeses} />
             </div>
           </div>
         </section>
