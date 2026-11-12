@@ -11,13 +11,13 @@ export type DescuentoMensajePresupuesto = {
   cuotas: readonly number[];
 };
 
-/** Nº del comprobante, sin punto de venta y con al menos 2 dígitos. */
+/** Nº del comprobante, sin punto de venta y con al menos 3 dígitos. */
 export function nroPresupuestoMensaje(nroComprobante: string): string {
   const parte = nroComprobante.includes("-")
     ? nroComprobante.slice(nroComprobante.lastIndexOf("-") + 1)
     : nroComprobante;
   const digits = parte.replace(/\D/g, "").replace(/^0+/, "") || "0";
-  return digits.padStart(2, "0");
+  return digits.padStart(3, "0");
 }
 
 function pesosMensaje(n: number): string {
@@ -51,12 +51,21 @@ function cuotasEnTexto(linea: string): number | null {
   return Number.isFinite(n) && n > 1 ? n : null;
 }
 
+/** «EFECTIVO, TRANSFERENCIA O DÉBITO». */
+function listaO(medios: readonly string[]): string {
+  const formas = unicos(medios).map((medio) => medio.toLocaleUpperCase("es-AR"));
+  if (formas.length <= 1) return formas[0] ?? "";
+  if (formas.length === 2) return `${formas[0]} O ${formas[1]}`;
+  return `${formas.slice(0, -1).join(", ")} O ${formas[formas.length - 1]}`;
+}
+
 function bloqueConDescuento(pct: number, medios: readonly string[], total: number): string[] {
-  const formas = unicos(medios);
-  if (formas.length === 0) return [];
+  const formas = listaO(medios);
+  if (!formas) return [];
+  const conDescuento = total * (1 - pct / 100);
   return [
-    `${pct}% de descuento abonando con ${formas.join(" / ")}`,
-    `Total con descuento ${pesosMensaje(total * (1 - pct / 100))}`,
+    `PAGANDO EN ${formas} TENÉS UN ${pct}% DE DESCUENTO:`,
+    `➡️ *${pesosMensaje(conDescuento)}*`,
   ];
 }
 
@@ -68,7 +77,6 @@ export function mensajeWhatsappPresupuesto(input: {
 }): string {
   const porPct = new Map<number, { abonando: string[]; lineas: string[] }>();
   const cuotas = new Set<number>();
-  const otros: string[] = [];
 
   for (const descuento of input.descuentos) {
     if (descuento.descuento > 0) {
@@ -84,7 +92,6 @@ export function mensajeWhatsappPresupuesto(input: {
     for (const linea of textos(descuento.lineasFormaPago)) {
       const cuota = cuotasEnTexto(linea);
       if (cuota != null) cuotas.add(cuota);
-      else otros.push(linea);
     }
   }
 
@@ -102,17 +109,17 @@ export function mensajeWhatsappPresupuesto(input: {
   const cuotasOrden = [...cuotas].sort((a, b) => a - b);
   if (cuotasOrden.length > 0) {
     bloques.push([
-      "Cuotas sin interés",
-      ...cuotasOrden.map((cuota) => `${cuota} Cuotas de ${pesosMensaje(input.total / cuota)}`),
+      "PAGANDO EN CUOTAS:",
+      ...cuotasOrden.map(
+        (cuota) => `➡️ ${cuota} cuotas sin interés de *${pesosMensaje(input.total / cuota)}*`
+      ),
     ]);
   }
-  const sueltos = unicos(otros);
-  if (sueltos.length > 0) bloques.push(sueltos);
 
-  const cabeza = [
-    `El presupuesto Nº${nroPresupuestoMensaje(input.nroComprobante)} tiene un valor final de ${pesosMensaje(input.total)}`,
-    "Las formas de pago son las siguientes",
+  const partes = [
+    `PRESUPUESTO N° ${nroPresupuestoMensaje(input.nroComprobante)}`,
+    `💰 *TOTAL: ${pesosMensaje(input.total)}*`,
+    ...bloques.map((bloque) => bloque.join("\n")),
   ];
-  if (bloques.length === 0) return cabeza.join("\n");
-  return [cabeza.join("\n"), ...bloques.map((bloque) => bloque.join("\n"))].join("\n\n");
+  return partes.join("\n\n");
 }
