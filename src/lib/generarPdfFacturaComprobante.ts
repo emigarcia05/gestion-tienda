@@ -95,7 +95,18 @@ export type FacturaComprobantePdfInput = {
   formasPagoPresupuesto?: LineaFormaPagoPdf[] | null;
   /** Presupuesto con el interruptor apagado: no imprime formas de pago. */
   ocultarFormasPago?: boolean;
+  /**
+   * Venta fiscal o no fiscal: estado de cobro en el hueco izquierdo del pie.
+   * El mismo lugar que «DESCUENTO VÁLIDO ABONANDO CON» del presupuesto.
+   */
+  estadoCobro?: EstadoCobroComprobantePdf | null;
 };
+
+/** Cómo se cobró la venta, para el recuadro del PDF. */
+export type EstadoCobroComprobantePdf =
+  | { clase: "total"; formaPago: string }
+  | { clase: "parcial"; pendiente: number; formasAceptadas: string }
+  | { clase: "impago"; formasAceptadas: string };
 
 /** Recuadro de formas de pago: pie de página, encima del contacto. */
 const FORMAS_PAD_X = 2;
@@ -360,6 +371,31 @@ function dibujarBloqueFormasPago(
   return boxY + boxH;
 }
 
+function textosEstadoCobro(estado: EstadoCobroComprobantePdf): {
+  titulo: string;
+  lineas: string[];
+} {
+  if (estado.clase === "total") {
+    return {
+      titulo: "El comprobante fue abonado en su totalidad",
+      lineas: estado.formaPago.trim() ? [estado.formaPago.trim()] : [],
+    };
+  }
+  if (estado.clase === "parcial") {
+    return {
+      titulo: `Pendiente de abonar $${fmtPrecio(estado.pendiente)}`,
+      lineas: [
+        "Formas de pago aceptadas:",
+        ...(estado.formasAceptadas.trim() ? [estado.formasAceptadas.trim()] : []),
+      ],
+    };
+  }
+  return {
+    titulo: "Formas de pago aceptadas:",
+    lineas: estado.formasAceptadas.trim() ? [estado.formasAceptadas.trim()] : [],
+  };
+}
+
 function formasPagoDescuentoPdf(input: FacturaComprobantePdfInput): string {
   return input.formasPagoDescuento?.trim() ?? "";
 }
@@ -423,6 +459,9 @@ function dibujarPieTotales(
   const anchoEtiquetas = Math.max(...filas.map((fila) => doc.getTextWidth(fila.etiqueta)));
   const etiquetaX = totalColCenterX - anchoValores / 2 - 1.2;
   const formas = esPresupuesto && resumen.hayDescuento ? formasPagoDescuentoPdf(input) : "";
+  const estadoCobro =
+    !formas && input.estadoCobro && esFacturaTipoVenta(input.tipo) ? input.estadoCobro : null;
+  const cobro = estadoCobro ? textosEstadoCobro(estadoCobro) : null;
   const fontMensaje = 8;
   const pasoMensaje = 3.8;
   const padMensajeX = 2.4;
@@ -430,14 +469,27 @@ function dibujarPieTotales(
     48,
     etiquetaX - anchoEtiquetas - MARGIN - padMensajeX - 4
   );
+  let etiquetaMensaje = "DESCUENTO VÁLIDO ABONANDO CON:";
+  let lineasTitulo: string[] = [];
   let lineasMensaje: string[] = [];
-  const etiquetaMensaje = "DESCUENTO VÁLIDO ABONANDO CON:";
-  if (formas) {
-    doc.setFont("VWText", "normal");
+  if (formas || cobro) {
+    doc.setFont("VWText", "bold");
     doc.setFontSize(fontMensaje);
-    lineasMensaje = doc.splitTextToSize(formas, anchoMensaje) as string[];
+    if (cobro) etiquetaMensaje = cobro.titulo;
+    lineasTitulo = doc.splitTextToSize(etiquetaMensaje, anchoMensaje) as string[];
+    doc.setFont("VWText", "normal");
+    if (cobro) {
+      lineasMensaje = cobro.lineas.flatMap(
+        (linea) => doc.splitTextToSize(linea, anchoMensaje) as string[]
+      );
+    } else {
+      lineasMensaje = doc.splitTextToSize(formas, anchoMensaje) as string[];
+    }
   }
-  const altoMensaje = lineasMensaje.length > 0 ? (1 + lineasMensaje.length) * pasoMensaje + 3 : 0;
+  const altoMensaje =
+    lineasTitulo.length > 0
+      ? (lineasTitulo.length + lineasMensaje.length) * pasoMensaje + 3
+      : 0;
   const barraH = Math.max(altoFilas, altoMensaje);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -457,17 +509,21 @@ function dibujarPieTotales(
     doc.text(fila.valor, totalColCenterX, yy, { align: "center" });
   });
 
-  if (lineasMensaje.length > 0) {
+  if (lineasTitulo.length > 0) {
     const cap = fontMensaje * 0.352778 * 0.72;
-    const altoBloque = (1 + lineasMensaje.length) * pasoMensaje;
+    const altoBloque = (lineasTitulo.length + lineasMensaje.length) * pasoMensaje;
     const yMensaje = y + (barraH - altoBloque) / 2 + pasoMensaje / 2 + cap / 2;
     const xCentro = MARGIN + padMensajeX + anchoMensaje / 2;
     doc.setFont("VWText", "bold");
     doc.setFontSize(fontMensaje);
-    doc.text(etiquetaMensaje, xCentro, yMensaje, { align: "center" });
+    lineasTitulo.forEach((linea, indice) => {
+      doc.text(linea, xCentro, yMensaje + indice * pasoMensaje, { align: "center" });
+    });
     doc.setFont("VWText", "normal");
     lineasMensaje.forEach((linea, indice) => {
-      doc.text(linea, xCentro, yMensaje + (indice + 1) * pasoMensaje, { align: "center" });
+      doc.text(linea, xCentro, yMensaje + (lineasTitulo.length + indice) * pasoMensaje, {
+        align: "center",
+      });
     });
   }
 

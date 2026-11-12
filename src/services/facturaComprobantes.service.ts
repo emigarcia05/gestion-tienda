@@ -134,6 +134,7 @@ import {
   type FacturaComprobantePdfEmisor,
   type FacturaComprobantePdfFiscal,
 } from "@/lib/facturaComprobantePdfEmisor";
+import type { EstadoCobroComprobantePdf } from "@/lib/generarPdfFacturaComprobante";
 import {
   sucursalPieDeLinks,
   whatsappDeSucursales,
@@ -163,6 +164,7 @@ import {
   siguienteOrdenCobroComprobante,
   sumarImpCobradoDesdeMovimientos,
 } from "@/services/cobrosComprobante.service";
+import { listarPagosCobroHabilitadosSucursal } from "@/services/cobrosPorSucursal.service";
 import {
   aplicarStockDesdeComprobanteVta,
   revertirStockDeComprobanteVta,
@@ -484,6 +486,8 @@ export type FacturaComprobantePdfDatos = {
   formasPagoPresupuesto: LineaFormaPagoPdf[] | null;
   /** Presupuesto con el interruptor apagado. */
   ocultarFormasPago: boolean;
+  /** Venta fiscal o no fiscal: cobro total, parcial o sin cobrar. */
+  estadoCobro: EstadoCobroComprobantePdf | null;
 };
 
 function fiscalPdfDesdeRow(
@@ -682,6 +686,54 @@ async function formasPagoDescuentoPresupuesto(
   return vivo || null;
 }
 
+/** Formas de cobro de la sucursal, sin nota de crédito, en mayúsculas y separadas por `|`. */
+async function formasAceptadasCobroPdf(codigo: string | null): Promise<string> {
+  const sucursal = codigo?.trim().toLowerCase() ?? "";
+  if (sucursal !== "guaymallen" && sucursal !== "maipu") return "";
+  const pagos = await listarPagosCobroHabilitadosSucursal(sucursal);
+  return pagos
+    .map((pago) => pago.nombre.trim().toLocaleUpperCase("es-AR"))
+    .filter((nombre) => nombre.length > 0 && !esCobroNotaCreditoNombre(nombre))
+    .join(" | ");
+}
+
+/**
+ * Estado de cobro del PDF de una venta. Total si no queda saldo, impago si no
+ * entró plata, parcial en el medio. La nota de crédito no cuenta como forma de pago.
+ */
+async function estadoCobroPdfVenta(args: {
+  id: string;
+  tipo: FacturaTipo;
+  impTotal: Prisma.Decimal | number;
+  impCobrado: Prisma.Decimal | number;
+  sucursalCodigo: string | null;
+}): Promise<EstadoCobroComprobantePdf | null> {
+  if (!esFacturaTipoVenta(args.tipo)) return null;
+  try {
+    const impTotal = decimalToNumber(args.impTotal);
+    const impCobrado = decimalToNumber(args.impCobrado);
+    const pendiente = Math.max(0, Math.round((impTotal - impCobrado) * 100) / 100);
+    if (pendiente <= 0.009) {
+      const cobros = await listarCobrosDeComprobante(args.id);
+      const usadas = [
+        ...new Set(
+          cobros
+            .filter((cobro) => cobro.notaCreditoId == null && !esCobroNotaCreditoNombre(cobro.pagoNombre))
+            .map((cobro) => cobro.pagoNombre.trim().toLocaleUpperCase("es-AR"))
+            .filter((nombre) => nombre.length > 0)
+        ),
+      ];
+      return { clase: "total", formaPago: usadas.join(" | ") };
+    }
+    const formasAceptadas = await formasAceptadasCobroPdf(args.sucursalCodigo);
+    if (impCobrado <= 0.009) return { clase: "impago", formasAceptadas };
+    return { clase: "parcial", pendiente, formasAceptadas };
+  } catch (error: unknown) {
+    console.error("[facturaComprobantes][estadoCobroPdf]", error);
+    return null;
+  }
+}
+
 export async function obtenerFacturaComprobantePdfDatos(
   id: string
 ): Promise<ServiceResult<FacturaComprobantePdfDatos>> {
@@ -785,6 +837,14 @@ export async function obtenerFacturaComprobantePdfDatos(
             ? parsearLineasFormasPagoPdf(row.formasPagoPdf)
             : null,
         ocultarFormasPago: tipo === "presupuesto" && !row.mostrarFormasPago,
+        estadoCobro: await estadoCobroPdfVenta({
+          id: row.id,
+          tipo,
+          impTotal: row.impTotal,
+          impCobrado: row.impCobrado,
+          sucursalCodigo:
+            row.stockComprobantes[0]?.sucursal.codigo ?? row.personal?.sucursalPorDefecto ?? null,
+        }),
       },
     };
   } catch (e) {
