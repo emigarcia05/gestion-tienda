@@ -20,14 +20,8 @@ import type {
 /** Deja lugar arriba de la barra más alta para el total en millones. */
 const ALTO_BARRA_MAX = 82;
 
-const COLORES_SUCURSAL = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--primary)",
-] as const;
+/** Azul y amarillo de la marca. La primera sucursal, por nombre, lleva el azul. */
+const COLORES_SUCURSAL = ["var(--primary)", "var(--accent2)"] as const;
 
 type ModoGrafico = "dia" | "mes";
 
@@ -49,6 +43,11 @@ function etiquetaEje(monto: number): string {
   return pesos(monto);
 }
 
+function xDeDia(dia: number, nDias: number): number {
+  if (nDias <= 1) return 50;
+  return ((dia - 1) / (nDias - 1)) * 100;
+}
+
 function yDeMonto(monto: number, piso: number, techo: number): number {
   const rango = techo - piso;
   if (rango <= 0.009) return 98;
@@ -59,16 +58,17 @@ function tituloDia(dia: TableroVentasDiaGrafico, series: TableroVentasSerieDia[]
   const partes = series.map((serie) => {
     const punto = serie.dias.find((fila) => fila.dia === dia.dia);
     if (punto?.ventas == null) return `${serie.etiqueta} —`;
-    return `${serie.etiqueta} ${pesos(punto.ventas)}`;
+    return `${serie.etiqueta} ${pesos(punto.ventas)}, promedio ${pesos(serie.promedio)}`;
   });
   return `${dia.dia}: ${partes.join(" · ")}`;
 }
 
 function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
   const dias = series[0]?.dias ?? [];
-  const montos = series.flatMap((serie) =>
-    serie.dias.flatMap((dia) => (dia.ventas == null ? [] : [dia.ventas]))
-  );
+  const montos = series.flatMap((serie) => [
+    ...serie.dias.flatMap((dia) => (dia.ventas == null ? [] : [dia.ventas])),
+    ...(serie.promedio > 0.009 ? [serie.promedio] : []),
+  ]);
   const techo = montos.reduce((max, monto) => (monto > max ? monto : max), 0);
   const piso = montos.reduce((min, monto) => (monto < min ? monto : min), 0);
   const rango = techo - piso;
@@ -111,7 +111,7 @@ function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
           {series.map((serie, indice) => {
             const puntos = serie.dias.flatMap((dia) => {
               if (dia.ventas == null) return [];
-              const x = nDias === 1 ? 50 : ((dia.dia - 1) / (nDias - 1)) * 100;
+              const x = xDeDia(dia.dia, nDias);
               return [`${x},${yDeMonto(dia.ventas, piso, techo)}`];
             });
             if (puntos.length === 0) return null;
@@ -129,11 +129,43 @@ function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
             );
           })}
         </svg>
-        <div className="absolute inset-0 flex">
-          {dias.map((dia) => (
-            <div key={dia.dia} className="min-w-0 flex-1" title={tituloDia(dia, series)} />
-          ))}
-        </div>
+        {series.map((serie, indice) => {
+          if (serie.promedio <= 0.009) return null;
+          const color = COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length];
+          return (
+            <div
+              key={`${serie.id}-promedio`}
+              className="pointer-events-none absolute inset-x-0 border-t-2 border-dotted"
+              style={{
+                top: `${yDeMonto(serie.promedio, piso, techo)}%`,
+                borderTopColor: color,
+              }}
+            />
+          );
+        })}
+        {series.map((serie, indice) =>
+          serie.dias.map((dia) => {
+            if (dia.ventas == null) return null;
+            const fila = dias.find((item) => item.dia === dia.dia);
+            const color = COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length];
+            return (
+              <div
+                key={`${serie.id}-${dia.dia}`}
+                className="absolute z-10 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                style={{
+                  left: `${xDeDia(dia.dia, nDias)}%`,
+                  top: `${yDeMonto(dia.ventas, piso, techo)}%`,
+                }}
+                title={fila ? tituloDia(fila, series) : undefined}
+              >
+                <span
+                  className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card"
+                  style={{ backgroundColor: color }}
+                />
+              </div>
+            );
+          })
+        )}
       </div>
       <span />
       <div className="flex pt-1">
@@ -236,8 +268,8 @@ export default function GraficoMesesTablero({
               <SelectValue />
             </SelectTrigger>
             <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
-              <SelectItem value="dia">Por día</SelectItem>
-              <SelectItem value="mes">Por mes</SelectItem>
+              <SelectItem value="dia">DIA</SelectItem>
+              <SelectItem value="mes">MES</SelectItem>
             </SelectContent>
           </Select>
           {modo === "mes" && serie ? (
@@ -266,11 +298,16 @@ export default function GraficoMesesTablero({
                 key={item.id}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
               >
-                <span
-                  className="h-0.5 w-3 shrink-0"
-                  style={{ backgroundColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
-                  aria-hidden
-                />
+                <span className="inline-flex w-3 flex-col justify-center gap-0.5" aria-hidden>
+                  <span
+                    className="h-0.5 w-full"
+                    style={{ backgroundColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
+                  />
+                  <span
+                    className="w-full border-t border-dotted"
+                    style={{ borderTopColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
+                  />
+                </span>
                 {item.etiqueta}
               </span>
             ))}

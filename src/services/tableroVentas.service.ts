@@ -105,6 +105,8 @@ export interface TableroVentasDiaGrafico {
 export interface TableroVentasSerieDia {
   id: string;
   etiqueta: string;
+  /** Total del año / días con neto mayor a 0. La misma cuenta que `montoPromedioDia`. */
+  promedio: number;
   dias: TableroVentasDiaGrafico[];
 }
 
@@ -614,6 +616,8 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       return {
         id: serie.id,
         etiqueta: serie.etiqueta,
+        promedio:
+          participacionSucursales.find((fila) => fila.id === serie.id)?.montoPromedioDia ?? 0,
         dias: Array.from({ length: ultimoDiaMes }, (_, indice) => {
           const dia = indice + 1;
           if (dia > diaHoy) return { dia, ventas: null };
