@@ -95,6 +95,19 @@ export interface TableroVentasSerieMes {
   meses: TableroVentasMesGrafico[];
 }
 
+/** Día del mes en curso. `ventas` es null si ese día todavía no llegó. */
+export interface TableroVentasDiaGrafico {
+  dia: number;
+  ventas: number | null;
+}
+
+/** Una sucursal en el gráfico por día. Sin serie GLOBAL. */
+export interface TableroVentasSerieDia {
+  id: string;
+  etiqueta: string;
+  dias: TableroVentasDiaGrafico[];
+}
+
 /** Parte de las ventas de una sucursal sobre el total global del día o del mes, y su promedio. */
 export interface TableroVentasParticipacion {
   id: string;
@@ -122,6 +135,8 @@ export interface TableroVentasDatos {
   participacionSucursales: TableroVentasParticipacion[];
   /** GLOBAL y cada sucursal. Siempre 12 meses, de enero a diciembre. */
   seriesMeses: TableroVentasSerieMes[];
+  /** Una serie por sucursal, días 1..último del mes en curso. */
+  seriesDias: TableroVentasSerieDia[];
   clientesVencidos: TableroVentasClienteVencido[];
   /** Envíos de la sucursal con fecha de hoy y sin entregar. */
   enviosPendientesHoy: number;
@@ -592,6 +607,21 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           ),
         };
       });
+    const ultimoDiaMes = diasDelMes(anio, mes);
+    const mesIso = String(mes).padStart(2, "0");
+    const seriesDias: TableroVentasSerieDia[] = seriesSucursales.map((serie) => {
+      const porDia = ventasPorDiaSucursal.get(serie.id);
+      return {
+        id: serie.id,
+        etiqueta: serie.etiqueta,
+        dias: Array.from({ length: ultimoDiaMes }, (_, indice) => {
+          const dia = indice + 1;
+          if (dia > diaHoy) return { dia, ventas: null };
+          const iso = `${anio}-${mesIso}-${String(dia).padStart(2, "0")}`;
+          return { dia, ventas: redondear2(porDia?.get(iso) ?? 0) };
+        }),
+      };
+    });
     const vendidoSinSucursal = ventasMesHastaHoy - vendidoConSucursal;
     const proyectadoGlobal = redondear2(
       proyectadoSucursales +
@@ -676,6 +706,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         },
         participacionSucursales,
         seriesMeses,
+        seriesDias,
         clientesVencidos,
         enviosPendientesHoy: pendientes.enviosPendientesHoy,
         pedidosGeneracion: pendientes.pedidosGeneracion,
@@ -694,6 +725,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
+    seriesDias: [],
     seriesMeses: [
       {
         id: "global",
