@@ -127,7 +127,7 @@ export interface TableroVentasDatos {
   enviosPendientesHoy: number;
   /** Una línea por proveedor y tipo con cantidad a pedir mayor a 0. */
   pedidosGeneracion: TableroPendienteLinea[];
-  /** Un renglón por proveedor: prefijo y cantidad de pedidos emitidos (`MER 2`). */
+  /** Un renglón por proveedor: prefijo, y `(N)` solo si hay más de un pedido emitido. */
   pedidosRecepcion: TableroPendienteLinea[];
 }
 
@@ -246,7 +246,10 @@ async function cargarPendientesTablero(
       else cantidadPorProveedor.set(pedido.proveedorId, { marca, cantidad: 1 });
     }
     const pedidosRecepcion = [...cantidadPorProveedor.entries()]
-      .map(([id, fila]) => ({ id, etiqueta: `${fila.marca} ${fila.cantidad}` }))
+      .map(([id, fila]) => ({
+        id,
+        etiqueta: fila.cantidad > 1 ? `${fila.marca} (${fila.cantidad})` : fila.marca,
+      }))
       .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
     return {
       enviosPendientesHoy,
