@@ -41,6 +41,8 @@ function BarraParticipacion({
   const ancho = Math.min(100, Math.max(0, pct));
   const marca = Math.min(100, Math.max(0, pctPromedio));
   const texto = medida === "monto" ? `$${fmtPrecio(monto)}` : `${pct}%`;
+  const textoPromedio =
+    medida === "monto" ? `$${fmtPrecio(montoPromedio)}` : textoPorcentaje(pctPromedio);
   const diferencia =
     medida === "monto"
       ? diferenciaConSigno(Math.round(monto - montoPromedio), `$${fmtPrecio(Math.abs(monto - montoPromedio))}`)
@@ -72,11 +74,14 @@ function BarraParticipacion({
       <span
         className={
           medida === "monto"
-            ? "w-24 shrink-0 text-right text-xs font-semibold tabular-nums"
-            : "w-12 shrink-0 text-right text-xs font-semibold tabular-nums"
+            ? "w-24 shrink-0 text-right text-xs tabular-nums"
+            : "w-16 shrink-0 text-right text-xs tabular-nums"
         }
       >
-        <span className="block">{texto}</span>
+        <span className="block font-semibold">{texto}</span>
+        <span className="block font-normal" title="Venta promedio">
+          {textoPromedio}
+        </span>
         <span
           className={cn(
             "block text-[10px] font-semibold leading-none",
@@ -91,6 +96,15 @@ function BarraParticipacion({
       </span>
     </div>
   );
+}
+
+function textoPorcentaje(valor: number): string {
+  const redondo = Math.round(valor * 10) / 10;
+  if (Number.isInteger(redondo)) return `${redondo}%`;
+  return `${redondo.toLocaleString("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
 }
 
 function diferenciaConSigno(

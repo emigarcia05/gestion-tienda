@@ -37,7 +37,9 @@ function pesos(n: number): string {
 function textoComparacion(comparacion: ComparacionVentas, referencia: string): string {
   if (comparacion.sentido === "igual") return `Igual que ${referencia}`;
   if (comparacion.sentido === "sin_base") {
-    return referencia === "ayer" ? "Sin ventas ayer" : "Sin ventas el mes anterior";
+    if (referencia === "ayer") return "Sin ventas ayer";
+    if (referencia === "el promedio") return "Sin promedio";
+    return "Sin ventas el mes anterior";
   }
   return `${comparacion.pct}% que ${referencia}`;
 }
@@ -80,6 +82,7 @@ function TarjetaPeriodo({
       </span>
       <span className="text-[1.05rem] font-bold tabular-nums leading-none">{pesos(montos.ventas)}</span>
       <LineaComparacion comparacion={montos.comparacion} referencia={referencia} />
+      <LineaComparacion comparacion={montos.comparacionPromedio} referencia="el promedio" />
       <span className="text-[0.7rem] font-semibold uppercase leading-tight tracking-wide">
         {textoCobrado(montos.pctCobrado)}
       </span>

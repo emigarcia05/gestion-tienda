@@ -4,6 +4,12 @@
  */
 
 import { etiquetaClienteListado } from "@/lib/envios";
+import {
+  horarioSucursalParaDiasHabiles,
+  pesoDiaHabilFijo,
+  pesoDiaHabilSucursal,
+  sumaPesosDiasHabiles,
+} from "@/lib/horarioSucursal";
 import { esFacturaTipo, esFacturaTipoNotaCredito, montoSaldoVencidoVenta } from "@/lib/factura";
 import {
   addDaysToIsoYmdArgentina,
@@ -47,6 +53,8 @@ export interface TableroVentasMontos {
   pctCobrado: number | null;
   /** Día: contra ayer. Mes: contra el mismo día del mes anterior. */
   comparacion: ComparacionVentas;
+  /** Contra el promedio del año: día = total / días con ventas; mes = total / meses con ventas. */
+  comparacionPromedio: ComparacionVentas;
 }
 
 export interface TableroVentasClienteVencido {
@@ -70,7 +78,7 @@ const ETIQUETAS_MES = [
   "DIC",
 ] as const;
 
-/** Mes del gráfico. `proyectado` solo en el mes en curso. */
+/** Mes del gráfico. `proyectado` solo en el mes en curso: vendido / días hábiles hasta hoy × días hábiles del mes. */
 export interface TableroVentasMesGrafico {
   mes: number;
   etiqueta: string;
@@ -129,15 +137,20 @@ export function pctCobradoSobreVentas(cobrado: number, ventas: number): number |
   return Math.round((cobrado / ventas) * 100);
 }
 
+/** Vendido / días hábiles ya corridos × días hábiles del mes. Sin días corridos, queda lo vendido. */
+function proyectadoMesHabil(vendido: number, habilesHastaHoy: number, habilesMes: number): number {
+  if (habilesHastaHoy <= 0) return redondear2(vendido);
+  return redondear2((vendido / habilesHastaHoy) * habilesMes);
+}
+
 function mesesDelAnio(
   mesActual: number,
   vendidoMes: number,
-  diasMes: number,
-  diaHoy: number,
+  habilesHastaHoy: number,
+  habilesMes: number,
   ventasPorMes: Map<number, number>
 ): TableroVentasMesGrafico[] {
-  const proyectado =
-    diaHoy > 0 ? redondear2((vendidoMes / diaHoy) * diasMes) : vendidoMes;
+  const proyectado = proyectadoMesHabil(vendidoMes, habilesHastaHoy, habilesMes);
   return ETIQUETAS_MES.map((etiqueta, indice) => {
     const m = indice + 1;
     if (m === mesActual) {
@@ -156,7 +169,13 @@ function mesesDelAnio(
 }
 
 function montosVacios(): TableroVentasMontos {
-  return { ventas: 0, cobrado: 0, pctCobrado: 0, comparacion: comparacionIgual() };
+  return {
+    ventas: 0,
+    cobrado: 0,
+    pctCobrado: 0,
+    comparacion: comparacionIgual(),
+    comparacionPromedio: comparacionIgual(),
+  };
 }
 
 /** `(actual − anterior) / |anterior|`. Sin base si el anterior es 0 y este período no. */
@@ -231,7 +250,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const [sucursalIdPorCodigo, sucursales] = await Promise.all([
       mapaSucursalIdPorCodigo(),
       prisma.sucursal.findMany({
-        select: { id: true, nombre: true, codigo: true },
+        select: { id: true, nombre: true, codigo: true, horario: true },
       }),
     ]);
     const sucursalId = codigo ? sucursalIdPorCodigo.get(codigo) : undefined;
@@ -301,6 +320,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
     const ventasMesPorSucursal = new Map<string, number>();
     const ventasAnioPorSucursal = new Map<string, number>();
     const ventasPorDiaSucursal = new Map<string, Map<string, number>>();
+    const ventasPorDiaGlobal = new Map<string, number>();
     const ventasPorMes = new Map<number, number>();
     const ventasPorMesSucursal = new Map<string, Map<number, number>>();
     const ventasHastaHoyPorSucursal = new Map<string, number>();
@@ -325,6 +345,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       if (enAnio) {
         const mesFila = Number(fechaIso.slice(5, 7));
         ventasPorMes.set(mesFila, (ventasPorMes.get(mesFila) ?? 0) + importe);
+        ventasPorDiaGlobal.set(fechaIso, (ventasPorDiaGlobal.get(fechaIso) ?? 0) + importe);
         if (idVenta) {
           ventasAnioPorSucursal.set(idVenta, (ventasAnioPorSucursal.get(idVenta) ?? 0) + importe);
           const porMes = ventasPorMesSucursal.get(idVenta) ?? new Map<number, number>();
@@ -430,27 +451,91 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         return a.nombre.localeCompare(b.nombre, "es");
       });
 
-    const diasMes = diasDelMes(anio, mes);
-    const seriesMeses: TableroVentasSerieMes[] = [
-      {
-        id: "global",
-        etiqueta: "GLOBAL",
-        meses: mesesDelAnio(mes, redondear2(ventasMesHastaHoy), diasMes, diaHoy, ventasPorMes),
-      },
-      ...sucursales
-        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
-        .map((s) => ({
+    const finMesIso = `${anio}-${String(mes).padStart(2, "0")}-${String(diasDelMes(anio, mes)).padStart(2, "0")}`;
+    const horarioPorSucursal = new Map(
+      sucursales.map((s) => [s.id, horarioSucursalParaDiasHabiles(s.horario)] as const)
+    );
+    const pesoSucursal = (id: string, iso: string) => {
+      const horario = horarioPorSucursal.get(id);
+      return horario ? pesoDiaHabilSucursal(horario, iso) : pesoDiaHabilFijo(iso);
+    };
+    const pesosSucursal = (id: string) => ({
+      hastaHoy: sumaPesosDiasHabiles((iso) => pesoSucursal(id, iso), desdeMesIso, hoyIso),
+      mes: sumaPesosDiasHabiles((iso) => pesoSucursal(id, iso), desdeMesIso, finMesIso),
+    });
+    const pesoGlobal = (iso: string) => {
+      if (sucursales.length === 0) return pesoDiaHabilFijo(iso);
+      let suma = 0;
+      for (const s of sucursales) suma += pesoSucursal(s.id, iso);
+      return suma / sucursales.length;
+    };
+    const habilesGlobal = {
+      hastaHoy: sumaPesosDiasHabiles(pesoGlobal, desdeMesIso, hoyIso),
+      mes: sumaPesosDiasHabiles(pesoGlobal, desdeMesIso, finMesIso),
+    };
+    let proyectadoSucursales = 0;
+    let vendidoConSucursal = 0;
+    const seriesSucursales: TableroVentasSerieMes[] = sucursales
+      .slice()
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+      .map((s) => {
+        const vendidoRaw = ventasHastaHoyPorSucursal.get(s.id) ?? 0;
+        const vendido = redondear2(vendidoRaw);
+        const pesos = pesosSucursal(s.id);
+        vendidoConSucursal += vendidoRaw;
+        const proyectado = proyectadoMesHabil(vendido, pesos.hastaHoy, pesos.mes);
+        proyectadoSucursales += proyectado;
+        return {
           id: s.id,
           etiqueta: s.nombre.toLocaleUpperCase("es"),
           meses: mesesDelAnio(
             mes,
-            redondear2(ventasHastaHoyPorSucursal.get(s.id) ?? 0),
-            diasMes,
-            diaHoy,
+            vendido,
+            pesos.hastaHoy,
+            pesos.mes,
             ventasPorMesSucursal.get(s.id) ?? new Map()
           ),
-        })),
+        };
+      });
+    const vendidoSinSucursal = ventasMesHastaHoy - vendidoConSucursal;
+    const proyectadoGlobal = redondear2(
+      proyectadoSucursales +
+        (Math.abs(vendidoSinSucursal) < 0.005
+          ? 0
+          : proyectadoMesHabil(vendidoSinSucursal, habilesGlobal.hastaHoy, habilesGlobal.mes))
+    );
+    const seriesMeses: TableroVentasSerieMes[] = [
+      {
+        id: "global",
+        etiqueta: "GLOBAL",
+        meses: mesesDelAnio(
+          mes,
+          redondear2(ventasMesHastaHoy),
+          habilesGlobal.hastaHoy,
+          habilesGlobal.mes,
+          ventasPorMes
+        ).map((fila) => (fila.mes === mes ? { ...fila, proyectado: proyectadoGlobal } : fila)),
+      },
+      ...seriesSucursales,
     ];
+
+    let montoAnioGlobal = 0;
+    let mesesConVentasGlobal = 0;
+    for (const neto of ventasPorMes.values()) {
+      montoAnioGlobal += neto;
+      if (neto > 0.009) mesesConVentasGlobal += 1;
+    }
+    let diasConVentasGlobal = 0;
+    for (const neto of ventasPorDiaGlobal.values()) {
+      if (neto > 0.009) diasConVentasGlobal += 1;
+    }
+    const promDiaGlobal =
+      diasConVentasGlobal === 0 ? 0 : redondear2(montoAnioGlobal / diasConVentasGlobal);
+    const promMesGlobal =
+      mesesConVentasGlobal === 0 ? 0 : redondear2(montoAnioGlobal / mesesConVentasGlobal);
+    const filaSucursal = sucursalId
+      ? participacionSucursales.find((fila) => fila.id === sucursalId)
+      : undefined;
 
     const clientesVencidos = [...porCliente.values()].sort((a, b) => {
       if (b.saldoVencido !== a.saldoVencido) return b.saldoVencido - a.saldoVencido;
@@ -467,12 +552,14 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
             cobrado: cobradoDiaSuc,
             pctCobrado: pctCobradoSobreVentas(cobradoDiaSuc, ventasDiaSuc),
             comparacion: compararVentas(ventasDiaSuc, ventasAyerSuc),
+            comparacionPromedio: compararVentas(ventasDiaSuc, filaSucursal?.montoPromedioDia ?? 0),
           },
           mes: {
             ventas: redondear2(ventasMesSuc),
             cobrado: cobradoMesSuc,
             pctCobrado: pctCobradoSobreVentas(cobradoMesSuc, ventasMesSuc),
             comparacion: compararVentas(ventasMesHastaHoySuc, ventasMesAntSuc),
+            comparacionPromedio: compararVentas(ventasMesSuc, filaSucursal?.montoPromedio ?? 0),
           },
         },
         globales: {
@@ -481,12 +568,14 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
             cobrado: cobradoDia,
             pctCobrado: pctCobradoSobreVentas(cobradoDia, ventasDia),
             comparacion: compararVentas(ventasDia, ventasAyer),
+            comparacionPromedio: compararVentas(ventasDia, promDiaGlobal),
           },
           mes: {
             ventas: redondear2(ventasMes),
             cobrado: cobradoMes,
             pctCobrado: pctCobradoSobreVentas(cobradoMes, ventasMes),
             comparacion: compararVentas(ventasMesHastaHoy, ventasMesAnt),
+            comparacionPromedio: compararVentas(ventasMes, promMesGlobal),
           },
         },
         participacionSucursales,
