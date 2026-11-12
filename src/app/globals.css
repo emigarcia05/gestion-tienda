@@ -2414,13 +2414,17 @@ main button.boton-encubierto:focus-visible {
 }
 
 /*
- * Tablero · filtros de los gráficos (meses y participación).
+ * Tablero · filtros de los gráficos (meses y participación) y el enlace Ir a Envios.
  * Anula `main button` (CTA relleno). Contorno azul, fondo transparente, texto negro.
  */
 main button.tablero-grafico-filtro,
+main a.tablero-grafico-filtro,
 main button.tablero-grafico-filtro:hover:not(:disabled),
+main a.tablero-grafico-filtro:hover,
 main button.tablero-grafico-filtro:focus-visible,
-main button.tablero-grafico-filtro:active:not(:disabled) {
+main a.tablero-grafico-filtro:focus-visible,
+main button.tablero-grafico-filtro:active:not(:disabled),
+main a.tablero-grafico-filtro:active {
   height: 1.75rem !important;
   min-height: 1.75rem !important;
   max-height: 1.75rem !important;

@@ -116,7 +116,7 @@ function ListaPendientes({
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-1">
-      <p className="shrink-0 text-[10px] font-bold uppercase tracking-wide">{titulo}</p>
+      <p className="shrink-0 text-center text-[10px] font-bold uppercase tracking-wide">{titulo}</p>
       <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
         {lineas.length === 0 ? (
           <li className="text-xs text-muted-foreground">Sin pendientes</li>
@@ -143,17 +143,28 @@ function PendientesSucursalTablero({
 }) {
   return (
     <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,4fr)] gap-2 overflow-hidden">
-      <div className={cn(RECUADRO_PENDIENTE_CLASS, "flex-row items-center justify-between")}>
-        <h3 className="text-xs font-bold uppercase tracking-wide">Envíos pendientes</h3>
+      <div className={cn(RECUADRO_PENDIENTE_CLASS, "grid grid-cols-[1fr_auto_1fr] items-center")}>
         <p className="text-xl font-bold tabular-nums leading-none">{envios}</p>
-        <Button asChild size="sm" variant="outline">
-          <Link href={GP_ROUTES.envios.programados}>Programados</Link>
-        </Button>
+        <h3 className="text-center text-xs font-bold uppercase tracking-wide">Envíos pendientes</h3>
+        <div className="justify-self-end">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="tablero-grafico-filtro w-fit min-w-0"
+          >
+            <Link href={GP_ROUTES.envios.programados}>Ir a Envios</Link>
+          </Button>
+        </div>
       </div>
       <div className={RECUADRO_PENDIENTE_CLASS}>
-        <h3 className="shrink-0 text-xs font-bold uppercase tracking-wide">Pedidos pendientes</h3>
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
-          <ListaPendientes titulo="Pendiente de generación" lineas={generacion} />
+        <h3 className="shrink-0 text-center text-xs font-bold uppercase tracking-wide">
+          Pedidos pendientes
+        </h3>
+        <div className="h-px w-full shrink-0 bg-primary/40" aria-hidden />
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-3">
+          <ListaPendientes titulo="Pendiente emision" lineas={generacion} />
+          <div className="h-full w-px bg-primary/40" aria-hidden />
           <ListaPendientes titulo="Pendiente de recepción" lineas={recepcion} />
         </div>
       </div>

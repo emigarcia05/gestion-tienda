@@ -127,7 +127,7 @@ export interface TableroVentasDatos {
   enviosPendientesHoy: number;
   /** Una línea por proveedor y tipo con cantidad a pedir mayor a 0. */
   pedidosGeneracion: TableroPendienteLinea[];
-  /** Un renglón por pedido emitido (ABIERTO) todavía sin recepcionar. */
+  /** Un renglón por proveedor: prefijo y cantidad de pedidos emitidos (`MER 2`). */
   pedidosRecepcion: TableroPendienteLinea[];
 }
 
@@ -184,19 +184,6 @@ function mesesDelAnio(
 
 const ORDEN_TIPO_PEDIDO = ["URGENTE", "TINTOMETRICO", "REPOSICION", "A FÁBRICA"] as const;
 
-function etiquetaTipoPedidoTablero(tipo: string): string {
-  if (tipo === "TINTOMETRICO") return "TINTOMÉTRICO";
-  if (tipo === "REPOSICION") return "REPOSICIÓN";
-  return tipo;
-}
-
-function etiquetaProveedorTablero(nombre: string, prefijo: string): string {
-  const pref = prefijo.trim();
-  const nom = nombre.trim();
-  const base = pref.length > 0 ? `[${pref}] ${nom}` : nom;
-  return base.toLocaleUpperCase("es");
-}
-
 function pendientesVacios(): {
   enviosPendientesHoy: number;
   pedidosGeneracion: TableroPendienteLinea[];
@@ -224,7 +211,10 @@ async function cargarPendientesTablero(
       prisma.pedidoHistoria.findMany({
         where: { sucursalId, estado: "ABIERTO" },
         orderBy: { generadoAt: "desc" },
-        select: { id: true, proveedor: { select: { nombre: true } } },
+        select: {
+          proveedorId: true,
+          proveedor: { select: { nombre: true, prefijo: true } },
+        },
       }),
       getProveedoresConPedidoActivo({
         sucursalCodigo: codigo,
@@ -232,7 +222,8 @@ async function cargarPendientesTablero(
       }),
     ]);
     const pedidosGeneracion = proveedores.flatMap((proveedor) => {
-      const nombre = etiquetaProveedorTablero(proveedor.nombre, proveedor.prefijo);
+      const prefijo = proveedor.prefijo.trim();
+      const marca = (prefijo.length > 0 ? prefijo : proveedor.nombre.trim()).toLocaleUpperCase("es");
       return [...proveedor.tipos]
         .sort(
           (a, b) =>
@@ -241,16 +232,26 @@ async function cargarPendientesTablero(
         )
         .map((tipo) => ({
           id: `${proveedor.id}:${tipo}`,
-          etiqueta: `${nombre} - ${etiquetaTipoPedidoTablero(tipo)}`,
+          etiqueta: `${marca} - ${tipo}`,
         }));
     });
+    const cantidadPorProveedor = new Map<string, { marca: string; cantidad: number }>();
+    for (const pedido of recepcion) {
+      const prefijo = (pedido.proveedor?.prefijo ?? "").trim();
+      const marca = (prefijo.length > 0 ? prefijo : (pedido.proveedor?.nombre ?? "").trim()).toLocaleUpperCase(
+        "es"
+      );
+      const actual = cantidadPorProveedor.get(pedido.proveedorId);
+      if (actual) actual.cantidad += 1;
+      else cantidadPorProveedor.set(pedido.proveedorId, { marca, cantidad: 1 });
+    }
+    const pedidosRecepcion = [...cantidadPorProveedor.entries()]
+      .map(([id, fila]) => ({ id, etiqueta: `${fila.marca} ${fila.cantidad}` }))
+      .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
     return {
       enviosPendientesHoy,
       pedidosGeneracion,
-      pedidosRecepcion: recepcion.map((pedido) => ({
-        id: pedido.id,
-        etiqueta: (pedido.proveedor?.nombre ?? "").trim().toLocaleUpperCase("es"),
-      })),
+      pedidosRecepcion,
     };
   } catch (error) {
     console.error("[tableroVentas][pendientes]", error);
