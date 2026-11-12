@@ -127,3 +127,9 @@ export const deleteTintometricoItemSchema = z.union([
   deleteTintometricoItemByIdSchema,
   deleteTintometricoItemLegacySchema,
 ]);
+
+/** Cabecera vacía para recepcionar mercadería que no se pidió por el sistema. */
+export const crearPedidoHistoriaRecepcionDirectaSchema = z.object({
+  proveedorId: proveedorIdPedidoSchema,
+  sucursalCodigo: sucursalPedidoCodigoSchema,
+});

@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AppModal from "@/components/shared/AppModal";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { Button } from "@/components/ui/button";
@@ -25,6 +32,8 @@ import type { PedidoHistoriaEstado } from "@/services/pedidosHistoria.service";
 import type { PedidoHistoriaDetalle } from "@/services/pedidosHistoria.service";
 import type { ProductoTiendaRowBusqueda } from "@/services/productosTienda.service";
 import {
+  crearPedidoHistoriaRecepcionDirectaAction,
+  eliminarPedidoHistoriaAction,
   guardarRecepcionPedidoHistoriaAction,
   marcarPedidoHistoriaRegistradoAction,
   registrarNotaCreditoCompraPedidoAction,
@@ -55,6 +64,8 @@ import {
   dateToIsoYmdArgentina,
   formatDdMmHhMmArgentina,
 } from "@/lib/fechaArgentina";
+import { SUCURSAL_LABEL_PEDIDO } from "@/lib/pedidos";
+import type { IvaValue } from "@/lib/validations/iva";
 
 /** Texto plano de un error desconocido (throws de Server Actions / runtime). Incluye `digest` si React/Next lo adjuntan. */
 function mensajeErrorDesconocido(e: unknown): string {
@@ -154,11 +165,22 @@ function fmtPesos(n: number): string {
 
 export type PedidoHistoriaDetalleVariante = "recepcion" | "nota-credito";
 
+export type ProveedorRecepcionDirecta = {
+  id: string;
+  nombre: string;
+  iva: IvaValue;
+};
+
+const PROVEEDORES_RECEPCION_VACIO: ProveedorRecepcionDirecta[] = [];
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedidoHistoriaId: string | null;
   variante?: PedidoHistoriaDetalleVariante;
+  /** Recepción de mercadería que no se pidió por el sistema: el proveedor se elige en el modal. */
+  recepcionDirecta?: boolean;
+  proveedoresMercaderia?: ProveedorRecepcionDirecta[];
 }
 
 export default function PedidoHistoriaDetalleModal({
@@ -166,8 +188,16 @@ export default function PedidoHistoriaDetalleModal({
   onOpenChange,
   pedidoHistoriaId,
   variante = "recepcion",
+  recepcionDirecta = false,
+  proveedoresMercaderia = PROVEEDORES_RECEPCION_VACIO,
 }: Props) {
   const esNotaCredito = variante === "nota-credito";
+  /** Cabecera creada al confirmar una recepción directa; si se cierra sin marcar, se borra. */
+  const pedidoCreadoIdRef = useRef<string | null>(null);
+  const recepcionPersistidaRef = useRef(false);
+  const confirmadaRef = useRef(false);
+  const [pedidoCreadoId, setPedidoCreadoId] = useState<string | null>(null);
+  const [cerrandoRecepcionDirecta, setCerrandoRecepcionDirecta] = useState(false);
   const [detalle, setDetalle] = useState<PedidoHistoriaDetalle | null>(null);
   const [loading, setLoading] = useState(false);
   const [guardando, setGuardando] = useState<string | null>(null);
@@ -300,11 +330,40 @@ export default function PedidoHistoriaDetalleModal({
   }, [open, pedidoHistoriaId, cargarDetalle]);
 
   useEffect(() => {
+    if (!open || !recepcionDirecta) return;
+    pedidoCreadoIdRef.current = null;
+    recepcionPersistidaRef.current = false;
+    confirmadaRef.current = false;
+    queueMicrotask(() => {
+      setDetalle(null);
+      setPedidoCreadoId(null);
+      setCerrandoRecepcionDirecta(false);
+      setErrorMsg(null);
+      setLoading(false);
+      setEditingItemId(null);
+      setEditingValue("");
+      setTotalPedido("");
+      setAgregarProductosOpen(false);
+      setBusquedaAgregarProducto("");
+      setFechaRecepcion("");
+      setCheckListConfirmedByItem({});
+      setModoCorreccionRecepcionado(false);
+      setFiscal(false);
+      setNumeroComprobante("");
+      setComprobantePv("");
+      setComprobanteNro("");
+    });
+  }, [open, recepcionDirecta]);
+
+  const proveedorElegidoId = recepcionDirecta ? (detalle?.proveedorId ?? "") : "";
+
+  useEffect(() => {
     if (!open || locked || loading) return;
+    if (recepcionDirecta && !proveedorElegidoId) return;
     queueMicrotask(() => {
       (pideComprobanteRecepcion ? comprobantePvRef : fechaInputRef).current?.focus();
     });
-  }, [open, pedidoHistoriaId, locked, loading, pideComprobanteRecepcion]);
+  }, [open, pedidoHistoriaId, locked, loading, pideComprobanteRecepcion, recepcionDirecta, proveedorElegidoId]);
 
   function irAFechaFactura() {
     const el = fechaInputRef.current;
@@ -489,8 +548,10 @@ export default function PedidoHistoriaDetalleModal({
       comprobanteCompra != null &&
       totalNum <= comprobanteCompra.saldo
     : totalPedidoMontoValido(totalPedido);
+  const sinProveedor = recepcionDirecta && !detalle?.proveedorId;
   const puedeConfirmarRecepcion =
-    Boolean(pedidoHistoriaId) &&
+    (Boolean(pedidoHistoriaId) || (recepcionDirecta && Boolean(detalle?.proveedorId))) &&
+    !cerrandoRecepcionDirecta &&
     !locked &&
     !busy &&
     !errorMsg &&
@@ -498,6 +559,38 @@ export default function PedidoHistoriaDetalleModal({
     checklistCompleto &&
     totalOk &&
     comprobanteOk;
+
+  function elegirProveedorRecepcionDirecta(id: string) {
+    if (id === "none" || pedidoCreadoIdRef.current) return;
+    const prov = proveedoresMercaderia.find((p) => p.id === id);
+    if (!prov) return;
+    const usuario = leerUsuarioSesion();
+    if (!usuario) {
+      toast.error("Seleccioná un usuario en el slidenav.");
+      return;
+    }
+    setDetalle({
+      id: "nueva",
+      generadoAt: new Date().toISOString(),
+      registradoAt: null,
+      fechaRecepcionIso: null,
+      total: null,
+      estado: "ABIERTO",
+      proveedorId: prov.id,
+      proveedorNombre: prov.nombre,
+      proveedorIva: prov.iva,
+      sucursalId: "",
+      sucursalNombre: SUCURSAL_LABEL_PEDIDO[usuario.sucursalPorDefecto],
+      comprobanteCompra: null,
+      items: [],
+    });
+    setFiscal(prov.iva === "SIEMPRE");
+    setCheckListConfirmedByItem({});
+    setTotalPedido("");
+    setEditingItemId(null);
+    setEditingValue("");
+    setErrorMsg(null);
+  }
 
   function personalIdSesion(): number | null {
     const usuario = leerUsuarioSesion();
@@ -509,17 +602,41 @@ export default function PedidoHistoriaDetalleModal({
   }
 
   async function confirmarRecepcion() {
-    if (!pedidoHistoriaId || !puedeConfirmarRecepcion || guardando) return;
+    if (!puedeConfirmarRecepcion || guardando || cerrandoRecepcionDirecta || !detalle) return;
     const personalId = personalIdSesion();
     if (personalId == null) return;
 
     setGuardando("post");
     try {
-      const guardadoOk = await persistirRecepcionActual(personalId);
-      if (!guardadoOk) return;
+      let id = pedidoCreadoIdRef.current ?? pedidoHistoriaId;
+      if (recepcionDirecta && !id) {
+        const usuario = leerUsuarioSesion();
+        if (!usuario) {
+          toast.error("Seleccioná un usuario en el slidenav.");
+          return;
+        }
+        const creado = await crearPedidoHistoriaRecepcionDirectaAction({
+          proveedorId: detalle.proveedorId,
+          sucursalCodigo: usuario.sucursalPorDefecto,
+        });
+        if (!creado.ok) {
+          toast.error(creado.error ?? "Error al crear la recepción.");
+          return;
+        }
+        id = creado.data.id;
+        pedidoCreadoIdRef.current = id;
+        setPedidoCreadoId(id);
+      }
+      if (!id) return;
+
+      if (!recepcionDirecta || !recepcionPersistidaRef.current) {
+        const guardadoOk = await persistirRecepcionActual(personalId, id);
+        if (!guardadoOk) return;
+        if (recepcionDirecta) recepcionPersistidaRef.current = true;
+      }
 
       const marcar = await marcarPedidoHistoriaRegistradoAction({
-        pedidoHistoriaId,
+        pedidoHistoriaId: id,
         totalPedido: Number(totalPedido),
         fechaRecepcionIso: fechaRecepcion,
         personalId,
@@ -533,12 +650,14 @@ export default function PedidoHistoriaDetalleModal({
         return;
       }
 
-      if (modoCorreccionRecepcionado) {
+      if (modoCorreccionRecepcionado && pedidoHistoriaId) {
         setModoCorreccionRecepcionado(false);
         await cargarDetalle(pedidoHistoriaId);
         toast.success("Corrección guardada. Se generó un nuevo comprobante de compra.");
         return;
       }
+      confirmadaRef.current = true;
+      pedidoCreadoIdRef.current = null;
       toast.success("Pedido recepcionado. Stock registrado.");
       onOpenChange(false);
     } catch {
@@ -605,11 +724,11 @@ export default function PedidoHistoriaDetalleModal({
     }
   }
 
-  async function persistirRecepcionActual(personalId: number): Promise<boolean> {
-    if (!pedidoHistoriaId || !detalle) return false;
+  async function persistirRecepcionActual(personalId: number, id: string): Promise<boolean> {
+    if (!detalle) return false;
     try {
       const res = await guardarRecepcionPedidoHistoriaAction({
-        pedidoHistoriaId,
+        pedidoHistoriaId: id,
         personalId,
         items: detalle.items.map((item) => ({
           id: item.id.startsWith("tmp-") ? undefined : item.id,
@@ -643,6 +762,18 @@ export default function PedidoHistoriaDetalleModal({
       );
       return;
     }
+    if (!next && (recepcionDirecta && guardando != null || cerrandoRecepcionDirecta)) return;
+    if (!next && recepcionDirecta) {
+      const idCreado = pedidoCreadoIdRef.current;
+      if (idCreado && !confirmadaRef.current) {
+        pedidoCreadoIdRef.current = null;
+        setCerrandoRecepcionDirecta(true);
+        void eliminarPedidoHistoriaAction({ pedidoHistoriaId: idCreado }).finally(() => {
+          onOpenChange(false);
+        });
+        return;
+      }
+    }
     onOpenChange(next);
   }
 
@@ -664,7 +795,7 @@ export default function PedidoHistoriaDetalleModal({
               <Button
                 type="button"
                 variant="outline"
-                disabled={bloquearNavegacionModalPorEdicionCantidad}
+                disabled={bloquearNavegacionModalPorEdicionCantidad || cerrandoRecepcionDirecta}
                 onClick={() => handleModalOpenChange(false)}
               >
                 Cerrar
@@ -729,9 +860,28 @@ export default function PedidoHistoriaDetalleModal({
                     "flex min-h-0 min-w-0 flex-col justify-center gap-0.5 py-0 text-left"
                   )}
                 >
-                  <p className="text-sm font-semibold leading-snug text-foreground">
-                    {detalle ? detalle.proveedorNombre : "—"}
-                  </p>
+                  {recepcionDirecta ? (
+                    <Select
+                      value={detalle?.proveedorId ?? ""}
+                      onValueChange={elegirProveedorRecepcionDirecta}
+                      disabled={pedidoCreadoId != null || guardando != null || cerrandoRecepcionDirecta}
+                    >
+                      <SelectTrigger className="w-full max-w-md font-semibold" aria-label="Proveedor">
+                        <SelectValue placeholder="PROVEEDOR" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" side="bottom" align="start">
+                        {proveedoresMercaderia.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm font-semibold leading-snug text-foreground">
+                      {detalle ? detalle.proveedorNombre : "—"}
+                    </p>
+                  )}
                   <p className="text-xs leading-snug text-muted-foreground">
                     <span className="tabular-nums">
                       {detalle ? detalle.sucursalNombre : "—"}
@@ -753,7 +903,7 @@ export default function PedidoHistoriaDetalleModal({
                       label="FISCAL"
                       value={fiscal}
                       onChange={setFiscal}
-                      disabled={!fiscalEditable || loading}
+                      disabled={!fiscalEditable || loading || sinProveedor}
                       className="py-1.5"
                     />
                     <div className="flex min-w-0 flex-col justify-center gap-0.5">
@@ -764,7 +914,7 @@ export default function PedidoHistoriaDetalleModal({
                         onPuntoVentaChange={setComprobantePv}
                         onNumeroChange={setComprobanteNro}
                         onCompletar={irAFechaFactura}
-                        disabled={loading}
+                        disabled={loading || sinProveedor}
                         puntoVentaRef={comprobantePvRef}
                         inputClassName={inputBorderClassName}
                       />
@@ -774,7 +924,7 @@ export default function PedidoHistoriaDetalleModal({
                 <label
                   className={cn(
                     "flex min-h-0 min-w-0 w-full flex-col justify-center gap-0.5 py-0 text-left",
-                    locked || loading ? "cursor-default" : "cursor-pointer"
+                    locked || loading || sinProveedor ? "cursor-default" : "cursor-pointer"
                   )}
                 >
                   <ModalMicroLabel>{esNotaCredito ? "FECHA NC" : "FECHA FACTURA"}</ModalMicroLabel>
@@ -783,12 +933,12 @@ export default function PedidoHistoriaDetalleModal({
                     type="date"
                     value={fechaRecepcion}
                     onChange={(e) => setFechaRecepcion(e.target.value)}
-                    disabled={locked || loading}
+                    disabled={locked || loading || sinProveedor}
                     aria-label={esNotaCredito ? "FECHA NC" : "FECHA FACTURA"}
                     className={cn(
                       "h-9 w-full min-w-0 tabular-nums text-left",
                       inputBorderClassName,
-                      locked || loading ? "cursor-not-allowed" : "cursor-pointer"
+                      locked || loading || sinProveedor ? "cursor-not-allowed" : "cursor-pointer"
                     )}
                   />
                 </label>
@@ -838,7 +988,7 @@ export default function PedidoHistoriaDetalleModal({
                   variant="default"
                   onClick={() => setAgregarProductosOpen(true)}
                   disabled={
-                    esNotaCredito || locked || loading || !fechaFacturaOk || guardando != null
+                    esNotaCredito || locked || loading || !fechaFacturaOk || guardando != null || sinProveedor
                   }
                   className={cn(
                     "h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"

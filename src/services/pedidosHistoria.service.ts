@@ -368,6 +368,64 @@ export async function crearPedidoHistoriaSnapshot(params: {
   }
 }
 
+/**
+ * Cabecera `ABIERTO` sin ítems: recepción de mercadería que no se emitió como pedido.
+ * La sucursal es la del usuario de pestaña. Los ítems los carga el modal y se
+ * persisten con `guardarRecepcionPedidoHistoria` al confirmar.
+ */
+export async function crearPedidoHistoriaRecepcionDirecta(params: {
+  proveedorId: string;
+  sucursalCodigo: SucursalPedidoEnvio;
+}): Promise<ServiceResult<{ id: string }>> {
+  const proveedorId = params.proveedorId.trim();
+  if (!proveedorId) return { success: false, error: "Proveedor inválido." };
+
+  try {
+    await purgarPedidosHistoriaExpirados(prisma);
+
+    const [proveedor, sucursal] = await Promise.all([
+      prisma.proveedor.findUnique({
+        where: { id: proveedorId },
+        select: { id: true, proveedorMercaderia: true, idProveedorDux: true },
+      }),
+      prisma.sucursal.findUnique({
+        where: { codigo: params.sucursalCodigo },
+        select: { id: true, idDux: true },
+      }),
+    ]);
+
+    if (!proveedor || !proveedor.proveedorMercaderia) {
+      return { success: false, error: "El proveedor no entrega mercadería." };
+    }
+    if (!proveedor.idProveedorDux?.trim()) {
+      return {
+        success: false,
+        error: "El proveedor no tiene ID DUX: no se puede crear el comprobante.",
+      };
+    }
+    if (!sucursal) return { success: false, error: "Sucursal no encontrada." };
+    if (!sucursal.idDux?.trim()) {
+      return {
+        success: false,
+        error: "La sucursal no tiene ID DUX: no se puede crear el comprobante.",
+      };
+    }
+
+    const pedido = await prisma.pedidoHistoria.create({
+      data: {
+        proveedorId: proveedor.id,
+        sucursalId: sucursal.id,
+        estado: "ABIERTO",
+      },
+      select: { id: true },
+    });
+    return { success: true, data: { id: pedido.id } };
+  } catch (e) {
+    logServiceError("crearPedidoHistoriaRecepcionDirecta", e);
+    return { success: false, error: "Error al crear la recepción." };
+  }
+}
+
 export async function getPedidoHistoriaDetalle(params: {
   pedidoHistoriaId: string;
 }): Promise<ServiceResult<PedidoHistoriaDetalle>> {

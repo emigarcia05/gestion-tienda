@@ -50,17 +50,23 @@ export default async function HistorialPedidosPage({ searchParams }: Props) {
   // de Neon (timeout, pool exhausted, conn reset) NO debe romper el render del
   // Server Component. Si falla, mostramos la página con `proveedores: []` y
   // dejamos rastro en logs para el digest correspondiente.
-  let proveedores: Array<{ id: string; nombre: string; prefijo: string }> = [];
+  let proveedores: Array<{
+    id: string;
+    nombre: string;
+    prefijo: string;
+    iva: "SIEMPRE" | "NUNCA" | "PREGUNTA";
+  }> = [];
   try {
     const proveedoresRaw = await prisma.proveedor.findMany({
       where: { proveedorMercaderia: true },
-      select: { id: true, nombre: true, prefijo: true },
+      select: { id: true, nombre: true, prefijo: true, iva: true },
       orderBy: { prefijo: "asc" },
     });
     proveedores = proveedoresRaw.map((p) => ({
       id: p.id,
       nombre: p.nombre,
       prefijo: p.prefijo ?? "",
+      iva: p.iva,
     }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

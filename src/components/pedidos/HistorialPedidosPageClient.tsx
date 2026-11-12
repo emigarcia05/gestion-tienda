@@ -31,7 +31,9 @@ import PedidoHistoriaBorrarConfirmModal from "@/components/pedidos/PedidoHistori
 import FiltrosHistorialPedidos, {
   type EstadoFiltroPedido,
 } from "@/components/pedidos/FiltrosHistorialPedidos";
-import { Eye, PackageCheck, Trash2 } from "lucide-react";
+import { Eye, PackageCheck, Plus, Trash2 } from "lucide-react";
+import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
+import type { IvaValue } from "@/lib/validations/iva";
 import { toast } from "sonner";
 import { descargarPdfBase64 } from "@/lib/descargarPdfBase64";
 import { descargarPdfPedidoHistoriaAction } from "@/actions/pedidosHistoria";
@@ -46,7 +48,7 @@ interface Props {
   total: number;
   totalPaginas: number;
   paginaNum: number;
-  proveedores: Array<{ id: string; nombre: string; prefijo: string }>;
+  proveedores: Array<{ id: string; nombre: string; prefijo: string; iva: IvaValue }>;
   proveedorId: string;
   sucursalCodigo: string;
   estado: EstadoFiltroPedido;
@@ -73,6 +75,7 @@ export default function HistorialPedidosPageClient({
   const router = useRouter();
   const [recepcionOpen, setRecepcionOpen] = useState(false);
   const [recepcionId, setRecepcionId] = useState<string | null>(null);
+  const [recepcionDirecta, setRecepcionDirecta] = useState(false);
   const [lecturaOpen, setLecturaOpen] = useState(false);
   const [lecturaId, setLecturaId] = useState<string | null>(null);
   const [borrarOpen, setBorrarOpen] = useState(false);
@@ -86,7 +89,14 @@ export default function HistorialPedidosPageClient({
   const subtitle = "Compras Emitidas";
 
   function openRecepcion(id: string) {
+    setRecepcionDirecta(false);
     setRecepcionId(id);
+    setRecepcionOpen(true);
+  }
+
+  function openRecepcionDirecta() {
+    setRecepcionId(null);
+    setRecepcionDirecta(true);
     setRecepcionOpen(true);
   }
 
@@ -105,6 +115,7 @@ export default function HistorialPedidosPageClient({
     if (!id) return;
     setLecturaOpen(false);
     setLecturaId(null);
+    setRecepcionDirecta(false);
     setRecepcionId(id);
     setRecepcionOpen(true);
   }
@@ -134,6 +145,14 @@ export default function HistorialPedidosPageClient({
     <ClassicFilteredTableLayout
       title={title}
       subtitle={subtitle}
+      actions={
+        <ToolbarActionButton
+          type="button"
+          icon={<Plus />}
+          label="Nueva Recepción"
+          onClick={openRecepcionDirecta}
+        />
+      }
       filters={
         <FiltrosHistorialPedidos
           proveedores={proveedores}
@@ -284,15 +303,19 @@ export default function HistorialPedidosPageClient({
           </div>
         ) : null}
         <PedidoHistoriaDetalleModal
+          key={recepcionDirecta ? "nueva-recepcion" : "pedido"}
           open={recepcionOpen}
           onOpenChange={(v) => {
             setRecepcionOpen(v);
             if (!v) {
               setRecepcionId(null);
+              setRecepcionDirecta(false);
               router.refresh();
             }
           }}
-          pedidoHistoriaId={recepcionId}
+          pedidoHistoriaId={recepcionDirecta ? null : recepcionId}
+          recepcionDirecta={recepcionDirecta}
+          proveedoresMercaderia={proveedores}
         />
         <PedidoHistoriaLecturaModal
           open={lecturaOpen}

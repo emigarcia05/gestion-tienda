@@ -10,7 +10,9 @@ import { generarPdfPedido } from "@/lib/generarPdfPedido";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { SUCURSAL_LABEL_PEDIDO, type SucursalPedido } from "@/lib/pedidos";
 import * as pedidosHistoriaService from "@/services/pedidosHistoria.service";
-import { fechaFacturaIsoSchema } from "@/lib/validations/pedidosMutaciones";
+import { fechaFacturaIsoSchema, crearPedidoHistoriaRecepcionDirectaSchema } from "@/lib/validations/pedidosMutaciones";
+import { zodFail, fromServiceResult } from "@/lib/actionResult";
+import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 import { NUMERO_COMPROBANTE_COMPRA_REGEX } from "@/lib/numeroComprobanteCompra";
 import { idPersonalSchema } from "@/lib/validations/globalPersonal";
 
@@ -137,6 +139,27 @@ export async function descargarPdfPedidoHistoriaAction(
     const pdfBase64 = Buffer.from(pdfBuffer).toString("base64");
 
     return { ok: true, data: { pdfBase64, filename } };
+  });
+}
+
+/** Cabecera vacía para recepcionar mercadería que no se pidió por el sistema. */
+export async function crearPedidoHistoriaRecepcionDirectaAction(
+  params: unknown
+): Promise<ActionResult<{ id: string }>> {
+  return ejecutarActionSegura("crearPedidoHistoriaRecepcionDirecta", async () => {
+    const rol = await getRol();
+    if (!puede(rol, PERMISOS.pedidos.acceso)) {
+      return { ok: false, error: "Sin permisos para pedidos." };
+    }
+
+    const parsed = crearPedidoHistoriaRecepcionDirectaSchema.safeParse(params);
+    if (!parsed.success) return zodFail(parsed.error);
+
+    const res = await pedidosHistoriaService.crearPedidoHistoriaRecepcionDirecta(parsed.data);
+    if (!res.success) return fromServiceResult(res);
+
+    revalidatePath(GP_ROUTES.pedidoMercaderia.recepcionPedido);
+    return { ok: true, data: res.data };
   });
 }
 
