@@ -117,12 +117,16 @@ function ListaPendientes({
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-1">
       <p className="shrink-0 text-center text-[10px] font-bold uppercase tracking-wide">{titulo}</p>
-      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto">
+      <ul className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-auto">
         {lineas.length === 0 ? (
-          <li className="text-xs text-muted-foreground">Sin pendientes</li>
+          <li className="text-center text-xs text-muted-foreground">Sin pendientes</li>
         ) : (
           lineas.map((linea) => (
-            <li key={linea.id} className="truncate text-xs font-semibold" title={linea.etiqueta}>
+            <li
+              key={linea.id}
+              className="w-full truncate text-center text-xs font-semibold"
+              title={linea.etiqueta}
+            >
               {linea.etiqueta}
             </li>
           ))
@@ -143,19 +147,17 @@ function PendientesSucursalTablero({
 }) {
   return (
     <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,4fr)] gap-2 overflow-hidden">
-      <div className={cn(RECUADRO_PENDIENTE_CLASS, "grid grid-cols-[1fr_auto_1fr] items-center")}>
+      <div className={cn(RECUADRO_PENDIENTE_CLASS, "flex-row items-center justify-center gap-3")}>
+        <h3 className="text-xs font-bold uppercase tracking-wide">Envios pendientes</h3>
         <p className="text-xl font-bold tabular-nums leading-none">{envios}</p>
-        <h3 className="text-center text-xs font-bold uppercase tracking-wide">Envíos pendientes</h3>
-        <div className="justify-self-end">
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="tablero-grafico-filtro w-fit min-w-0"
-          >
-            <Link href={GP_ROUTES.envios.programados}>Ir a Envios</Link>
-          </Button>
-        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="tablero-grafico-filtro w-fit min-w-0"
+        >
+          <Link href={GP_ROUTES.envios.programados}>Ir a Envios</Link>
+        </Button>
       </div>
       <div className={RECUADRO_PENDIENTE_CLASS}>
         <h3 className="shrink-0 text-center text-xs font-bold uppercase tracking-wide">
@@ -204,17 +206,11 @@ export default function TableroVentas({
           <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-1 gap-4">
             <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden">
               <MetricasVentas montos={datos.sucursal} />
-              {vista === "vendedor" ? (
-                <div className="flex h-full min-h-0 flex-col">
-                  <GraficoMesesTablero series={datos.seriesMeses} />
-                </div>
-              ) : (
-                <PendientesSucursalTablero
-                  envios={datos.enviosPendientesHoy}
-                  generacion={datos.pedidosGeneracion}
-                  recepcion={datos.pedidosRecepcion}
-                />
-              )}
+              <PendientesSucursalTablero
+                envios={datos.enviosPendientesHoy}
+                generacion={datos.pedidosGeneracion}
+                recepcion={datos.pedidosRecepcion}
+              />
             </div>
             <div className="flex min-h-0 flex-col">
               <div className="contenedor-tabla-gestion min-h-0 flex-1" aria-label="Clientes con saldos vencidos">
