@@ -198,9 +198,12 @@ function PendientesSucursalTablero({
           variant="outline"
           className="tablero-grafico-filtro w-fit min-w-0"
         >
-          <Link href={GP_ROUTES.envios.programados}>
+          <Link
+            href={GP_ROUTES.envios.programados}
+            title="Ir a Envios"
+            aria-label="Ir a Envios"
+          >
             <ExternalLink aria-hidden />
-            Ir a Envios
           </Link>
         </Button>
       </div>

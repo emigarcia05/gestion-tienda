@@ -2414,7 +2414,7 @@ main button.boton-encubierto:focus-visible {
 }
 
 /*
- * Tablero · filtros de los gráficos (meses y participación) y el enlace Ir a Envios.
+ * Tablero · filtros de los gráficos (meses y participación) y el enlace de Envios pendientes.
  * Anula `main button` (CTA relleno). Contorno azul, fondo transparente, texto negro.
  */
 main button.tablero-grafico-filtro,
@@ -2449,6 +2449,27 @@ main a.tablero-grafico-filtro svg {
   height: 0.875rem !important;
   color: var(--foreground) !important;
   opacity: 1 !important;
+}
+/*
+ * Enlaces de redirección del tablero (ícono solo). El alto es el de la etiqueta
+ * `text-xs` (0.75rem): no puede superar el renglón del texto de al lado.
+ */
+main a.tablero-grafico-filtro,
+main a.tablero-grafico-filtro:hover,
+main a.tablero-grafico-filtro:focus-visible,
+main a.tablero-grafico-filtro:active {
+  width: 0.75rem !important;
+  min-width: 0.75rem !important;
+  height: 0.75rem !important;
+  min-height: 0.75rem !important;
+  max-height: 0.75rem !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border-radius: 0.2rem !important;
+}
+main a.tablero-grafico-filtro svg {
+  width: 0.5rem !important;
+  height: 0.5rem !important;
 }
 main button.boton-encubierto.boton-encubierto--cabecera-visor,
 main button.boton-encubierto.boton-encubierto--cabecera-visor:hover:not(:disabled),
