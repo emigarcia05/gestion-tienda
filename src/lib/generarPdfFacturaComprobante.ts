@@ -87,8 +87,8 @@ export type FacturaComprobantePdfInput = {
   /** QR de Instagram y WhatsApp. Lo arma el cliente antes de dibujar. */
   redes?: FacturaComprobantePdfRedes | null;
   /**
-   * Formas de pago del descuento ya guardadas en el presupuesto.
-   * La vista previa usa `descuento`; la reimpresión usa este texto.
+   * Líneas de «DESCUENTO VÁLIDO ABONANDO CON» del % aplicado.
+   * Presupuesto y comprobante de venta. La reimpresión usa este texto.
    */
   formasPagoDescuento?: string | null;
   /** Presupuesto: bloque de formas de pago bajo la tabla. */
@@ -96,8 +96,8 @@ export type FacturaComprobantePdfInput = {
   /** Presupuesto con el interruptor apagado: no imprime formas de pago. */
   ocultarFormasPago?: boolean;
   /**
-   * Venta fiscal o no fiscal: estado de cobro en el hueco izquierdo del pie.
-   * El mismo lugar que «DESCUENTO VÁLIDO ABONANDO CON» del presupuesto.
+   * Venta sin descuento: estado de cobro en el hueco izquierdo del pie.
+   * Si hay descuento, ese hueco lo ocupa «DESCUENTO VÁLIDO ABONANDO CON».
    */
   estadoCobro?: EstadoCobroComprobantePdf | null;
 };
@@ -458,7 +458,10 @@ function dibujarPieTotales(
   const anchoValores = Math.max(...filas.map((fila) => doc.getTextWidth(fila.valor)));
   const anchoEtiquetas = Math.max(...filas.map((fila) => doc.getTextWidth(fila.etiqueta)));
   const etiquetaX = totalColCenterX - anchoValores / 2 - 1.2;
-  const formas = esPresupuesto && resumen.hayDescuento ? formasPagoDescuentoPdf(input) : "";
+  const formas =
+    (esPresupuesto || esFacturaTipoVenta(input.tipo)) && resumen.hayDescuento
+      ? formasPagoDescuentoPdf(input)
+      : "";
   const estadoCobro =
     !formas && input.estadoCobro && esFacturaTipoVenta(input.tipo) ? input.estadoCobro : null;
   const cobro = estadoCobro ? textosEstadoCobro(estadoCobro) : null;

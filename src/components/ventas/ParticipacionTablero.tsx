@@ -74,8 +74,8 @@ function BarraParticipacion({
       <span
         className={
           medida === "monto"
-            ? "w-24 shrink-0 text-right text-xs tabular-nums"
-            : "w-16 shrink-0 text-right text-xs tabular-nums"
+            ? "flex w-24 shrink-0 flex-col items-center text-center text-xs tabular-nums"
+            : "flex w-16 shrink-0 flex-col items-center text-center text-xs tabular-nums"
         }
       >
         <span className="block font-semibold">{texto}</span>

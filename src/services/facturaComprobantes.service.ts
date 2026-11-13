@@ -811,7 +811,7 @@ export async function obtenerFacturaComprobantePdfDatos(
         fiscal: esFacturaTipoFiscal(tipo) ? fiscalPdfDesdeRow(row) : null,
         ...datosSucursalPdf(row),
         formasPagoDescuento:
-          tipo === "presupuesto"
+          tipo === "presupuesto" || esFacturaTipoVenta(tipo)
             ? await formasPagoDescuentoPresupuesto(
                 pctDescuentoDeLineasPdf(descPct, lineas),
                 row.descFormasPago
@@ -1792,7 +1792,7 @@ async function emitirFacturaComprobanteSegunTipo(
         )
       : null;
   const descFormasPago =
-    input.tipo === "presupuesto"
+    input.tipo === "presupuesto" || esFacturaTipoVenta(input.tipo)
       ? (await textoFormasPagoHabilitadasPorDescuento(resumen.descPctPromedio)).trim() || null
       : null;
 
@@ -1918,6 +1918,7 @@ async function emitirFacturaComprobanteSegunTipo(
     receptorDomicilio: domicilioRes.data,
     emisorCondicionIva: fiscal ? pto.condicionIva : null,
     movimientosCobro,
+    descFormasPago,
   });
 }
 
@@ -1966,6 +1967,7 @@ async function emitirFiscal(args: {
   receptorDomicilio: string | null;
   emisorCondicionIva: number | null;
   movimientosCobro: readonly MovimientoCobroFacturaData[];
+  descFormasPago: string | null;
 }): Promise<EmisionResultado> {
   const authRes = await obtenerAuthWsfe({
     ptoVenta: args.pto.ptoVenta,
@@ -2101,6 +2103,7 @@ async function emitirFiscal(args: {
           impTotal: args.impTotal,
           descPct: roundArs2(args.resumen.descPctPromedio),
           descImporte: roundArs2(args.resumen.descPesos),
+          descFormasPago: args.descFormasPago,
           ambiente: args.ambiente,
           comentarios: args.input.comentarios.trim().toLocaleUpperCase("es-AR"),
           estado: "borrador",
