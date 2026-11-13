@@ -38,9 +38,12 @@ import {
 import { cuotasParaFormaYEntidad, type CobrosCuotaItem } from "@/lib/cobrosCuotas";
 import {
   esCobroNotaCreditoNombre,
+  filtrarCuotasCatalogoPorDescPromo,
+  filtrarPagosCatalogoPorDescPromo,
   lineasFormaPagoCobro,
   ncPermiteDevolucion,
   type FacturaComprobanteCobroItem,
+  type FacturaDescuentoEstado,
   type FacturaNcCobroVista,
 } from "@/lib/factura";
 import {
@@ -101,6 +104,7 @@ export default function FacturaComprobanteCobrosModal({
   const [guardando, setGuardando] = useState(false);
   const [formAbierto, setFormAbierto] = useState(false);
   const [pagos, setPagos] = useState<FinAnaCosFinaPagoItem[]>([]);
+  const [descuento, setDescuento] = useState<FacturaDescuentoEstado | null>(null);
   const [cuotas, setCuotas] = useState<CobrosCuotaItem[]>([]);
   const [pagoId, setPagoId] = useState("");
   const [entidadId, setEntidadId] = useState("");
@@ -116,8 +120,8 @@ export default function FacturaComprobanteCobrosModal({
   const puedeAgregarCobro = haySaldo && !soloLectura;
   const puedeDevolverNc = !soloLectura && vistaNc != null && ncPermiteDevolucion(vistaNc);
   const pagosDisponibles = useMemo(
-    () => pagos.filter((p) => !esCobroNotaCreditoNombre(p.nombre)),
-    [pagos]
+    () => filtrarPagosCatalogoPorDescPromo(pagos, esNotaCredito ? null : descuento),
+    [pagos, descuento, esNotaCredito]
   );
   const pagoSel = useMemo(
     () => pagosDisponibles.find((p) => p.id === pagoId) ?? null,
@@ -126,8 +130,16 @@ export default function FacturaComprobanteCobrosModal({
   const entidadRealId = pagoSel
     ? (opcionEntidadCobroPorId(pagoSel, entidadId)?.entidadId ?? "")
     : "";
-  const muestraCuotas =
-    cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).length > 0;
+  const cuotasOpciones = useMemo(
+    () =>
+      filtrarCuotasCatalogoPorDescPromo(
+        cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId),
+        pagoId,
+        esNotaCredito ? null : descuento
+      ),
+    [cuotas, pagoId, entidadRealId, descuento, esNotaCredito]
+  );
+  const muestraCuotas = cuotasOpciones.length > 0;
   const muestraEntidad = (pagoSel?.entidadIds.length ?? 0) > 0;
   const historialNc = useMemo(() => {
     const asign = (vistaNc?.asignaciones ?? []).map((fila) => ({
@@ -172,10 +184,12 @@ export default function FacturaComprobanteCobrosModal({
         toast.error(res.error);
         setItems([]);
         setSaldoPendiente(null);
+        setDescuento(null);
         return;
       }
       setItems(res.data.items);
       setSaldoPendiente(res.data.saldoPendiente);
+      setDescuento(res.data.descuento);
       resetFormulario(res.data.saldoPendiente);
     },
     [resetFormulario]
@@ -196,10 +210,12 @@ export default function FacturaComprobanteCobrosModal({
         toast.error(res.error);
         setItems([]);
         setSaldoPendiente(null);
+        setDescuento(null);
         return;
       }
       setItems(res.data.items);
       setSaldoPendiente(res.data.saldoPendiente);
+      setDescuento(res.data.descuento);
       resetFormulario(res.data.saldoPendiente);
     });
     return () => {
@@ -620,7 +636,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).map((cuota) => (
+                          {cuotasOpciones.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>
@@ -744,7 +760,9 @@ export default function FacturaComprobanteCobrosModal({
               <div className="flex shrink-0 flex-col gap-3">
                 {pagosDisponibles.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">
-                    No hay formas de pago cargadas.
+                    {descuento
+                      ? "Este descuento no admite las formas de pago de la sucursal."
+                      : "No hay formas de pago cargadas."}
                   </p>
                 ) : (
                   <div
@@ -836,7 +854,7 @@ export default function FacturaComprobanteCobrosModal({
                           className="select-content-filtro"
                         >
                           <SelectItem value={VACIO}>CUOTAS</SelectItem>
-                          {cuotasParaFormaYEntidad(cuotas, pagoId, entidadRealId).map((cuota) => (
+                          {cuotasOpciones.map((cuota) => (
                             <SelectItem key={cuota.id} value={cuota.id}>
                               {cuota.cuotas}
                             </SelectItem>

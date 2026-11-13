@@ -89,6 +89,7 @@ import {
   type LineaFormaPagoPdf,
 } from "@/lib/facturaFormasPagoPdf";
 import {
+  descuentoCobroPorPct,
   listarFormasPagoPresupuesto,
   textoFormasPagoHabilitadasPorDescuento,
 } from "@/services/descPromo.service";
@@ -2449,6 +2450,7 @@ export async function registrarCobroComprobanteVta(
         fecha: true,
         impTotal: true,
         impCobrado: true,
+        descPct: true,
         diasVencimiento: true,
         personalId: true,
         personal: { select: { sucursalPorDefecto: true } },
@@ -2553,6 +2555,12 @@ export async function registrarCobroComprobanteVta(
     if (input.montoCents > montoArCentsTopePesoEntero(Math.round(saldo * 100))) {
       return { success: false, error: "El monto no puede ser mayor al saldo pendiente." };
     }
+    const descuentoCobro = await descuentoCobroPorPct(decimalToNumber(row.descPct));
+    const promoPago = cobrosViolanPromoFormaPago(
+      [{ pagoNombre: input.pagoNombre, cuotaEtiqueta: input.cuotaEtiqueta }],
+      descuentoCobro
+    );
+    if (promoPago) return { success: false, error: promoPago };
     const fechaIso = isoYmdFromPrismaDateOnly(row.fecha);
     const movsPrep = await prepararMovimientosCobroDesdeSnapshots({
       cobros: [

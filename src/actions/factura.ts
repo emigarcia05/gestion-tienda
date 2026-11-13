@@ -10,6 +10,7 @@ import type {
   CuentaCorrienteClienteDatos,
   FacturaCobroDetalle,
   FacturaComprobanteCobroItem,
+  FacturaDescuentoEstado,
   FacturaNcCobroVista,
   FacturaComprobanteDuplicarBorrador,
   FacturaEmitirResultado,
@@ -403,7 +404,11 @@ export async function guardarDiasVencimientoFacturaAction(
 export async function listarCobrosComprobanteFacturaAction(
   raw: unknown
 ): Promise<
-  ActionResult<{ items: FacturaComprobanteCobroItem[]; saldoPendiente: number | null }>
+  ActionResult<{
+    items: FacturaComprobanteCobroItem[];
+    saldoPendiente: number | null;
+    descuento: FacturaDescuentoEstado | null;
+  }>
 > {
   const gate = await requireFacturacionLectura();
   if (gate) return gate;

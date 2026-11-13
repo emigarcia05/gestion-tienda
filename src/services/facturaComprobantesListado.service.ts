@@ -1,11 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sucursalCodigoSesion } from "@/services/facturaSucursalAutorizada.service";
+import { descuentoCobroPorPct } from "@/services/descPromo.service";
 import {
   esFacturaTipo,
   esFacturaTipoNotaCredito,
   esFacturaTipoVenta,
   type FacturaCobroDetalle,
+  type FacturaDescuentoEstado,
   type FacturaNcCobroVista,
   type FacturaComprobanteCobroItem,
   type FacturaComprobanteEstado,
@@ -378,6 +380,8 @@ export async function listarCobrosComprobanteVta(
 ): Promise<{
   items: FacturaComprobanteCobroItem[];
   saldoPendiente: number | null;
+  /** Formas que admite el % de descuento. Null = sin restricción. */
+  descuento: FacturaDescuentoEstado | null;
 }> {
   const row = await prisma.comprobanteVta.findUnique({
     where: { id: comprobanteId },
@@ -386,6 +390,7 @@ export async function listarCobrosComprobanteVta(
       estado: true,
       impTotal: true,
       impCobrado: true,
+      descPct: true,
       fecha: true,
       diasVencimiento: true,
       ptoVenta: true,
@@ -395,7 +400,7 @@ export async function listarCobrosComprobanteVta(
     },
   });
   if (!row) {
-    return { items: [], saldoPendiente: null };
+    return { items: [], saldoPendiente: null, descuento: null };
   }
   const cobros = await listarCobrosDeComprobante(comprobanteId);
   const tipo: FacturaTipo = esFacturaTipo(row.tipoComprobante)
@@ -418,8 +423,12 @@ export async function listarCobrosComprobanteVta(
   });
   const personalNombre =
     row.personal?.nombrePersonal.trim().toLocaleUpperCase("es-AR") ?? "";
+  const descuento = esFacturaTipoVenta(tipo)
+    ? await descuentoCobroPorPct(decimalToNumber(row.descPct))
+    : null;
   return {
     saldoPendiente,
+    descuento,
     items: cobros.map((r) => ({
       id: r.id,
       createdAtIso: r.createdAt.toISOString(),

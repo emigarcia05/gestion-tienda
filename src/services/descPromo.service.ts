@@ -10,10 +10,13 @@ import {
   etiquetaAlcanceDescPromo,
   etiquetaFormaPagoCuotaDescPromo,
   lineasEtiquetaCuotaDescPromo,
+  snapshotCobroDescPromo,
   type DescPromoEspecialFactura,
   type DescPromoFila,
+  type DescPromoFormaPagoRef,
   type DescPromoLoteRef,
 } from "@/lib/descPromo";
+import type { FacturaDescuentoEstado } from "@/lib/factura";
 import {
   dateToIsoYmdArgentina,
   isoYmdFromPrismaDateOnly,
@@ -531,6 +534,51 @@ export async function listarDescPromosEspecialesPorCodigos(
     );
     return out;
   }
+}
+
+/**
+ * Formas de cobro que admite un comprobante con ese % de descuento:
+ * la unión de `cobro_desc_segun_formas_pago` de las promos con ese `desc`.
+ * Null si el % no coincide con ninguna promo (descuento personalizado).
+ */
+export async function descuentoCobroPorPct(
+  descPct: number
+): Promise<FacturaDescuentoEstado | null> {
+  const pct = Math.round(descPct);
+  if (!Number.isFinite(pct) || pct <= 0) return null;
+  const rows = await prisma.descPromo.findMany({
+    where: { descuento: pct },
+    select: {
+      formasPago: {
+        select: {
+          pagoId: true,
+          cuotaId: true,
+          pago: { select: { nombre: true } },
+          cuota: { select: { cuotas: true } },
+        },
+      },
+    },
+  });
+  const vistos = new Map<string, DescPromoFormaPagoRef>();
+  for (const row of rows) {
+    for (const fp of row.formasPago) {
+      const clave = `${fp.pagoId}:${fp.cuotaId ?? ""}`;
+      if (vistos.has(clave)) continue;
+      vistos.set(clave, {
+        pagoId: fp.pagoId,
+        nombre: fp.pago.nombre.toLocaleUpperCase("es-AR"),
+        cuotaId: fp.cuotaId,
+        cuotaEtiqueta: fp.cuota ? fp.cuota.cuotas.toLocaleUpperCase("es-AR") : null,
+      });
+    }
+  }
+  if (vistos.size === 0) return null;
+  return {
+    fuente: "promo_forma_pago",
+    porcentaje: pct,
+    totalFacObjetivo: null,
+    ...snapshotCobroDescPromo([...vistos.values()]),
+  };
 }
 
 /** Formas del cartel «DESCUENTO VÁLIDO ABONANDO CON» para el % aplicado. */
