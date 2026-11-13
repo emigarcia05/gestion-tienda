@@ -404,18 +404,17 @@ export default function CrearEditarClienteModal({
                     aria-label="Condición IVA"
                   />
                 </div>
-                {domicilioFiscal ? (
-                  <div className="col-span-2 flex flex-col gap-1">
-                    <ModalMicroLabel>DOMICILIO FISCAL</ModalMicroLabel>
-                    <Input
-                      value={domicilioFiscal}
-                      readOnly
-                      tabIndex={-1}
-                      aria-label="Domicilio fiscal"
-                    />
-                  </div>
-                ) : null}
               </div>
+              <label className="flex flex-col gap-1">
+                <ModalMicroLabel>DOMICILIO FISCAL</ModalMicroLabel>
+                <Input
+                  value={domicilioFiscal ?? ""}
+                  readOnly
+                  tabIndex={-1}
+                  placeholder="—"
+                  aria-label="Domicilio fiscal"
+                />
+              </label>
             </section>
 
             <section className={cn("modal-seccion-formulario")}>
