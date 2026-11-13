@@ -431,6 +431,8 @@ export interface ClienteItem extends ClienteResumen {
   ctaCorrientePlazo: number | null;
   /** Tope de saldo CC; null = sin tope. */
   ctaCorrienteMontoMax: number | null;
+  /** Domicilio fiscal de ARCA. Null si todavía no se consultó el CUIT. */
+  domicilioFiscal: string | null;
 }
 
 /** Nombre del pintor asociado, solo si el cliente no es pintor y tiene uno. */

@@ -390,7 +390,7 @@ export default function FacturaCrearPageClient({
       "saldoVencidoCuentaCorriente" in item ? item.saldoVencidoCuentaCorriente : 0
     );
     setClienteProyectos(proyectos);
-    setProyectoId(proyectos[0]?.id ?? null);
+    setProyectoId(proyectos.length === 1 ? (proyectos[0]?.id ?? null) : null);
     setSugerenciasClientes([]);
     setClientesAbierto(false);
     setClienteHighlight(0);
@@ -415,7 +415,11 @@ export default function FacturaCrearPageClient({
       toast.error(res.error);
       return;
     }
+    const proyectos = res.data.proyectos;
+    const conserva =
+      proyectoId != null && proyectos.some((p) => p.id === proyectoId) ? proyectoId : null;
     aplicarClienteSeleccionado(res.data);
+    if (conserva) setProyectoId(conserva);
   }
 
   const claseActual = claseDesdeFacturaTipo(tipo);
@@ -545,6 +549,10 @@ export default function FacturaCrearPageClient({
           ? mensajePtoVtaFacturaSinConfigurar(grupoFactura)
           : MENSAJE_PTO_VTA_SUCURSAL_USUARIO
       );
+      return;
+    }
+    if (clienteProyectos.length > 1 && !proyectoId) {
+      toast.error("Seleccioná un proyecto del cliente.");
       return;
     }
     const clienteEmitir = nombreClienteFactura(cliente);

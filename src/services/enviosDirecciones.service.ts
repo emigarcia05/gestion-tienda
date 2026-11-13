@@ -147,9 +147,9 @@ export async function editarEnviosDireccion(
 export async function guardarDomicilioFiscalEnProyecto(
   db: Prisma.TransactionClient | typeof prisma,
   personaId: string,
-  domicilio: string
+  domicilio: string | null
 ): Promise<EnviosDireccionItem | null> {
-  const direccion = properTextoEnvio(domicilio);
+  const direccion = properTextoEnvio(domicilio ?? "");
   if (direccion === "") return null;
   const proyectos = await db.enviosDireccion.findMany({
     where: { personaId },

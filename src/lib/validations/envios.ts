@@ -130,13 +130,16 @@ const clienteCampos = {
   condicionIva: clienteCondicionIvaSchema,
   ctaCorrientePlazo: clienteCtaCorrientePlazoSchema,
   ctaCorrienteMontoMax: clienteCtaCorrienteMontoMaxSchema,
-  /** Domicilio fiscal ARCA (`getPersona_v2`); se guarda en `clientes_proyectos.direccion`. */
+  /** Domicilio fiscal ARCA (`getPersona_v2`); se guarda en `clientes.domicilio_fiscal`. */
   domicilioFiscal: z
     .string()
     .trim()
-    .max(440, "El texto es demasiado largo.")
+    .max(500, "El texto es demasiado largo.")
     .nullish()
-    .transform((v) => properTextoEnvio(v ?? "")),
+    .transform((v) => {
+      const texto = properTextoEnvio(v ?? "");
+      return texto === "" ? null : texto;
+    }),
 };
 
 function refineClientePintorAsociado(

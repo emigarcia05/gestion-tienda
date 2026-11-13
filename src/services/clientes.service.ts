@@ -66,6 +66,7 @@ const select = {
   condicionIvaArca: { select: { descripcion: true } },
   ctaCorrientePlazo: true,
   ctaCorrienteMontoMax: true,
+  domicilioFiscal: true,
 } as const;
 
 function mapResumen(row: ClienteResumen): ClienteResumen {
@@ -89,6 +90,7 @@ function mapRow(row: {
   condicionIvaArca: { descripcion: string } | null;
   ctaCorrientePlazo: number | null;
   ctaCorrienteMontoMax: { toString(): string } | number | null;
+  domicilioFiscal: string | null;
 }): ClienteItem {
   return {
     ...mapResumen(row),
@@ -99,6 +101,7 @@ function mapRow(row: {
     condicionIvaDescripcion: row.condicionIvaArca?.descripcion ?? null,
     ctaCorrientePlazo: row.ctaCorrientePlazo,
     ctaCorrienteMontoMax: numeroMontoCtaCorriente(row.ctaCorrienteMontoMax),
+    domicilioFiscal: row.domicilioFiscal?.trim() || null,
   };
 }
 
@@ -605,6 +608,7 @@ export async function crearCliente(
           ctaCorrientePlazo:
             input.ctaCorrientePlazo ?? CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT,
           ctaCorrienteMontoMax: input.ctaCorrienteMontoMax ?? null,
+          domicilioFiscal: input.domicilioFiscal,
         },
         select,
       });
@@ -684,6 +688,7 @@ export async function editarCliente(
       condicionIva?: number | null;
       ctaCorrientePlazo?: number | null;
       ctaCorrienteMontoMax?: number | null;
+      domicilioFiscal?: string | null;
     } = {
       nombreCompleto: nombreNuevo,
       cel: celNuevo,
@@ -706,6 +711,12 @@ export async function editarCliente(
     }
     if (input.ctaCorrienteMontoMax !== undefined) {
       data.ctaCorrienteMontoMax = input.ctaCorrienteMontoMax;
+    }
+    const cuitPersistido = data.cuit !== undefined ? data.cuit : existente.cuit;
+    if (cuitPersistido == null || cuitPersistido !== existente.cuit) {
+      data.domicilioFiscal = input.domicilioFiscal;
+    } else if (input.domicilioFiscal) {
+      data.domicilioFiscal = input.domicilioFiscal;
     }
     const { row, proyectoDomicilioFiscal } = await prisma.$transaction(async (tx) => {
       const actualizado = await tx.cliente.update({

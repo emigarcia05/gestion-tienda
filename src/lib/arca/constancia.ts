@@ -71,11 +71,37 @@ function parseCategoria(raw: unknown): ArcaConstanciaRaw["categoriaMonotributo"]
   return { idCategoria, descripcionCategoria };
 }
 
+function textoDomicilio(dom: Record<string, unknown>, ...claves: string[]): string | null {
+  for (const clave of claves) {
+    const texto = xmlText(dom[clave]);
+    if (texto && texto.trim()) return texto.trim();
+  }
+  return null;
+}
+
+/** Calle, localidad, provincia y CP. Prioriza `tipoDomicilio` FISCAL si ARCA manda más de uno. */
 function parseDomicilioFiscal(raw: unknown): string | null {
-  const dom = asXmlArray(raw).find(isRecord);
-  if (!dom) return null;
-  const direccion = xmlText(dom.direccion ?? dom.Direccion);
-  return direccion && direccion.trim() ? direccion.trim() : null;
+  const lista = asXmlArray(raw).filter(isRecord);
+  if (lista.length === 0) return null;
+  const fiscal = lista.find((dom) =>
+    (textoDomicilio(dom, "tipoDomicilio", "TipoDomicilio") ?? "")
+      .toUpperCase()
+      .includes("FISCAL")
+  );
+  const elegido = fiscal ?? lista[0];
+  if (!elegido) return null;
+  const direccion = textoDomicilio(elegido, "direccion", "Direccion");
+  const localidad = textoDomicilio(elegido, "localidad", "Localidad");
+  const provincia = textoDomicilio(elegido, "descripcionProvincia", "DescripcionProvincia");
+  const cp = textoDomicilio(elegido, "codPostal", "CodPostal");
+  const partes = [direccion, localidad, provincia, cp].filter((parte): parte is string => {
+    if (!parte) return false;
+    if (direccion && parte !== direccion && direccion.toUpperCase().includes(parte.toUpperCase())) {
+      return false;
+    }
+    return true;
+  });
+  return partes.length > 0 ? partes.join(", ") : null;
 }
 
 function textoErrores(raw: unknown): string[] {
@@ -113,7 +139,9 @@ function mapRaw(idPersona: string, ret: Record<string, unknown>): ArcaConstancia
     tieneDatosMonotributo: mono != null,
     categoriaMonotributo: parseCategoria(mono?.categoriaMonotributo),
     impuestosRegimenGeneral: parseImpuestos(rg),
-    domicilioFiscal: parseDomicilioFiscal(generales?.domicilioFiscal),
+    domicilioFiscal: parseDomicilioFiscal(
+      generales?.domicilioFiscal ?? errorConstancia?.domicilioFiscal
+    ),
   };
 }
 

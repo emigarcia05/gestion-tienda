@@ -2864,6 +2864,11 @@ model Cliente {
    */
   cuit                 String?  @map("cuit") @db.VarChar(11)
   /**
+   * Domicilio fiscal que devolvió ARCA (`getPersona_v2`), distinto de la dirección de envío.
+   * Es el que se copia a `vtas_comprobantes.receptor_domicilio` al emitir una factura fiscal.
+   */
+  domicilioFiscal      String?  @map("domicilio_fiscal") @db.Text
+  /**
    * Código ARCA (`iva_condicion_cod_arca.codigo`). Null = sin definir.
    */
   condicionIva         Int?     @map("condicion_iva")
@@ -2917,7 +2922,7 @@ enum EnviosDepartamento {
  * Proyecto de cliente (`clientes_proyectos`; ex `clientes_direcciones` / `envios_direcciones`).
  * `nombre_proyecto` en mayúsculas `es-AR`; vacío persiste `PRINCIPAL` (CHECK + default SQL).
  * Textos de domicilio: `direccion` (calle y número; ex `calle_nombre` + `numeracion`) y `distrito` en proper case; `referencia` con primera mayúscula de la oración.
- * `direccion` también recibe el domicilio fiscal de ARCA al crear/editar un cliente con CUIT (Factura A).
+ * `direccion` puede precargarse con el domicilio fiscal de ARCA si el proyecto no tiene calle; el dato fiscal vive en `clientes.domicilio_fiscal`.
  * Al persistir hace falta al menos un dato (CHECK SQL + Zod + servicio).
  */
 model EnviosDireccion {

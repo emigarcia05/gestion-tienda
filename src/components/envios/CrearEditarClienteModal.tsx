@@ -73,7 +73,7 @@ export default function CrearEditarClienteModal({
   /** Solo ARCA (`getPersona_v2`) o el valor ya persistido al editar. No se elige en UI. */
   const [condicionIva, setCondicionIva] = useState<number | null>(null);
   const [condicionIvaDescripcion, setCondicionIvaDescripcion] = useState<string | null>(null);
-  /** Domicilio fiscal de la última consulta ARCA; al guardar va a `clientes_proyectos.direccion`. */
+  /** Domicilio fiscal de ARCA (`clientes.domicilio_fiscal`). No es la dirección de envío. */
   const [domicilioFiscal, setDomicilioFiscal] = useState<string | null>(null);
   const [ctaCorrientePlazo, setCtaCorrientePlazo] = useState(
     String(CLIENTE_CTA_CORRIENTE_PLAZO_DEFAULT)
@@ -125,6 +125,7 @@ export default function CrearEditarClienteModal({
       setCuitMasked(item.cuit ? formatearCuitMascara(item.cuit) : "");
       setCondicionIva(item.condicionIva);
       setCondicionIvaDescripcion(item.condicionIvaDescripcion);
+      setDomicilioFiscal(item.domicilioFiscal);
       setCtaCorrientePlazo(
         item.ctaCorrientePlazo != null
           ? String(item.ctaCorrientePlazo)
@@ -513,6 +514,7 @@ export default function CrearEditarClienteModal({
                                       cuit: null,
                                       condicionIva: null,
                                       condicionIvaDescripcion: null,
+                                      domicilioFiscal: null,
                                       ctaCorrientePlazo: null,
                                       ctaCorrienteMontoMax: null,
                                     }

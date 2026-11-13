@@ -455,6 +455,9 @@ async function resolverProyectoIdComprobante(args: {
     const unico = proyectos[0];
     return { success: true, data: unico ? unico.id : null };
   }
+  if (proyectos.length > 1) {
+    return { success: false, error: "Seleccioná un proyecto del cliente." };
+  }
   return { success: true, data: null };
 }
 
@@ -561,36 +564,18 @@ function fiscalPdfDesdeRow(
 async function domicilioReceptorParaFiscal(args: {
   fiscal: boolean;
   letra: ArcaLetra | null;
-  proyectoId: string | null;
+  domicilioFiscal: string | null;
   domicilioOriginal: string | null;
 }): Promise<ServiceResult<string | null>> {
   if (!args.fiscal) return { success: true, data: null };
   const previo = (args.domicilioOriginal ?? "").trim();
   if (previo) return { success: true, data: previo };
-  let texto: string | null = null;
-  if (args.proyectoId) {
-    const proyecto = await prisma.enviosDireccion.findUnique({
-      where: { id: args.proyectoId },
-      select: {
-        direccion: true,
-        distrito: true,
-        departamento: true,
-      },
-    });
-    if (proyecto) {
-      const calle = proyecto.direccion.trim();
-      const lugar = [proyecto.distrito.trim(), (proyecto.departamento ?? "").replaceAll("_", " ")]
-        .filter((p) => p.length > 0)
-        .join(", ");
-      const armado = [calle, lugar].filter((p) => p.length > 0).join(", ").trim();
-      texto = armado || null;
-    }
-  }
+  const texto = (args.domicilioFiscal ?? "").trim() || null;
   if (args.letra === "A" && !texto) {
     return {
       success: false,
       error:
-        "La factura A requiere el domicilio del receptor. Cargá la dirección en el proyecto del cliente.",
+        "La factura A requiere el domicilio fiscal del receptor. Consultá el CUIT del cliente en ARCA.",
     };
   }
   return { success: true, data: texto };
@@ -1597,6 +1582,7 @@ async function emitirFacturaComprobanteSegunTipo(
   let clienteFiscal: { cuit: string | null; condicionIva: number | null } | null =
     null;
   let plazoCliente: number | null = null;
+  let domicilioFiscalCliente: string | null = null;
   if (clienteId) {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
@@ -1606,6 +1592,7 @@ async function emitirFacturaComprobanteSegunTipo(
         condicionIva: true,
         ctaCorrienteMontoMax: true,
         ctaCorrientePlazo: true,
+        domicilioFiscal: true,
       },
     });
     if (!cliente) {
@@ -1624,6 +1611,7 @@ async function emitirFacturaComprobanteSegunTipo(
     }
     clienteFiscal = { cuit: cliente.cuit, condicionIva: cliente.condicionIva };
     plazoCliente = cliente.ctaCorrientePlazo;
+    domicilioFiscalCliente = cliente.domicilioFiscal;
   }
   const proyectoResuelto = await resolverProyectoIdComprobante({
     clienteId,
@@ -1897,7 +1885,7 @@ async function emitirFacturaComprobanteSegunTipo(
   const domicilioRes = await domicilioReceptorParaFiscal({
     fiscal,
     letra,
-    proyectoId,
+    domicilioFiscal: domicilioFiscalCliente,
     domicilioOriginal: original?.receptorDomicilio ?? null,
   });
   if (!domicilioRes.success) return domicilioRes;

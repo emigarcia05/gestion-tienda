@@ -43,6 +43,7 @@ const clienteSelect = {
   condicionIvaArca: { select: { descripcion: true } },
   ctaCorrientePlazo: true,
   ctaCorrienteMontoMax: true,
+  domicilioFiscal: true,
 } as const;
 
 const direccionSelect = {
@@ -95,6 +96,7 @@ function mapCliente(row: {
   condicionIvaArca: { descripcion: string } | null;
   ctaCorrientePlazo: number | null;
   ctaCorrienteMontoMax: { toString(): string } | number | null;
+  domicilioFiscal: string | null;
 } | null): ClienteItem | null {
   if (!row) return null;
   return {
@@ -117,6 +119,7 @@ function mapCliente(row: {
     ctaCorrientePlazo: row.ctaCorrientePlazo,
     ctaCorrienteMontoMax:
       row.ctaCorrienteMontoMax == null ? null : Number(row.ctaCorrienteMontoMax),
+    domicilioFiscal: row.domicilioFiscal?.trim() || null,
   };
 }
 

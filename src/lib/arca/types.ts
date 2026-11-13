@@ -109,6 +109,6 @@ export type ArcaConstanciaRaw = {
     descripcionCategoria: string | null;
   } | null;
   impuestosRegimenGeneral: ArcaConstanciaImpuesto[];
-  /** `datosGenerales.domicilioFiscal.direccion` (calle y número). */
+  /** Domicilio con `tipoDomicilio` FISCAL: calle, localidad, provincia y CP. */
   domicilioFiscal: string | null;
 };
