@@ -22,7 +22,7 @@ export const getPedidoUrgenteDataParamsSchema = z.object({
   q: z.string().max(500).optional(),
   pagina: z.string().max(20).optional(),
   proveedor: z.string().max(128).optional(),
-  /** `tintometrico` | `urgente` | `reposicion` | `reposicion_conf`; otro valor = sin filtro PEDIDO. */
+  /** `todos` | `tintometrico` | `urgente` | `reposicion` | `reposicion_conf`; otro valor = sin filtro PEDIDO. */
   pedido: z.string().max(32).optional(),
 });
 

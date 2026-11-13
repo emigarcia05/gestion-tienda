@@ -20,6 +20,7 @@ export type TipoPedido = (typeof TIPOS_PEDIDO)[number];
 
 /** Valores del Select **PEDIDO** en Pedir Mercadería (`?pedido=`). */
 export const FILTRO_PEDIDO_VALORES = [
+  "todos",
   "tintometrico",
   "urgente",
   "reposicion",
@@ -29,6 +30,7 @@ export type FiltroPedidoCatalogo = (typeof FILTRO_PEDIDO_VALORES)[number];
 export type FiltroPedidoValor = FiltroPedidoCatalogo | "";
 
 export const FILTRO_PEDIDO_OPCIONES: { value: FiltroPedidoCatalogo; label: string }[] = [
+  { value: "todos", label: "TODOS LOS PEDIDOS" },
   { value: "tintometrico", label: "TINTOMÉTRICO" },
   { value: "urgente", label: "URGENTE" },
   { value: "reposicion", label: "REPOSICIÓN" },

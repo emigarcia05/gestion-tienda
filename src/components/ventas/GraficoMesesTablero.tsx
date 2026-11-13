@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fmtPrecio } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import type {
   TableroVentasDiaGrafico,
   TableroVentasMesGrafico,
@@ -38,9 +37,37 @@ function etiquetaMillones(monto: number): string {
   return `${texto} M`;
 }
 
-function etiquetaEje(monto: number): string {
-  if (Math.abs(monto) >= 1_000_000) return etiquetaMillones(monto);
-  return pesos(monto);
+/** Marcas del eje del gráfico por día: de a medio millón. */
+const PASO_EJE_MILLON = 500_000;
+
+/** 0 → `0 M`, 500.000 → `0,5 M`, 1.000.000 → `1 M`. */
+function etiquetaPasoMillon(monto: number): string {
+  const millones = monto / 1_000_000;
+  const entero = Math.abs(millones - Math.round(millones)) < 0.001;
+  const texto = millones.toLocaleString("es-AR", {
+    minimumFractionDigits: entero ? 0 : 1,
+    maximumFractionDigits: 1,
+  });
+  return `${texto} M`;
+}
+
+function escalaEjeMillon(maximo: number, minimo: number): {
+  piso: number;
+  techo: number;
+  ticks: number[];
+} {
+  const techo =
+    maximo <= 0.009
+      ? PASO_EJE_MILLON
+      : Math.ceil((maximo - 0.009) / PASO_EJE_MILLON) * PASO_EJE_MILLON;
+  const piso =
+    minimo >= -0.009 ? 0 : Math.floor((minimo + 0.009) / PASO_EJE_MILLON) * PASO_EJE_MILLON;
+  const pasos = Math.round((techo - piso) / PASO_EJE_MILLON);
+  const ticks: number[] = [];
+  for (let indice = pasos; indice >= 0; indice -= 1) {
+    ticks.push(piso + indice * PASO_EJE_MILLON);
+  }
+  return { piso, techo, ticks };
 }
 
 function xDeDia(dia: number, nDias: number): number {
@@ -55,10 +82,10 @@ function yDeMonto(monto: number, piso: number, techo: number): number {
 }
 
 function tituloDia(dia: TableroVentasDiaGrafico, series: TableroVentasSerieDia[]): string {
-  const partes = series.map((serie) => {
+  const partes = series.flatMap((serie) => {
     const punto = serie.dias.find((fila) => fila.dia === dia.dia);
-    if (punto?.ventas == null) return `${serie.etiqueta} —`;
-    return `${serie.etiqueta} ${pesos(punto.ventas)}, promedio ${pesos(serie.promedio)}`;
+    if (punto?.ventas == null) return [];
+    return [`${serie.etiqueta} ${pesos(punto.ventas)}, promedio ${pesos(serie.promedio)}`];
   });
   return `${dia.dia}: ${partes.join(" · ")}`;
 }
@@ -69,24 +96,21 @@ function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
     ...serie.dias.flatMap((dia) => (dia.ventas == null ? [] : [dia.ventas])),
     ...(serie.promedio > 0.009 ? [serie.promedio] : []),
   ]);
-  const techo = montos.reduce((max, monto) => (monto > max ? monto : max), 0);
-  const piso = montos.reduce((min, monto) => (monto < min ? monto : min), 0);
-  const rango = techo - piso;
-  const ticks =
-    rango <= 0.009
-      ? [etiquetaEje(0)]
-      : [etiquetaEje(techo), etiquetaEje((techo + piso) / 2), etiquetaEje(piso)];
+  const maximo = montos.reduce((max, monto) => (monto > max ? monto : max), 0);
+  const minimo = montos.reduce((min, monto) => (monto < min ? monto : min), 0);
+  const { piso, techo, ticks } = escalaEjeMillon(maximo, minimo);
   const nDias = Math.max(dias.length, 1);
   return (
     <div className="grid h-full min-h-0 flex-1 grid-cols-[4.25rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-1">
-      <div
-        className={cn(
-          "flex flex-col py-0.5 text-right text-[10px] font-semibold tabular-nums leading-none",
-          ticks.length === 1 ? "justify-end" : "justify-between"
-        )}
-      >
-        {ticks.map((tick, indice) => (
-          <span key={`${tick}-${indice}`}>{tick}</span>
+      <div className="relative min-h-0 text-right text-[10px] font-semibold tabular-nums leading-none">
+        {ticks.map((monto) => (
+          <span
+            key={monto}
+            className="absolute right-0 -translate-y-1/2"
+            style={{ top: `${yDeMonto(monto, piso, techo)}%` }}
+          >
+            {etiquetaPasoMillon(monto)}
+          </span>
         ))}
       </div>
       <div className="relative min-h-0">
@@ -96,13 +120,13 @@ function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
           className="pointer-events-none absolute inset-0 h-full w-full"
           aria-hidden
         >
-          {[2, 50, 98].map((y) => (
+          {ticks.map((monto) => (
             <line
-              key={y}
+              key={monto}
               x1="0"
               x2="100"
-              y1={y}
-              y2={y}
+              y1={yDeMonto(monto, piso, techo)}
+              y2={yDeMonto(monto, piso, techo)}
               stroke="var(--border)"
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"

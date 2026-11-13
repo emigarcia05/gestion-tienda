@@ -77,7 +77,7 @@ export default async function PedirMercaderiaPage({ searchParams }: Props) {
   ] = await Promise.all([
     getPedidoUrgenteData({ sucursal: sucursalValida, q, pagina, proveedor, pedido: pedidoValida }),
     getPosicionIvaComparacionRevisionToken(),
-    pedidoValida === "" || pedidoValida === "tintometrico"
+    pedidoValida === "" || pedidoValida === "tintometrico" || pedidoValida === "todos"
       ? cargarTintometricos(sucursalValida, proveedor)
       : Promise.resolve([]),
   ]);

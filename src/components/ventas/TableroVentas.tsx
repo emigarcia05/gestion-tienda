@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink, Wallet } from "lucide-react";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,12 +107,26 @@ function TarjetaPeriodo({
 const RECUADRO_PENDIENTE_CLASS =
   "flex min-h-0 flex-col gap-1 overflow-hidden rounded-md border border-border bg-card p-2";
 
+function hrefPedirMercaderiaPendiente(linea: TableroPendienteLinea, sucursal: string): string | null {
+  const sep = linea.id.indexOf(":");
+  if (sep <= 0) return null;
+  if (sucursal !== "guaymallen" && sucursal !== "maipu") return null;
+  const params = new URLSearchParams({
+    sucursal,
+    proveedor: linea.id.slice(0, sep),
+    pedido: "todos",
+  });
+  return `${GP_ROUTES.pedidoMercaderia.pedirMercaderia}?${params.toString()}`;
+}
+
 function ListaPendientes({
   titulo,
   lineas,
+  hrefDe,
 }: {
   titulo: string;
   lineas: TableroPendienteLinea[];
+  hrefDe?: (linea: TableroPendienteLinea) => string | null;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-1">
@@ -121,15 +135,32 @@ function ListaPendientes({
         {lineas.length === 0 ? (
           <li className="text-center text-xs text-muted-foreground">Sin pendientes</li>
         ) : (
-          lineas.map((linea) => (
-            <li
-              key={linea.id}
-              className="w-full truncate text-center text-xs font-semibold"
-              title={linea.etiqueta}
-            >
-              {linea.etiqueta}
-            </li>
-          ))
+          lineas.map((linea) => {
+            const href = hrefDe?.(linea) ?? null;
+            return (
+              <li key={linea.id} className="flex w-full min-w-0 items-center justify-center gap-1">
+                <span className="truncate text-center text-xs font-semibold" title={linea.etiqueta}>
+                  {linea.etiqueta}
+                </span>
+                {href ? (
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                  >
+                    <Link
+                      href={href}
+                      title="Ir a Pedir Mercadería"
+                      aria-label={`Pedir mercadería de ${linea.etiqueta}`}
+                    >
+                      <ExternalLink className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Link>
+                  </Button>
+                ) : null}
+              </li>
+            );
+          })
         )}
       </ul>
     </div>
@@ -140,10 +171,12 @@ function PendientesSucursalTablero({
   envios,
   generacion,
   recepcion,
+  sucursalCodigo,
 }: {
   envios: number;
   generacion: TableroPendienteLinea[];
   recepcion: TableroPendienteLinea[];
+  sucursalCodigo: string | null;
 }) {
   return (
     <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,4fr)] gap-2 overflow-hidden">
@@ -165,7 +198,15 @@ function PendientesSucursalTablero({
         </h3>
         <div className="h-px w-full shrink-0 bg-primary/40" aria-hidden />
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-3">
-          <ListaPendientes titulo="Pendiente emision" lineas={generacion} />
+          <ListaPendientes
+            titulo="Pendiente emision"
+            lineas={generacion}
+            hrefDe={
+              sucursalCodigo
+                ? (linea) => hrefPedirMercaderiaPendiente(linea, sucursalCodigo)
+                : undefined
+            }
+          />
           <div className="h-full w-px bg-primary/40" aria-hidden />
           <ListaPendientes titulo="Pendiente de recepción" lineas={recepcion} />
         </div>
@@ -210,6 +251,7 @@ export default function TableroVentas({
                 envios={datos.enviosPendientesHoy}
                 generacion={datos.pedidosGeneracion}
                 recepcion={datos.pedidosRecepcion}
+                sucursalCodigo={datos.sucursalCodigo}
               />
             </div>
             <div className="flex min-h-0 flex-col">

@@ -1198,6 +1198,7 @@ function pasaFiltroPedidoLista(
   tieneConf: boolean
 ): boolean {
   if (!pedidoTipo) return true;
+  if (pedidoTipo === "todos") return cantUrgente > 0 || cantRepo > 0;
   if (pedidoTipo === "urgente") return cantUrgente > 0;
   if (pedidoTipo === "reposicion") return cantRepo > 0;
   return tieneConf;
@@ -1221,7 +1222,7 @@ async function clavesCantidadPositivaPedidoUrgente(
   });
   if (!suc) return { urgenteCodExts, repoCodTiendas };
 
-  if (pedidoTipo === "urgente") {
+  if (pedidoTipo === "urgente" || pedidoTipo === "todos") {
     const rows = await prisma.prodPedMerc2.findMany({
       where: {
         sucursalId: suc.id,
@@ -1236,7 +1237,7 @@ async function clavesCantidadPositivaPedidoUrgente(
     }
   }
 
-  if (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") {
+  if (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf" || pedidoTipo === "todos") {
     const rows = await prisma.prodPedMerc2.findMany({
       where: {
         sucursalId: suc.id,
@@ -1374,7 +1375,11 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     const claves = await clavesCantidadPositivaPedidoUrgente(sucursalTrim, pedidoTipo);
     urgenteCodExtsFiltro = claves.urgenteCodExts;
     repoCodTiendasFiltro = claves.repoCodTiendas;
-    if (
+    if (pedidoTipo === "todos") {
+      if (urgenteCodExtsFiltro.size === 0 && repoCodTiendasFiltro.size === 0) {
+        return { items: [], total: 0, totalPaginas: 1 };
+      }
+    } else if (
       (pedidoTipo === "urgente" && urgenteCodExtsFiltro.size === 0) ||
       ((pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") &&
         repoCodTiendasFiltro.size === 0)
@@ -1397,7 +1402,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
   if (pedidoTipo && urgenteCodExtsFiltro && repoCodTiendasFiltro) {
     const orSeed: Prisma.ListaPrecioProveedorWhereInput[] = [];
 
-    if (pedidoTipo === "urgente" && urgenteCodExtsFiltro.size > 0) {
+    if ((pedidoTipo === "urgente" || pedidoTipo === "todos") && urgenteCodExtsFiltro.size > 0) {
       const codExtsUrg = [...urgenteCodExtsFiltro];
       const seedsUrg = await prisma.listaPrecioProveedor.findMany({
         where: { habilitado: true, codExt: { in: codExtsUrg } },
@@ -1417,7 +1422,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
     }
 
     if (
-      (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf") &&
+      (pedidoTipo === "reposicion" || pedidoTipo === "reposicion_conf" || pedidoTipo === "todos") &&
       repoCodTiendasFiltro.size > 0
     ) {
       const tiendas = [...repoCodTiendasFiltro];
@@ -1519,6 +1524,7 @@ async function getListaPedidoUrgenteDesdeListaPrecios(
       const tieneRepo =
         Boolean(codTiendaVinculo) && repoCodTiendasFiltro!.has(codTiendaVinculo);
       if (pedidoTipo === "urgente") return tieneUrgente;
+      if (pedidoTipo === "todos") return tieneUrgente || tieneRepo;
       return tieneRepo;
     });
   }
@@ -1754,7 +1760,8 @@ export async function getListaPreciosParaPedidoUrgente(
   const filtroPedido: FiltroPedidoLista | null =
     pedidoTipo === "urgente" ||
     pedidoTipo === "reposicion" ||
-    pedidoTipo === "reposicion_conf"
+    pedidoTipo === "reposicion_conf" ||
+    pedidoTipo === "todos"
       ? pedidoTipo
       : null;
 

@@ -95,7 +95,7 @@ export interface TableroVentasSerieMes {
   meses: TableroVentasMesGrafico[];
 }
 
-/** Día del mes en curso. `ventas` es null si ese día todavía no llegó. */
+/** Día del mes en curso. `ventas` es null si todavía no llegó o si el neto es 0. */
 export interface TableroVentasDiaGrafico {
   dia: number;
   ventas: number | null;
@@ -131,6 +131,8 @@ export interface TableroVentasParticipacion {
 export interface TableroVentasDatos {
   /** Nombre de la sucursal del usuario. Null si no tiene sucursal. */
   sucursalNombre: string | null;
+  /** Código de esa sucursal (`guaymallen` | `maipu`). Null si no tiene. */
+  sucursalCodigo: string | null;
   sucursal: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   globales: { dia: TableroVentasMontos; mes: TableroVentasMontos };
   /** Todas las sucursales. Orden: mayor % del mes primero. El promedio del día es el total del año / días con ventas; el del mes, / meses con ventas. */
@@ -622,7 +624,9 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
           const dia = indice + 1;
           if (dia > diaHoy) return { dia, ventas: null };
           const iso = `${anio}-${mesIso}-${String(dia).padStart(2, "0")}`;
-          return { dia, ventas: redondear2(porDia?.get(iso) ?? 0) };
+          const neto = redondear2(porDia?.get(iso) ?? 0);
+          if (Math.abs(neto) <= 0.009) return { dia, ventas: null };
+          return { dia, ventas: neto };
         }),
       };
     });
@@ -676,6 +680,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       success: true,
       data: {
         sucursalNombre: sucursalId ? sucursalNombre : null,
+        sucursalCodigo: sucursalId ? codigo : null,
         sucursal: {
           dia: {
             ventas: redondear2(ventasDiaSuc),
@@ -726,6 +731,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
 export function tableroVentasVacio(): TableroVentasDatos {
   return {
     sucursalNombre: null,
+    sucursalCodigo: null,
     sucursal: { dia: montosVacios(), mes: montosVacios() },
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
