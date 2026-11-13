@@ -221,6 +221,14 @@ export default function FinanzasTesoreriaPageClient({
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 type="button"
+                onClick={() => setOpenNuevaCaja(true)}
+                className="h-10 gap-2 px-4"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden />
+                Nueva Caja
+              </Button>
+              <Button
+                type="button"
                 onClick={() => setOpenGestionarTipoCaja(true)}
                 className="h-10 gap-2 px-4"
               >
@@ -242,14 +250,6 @@ export default function FinanzasTesoreriaPageClient({
               >
                 <Users className="size-4 shrink-0" aria-hidden />
                 Gestionar Titulares
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setOpenNuevaCaja(true)}
-                className="h-10 gap-2 px-4"
-              >
-                <Plus className="size-4 shrink-0" aria-hidden />
-                Nueva Caja
               </Button>
             </div>
           ) : undefined

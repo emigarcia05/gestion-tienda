@@ -365,45 +365,49 @@ export default function CrearEditarCobroModal({
             disabled={saving}
           />
 
-          <ModalSiNoChoice
-            label="SEGUIMIENTO FISCAL"
-            value={seguimientoFiscal}
-            onChange={(value) => {
-              setSeguimientoFiscal(value);
-              if (!value) setTitularId("");
-            }}
-            disabled={saving}
-          />
-
-          {seguimientoFiscal ? (
-            <div className="flex flex-col gap-1.5">
-              <ModalMicroLabel>TITULAR</ModalMicroLabel>
-              <Select
-                value={titularId || undefined}
-                onValueChange={setTitularId}
-                disabled={saving}
-              >
-                <SelectTrigger
-                  className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
-                  aria-label="Titular"
+          <section className="modal-seccion-formulario">
+            <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
+              SEGUIMIENTO FISCAL
+            </p>
+            <ModalSiNoChoice
+              label="SEGUIMIENTO FISCAL"
+              value={seguimientoFiscal}
+              onChange={(value) => {
+                setSeguimientoFiscal(value);
+                if (!value) setTitularId("");
+              }}
+              disabled={saving}
+            />
+            {seguimientoFiscal ? (
+              <div className="flex flex-col gap-1.5">
+                <ModalMicroLabel>TITULAR</ModalMicroLabel>
+                <Select
+                  value={titularId || undefined}
+                  onValueChange={setTitularId}
+                  disabled={saving}
                 >
-                  <SelectValue placeholder="Seleccionar titular" />
-                </SelectTrigger>
-                <SelectContent
-                  position="popper"
-                  side="bottom"
-                  align="start"
-                  className="select-content-filtro"
-                >
-                  {titularesDisponibles.map((titular) => (
-                    <SelectItem key={titular.id} value={titular.id}>
-                      {titular.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
+                  <SelectTrigger
+                    className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}
+                    aria-label="Titular"
+                  >
+                    <SelectValue placeholder="Seleccionar titular" />
+                  </SelectTrigger>
+                  <SelectContent
+                    position="popper"
+                    side="bottom"
+                    align="start"
+                    className="select-content-filtro"
+                  >
+                    {titularesDisponibles.map((titular) => (
+                      <SelectItem key={titular.id} value={titular.id}>
+                        {titular.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </section>
 
           <div className="flex flex-col gap-1.5">
             <ModalMicroLabel>OBSERVACIÓN</ModalMicroLabel>

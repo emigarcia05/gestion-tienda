@@ -119,14 +119,23 @@ function hrefPedirMercaderiaPendiente(linea: TableroPendienteLinea, sucursal: st
   return `${GP_ROUTES.pedidoMercaderia.pedirMercaderia}?${params.toString()}`;
 }
 
+function hrefComprasEmitidasPendiente(linea: TableroPendienteLinea, sucursal: string): string | null {
+  if (sucursal !== "guaymallen" && sucursal !== "maipu") return null;
+  const proveedorId = linea.id.trim();
+  if (!proveedorId) return null;
+  const params = new URLSearchParams({ sucursal, proveedor: proveedorId });
+  return `${GP_ROUTES.pedidoMercaderia.recepcionPedido}?${params.toString()}`;
+}
 function ListaPendientes({
   titulo,
   lineas,
   hrefDe,
+  enlaceNombre,
 }: {
   titulo: string;
   lineas: TableroPendienteLinea[];
   hrefDe?: (linea: TableroPendienteLinea) => string | null;
+  enlaceNombre: string;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-1">
@@ -145,16 +154,16 @@ function ListaPendientes({
                 {href ? (
                   <Button
                     asChild
-                    variant="ghost"
-                    size="icon"
-                    className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
+                    size="sm"
+                    variant="outline"
+                    className="tablero-grafico-filtro w-fit min-w-0 shrink-0"
                   >
                     <Link
                       href={href}
-                      title="Ir a Pedir Mercadería"
-                      aria-label={`Pedir mercadería de ${linea.etiqueta}`}
+                      title={`Ir a ${enlaceNombre}`}
+                      aria-label={`${enlaceNombre} de ${linea.etiqueta}`}
                     >
-                      <ExternalLink className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                      <ExternalLink aria-hidden />
                     </Link>
                   </Button>
                 ) : null}
@@ -189,7 +198,10 @@ function PendientesSucursalTablero({
           variant="outline"
           className="tablero-grafico-filtro w-fit min-w-0"
         >
-          <Link href={GP_ROUTES.envios.programados}>Ir a Envios</Link>
+          <Link href={GP_ROUTES.envios.programados}>
+            <ExternalLink aria-hidden />
+            Ir a Envios
+          </Link>
         </Button>
       </div>
       <div className={RECUADRO_PENDIENTE_CLASS}>
@@ -206,9 +218,19 @@ function PendientesSucursalTablero({
                 ? (linea) => hrefPedirMercaderiaPendiente(linea, sucursalCodigo)
                 : undefined
             }
+            enlaceNombre="Pedir Mercadería"
           />
           <div className="h-full w-px bg-primary/40" aria-hidden />
-          <ListaPendientes titulo="Pendiente de recepción" lineas={recepcion} />
+          <ListaPendientes
+            titulo="Pendiente de recepción"
+            lineas={recepcion}
+            enlaceNombre="Compras emitidas"
+            hrefDe={
+              sucursalCodigo
+                ? (linea) => hrefComprasEmitidasPendiente(linea, sucursalCodigo)
+                : undefined
+            }
+          />
         </div>
       </div>
     </div>

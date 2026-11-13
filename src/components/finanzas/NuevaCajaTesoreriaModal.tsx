@@ -264,24 +264,29 @@ export default function NuevaCajaTesoreriaModal({ open, onOpenChange, onCreated 
             </label>
           ) : null}
 
-          <ModalSiNoChoice
-            label="RECIBE CHEQUE"
-            value={recibeCheque}
-            onChange={setRecibeCheque}
-            disabled={saving}
-          />
-          <ModalSiNoChoice
-            label="DEPOSITA CHEQUE"
-            value={depositaCheque}
-            onChange={setDepositaCheque}
-            disabled={saving}
-          />
-          <ModalSiNoChoice
-            label="EMITE CHEQUE"
-            value={emiteCheque}
-            onChange={setEmiteCheque}
-            disabled={saving}
-          />
+          <section className="modal-seccion-formulario">
+            <p className="text-center text-xs font-bold uppercase tracking-wide text-foreground">
+              CHEQUES
+            </p>
+            <ModalSiNoChoice
+              label="RECIBE CHEQUE"
+              value={recibeCheque}
+              onChange={setRecibeCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="DEPOSITA CHEQUE"
+              value={depositaCheque}
+              onChange={setDepositaCheque}
+              disabled={saving}
+            />
+            <ModalSiNoChoice
+              label="EMITE CHEQUE"
+              value={emiteCheque}
+              onChange={setEmiteCheque}
+              disabled={saving}
+            />
+          </section>
         </div>
       </AppModal>
     </Dialog>
