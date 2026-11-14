@@ -30,6 +30,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 | Tipos pintura / rendimientos | **§3.14** |
 | Envios (Vendedor) | **§3.15** |
 | Facturación | **§3.16** |
+| Alta Cloud API de WhatsApp (sin código; el próximo clic es el paso 22) | Nota **Alta WhatsApp** (no hay § de dominio; **§5** sigue «sin WhatsApp») |
 | Prohibido reintroducir | **§5** |
 | IA Diseño / scraper / CSV | `docs/AGENTEIA_GUIDELINES.md` |
 
@@ -641,6 +642,34 @@ Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; C
 - [ ] ¿Este § de dominio actualizado si cambió el contrato?
 - [ ] `npx eslint src --max-warnings 0`
 - [ ] Si tocaste Actions: `node scripts/audit-actions-usage.mjs`
+
+---
+
+## Alta WhatsApp — sin integración
+
+Corte del **14 nov 2026**. No hay cliente de Meta en el repo: no existe `src/lib/whatsapp/`, ni servicio, ni Action, ni webhook en Gestión. `sucursales.whatsapp` y `proveedores.whatsapp` siguen siendo teléfonos, no phone number ID. La fila de **§5** sigue diciendo «sin WhatsApp». Esta nota no es el § de dominio: ese § se abre cuando exista el cliente.
+
+Camino elegido: **coexistencia** (la app WhatsApp Business del local y, después, Gestión). No se hizo el registro exclusivo. No se pidió código SMS, no se borró ningún número de la app y no se registró el teléfono de una sucursal. Tech Provider, método de pago y verificación de empresa quedaron sin empezar.
+
+Hecho solo en Meta, GitHub y Render, fuera de este repositorio:
+
+- App **API Gestion Productos**, empresa TiendaColor, modo En desarrollo, sin publicar. Id en la barra de dirección de **Paso 1. Probar**: `1433282181105532`. Business id de esa misma URL: `285910032634136`.
+- Número de prueba de Meta: **+1 (555) 160-3716**. Phone number ID: `1366011229936578`. Id de la cuenta de mensajes: `1113386101313193`. Desde ahí se envió la plantilla de prueba **Confirmación de pedido** al WhatsApp personal y se respondió «Hola». El identificador de acceso temporal del panel volvió a **Not generated yet**.
+- Webhook de prueba (no es el de Gestión y no valida `X-Hub-Signature-256`): repo GitHub `emigarcia05/whatsapp-webhook-prueba`, servicio Render `whatsapp-webhook-prueba`, URL `https://whatsapp-webhook-prueba-dppg.onrender.com/`. Un GET del navegador responde 403. Meta verificó la URL (**WEBHOOK VERIFIED** en los logs). El campo **messages** está **Suscrito**; el selector de esa fila quedó en **v27.0**. El botón **Test** dejó **Webhook received** con el JSON de ejemplo del panel (teléfonos `16505551111` y `123456123`), no con el número de prueba ni con una sucursal.
+- El `curl` de **Paso 1** mostraba `v25.0`. No se fija la versión de Graph en el código.
+- `VERIFY_TOKEN` vive solo en Render y en **Identificador de verificación** de Meta. No se copia a este archivo, al chat ni al repo.
+
+**Próximo clic, paso 22.** En [Business Settings → System users](https://business.facebook.com/settings/system-users), con la cuenta que administra TiendaColor:
+
+1. **Add** (o **Agregar**) y crear un usuario de sistema. El nombre puede ser `gestion-whatsapp`.
+2. Seleccionarlo y abrir **Assign assets** (Asignar activos).
+3. En la app **API Gestion Productos**, activar **Manage app** con control total.
+4. En la cuenta de WhatsApp, activar **Manage WhatsApp Business accounts** con control total.
+5. Confirmar **Assign assets**.
+6. **Generate token**. Marcar solo `business_management`, `whatsapp_business_messaging` y `whatsapp_business_management`.
+7. Guardar el token fuera del repositorio y fuera del chat. No pegarlo en la guía.
+
+No abrir **Registrar tu número de teléfono de WhatsApp**, no agregar método de pago y no pulsar **Empezar** en la verificación de empresa. Si una pantalla no coincide, frenar y capturarla sin el token.
 
 ---
 
