@@ -391,7 +391,7 @@ UI en `src/components/asistente-ia/`. Pasos secuenciales: `ProcesoPaso` (alias `
 
 ### WhatsApp · Prueba
 
-`/administrador/whatsapp/prueba` (`WhatsappPruebaPageClient`; CFTL **Administrador** / **Prueba**; `PERMISOS.whatsappPrueba.acceso`, solo editor). Sin tabla ni filtros. Formulario `max-w-xl`: **TELÉFONO** (`+` y código de país) y **MENSAJE**, botón **Enviar Prueba**. El aviso dice que sale por el número de prueba de Meta. Toast de sonner. Contrato en BACKEND **§3.17**.
+`/administrador/whatsapp/prueba` (`WhatsappPruebaPageClient`; CFTL **Administrador** / **Prueba**; `PERMISOS.whatsappPrueba.acceso`, solo editor). Formulario `max-w-xl`: **TELÉFONO** (`+` y código de país) y **MENSAJE**, botones **Enviar Prueba** y **Actualizar**. Debajo, tabla **HORA** | **SENTIDO** | **MENSAJE** | **ESTADO** de ese teléfono (vacío = `NO HAY MENSAJES.`). Al tener un teléfono válido recarga sola cada 15 s. El aviso dice que sale por el número de prueba de Meta. Toast de sonner. Contrato en BACKEND **§3.17**.
 
 ## 4. Checklist de PR
 

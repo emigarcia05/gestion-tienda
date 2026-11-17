@@ -33,3 +33,28 @@ export function leerWhatsappEnv(): WhatsappEnvConfig | { error: string } {
 
   return { accessToken, phoneNumberId, graphVersion };
 }
+
+export type WhatsappWebhookEnv = {
+  appSecret: string;
+  verifyToken: string;
+  phoneNumberId: string;
+};
+
+/** Secreto de la app y frase de verificación del webhook. No se devuelven al cliente. */
+export function leerWhatsappWebhookEnv(): WhatsappWebhookEnv | { error: string } {
+  const appSecret = (process.env.WHATSAPP_APP_SECRET ?? "").trim();
+  const verifyToken = (process.env.WHATSAPP_VERIFY_TOKEN ?? "").trim();
+  const phoneNumberId = (process.env.WHATSAPP_PHONE_NUMBER_ID ?? "").trim();
+
+  if (!/^[a-f0-9]{32}$/i.test(appSecret)) {
+    return { error: "WHATSAPP_APP_SECRET está incompleto. En Meta, Mostrar, y copiá el valor entero." };
+  }
+  if (verifyToken.length < 4) {
+    return { error: "Falta WHATSAPP_VERIFY_TOKEN." };
+  }
+  if (!phoneNumberIdSchema.safeParse(phoneNumberId).success) {
+    return { error: "Falta WHATSAPP_PHONE_NUMBER_ID del número de prueba." };
+  }
+
+  return { appSecret, verifyToken, phoneNumberId };
+}
