@@ -30,7 +30,7 @@ Stack: **Next.js 16 App Router**, **Prisma 7**, **Zod v4**, **iron-session**. Zo
 | Tipos pintura / rendimientos | **§3.14** |
 | Envios (Vendedor) | **§3.15** |
 | Facturación | **§3.16** |
-| Alta Cloud API de WhatsApp (sin código; el próximo clic es el paso 22) | Nota **Alta WhatsApp** (no hay § de dominio; **§5** sigue «sin WhatsApp») |
+| WhatsApp prueba (texto por el número de Meta) | **§3.17** + nota **Alta WhatsApp** |
 | Prohibido reintroducir | **§5** |
 | IA Diseño / scraper / CSV | `docs/AGENTEIA_GUIDELINES.md` |
 
@@ -130,7 +130,7 @@ Mapas cliente→servidor con claves FK: `z.record(prismaCuidSchema, …)` + tope
 - **Servicios** (`src/services/`): Prisma / SQL / reglas. Las Actions los invocan; no al revés.
 - **Prisma / Neon:** `DATABASE_URL` = pooler (runtime `src/lib/prisma.ts`). Migraciones: `DIRECT_URL` (host sin `-pooler`) en `prisma.config.ts`. El pooler no sostiene `$transaction` interactiva: writes sueltos de stock van en un `create` anidado (`registrarStockMovimientos` sin `db`). **P3009** (migración fallida en `_prisma_migrations`): Prisma no aplica nada más hasta resolverla. No borrar carpetas de migraciones ya aplicadas. Si el SQL falló por un nombre de tabla intermedio, hacer la migración **idempotente**, `prisma migrate resolve --rolled-back <nombre>` y `prisma migrate deploy`. No editar migraciones que ya terminaron `finished_at`.
 - **URLs:** árbol `/{área}/{módulo}/{función}` con SSOT `APP_ROUTES` (`src/lib/appRoutes.ts`; detalle en FRONTEND §1.7). Mutaciones: `revalidatePath` **solo** con constantes derivadas de `APP_ROUTES` (sin literales ni rutas legacy: las URLs viejas son redirects de `next.config.ts`, no páginas).
-- **`stockeable`:** `prod_tienda_stock` **eliminada**. `whereProdTiendaStockeable` no filtra y `buildMapStockeable` / `isStockeableCodTienda` dan **false**. Cada sucursal es depósito; el saldo es Σ `stock_movimientos` (INGRESO +, EGRESO −). `DUX_ID_STOCK_*` solo para recepción DUX (`id_deposito` del POST `/v2/compras`).
+- **`stockeable`:** `prod_tienda_stock` **eliminada**. Stockeable = `prod_lista.habilitado` (`whereProdTiendaStockeable`, `buildMapStockeable`, `isStockeableCodTienda`). Pedido de reposición (sucursal y piso corporativo) usa ese flag en `cantPedirReposicionMerc2`: si el producto está habilitado y `stock <= punto`, calcula CANT. A PEDIR (UN. MÁXIMAS = `cantConf - stock`). Cada sucursal es depósito; el saldo es Σ `stock_movimientos` (INGRESO +, EGRESO −). `DUX_ID_STOCK_*` solo para recepción DUX (`id_deposito` del POST `/v2/compras`).
 - **Vínculo tienda ↔ proveedor:** 100 % manual. Única relación vigente: `proveedores_prod_lista.cod_tienda`. Sync DUX **no** escribe `proveedor` ni auto-vincula. `prod_lista.cod_ext` no existe.
 - **`prod_lista.bulto`:** unidades por bulto (`Int?`). `null` = vacío. CHECK SQL `prod_lista_bulto_positivo` (`"bulto" IS NULL OR "bulto" > 0`). Sync DUX **no** escribe esta columna. Persistencia: `tiendaBultos.service.ts`. **No** reintroducir `prod_tienda_bultos` / `ProdTiendaBulto`.
 - **Lotes DUX:** 50 ítems/lote (`DUX_API_BATCH_SIZE` / `DUX_API_PAGE_LIMIT`); pausa ≥ 5 s (`DUX_API_BATCH_INTERVAL_MS`). Timeout HTTP `DUX_FETCH_TIMEOUT_MS` (default 30 s) cubre fetch+JSON, no el backoff 429.
@@ -625,6 +625,16 @@ Anchos del detalle (sobre 182 pt de ancho util): COD. 18, DESCRIPCION 74, PRECIO
 
 Fuera de alcance: WSFEX, WSMTXCA, FCE/MiPyME, padrón masivo (`getPersonaList_v2`). No reintroducir import TXT IVA débito AFIP (§5).
 
+### 3.17 WhatsApp prueba
+
+Pantalla **Administrador → WhatsApp → Prueba** (`APP_ROUTES.administrador.whatsapp.prueba`, `/administrador/whatsapp/prueba`). Solo editor (`PERMISOS.whatsappPrueba.acceso` + `requireEditorWhatsappPrueba`).
+
+Envía un texto por Cloud API. El remitente es `WHATSAPP_PHONE_NUMBER_ID` (el número de prueba de Meta). **No** es `sucursales.whatsapp` ni `proveedores.whatsapp`. El token es `WHATSAPP_ACCESS_TOKEN`. La versión de Graph es `WHATSAPP_GRAPH_VERSION` (no queda fija en el código). Las tres claves van vacías en `.env.example`. El token no se loguea, no se devuelve al cliente y no se escribe en esta guía.
+
+Capas: `src/lib/whatsapp/` (`import "server-only"`, sin Prisma) → `whatsappPrueba.service.ts` → `enviarTextoWhatsappPruebaAction` (`unknown` + `enviarTextoWhatsappPruebaSchema`). El `to` exige `+` y código de país. HTTP 200 con id es aceptación de Meta, no entrega. No hay `revalidatePath`: no se persiste el mensaje.
+
+Fuera de este paso: tabla de chats, webhook dentro de Gestión, plantillas, PDF, imagen, y el alta del teléfono de la sucursal. El número real sigue en WhatsApp Web hasta que el módulo esté listo para usarse solo desde la API.
+
 Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; CHECK SQL alineado en migración `20260912200000_global_personal_modulos_permitidos_facturacion`). Migraciones: `20260914140000_facturacion_arca` + `20260914180000_fact_tipo_local_comprobante_factura` + `20260915210000_rename_comprobantes_vtas` + `20260916210000_comprobantes_vtas_cliente_id` + `20260918150000_comprobantes_vtas_proyecto_id` + `20260921120000_comprobantes_vtas_dias_vencimiento` + `20260921140000_clientes_plazo_cuenta_corriente` + `20260921150000_clientes_cta_corriente_plazo_monto_max` + `20260921180000_clientes_es_pintor` + `20260921200000_clientes_cta_corriente_plazo_default_1` + `20260922180000_rename_global_personal_to_personal` + `20260922190000_comprobantes_vtas_imp_cobrado` + `20260923120000_comprobantes_vtas_cobros` + `20260924180000_comprobantes_vtas_tipo_comprobante` + `20260924210000_clientes_contrasena_cuenta_corriente` (alta no usada) + `20260924220000_clientes_drop_contrasena_cuenta_corriente` + `20260925180000_clientes_cobros` + `20261002160000_cobros_en_tesoreria_movimientos` (cobros de factura pasan a `tesoreria_movimientos`; backup `_backup_comprobantes_vtas_cobros_20261002`; se elimina `comprobantes_vtas_cobros`) + `20261004160000_rename_vtas_comprobantes` (`comprobantes_vtas*` → `vtas_comprobantes*`).
 
 ---
@@ -645,11 +655,11 @@ Asignación a usuarios: `modulos_permitidos` incluye `facturacion` (Zod max 4; C
 
 ---
 
-## Alta WhatsApp — sin integración
+## Alta WhatsApp — contexto de Meta
 
-Corte del **14 nov 2026**. No hay cliente de Meta en el repo: no existe `src/lib/whatsapp/`, ni servicio, ni Action, ni webhook en Gestión. `sucursales.whatsapp` y `proveedores.whatsapp` siguen siendo teléfonos, no phone number ID. La fila de **§5** sigue diciendo «sin WhatsApp». Esta nota no es el § de dominio: ese § se abre cuando exista el cliente.
+Corte del **14 nov 2026**, actualizado el **16 nov 2026**. El cliente de prueba vive en `src/lib/whatsapp/` (**§3.17**). No hay tabla, ni webhook en Gestión, ni número de sucursal registrado. `sucursales.whatsapp` y `proveedores.whatsapp` siguen siendo teléfonos, no phone number ID.
 
-Camino elegido: **coexistencia** (la app WhatsApp Business del local y, después, Gestión). No se hizo el registro exclusivo. No se pidió código SMS, no se borró ningún número de la app y no se registró el teléfono de una sucursal. Tech Provider, método de pago y verificación de empresa quedaron sin empezar.
+Camino elegido el **16 nov 2026**: el módulo se construye contra el **número de prueba** de Meta. El teléfono de la sucursal sigue en WhatsApp Web y en el celular hasta que el módulo esté listo. Ese día, ese mismo número pasa a solo API: se da de baja en WhatsApp y deja de usarse en el celular y en la web. La pérdida de los chats está aceptada. El número de la línea se conserva. Si más adelante no sirve, se da de baja en Cloud API y ese mismo número vuelve a WhatsApp Business y a la web; los chats no vuelven. No se abre Tech Provider ni la coexistencia. No se hizo el registro exclusivo. No se pidió código SMS, no se borró ningún número de la app y no se registró el teléfono de una sucursal. Método de pago y verificación de empresa quedaron sin empezar.
 
 Hecho solo en Meta, GitHub y Render, fuera de este repositorio:
 
@@ -659,15 +669,11 @@ Hecho solo en Meta, GitHub y Render, fuera de este repositorio:
 - El `curl` de **Paso 1** mostraba `v25.0`. No se fija la versión de Graph en el código.
 - `VERIFY_TOKEN` vive solo en Render y en **Identificador de verificación** de Meta. No se copia a este archivo, al chat ni al repo.
 
-**Próximo clic, paso 22.** En [Business Settings → System users](https://business.facebook.com/settings/system-users), con la cuenta que administra TiendaColor:
+**Corte del 16 nov 2026.** El usuario de sistema `gestion-whatsapp` (id `61596271516887`, acceso Employee) ya existe en [Business Settings → Usuarios del sistema](https://business.facebook.com/settings/system-users). El identificador ya se generó y está en `.env`.
 
-1. **Add** (o **Agregar**) y crear un usuario de sistema. El nombre puede ser `gestion-whatsapp`.
-2. Seleccionarlo y abrir **Assign assets** (Asignar activos).
-3. En la app **API Gestion Productos**, activar **Manage app** con control total.
-4. En la cuenta de WhatsApp, activar **Manage WhatsApp Business accounts** con control total.
-5. Confirmar **Assign assets**.
-6. **Generate token**. Marcar solo `business_management`, `whatsapp_business_messaging` y `whatsapp_business_management`.
-7. Guardar el token fuera del repositorio y fuera del chat. No pegarlo en la guía.
+**Activos ya asignados (16 nov 2026).** App **API Gestion Productos** con **Administrar la aplicación**. Cuenta **Test WhatsApp Account** con **Todo**. **TiendaColor Pinturería - Suc Guaymallen** no se asignó.
+
+**Identificador (16 nov 2026).** Se generó con `whatsapp_business_management` y `whatsapp_business_messaging`. `business_management` no estaba en la lista y no se agregó. El valor se pegó primero en `.gitignore` y no se commiteó. Se borró de ahí. Quedó en `.env`, clave `WHATSAPP_ACCESS_TOKEN`, archivo ignorado por git. No va en `.gitignore`, ni en esta guía, ni en el chat. El 16 nov 2026 se intentó un texto «Hola» con Graph `v27.0` (versión vigente en la guía de versionado de ese día), phone number ID `1366011229936578` y `WHATSAPP_ACCESS_TOKEN`. Meta respondió HTTP 400, `error.code` 10: no puede acceder a la cuenta de mensajes `1113386101313193`. No salió el mensaje. En **Activos asignados** de `gestion-whatsapp` figuran **API Gestion Productos** y **Test WhatsApp Account**, las dos con acceso total. Guaymallén no está. `gestion-whatsapp` quedó asignado a **Test Messaging Account** (`1113386101313193`) con **Todo**. El 16 nov 2026, un `POST` a Graph `v27.0` `/1366011229936578/messages` con texto «Hola» respondió HTTP 200 y el destinatario confirmó que llegó desde **+1 (555) 160-3716**. Esa prueba no conecta una sucursal. **Próximo clic: ninguno en Meta.** No abrir **Hazte socio**, no pulsar **Onboard with a Solution Partner**, no registrar un teléfono de sucursal y no empezar la verificación. El módulo, cuando se construya, usa el número de prueba. El de la sucursal se registra en la API recién cuando el módulo esté listo para usarse solo desde Gestión.
 
 No abrir **Registrar tu número de teléfono de WhatsApp**, no agregar método de pago y no pulsar **Empezar** en la verificación de empresa. Si una pantalla no coincide, frenar y capturarla sin el token.
 
@@ -686,7 +692,8 @@ No abrir **Registrar tu número de teléfono de WhatsApp**, no agregar método d
 | `registrarExportacionExcelStock`, `ExportarStockButton`, `ExportarStockInstructorModal`, `registrarControlStockExportacion`, filtro ORDEN «SEGUN TIEMPO CONTROL», lectura de `prod_lista.ultima_exportacion_excel` en Control Stock | Control Stock: **Confirmar Ajuste** + **Imprimir**; saldo `stock_movimientos`. Columna DB `ultima_exportacion_excel` queda legacy (no leer/escribir) |
 | `volverModoSimple` | Cookie `tienda-app-arranque` + middleware |
 | `prod_propios.cod_ext`, `stockeable` columna, `px_lista_tienda`, `prod_listas_dux`, `prod_tienda_margen_edicion`, `prod_depositos_dux`, `global_depositos`, `sucursales.deposito` (texto), `sucursales.id_deposito`, `stock_depositos` | Vínculo manual, `prod_lista_precios` / `_edicion`, sucursal = depósito, ledger `stock_movimientos` |
-| Pool `pg` suelto (`src/lib/db.ts`), WhatsApp API | Prisma; sin WhatsApp |
+| Pool `pg` suelto (`src/lib/db.ts`) | Prisma |
+| WhatsApp no oficial (Baileys, QR, whatsapp-web.js) o registrar el teléfono de la sucursal antes de que el módulo esté listo | Cloud API de prueba: `src/lib/whatsapp/` + pantalla Prueba (**§3.17**) |
 | Helpers `canEdit() => () => Promise<boolean>` | `tienePermisoEditar()` / `actionGates.ts` |
 | Re-exportar constantes desde `"use server"` | `src/lib/` / `src/services/` |
 | `CANT_MAXIMA` / `CANT_MAX` / `CANT_FIJA` / `CANT_FIJA_POR_BULTO` / `CANT_FIJA_POR_UNIDAD` en `reposicion_forma_pedido` | `UNIDADES_MAX` / `POR_BULTO` / `UNIDADES_FIJAS` |

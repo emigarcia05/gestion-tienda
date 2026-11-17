@@ -17,7 +17,8 @@ export type AdmPillarId =
   | "lista-proveedores"
   | "pedido-a-fabrica"
   | "estadisticas"
-  | "usuarios";
+  | "usuarios"
+  | "whatsapp";
 
 export type AdmIconId =
   | "landmark"
@@ -44,7 +45,8 @@ export type AdmIconId =
   | "users"
   | "store"
   | "map-pin"
-  | "package";
+  | "package"
+  | "message-circle";
 
 export interface AdmScreenDef {
   id: string;
@@ -402,6 +404,21 @@ export const ADM_PILLARS: AdmPillarDef[] = [
     icon: "users",
     basePath: `${A.hub}/usuarios`,
     screens: usuariosScreens,
+  },
+  {
+    id: "whatsapp",
+    label: "WHATSAPP",
+    icon: "message-circle",
+    basePath: `${A.hub}/whatsapp`,
+    screens: [
+      {
+        id: "whatsapp-prueba",
+        label: "Prueba",
+        href: A.whatsapp.prueba,
+        icon: "message-circle",
+        permiso: PERMISOS.whatsappPrueba.acceso,
+      },
+    ],
   },
 ];
 

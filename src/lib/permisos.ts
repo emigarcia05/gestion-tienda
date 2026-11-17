@@ -148,6 +148,12 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
   },
 
+  // ─── Administrador · WhatsApp · Prueba (número de prueba de Meta) ──────────
+  whatsappPrueba: {
+    /** Enviar un texto por Cloud API. Solo editor. No es el teléfono de la sucursal. */
+    acceso: { simple: false, editor: true },
+  },
+
   // ─── Módulo Asistente IA (Vendedor) ────────────────────────────────────────
   asistenteIa: {
     /** Acceso al módulo (vendedor/`simple` + editor). CRUD de prompts: solo editor (`esEditor`). */

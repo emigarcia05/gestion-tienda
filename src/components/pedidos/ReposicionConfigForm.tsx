@@ -315,7 +315,7 @@ function PisoCorpReposicionResumen({
         ]),
   ];
   return (
-    <p className="flex flex-wrap items-center justify-center gap-x-2 text-xs leading-tight text-muted-foreground">
+    <p className="flex flex-wrap items-center justify-center gap-x-2 rounded-md border border-primary px-3 py-1.5 text-xs leading-tight text-muted-foreground">
       <span className="font-semibold text-foreground">CORPORATIVA:</span>
       {datos.map((d, i) => (
         <span key={d.etiqueta} className="tabular-nums">

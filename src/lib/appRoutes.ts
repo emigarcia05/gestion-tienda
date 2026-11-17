@@ -82,6 +82,9 @@ export const APP_ROUTES = {
       usuarios: `${ADMINISTRADOR}/usuarios/usuarios`,
       sucursales: `${ADMINISTRADOR}/usuarios/sucursales`,
     },
+    whatsapp: {
+      prueba: `${ADMINISTRADOR}/whatsapp/prueba`,
+    },
     reposicionCorp: {
       /** Misma pantalla que COMPRAS CORP. · Conf. Reposición. */
       reposicionCorp: `${ADMINISTRADOR}/pedidos-a-fabrica/conf-reposicion`,

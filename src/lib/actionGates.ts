@@ -115,6 +115,14 @@ export function requireEditorAsistenteIa(): Promise<ActionGateFail | null> {
   );
 }
 
+/** WhatsApp · Prueba. Mutación hacia Meta: módulo + editor. */
+export function requireEditorWhatsappPrueba(): Promise<ActionGateFail | null> {
+  return requirePermisoEditor(
+    PERMISOS.whatsappPrueba.acceso,
+    "Sin permisos para la prueba de WhatsApp."
+  );
+}
+
 /** Gasto eventual desde Balance · Gastos (ya no hay pantalla en Vendedor). */
 export function requireCargarGastoEventual(): Promise<ActionGateFail | null> {
   return requirePermiso(

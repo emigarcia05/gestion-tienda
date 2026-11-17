@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import {
   buildMapSaldoStockPorSucursal,
   obtenerSucursalIdPorCodigo,
@@ -53,13 +54,24 @@ export function whereProdTiendaStockeable(): Prisma.ProdPropioWhereInput {
   return { habilitado: true };
 }
 
-/** `prod_tienda_stock` eliminada: stockeable queda en false hasta definir regla. */
+/**
+ * `prod_tienda_stock` eliminada. Stockeable = `prod_lista.habilitado`.
+ * Sin esto, `cantPedirReposicionMerc2` devolvía 0 aunque el stock estuviera en el punto o por debajo.
+ */
 export async function buildMapStockeable(
   codTiendas: string[]
 ): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>();
-  for (const ct of codTiendas) {
-    map.set(ct.trim(), false);
+  const codigos = [...new Set(codTiendas.map((c) => c.trim()).filter(Boolean))];
+  for (const ct of codigos) map.set(ct, false);
+  if (codigos.length === 0) return map;
+  const rows = await prisma.prodPropio.findMany({
+    where: { codTienda: { in: codigos }, habilitado: true },
+    select: { codTienda: true },
+  });
+  for (const row of rows) {
+    const ct = row.codTienda.trim();
+    if (ct) map.set(ct, true);
   }
   return map;
 }
@@ -71,8 +83,14 @@ export function getStockeableFromMap(
   return map.get(codTienda.trim()) ?? false;
 }
 
-export async function isStockeableCodTienda(_codTienda: string): Promise<boolean> {
-  return false;
+export async function isStockeableCodTienda(codTienda: string): Promise<boolean> {
+  const ct = codTienda.trim();
+  if (!ct) return false;
+  const row = await prisma.prodPropio.findFirst({
+    where: { codTienda: ct },
+    select: { habilitado: true },
+  });
+  return row?.habilitado === true;
 }
 
 /** Saldo del ledger `stock_movimientos` en la sucursal del depósito DUX. */
