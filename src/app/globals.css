@@ -1205,10 +1205,10 @@
   max-height: 100% !important;
   min-height: 0;
 }
-/* CANT. del remito: input de 4 dígitos + y − del mismo alto que el input (1.75rem). */
+/* CANT. del remito: input de 4 dígitos y columna +/− del mismo alto (1.75rem). */
 .tabla-gestion-compacta tbody td > .factura-cant-stepper {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: 0.25rem;
   width: max-content;
@@ -1224,12 +1224,22 @@
   padding-left: 0.125rem !important;
   padding-right: 0.125rem !important;
 }
-.tabla-gestion-compacta tbody td > .factura-cant-stepper button {
-  height: 1.75rem !important;
+.tabla-gestion-compacta tbody td > .factura-cant-stepper > div {
+  display: flex !important;
+  flex-direction: column !important;
   width: 1.75rem !important;
-  min-height: 0 !important;
+  height: 1.75rem !important;
   max-height: 1.75rem !important;
+  gap: 1px !important;
+}
+.tabla-gestion-compacta tbody td > .factura-cant-stepper button {
+  height: auto !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: 1 1 0 !important;
   padding: 0 !important;
+  line-height: 1 !important;
 }
 /* Controles dentro de celdas: alto ~h-7 para alinear con fila 2rem y padding-y token. */
 .tabla-gestion-compacta tbody td input:not([type="checkbox"]) {

@@ -898,7 +898,6 @@ export default function FacturaCrearLineasBlock({
                           }}
                         />
                         <BotoneraStepperVertical
-                          eje="fila"
                           onAumentar={() => ajustarCantidad(linea.key, linea.cantidad, 1)}
                           onDisminuir={() => ajustarCantidad(linea.key, linea.cantidad, -1)}
                           ariaAumentar={`Aumentar cantidad de ${linea.descripcion}`}
