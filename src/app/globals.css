@@ -298,19 +298,6 @@
     opacity: 0.5;
   }
 
-  /**
-   * Factura · Crear visor de cabecera: tres secciones fijas en una fila
-   * (fecha/tipo/fiscal | cliente | formas de pago del desc.). Hover no cambia el layout.
-   */
-  .boton-encubierto--cabecera-visor {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: center;
-    justify-content: stretch;
-    gap: 0.75rem;
-    text-align: left;
-  }
-
   /* ─── Clase maestra inputs y selects de filtro (SSOT): misma apariencia para desplegables y filtro descripción ───
    * Un solo estilo: mismo contorno (border primary), fondo, tipografía y altura para todos los filtros.
    */
@@ -809,20 +796,6 @@
   }
 
   /**
-   * Separador solo entre módulos de primera jerarquía (MERCADERÍA / PRECIOS / …).
-   * Dentro del acordeón anidado no hay divisores: indent + chevron + data-active.
-   */
-  .sidebar-nav-divider {
-    height: 1px;
-    margin-left: 0.75rem;
-    margin-right: 0.75rem;
-    margin-top: 0.35rem;
-    margin-bottom: 0.35rem;
-    flex-shrink: 0;
-    background-color: color-mix(in oklab, var(--sidebar-foreground) 32%, transparent);
-  }
-
-  /**
    * Panel de hijos del acordeón: solo indentación (sin guía vertical).
    * La jerarquía la dan tipografía, indent, chevron y `data-active` en la hoja.
    */
@@ -835,13 +808,8 @@
     padding-top: 0.15rem;
     padding-bottom: 0.15rem;
   }
-  .sidebar-nav-tree--nested {
-    padding-left: 0.75rem;
-    margin-top: 0.15rem;
-  }
   /**
-   * Panel de funciones: a la derecha del slidenav, al hover del submódulo.
-   * El puente (`.sidebar-funciones-ancla`) cubre el hueco para no cerrar al cruzar.
+   * Puente del panel de funciones (`.sidebar-funciones-ancla`): cubre el hueco para no cerrar al cruzar.
    */
   .sidebar-funciones-ancla {
     position: fixed;
@@ -849,19 +817,6 @@
     display: flex;
     padding-left: 0.35rem;
     box-sizing: border-box;
-  }
-  .sidebar-funciones-panel {
-    display: flex;
-    min-width: 12rem;
-    max-width: 16rem;
-    flex-direction: column;
-    gap: 0.125rem;
-    overflow-y: auto;
-    border-radius: var(--radius);
-    border: 1px solid var(--primary);
-    background-color: var(--sidebar);
-    padding: 0.25rem;
-    box-shadow: var(--shadow-md);
   }
 
   /**
@@ -949,15 +904,12 @@
   .sidebar-nav-item svg {
     color: var(--sidebar-foreground) !important;
   }
-  .sidebar-container .sidebar-nav-item:hover,
-  .sidebar-funciones-panel .sidebar-nav-item:hover {
+  .sidebar-container .sidebar-nav-item:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
   }
   .sidebar-container .sidebar-nav-item[data-active="true"],
-  .sidebar-container .sidebar-nav-item[data-active="true"]:hover,
-  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"],
-  .sidebar-funciones-panel .sidebar-nav-item[data-active="true"]:hover {
+  .sidebar-container .sidebar-nav-item[data-active="true"]:hover {
     background-color: var(--sidebar-accent) !important;
     color: var(--sidebar-foreground);
     border-left-color: var(--sidebar-indicator);
@@ -1937,33 +1889,6 @@
   width: 100%;
 }
 
-/* Subfilas Cx Compra — columna CX PROD.: una línea (base | variación | precio), alineada a CeldaCxProdTienda. */
-.cx-compra-subfila-cx-prod {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 0.375rem;
-  width: 100%;
-  min-width: 0;
-  max-height: 100%;
-  align-items: center;
-}
-.cx-compra-subfila-cx-prod__meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-width: 0;
-}
-.cx-compra-subfila-cx-prod__precio-vinculo {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.25;
-}
-
 /* ─── Modales .modal-app: diseño global; el div central se ajusta al contenido para evitar scroll innecesario ─── */
 .modal-app {
   max-width: 42rem;
@@ -2470,18 +2395,6 @@ main a.tablero-grafico-filtro:active {
 main a.tablero-grafico-filtro svg {
   width: 0.5rem !important;
   height: 0.5rem !important;
-}
-main button.boton-encubierto.boton-encubierto--cabecera-visor,
-main button.boton-encubierto.boton-encubierto--cabecera-visor:hover:not(:disabled),
-main button.boton-encubierto.boton-encubierto--cabecera-visor:focus-visible,
-main button.boton-encubierto.boton-encubierto--cabecera-visor:active:not(:disabled) {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) !important;
-  justify-content: stretch !important;
-  align-items: center !important;
-  gap: 0.75rem !important;
-  text-align: left !important;
-  white-space: nowrap !important;
 }
 
 /*

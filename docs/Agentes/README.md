@@ -28,3 +28,4 @@ Cuando pidan la lista o un prompt para copiar:
 | 1 | FULL STACK | Modificar y crear código de punta a punta, guiado por las guías, y dejar la documentación al día | [full-stack.md](./full-stack.md) |
 | 2 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
 | 3 | API WHATSAPP | Enviar mensajes desde el teléfono de cada local con la Cloud API oficial de Meta | [api-whatsapp.md](./api-whatsapp.md) |
+| 4 | AUDITOR CÓDIGO MUERTO | Recorre el código por tandas, borra solo el código muerto comprobado y espera confirmación antes de la tanda siguiente | [auditor-codigo-muerto.md](./auditor-codigo-muerto.md) |

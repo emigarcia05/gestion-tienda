@@ -48,7 +48,6 @@ const sobreStockAdvertenciaTableShellVariants = cva(
     variants: {
       flex: {
         grow: "flex-1",
-        auto: "",
       },
     },
     defaultVariants: {
