@@ -3248,3 +3248,42 @@ model ArcaWsaaTicket {
   @@unique([cuit, servicio, ambiente], map: "arca_wsaa_tickets_cuit_serv_amb_key")
   @@map("arca_wsaa_tickets")
 }
+
+enum WhatsappPruebaDireccion {
+  ENTRANTE
+  SALIENTE
+
+  @@map("whatsapp_prueba_direccion")
+}
+
+enum WhatsappPruebaEstado {
+  RECIBIDO
+  ACEPTADO
+  ENVIADO
+  ENTREGADO
+  LEIDO
+  FALLIDO
+
+  @@map("whatsapp_prueba_estado")
+}
+
+/**
+ * Mensajes de la prueba de Cloud API. El teléfono es el del cliente, no el de la sucursal.
+ * No guarda el token ni el cuerpo crudo del webhook.
+ */
+model WhatsappPruebaMensaje {
+  id           String                  @id @default(cuid())
+  waMessageId  String                  @unique(map: "whatsapp_prueba_mensajes_wa_message_id_key") @map("wa_message_id")
+  direccion    WhatsappPruebaDireccion
+  telefono     String
+  nombre       String?                 @db.VarChar(120)
+  cuerpo       String                  @db.Text
+  tipo         String                  @default("text") @db.VarChar(32)
+  estado       WhatsappPruebaEstado
+  errorTexto   String?                 @map("error_texto") @db.VarChar(200)
+  waTimestamp  DateTime?               @map("wa_timestamp")
+  createdAt    DateTime                @default(now()) @map("created_at")
+
+  @@index([telefono, createdAt], map: "whatsapp_prueba_mensajes_telefono_created_idx")
+  @@map("whatsapp_prueba_mensajes")
+}
