@@ -17,6 +17,7 @@ import FacturaDescEspecialesItemModal from "@/components/facturacion/FacturaDesc
 import FacturaProductoBusquedaLista from "@/components/facturacion/FacturaProductoBusquedaLista";
 import FacturaProductoStockModal from "@/components/facturacion/FacturaProductoStockModal";
 import FacturaTintometricoModal from "@/components/facturacion/FacturaTintometricoModal";
+import { BotoneraStepperVertical } from "@/components/shared/EnteroStepperInput";
 import MontoArInput from "@/components/shared/MontoArInput";
 import PorcentajeCentInput from "@/components/shared/PorcentajeCentInput";
 import { Button } from "@/components/ui/button";
@@ -48,9 +49,11 @@ import {
 } from "@/lib/factura";
 import type { DescPromoFila } from "@/lib/descPromo";
 import {
+  CANTIDAD_UN_DECIMAL_MAX,
   esBorradorCantidadUnDecimal,
   formatCantidadInputValor,
   parseCantidadUnDecimal,
+  redondearCantidadUnDecimal,
 } from "@/lib/cantidadUnDecimal";
 import { descripcionConCodColor } from "@/lib/codColorTintometrico";
 import { evaluarCoberturaStock } from "@/lib/facturaStockCobertura";
@@ -110,8 +113,8 @@ function parseCantidadDraft(raw: string): number | null {
 const REMITO_COL_PCT = {
   acciones: 11,
   cod: 7,
-  descripcion: 36,
-  cant: 8,
+  descripcion: 32,
+  cant: 12,
   pxLista: 10,
   desc: 8,
   pxConDesc: 10,
@@ -444,6 +447,21 @@ export default function FacturaCrearLineasBlock({
     setLineas((prev) =>
       prev.map((l) => (l.key === key ? { ...l, cantidad: cant } : l))
     );
+  }
+
+  function ajustarCantidad(key: string, cantidadActual: number, delta: -1 | 1) {
+    const draft = cantidadDrafts[key];
+    const base = draft != null ? (parseCantidadDraft(draft) ?? cantidadActual) : cantidadActual;
+    const next = Math.min(
+      CANTIDAD_UN_DECIMAL_MAX,
+      Math.max(0.1, redondearCantidadUnDecimal(base + delta))
+    );
+    setLineas((prev) => prev.map((l) => (l.key === key ? { ...l, cantidad: next } : l)));
+    setCantidadDrafts((prev) => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
   }
 
   function confirmarCantidadDraft(key: string, cantidadActual: number) {
@@ -851,33 +869,41 @@ export default function FacturaCrearLineasBlock({
                       </div>
                     </TableCell>
                     <TableCell className="celda-datos min-w-0 text-center">
-                      <Input
-                        ref={(el) => {
-                          if (el) cantidadInputRefs.current.set(linea.key, el);
-                          else cantidadInputRefs.current.delete(linea.key);
-                        }}
-                        type="text"
-                        inputMode="decimal"
-                        className="h-8 w-full min-w-0 text-center tabular-nums"
-                        value={
-                          cantidadDrafts[linea.key] ??
-                          formatCantidadInputValor(linea.cantidad)
-                        }
-                        aria-label={`Cantidad de ${linea.descripcion}`}
-                        onFocus={(e) => e.currentTarget.select()}
-                        onChange={(e) =>
-                          actualizarCantidad(linea.key, e.target.value)
-                        }
-                        onBlur={() =>
-                          confirmarCantidadDraft(linea.key, linea.cantidad)
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            confirmarCantidadYVolverABuscar();
+                      <div className="flex h-8 w-full min-w-0 items-center gap-1">
+                        <Input
+                          ref={(el) => {
+                            if (el) cantidadInputRefs.current.set(linea.key, el);
+                            else cantidadInputRefs.current.delete(linea.key);
+                          }}
+                          type="text"
+                          inputMode="decimal"
+                          className="h-8 min-w-0 flex-1 text-center tabular-nums"
+                          value={
+                            cantidadDrafts[linea.key] ??
+                            formatCantidadInputValor(linea.cantidad)
                           }
-                        }}
-                      />
+                          aria-label={`Cantidad de ${linea.descripcion}`}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onChange={(e) =>
+                            actualizarCantidad(linea.key, e.target.value)
+                          }
+                          onBlur={() =>
+                            confirmarCantidadDraft(linea.key, linea.cantidad)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              confirmarCantidadYVolverABuscar();
+                            }
+                          }}
+                        />
+                        <BotoneraStepperVertical
+                          onAumentar={() => ajustarCantidad(linea.key, linea.cantidad, 1)}
+                          onDisminuir={() => ajustarCantidad(linea.key, linea.cantidad, -1)}
+                          ariaAumentar={`Aumentar cantidad de ${linea.descripcion}`}
+                          ariaDisminuir={`Disminuir cantidad de ${linea.descripcion}`}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="celda-datos min-w-0 text-center tabular-nums">
                       {linea.precioEditable ? (

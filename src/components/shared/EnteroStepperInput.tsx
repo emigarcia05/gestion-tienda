@@ -36,6 +36,52 @@ const stepperInputVariants = cva("text-center tabular-nums", {
 const STEPPER_BTN_APILADO_CLASS =
   "h-auto min-h-0 w-full flex-1 rounded-sm border-0 bg-[#0072BB] p-0 text-xs leading-none text-white shadow-none hover:bg-[#0072BB]/90 hover:text-white disabled:cursor-not-allowed disabled:opacity-50";
 
+/** Columna + arriba / − abajo, para compartir la fila con un input más angosto. */
+export function BotoneraStepperVertical({
+  onAumentar,
+  onDisminuir,
+  disabled = false,
+  ariaAumentar,
+  ariaDisminuir,
+  tabIndex,
+  className,
+}: {
+  onAumentar: () => void;
+  onDisminuir: () => void;
+  disabled?: boolean;
+  ariaAumentar: string;
+  ariaDisminuir: string;
+  tabIndex?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex h-full w-7 shrink-0 flex-col gap-0.5", className)}>
+      <Button
+        type="button"
+        variant="ghost"
+        className={STEPPER_BTN_APILADO_CLASS}
+        aria-label={ariaAumentar}
+        disabled={disabled}
+        tabIndex={tabIndex}
+        onClick={onAumentar}
+      >
+        +
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className={STEPPER_BTN_APILADO_CLASS}
+        aria-label={ariaDisminuir}
+        disabled={disabled}
+        tabIndex={tabIndex}
+        onClick={onDisminuir}
+      >
+        -
+      </Button>
+    </div>
+  );
+}
+
 function parseEnteroLibre(raw: string, max = MAX_ENTERO_STEPPER): number | null {
   const t = raw.trim();
   if (t === "") return null;
@@ -160,30 +206,14 @@ export default function EnteroStepperInput({
     return (
       <div className={cn(stepperContenedorVariants({ variante }), className)}>
         {input}
-        <div className="flex h-full w-7 shrink-0 flex-col gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            className={STEPPER_BTN_APILADO_CLASS}
-            aria-label={`Aumentar ${ariaLabel}`}
-            disabled={disabled}
-            tabIndex={tabIndex}
-            onClick={() => ajustar(1)}
-          >
-            +
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className={STEPPER_BTN_APILADO_CLASS}
-            aria-label={`Disminuir ${ariaLabel}`}
-            disabled={disabled}
-            tabIndex={tabIndex}
-            onClick={() => ajustar(-1)}
-          >
-            -
-          </Button>
-        </div>
+        <BotoneraStepperVertical
+          onAumentar={() => ajustar(1)}
+          onDisminuir={() => ajustar(-1)}
+          disabled={disabled}
+          ariaAumentar={`Aumentar ${ariaLabel}`}
+          ariaDisminuir={`Disminuir ${ariaLabel}`}
+          tabIndex={tabIndex}
+        />
         {endAction}
       </div>
     );
