@@ -9,7 +9,6 @@ import {
   Upload,
   Loader2,
   ArrowRight,
-  RefreshCw,
   Search,
   X,
   ChevronLeft,
@@ -19,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import AppModal from "@/components/shared/AppModal";
+import EnteroStepperInput from "@/components/shared/EnteroStepperInput";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import {
   Select,
@@ -680,8 +680,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     [preview]
   );
 
-  const totalVinculos = vinculosAuto.length + manuales.size;
-
   async function cambiarVinculoAuto(codExt: string, clave: string) {
     const original = preview?.filas.find((f) => f.items.some((it) => it.codExt === codExt))?.clave;
     const actual = clavesAuto.get(codExt) ?? original;
@@ -791,12 +789,12 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
     }
   }
 
-  async function aplicar() {
-    if (!preview || totalVinculos === 0) return;
+  async function guardar() {
     const vinculos = [
       ...vinculosAuto,
       ...[...manuales].map(([codExt, clave]) => ({ clave, codExt })),
     ];
+    if (!preview || vinculos.length === 0) return;
     setEstado("aplicando");
     try {
       const res = await aplicarImportListaPdfAction({ proveedorId, filas: filasPdf, vinculos });
@@ -814,7 +812,7 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
       resetForm();
       setOpen(false);
     } catch {
-      toast.error("Error de conexión al actualizar precios.");
+      toast.error("Error de conexión al guardar.");
       setEstado("preview");
     }
   }
@@ -853,6 +851,15 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
             <Button variant="outline" onClick={() => handleClose(false)} disabled={ocupado}>
               Cancelar
             </Button>
+            {vistaRevision === "auto" ? (
+              <Button
+                type="button"
+                onClick={() => void guardar()}
+                disabled={ocupado || guardandoAuto || vinculosAuto.length + manuales.size === 0}
+              >
+                {estado === "aplicando" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
+              </Button>
+            ) : null}
             {mostrarBotonConversion && (
               <Button onClick={() => void procesarPdf()} className="gap-2 min-w-[150px]" disabled={ocupado}>
                 {estado === "procesando" ? (
@@ -862,20 +869,6 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
                 )}
                 Iniciar Conversión
               </Button>
-            )}
-            {preview && !vistaRevision && (
-                <Button
-                onClick={() => void aplicar()}
-                  className="gap-2 min-w-[150px]"
-                disabled={ocupado || totalVinculos === 0 || sinPrecio.length > 0}
-                >
-                {estado === "aplicando" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Actualizar Precios ({totalVinculos})
-                </Button>
             )}
           </>
         }
@@ -929,14 +922,14 @@ export default function ConvertirPdfListaPreciosModal({ proveedores }: Props) {
             <div className="rounded-lg border border-primary/30 bg-muted/30 p-3">
               <div className="grid grid-cols-[1fr_8rem] gap-x-4 items-center">
                 <span className="text-sm font-medium text-foreground">LOS DATOS COMIENZAN EN LA PÁGINA</span>
-                <input
-                  type="number"
+                <EnteroStepperInput
+                  variante="formulario"
                   min={1}
+                  allowEmpty={false}
                   value={paginaInicio}
-                  onChange={(e) => setPaginaInicio(e.target.value)}
+                  onChange={setPaginaInicio}
                   disabled={ocupado || !proveedorId.trim()}
-                  className="input-filtro-unificado w-full text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring border-primary tabular-nums"
-                  aria-label="Página desde la que se procesa el PDF"
+                  ariaLabel="Página desde la que se procesa el PDF"
                 />
               </div>
             </div>

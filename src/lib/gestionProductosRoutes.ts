@@ -16,9 +16,9 @@ export const GP_ROUTES = {
     confPedido: {
       tintometrico: V.compras.tintometrico,
     },
-    /** Compras Emitidas. */
+    /** Recepciones Pendientes (ex Compras Emitidas). */
     recepcionPedido: V.compras.comprasEmitidas,
-    /** Compras Recepcionadas: comprobantes recepcionados + nota de crédito. */
+    /** Recepciones Confirmadas (ex Compras Recepcionadas): comprobantes recepcionados + nota de crédito. */
     compras: V.compras.comprasRecepcionadas,
   },
   ayudaVendedor: {
