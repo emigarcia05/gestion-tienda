@@ -19,29 +19,39 @@ function normalizeTokens(q: string): string[] {
 export async function buscarProductosTiendaPorDescripcion(params: {
   q?: string;
   take?: number;
+  /** Si viene, solo ítems con vínculo en `proveedores_prod_lista` de ese proveedor. */
+  proveedorId?: string;
 }): Promise<ServiceResult<{ items: ProductoTiendaRowBusqueda[]; total: number }>> {
   const q = params.q ?? "";
   const take = Math.max(1, Math.floor(Number(params.take) || 100));
+  const proveedorId = params.proveedorId?.trim() ?? "";
 
   try {
     const query = q.trim();
     const tokens = normalizeTokens(query);
 
     // Si no hay búsqueda, mostramos un subset estable para que el modal sea útil.
+    const vinculoProveedor: Prisma.ProdPropioWhereInput | null = proveedorId
+      ? {
+          listaPreciosProveedores: {
+            some: { idProveedor: proveedorId },
+          },
+        }
+      : null;
+
+    const base: Prisma.ProdPropioWhereInput[] = [
+      { habilitado: true },
+      { descripcionTienda: { not: null } },
+      { descripcionTienda: { not: "" } },
+      ...(vinculoProveedor ? [vinculoProveedor] : []),
+    ];
+
     const whereDescripcion: Prisma.ProdPropioWhereInput =
       tokens.length === 0
-        ? {
-            AND: [
-              { habilitado: true },
-              { descripcionTienda: { not: null } },
-              { descripcionTienda: { not: "" } },
-            ],
-          }
+        ? { AND: base }
         : {
             AND: [
-              { habilitado: true },
-              { descripcionTienda: { not: null } },
-              { descripcionTienda: { not: "" } },
+              ...base,
               {
                 // Cada token debe estar presente en la descripción.
                 // Esto hace el filtrado predecible (no “demasiado amplio”).

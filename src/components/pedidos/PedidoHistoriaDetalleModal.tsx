@@ -1341,6 +1341,7 @@ export default function PedidoHistoriaDetalleModal({
       <AgregarProductosModal
         open={agregarProductosOpen}
         onOpenChange={setAgregarProductosOpen}
+        proveedorId={detalle?.proveedorId || undefined}
         initialBusqueda={busquedaAgregarProducto}
         onAgregar={async (row, cantRecibida) => {
           await agregarNuevaFila(row, cantRecibida);

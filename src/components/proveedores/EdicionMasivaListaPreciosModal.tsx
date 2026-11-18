@@ -29,7 +29,6 @@ import {
   montoArNormalizedStringToPesosNumber,
 } from "@/lib/montoArMask";
 import { parsePorcentajeCentSignedNormalized } from "@/lib/porcentajeCentMask";
-import { roundPrecioListaTienda } from "@/lib/calculos";
 import { cn } from "@/lib/utils";
 
 interface ProveedorOption {
@@ -138,7 +137,9 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
     setDescripcion(filaActual.descripcionProveedor);
     setMarcaNombre(filaActual.marca ?? "");
     setRubroNombre(filaActual.rubro ?? "");
-    setPxListaProveedorNorm(montoArNumberToNormalizedString(Number(filaActual.pxListaProveedor) || 0));
+    setPxListaProveedorNorm(
+      montoArNumberToNormalizedString(Math.round(Number(filaActual.pxListaProveedor) || 0))
+    );
   }, [filaMode, open, filaActual]);
 
   useEffect(() => {
@@ -196,7 +197,9 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
     if (rubroNombre) data.rubro = rubroNombre;
     const norm = pxListaProveedorNorm.trim();
     if (norm !== "") {
-      data.pxListaProveedor = roundPrecioListaTienda(montoArNormalizedStringToPesosNumber(norm));
+      const px = Math.round(montoArNormalizedStringToPesosNumber(norm));
+      if (!Number.isInteger(px) || px < 0) return data;
+      data.pxListaProveedor = px;
     }
     return data;
   }
@@ -307,6 +310,7 @@ export default function EdicionMasivaListaPreciosModal(props: Props) {
             placeholder="—"
             valueNormalized={pxListaProveedorNorm}
             onValueNormalizedChange={setPxListaProveedorNorm}
+            soloPesosEnteros
             treatEmptyNormalizedAsBlank
             className={INPUT_CONTROL_CLASS}
           />

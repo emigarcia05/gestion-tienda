@@ -46,8 +46,12 @@ export const actualizacionMasivaListaPreciosSchema = z.object({
     .optional(),
   marca: z.string().nullable().optional(),
   rubro: z.string().nullable().optional(),
-  /** Precio de lista del proveedor (`proveedores_prod_lista.px_lista_proveedor`). */
-  pxListaProveedor: z.number().min(0).optional(),
+  /** Precio de lista del proveedor (`proveedores_prod_lista.px_lista_proveedor`), entero. */
+  pxListaProveedor: z
+    .number()
+    .int("El precio de lista debe ser un entero.")
+    .min(0)
+    .optional(),
   habilitado: z.boolean().optional(),
   /** Moneda del ítem; `null` elimina el promo (vuelven los descuentos %). */
   pxPromoFijo: pxPromoFijoListaPreciosSchema.optional(),

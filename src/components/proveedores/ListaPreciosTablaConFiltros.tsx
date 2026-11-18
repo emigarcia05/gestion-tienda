@@ -98,9 +98,9 @@ function fmtPrecioTabla(n: number | null | undefined): string {
 }
 
 function DescripcionCelda({ fila }: { fila: FilaListaPrecioParaCliente }) {
-  const tienda = fila.descripcionTienda?.trim() || "";
   const proveedor = fila.descripcionProveedor?.trim() || "";
-  const principal = tienda || proveedor || "—";
+  const tienda = fila.descripcionTienda?.trim() || "";
+  const principal = proveedor || tienda || "—";
 
   return (
     <div

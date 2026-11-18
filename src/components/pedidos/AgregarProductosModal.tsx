@@ -34,11 +34,14 @@ export default function AgregarProductosModal({
   onOpenChange,
   onAgregar,
   initialBusqueda = "",
+  proveedorId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAgregar: (row: ProductoTiendaRowBusqueda, cantRecibida: number) => Promise<void> | void;
   initialBusqueda?: string;
+  /** Recepción de Compra: solo ítems vinculados a este proveedor. */
+  proveedorId?: string;
 }) {
   const [data, setData] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -49,7 +52,11 @@ export default function AgregarProductosModal({
     async (q: string) => {
       setLoading(true);
       setErrorMsg(null);
-      const res = await buscarProductosTiendaPorDescripcionAction({ q, take: 100 });
+      const res = await buscarProductosTiendaPorDescripcionAction({
+        q,
+        take: 100,
+        ...(proveedorId ? { proveedorId } : {}),
+      });
       if (!res.ok) {
         setLoading(false);
         setData(EMPTY);
@@ -59,7 +66,7 @@ export default function AgregarProductosModal({
       setData({ items: res.data.items, total: res.data.total });
       setLoading(false);
     },
-    []
+    [proveedorId]
   );
 
   const { q, setQ, ref, handleQChange, isDebouncing } = useFiltrosConBusqueda({
