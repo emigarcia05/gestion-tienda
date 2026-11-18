@@ -37,7 +37,7 @@ export type PageSectionHeaderProps = {
 
 /**
  * Núcleo compartido de encabezados de página (barra primaria, título, subtítulo, acciones).
- * Usar vía `SectionHeader` o `ClassicPageHeader` para no romper APIs existentes.
+ * Usar vía `ClassicPageHeader`.
  *
  * `actions` se envuelve en `HeaderAccionesMenu`: un botón **ACCIONES** y lista al hover.
  * Orden del header: **módulo** (izquierda) | **NOTIFICACIONES** (centro) | **ACCIONES** (derecha).
