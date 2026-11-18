@@ -36,7 +36,7 @@ const stepperInputVariants = cva("text-center tabular-nums", {
 const STEPPER_BTN_APILADO_CLASS =
   "h-auto min-h-0 w-full flex-1 rounded-sm border-0 bg-[#0072BB] p-0 text-xs leading-none text-white shadow-none hover:bg-[#0072BB]/90 hover:text-white disabled:cursor-not-allowed disabled:opacity-50";
 
-/** Columna + arriba / − abajo, para compartir la fila con un input más angosto. */
+/** + / − junto a un input. `col`: apilados. `fila`: uno al lado del otro, alto del input de tabla (1.75rem). */
 export function BotoneraStepperVertical({
   onAumentar,
   onDisminuir,
@@ -44,6 +44,7 @@ export function BotoneraStepperVertical({
   ariaAumentar,
   ariaDisminuir,
   tabIndex,
+  eje = "col",
   className,
 }: {
   onAumentar: () => void;
@@ -52,14 +53,22 @@ export function BotoneraStepperVertical({
   ariaAumentar: string;
   ariaDisminuir: string;
   tabIndex?: number;
+  eje?: "col" | "fila";
   className?: string;
 }) {
+  const enFila = eje === "fila";
   return (
-    <div className={cn("flex h-full w-7 shrink-0 flex-col gap-0.5", className)}>
+    <div
+      className={cn(
+        "flex shrink-0 gap-0.5",
+        enFila ? "h-[1.75rem] flex-row" : "h-full w-7 flex-col",
+        className
+      )}
+    >
       <Button
         type="button"
         variant="ghost"
-        className={STEPPER_BTN_APILADO_CLASS}
+        className={cn(STEPPER_BTN_APILADO_CLASS, enFila && "h-[1.75rem] w-7 flex-none")}
         aria-label={ariaAumentar}
         disabled={disabled}
         tabIndex={tabIndex}
@@ -70,7 +79,7 @@ export function BotoneraStepperVertical({
       <Button
         type="button"
         variant="ghost"
-        className={STEPPER_BTN_APILADO_CLASS}
+        className={cn(STEPPER_BTN_APILADO_CLASS, enFila && "h-[1.75rem] w-7 flex-none")}
         aria-label={ariaDisminuir}
         disabled={disabled}
         tabIndex={tabIndex}

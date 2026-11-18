@@ -869,7 +869,7 @@ export default function FacturaCrearLineasBlock({
                       </div>
                     </TableCell>
                     <TableCell className="celda-datos min-w-0 text-center">
-                      <div className="flex h-8 w-full min-w-0 items-center gap-1">
+                      <div className="factura-cant-stepper">
                         <Input
                           ref={(el) => {
                             if (el) cantidadInputRefs.current.set(linea.key, el);
@@ -877,7 +877,7 @@ export default function FacturaCrearLineasBlock({
                           }}
                           type="text"
                           inputMode="decimal"
-                          className="h-8 min-w-0 flex-1 text-center tabular-nums"
+                          className="h-[1.75rem] w-[2.75rem] max-w-[2.75rem] shrink-0 px-0.5 text-center tabular-nums"
                           value={
                             cantidadDrafts[linea.key] ??
                             formatCantidadInputValor(linea.cantidad)
@@ -898,6 +898,7 @@ export default function FacturaCrearLineasBlock({
                           }}
                         />
                         <BotoneraStepperVertical
+                          eje="fila"
                           onAumentar={() => ajustarCantidad(linea.key, linea.cantidad, 1)}
                           onDisminuir={() => ajustarCantidad(linea.key, linea.cantidad, -1)}
                           ariaAumentar={`Aumentar cantidad de ${linea.descripcion}`}
