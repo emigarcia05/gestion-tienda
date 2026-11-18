@@ -4,7 +4,7 @@ import {
   prismaIdOptionalNullableSchema,
   prismaIdSchema,
 } from "@/lib/validations/common";
-import { porcentajeListaPreciosSchema } from "@/lib/validations/listaPrecios";
+import { porcentajeEnteroListaPreciosSchema } from "@/lib/validations/listaPrecios";
 
 /** Campos materializables gobernados por reglas (columnas proveedores_prod_lista). */
 export const campoReglaDescuentoListaPrecioSchema = z.enum([
@@ -42,7 +42,7 @@ function refineAlMenosUnaCondicion(
 export const crearReglaDescuentoListaPrecioSchema = z
   .object({
     campo: campoReglaDescuentoListaPrecioSchema,
-    valor: porcentajeListaPreciosSchema,
+    valor: porcentajeEnteroListaPreciosSchema,
     idProveedor: prismaIdOptionalNullableSchema,
     idMarca: prismaIdOptionalNullableSchema,
     idRubro: prismaIdOptionalNullableSchema,
@@ -57,7 +57,7 @@ export const actualizarReglaDescuentoListaPrecioSchema = z
   .object({
     id: prismaIdSchema,
     campo: campoReglaDescuentoListaPrecioSchema,
-    valor: porcentajeListaPreciosSchema,
+    valor: porcentajeEnteroListaPreciosSchema,
     idProveedor: prismaIdOptionalNullableSchema,
     idMarca: prismaIdOptionalNullableSchema,
     idRubro: prismaIdOptionalNullableSchema,

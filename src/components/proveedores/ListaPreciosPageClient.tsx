@@ -67,13 +67,6 @@ export default function ListaPreciosPageClient({
   const actions =
     puedeImportar || puedeEdicionMasiva || puedeVerCotizacion || puedeGestionarReglas ? (
       <div className="flex flex-wrap items-center gap-2">
-        {puedeVerCotizacion && (
-          <CotizacionUsdListaPreciosControl
-            puedeEditar={puedeGestionarCotizacion}
-            estadoInicial={cotizacionUsd}
-            onActualizada={handleEdicionSuccess}
-          />
-        )}
         {puedeImportar && (
           <CrearProductoListaPreciosModal
             proveedores={proveedores}
@@ -97,6 +90,13 @@ export default function ListaPreciosPageClient({
         )}
         {puedeGestionarReglas && (
           <ReglasDescuentosListaPrecioModal onSuccess={handleEdicionSuccess} />
+        )}
+        {puedeVerCotizacion && (
+          <CotizacionUsdListaPreciosControl
+            puedeEditar={puedeGestionarCotizacion}
+            estadoInicial={cotizacionUsd}
+            onActualizada={handleEdicionSuccess}
+          />
         )}
       </div>
     ) : undefined;

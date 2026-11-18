@@ -37,6 +37,11 @@ export type PorcentajeCentInputProps = Omit<
    */
   allowNegative?: boolean;
   /**
+   * Cada dígito suma puntos enteros (no centésimas). Al pegar se descarta la parte decimal.
+   * El valor se sigue guardando en centésimas (`"12.00"`).
+   */
+  soloEnteros?: boolean;
+  /**
    * Si es `true`, al borrar hasta 0 se emite `""` (no `"0"`).
    */
   treatEmptyNormalizedAsBlank?: boolean;
@@ -67,6 +72,7 @@ export default function PorcentajeCentInput({
   showPctSuffix = true,
   pctSuffixAlwaysVisible = false,
   allowNegative = false,
+  soloEnteros = false,
   treatEmptyNormalizedAsBlank = false,
   maxCents = PORCENTAJE_CENT_MASK_MAX_CENTS,
   emptyWhenZero = false,
@@ -78,6 +84,8 @@ export default function PorcentajeCentInput({
   ...props
 }: PorcentajeCentInputProps) {
   const overwriteOnNextInputRef = useRef(true);
+  const paso = soloEnteros ? 100 : 1;
+  const topeUnidades = Math.floor(maxCents / paso);
 
   const centsValue = useMemo(
     () =>
@@ -92,11 +100,17 @@ export default function PorcentajeCentInput({
     if (treatEmptyNormalizedAsBlank && valueNormalized.trim() === "") return "";
     if (valueNormalized.trim() === "") return "";
     if (emptyWhenZero && centsValue === 0) return "";
+    if (soloEnteros) {
+      const entero = Math.round(Math.abs(centsValue) / 100);
+      const body = entero.toLocaleString("es-AR", { maximumFractionDigits: 0 });
+      return allowNegative && centsValue < 0 && entero !== 0 ? `-${body}` : body;
+    }
     return allowNegative
       ? porcentajeCentSignedNormalizedToDisplay(valueNormalized, maxCents)
       : porcentajeCentNormalizedToDisplay(valueNormalized, maxCents);
   }, [
     allowNegative,
+    soloEnteros,
     valueNormalized,
     maxCents,
     emptyWhenZero,
@@ -154,9 +168,9 @@ export default function PorcentajeCentInput({
     if (isDigit) {
       event.preventDefault();
       const pendingNeg = allowNegative && (centsValue < 0 || valueNormalized.trim() === "-");
-      const mag = Math.abs(centsValue);
-      const base = overwriteOnNextInputRef.current ? 0 : mag;
-      const nextMag = Math.min(base * 10 + Number(key), maxCents);
+      const unidades = Math.floor(Math.abs(centsValue) / paso);
+      const base = overwriteOnNextInputRef.current ? 0 : unidades;
+      const nextMag = Math.min(base * 10 + Number(key), topeUnidades) * paso;
       overwriteOnNextInputRef.current = false;
       const keepNeg = pendingNeg && nextMag !== 0;
       emitCents(keepNeg ? -nextMag : nextMag);
@@ -170,8 +184,7 @@ export default function PorcentajeCentInput({
         onValueNormalizedChange("");
         return;
       }
-      const mag = Math.abs(centsValue);
-      const nextMag = Math.floor(mag / 10);
+      const nextMag = Math.floor(Math.abs(centsValue) / paso / 10) * paso;
       const keepNeg = allowNegative && centsValue < 0 && nextMag !== 0;
       emitCents(keepNeg ? -nextMag : nextMag);
       return;
@@ -188,11 +201,12 @@ export default function PorcentajeCentInput({
     overwriteOnNextInputRef.current = false;
     const text = event.clipboardData.getData("text").replace(/%/g, "");
     const pasteNeg = allowNegative && text.trim().startsWith("-");
-    const digits = text.replace(/\D/g, "");
+    const parte = soloEnteros ? text.split(",")[0]?.split(".")[0] ?? "" : text;
+    const digits = parte.replace(/\D/g, "");
     if (!digits) return;
-    const pastedCents = Number(digits);
-    if (!Number.isFinite(pastedCents)) return;
-    const nextMag = Math.min(pastedCents, maxCents);
+    const pasted = Number(digits);
+    if (!Number.isFinite(pasted)) return;
+    const nextMag = Math.min(pasted, topeUnidades) * paso;
     emitCents(pasteNeg && nextMag !== 0 ? -nextMag : nextMag);
   }
 

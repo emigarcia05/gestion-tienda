@@ -15,6 +15,9 @@ import { roundPorcentaje0a100 } from "@/lib/format";
 /** Tope estándar (Costos Financieros, lista precios, etc.): 99,99 %. */
 export const PORCENTAJE_CENT_MASK_MAX_CENTS = 9_999;
 
+/** Tope de un porcentaje entero 0–100 (`100` → 10.000 centésimas). */
+export const PORCENTAJE_ENTERO_MAX_CENTS = 10_000;
+
 function clampPorcentajeCentCents(cents: number, maxCents: number): number {
   return Math.min(Math.max(Math.trunc(cents), 0), maxCents);
 }

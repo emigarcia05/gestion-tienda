@@ -110,8 +110,8 @@ export default function CrearProductoListaPreciosModal({
       return;
     }
     const pxListaProveedor = montoArNormalizedStringToPesosNumber(pxListaNorm);
-    if (!Number.isFinite(pxListaProveedor) || pxListaProveedor < 0) {
-      toast.error("Ingresá un precio de lista válido.");
+    if (!Number.isInteger(pxListaProveedor) || pxListaProveedor < 0) {
+      toast.error("Ingresá un precio de lista entero.");
       return;
     }
 
@@ -216,6 +216,7 @@ export default function CrearProductoListaPreciosModal({
           placeholder="—"
           valueNormalized={pxListaNorm}
           onValueNormalizedChange={setPxListaNorm}
+          soloPesosEnteros
           treatEmptyNormalizedAsBlank
           className={INPUT_CONTROL_CLASS}
         />

@@ -16,6 +16,13 @@ export const porcentajeListaPreciosSchema = z
   .max(100)
   .refine(tieneMaxDosDecimales, "El porcentaje admite hasta 2 decimales.");
 
+/** Porcentaje entero 0–100 (alta y edición de regla de descuento de lista). */
+export const porcentajeEnteroListaPreciosSchema = z
+  .number()
+  .int("El porcentaje debe ser un entero.")
+  .min(0)
+  .max(100);
+
 function tieneMaxCuatroDecimales(n: number): boolean {
   return Math.abs(n * 10000 - Math.round(n * 10000)) < 1e-6;
 }
@@ -154,7 +161,10 @@ export const crearProductoListaPrecioSchema = z.object({
     .trim()
     .min(1, "La descripción es obligatoria.")
     .max(500),
-  pxListaProveedor: z.number().min(0, "El precio de lista debe ser mayor o igual a 0."),
+  pxListaProveedor: z
+    .number()
+    .int("El precio de lista debe ser un entero.")
+    .min(0, "El precio de lista debe ser mayor o igual a 0."),
   marca: z
     .string()
     .trim()
