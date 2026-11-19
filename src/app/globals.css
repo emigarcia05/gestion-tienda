@@ -1205,10 +1205,10 @@
   max-height: 100% !important;
   min-height: 0;
 }
-/* CANT. del remito: input de 4 dígitos y columna +/− del mismo alto (1.75rem). */
+/* CANT. del remito y edición de CANT. RECIBIDA: input y columna +/− del mismo alto (1.75rem). */
 .tabla-gestion-compacta tbody td > .factura-cant-stepper {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   gap: 0.25rem;
   width: max-content;
@@ -1232,7 +1232,7 @@
   max-height: 1.75rem !important;
   gap: 1px !important;
 }
-.tabla-gestion-compacta tbody td > .factura-cant-stepper button {
+.tabla-gestion-compacta tbody td > .factura-cant-stepper > div > button:not(.tabla-row-btn-filled-brand) {
   height: auto !important;
   width: 100% !important;
   min-height: 0 !important;

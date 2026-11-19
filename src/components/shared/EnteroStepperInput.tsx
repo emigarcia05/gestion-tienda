@@ -72,6 +72,7 @@ export function BotoneraStepperVertical({
         aria-label={ariaAumentar}
         disabled={disabled}
         tabIndex={tabIndex}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={onAumentar}
       >
         +
@@ -83,6 +84,7 @@ export function BotoneraStepperVertical({
         aria-label={ariaDisminuir}
         disabled={disabled}
         tabIndex={tabIndex}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={onDisminuir}
       >
         -

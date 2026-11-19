@@ -52,6 +52,7 @@ import {
 import { fetchPedidoHistoriaDetalle } from "@/lib/fetchPedidoHistoriaDetalle";
 import { leerUsuarioSesion } from "@/lib/usuarioSesion";
 import AgregarProductosModal from "@/components/pedidos/AgregarProductosModal";
+import { BotoneraStepperVertical } from "@/components/shared/EnteroStepperInput";
 import MontoArInput from "@/components/shared/MontoArInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { cn } from "@/lib/utils";
@@ -989,18 +990,20 @@ export default function PedidoHistoriaDetalleModal({
               >
                 AGREGAR PRODUCTO A LA RECEPCIÓN
               </span>
-              <div className="flex w-full min-w-0 flex-row items-center justify-between gap-x-10 pt-1 pb-0">
-                <div className="flex min-w-0 max-w-[36rem] flex-1 items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <FiltroBusquedaInput
-                      id="pedido-historia-agregar-producto-filtro"
-                      placeholder="BUSCAR POR DESCRIPCIÓN..."
-                      value={busquedaAgregarProducto}
-                      onChange={setBusquedaAgregarProducto}
-                      isDebouncing={false}
-                      inputRef={busquedaAgregarRef}
-                      className="h-10 min-h-10"
-                    />
+              <div className={cn(GRID_PEDIDO_HISTORIA_TABLA_COLS, "items-center pt-1 pb-0")}>
+                <div className="col-span-4 min-w-0">
+                  <div className="flex min-w-0 max-w-[36rem] items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <FiltroBusquedaInput
+                        id="pedido-historia-agregar-producto-filtro"
+                        placeholder="BUSCAR POR DESCRIPCIÓN..."
+                        value={busquedaAgregarProducto}
+                        onChange={setBusquedaAgregarProducto}
+                        isDebouncing={false}
+                        inputRef={busquedaAgregarRef}
+                        className="h-10 min-h-10"
+                      />
+                    </div>
                   </div>
                 </div>
                 <Button
@@ -1011,7 +1014,7 @@ export default function PedidoHistoriaDetalleModal({
                     esNotaCredito || locked || loading || !fechaFacturaOk || guardando != null || sinProveedor
                   }
                   className={cn(
-                    "h-10 min-h-10 w-auto shrink-0 cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
+                    "h-10 min-h-10 w-full cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
                   )}
                 >
                   <Plus className="h-4 w-4" />
@@ -1143,7 +1146,7 @@ export default function PedidoHistoriaDetalleModal({
                             {locked ? (
                               cantRecibidaVisible
                             ) : isEditing ? (
-                              <div className={TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS}>
+                              <div className="factura-cant-stepper">
                                 <Input
                                   ref={cantRecEditingInputRef}
                                   type="text"
@@ -1183,36 +1186,17 @@ export default function PedidoHistoriaDetalleModal({
                                   }}
                                   disabled={locked || busy || !fechaFacturaOk}
                                   className={cn(
-                                    "h-8 w-[3.5rem] min-w-[3.5rem] self-center text-center",
+                                    "h-[1.75rem] w-[2.75rem] max-w-[2.75rem] shrink-0 px-0.5 text-center tabular-nums",
                                     inputBorderClassName
                                   )}
                                 />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => ajustarEditingValue(-1)}
+                                <BotoneraStepperVertical
+                                  onAumentar={() => ajustarEditingValue(1)}
+                                  onDisminuir={() => ajustarEditingValue(-1)}
                                   disabled={locked || busy || !fechaFacturaOk}
-                                  className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                  aria-label="Disminuir"
-                                  title="Disminuir"
-                                >
-                                  <span className="text-sm leading-none">-</span>
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => ajustarEditingValue(1)}
-                                  disabled={locked || busy || !fechaFacturaOk}
-                                  className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                                  aria-label="Aumentar"
-                                  title="Aumentar"
-                                >
-                                  <span className="text-sm leading-none">+</span>
-                                </Button>
+                                  ariaAumentar="Aumentar cantidad recibida"
+                                  ariaDisminuir="Disminuir cantidad recibida"
+                                />
                                 <Button
                                   type="button"
                                   variant="ghost"
