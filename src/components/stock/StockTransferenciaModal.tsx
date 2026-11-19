@@ -769,7 +769,7 @@ export default function StockTransferenciaModal({
             toast.error("Ese ítem ya está en la transferencia.");
             return;
           }
-          const cant = redondearCantidadUnDecimal(Math.max(0, cantRecibida));
+          const cant = redondearCantidadUnDecimal(Math.max(0, cantRecibida ?? 0));
           setFilas((prev) => [
             ...prev,
             {

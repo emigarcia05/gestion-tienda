@@ -462,13 +462,14 @@ export default function PedidoHistoriaDetalleModal({
 
   async function agregarNuevaFila(
     producto: ProductoTiendaRowBusqueda,
-    cantRecibida: number
+    cantRecibida: number | null
   ) {
     if (locked) return;
     if (fechaRecepcion.trim() === "") return;
     if (!detalle) return;
-    const cant = Math.trunc(Number(cantRecibida));
-    if (!Number.isFinite(cant) || cant === 0) {
+    const cant =
+      cantRecibida == null ? null : Math.trunc(Number(cantRecibida));
+    if (cant != null && (!Number.isFinite(cant) || cant === 0)) {
       toast.error("Ingresá una Cant. Recibida distinta de 0.");
       return;
     }
@@ -491,32 +492,34 @@ export default function PedidoHistoriaDetalleModal({
             codTienda: codNormalizado,
             codExt: codNormalizado,
             descripcionTienda: producto.descripcionTienda,
-            cantPedida: Math.max(0, cant),
+            cantPedida: cant == null ? 0 : Math.max(0, cant),
             cantRecibida: cant,
           },
         ],
       };
     });
-    setCheckListConfirmedByItem((prev) => ({ ...prev, [tempId]: true }));
+    if (cant == null) {
+      setBusquedaAgregarProducto("");
+      setEditingItemId(tempId);
+      setEditingValue("");
+    } else {
+      setCheckListConfirmedByItem((prev) => ({ ...prev, [tempId]: true }));
+      queueMicrotask(() => {
+        setEditingItemId(null);
+        setEditingValue("");
+        busquedaAgregarRef.current?.focus();
+      });
+    }
     setAgregarProductosOpen(false);
     toast.success("Ítem agregado.");
-    queueMicrotask(() => {
-      setEditingItemId(null);
-      setEditingValue("");
-      busquedaAgregarRef.current?.focus();
-    });
   }
 
-  async function agregarFilaVario(descripcion: string, cantRecibida: number) {
+  async function agregarFilaVario(descripcion: string) {
     if (locked || esNotaCredito) return;
     if (fechaRecepcion.trim() === "") return;
     if (!detalle) return;
     const desc = descripcion.trim().slice(0, 500);
-    const cant = Math.trunc(Number(cantRecibida));
-    if (!desc || !Number.isInteger(cant) || cant < 1) {
-      toast.error("Completá la descripción y una cantidad entera mayor a 0.");
-      return;
-    }
+    if (!desc) return;
 
     const tempId = `tmp-${crypto.randomUUID()}`;
     setDetalle((prev) => {
@@ -530,20 +533,17 @@ export default function PedidoHistoriaDetalleModal({
             codTienda: COD_TIENDA_PROD_VARIO_RECEPCION,
             codExt: nuevoCodExtProdVario(),
             descripcionTienda: desc,
-            cantPedida: cant,
-            cantRecibida: cant,
+            cantPedida: 0,
+            cantRecibida: null,
           },
         ],
       };
     });
-    setCheckListConfirmedByItem((prev) => ({ ...prev, [tempId]: true }));
+    setBusquedaAgregarProducto("");
+    setEditingItemId(tempId);
+    setEditingValue("");
     setAgregarProductosOpen(false);
     toast.success("Ítem agregado.");
-    queueMicrotask(() => {
-      setEditingItemId(null);
-      setEditingValue("");
-      busquedaAgregarRef.current?.focus();
-    });
   }
 
   function ajustarEditingValue(delta: number) {
@@ -1402,8 +1402,8 @@ export default function PedidoHistoriaDetalleModal({
         onAgregarVario={
           esNotaCredito
             ? undefined
-            : async (descripcion, cantidad) => {
-                await agregarFilaVario(descripcion, cantidad);
+            : async (descripcion) => {
+                await agregarFilaVario(descripcion);
               }
         }
       />
