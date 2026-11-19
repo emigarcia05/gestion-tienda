@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireFinanzasLectura } from "@/lib/actionGates";
 import { APP_ROUTES } from "@/lib/appRoutes";
+import { FACTURACION_ROUTES } from "@/lib/facturacionRoutes";
 import { fromServiceResult, zodFail } from "@/lib/actionResult";
 import type { ActionResult } from "@/lib/types";
 import {
@@ -117,6 +118,14 @@ export async function eliminarMovimientoTesoreriaAction(
   const parsed = eliminarMovimientoTesoreriaSchema.safeParse(raw);
   if (!parsed.success) return zodFail(parsed.error);
   const res = await eliminarMovimientoTesoreria(parsed.data.id);
-  if (res.success) revalidateTesoreria();
+  if (res.success) {
+    revalidateTesoreria();
+    revalidatePath(APP_ROUTES.ventas.hub);
+    revalidatePath(FACTURACION_ROUTES.factura.facturas);
+    revalidatePath(FACTURACION_ROUTES.clientes.lista);
+    revalidatePath(FACTURACION_ROUTES.clientes.cuentaCorriente);
+    revalidatePath(APP_ROUTES.finanzas.balance.cxFinCobros);
+    revalidatePath(APP_ROUTES.finanzas.balance.balanceIva);
+  }
   return fromServiceResult(res);
 }

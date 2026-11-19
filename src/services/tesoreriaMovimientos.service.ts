@@ -6,7 +6,13 @@ import {
   cxTotalConIvaFinAnaCosFina,
   cxTotalSinIvaFinAnaCosFina,
 } from "@/lib/finAnaCosFina";
-import { esCobroNotaCreditoNombre } from "@/lib/factura";
+import {
+  diasVencimientoPorSaldoPendiente,
+  esCobroNotaCreditoNombre,
+  esFacturaTipo,
+  esFacturaTipoVenta,
+  saldoPendienteTrasCobro,
+} from "@/lib/factura";
 import {
   addDaysToIsoYmdArgentina,
   dateToIsoYmdArgentina,
@@ -855,9 +861,63 @@ export type EliminarMovimientoTesoreriaResultado = {
 };
 
 /**
- * Elimina un movimiento manual de tesorería.
+ * Quita de la venta el monto de este cobro (o de la imputación de NC).
+ * Una NC o un presupuesto no usan `imp_cobrado` acá.
+ */
+async function restarCobroDeVenta(
+  tx: Prisma.TransactionClient,
+  ventaId: string,
+  montoPesos: number
+): Promise<void> {
+  const venta = await tx.comprobanteVta.findUnique({
+    where: { id: ventaId },
+    select: {
+      tipoComprobante: true,
+      impTotal: true,
+      impCobrado: true,
+      diasVencimiento: true,
+      clienteId: true,
+    },
+  });
+  if (!venta) return;
+  if (!esFacturaTipo(venta.tipoComprobante) || !esFacturaTipoVenta(venta.tipoComprobante)) {
+    return;
+  }
+  const restar = Math.round(montoPesos * 100) / 100;
+  const impTotal = Number(venta.impTotal);
+  const siguienteImpCobrado =
+    Math.round(Math.max(0, Number(venta.impCobrado) - restar) * 100) / 100;
+  const siguienteSaldo = saldoPendienteTrasCobro(impTotal, siguienteImpCobrado);
+  let diasVencimiento = venta.diasVencimiento;
+  if (siguienteSaldo <= 0) {
+    diasVencimiento = null;
+  } else if (diasVencimiento == null) {
+    let plazo: number | null = null;
+    if (venta.clienteId) {
+      const cli = await tx.cliente.findUnique({
+        where: { id: venta.clienteId },
+        select: { ctaCorrientePlazo: true },
+      });
+      plazo = cli?.ctaCorrientePlazo ?? null;
+    }
+    diasVencimiento = diasVencimientoPorSaldoPendiente({
+      esVenta: true,
+      impTotal,
+      impCobrado: siguienteImpCobrado,
+      plazoCliente: plazo,
+    });
+  }
+  await tx.comprobanteVta.update({
+    where: { id: ventaId },
+    data: { impCobrado: siguienteImpCobrado, diasVencimiento },
+  });
+}
+
+/**
+ * Elimina un movimiento de tesorería.
+ * Si es un cobro de venta (total o parcial) o una imputación de NC, la venta queda sin ese pago.
  * Si es transferencia, elimina ambas piernas por `transferenciaGrupoId`.
- * No permite borrar movimientos ligados a comprobantes/cobros.
+ * Un eCheq emitido se anula desde Cajas. Un cheque que ya salió de cartera no se puede borrar.
  */
 export async function eliminarMovimientoTesoreria(
   id: string
@@ -866,11 +926,11 @@ export async function eliminarMovimientoTesoreria(
     where: { id },
     select: {
       id: true,
+      monto: true,
       transferenciaGrupoId: true,
       comprobanteId: true,
       clienteCobroId: true,
       notaCreditoId: true,
-      catMovimiento: true,
       chequeId: true,
       chequeEmitidoId: true,
     },
@@ -884,21 +944,26 @@ export async function eliminarMovimientoTesoreria(
       error: "Este movimiento es un eCheq emitido: anulalo desde TESORERIA → Cajas → eCheqs emitidos.",
     };
   }
-  if (row.comprobanteId || row.clienteCobroId || row.notaCreditoId) {
-    return {
-      success: false,
-      error:
-        "No se puede borrar este movimiento porque está vinculado a un comprobante o cobro.",
-    };
-  }
   if (row.chequeId) {
-    return {
-      success: false,
-      error: "No se puede borrar este movimiento porque está vinculado a un cheque.",
-    };
+    const cheque = await prisma.tesoreriaCheque.findUnique({
+      where: { id: row.chequeId },
+      select: { estado: true },
+    });
+    if (!cheque || cheque.estado !== "EN_CARTERA") {
+      return {
+        success: false,
+        error: "No se puede borrar este movimiento porque el cheque ya salió de cartera.",
+      };
+    }
   }
 
-  if (row.transferenciaGrupoId) {
+  if (
+    row.transferenciaGrupoId &&
+    !row.comprobanteId &&
+    !row.clienteCobroId &&
+    !row.notaCreditoId &&
+    !row.chequeId
+  ) {
     const pares = await prisma.tesoreriaMovimiento.findMany({
       where: { transferenciaGrupoId: row.transferenciaGrupoId },
       select: { id: true },
@@ -912,7 +977,54 @@ export async function eliminarMovimientoTesoreria(
     return { success: true, data: { idsEliminados: pares.map((item) => item.id) } };
   }
 
-  await prisma.tesoreriaMovimiento.delete({ where: { id: row.id } });
+  await prisma.$transaction(async (tx) => {
+    if (row.comprobanteId) {
+      await restarCobroDeVenta(tx, row.comprobanteId, row.monto);
+    }
+    await tx.tesoreriaMovimiento.delete({ where: { id: row.id } });
+
+    if (row.chequeId) {
+      const restantes = await tx.tesoreriaMovimiento.findMany({
+        where: { chequeId: row.chequeId },
+        select: { monto: true, montoAcreditado: true },
+      });
+      if (restantes.length === 0) {
+        await tx.tesoreriaCheque.delete({ where: { id: row.chequeId } });
+      } else {
+        await tx.tesoreriaCheque.update({
+          where: { id: row.chequeId },
+          data: {
+            monto: restantes.reduce((suma, item) => suma + item.monto, 0),
+            montoAcreditado: restantes.reduce((suma, item) => suma + item.montoAcreditado, 0),
+          },
+        });
+      }
+    }
+
+    if (row.clienteCobroId) {
+      const restantes = await tx.tesoreriaMovimiento.aggregate({
+        where: { clienteCobroId: row.clienteCobroId },
+        _sum: { monto: true },
+      });
+      const suma = restantes._sum.monto ?? 0;
+      if (suma <= 0) {
+        await tx.tesoreriaCheque.deleteMany({
+          where: {
+            clienteCobroId: row.clienteCobroId,
+            estado: "EN_CARTERA",
+            movimientos: { none: {} },
+          },
+        });
+        await tx.clienteCobro.delete({ where: { id: row.clienteCobroId } });
+      } else {
+        await tx.clienteCobro.update({
+          where: { id: row.clienteCobroId },
+          data: { montoCents: suma * 100 },
+        });
+      }
+    }
+  });
+
   return { success: true, data: { idsEliminados: [row.id] } };
 }
 

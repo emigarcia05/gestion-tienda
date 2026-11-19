@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -82,15 +82,16 @@ function yDeMonto(monto: number, piso: number, techo: number): number {
   return 2 + ((techo - monto) / rango) * 96;
 }
 
-/** `Lunes 02/11`. Mediodía UTC para no correr el día en Argentina. */
+/** `LUNES 02/11`. Mediodía UTC para no correr el día en Argentina. */
 function etiquetaDiaSemana(anio: number, mes: number, dia: number): string {
   const fecha = new Date(Date.UTC(anio, mes - 1, dia, 15, 0, 0));
   const weekday = new Intl.DateTimeFormat("es-AR", {
     timeZone: TIMEZONE_ARGENTINA,
     weekday: "long",
   }).format(fecha);
-  const nombre = weekday.charAt(0).toLocaleUpperCase("es") + weekday.slice(1);
-  return `${nombre} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}`;
+  return `${weekday} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}`.toLocaleUpperCase(
+    "es"
+  );
 }
 
 /** % entero de la sucursal sobre la suma de las sucursales de ese día. */
@@ -212,16 +213,20 @@ function LineasDia({
                     />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-left leading-snug tabular-nums">
-                  <p>{titulo}</p>
-                  {series.map((item) => {
-                    const monto = ventasDelDia(item, dia.dia);
-                    return (
-                      <p key={item.id}>
-                        {`${item.etiqueta}. ${pesos(monto)} (${pctSobreTotal(monto, totalDia)}%)`}
-                      </p>
-                    );
-                  })}
+                <TooltipContent side="top" className="text-left leading-snug">
+                  <p className="text-center font-bold">{titulo}</p>
+                  <div className="grid grid-cols-[auto_auto_auto] justify-items-start gap-x-3 tabular-nums">
+                    {series.map((item) => {
+                      const monto = ventasDelDia(item, dia.dia);
+                      return (
+                        <Fragment key={item.id}>
+                          <span>{item.etiqueta}</span>
+                          <span>{pesos(monto)}</span>
+                          <span>{`(${pctSobreTotal(monto, totalDia)}%)`}</span>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
                 </TooltipContent>
               </Tooltip>
             );

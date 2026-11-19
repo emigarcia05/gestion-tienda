@@ -524,7 +524,8 @@ export default function FinanzasTesoreriaMovimientosPageClient({ filas }: Props)
           >
             <div className="flex flex-col gap-3">
               <p className="text-sm text-foreground">
-                ¿Querés borrar este movimiento? Esta acción no se puede deshacer.
+                ¿Querés borrar este movimiento? Esta acción no se puede deshacer. Si es un
+                cobro de una venta, esa venta queda sin ese pago.
               </p>
               <div className="flex flex-col gap-1">
                 <ModalMicroLabel>FECHA</ModalMicroLabel>
