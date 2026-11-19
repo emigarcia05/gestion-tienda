@@ -141,6 +141,8 @@ export interface TableroVentasDatos {
   seriesMeses: TableroVentasSerieMes[];
   /** Una serie por sucursal, días 1..último del mes en curso. */
   seriesDias: TableroVentasSerieDia[];
+  /** Año y mes AR del gráfico por día (mes en curso). */
+  graficoDiaPeriodo: { anio: number; mes: number };
   clientesVencidos: TableroVentasClienteVencido[];
   /** Envíos de la sucursal con fecha de hoy y sin entregar. */
   enviosPendientesHoy: number;
@@ -716,6 +718,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         participacionSucursales,
         seriesMeses,
         seriesDias,
+        graficoDiaPeriodo: { anio, mes },
         clientesVencidos,
         enviosPendientesHoy: pendientes.enviosPendientesHoy,
         pedidosGeneracion: pendientes.pedidosGeneracion,
@@ -736,6 +739,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
     seriesDias: [],
+    graficoDiaPeriodo: { anio: 0, mes: 0 },
     seriesMeses: [
       {
         id: "global",

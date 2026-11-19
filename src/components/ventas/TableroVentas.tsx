@@ -340,7 +340,12 @@ export default function TableroVentas({
               <ParticipacionTablero filas={datos.participacionSucursales} />
             </div>
             <div className="flex min-h-0 min-w-0 flex-col">
-              <GraficoMesesTablero series={datos.seriesMeses} seriesDias={datos.seriesDias} />
+              <GraficoMesesTablero
+                series={datos.seriesMeses}
+                seriesDias={datos.seriesDias}
+                anio={datos.graficoDiaPeriodo.anio}
+                mes={datos.graficoDiaPeriodo.mes}
+              />
             </div>
           </div>
         </section>

@@ -18,12 +18,13 @@ import {
   TABLE_ROW_CELL_ICON_ACTIONS_FLEX_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import { fmtCantidad } from "@/lib/format";
 import { labelReposicionFormaPedidoVendedor } from "@/lib/validations/reposicion";
 import type { PedidoUrgenteItem } from "@/services/listaPrecios.service";
 
-const COLUMNS = 8;
-/** PROVEEDOR, DESCRIPCIÓN, REPOSICIÓN (FORMA, PTO., CANT.), CANT. A PEDIR (CANT., FORMA), ACCIONES. */
-const COL_WIDTHS_PCT = [8, 41, 8, 7, 7, 7, 12, 10] as const;
+const COLUMNS = 9;
+/** PROVEEDOR, DESCRIPCIÓN, REPOSICIÓN (FORMA, PTO., CANT.), CANT. A PEDIR (STOCK, CANT., FORMA), ACCIONES. */
+const COL_WIDTHS_PCT = [8, 34, 8, 7, 7, 7, 7, 12, 10] as const;
 const MENSAJE_SIN_RESULTADOS = "No se encontraron productos.";
 const TEXTO_SECCION_REGISTRADOS = "Productos Registrados en Tienda";
 const TEXTO_SECCION_SIN_REGISTRAR = "Productos Sin Registrar en Tienda";
@@ -53,7 +54,8 @@ function FilaTintometrico({
       <TableCell className="celda-datos tabla-bloque-secundario-cell-divider" />
       <TableCell className="celda-datos tabla-bloque-secundario-cell" />
       <TableCell className="celda-datos tabla-bloque-secundario-cell" />
-      <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell-divider">
+      <TableCell className="celda-datos tabla-bloque-secundario-cell-divider" />
+      <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell">
         {fila.cantidad}
       </TableCell>
       <TableCell className="celda-datos min-w-0 truncate text-center tabla-bloque-secundario-cell">
@@ -139,7 +141,10 @@ function FilaPedirMercaderia({
       >
         {regla ? (regla.omitidaEnPedido ? "NO PEDIR" : prod.cantReposicion) : ""}
       </TableCell>
-      <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell-divider">
+      <TableCell className="celda-datos text-center tabular-nums tabla-bloque-secundario-cell-divider">
+        {prod.estaVinculadoTienda ? fmtCantidad(prod.stockTienda) : ""}
+      </TableCell>
+      <TableCell className="celda-datos text-center tabular-nums font-medium tabla-bloque-secundario-cell">
         {total > 0 ? total : ""}
       </TableCell>
       <TableCell
@@ -229,7 +234,7 @@ export default function TablaPedirMercaderia({
           <TableHead colSpan={3} className="text-center align-middle tabla-bloque-secundario-head-divider">
             REPOSICIÓN
           </TableHead>
-          <TableHead colSpan={2} className="text-center align-middle tabla-bloque-secundario-head-divider">
+          <TableHead colSpan={3} className="text-center align-middle tabla-bloque-secundario-head-divider">
             CANT. A PEDIR
           </TableHead>
           <TableHead rowSpan={2} className="text-center align-middle tabla-bloque-secundario-head-divider">
@@ -240,7 +245,8 @@ export default function TablaPedirMercaderia({
           <TableHead className="text-center tabla-bloque-secundario-head-divider">FORMA PEDIR</TableHead>
           <TableHead className="text-center tabla-bloque-secundario-head">PTO. REPO.</TableHead>
           <TableHead className="text-center tabla-bloque-secundario-head">CANT. A PEDIR</TableHead>
-          <TableHead className="text-center tabla-bloque-secundario-head-divider">CANT. A PEDIR</TableHead>
+          <TableHead className="text-center tabla-bloque-secundario-head-divider">STOCK</TableHead>
+          <TableHead className="text-center tabla-bloque-secundario-head">CANT. A PEDIR</TableHead>
           <TableHead className="text-center tabla-bloque-secundario-head">FORMA DE PEDIDO</TableHead>
         </TableRow>
       </TableHeader>

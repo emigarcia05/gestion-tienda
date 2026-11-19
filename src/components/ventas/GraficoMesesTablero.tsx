@@ -8,9 +8,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fmtPrecio } from "@/lib/format";
+import { TIMEZONE_ARGENTINA } from "@/lib/fechaArgentina";
 import type {
-  TableroVentasDiaGrafico,
   TableroVentasMesGrafico,
   TableroVentasSerieDia,
   TableroVentasSerieMes,
@@ -81,16 +82,37 @@ function yDeMonto(monto: number, piso: number, techo: number): number {
   return 2 + ((techo - monto) / rango) * 96;
 }
 
-function tituloDia(dia: TableroVentasDiaGrafico, series: TableroVentasSerieDia[]): string {
-  const partes = series.flatMap((serie) => {
-    const punto = serie.dias.find((fila) => fila.dia === dia.dia);
-    if (punto?.ventas == null) return [];
-    return [`${serie.etiqueta} ${pesos(punto.ventas)}, promedio ${pesos(serie.promedio)}`];
-  });
-  return `${dia.dia}: ${partes.join(" · ")}`;
+/** `Lunes 02/11`. Mediodía UTC para no correr el día en Argentina. */
+function etiquetaDiaSemana(anio: number, mes: number, dia: number): string {
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia, 15, 0, 0));
+  const weekday = new Intl.DateTimeFormat("es-AR", {
+    timeZone: TIMEZONE_ARGENTINA,
+    weekday: "long",
+  }).format(fecha);
+  const nombre = weekday.charAt(0).toLocaleUpperCase("es") + weekday.slice(1);
+  return `${nombre} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}`;
 }
 
-function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
+/** % entero de la sucursal sobre la suma de las sucursales de ese día. */
+function pctSobreTotal(monto: number, total: number): number {
+  if (total <= 0.009 || monto <= 0) return 0;
+  return Math.round((monto / total) * 100);
+}
+
+function ventasDelDia(serie: TableroVentasSerieDia, dia: number): number {
+  const punto = serie.dias.find((fila) => fila.dia === dia);
+  return punto?.ventas ?? 0;
+}
+
+function LineasDia({
+  series,
+  anio,
+  mes,
+}: {
+  series: TableroVentasSerieDia[];
+  anio: number;
+  mes: number;
+}) {
   const dias = series[0]?.dias ?? [];
   const montos = series.flatMap((serie) => [
     ...serie.dias.flatMap((dia) => (dia.ventas == null ? [] : [dia.ventas])),
@@ -170,23 +192,38 @@ function LineasDia({ series }: { series: TableroVentasSerieDia[] }) {
         {series.map((serie, indice) =>
           serie.dias.map((dia) => {
             if (dia.ventas == null) return null;
-            const fila = dias.find((item) => item.dia === dia.dia);
             const color = COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length];
+            const totalDia = series.reduce((suma, item) => suma + ventasDelDia(item, dia.dia), 0);
+            const titulo = etiquetaDiaSemana(anio, mes, dia.dia);
             return (
-              <div
-                key={`${serie.id}-${dia.dia}`}
-                className="absolute z-10 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                style={{
-                  left: `${xDeDia(dia.dia, nDias)}%`,
-                  top: `${yDeMonto(dia.ventas, piso, techo)}%`,
-                }}
-                title={fila ? tituloDia(fila, series) : undefined}
-              >
-                <span
-                  className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card"
-                  style={{ backgroundColor: color }}
-                />
-              </div>
+              <Tooltip key={`${serie.id}-${dia.dia}`}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="absolute z-10 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                    style={{
+                      left: `${xDeDia(dia.dia, nDias)}%`,
+                      top: `${yDeMonto(dia.ventas, piso, techo)}%`,
+                    }}
+                    aria-label={titulo}
+                  >
+                    <span
+                      className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card"
+                      style={{ backgroundColor: color }}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-left leading-snug tabular-nums">
+                  <p>{titulo}</p>
+                  {series.map((item) => {
+                    const monto = ventasDelDia(item, dia.dia);
+                    return (
+                      <p key={item.id}>
+                        {`${item.etiqueta}. ${pesos(monto)} (${pctSobreTotal(monto, totalDia)}%)`}
+                      </p>
+                    );
+                  })}
+                </TooltipContent>
+              </Tooltip>
             );
           })
         )}
@@ -266,9 +303,13 @@ function BarrasMes({ meses }: { meses: TableroVentasMesGrafico[] }) {
 export default function GraficoMesesTablero({
   series,
   seriesDias = [],
+  anio,
+  mes,
 }: {
   series: TableroVentasSerieMes[];
   seriesDias?: TableroVentasSerieDia[];
+  anio: number;
+  mes: number;
 }) {
   const [modo, setModo] = useState<ModoGrafico>("dia");
   const [serieId, setSerieId] = useState("global");
@@ -349,7 +390,11 @@ export default function GraficoMesesTablero({
           </div>
         )}
       </div>
-      {modo === "dia" ? <LineasDia series={seriesDias} /> : serie ? <BarrasMes meses={serie.meses} /> : null}
+      {modo === "dia" ? (
+        <LineasDia series={seriesDias} anio={anio} mes={mes} />
+      ) : serie ? (
+        <BarrasMes meses={serie.meses} />
+      ) : null}
     </div>
   );
 }

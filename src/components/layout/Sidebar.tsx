@@ -421,29 +421,19 @@ export default function Sidebar({ rol, usuario }: { rol: Rol; usuario: UsuarioSe
         >
           <SidebarAreaSwitcher usuario={usuario} />
         </div>
-        {mainAreaId === "gestion-productos" ? (
-          <Link
-            href={GP_ROUTES.defaultEntry}
-            title="Tablero"
-            className="mx-auto block w-[50%]"
-          >
-            <Image
-              src={logoLetrasBlancas}
-              alt="TiendaColor Pinturerías"
-              width={615}
-              height={375}
-              className="h-auto w-full object-contain"
-            />
-          </Link>
-        ) : (
+        <Link
+          href={GP_ROUTES.defaultEntry}
+          title="Ventas"
+          className="mx-auto block w-[50%]"
+        >
           <Image
             src={logoLetrasBlancas}
             alt="TiendaColor Pinturerías"
             width={615}
             height={375}
-            className="mx-auto h-auto w-[50%] object-contain"
+            className="h-auto w-full object-contain"
           />
-        )}
+        </Link>
       </div>
     </aside>
   );
