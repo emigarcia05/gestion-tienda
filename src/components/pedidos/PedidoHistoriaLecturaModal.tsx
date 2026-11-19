@@ -27,6 +27,10 @@ import { ICON_WARNING_INTERACTIVE_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { formatDdMmHhMmArgentina } from "@/lib/fechaArgentina";
 import { TIPO_COMP_COMPRA } from "@/lib/numeroComprobanteCompra";
+import {
+  esItemProdVarioRecepcion,
+  etiquetaDescripcionRecepcion,
+} from "@/lib/prodVarioRecepcion";
 
 function deltaCantidades(it: PedidoHistoriaItemDetalle): number {
   return (it.cantRecibida ?? 0) - it.cantPedida;
@@ -258,12 +262,14 @@ export default function PedidoHistoriaLecturaModal({
                           <TableCell
                             className="celda-datos min-w-0 whitespace-normal text-left align-top"
                             title={
-                              it.codTienda
-                                ? `${it.codTienda} — ${it.descripcionTienda}`
-                                : it.descripcionTienda
+                              esItemProdVarioRecepcion(it.codTienda)
+                                ? etiquetaDescripcionRecepcion(it)
+                                : it.codTienda
+                                  ? `${it.codTienda} — ${it.descripcionTienda}`
+                                  : it.descripcionTienda
                             }
                           >
-                            {it.descripcionTienda?.trim() ?? ""}
+                            {etiquetaDescripcionRecepcion(it)}
                           </TableCell>
                           {esRecibido ? (
                             <TableCell className="celda-datos w-[10%] px-1 text-center align-middle">

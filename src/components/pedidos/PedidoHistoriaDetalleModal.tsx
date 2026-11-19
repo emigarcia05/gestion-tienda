@@ -66,6 +66,12 @@ import {
   formatDdMmHhMmArgentina,
 } from "@/lib/fechaArgentina";
 import { SUCURSAL_LABEL_PEDIDO } from "@/lib/pedidos";
+import {
+  COD_TIENDA_PROD_VARIO_RECEPCION,
+  esItemProdVarioRecepcion,
+  etiquetaDescripcionRecepcion,
+  nuevoCodExtProdVario,
+} from "@/lib/prodVarioRecepcion";
 import type { IvaValue } from "@/lib/validations/iva";
 
 /** Texto plano de un error desconocido (throws de Server Actions / runtime). Incluye `digest` si React/Next lo adjuntan. */
@@ -501,6 +507,45 @@ export default function PedidoHistoriaDetalleModal({
     });
   }
 
+  async function agregarFilaVario(descripcion: string, cantRecibida: number) {
+    if (locked || esNotaCredito) return;
+    if (fechaRecepcion.trim() === "") return;
+    if (!detalle) return;
+    const desc = descripcion.trim().slice(0, 500);
+    const cant = Math.trunc(Number(cantRecibida));
+    if (!desc || !Number.isInteger(cant) || cant < 1) {
+      toast.error("Completá la descripción y una cantidad entera mayor a 0.");
+      return;
+    }
+
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    setDetalle((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: [
+          ...prev.items,
+          {
+            id: tempId,
+            codTienda: COD_TIENDA_PROD_VARIO_RECEPCION,
+            codExt: nuevoCodExtProdVario(),
+            descripcionTienda: desc,
+            cantPedida: cant,
+            cantRecibida: cant,
+          },
+        ],
+      };
+    });
+    setCheckListConfirmedByItem((prev) => ({ ...prev, [tempId]: true }));
+    setAgregarProductosOpen(false);
+    toast.success("Ítem agregado.");
+    queueMicrotask(() => {
+      setEditingItemId(null);
+      setEditingValue("");
+      busquedaAgregarRef.current?.focus();
+    });
+  }
+
   function ajustarEditingValue(delta: number) {
     if (locked || busy) return;
     if (fechaRecepcion.trim() === "") return;
@@ -527,7 +572,7 @@ export default function PedidoHistoriaDetalleModal({
     const q = busquedaAgregarProducto.trim().toLocaleLowerCase("es");
     if (!q) return itemsOrdenados;
     return itemsOrdenados.filter((it) =>
-      it.descripcionTienda.toLocaleLowerCase("es").includes(q)
+      etiquetaDescripcionRecepcion(it).toLocaleLowerCase("es").includes(q)
     );
   }, [itemsOrdenados, busquedaAgregarProducto]);
 
@@ -705,10 +750,12 @@ export default function PedidoHistoriaDetalleModal({
         numeroComprobante: fiscal ? numeroComprobante.trim() : undefined,
         fechaIso: fechaRecepcion,
         total: totalNum,
-        items: detalle.items.map((it) => ({
-          codTienda: it.codTienda,
-          cantidad: Math.max(0, it.cantRecibida ?? 0),
-        })),
+        items: detalle.items
+          .filter((it) => !esItemProdVarioRecepcion(it.codTienda))
+          .map((it) => ({
+            codTienda: it.codTienda,
+            cantidad: Math.max(0, it.cantRecibida ?? 0),
+          })),
       });
       if (!res.ok) {
         toast.error(res.error ?? "Error al registrar la nota de crédito.");
@@ -1122,12 +1169,14 @@ export default function PedidoHistoriaDetalleModal({
                               checkListConfirmed && "font-medium text-foreground"
                             )}
                             title={
-                              item.codTienda
-                                ? `${item.codTienda} — ${item.descripcionTienda}`
-                                : item.descripcionTienda
+                              esItemProdVarioRecepcion(item.codTienda)
+                                ? etiquetaDescripcionRecepcion(item)
+                                : item.codTienda
+                                  ? `${item.codTienda} — ${item.descripcionTienda}`
+                                  : item.descripcionTienda
                             }
                           >
-                            {item.descripcionTienda}
+                            {etiquetaDescripcionRecepcion(item)}
                           </TableCell>
                           <TableCell
                             className={cn(
@@ -1350,6 +1399,13 @@ export default function PedidoHistoriaDetalleModal({
         onAgregar={async (row, cantRecibida) => {
           await agregarNuevaFila(row, cantRecibida);
         }}
+        onAgregarVario={
+          esNotaCredito
+            ? undefined
+            : async (descripcion, cantidad) => {
+                await agregarFilaVario(descripcion, cantidad);
+              }
+        }
       />
     </>
   );

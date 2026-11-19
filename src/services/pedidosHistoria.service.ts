@@ -22,6 +22,7 @@ import {
   type TipoCorrelativoCompra,
 } from "@/services/comprobanteCompraNumero.service";
 import { sincronizarIvaComprasDePedido } from "@/services/balIvaSync.service";
+import { esItemProdVarioRecepcion } from "@/lib/prodVarioRecepcion";
 
 const COD_TIENDA_FALLBACK = "1503";
 
@@ -678,6 +679,7 @@ function recibidoPorCodTienda(
   for (const it of items) {
     const cant = it.cantRecibida ?? 0;
     if (cant <= 0) continue;
+    if (esItemProdVarioRecepcion(it.codTienda)) continue;
     const cod = normalizeCodTienda(it.codTienda);
     out.set(cod, (out.get(cod) ?? 0) + cant);
   }
@@ -1168,6 +1170,7 @@ export async function registrarNotaCreditoCompraPedido(params: {
     for (const it of params.items) {
       const cant = Math.trunc(it.cantidad);
       if (cant <= 0) continue;
+      if (esItemProdVarioRecepcion(it.codTienda)) continue;
       const cod = normalizeCodTienda(it.codTienda);
       devolver.set(cod, (devolver.get(cod) ?? 0) + cant);
     }
