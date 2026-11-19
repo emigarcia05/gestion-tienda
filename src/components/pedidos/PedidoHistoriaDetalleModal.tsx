@@ -129,7 +129,7 @@ const GRID_CAPAS_SUP_PEDIDO_HISTORIA =
 
 /** Recepción sin comprobante: datos | FISCAL | N° COMPROBANTE | FECHA FACTURA. */
 const GRID_CAPAS_SUP_RECEPCION_COMPROBANTE =
-  "grid min-w-0 w-full grid-cols-[44fr_13fr_28fr_15fr] items-center gap-3";
+  "grid min-w-0 w-full grid-cols-[44fr_13fr_28fr_15fr] items-end gap-3";
 
 /** Misma proporción que columnas de la tabla de ítems (check | desc | cant.p. | cant.r. | acciones). */
 const GRID_PEDIDO_HISTORIA_TABLA_COLS =
@@ -857,9 +857,26 @@ export default function PedidoHistoriaDetalleModal({
               >
                 <div
                   className={cn(
-                    "flex min-h-0 min-w-0 flex-col justify-center gap-0.5 py-0 text-left"
+                    "flex min-h-0 min-w-0 flex-col gap-0.5 py-0 text-left",
+                    pideComprobanteRecepcion ? "justify-end" : "justify-center"
                   )}
                 >
+                  {comprobanteCompra ? (
+                    <p className="text-xs leading-snug text-muted-foreground tabular-nums">
+                      {`Comprobante N° ${comprobanteCompra.numero} · Total ${fmtPesos(
+                        comprobanteCompra.total
+                      )} · Saldo a pagar ${fmtPesos(comprobanteCompra.saldo)}`}
+                    </p>
+                  ) : null}
+                  {pideComprobanteRecepcion ? (
+                    <p className="text-[0.65rem] font-semibold leading-tight text-muted-foreground">
+                      <span className="tabular-nums">
+                        {detalle ? detalle.sucursalNombre : "—"}
+                        {" - "}
+                        {generadoAtStr || "—"}
+                      </span>
+                    </p>
+                  ) : null}
                   {recepcionDirecta ? (
                     <Select
                       value={detalle?.proveedorId ?? ""}
@@ -878,34 +895,37 @@ export default function PedidoHistoriaDetalleModal({
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-sm font-semibold leading-snug text-foreground">
+                    <p
+                      className={cn(
+                        "text-sm font-semibold leading-snug text-foreground",
+                        pideComprobanteRecepcion && "flex h-9 items-center"
+                      )}
+                    >
                       {detalle ? detalle.proveedorNombre : "—"}
                     </p>
                   )}
-                  <p className="text-xs leading-snug text-muted-foreground">
-                    <span className="tabular-nums">
-                      {detalle ? detalle.sucursalNombre : "—"}
-                      {" - "}
-                      {generadoAtStr || "—"}
-                    </span>
-                  </p>
-                  {comprobanteCompra ? (
-                    <p className="text-xs leading-snug text-muted-foreground tabular-nums">
-                      {`Comprobante N° ${comprobanteCompra.numero} · Total ${fmtPesos(
-                        comprobanteCompra.total
-                      )} · Saldo a pagar ${fmtPesos(comprobanteCompra.saldo)}`}
+                  {pideComprobanteRecepcion ? null : (
+                    <p className="text-xs leading-snug text-muted-foreground">
+                      <span className="tabular-nums">
+                        {detalle ? detalle.sucursalNombre : "—"}
+                        {" - "}
+                        {generadoAtStr || "—"}
+                      </span>
                     </p>
-                  ) : null}
+                  )}
                 </div>
                 {pideComprobanteRecepcion ? (
                   <>
-                    <ModalSiNoChoice
-                      label="FISCAL"
-                      value={fiscal}
-                      onChange={setFiscal}
-                      disabled={!fiscalEditable || loading || sinProveedor}
-                      className="py-1.5"
-                    />
+                    <div className="flex min-w-0 flex-col justify-end gap-0.5">
+                      <ModalMicroLabel>IVA CREDITO</ModalMicroLabel>
+                      <ModalSiNoChoice
+                        label="FISCAL"
+                        value={fiscal}
+                        onChange={setFiscal}
+                        disabled={!fiscalEditable || loading || sinProveedor}
+                        className="h-9 py-0"
+                      />
+                    </div>
                     <div className="flex min-w-0 flex-col justify-center gap-0.5">
                       <ModalMicroLabel>N° COMPROBANTE</ModalMicroLabel>
                       <NumeroComprobanteBloquesInput
