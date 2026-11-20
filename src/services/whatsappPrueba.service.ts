@@ -4,15 +4,19 @@ import { Prisma, type WhatsappPruebaEstado } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { enviarTextoWhatsapp } from "@/lib/whatsapp/enviarTexto";
 import { leerWhatsappEnv } from "@/lib/whatsapp/env";
-import { telefonoWhatsappCanonico } from "@/lib/whatsapp/telefono";
-import type { WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
+import {
+  claveChatWhatsapp,
+  telefonoWhatsappCanonico,
+  telefonosEquivalentesWhatsapp,
+} from "@/lib/whatsapp/telefono";
+import type { WhatsappPruebaChatItem, WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
 import type {
   MensajeWebhookWhatsapp,
   WebhookWhatsappPrueba,
 } from "@/lib/validations/whatsappWebhook";
 import type { ServiceResult } from "@/types/service.types";
 
-export type { WhatsappPruebaMensajeItem };
+export type { WhatsappPruebaChatItem, WhatsappPruebaMensajeItem };
 
 const ORDEN_ESTADO: Record<WhatsappPruebaEstado, number> = {
   RECIBIDO: 0,
@@ -145,18 +149,19 @@ export async function enviarTextoWhatsappPrueba(input: {
 }
 
 export async function listarMensajesWhatsappPrueba(
-  telefonoRaw: string
+  telefonoRaw: string | null
 ): Promise<ServiceResult<WhatsappPruebaMensajeItem[]>> {
-  const telefono = telefonoWhatsappCanonico(telefonoRaw);
-  if (!telefono) return { success: false, error: "El teléfono no es válido." };
+  const telefono = telefonoRaw ? telefonoWhatsappCanonico(telefonoRaw) : null;
+  if (telefonoRaw && !telefono) return { success: false, error: "El teléfono no es válido." };
 
   try {
     const filas = await prisma.whatsappPruebaMensaje.findMany({
-      where: { telefono },
+      where: telefono ? { telefono: { in: telefonosEquivalentesWhatsapp(telefono) } } : {},
       orderBy: { createdAt: "asc" },
       take: 100,
       select: {
         id: true,
+        telefono: true,
         direccion: true,
         cuerpo: true,
         estado: true,
@@ -168,6 +173,7 @@ export async function listarMensajesWhatsappPrueba(
       success: true,
       data: filas.map((fila) => ({
         id: fila.id,
+        telefono: fila.telefono,
         direccion: fila.direccion,
         cuerpo: fila.cuerpo,
         estado: fila.estado,
@@ -178,6 +184,44 @@ export async function listarMensajesWhatsappPrueba(
   } catch (e) {
     console.error("[whatsappPrueba][listar]", e instanceof Error ? e.name : "error");
     return { success: false, error: "No se pudo leer la conversación." };
+  }
+}
+
+/** Un renglón por chat (el mensaje más nuevo). Agrupa `+54` y `+549` del mismo móvil. */
+export async function listarChatsWhatsappPrueba(): Promise<
+  ServiceResult<WhatsappPruebaChatItem[]>
+> {
+  try {
+    const filas = await prisma.whatsappPruebaMensaje.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 400,
+      select: {
+        telefono: true,
+        nombre: true,
+        cuerpo: true,
+        direccion: true,
+        createdAt: true,
+      },
+    });
+    const vistos = new Set<string>();
+    const chats: WhatsappPruebaChatItem[] = [];
+    for (const fila of filas) {
+      const clave = claveChatWhatsapp(fila.telefono);
+      if (!clave || vistos.has(clave)) continue;
+      vistos.add(clave);
+      chats.push({
+        telefono: fila.telefono,
+        nombre: fila.nombre,
+        ultimoCuerpo: fila.cuerpo,
+        ultimoEnIso: fila.createdAt.toISOString(),
+        ultimoDireccion: fila.direccion,
+      });
+      if (chats.length >= 100) break;
+    }
+    return { success: true, data: chats };
+  } catch (e) {
+    console.error("[whatsappPrueba][chats]", e instanceof Error ? e.name : "error");
+    return { success: false, error: "No se pudieron leer los chats." };
   }
 }
 

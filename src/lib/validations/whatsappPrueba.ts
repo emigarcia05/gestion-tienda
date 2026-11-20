@@ -6,6 +6,11 @@ export const telefonoWhatsappSchema = z
   .trim()
   .regex(/^\+[1-9]\d{7,14}$/, "El teléfono tiene que empezar con + y el código de país.");
 
+/** Sin teléfono: los últimos enviados y recibidos. Con teléfono: esa conversación (`+54` y `+549`). */
+export const listarMensajesWhatsappPruebaSchema = z.object({
+  telefono: telefonoWhatsappSchema.optional(),
+});
+
 export const enviarTextoWhatsappPruebaSchema = z.object({
   to: telefonoWhatsappSchema,
   body: z

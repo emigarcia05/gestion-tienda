@@ -391,7 +391,7 @@ UI en `src/components/asistente-ia/`. Pasos secuenciales: `ProcesoPaso` (alias `
 
 ### WhatsApp · Prueba
 
-`/administrador/whatsapp/prueba` (`WhatsappPruebaPageClient`; CFTL **Administrador** / **Prueba**; `PERMISOS.whatsappPrueba.acceso`, solo editor). Formulario `max-w-xl`: **TELÉFONO** (`+` y código de país) y **MENSAJE**, botones **Enviar Prueba** y **Actualizar**. Debajo, tabla **HORA** | **SENTIDO** | **MENSAJE** | **ESTADO** de ese teléfono (vacío = `NO HAY MENSAJES.`). Al tener un teléfono válido recarga sola cada 15 s. El aviso dice que sale por el número de prueba de Meta. Toast de sonner. Contrato en BACKEND **§3.17**.
+`/administrador/whatsapp/prueba` (`WhatsappPruebaPageClient`; CFTL **Administrador** / **Prueba**, `contentWidth="full"`; `PERMISOS.whatsappPrueba.acceso`, solo editor). Dos columnas (`grid-cols-[20rem_minmax(0,1fr)]`). Izquierda **CHATS** (barra `bg-sidebar`): input **TELÉFONO** + **Abrir**, y la lista de WhatsApp que ya tienen mensajes (teléfono o nombre, hora, vista previa Enviado/Recibido). El chat elegido usa `bg-sidebar`. Derecha: barra con el teléfono y el hilo (recibido a la izquierda `bg-muted`; enviado a la derecha `bg-sidebar`) y abajo **MENSAJE** + **Enviar Prueba**. `+54` y `+549` del mismo móvil son un solo chat. Chats y hilo se recargan cada 15 s. Vacío de chats = `NO HAY CHATS.`; sin elección = `ELEGÍ UN CHAT.`; hilo vacío = `NO HAY MENSAJES.`. Toast de sonner. Contrato en BACKEND **§3.17**.
 
 ## 4. Checklist de PR
 

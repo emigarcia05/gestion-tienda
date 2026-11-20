@@ -4,24 +4,17 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   enviarTextoWhatsappPruebaAction,
+  listarChatsWhatsappPruebaAction,
   listarMensajesWhatsappPruebaAction,
 } from "@/actions/whatsappPrueba";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  EmptyTableRow,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import { cn } from "@/lib/utils";
-import type { WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
+import { claveChatWhatsapp } from "@/lib/whatsapp/telefono";
+import type { WhatsappPruebaChatItem, WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
 import { telefonoWhatsappSchema } from "@/lib/validations/whatsappPrueba";
 
 const ETIQUETA_ESTADO: Record<WhatsappPruebaMensajeItem["estado"], string> = {
@@ -33,19 +26,41 @@ const ETIQUETA_ESTADO: Record<WhatsappPruebaMensajeItem["estado"], string> = {
   FALLIDO: "Fallido",
 };
 
+function mismoChat(a: string, b: string): boolean {
+  const claveA = claveChatWhatsapp(a);
+  const claveB = claveChatWhatsapp(b);
+  return claveA != null && claveA === claveB;
+}
+
 export default function WhatsappPruebaPageClient() {
-  const [to, setTo] = useState("");
+  const [telefonoNuevo, setTelefonoNuevo] = useState("");
+  const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [body, setBody] = useState("");
+  const [chats, setChats] = useState<WhatsappPruebaChatItem[]>([]);
   const [filas, setFilas] = useState<WhatsappPruebaMensajeItem[]>([]);
   const [pending, startTransition] = useTransition();
-  const pedido = useRef(0);
-  const telefonoValido = telefonoWhatsappSchema.safeParse(to).success;
+  const pedidoChats = useRef(0);
+  const pedidoMensajes = useRef(0);
+  const hiloRef = useRef<HTMLDivElement>(null);
+  const telefonoNuevoValido = telefonoWhatsappSchema.safeParse(telefonoNuevo).success;
 
-  const cargar = useCallback(async (telefono: string, avisar: boolean) => {
-    const n = pedido.current + 1;
-    pedido.current = n;
-    const res = await listarMensajesWhatsappPruebaAction(telefono);
-    if (n !== pedido.current) return;
+  const cargarChats = useCallback(async (avisar: boolean) => {
+    const n = pedidoChats.current + 1;
+    pedidoChats.current = n;
+    const res = await listarChatsWhatsappPruebaAction();
+    if (n !== pedidoChats.current) return;
+    if (!res.ok) {
+      if (avisar) toast.error(res.error);
+      return;
+    }
+    setChats(res.data);
+  }, []);
+
+  const cargarMensajes = useCallback(async (telefono: string, avisar: boolean) => {
+    const n = pedidoMensajes.current + 1;
+    pedidoMensajes.current = n;
+    const res = await listarMensajesWhatsappPruebaAction({ telefono });
+    if (n !== pedidoMensajes.current) return;
     if (!res.ok) {
       if (avisar) toast.error(res.error);
       return;
@@ -54,127 +69,224 @@ export default function WhatsappPruebaPageClient() {
   }, []);
 
   useEffect(() => {
-    if (!telefonoValido) return;
     const inicial = window.setTimeout(() => {
-      void cargar(to, false);
+      void cargarChats(false);
     }, 0);
     const id = window.setInterval(() => {
-      void cargar(to, false);
+      void cargarChats(false);
     }, 15000);
     return () => {
       window.clearTimeout(inicial);
       window.clearInterval(id);
     };
-  }, [to, telefonoValido, cargar]);
+  }, [cargarChats]);
 
-  const visibles = telefonoValido ? filas : [];
+  useEffect(() => {
+    if (!seleccionado) return;
+    const telefono = seleccionado;
+    const inicial = window.setTimeout(() => {
+      void cargarMensajes(telefono, false);
+    }, 0);
+    const id = window.setInterval(() => {
+      void cargarMensajes(telefono, false);
+    }, 15000);
+    return () => {
+      window.clearTimeout(inicial);
+      window.clearInterval(id);
+    };
+  }, [seleccionado, cargarMensajes]);
+
+  useEffect(() => {
+    const nodo = hiloRef.current;
+    if (!nodo) return;
+    nodo.scrollTop = nodo.scrollHeight;
+  }, [filas, seleccionado]);
+
+  function abrirTelefonoNuevo() {
+    if (!telefonoNuevoValido) {
+      toast.error("El teléfono tiene que empezar con + y el código de país.");
+      return;
+    }
+    setSeleccionado(telefonoNuevo);
+    setFilas([]);
+  }
 
   function enviar() {
+    if (!seleccionado) return;
+    const destino = seleccionado;
     startTransition(async () => {
-      const res = await enviarTextoWhatsappPruebaAction({ to, body });
+      const res = await enviarTextoWhatsappPruebaAction({ to: destino, body });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       toast.success("Meta aceptó el mensaje.");
       setBody("");
-      await cargar(to, true);
+      await cargarMensajes(destino, true);
+      await cargarChats(false);
     });
   }
 
+  const chatActivo = chats.find((chat) => seleccionado != null && mismoChat(chat.telefono, seleccionado));
+  const tituloChat = chatActivo?.nombre ?? seleccionado;
+
   return (
-    <ClassicFilteredTableLayout title="Administrador" subtitle="Prueba">
-      <div className="flex flex-col gap-4">
-        <form
-          className="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-lg border border-border bg-card p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!pending) enviar();
-          }}
-        >
-          <p className="text-sm text-muted-foreground">
-            Sale por el número de prueba de Meta. El WhatsApp de la sucursal no se usa. Las
-            respuestas de este teléfono se listan abajo.
-          </p>
-          <label className="flex flex-col gap-1.5">
-            <ModalMicroLabel>TELÉFONO</ModalMicroLabel>
-            <Input
-              value={to}
-              onChange={(event) => setTo(event.target.value.trim())}
-              placeholder="+5492610000000"
-              autoComplete="off"
-              disabled={pending}
-              aria-label="Teléfono"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <ModalMicroLabel>MENSAJE</ModalMicroLabel>
-            <textarea
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              placeholder="TEXTO"
-              rows={5}
-              disabled={pending}
-              aria-label="Mensaje"
-              className={cn(
-                "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
-                "flex w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
-                "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
-              )}
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={pending}>
+    <ClassicFilteredTableLayout title="Administrador" subtitle="Prueba" contentWidth="full">
+      <div className="grid min-h-0 flex-1 grid-cols-[20rem_minmax(0,1fr)] gap-4">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <h2 className="shrink-0 bg-sidebar px-4 py-3 text-sm font-semibold uppercase tracking-tight text-sidebar-foreground">
+            Chats
+          </h2>
+          <form
+            className="flex shrink-0 items-end gap-2 border-b border-border p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              abrirTelefonoNuevo();
+            }}
+          >
+            <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <ModalMicroLabel>Teléfono</ModalMicroLabel>
+              <Input
+                value={telefonoNuevo}
+                onChange={(event) => setTelefonoNuevo(event.target.value.trim())}
+                placeholder="+5492610000000"
+                autoComplete="off"
+                aria-label="Teléfono"
+              />
+            </label>
+            <Button type="submit" variant="outline">
+              Abrir
+            </Button>
+          </form>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {chats.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">NO HAY CHATS.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {chats.map((chat) => {
+                  const activo = seleccionado != null && mismoChat(chat.telefono, seleccionado);
+                  return (
+                    <li key={claveChatWhatsapp(chat.telefono) ?? chat.telefono}>
+                      <button
+                        type="button"
+                        onClick={() => setSeleccionado(chat.telefono)}
+                        className={cn(
+                          "flex w-full flex-col gap-0.5 rounded-md px-3 py-2 text-left",
+                          activo
+                            ? "bg-sidebar text-sidebar-foreground"
+                            : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="min-w-0 truncate text-sm font-semibold tabular-nums">
+                            {chat.nombre ?? chat.telefono}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 text-xs tabular-nums",
+                              activo ? "text-sidebar-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            {formatInstanteDdMmYyHhMmArgentina(new Date(chat.ultimoEnIso))}
+                          </span>
+                        </span>
+                        {chat.nombre ? (
+                          <span
+                            className={cn(
+                              "truncate text-xs tabular-nums",
+                              activo ? "text-sidebar-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            {chat.telefono}
+                          </span>
+                        ) : null}
+                        <span
+                          className={cn(
+                            "truncate text-xs",
+                            activo ? "text-sidebar-foreground" : "text-muted-foreground"
+                          )}
+                        >
+                          {chat.ultimoDireccion === "SALIENTE" ? "Enviado: " : "Recibido: "}
+                          {chat.ultimoCuerpo}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <h2 className="shrink-0 bg-sidebar px-4 py-3 text-center text-sm font-semibold uppercase tracking-tight text-sidebar-foreground">
+            {tituloChat ?? "Mensajes"}
+          </h2>
+          <div ref={hiloRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+            {!seleccionado ? (
+              <p className="m-auto text-sm text-muted-foreground">ELEGÍ UN CHAT.</p>
+            ) : filas.length === 0 ? (
+              <p className="m-auto text-sm text-muted-foreground">NO HAY MENSAJES.</p>
+            ) : (
+              filas.map((fila) => {
+                const saliente = fila.direccion === "SALIENTE";
+                return (
+                  <article
+                    key={fila.id}
+                    className={cn(
+                      "flex w-fit max-w-[32rem] flex-col gap-1 rounded-lg px-3 py-2",
+                      saliente
+                        ? "self-end bg-sidebar text-sidebar-foreground"
+                        : "self-start border border-border bg-muted text-foreground"
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap text-sm">{fila.cuerpo}</p>
+                    <p
+                      className={cn(
+                        "text-xs tabular-nums",
+                        saliente ? "text-sidebar-foreground" : "text-muted-foreground"
+                      )}
+                      title={fila.errorTexto ?? undefined}
+                    >
+                      {formatInstanteDdMmYyHhMmArgentina(new Date(fila.creadoEnIso))}
+                      {" · "}
+                      {saliente ? "Enviado" : "Recibido"}
+                      {" · "}
+                      {ETIQUETA_ESTADO[fila.estado]}
+                    </p>
+                  </article>
+                );
+              })
+            )}
+          </div>
+          <form
+            className="flex shrink-0 items-end gap-2 border-t border-border p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!pending) enviar();
+            }}
+          >
+            <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <ModalMicroLabel>Mensaje</ModalMicroLabel>
+              <textarea
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                placeholder="TEXTO"
+                rows={2}
+                disabled={pending || !seleccionado}
+                aria-label="Mensaje"
+                className={cn(
+                  "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
+                  "flex w-full min-w-0 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
+                  "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+                )}
+              />
+            </label>
+            <Button type="submit" disabled={pending || !seleccionado || body.trim() === ""}>
               {pending ? "Enviando…" : "Enviar Prueba"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending || !telefonoValido}
-              onClick={() => void cargar(to, true)}
-            >
-              Actualizar
-            </Button>
-          </div>
-        </form>
-        <div className="contenedor-tabla-gestion min-h-0">
-          <Table variant="compact" className="tabla-gestion-compacta w-full">
-            <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[12%]" />
-              <col />
-              <col className="w-[14%]" />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead>HORA</TableHead>
-                <TableHead>SENTIDO</TableHead>
-                <TableHead>MENSAJE</TableHead>
-                <TableHead>ESTADO</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibles.length === 0 ? (
-                <EmptyTableRow colSpan={4} message="NO HAY MENSAJES." />
-              ) : (
-                visibles.map((fila) => (
-                  <TableRow key={fila.id}>
-                    <TableCell className="celda-datos">
-                      {formatInstanteDdMmYyHhMmArgentina(new Date(fila.creadoEnIso))}
-                    </TableCell>
-                    <TableCell className="celda-datos">
-                      {fila.direccion === "SALIENTE" ? "Enviado" : "Recibido"}
-                    </TableCell>
-                    <TableCell className="celda-datos celda-datos--crece">{fila.cuerpo}</TableCell>
-                    <TableCell className="celda-datos" title={fila.errorTexto ?? undefined}>
-                      {ETIQUETA_ESTADO[fila.estado]}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+          </form>
+        </section>
       </div>
     </ClassicFilteredTableLayout>
   );
