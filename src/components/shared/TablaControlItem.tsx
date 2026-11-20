@@ -10,15 +10,56 @@ import {
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
+type TablaControlItemHeadProps = {
+  className?: string;
+  /**
+   * Si está definido, el encabezado (sin etiqueta visible) alterna el filtro
+   * de ítems pendientes de confirmación. `filtroActivo` marca ese filtro encendido.
+   */
+  filtroActivo?: boolean;
+  onFiltroClick?: () => void;
+};
+
 /**
  * Encabezado de la columna **Control de ítem** (primera columna de checklist).
  * Ícono `Check` en el `thead`; el texto queda en `sr-only`.
+ * Con `onFiltroClick`, el mismo ícono filtra pendientes de confirmación.
  */
-export function TablaControlItemHead({ className }: { className?: string }) {
+export function TablaControlItemHead({
+  className,
+  filtroActivo = false,
+  onFiltroClick,
+}: TablaControlItemHeadProps) {
+  const icono = (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center",
+        filtroActivo && "rounded-sm bg-primary-foreground/25"
+      )}
+    >
+      <Check className={TABLA_CONTROL_ITEM_HEAD_ICON_CLASS} aria-hidden />
+    </span>
+  );
+
   return (
     <TableHead className={cn("w-[5%] text-center", className)}>
-      <span className="sr-only">LISTA DE VERIFICACIÓN</span>
-      <Check className={TABLA_CONTROL_ITEM_HEAD_ICON_CLASS} aria-hidden />
+      {onFiltroClick ? (
+        <button
+          type="button"
+          aria-pressed={filtroActivo}
+          aria-label="Filtrar ítems pendientes de confirmación"
+          onClick={onFiltroClick}
+          className="cursor-pointer"
+        >
+          <span className="sr-only">LISTA DE VERIFICACIÓN</span>
+          {icono}
+        </button>
+      ) : (
+        <>
+          <span className="sr-only">LISTA DE VERIFICACIÓN</span>
+          {icono}
+        </>
+      )}
     </TableHead>
   );
 }

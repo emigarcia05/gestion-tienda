@@ -1047,43 +1047,16 @@ export default function PedidoHistoriaDetalleModal({
                 AGREGAR PRODUCTO A LA RECEPCIÓN
               </span>
               <div className={cn(GRID_PEDIDO_HISTORIA_TABLA_COLS, "items-center px-px pt-1 pb-0")}>
-                <div className="col-span-4 flex min-w-0 items-center gap-3">
-                  <div className="min-w-0 max-w-[36rem] flex-1">
-                    <FiltroBusquedaInput
-                      id="pedido-historia-agregar-producto-filtro"
-                      placeholder="BUSCAR POR DESCRIPCIÓN..."
-                      value={busquedaAgregarProducto}
-                      onChange={setBusquedaAgregarProducto}
-                      isDebouncing={false}
-                      inputRef={busquedaAgregarRef}
-                      className="h-10 min-h-10"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-1 items-center justify-center">
-                    <div className="flex items-stretch gap-2">
-                      <span className="flex flex-col text-right text-xs font-semibold leading-tight text-foreground">
-                        <span>PENDIENTE</span>
-                        <span>CONFIRMACIÓN</span>
-                      </span>
-                      <Button
-                        type="button"
-                        variant={soloPendientesConfirmacion ? "default" : "outline"}
-                        aria-pressed={soloPendientesConfirmacion}
-                        aria-label="Filtrar ítems pendientes de confirmación"
-                        onClick={() => setSoloPendientesConfirmacion((prev) => !prev)}
-                        className={cn(
-                          "aspect-square h-auto w-auto shrink-0 self-stretch rounded-md border-primary p-0",
-                          !soloPendientesConfirmacion &&
-                            "bg-card text-primary hover:bg-card hover:text-primary"
-                        )}
-                      >
-                        <Check
-                          className={cn("h-3.5 w-3.5", !soloPendientesConfirmacion && "opacity-0")}
-                          aria-hidden
-                        />
-                      </Button>
-                    </div>
-                  </div>
+                <div className="col-span-4 min-w-0 max-w-[36rem]">
+                  <FiltroBusquedaInput
+                    id="pedido-historia-agregar-producto-filtro"
+                    placeholder="BUSCAR POR DESCRIPCIÓN..."
+                    value={busquedaAgregarProducto}
+                    onChange={setBusquedaAgregarProducto}
+                    isDebouncing={false}
+                    inputRef={busquedaAgregarRef}
+                    className="h-10 min-h-10"
+                  />
                 </div>
                 <Button
                   type="button"
@@ -1127,7 +1100,12 @@ export default function PedidoHistoriaDetalleModal({
                     <Table variant="compact" className="tabla-recepcion-pedido" scrollX={false}>
                 <TableHeader inert={editingItemId ? true : undefined}>
                   <TableRow>
-                    <TablaControlItemHead />
+                    <TablaControlItemHead
+                      filtroActivo={soloPendientesConfirmacion}
+                      onFiltroClick={() =>
+                        setSoloPendientesConfirmacion((prev) => !prev)
+                      }
+                    />
                     <TableHead className="w-[50%]">DESCRIPCIÓN</TableHead>
                     <TableHead className="w-[10%]">
                       {esNotaCredito ? "CANT. REC." : "CANT. PED."}
