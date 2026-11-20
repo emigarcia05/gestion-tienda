@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   COMPROBANTE_COMPRA_NRO_DIGITOS,
-  COMPROBANTE_COMPRA_PV_DIGITOS,
   digitosBloqueComprobante,
+  digitosPuntoVentaComprobante,
+  mascaraPuntoVentaComprobante,
 } from "@/lib/numeroComprobanteCompra";
 
 interface Props {
@@ -29,7 +30,8 @@ function cursorAlFinal(e: SyntheticEvent<HTMLInputElement>) {
 }
 
 /**
- * N° de comprobante `0000-00000000` en dos bloques. Los dígitos entran por la derecha;
+ * N° de comprobante `0000-00000000` en dos bloques. Los dígitos entran por la derecha.
+ * El punto de venta vacío se ve `000_`; un `0` queda `0000` y es válido.
  * Enter o Tab pasa del punto de venta al número y del número a `onCompletar`.
  */
 export default function NumeroComprobanteBloquesInput({
@@ -58,10 +60,8 @@ export default function NumeroComprobanteBloquesInput({
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        value={puntoVenta.padStart(COMPROBANTE_COMPRA_PV_DIGITOS, "0")}
-        onChange={(e) =>
-          onPuntoVentaChange(digitosBloqueComprobante(e.target.value, COMPROBANTE_COMPRA_PV_DIGITOS))
-        }
+        value={mascaraPuntoVentaComprobante(puntoVenta)}
+        onChange={(e) => onPuntoVentaChange(digitosPuntoVentaComprobante(e.target.value))}
         onKeyDown={(e) => avanzarCon(e, () => numeroRef.current?.focus())}
         onSelect={cursorAlFinal}
         disabled={disabled}

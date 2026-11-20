@@ -42,10 +42,10 @@ import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import NumeroComprobanteBloquesInput from "@/components/shared/NumeroComprobanteBloquesInput";
 import {
   COMPROBANTE_COMPRA_NRO_DIGITOS,
-  COMPROBANTE_COMPRA_PV_DIGITOS,
   NUMERO_COMPROBANTE_COMPRA_REGEX,
   TIPO_COMP_COMPRA,
   digitosBloqueComprobante,
+  digitosPuntoVentaComprobante,
   formatearNumeroComprobanteCompra,
   numeroComprobanteCompraCompleto,
 } from "@/lib/numeroComprobanteCompra";
@@ -138,9 +138,13 @@ const GRID_CAPAS_SUP_PEDIDO_HISTORIA =
 const GRID_CAPAS_SUP_RECEPCION_COMPROBANTE =
   "grid min-w-0 w-full grid-cols-[44fr_13fr_28fr_15fr] items-end gap-3";
 
-/** Misma proporción que columnas de la tabla de ítems (check | desc | cant.p. | cant.r. | acciones). */
+/**
+ * Mismas columnas que la tabla de ítems (check | desc | cant.p. | cant.r. | acciones).
+ * `minmax(0, …)` evita que el texto de Agregar Producto ensanche la última columna
+ * por encima del 15 % de ACCIONES.
+ */
 const GRID_PEDIDO_HISTORIA_TABLA_COLS =
-  "grid w-full grid-cols-[5fr_50fr_10fr_20fr_15fr]";
+  "grid w-full grid-cols-[minmax(0,5%)_minmax(0,50%)_minmax(0,10%)_minmax(0,20%)_minmax(0,15%)]";
 
 /** Contenedor de grilla: sin borde ni fondo (transparente). */
 const MODAL_SECTION_CARD_CLASS = "min-w-0 bg-transparent";
@@ -217,6 +221,8 @@ export default function PedidoHistoriaDetalleModal({
   const [totalPedido, setTotalPedido] = useState<string>("");
   const [agregarProductosOpen, setAgregarProductosOpen] = useState(false);
   const [busquedaAgregarProducto, setBusquedaAgregarProducto] = useState("");
+  /** Solo ítems cuyo checklist todavía no se confirmó. */
+  const [soloPendientesConfirmacion, setSoloPendientesConfirmacion] = useState(false);
   /** Valor ISO `YYYY-MM-DD` — UI: campo FECHA FACTURA. */
   const [fechaRecepcion, setFechaRecepcion] = useState<string>("");
   /** Check list por ítem: solo se marca vía botón OK (confirma cant. recibida) o cesto (0 + verificar). */
@@ -315,6 +321,7 @@ export default function PedidoHistoriaDetalleModal({
       setTotalPedido("");
       setAgregarProductosOpen(false);
       setBusquedaAgregarProducto("");
+      setSoloPendientesConfirmacion(false);
       setFechaRecepcion("");
       setCheckListConfirmedByItem({});
       setModoCorreccionRecepcionado(false);
@@ -352,6 +359,7 @@ export default function PedidoHistoriaDetalleModal({
       setTotalPedido("");
       setAgregarProductosOpen(false);
       setBusquedaAgregarProducto("");
+      setSoloPendientesConfirmacion(false);
       setFechaRecepcion("");
       setCheckListConfirmedByItem({});
       setModoCorreccionRecepcionado(false);
@@ -570,11 +578,12 @@ export default function PedidoHistoriaDetalleModal({
 
   const itemsFiltrados = useMemo(() => {
     const q = busquedaAgregarProducto.trim().toLocaleLowerCase("es");
-    if (!q) return itemsOrdenados;
-    return itemsOrdenados.filter((it) =>
-      etiquetaDescripcionRecepcion(it).toLocaleLowerCase("es").includes(q)
-    );
-  }, [itemsOrdenados, busquedaAgregarProducto]);
+    return itemsOrdenados.filter((it) => {
+      if (soloPendientesConfirmacion && checkListConfirmedByItem[it.id] === true) return false;
+      if (!q) return true;
+      return etiquetaDescripcionRecepcion(it).toLocaleLowerCase("es").includes(q);
+    });
+  }, [itemsOrdenados, busquedaAgregarProducto, soloPendientesConfirmacion, checkListConfirmedByItem]);
 
   const fechaFacturaOk = fechaRecepcion.trim() !== "";
   const checklistCompleto =
@@ -726,7 +735,7 @@ export default function PedidoHistoriaDetalleModal({
       if (NUMERO_COMPROBANTE_COMPRA_REGEX.test(comprobanteCompra.numero)) {
         const [pv, nro] = comprobanteCompra.numero.split("-");
         setComprobantePv(
-          digitosBloqueComprobante(pv ?? "", COMPROBANTE_COMPRA_PV_DIGITOS)
+          digitosPuntoVentaComprobante(pv ?? "")
         );
         setComprobanteNro(
           digitosBloqueComprobante(nro ?? "", COMPROBANTE_COMPRA_NRO_DIGITOS)
@@ -1037,20 +1046,40 @@ export default function PedidoHistoriaDetalleModal({
               >
                 AGREGAR PRODUCTO A LA RECEPCIÓN
               </span>
-              <div className={cn(GRID_PEDIDO_HISTORIA_TABLA_COLS, "items-center pt-1 pb-0")}>
-                <div className="col-span-4 min-w-0">
-                  <div className="flex min-w-0 max-w-[36rem] items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <FiltroBusquedaInput
-                        id="pedido-historia-agregar-producto-filtro"
-                        placeholder="BUSCAR POR DESCRIPCIÓN..."
-                        value={busquedaAgregarProducto}
-                        onChange={setBusquedaAgregarProducto}
-                        isDebouncing={false}
-                        inputRef={busquedaAgregarRef}
-                        className="h-10 min-h-10"
+              <div className={cn(GRID_PEDIDO_HISTORIA_TABLA_COLS, "items-center px-px pt-1 pb-0")}>
+                <div className="col-span-4 flex min-w-0 items-center gap-3">
+                  <div className="min-w-0 max-w-[36rem] flex-1">
+                    <FiltroBusquedaInput
+                      id="pedido-historia-agregar-producto-filtro"
+                      placeholder="BUSCAR POR DESCRIPCIÓN..."
+                      value={busquedaAgregarProducto}
+                      onChange={setBusquedaAgregarProducto}
+                      isDebouncing={false}
+                      inputRef={busquedaAgregarRef}
+                      className="h-10 min-h-10"
+                    />
+                  </div>
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      PENDIENTE CONFIRMACIÓN
+                    </span>
+                    <Button
+                      type="button"
+                      variant={soloPendientesConfirmacion ? "default" : "outline"}
+                      size="icon-lg"
+                      aria-pressed={soloPendientesConfirmacion}
+                      aria-label="Filtrar ítems pendientes de confirmación"
+                      onClick={() => setSoloPendientesConfirmacion((prev) => !prev)}
+                      className={cn(
+                        "size-10 border-primary",
+                        !soloPendientesConfirmacion && "bg-card text-primary hover:bg-card hover:text-primary"
+                      )}
+                    >
+                      <Check
+                        className={cn("h-4 w-4", !soloPendientesConfirmacion && "opacity-0")}
+                        aria-hidden
                       />
-                    </div>
+                    </Button>
                   </div>
                 </div>
                 <Button
@@ -1061,7 +1090,7 @@ export default function PedidoHistoriaDetalleModal({
                     esNotaCredito || locked || loading || !fechaFacturaOk || guardando != null || sinProveedor
                   }
                   className={cn(
-                    "h-10 min-h-10 w-full cursor-pointer justify-center gap-2 rounded-md px-3 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
+                    "h-10 min-h-10 w-full min-w-0 max-w-full cursor-pointer justify-center gap-1.5 overflow-hidden rounded-md px-2 py-1 text-sm font-normal text-primary-foreground [&_svg]:text-primary-foreground disabled:cursor-not-allowed"
                   )}
                 >
                   <Plus className="h-4 w-4" />
@@ -1119,7 +1148,9 @@ export default function PedidoHistoriaDetalleModal({
                       message={
                         busquedaAgregarProducto.trim()
                           ? "SIN ÍTEMS PARA LA DESCRIPCIÓN BUSCADA."
-                          : "SIN ÍTEMS."
+                          : soloPendientesConfirmacion
+                            ? "SIN ÍTEMS PENDIENTES DE CONFIRMACIÓN."
+                            : "SIN ÍTEMS."
                       }
                     />
                   ) : (
