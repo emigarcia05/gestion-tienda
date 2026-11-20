@@ -1059,27 +1059,30 @@ export default function PedidoHistoriaDetalleModal({
                       className="h-10 min-h-10"
                     />
                   </div>
-                  <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <span className="text-xs font-semibold text-foreground">
-                      PENDIENTE CONFIRMACIÓN
-                    </span>
-                    <Button
-                      type="button"
-                      variant={soloPendientesConfirmacion ? "default" : "outline"}
-                      size="icon-lg"
-                      aria-pressed={soloPendientesConfirmacion}
-                      aria-label="Filtrar ítems pendientes de confirmación"
-                      onClick={() => setSoloPendientesConfirmacion((prev) => !prev)}
-                      className={cn(
-                        "size-10 border-primary",
-                        !soloPendientesConfirmacion && "bg-card text-primary hover:bg-card hover:text-primary"
-                      )}
-                    >
-                      <Check
-                        className={cn("h-4 w-4", !soloPendientesConfirmacion && "opacity-0")}
-                        aria-hidden
-                      />
-                    </Button>
+                  <div className="flex min-w-0 flex-1 items-center justify-center">
+                    <div className="flex items-stretch gap-2">
+                      <span className="flex flex-col text-right text-xs font-semibold leading-tight text-foreground">
+                        <span>PENDIENTE</span>
+                        <span>CONFIRMACIÓN</span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant={soloPendientesConfirmacion ? "default" : "outline"}
+                        aria-pressed={soloPendientesConfirmacion}
+                        aria-label="Filtrar ítems pendientes de confirmación"
+                        onClick={() => setSoloPendientesConfirmacion((prev) => !prev)}
+                        className={cn(
+                          "aspect-square h-auto w-auto shrink-0 self-stretch rounded-md border-primary p-0",
+                          !soloPendientesConfirmacion &&
+                            "bg-card text-primary hover:bg-card hover:text-primary"
+                        )}
+                      >
+                        <Check
+                          className={cn("h-3.5 w-3.5", !soloPendientesConfirmacion && "opacity-0")}
+                          aria-hidden
+                        />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <Button

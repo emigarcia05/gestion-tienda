@@ -22,6 +22,22 @@ export type SucursalTintometrica = {
   nombre: string;
 };
 
+/**
+ * Proveedor de mercadería que trabaja tintométrico: está en el catálogo fijo
+ * de Pedir Mercadería o tiene COEF. TINTOMÉTRICO mayor a 1.
+ */
+export async function esProveedorHabilitadoTintometrico(proveedorId: string): Promise<boolean> {
+  const id = proveedorId.trim();
+  if (!id) return false;
+  const row = await prisma.proveedor.findUnique({
+    where: { id },
+    select: { coeficienteTintometrico: true, proveedorMercaderia: true },
+  });
+  if (!row?.proveedorMercaderia) return false;
+  if ((PROVEEDORES_TINTOMETRICOS_IDS as readonly string[]).includes(id)) return true;
+  return Number(row.coeficienteTintometrico) > 1;
+}
+
 export async function getProveedoresTintometricos(): Promise<ProveedorTintometrico[]> {
   const where: Prisma.ProveedorWhereInput = {
     id: { in: [...PROVEEDORES_TINTOMETRICOS_IDS] },

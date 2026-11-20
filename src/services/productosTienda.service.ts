@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { RUBRO_TINTOMETRICO } from "@/lib/codColorTintometrico";
+import { esProveedorHabilitadoTintometrico } from "@/services/tintometrico.service";
 import type { ServiceResult } from "@/types";
 
 export interface ProductoTiendaRowBusqueda {
@@ -19,7 +21,10 @@ function normalizeTokens(q: string): string[] {
 export async function buscarProductosTiendaPorDescripcion(params: {
   q?: string;
   take?: number;
-  /** Si viene, solo ítems con vínculo en `proveedores_prod_lista` de ese proveedor. */
+  /**
+   * Si viene, solo ítems vinculados a ese proveedor.
+   * Proveedor tintométrico: también el rubro TINTOMETRICO.
+   */
   proveedorId?: string;
 }): Promise<ServiceResult<{ items: ProductoTiendaRowBusqueda[]; total: number }>> {
   const q = params.q ?? "";
@@ -31,19 +36,32 @@ export async function buscarProductosTiendaPorDescripcion(params: {
     const tokens = normalizeTokens(query);
 
     // Si no hay búsqueda, mostramos un subset estable para que el modal sea útil.
-    const vinculoProveedor: Prisma.ProdPropioWhereInput | null = proveedorId
-      ? {
-          listaPreciosProveedores: {
-            some: { idProveedor: proveedorId },
-          },
-        }
-      : null;
+    // Recepción: vínculo del proveedor. Si además es tintométrico, suma el rubro TINTOMETRICO.
+    const incluyeRubroTintometrico = proveedorId
+      ? await esProveedorHabilitadoTintometrico(proveedorId)
+      : false;
+    const alcanceProveedor: Prisma.ProdPropioWhereInput | null = !proveedorId
+      ? null
+      : incluyeRubroTintometrico
+        ? {
+            OR: [
+              { listaPreciosProveedores: { some: { idProveedor: proveedorId } } },
+              {
+                rubroRelation: {
+                  nombre: { equals: RUBRO_TINTOMETRICO, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {
+            listaPreciosProveedores: { some: { idProveedor: proveedorId } },
+          };
 
     const base: Prisma.ProdPropioWhereInput[] = [
       { habilitado: true },
       { descripcionTienda: { not: null } },
       { descripcionTienda: { not: "" } },
-      ...(vinculoProveedor ? [vinculoProveedor] : []),
+      ...(alcanceProveedor ? [alcanceProveedor] : []),
     ];
 
     const whereDescripcion: Prisma.ProdPropioWhereInput =
