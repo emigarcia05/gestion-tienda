@@ -136,6 +136,10 @@ export default function WhatsappPruebaPageClient() {
   function enviar() {
     if (!seleccionado) return;
     const destino = seleccionado;
+    if (!telefonoWhatsappSchema.safeParse(destino).success) {
+      toast.error("Este chat todavía no tiene un teléfono para responder.");
+      return;
+    }
     startTransition(async () => {
       const res = await enviarTextoWhatsappPruebaAction({ to: destino, body });
       if (!res.ok) {

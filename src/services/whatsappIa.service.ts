@@ -17,7 +17,7 @@ import {
   WHATSAPP_IA_MAX_NOTAS,
   WHATSAPP_IA_MAX_PRODUCTOS,
 } from "@/lib/whatsapp/ia/limites";
-import { telefonoWhatsappCanonico, telefonosEquivalentesWhatsapp } from "@/lib/whatsapp/telefono";
+import { clavesConversacionWhatsapp, telefonoWhatsappCanonico } from "@/lib/whatsapp/telefono";
 import {
   buildMapSaldoStockItemsSucursales,
   claveSaldoStock,
@@ -185,13 +185,15 @@ async function hechosDeNotas(telefonos: string[]): Promise<HechoWhatsappIa[]> {
 export async function sugerirRespuestaWhatsappIa(
   telefonoRaw: string
 ): Promise<ServiceResult<SugerenciaWhatsappIa>> {
-  const telefono = telefonoWhatsappCanonico(telefonoRaw);
-  if (!telefono) return { success: false, error: "El teléfono no es válido." };
-  const telefonos = telefonosEquivalentesWhatsapp(telefono);
+  const claves = clavesConversacionWhatsapp(telefonoRaw);
+  const telefono = telefonoWhatsappCanonico(telefonoRaw) ?? claves?.bsuid ?? null;
+  if (!claves || !telefono) return { success: false, error: "El teléfono no es válido." };
 
   try {
     const filas = await prisma.whatsappPruebaMensaje.findMany({
-      where: { telefono: { in: telefonos } },
+      where: claves.bsuid
+        ? { OR: [{ telefono: { in: claves.telefonos } }, { bsuid: claves.bsuid }] }
+        : { telefono: { in: claves.telefonos } },
       orderBy: { createdAt: "desc" },
       take: WHATSAPP_IA_MAX_MENSAJES,
       select: { id: true, direccion: true, cuerpo: true },
@@ -210,7 +212,7 @@ export async function sugerirRespuestaWhatsappIa(
     const [productos, sucursales, notas] = await Promise.all([
       hechosDeProductos(tokens),
       consultaPideSucursal(textosCliente) ? hechosDeSucursales() : Promise.resolve([]),
-      hechosDeNotas(telefonos),
+      hechosDeNotas(claves.telefonos),
     ]);
 
     const turnos: TurnoWhatsappIa[] = cronologicos.map((fila) => ({

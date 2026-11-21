@@ -6,14 +6,28 @@ export function telefonoWhatsappCanonico(raw: string): string | null {
 }
 
 /**
+ * BSUID de Meta (`US.1349…` o padre `US.ENT.1181…`). No es un teléfono ni un phone number ID.
+ * La doc de identificadores lo manda en `from_user_id` cuando el `from` no viene.
+ */
+export function bsuidWhatsapp(raw: string): string | null {
+  const limpio = raw.trim();
+  if (limpio.length > 64) return null;
+  if (!/^[A-Z]{2}(?:\.[A-Z]{2,8})?\.\d{8,32}$/.test(limpio)) return null;
+  return limpio;
+}
+
+/**
  * Clave de un chat. El móvil argentino `+549261…` y el tipeado `+54261…` son el mismo.
+ * Sin teléfono, la clave es el BSUID.
  */
 export function claveChatWhatsapp(raw: string): string | null {
   const canonico = telefonoWhatsappCanonico(raw);
-  if (!canonico) return null;
-  const digits = canonico.slice(1);
-  if (digits.startsWith("549") && digits.length > 4) return `+54${digits.slice(3)}`;
-  return canonico;
+  if (canonico) {
+    const digits = canonico.slice(1);
+    if (digits.startsWith("549") && digits.length > 4) return `+54${digits.slice(3)}`;
+    return canonico;
+  }
+  return bsuidWhatsapp(raw);
 }
 
 /**
@@ -29,4 +43,13 @@ export function telefonosEquivalentesWhatsapp(canonico: string): string[] {
     variantes.add(`+549${digits.slice(2)}`);
   }
   return [...variantes];
+}
+
+/** Teléfonos equivalentes, o el BSUID si el chat todavía no tiene número. */
+export function clavesConversacionWhatsapp(raw: string): { telefonos: string[]; bsuid: string | null } | null {
+  const telefono = telefonoWhatsappCanonico(raw);
+  if (telefono) return { telefonos: telefonosEquivalentesWhatsapp(telefono), bsuid: null };
+  const bsuid = bsuidWhatsapp(raw);
+  if (bsuid) return { telefonos: [bsuid], bsuid };
+  return null;
 }

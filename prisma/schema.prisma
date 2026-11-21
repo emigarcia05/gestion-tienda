@@ -3269,6 +3269,7 @@ enum WhatsappPruebaEstado {
 
 /**
  * Mensajes de la prueba de Cloud API. El teléfono es el del cliente, no el de la sucursal.
+ * `bsuid` es el identificador de usuario de Meta, no un phone number ID.
  * No guarda el token ni el cuerpo crudo del webhook.
  */
 model WhatsappPruebaMensaje {
@@ -3276,6 +3277,7 @@ model WhatsappPruebaMensaje {
   waMessageId  String                  @unique(map: "whatsapp_prueba_mensajes_wa_message_id_key") @map("wa_message_id")
   direccion    WhatsappPruebaDireccion
   telefono     String
+  bsuid        String?                 @db.VarChar(64)
   nombre       String?                 @db.VarChar(120)
   cuerpo       String                  @db.Text
   tipo         String                  @default("text") @db.VarChar(32)
@@ -3285,6 +3287,7 @@ model WhatsappPruebaMensaje {
   createdAt    DateTime                @default(now()) @map("created_at")
 
   @@index([telefono, createdAt], map: "whatsapp_prueba_mensajes_telefono_created_idx")
+  @@index([bsuid], map: "whatsapp_prueba_mensajes_bsuid_idx")
   @@map("whatsapp_prueba_mensajes")
 }
 

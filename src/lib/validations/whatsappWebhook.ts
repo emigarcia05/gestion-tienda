@@ -1,56 +1,91 @@
 import { z } from "zod";
 
-const mensajeSchema = z.object({
-  from: z.string(),
-  id: z.string().min(1).max(200),
-  timestamp: z.string().optional(),
-  type: z.string().max(32).optional(),
-  text: z.object({ body: z.string().max(4096) }).optional(),
-  image: z.object({ caption: z.string().max(1024).optional() }).optional(),
-  document: z
-    .object({
-      caption: z.string().max(1024).optional(),
-      filename: z.string().max(200).optional(),
-    })
-    .optional(),
-  video: z.object({ caption: z.string().max(1024).optional() }).optional(),
-  button: z.object({ text: z.string().max(200).optional() }).optional(),
-  interactive: z
-    .object({
-      button_reply: z.object({ title: z.string().max(200).optional() }).optional(),
-      list_reply: z.object({ title: z.string().max(200).optional() }).optional(),
-    })
-    .optional(),
-});
+/**
+ * Aviso de Meta. `from` puede faltar si el usuario tiene nombre de usuario:
+ * en ese caso el identificador es `from_user_id` (BSUID).
+ * Un ítem que no cumple no tira el resto del aviso: el servicio parsea cada uno.
+ */
+const mensajeSchema = z
+  .object({
+    from: z.string().max(32).nullish(),
+    from_user_id: z.string().max(80).nullish(),
+    id: z.string().min(1).max(512),
+    timestamp: z.union([z.string(), z.number()]).nullish(),
+    type: z.string().max(32).nullish(),
+    text: z.object({ body: z.string().nullish() }).nullish(),
+    image: z.object({ caption: z.string().nullish() }).nullish(),
+    document: z
+      .object({
+        caption: z.string().nullish(),
+        filename: z.string().max(200).nullish(),
+      })
+      .nullish(),
+    video: z.object({ caption: z.string().nullish() }).nullish(),
+    button: z.object({ text: z.string().max(200).nullish() }).nullish(),
+    interactive: z
+      .object({
+        button_reply: z.object({ title: z.string().max(200).nullish() }).nullish(),
+        list_reply: z.object({ title: z.string().max(200).nullish() }).nullish(),
+      })
+      .nullish(),
+    contacts: z
+      .array(
+        z.object({
+          origin: z.string().max(64).optional(),
+          phones: z
+            .array(
+              z.object({
+                phone: z.string().max(32).nullish(),
+                wa_id: z.string().max(32).nullish(),
+              })
+            )
+            .max(5)
+            .nullish(),
+        })
+      )
+      .max(5)
+      .nullish(),
+  })
+  .refine((mensaje) => Boolean(mensaje.from || mensaje.from_user_id), { path: ["from"] });
 
 const estadoSchema = z.object({
-  id: z.string().min(1).max(200),
+  id: z.string().min(1).max(512),
   status: z.string().max(32),
-  timestamp: z.string().optional(),
-  recipient_id: z.string().optional(),
+  timestamp: z.union([z.string(), z.number()]).nullish(),
+  recipient_id: z.string().max(32).nullish(),
+  recipient_user_id: z.string().max(80).nullish(),
   errors: z
     .array(
       z.object({
-        title: z.string().max(200).optional(),
-        message: z.string().max(300).optional(),
-        code: z.number().optional(),
+        title: z.string().optional(),
+        message: z.string().optional(),
+        code: z.union([z.number(), z.string()]).optional(),
       })
     )
+    .max(5)
     .optional(),
 });
 
+const contactoSchema = z.object({
+  profile: z
+    .object({
+      name: z.string().max(200).nullish(),
+      username: z.string().max(64).nullish(),
+    })
+    .nullish(),
+  wa_id: z.string().max(32).nullish(),
+  user_id: z.string().max(80).nullish(),
+});
+
 const valorSchema = z.object({
-  metadata: z.object({ phone_number_id: z.string().optional() }).optional(),
-  contacts: z
-    .array(
-      z.object({
-        profile: z.object({ name: z.string().max(200).optional() }).optional(),
-        wa_id: z.string().optional(),
-      })
-    )
+  metadata: z
+    .object({
+      phone_number_id: z.union([z.string(), z.number()]).optional(),
+    })
     .optional(),
-  messages: z.array(mensajeSchema).max(50).optional(),
-  statuses: z.array(estadoSchema).max(50).optional(),
+  contacts: z.array(z.unknown()).max(50).nullish(),
+  messages: z.array(z.unknown()).max(50).nullish(),
+  statuses: z.array(z.unknown()).max(50).nullish(),
 });
 
 export const webhookWhatsappPruebaSchema = z.object({
@@ -71,5 +106,11 @@ export const webhookWhatsappPruebaSchema = z.object({
     .optional(),
 });
 
+export const mensajeWebhookWhatsappSchema = mensajeSchema;
+export const estadoWebhookWhatsappSchema = estadoSchema;
+export const contactoWebhookWhatsappSchema = contactoSchema;
+
 export type WebhookWhatsappPrueba = z.infer<typeof webhookWhatsappPruebaSchema>;
 export type MensajeWebhookWhatsapp = z.infer<typeof mensajeSchema>;
+export type EstadoWebhookWhatsapp = z.infer<typeof estadoSchema>;
+export type ContactoWebhookWhatsapp = z.infer<typeof contactoSchema>;
