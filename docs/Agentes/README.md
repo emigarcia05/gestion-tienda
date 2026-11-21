@@ -29,3 +29,4 @@ Cuando pidan la lista o un prompt para copiar:
 | 2 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
 | 3 | API WHATSAPP | Enviar mensajes desde el teléfono de cada local con la Cloud API oficial de Meta | [api-whatsapp.md](./api-whatsapp.md) |
 | 4 | AUDITOR CÓDIGO MUERTO | Recorre el código por tandas, borra solo el código muerto comprobado y espera confirmación antes de la tanda siguiente | [auditor-codigo-muerto.md](./auditor-codigo-muerto.md) |
+| 5 | API OPENIA | Borradores de respuesta del chat de WhatsApp con la API oficial de OpenAI. No se envían solos | [api-openia.md](./api-openia.md) |
