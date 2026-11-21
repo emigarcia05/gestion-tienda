@@ -168,14 +168,14 @@ async function hechosDeNotas(telefonos: string[]): Promise<HechoWhatsappIa[]> {
     take: WHATSAPP_IA_MAX_NOTAS,
   });
 
-  return notas
-    .map((nota) => {
-      const titulo = nota.titulo.trim();
-      const texto = nota.texto.replace(/\s+/g, " ").trim().slice(0, 200);
-      if (!titulo || !texto) return null;
-      return { origen: "nota" as const, texto: `Nota ${titulo}: ${texto}` };
-    })
-    .filter((nota): nota is HechoWhatsappIa => nota != null);
+  const hechos: HechoWhatsappIa[] = [];
+  for (const nota of notas) {
+    const titulo = nota.titulo.trim();
+    const texto = nota.texto.replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!titulo || !texto) continue;
+    hechos.push({ origen: "nota", texto: `Nota ${titulo}: ${texto}` });
+  }
+  return hechos;
 }
 
 /**
