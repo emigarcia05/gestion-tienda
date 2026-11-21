@@ -6,12 +6,14 @@ import {
   enviarTextoWhatsappPruebaAction,
   listarChatsWhatsappPruebaAction,
   listarMensajesWhatsappPruebaAction,
+  sugerirRespuestaWhatsappIaAction,
 } from "@/actions/whatsappPrueba";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
+import { CALLOUT_WARNING_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 import { claveChatWhatsapp } from "@/lib/whatsapp/telefono";
 import type { WhatsappPruebaChatItem, WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
@@ -36,12 +38,17 @@ export default function WhatsappPruebaPageClient() {
   const [telefonoNuevo, setTelefonoNuevo] = useState("");
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [body, setBody] = useState("");
+  const [sugerenciaActiva, setSugerenciaActiva] = useState(false);
+  const [borradorPrevio, setBorradorPrevio] = useState("");
   const [chats, setChats] = useState<WhatsappPruebaChatItem[]>([]);
   const [filas, setFilas] = useState<WhatsappPruebaMensajeItem[]>([]);
   const [pending, startTransition] = useTransition();
+  const [redactando, startRedaccion] = useTransition();
   const pedidoChats = useRef(0);
   const pedidoMensajes = useRef(0);
+  const pedidoSugerencia = useRef(0);
   const hiloRef = useRef<HTMLDivElement>(null);
+  const mensajeRef = useRef<HTMLTextAreaElement>(null);
   const telefonoNuevoValido = telefonoWhatsappSchema.safeParse(telefonoNuevo).success;
 
   const cargarChats = useCallback(async (avisar: boolean) => {
@@ -102,11 +109,26 @@ export default function WhatsappPruebaPageClient() {
     nodo.scrollTop = nodo.scrollHeight;
   }, [filas, seleccionado]);
 
+  function limpiarBorrador() {
+    pedidoSugerencia.current += 1;
+    setSugerenciaActiva(false);
+    setBorradorPrevio("");
+    setBody("");
+  }
+
+  function elegirChat(telefono: string) {
+    if (seleccionado != null && mismoChat(telefono, seleccionado)) return;
+    limpiarBorrador();
+    setSeleccionado(telefono);
+  }
+
   function abrirTelefonoNuevo() {
     if (!telefonoNuevoValido) {
       toast.error("El teléfono tiene que empezar con + y el código de país.");
       return;
     }
+    if (seleccionado != null && mismoChat(telefonoNuevo, seleccionado)) return;
+    limpiarBorrador();
     setSeleccionado(telefonoNuevo);
     setFilas([]);
   }
@@ -121,14 +143,43 @@ export default function WhatsappPruebaPageClient() {
         return;
       }
       toast.success("Meta aceptó el mensaje.");
+      setSugerenciaActiva(false);
+      setBorradorPrevio("");
       setBody("");
       await cargarMensajes(destino, true);
       await cargarChats(false);
     });
   }
 
+  function sugerir() {
+    if (!seleccionado || redactando || pending) return;
+    const destino = seleccionado;
+    const n = pedidoSugerencia.current + 1;
+    pedidoSugerencia.current = n;
+    const previo = body;
+    startRedaccion(async () => {
+      const res = await sugerirRespuestaWhatsappIaAction({ telefono: destino });
+      if (n !== pedidoSugerencia.current) return;
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setBorradorPrevio(previo);
+      setBody(res.data.texto);
+      setSugerenciaActiva(true);
+      mensajeRef.current?.focus();
+    });
+  }
+
+  function descartarSugerencia() {
+    setBody(borradorPrevio);
+    setSugerenciaActiva(false);
+    setBorradorPrevio("");
+  }
+
   const chatActivo = chats.find((chat) => seleccionado != null && mismoChat(chat.telefono, seleccionado));
   const tituloChat = chatActivo?.nombre ?? seleccionado;
+  const ultimoEntrante = filas[filas.length - 1]?.direccion === "ENTRANTE";
 
   return (
     <ClassicFilteredTableLayout title="Administrador" subtitle="Prueba" contentWidth="full">
@@ -169,7 +220,7 @@ export default function WhatsappPruebaPageClient() {
                     <li key={claveChatWhatsapp(chat.telefono) ?? chat.telefono}>
                       <button
                         type="button"
-                        onClick={() => setSeleccionado(chat.telefono)}
+                        onClick={() => elegirChat(chat.telefono)}
                         className={cn(
                           "flex w-full flex-col gap-0.5 rounded-md px-3 py-2 text-left",
                           activo
@@ -259,33 +310,65 @@ export default function WhatsappPruebaPageClient() {
               })
             )}
           </div>
-          <form
-            className="flex shrink-0 items-end gap-2 border-t border-border p-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!pending) enviar();
-            }}
-          >
-            <label className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <ModalMicroLabel>Mensaje</ModalMicroLabel>
-              <textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                placeholder="TEXTO"
-                rows={2}
-                disabled={pending || !seleccionado}
-                aria-label="Mensaje"
-                className={cn(
-                  "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
-                  "flex w-full min-w-0 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
-                  "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
-                )}
-              />
-            </label>
-            <Button type="submit" disabled={pending || !seleccionado || body.trim() === ""}>
-              {pending ? "Enviando…" : "Enviar Prueba"}
-            </Button>
-          </form>
+          <div className="shrink-0 border-t border-border">
+            {seleccionado && ultimoEntrante ? (
+              <div className="px-3 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={redactando || pending}
+                  onClick={sugerir}
+                >
+                  {redactando ? "Redactando…" : "Respuesta de Sugerencia"}
+                </Button>
+              </div>
+            ) : null}
+            {sugerenciaActiva ? (
+              <div className={cn(CALLOUT_WARNING_CLASS, "mx-3 mt-3 flex items-center justify-between gap-3")}>
+                <p>Sugerencia para revisar. Podés editarla. No se envía sola.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending || redactando}
+                  onClick={descartarSugerencia}
+                >
+                  Descartar
+                </Button>
+              </div>
+            ) : null}
+            <form
+              className="flex items-end gap-2 p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!pending) enviar();
+              }}
+            >
+              <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <ModalMicroLabel>Mensaje</ModalMicroLabel>
+                <textarea
+                  ref={mensajeRef}
+                  value={body}
+                  onChange={(event) => {
+                    const valor = event.target.value;
+                    setBody(valor);
+                    if (valor.trim() === "") setSugerenciaActiva(false);
+                  }}
+                  placeholder="TEXTO"
+                  rows={2}
+                  disabled={pending || redactando || !seleccionado}
+                  aria-label="Mensaje"
+                  className={cn(
+                    "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
+                    "flex w-full min-w-0 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
+                    "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+                  )}
+                />
+              </label>
+              <Button type="submit" disabled={pending || redactando || !seleccionado || body.trim() === ""}>
+                {pending ? "Enviando…" : "Enviar Prueba"}
+              </Button>
+            </form>
+          </div>
         </section>
       </div>
     </ClassicFilteredTableLayout>

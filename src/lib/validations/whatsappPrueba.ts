@@ -11,6 +11,10 @@ export const listarMensajesWhatsappPruebaSchema = z.object({
   telefono: telefonoWhatsappSchema.optional(),
 });
 
+export const sugerirRespuestaWhatsappIaSchema = z.object({
+  telefono: telefonoWhatsappSchema,
+});
+
 export const enviarTextoWhatsappPruebaSchema = z.object({
   to: telefonoWhatsappSchema,
   body: z

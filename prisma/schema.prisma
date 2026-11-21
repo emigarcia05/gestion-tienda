@@ -3287,3 +3287,48 @@ model WhatsappPruebaMensaje {
   @@index([telefono, createdAt], map: "whatsapp_prueba_mensajes_telefono_created_idx")
   @@map("whatsapp_prueba_mensajes")
 }
+
+/**
+ * Borrador de respuesta de WhatsApp. No se envía solo.
+ * `mensaje_ancla_id` es el último entrante usado; no es FK.
+ */
+model WhatsappIaSugerencia {
+  id             String   @id @default(cuid())
+  telefono       String
+  mensajeAnclaId String?  @map("mensaje_ancla_id")
+  cuerpo         String   @db.Text
+  modelo         String   @db.VarChar(64)
+  tokensEntrada  Int      @map("tokens_entrada")
+  tokensSalida   Int      @map("tokens_salida")
+  tokensTotal    Int      @map("tokens_total")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([telefono, createdAt], map: "whatsapp_ia_sugerencias_telefono_created_idx")
+  @@map("whatsapp_ia_sugerencias")
+}
+
+/**
+ * Dato que la sugerencia debe tener en cuenta.
+ * NEGOCIO: `telefono` null. CHAT: el teléfono del cliente.
+ * La pantalla para marcar todavía no existe; el servicio ya lee las filas activas.
+ */
+enum WhatsappIaContextoAlcance {
+  CHAT
+  NEGOCIO
+
+  @@map("whatsapp_ia_contexto_alcance")
+}
+
+model WhatsappIaContexto {
+  id        String                    @id @default(cuid())
+  alcance   WhatsappIaContextoAlcance
+  telefono  String?
+  titulo    String                    @db.VarChar(80)
+  texto     String                    @db.Text
+  activo    Boolean                   @default(true)
+  createdAt DateTime                  @default(now()) @map("created_at")
+
+  @@index([activo, alcance], map: "whatsapp_ia_contexto_activo_alcance_idx")
+  @@index([telefono], map: "whatsapp_ia_contexto_telefono_idx")
+  @@map("whatsapp_ia_contexto")
+}

@@ -8,8 +8,10 @@ import type { ActionResult } from "@/lib/types";
 import {
   enviarTextoWhatsappPruebaSchema,
   listarMensajesWhatsappPruebaSchema,
+  sugerirRespuestaWhatsappIaSchema,
 } from "@/lib/validations/whatsappPrueba";
 import type { WhatsappPruebaChatItem, WhatsappPruebaMensajeItem } from "@/lib/whatsapp/tipos";
+import { sugerirRespuestaWhatsappIa } from "@/services/whatsappIa.service";
 import {
   enviarTextoWhatsappPrueba,
   listarChatsWhatsappPrueba,
@@ -32,6 +34,25 @@ export async function enviarTextoWhatsappPruebaAction(
   } catch (e) {
     console.error("[enviarTextoWhatsappPruebaAction]", e instanceof Error ? e.name : "error");
     return { ok: false, error: "No se pudo enviar el mensaje de prueba." };
+  }
+}
+
+export async function sugerirRespuestaWhatsappIaAction(
+  raw: unknown
+): Promise<ActionResult<{ texto: string }>> {
+  const gate = await requireEditorWhatsappPrueba();
+  if (gate) return gate;
+
+  const parsed = sugerirRespuestaWhatsappIaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  try {
+    const out = fromServiceResult(await sugerirRespuestaWhatsappIa(parsed.data.telefono));
+    if (out.ok) revalidatePath(APP_ROUTES.administrador.whatsapp.prueba);
+    return out;
+  } catch (e) {
+    console.error("[sugerirRespuestaWhatsappIaAction]", e instanceof Error ? e.name : "error");
+    return { ok: false, error: "No se pudo redactar la sugerencia." };
   }
 }
 
