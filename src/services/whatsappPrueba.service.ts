@@ -37,7 +37,7 @@ function esUnico(e: unknown): boolean {
   return e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 }
 
-function instanteWhatsapp(unixSegundos: string | number | undefined): Date | null {
+function instanteWhatsapp(unixSegundos: string | number | null | undefined): Date | null {
   if (unixSegundos == null) return null;
   const texto = String(unixSegundos);
   if (!/^\d{9,12}$/.test(texto)) return null;
