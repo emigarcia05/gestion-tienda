@@ -146,6 +146,8 @@ export interface ItemTiendaParaTabla {
   color: string | null;
   /** `prod_lista.terminacion`. `null` = vacío. */
   terminacion: TerminacionProdListaValor | null;
+  /** `prod_lista.cod_flia_item`. `null` = sin familia asignada. */
+  codFliaItem: string | null;
 }
 
 export interface ProveedorTintoLts {
@@ -195,6 +197,7 @@ export async function getTiendaPageData(params: {
   marca?: string;
   proveedor?: string;
   vinculado?: string;
+  flia?: string;
   pagina?: string;
 }) {
   const rol = await getRol();
@@ -214,11 +217,14 @@ export async function getTiendaPageData(params: {
     marca = "",
     proveedor = "",
     vinculado: vinculadoRaw = "",
+    flia: fliaRaw = "",
     pagina = "1",
   } = parsedParams.data;
 
   const vNorm = (vinculadoRaw ?? "").toLowerCase();
   const vinculado = vNorm === "no" || vNorm === "si" ? vNorm : "";
+  const fNorm = (fliaRaw ?? "").toLowerCase();
+  const flia = fNorm === "no" || fNorm === "si" ? fNorm : "";
 
   const andParts: Prisma.ProdPropioWhereInput[] = [{ habilitado: true }];
   const textFilter = filtroTexto(q, ["descripcionTienda", "codTienda"]);
@@ -251,6 +257,13 @@ export async function getTiendaPageData(params: {
     });
   } else if (vinculado === "si") {
     andParts.push({ costoCompraCodExt: { not: null } });
+  }
+
+  /* FLIA es temporal: SI = ya tiene cod_flia_item; NO = todavía no. */
+  if (flia === "si") {
+    andParts.push({ codFliaItem: { not: null } });
+  } else if (flia === "no") {
+    andParts.push({ codFliaItem: null });
   }
 
   const where: Prisma.ProdPropioWhereInput = { AND: andParts };
@@ -343,6 +356,7 @@ export async function getTiendaPageData(params: {
       idColor: r.idColor,
       color: r.color?.nombre ?? null,
       terminacion: r.terminacion,
+      codFliaItem: r.codFliaItem,
     };
   });
 

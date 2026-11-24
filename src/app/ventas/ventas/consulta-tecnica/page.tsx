@@ -9,6 +9,7 @@ import {
 } from "@/services/consultaTecnica.service";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function ConsultaTecnicaPage() {
   const rol = await getRol();

@@ -52,7 +52,8 @@ async function postChat(
   env: { apiKey: string; modelo: string; baseUrl: string },
   input: CompletarWhatsappIaInput,
   campoTope: "max_completion_tokens" | "max_tokens",
-  razonMinima: boolean
+  razonMinima: boolean,
+  maxTokens: number
 ): Promise<{ status: number; json: unknown } | { error: string }> {
   let response: Response;
   try {
@@ -64,7 +65,7 @@ async function postChat(
       },
       body: JSON.stringify({
         model: env.modelo,
-        [campoTope]: WHATSAPP_IA_MAX_TOKENS_SALIDA,
+        [campoTope]: maxTokens,
         ...(razonMinima ? { reasoning_effort: "minimal" } : {}),
         messages: [
           { role: "system", content: input.system },
@@ -100,7 +101,7 @@ export async function completarWhatsappIa(
 
   let campoTope: "max_completion_tokens" | "max_tokens" = "max_completion_tokens";
   let razonMinima = true;
-  let respuesta = await postChat(env, input, campoTope, razonMinima);
+  let respuesta = await postChat(env, input, campoTope, razonMinima, WHATSAPP_IA_MAX_TOKENS_SALIDA);
   if ("error" in respuesta) return { success: false, error: respuesta.error };
 
   if (respuesta.status === 400) {
@@ -108,7 +109,13 @@ export async function completarWhatsappIa(
     if (/reasoning_effort/i.test(crudo)) razonMinima = false;
     if (/max_completion_tokens/i.test(crudo)) campoTope = "max_tokens";
     if (!razonMinima || campoTope === "max_tokens") {
-      respuesta = await postChat(env, input, campoTope, razonMinima);
+      respuesta = await postChat(
+        env,
+        input,
+        campoTope,
+        razonMinima,
+        WHATSAPP_IA_MAX_TOKENS_SALIDA
+      );
       if ("error" in respuesta) return { success: false, error: respuesta.error };
     }
   }
@@ -137,4 +144,106 @@ export async function completarWhatsappIa(
       tokensTotal,
     },
   };
+}
+
+const CONSULTA_TECNICA_MAX_TOKENS = 700;
+
+/** Redacción corta para el instructivo. Sin búsqueda web: el texto de la hoja ya viene en el pedido. */
+export async function completarConsultaTecnica(
+  input: CompletarWhatsappIaInput
+): Promise<ServiceResult<string>> {
+  const env = leerWhatsappIaEnv();
+  if ("error" in env) return { success: false, error: env.error };
+
+  let campoTope: "max_completion_tokens" | "max_tokens" = "max_completion_tokens";
+  let razonMinima = true;
+  let respuesta = await postChat(env, input, campoTope, razonMinima, CONSULTA_TECNICA_MAX_TOKENS);
+  if ("error" in respuesta) return { success: false, error: respuesta.error };
+
+  if (respuesta.status === 400) {
+    const crudo = JSON.stringify(respuesta.json ?? "");
+    if (/reasoning_effort/i.test(crudo)) razonMinima = false;
+    if (/max_completion_tokens/i.test(crudo)) campoTope = "max_tokens";
+    if (!razonMinima || campoTope === "max_tokens") {
+      respuesta = await postChat(env, input, campoTope, razonMinima, CONSULTA_TECNICA_MAX_TOKENS);
+      if ("error" in respuesta) return { success: false, error: respuesta.error };
+    }
+  }
+
+  if (respuesta.status < 200 || respuesta.status >= 300) {
+    console.error("[consultaTecnica][completar] http", respuesta.status);
+    return { success: false, error: mensajeHttp(respuesta.status) };
+  }
+
+  const parsed = respuestaSchema.safeParse(respuesta.json);
+  const texto = parsed.success ? (parsed.data.choices?.[0]?.message?.content ?? "").trim() : "";
+  if (!texto) return { success: false, error: "El modelo no devolvió un texto." };
+  return { success: true, data: texto };
+}
+
+function urlsDeBusqueda(json: unknown): string[] {
+  if (!json || typeof json !== "object") return [];
+  const output = (json as { output?: unknown }).output;
+  if (!Array.isArray(output)) return [];
+  const urls: string[] = [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const sources = (item as { action?: { sources?: { url?: unknown }[] } }).action?.sources;
+    if (!Array.isArray(sources)) continue;
+    for (const fuente of sources) {
+      if (typeof fuente.url === "string" && fuente.url.startsWith("https://")) urls.push(fuente.url);
+    }
+  }
+  return urls;
+}
+
+/**
+ * Busca la hoja del fabricante. Solo devuelve URLs que trajo la búsqueda, no las que redacta el modelo.
+ * `web_search` no acepta razonamiento mínimo: va en `low`.
+ */
+export async function buscarFuentesConsultaTecnica(
+  consulta: string
+): Promise<ServiceResult<string[]>> {
+  const env = leerWhatsappIaEnv();
+  if ("error" in env) return { success: false, error: env.error };
+
+  let response: Response;
+  try {
+    response = await fetch(`${env.baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: env.modelo,
+        tools: [
+          {
+            type: "web_search",
+            user_location: { type: "approximate", country: "AR" },
+          },
+        ],
+        reasoning: { effort: "low" },
+        include: ["web_search_call.action.sources"],
+        input: consulta,
+        max_output_tokens: 800,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (e) {
+    console.error("[consultaTecnica][fuentes] red", e instanceof Error ? e.name : "error");
+    return { success: false, error: "No se pudo buscar la ficha del fabricante." };
+  }
+
+  let json: unknown = null;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
+  }
+  if (response.status < 200 || response.status >= 300) {
+    console.error("[consultaTecnica][fuentes] http", response.status);
+    return { success: false, error: mensajeHttp(response.status) };
+  }
+  return { success: true, data: urlsDeBusqueda(json) };
 }

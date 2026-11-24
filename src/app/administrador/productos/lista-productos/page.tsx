@@ -15,6 +15,7 @@ interface Props {
     marca?: string;
     proveedor?: string;
     vinculado?: string;
+    flia?: string;
     pagina?: string;
   }>;
 }
@@ -27,6 +28,8 @@ export default async function ListaProductosPage({ searchParams }: Props) {
   const { q = "", rubro = "", cxCompra = "", marca = "", proveedor = "", pagina = "1" } = sp;
   const vLower = (sp.vinculado ?? "").toLowerCase();
   const vinculado = vLower === "no" || vLower === "si" ? vLower : "";
+  const fLower = (sp.flia ?? "").toLowerCase();
+  const flia = fLower === "no" || fLower === "si" ? fLower : "";
 
   const [data, editor] = await Promise.all([
     getTiendaPageData({
@@ -36,6 +39,7 @@ export default async function ListaProductosPage({ searchParams }: Props) {
       marca,
       proveedor,
       vinculado: vinculado || undefined,
+      flia: flia || undefined,
       pagina,
     }),
     esEditor(),
@@ -52,7 +56,7 @@ export default async function ListaProductosPage({ searchParams }: Props) {
       proveedoresCxCompra={data.proveedoresCxCompra}
       rol={rol}
       esEditor={editor}
-      filtros={{ q, rubro, cxCompra, marca, proveedor, vinculado }}
+      filtros={{ q, rubro, cxCompra, marca, proveedor, vinculado, flia }}
       paginaNum={Math.max(1, parseInt(pagina, 10) || 1)}
     />
   );

@@ -28,6 +28,7 @@ export type FiltrosListaProductosUrl = {
   marca: string;
   proveedor: string;
   vinculado: string;
+  flia: string;
 };
 
 interface Props {
@@ -110,6 +111,7 @@ export default function ListaProductosPageClient({
             cxCompraActual={filtros.cxCompra}
             proveedorActual={filtros.proveedor}
             vinculadoActual={filtros.vinculado}
+            fliaActual={filtros.flia}
           />
         }
       >

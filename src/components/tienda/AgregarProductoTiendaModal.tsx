@@ -28,7 +28,9 @@ import TablaComponentesCompuesto, {
   aFilaComponente,
   type FilaComponente,
 } from "@/components/tienda/TablaComponentesCompuesto";
-import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
+import { crearProductosTiendaLoteAction, siguienteCodFliaItemAction } from "@/actions/listaProductos";
+import FliaProductoSeccion from "@/components/tienda/FliaProductoSeccion";
+import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import {
   costoProductoCompuesto,
   parseCantidadComponente,
@@ -61,6 +63,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [selectorComponenteAbierto, setSelectorComponenteAbierto] = useState(false);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
+  const [codFliaItem, setCodFliaItem] = useState("");
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
   const cerrarGestion = useCallback(() => {
@@ -75,12 +78,24 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setEsPropio(false);
     setEsCompuesto(false);
     setComponentes([]);
+    setCodFliaItem("");
+    let activo = true;
+    void siguienteCodFliaItemAction().then((res) => {
+      if (!activo || !res.ok) return;
+      setCodFliaItem((prev) => (prev === "" ? res.data.codigo : prev));
+    });
+    return () => {
+      activo = false;
+    };
   }, [open]);
 
   const componentesValidos =
     componentes.length > 0 && componentes.every((c) => parseCantidadComponente(c.cantidadInput) != null);
+  const flia = normalizarCodFliaItem(codFliaItem);
   const puedeAgregar =
     camposProductoTiendaCompletos(campos) &&
+    flia.ok &&
+    flia.codigo != null &&
     (esPropio || !!vinculo) &&
     (!esCompuesto || componentesValidos) &&
     !pending;
@@ -143,6 +158,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
       esProductoPropio: esPropio,
       codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
       esProductoCompuesto: esPropio && esCompuesto,
+      codFliaItem,
       componentes:
         esPropio && esCompuesto
           ? componentes.map((c) => ({
@@ -212,6 +228,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
               onGestionar={setGestionando}
             />
           </section>
+          <FliaProductoSeccion codigo={codFliaItem} onChange={setCodFliaItem} disabled={pending} />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>

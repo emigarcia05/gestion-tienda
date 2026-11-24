@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TERMINACIONES_PROD_LISTA } from "@/lib/prodListaTerminacion";
+import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
 import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
 import { componentesCompuestoSchema } from "@/lib/validations/productoCompuesto";
@@ -12,6 +13,20 @@ const nombreCatalogoSchema = z
   .trim()
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
+
+/** `prod_lista.cod_flia_item`. Vacío → null. `5` y `005` quedan `005`. */
+export const codFliaItemSchema = z
+  .string()
+  .trim()
+  .max(6, "El código de familia admite hasta 6 dígitos.")
+  .transform((valor, ctx) => {
+    const codigo = normalizarCodFliaItem(valor);
+    if (!codigo.ok) {
+      ctx.addIssue({ code: "custom", message: "El código de familia es un número." });
+      return z.NEVER;
+    }
+    return codigo.codigo;
+  });
 
 /** Campos de catálogo comunes al alta y a la edición de un producto de tienda. */
 const camposProductoTiendaSchema = z.object({
@@ -43,6 +58,7 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
     esProductoCompuesto: z.boolean(),
     componentes: componentesCompuestoSchema,
+    codFliaItem: codFliaItemSchema,
   })
   .superRefine((item, ctx) => {
     if (item.esProductoPropio && item.codExtVinculo) {
@@ -80,8 +96,33 @@ export const crearProductosTiendaLoteSchema = z
   });
 
 /** Editar: vínculos, costo y producto propio se manejan con sus propias acciones (inmediatas). */
-export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
+export const editarProductoTiendaSchema = camposProductoTiendaSchema
+  .extend({
+    codTienda: listaPreciosCodTiendaSchema,
+    /** SKU de la misma marca al que se une este ítem. `null` = no cambia el vínculo a mano. */
+    codMismoProducto: listaPreciosCodTiendaSchema.nullable(),
+    /** Vuelve a calcular el producto por el nombre, sin el vínculo a mano. */
+    soltarProducto: z.boolean(),
+    codFliaItem: codFliaItemSchema,
+  })
+  .superRefine((item, ctx) => {
+    if (item.soltarProducto && item.codMismoProducto) {
+      ctx.addIssue({ code: "custom", message: "No se puede unir y separar a la vez." });
+    }
+  });
+
+export const leerFliaProductoSchema = z.object({
+  codigo: z.string().trim().max(6),
+});
+
+export const leerProductoSkuSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
+});
+
+export const buscarSkuMismoProductoSchema = z.object({
+  idMarca: idCatalogoSchema,
+  q: z.string().trim().min(3, "Escribí al menos 3 letras.").max(80, "La búsqueda es demasiado larga."),
+  excluirCodTienda: listaPreciosCodTiendaSchema,
 });
 
 export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });

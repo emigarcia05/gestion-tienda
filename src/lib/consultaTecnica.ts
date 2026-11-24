@@ -41,32 +41,43 @@ export function etiquetaTipoConsultaTecnica(tipo: string): string {
 
 const URL_HTTP = /^https?:\/\/\S+$/i;
 
-/** Instructivo corto. Lo que no está cargado queda en [COMPLETAR]. No inventa datos. */
+function textoDeHoja(valor: string, tope: number): string | null {
+  const texto = valor.replace(/\s+/g, " ").trim();
+  if (texto.length === 0 || texto.includes("[COMPLETAR]")) return null;
+  if (texto.length <= tope) return texto;
+  const corte = texto.slice(0, tope);
+  const punto = Math.max(corte.lastIndexOf("."), corte.lastIndexOf(";"));
+  if (punto >= 40) return corte.slice(0, punto + 1).trim();
+  const coma = corte.lastIndexOf(",");
+  if (coma >= 40) return `${corte.slice(0, coma).trim()}.`;
+  return corte.trim();
+}
+
+/** Instructivo corto. Un párrafo que la hoja no trae no se escribe. */
 export function armarInstructivoFichaItem(input: {
   descripcion: string;
+  preparacion: string;
   dilucion: string;
+  secadoEntreManos: string;
+  secadoFinal: string;
   urlFicha: string;
 }): string {
-  const dilucion = input.dilucion.trim().slice(0, 240);
-  const url = input.urlFicha.trim().slice(0, 500);
-  const descripcion = input.descripcion.trim().slice(0, 400);
-  const enlace = URL_HTTP.test(url) ? url : "[COMPLETAR]";
-  return [
-    `Así se usa ${descripcion}.`,
-    "",
-    "Preparación de la superficie",
-    "[COMPLETAR]",
-    "",
-    "Dilución",
-    dilucion.length > 0 ? dilucion : "[COMPLETAR]",
-    "",
-    "Tiempo de secado",
-    "Entre manos: [COMPLETAR]",
-    "Final: [COMPLETAR]",
-    "",
-    "Ficha técnica del fabricante",
-    enlace,
-  ].join("\n");
+  const descripcion = input.descripcion.trim().slice(0, 240);
+  const bloques = [`Así se usa ${descripcion}.`];
+  const preparacion = textoDeHoja(input.preparacion, 320);
+  if (preparacion) bloques.push("", "Preparación de la superficie", preparacion);
+  const dilucion = textoDeHoja(input.dilucion, 320);
+  if (dilucion) bloques.push("", "Dilución", dilucion);
+  const entreManos = textoDeHoja(input.secadoEntreManos, 240);
+  const secadoFinal = textoDeHoja(input.secadoFinal, 280);
+  if (entreManos || secadoFinal) {
+    bloques.push("", "Tiempo de secado");
+    if (entreManos) bloques.push(`Entre manos: ${entreManos}`);
+    if (secadoFinal) bloques.push(`Final: ${secadoFinal}`);
+  }
+  const url = input.urlFicha.trim().slice(0, 400);
+  if (URL_HTTP.test(url)) bloques.push("", "Ficha técnica del fabricante", url);
+  return bloques.join("\n");
 }
 
 export type ConsultaTecnicaConversacionItem = {

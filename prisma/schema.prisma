@@ -319,6 +319,29 @@ model ConsultaTecnicaMensaje {
 }
 
 /**
+ * Memoria del resumen leído en la hoja del fabricante.
+ * Una fila por `prod_productos` (clave `PROD {id}`). No se carga a mano.
+ * Se vuelve a leer a los 30 días.
+ */
+model ConsultaTecnicaFicha {
+  id               String   @id @default(cuid())
+  clave            String   @unique(map: "consulta_tecnica_fichas_clave_key") @db.VarChar(300)
+  idMarca          String?  @map("id_marca")
+  urlFicha         String   @default("") @map("url_ficha") @db.VarChar(500)
+  preparacion      String   @default("") @db.VarChar(500)
+  dilucion         String   @default("") @db.VarChar(500)
+  secadoEntreManos String   @default("") @map("secado_entre_manos") @db.VarChar(300)
+  secadoFinal      String   @default("") @map("secado_final") @db.VarChar(300)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  marca Marca? @relation(fields: [idMarca], references: [id], onDelete: SetNull)
+
+  @@index([idMarca], map: "consulta_tecnica_fichas_id_marca_idx")
+  @@map("consulta_tecnica_fichas")
+}
+
+/**
  * Sub-rubros de un rubro (1 rubro → N sub-rubros). Nombre único dentro del rubro.
  * `@@unique([id, idRubro])` sostiene la FK compuesta de `prod_lista` (el sub-rubro debe ser del rubro del ítem).
  */
@@ -1521,6 +1544,8 @@ model Marca {
   codColorPedidosMerc           ProdPedMerc2[]
   codColorPedidosHistoriaItems  PedidoHistoriaItem[]
   consultaTecnica               ConsultaTecnicaRecomendacion[]
+  fichasTecnicas                ConsultaTecnicaFicha[]
+  productos                     ProdProducto[]
 
   @@map("prod_marcas")
 }
@@ -1599,6 +1624,23 @@ enum TerminacionProdLista {
   MATE
 }
 
+/// El producto, aparte del SKU. El tamaño, el color y la terminación viven en `prod_lista`.
+model ProdProducto {
+  id        String   @id @default(cuid())
+  idMarca   String   @map("id_marca")
+  /// Nombre sin presentación, color ni terminación. Único dentro de la marca.
+  nombre    String   @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  marca Marca        @relation(fields: [idMarca], references: [id], onDelete: Restrict)
+  skus  ProdPropio[]
+
+  @@unique([idMarca, nombre], map: "prod_productos_id_marca_nombre_key")
+  @@index([idMarca], map: "prod_productos_id_marca_idx")
+  @@map("prod_productos")
+}
+
 /// Catálogo de productos propios (alta/edición en Lista Productos). Rubro, sub-rubro, marca, color y
 /// presentación solo por FK a sus catálogos (sin columnas de texto espejo).
 model ProdPropio {
@@ -1648,6 +1690,13 @@ model ProdPropio {
   idColor                     String?   @map("id_color")
   /// Acabado: BRILLANTE / SATINADO / MATE. `null` = vacío. Sync DUX no escribe.
   terminacion                 TerminacionProdLista?
+  /// Producto compartido por los SKU que solo cambian de presentación, color o terminación.
+  idProducto                  String?                  @map("id_producto")
+  /// `true` = unido a mano a otro ítem. El alta y la edición no lo recalculan.
+  productoManual              Boolean                  @default(false) @map("producto_manual")
+  /// Familia numérica (`006`). El mismo número agrupa otra presentación, color o terminación.
+  /// Vacío = sin familia. La consulta técnica comparte la hoja entre los SKU de este código.
+  codFliaItem                 String?                  @map("cod_flia_item") @db.VarChar(40)
   /// Baja lógica: `false` = borrado con historia (no se puede borrar físicamente). Oculto en Lista Productos
   /// y en buscadores operativos (factura, pedidos, stock, transferencias, componentes); informes lo siguen viendo.
   habilitado                  Boolean   @default(true)
@@ -1657,6 +1706,7 @@ model ProdPropio {
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
   presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
   color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
+  producto                  ProdProducto?                  @relation(fields: [idProducto], references: [id], onDelete: SetNull)
   listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedores_prod_lista.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
@@ -1679,6 +1729,8 @@ model ProdPropio {
   @@index([idSubRubro], map: "prod_lista_id_sub_rubro_idx")
   @@index([idPresentacion], map: "prod_lista_id_presentacion_idx")
   @@index([idColor], map: "prod_lista_id_color_idx")
+  @@index([idProducto], map: "prod_lista_id_producto_idx")
+  @@index([codFliaItem], map: "prod_lista_cod_flia_item_idx")
   @@map("prod_lista")
 }
 

@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
+import FliaProductoSeccion from "@/components/tienda/FliaProductoSeccion";
+import { siguienteCodFliaItemAction } from "@/actions/listaProductos";
+import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import PxListasItemEnProducto, {
   type PxVentaItemHandle,
 } from "@/components/tienda/PxListasItemEnProducto";
+import MismoProductoTienda, {
+  type EleccionMismoProducto,
+} from "@/components/tienda/MismoProductoTienda";
 import ProductoTiendaCampos, {
   SIN_VALOR_PRODUCTO_TIENDA,
   camposProductoTiendaCompletos,
@@ -52,6 +58,20 @@ export default function EditarProductoTiendaModal({
     bulto: item.bulto != null ? String(item.bulto) : "",
     precioEditable: item.precioEditable,
   });
+  const [eleccion, setEleccion] = useState<EleccionMismoProducto>({ tipo: "igual" });
+  const [codFliaItem, setCodFliaItem] = useState(item.codFliaItem ?? "");
+
+  useEffect(() => {
+    if (item.codFliaItem) return;
+    let activo = true;
+    void siguienteCodFliaItemAction().then((res) => {
+      if (!activo || !res.ok) return;
+      setCodFliaItem((prev) => (prev === "" ? res.data.codigo : prev));
+    });
+    return () => {
+      activo = false;
+    };
+  }, [item.codFliaItem]);
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
@@ -60,7 +80,9 @@ export default function EditarProductoTiendaModal({
     recargar();
   }, [recargar]);
 
-  const puedeGuardar = camposProductoTiendaCompletos(campos) && !pending;
+  const flia = normalizarCodFliaItem(codFliaItem);
+  const fliaOk = flia.ok && flia.codigo != null;
+  const puedeGuardar = camposProductoTiendaCompletos(campos) && fliaOk && !pending;
 
   async function guardar() {
     if (!puedeGuardar) return;
@@ -69,6 +91,9 @@ export default function EditarProductoTiendaModal({
       const res = await editarProductoTiendaAction({
         ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
+        codMismoProducto: eleccion.tipo === "unir" ? eleccion.codTienda : null,
+        soltarProducto: eleccion.tipo === "soltar",
+        codFliaItem,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -109,10 +134,27 @@ export default function EditarProductoTiendaModal({
             <h3 className={SECCION_TITULO_CLASS}>DATOS DEL PRODUCTO</h3>
             <ProductoTiendaCampos
               campos={campos}
-              onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
+              onChange={(patch) => {
+                if (patch.idMarca && patch.idMarca !== campos.idMarca) {
+                  setEleccion({ tipo: "igual" });
+                }
+                setCampos((prev) => ({ ...prev, ...patch }));
+              }}
               catalogos={catalogos}
               disabled={pending}
               onGestionar={setGestionando}
+            />
+          </section>
+          <FliaProductoSeccion codigo={codFliaItem} onChange={setCodFliaItem} disabled={pending} />
+          <section className="modal-seccion-formulario flex flex-col gap-3">
+            <h3 className={SECCION_TITULO_CLASS}>Mismo producto</h3>
+            <MismoProductoTienda
+              key={campos.idMarca}
+              codTienda={item.codItem}
+              idMarca={campos.idMarca}
+              disabled={pending}
+              eleccion={eleccion}
+              onChange={setEleccion}
             />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-3">

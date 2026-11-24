@@ -37,6 +37,8 @@ interface Props {
   cxCompraActual?: string;
   proveedorActual: string;
   vinculadoActual: string;
+  /** Temporal: SI = tiene `cod_flia_item`; NO = sin código. */
+  fliaActual?: string;
   /** Cx Compra: tercer desplegable = CX COMPRA; por defecto SUB-RUBRO. */
   modoFiltroTercero?: "subRubro" | "cxCompra";
 }
@@ -54,6 +56,7 @@ export default function FiltrosTienda({
   cxCompraActual = "",
   proveedorActual,
   vinculadoActual,
+  fliaActual = "",
   modoFiltroTercero = "subRubro",
 }: Props) {
   const pathname = usePathname();
@@ -85,6 +88,7 @@ export default function FiltrosTienda({
     cxCompra?: string;
     proveedor?: string;
     vinculado?: string;
+    flia?: string;
   }) {
     const p = new URLSearchParams();
     const qVal = updates.q !== undefined ? updates.q : q;
@@ -98,6 +102,7 @@ export default function FiltrosTienda({
       updates.proveedor !== undefined ? updates.proveedor : proveedorActual;
     const vincVal =
       updates.vinculado !== undefined ? updates.vinculado : vinculadoActual;
+    const fliaVal = updates.flia !== undefined ? updates.flia : fliaActual;
     if (qVal) p.set("q", qVal);
     if (marcaVal) p.set("marca", marcaVal);
     if (rubroVal) p.set("rubro", rubroVal);
@@ -108,6 +113,7 @@ export default function FiltrosTienda({
     }
     if (proveedorVal) p.set("proveedor", proveedorVal);
     if (vincVal) p.set("vinculado", vincVal);
+    if (fliaVal) p.set("flia", fliaVal);
     const query = p.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
   }
@@ -134,6 +140,9 @@ export default function FiltrosTienda({
   function handleVinculado(value: string) {
     navigate({ vinculado: value });
   }
+  function handleFlia(value: string) {
+    navigate({ flia: value });
+  }
 
   function limpiarFiltros() {
     setQ("");
@@ -143,7 +152,7 @@ export default function FiltrosTienda({
   return (
     <FilterBar className="filtros-contenedor-tienda bg-card">
       <FilterRowSelection>
-        <FilaFiltrosDesplegables>
+        <FilaFiltrosDesplegables columnas={6}>
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(marcaActual)}
@@ -308,6 +317,26 @@ export default function FiltrosTienda({
                 className="input-filtro-unificado"
               >
                 <SelectValue placeholder="VINCULADO" />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="select-content-filtro"
+              >
+                <SelectItem value="no">NO</SelectItem>
+                <SelectItem value="si">SI</SelectItem>
+              </SelectContent>
+            </Select>
+          </FiltroIndividualContainer>
+          <FiltroIndividualContainer
+            className={FILTER_SELECT_WRAPPER_CLASS}
+            activo={Boolean(fliaActual)}
+            onLimpiar={() => handleFlia("")}
+          >
+            <Select value={fliaActual ?? ""} onValueChange={(v) => handleFlia(v)}>
+              <SelectTrigger id="filtro-tienda-flia" className="input-filtro-unificado">
+                <SelectValue placeholder="FLIA" />
               </SelectTrigger>
               <SelectContent
                 position="popper"

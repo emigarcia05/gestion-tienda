@@ -13,7 +13,13 @@ import {
   type ConsultaTecnicaPagina,
   type ConsultaTecnicaRecomendacionItem,
 } from "@/lib/consultaTecnica";
+import { claveFichaDeFlia, claveFichaDeProducto } from "@/lib/prodProducto";
 import { prisma } from "@/lib/prisma";
+import { asignarProductoDeSku } from "@/services/prodProducto.service";
+import {
+  resumirHojaFabricante,
+  type ResumenHojaFabricante,
+} from "@/services/consultaTecnicaInstructivo.service";
 import type { ServiceResult } from "@/types/service.types";
 
 export type GuardarConsultaTecnicaInput = {
@@ -327,9 +333,49 @@ export async function buscarItemsConsultaTecnica(
   }
 }
 
+const DIAS_MEMORIA_FICHA = 30;
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+function memoriaVigente(fecha: Date): boolean {
+  return Date.now() - fecha.getTime() < DIAS_MEMORIA_FICHA * MS_DIA;
+}
+
+function resumenGuardado(fila: {
+  preparacion: string;
+  dilucion: string;
+  secadoEntreManos: string;
+  secadoFinal: string;
+  urlFicha: string;
+}): ResumenHojaFabricante {
+  return {
+    preparacion: fila.preparacion,
+    dilucion: fila.dilucion,
+    secadoEntreManos: fila.secadoEntreManos,
+    secadoFinal: fila.secadoFinal,
+    urlFicha: fila.urlFicha,
+  };
+}
+
+function campoGuardado(valor: string, tope: number): string {
+  const texto = valor.replace(/\s+/g, " ").trim();
+  if (texto.length === 0 || texto.includes("[COMPLETAR]")) return "";
+  return texto.slice(0, tope);
+}
+
+function paraGuardar(resumen: ResumenHojaFabricante) {
+  return {
+    urlFicha: campoGuardado(resumen.urlFicha, 500),
+    preparacion: campoGuardado(resumen.preparacion, 500),
+    dilucion: campoGuardado(resumen.dilucion, 500),
+    secadoEntreManos: campoGuardado(resumen.secadoEntreManos, 300),
+    secadoFinal: campoGuardado(resumen.secadoFinal, 300),
+  };
+}
+
 /**
- * Abre un hilo de ficha técnica y escribe el instructivo.
- * Dilución sale de la ficha activa de esa marca y rubro. El resto, si no está, queda en [COMPLETAR].
+ * Abre un hilo de ficha técnica. El instructivo sale de la hoja del fabricante.
+ * Los SKU del mismo producto (otro tamaño, color o terminación) reusan la misma hoja.
+ * Si un párrafo no está en la hoja, no se escribe.
  */
 export async function crearFichaItemConsultaTecnica(input: {
   personalId: number;
@@ -353,7 +399,9 @@ export async function crearFichaItemConsultaTecnica(input: {
         habilitado: true,
         descripcionTienda: true,
         idMarca: true,
-        idRubro: true,
+        idProducto: true,
+        codFliaItem: true,
+        marcaRelation: { select: { nombre: true } },
       },
     });
     const descripcion = (item?.descripcionTienda ?? "").trim();
@@ -361,16 +409,61 @@ export async function crearFichaItemConsultaTecnica(input: {
       return { success: false, error: "El ítem no está habilitado." };
     }
 
-    let dilucion = "";
-    if (item.idMarca && item.idRubro) {
-      const ficha = await prisma.consultaTecnicaRecomendacion.findUnique({
-        where: { idMarca_idRubro: { idMarca: item.idMarca, idRubro: item.idRubro } },
-        select: { activo: true, dilucion: true },
+    let idProducto = item.idProducto;
+    if (!idProducto) {
+      const asignado = await prisma.$transaction((tx) =>
+        asignarProductoDeSku(tx, input.codTienda, { codMismoProducto: null, soltar: false })
+      );
+      if (!asignado.ok) {
+        if (!item.codFliaItem) return { success: false, error: asignado.error };
+      } else {
+        const ligado = await prisma.prodPropio.findUnique({
+          where: { codTienda: input.codTienda },
+          select: { idProducto: true },
+        });
+        idProducto = ligado?.idProducto ?? null;
+      }
+    }
+    if (!idProducto && !item.codFliaItem) {
+      return { success: false, error: "El ítem no tiene producto." };
+    }
+    const clave = item.codFliaItem
+      ? claveFichaDeFlia(item.codFliaItem)
+      : claveFichaDeProducto(idProducto ?? "");
+    const guardada = await prisma.consultaTecnicaFicha.findUnique({
+      where: { clave },
+    });
+    let resumen: ResumenHojaFabricante;
+    if (guardada && memoriaVigente(guardada.updatedAt)) {
+      resumen = resumenGuardado(guardada);
+    } else {
+      const leida = await resumirHojaFabricante({
+        descripcion,
+        marca: item.marcaRelation?.nombre ?? "",
       });
-      if (ficha?.activo) dilucion = ficha.dilucion;
+      if (leida.guardar) {
+        const datos = paraGuardar(leida.resumen);
+        await prisma.consultaTecnicaFicha.upsert({
+          where: { clave },
+          create: { clave, idMarca: item.idMarca, ...datos },
+          update: datos,
+        });
+        resumen = leida.resumen;
+      } else if (guardada) {
+        resumen = resumenGuardado(guardada);
+      } else {
+        resumen = leida.resumen;
+      }
     }
 
-    const texto = armarInstructivoFichaItem({ descripcion, dilucion, urlFicha: "" });
+    const texto = armarInstructivoFichaItem({
+      descripcion,
+      preparacion: resumen.preparacion,
+      dilucion: resumen.dilucion,
+      secadoEntreManos: resumen.secadoEntreManos,
+      secadoFinal: resumen.secadoFinal,
+      urlFicha: resumen.urlFicha,
+    });
     if (texto.length > 2000) {
       return { success: false, error: "El instructivo es demasiado largo." };
     }
