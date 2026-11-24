@@ -17,6 +17,7 @@ export const APP_ROUTES = {
       presupuestos: `${VENTAS}/ventas/presupuestos`,
       pxSugeridos: `${VENTAS}/ventas/px-sugeridos`,
       pxTintometrico: `${VENTAS}/ventas/px-tintometrico`,
+      consultaTecnica: `${VENTAS}/ventas/consulta-tecnica`,
     },
     compras: {
       pedirMercaderia: `${VENTAS}/compras/pedir-mercaderia`,
@@ -35,7 +36,6 @@ export const APP_ROUTES = {
     },
     herramientas: {
       calculadoraLts: `${VENTAS}/herramientas/calculadora-lts`,
-      consultaTecnica: `${VENTAS}/herramientas/consulta-tecnica`,
       buscarCodImagen: `${VENTAS}/herramientas/buscar-cod-imagen`,
       disenar: `${VENTAS}/herramientas/disenar`,
     },
@@ -145,6 +145,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly (readonly [string, string])[] = [
   ["/ventas/envios", R.ventas.envios.programados],
   ["/ventas/clientes", R.ventas.clientes.cuentasCorrientes],
   ["/ventas/herramientas", R.ventas.herramientas.calculadoraLts],
+  ["/ventas/herramientas/consulta-tecnica", R.ventas.ventas.consultaTecnica],
   ["/ventas/stock", R.ventas.stock.controlStock],
 
   // Ventas · VENTAS / CLIENTES (ex /facturacion)

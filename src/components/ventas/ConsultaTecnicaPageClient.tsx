@@ -1,551 +1,349 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  eliminarConsultaTecnicaAction,
-  guardarConsultaTecnicaAction,
+  buscarItemsConsultaTecnicaAction,
+  crearFichaItemConsultaTecnicaAction,
+  listarMensajesConsultaTecnicaAction,
 } from "@/actions/consultaTecnica";
-import FilterBar, {
-  FilaFiltrosDesplegables,
-  FilterRowSearch,
-  FiltroIndividualContainer,
-  FILTER_SELECT_WRAPPER_CLASS,
-  LimpiarFiltrosButton,
-  SELECT_TRIGGER_FILTER_CLASS,
-} from "@/components/FilterBar";
-import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
-import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import AppModal from "@/components/shared/AppModal";
+import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
+import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
-import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
-import ToolbarActionButton from "@/components/shared/ToolbarActionButton";
-import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type {
-  ConsultaTecnicaOpcion,
-  ConsultaTecnicaRecomendacionItem,
+  ConsultaTecnicaConversacionItem,
+  ConsultaTecnicaMensajeItem,
 } from "@/lib/consultaTecnica";
+import { CONSULTA_TECNICA_AUTOR_USUARIO } from "@/lib/consultaTecnica";
+import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
-import { matchByMultiTerm } from "@/lib/busqueda";
-import {
-  TABLE_ROW_ACTION_ICON_CLASS,
-  TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
-} from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
+import type { ItemConsultaTecnica } from "@/services/consultaTecnica.service";
 
-type Modo = "nuevo" | "editar" | "ver";
+type PasoConsulta = "tipo" | "item";
 
-type Borrador = {
-  id?: string;
-  idMarca: string;
-  idRubro: string;
-  uso: string;
-  dilucion: string;
-  aplicacion: string;
-  rendimiento: string;
-  activo: boolean;
-};
+const URL_EN_TEXTO = /(https?:\/\/\S+)/g;
 
-const BORRADOR_NUEVO: Borrador = {
-  idMarca: "",
-  idRubro: "",
-  uso: "",
-  dilucion: "",
-  aplicacion: "",
-  rendimiento: "",
-  activo: true,
-};
-
-const CAMPO_CLASS = cn(
-  "min-h-[4.5rem] w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm",
-  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-  "disabled:cursor-not-allowed disabled:opacity-50"
-);
-
-function desdeFila(fila: ConsultaTecnicaRecomendacionItem): Borrador {
-  return {
-    id: fila.id,
-    idMarca: fila.idMarca,
-    idRubro: fila.idRubro,
-    uso: fila.uso,
-    dilucion: fila.dilucion,
-    aplicacion: fila.aplicacion,
-    rendimiento: fila.rendimiento,
-    activo: fila.activo,
-  };
+function TextoConEnlace({ texto }: { texto: string }) {
+  const partes = texto.split(URL_EN_TEXTO);
+  return (
+    <p className="whitespace-pre-wrap text-sm">
+      {partes.map((parte, indice) =>
+        /^https?:\/\/\S+$/i.test(parte) ? (
+          <a
+            key={`${indice}-${parte}`}
+            href={parte}
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            {parte}
+          </a>
+        ) : (
+          <span key={`${indice}-texto`}>{parte}</span>
+        )
+      )}
+    </p>
+  );
 }
 
 export default function ConsultaTecnicaPageClient({
-  recomendaciones,
-  marcas,
-  rubros,
-  esEditor,
+  conversaciones,
+  conversacionInicialId,
+  mensajesIniciales,
 }: {
-  recomendaciones: ConsultaTecnicaRecomendacionItem[];
-  marcas: ConsultaTecnicaOpcion[];
-  rubros: ConsultaTecnicaOpcion[];
-  esEditor: boolean;
+  conversaciones: ConsultaTecnicaConversacionItem[];
+  conversacionInicialId: string | null;
+  mensajesIniciales: ConsultaTecnicaMensajeItem[];
 }) {
   const router = useRouter();
-  const [filtroMarca, setFiltroMarca] = useState("");
-  const [filtroRubro, setFiltroRubro] = useState("");
-  const [qFiltro, setQFiltro] = useState("");
-  const { q, setQ, ref, handleQChange, isDebouncing } = useFiltrosConBusqueda({
-    qActual: qFiltro,
+  const hiloRef = useRef<HTMLDivElement>(null);
+  const busquedaSeq = useRef(0);
+  const [propias, setPropias] = useState<ConsultaTecnicaConversacionItem[]>([]);
+  const [seleccionId, setSeleccionId] = useState<string | null>(conversacionInicialId);
+  const [mensajes, setMensajes] = useState(mensajesIniciales);
+  const [cargando, setCargando] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [paso, setPaso] = useState<PasoConsulta>("tipo");
+  const [items, setItems] = useState<ItemConsultaTecnica[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [creando, setCreando] = useState(false);
+
+  const buscarItems = useCallback(async (value: string) => {
+    const seq = ++busquedaSeq.current;
+    const q = value.trim();
+    if (q.length < 3) {
+      setItems([]);
+      setBuscando(false);
+      return;
+    }
+    setBuscando(true);
+    const out = await buscarItemsConsultaTecnicaAction({ q });
+    if (seq !== busquedaSeq.current) return;
+    setBuscando(false);
+    if (!out.ok) {
+      setItems([]);
+      toast.error(out.error);
+      return;
+    }
+    setItems(out.data);
+  }, []);
+
+  const alBuscar = useCallback(
+    (value: string) => {
+      void buscarItems(value);
+    },
+    [buscarItems]
+  );
+
+  const { q, setQ, ref: busquedaRef, handleQChange, isDebouncing } = useFiltrosConBusqueda({
+    qActual: "",
     debounceMs: 300,
-    onDebouncedSearch: setQFiltro,
+    onDebouncedSearch: alBuscar,
   });
-  const [modo, setModo] = useState<Modo | null>(null);
-  const [borrador, setBorrador] = useState<Borrador>(BORRADOR_NUEVO);
-  const [guardando, setGuardando] = useState(false);
-  const [aBorrar, setABorrar] = useState<ConsultaTecnicaRecomendacionItem | null>(null);
-  const [borrando, setBorrando] = useState(false);
 
-  const filas = useMemo(() => {
-    return recomendaciones.filter((fila) => {
-      if (filtroMarca && fila.idMarca !== filtroMarca) return false;
-      if (filtroRubro && fila.idRubro !== filtroRubro) return false;
-      return matchByMultiTerm(
-        [fila.marca, fila.rubro, fila.uso, fila.dilucion, fila.aplicacion, fila.rendimiento],
-        qFiltro
-      );
+  const lista = [
+    ...propias.filter((fila) => !conversaciones.some((item) => item.id === fila.id)),
+    ...conversaciones,
+  ].sort((a, b) => (a.actualizadoEnIso < b.actualizadoEnIso ? 1 : -1));
+
+  const activa = lista.find((fila) => fila.id === seleccionId) ?? null;
+
+  function bajarAlFinal() {
+    queueMicrotask(() => {
+      const hilo = hiloRef.current;
+      if (hilo) hilo.scrollTop = hilo.scrollHeight;
     });
-  }, [recomendaciones, filtroMarca, filtroRubro, qFiltro]);
+  }
 
-  const soloLectura = modo === "ver";
-  const columnas = esEditor ? 8 : 7;
-
-  function limpiarFiltros() {
-    setFiltroMarca("");
-    setFiltroRubro("");
+  function abrirNuevaConsulta() {
+    setPaso("tipo");
+    setItems([]);
     setQ("");
-    setQFiltro("");
+    setModalAbierto(true);
   }
 
-  function abrirNuevo() {
-    setBorrador(BORRADOR_NUEVO);
-    setModo("nuevo");
-  }
-
-  function abrirFila(fila: ConsultaTecnicaRecomendacionItem, siguiente: Modo) {
-    setBorrador(desdeFila(fila));
-    setModo(siguiente);
-  }
-
-  function cerrarFormulario() {
-    if (guardando) return;
-    setModo(null);
-  }
-
-  async function guardar() {
-    if (!borrador.idMarca || !borrador.idRubro) {
-      toast.error("Elegí la marca y el rubro.");
-      return;
+  function cerrarModal(abierto: boolean) {
+    setModalAbierto(abierto);
+    if (!abierto) {
+      setPaso("tipo");
+      setItems([]);
+      setQ("");
     }
-    setGuardando(true);
-    const out = await guardarConsultaTecnicaAction({
-      id: borrador.id,
-      idMarca: borrador.idMarca,
-      idRubro: borrador.idRubro,
-      uso: borrador.uso,
-      dilucion: borrador.dilucion,
-      aplicacion: borrador.aplicacion,
-      rendimiento: borrador.rendimiento,
-      activo: borrador.activo,
-    });
-    setGuardando(false);
+  }
+
+  async function elegir(id: string) {
+    if (id === seleccionId || creando) return;
+    setSeleccionId(id);
+    setCargando(true);
+    const out = await listarMensajesConsultaTecnicaAction({ conversacionId: id });
+    setCargando(false);
     if (!out.ok) {
       toast.error(out.error);
       return;
     }
-    toast.success("Recomendación guardada.");
-    setModo(null);
-    router.refresh();
+    setMensajes(out.data);
+    bajarAlFinal();
   }
 
-  async function confirmarBorrado() {
-    if (!aBorrar) return;
-    setBorrando(true);
-    const out = await eliminarConsultaTecnicaAction({ id: aBorrar.id });
-    setBorrando(false);
+  async function elegirItem(codTienda: string) {
+    if (creando) return;
+    setCreando(true);
+    const out = await crearFichaItemConsultaTecnicaAction({ codTienda });
+    setCreando(false);
     if (!out.ok) {
       toast.error(out.error);
       return;
     }
-    toast.success("Recomendación eliminada.");
-    setABorrar(null);
+    setSeleccionId(out.data.conversacion.id);
+    setPropias((prev) => [out.data.conversacion, ...prev.filter((fila) => fila.id !== out.data.conversacion.id)]);
+    setMensajes([out.data.mensaje]);
+    setModalAbierto(false);
+    setPaso("tipo");
+    setItems([]);
+    setQ("");
+    bajarAlFinal();
     router.refresh();
   }
-
-  const vacio =
-    recomendaciones.length === 0
-      ? "No hay recomendaciones técnicas."
-      : "Ninguna recomendación coincide con los filtros.";
 
   return (
-    <div className="area-page-shell">
-      <ClassicFilteredTableLayout
-        title="Herramientas"
-        subtitle="Consulta Técnica"
-        contentWidth="full"
-        actions={
-          esEditor ? (
-            <ToolbarActionButton
-              label="Nueva Recomendación"
-              icon={<Plus />}
-              onClick={abrirNuevo}
-            />
-          ) : null
-        }
-        filters={
-          <FilterBar className="filtros-contenedor-tienda bg-card">
-            <FilaFiltrosDesplegables columnas={4}>
-              <FiltroIndividualContainer
-                className={FILTER_SELECT_WRAPPER_CLASS}
-                activo={filtroMarca !== ""}
-                onLimpiar={() => setFiltroMarca("")}
-              >
-                <Select value={filtroMarca} onValueChange={setFiltroMarca}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="MARCA" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                    {marcas.map((marca) => (
-                      <SelectItem key={marca.id} value={marca.id}>
-                        {marca.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-              <FiltroIndividualContainer
-                className={FILTER_SELECT_WRAPPER_CLASS}
-                activo={filtroRubro !== ""}
-                onLimpiar={() => setFiltroRubro("")}
-              >
-                <Select value={filtroRubro} onValueChange={setFiltroRubro}>
-                  <SelectTrigger className={cn(SELECT_TRIGGER_FILTER_CLASS, "w-full")}>
-                    <SelectValue placeholder="RUBRO" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper" side="bottom" align="start">
-                    {rubros.map((rubro) => (
-                      <SelectItem key={rubro.id} value={rubro.id}>
-                        {rubro.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FiltroIndividualContainer>
-            </FilaFiltrosDesplegables>
-            <div className="flex items-center gap-3">
-              <FilterRowSearch className="flex-1">
-                <FiltroBusquedaInput
-                  id="consulta-tecnica-busqueda"
-                  placeholder="BUSCAR EN MARCA, RUBRO, USO, DILUCIÓN, APLICACIÓN O RENDIMIENTO..."
-                  value={q}
-                  onChange={handleQChange}
-                  isDebouncing={isDebouncing}
-                  inputRef={ref}
-                />
-              </FilterRowSearch>
-              <LimpiarFiltrosButton onClick={limpiarFiltros} />
-            </div>
-          </FilterBar>
-        }
-      >
-        <div className="contenedor-tabla-gestion">
-          <Table variant="compact">
-            <colgroup>
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[18%]" />
-              <col className="w-[14%]" />
-              <col className="w-[16%]" />
-              <col className="w-[14%]" />
-              {esEditor ? <col className="w-[6%]" /> : null}
-              <col className="w-[8%]" />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead>MARCA</TableHead>
-                <TableHead>RUBRO</TableHead>
-                <TableHead>USO</TableHead>
-                <TableHead>DILUCIÓN</TableHead>
-                <TableHead>APLICACIÓN</TableHead>
-                <TableHead>RENDIMIENTO</TableHead>
-                {esEditor ? <TableHead>ACTIVA</TableHead> : null}
-                <TableHead>ACCIONES</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filas.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columnas}>
-                    <TableEmptyState message={vacio} />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filas.map((fila) => (
-                  <TableRow key={fila.id}>
-                    <TableCell className="celda-datos">{fila.marca}</TableCell>
-                    <TableCell className="celda-datos">{fila.rubro}</TableCell>
-                    <TableCell className="celda-datos truncate" title={fila.uso}>
-                      {fila.uso}
-                    </TableCell>
-                    <TableCell className="celda-datos truncate" title={fila.dilucion}>
-                      {fila.dilucion}
-                    </TableCell>
-                    <TableCell className="celda-datos truncate" title={fila.aplicacion}>
-                      {fila.aplicacion}
-                    </TableCell>
-                    <TableCell className="celda-datos truncate" title={fila.rendimiento}>
-                      {fila.rendimiento}
-                    </TableCell>
-                    {esEditor ? (
-                      <TableCell className="celda-datos text-center">
-                        {fila.activo ? (
-                          <Check
-                            className={cn(TABLE_ROW_ACTION_ICON_CLASS, "text-[#0072bb]")}
-                            aria-label="Activa"
-                          />
-                        ) : null}
-                      </TableCell>
-                    ) : null}
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                          aria-label="Ver"
-                          title="Ver"
-                          onClick={() => abrirFila(fila, "ver")}
+    <ClassicFilteredTableLayout title="Ventas" subtitle="Consulta Técnica" contentWidth="full">
+      <div className="grid min-h-0 flex-1 grid-cols-[20rem_minmax(0,1fr)] gap-4">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <h2 className="shrink-0 bg-sidebar px-4 py-3 text-sm font-semibold uppercase tracking-tight text-sidebar-foreground">
+            Consultas
+          </h2>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {lista.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">NO HAY CONSULTAS.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {lista.map((fila) => {
+                  const elegido = fila.id === seleccionId;
+                  return (
+                    <li key={fila.id}>
+                      <button
+                        type="button"
+                        onClick={() => void elegir(fila.id)}
+                        className={cn(
+                          "flex w-full flex-col gap-0.5 rounded-md px-3 py-2 text-left",
+                          elegido ? "bg-sidebar text-sidebar-foreground" : "hover:bg-muted"
+                        )}
+                      >
+                        <span className="text-xs font-semibold uppercase tracking-tight">
+                          Tipo consulta
+                        </span>
+                        <span className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</span>
+                        <span
+                          className={cn(
+                            "mt-1 text-xs font-semibold uppercase tracking-tight",
+                            elegido ? "text-sidebar-foreground" : "text-muted-foreground"
+                          )}
                         >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {esEditor ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              aria-label="Editar"
-                              title="Editar"
-                              onClick={() => abrirFila(fila, "editar")}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS}
-                              aria-label="Eliminar"
-                              title="Eliminar"
-                              onClick={() => setABorrar(fila)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </ClassicFilteredTableLayout>
+                          Usuario
+                        </span>
+                        <span className="truncate text-sm">{fila.usuario}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
 
-      <Dialog open={modo !== null} onOpenChange={(abierto) => { if (!abierto) cerrarFormulario(); }}>
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+          <h2 className="shrink-0 bg-sidebar px-4 py-3 text-center text-sm font-semibold uppercase tracking-tight text-sidebar-foreground">
+            {activa ? activa.tipoEtiqueta : "Conversación"}
+          </h2>
+          <div ref={hiloRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
+            {cargando ? (
+              <p className="m-auto text-sm text-muted-foreground">CARGANDO…</p>
+            ) : mensajes.length === 0 ? (
+              <p className="m-auto text-sm text-muted-foreground">ELEGÍ NUEVA CONSULTA.</p>
+            ) : (
+              mensajes.map((mensaje) => {
+                const propio = mensaje.autor === CONSULTA_TECNICA_AUTOR_USUARIO;
+                return (
+                  <article
+                    key={mensaje.id}
+                    className={cn(
+                      "flex w-fit max-w-[32rem] flex-col gap-1 rounded-lg px-3 py-2",
+                      propio
+                        ? "self-end bg-sidebar text-sidebar-foreground"
+                        : "self-start border border-border bg-muted text-foreground"
+                    )}
+                  >
+                    <TextoConEnlace texto={mensaje.texto} />
+                    <p
+                      className={cn(
+                        "text-xs tabular-nums",
+                        propio ? "text-sidebar-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      {formatInstanteDdMmYyHhMmArgentina(new Date(mensaje.creadoEnIso))}
+                    </p>
+                  </article>
+                );
+              })
+            )}
+          </div>
+          <div className="shrink-0 border-t border-border p-3">
+            <Button type="button" className="w-full" onClick={abrirNuevaConsulta} disabled={creando}>
+              <Plus className="h-4 w-4" />
+              Nueva Consulta
+            </Button>
+          </div>
+        </section>
+      </div>
+
+      <Dialog open={modalAbierto} onOpenChange={cerrarModal}>
         <AppModal
-          size="lg"
-          title={
-            modo === "nuevo"
-              ? "NUEVA RECOMENDACIÓN"
-              : modo === "editar"
-                ? "EDITAR RECOMENDACIÓN"
-                : "RECOMENDACIÓN"
-          }
+          title={paso === "tipo" ? "VAS A EMPEZAR CONSULTANDO SOBRE" : "FICHA TÉCNICA DE UN ÍTEM"}
+          size="md"
           actions={
-            soloLectura ? (
-              <Button type="button" variant="outline" onClick={cerrarFormulario}>
-                Cerrar
+            paso === "tipo" ? (
+              <Button type="button" variant="outline" onClick={() => cerrarModal(false)}>
+                Cancelar
               </Button>
             ) : (
               <>
-                <Button type="button" variant="outline" onClick={cerrarFormulario} disabled={guardando}>
-                  Cancelar
+                <Button type="button" variant="outline" onClick={() => setPaso("tipo")} disabled={creando}>
+                  Volver
                 </Button>
-                <Button type="button" onClick={() => void guardar()} disabled={guardando}>
-                  Guardar
+                <Button type="button" variant="outline" onClick={() => cerrarModal(false)} disabled={creando}>
+                  Cancelar
                 </Button>
               </>
             )
           }
         >
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5">
-                <ModalMicroLabel>MARCA</ModalMicroLabel>
-                <Select
-                  value={borrador.idMarca}
-                  onValueChange={(idMarca) => setBorrador((prev) => ({ ...prev, idMarca }))}
-                  disabled={soloLectura || modo === "editar" || guardando}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="MARCA" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper">
-                    {marcas.map((marca) => (
-                      <SelectItem key={marca.id} value={marca.id}>
-                        {marca.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <ModalMicroLabel>RUBRO</ModalMicroLabel>
-                <Select
-                  value={borrador.idRubro}
-                  onValueChange={(idRubro) => setBorrador((prev) => ({ ...prev, idRubro }))}
-                  disabled={soloLectura || modo === "editar" || guardando}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="RUBRO" />
-                  </SelectTrigger>
-                  <SelectContent className="select-content-filtro" position="popper">
-                    {rubros.map((rubro) => (
-                      <SelectItem key={rubro.id} value={rubro.id}>
-                        {rubro.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
-            <CampoTexto
-              label="USO"
-              value={borrador.uso}
-              disabled={soloLectura || guardando}
-              maxLength={400}
-              onChange={(uso) => setBorrador((prev) => ({ ...prev, uso }))}
-            />
-            <CampoTexto
-              label="DILUCIÓN"
-              value={borrador.dilucion}
-              disabled={soloLectura || guardando}
-              maxLength={240}
-              onChange={(dilucion) => setBorrador((prev) => ({ ...prev, dilucion }))}
-            />
-            <CampoTexto
-              label="APLICACIÓN"
-              value={borrador.aplicacion}
-              disabled={soloLectura || guardando}
-              maxLength={400}
-              onChange={(aplicacion) => setBorrador((prev) => ({ ...prev, aplicacion }))}
-            />
-            <CampoTexto
-              label="RENDIMIENTO"
-              value={borrador.rendimiento}
-              disabled={soloLectura || guardando}
-              maxLength={160}
-              onChange={(rendimiento) => setBorrador((prev) => ({ ...prev, rendimiento }))}
-            />
-            <ModalSiNoChoice
-              label="ACTIVA"
-              value={borrador.activo}
-              disabled={soloLectura || guardando}
-              onChange={(activo) => setBorrador((prev) => ({ ...prev, activo }))}
-            />
-          </div>
-        </AppModal>
-      </Dialog>
-
-      <Dialog
-        open={aBorrar !== null}
-        onOpenChange={(abierto) => {
-          if (!abierto && !borrando) setABorrar(null);
-        }}
-      >
-        <AppModal
-          size="sm"
-          title="ELIMINAR RECOMENDACIÓN"
-          actions={
-            <>
+          {paso === "tipo" ? (
+            <div className="flex flex-col gap-3">
+              <Button type="button" className="h-auto w-full justify-start whitespace-normal py-3 text-left" onClick={() => setPaso("item")}>
+                1. Ficha técnica de un ítem
+              </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setABorrar(null)}
-                disabled={borrando}
+                className="h-auto w-full justify-start whitespace-normal border-primary py-3 text-left"
+                onClick={() => toast.message("Esa consulta todavía no tiene el paso siguiente.")}
               >
-                Cancelar
+                2. No sé qué producto recomendar
               </Button>
-              <Button type="button" onClick={() => void confirmarBorrado()} disabled={borrando}>
-                Eliminar
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto w-full justify-start whitespace-normal border-primary py-3 text-left"
+                onClick={() => toast.message("Esa consulta todavía no tiene el paso siguiente.")}
+              >
+                3. Manual de uso
               </Button>
-            </>
-          }
-        >
-          <p className="text-sm text-foreground">
-            {aBorrar
-              ? `Se borra la ficha de ${aBorrar.marca} · ${aBorrar.rubro}.`
-              : ""}
-          </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5" htmlFor="consulta-tecnica-item">
+                <ModalMicroLabel>Descripción</ModalMicroLabel>
+                <FiltroBusquedaInput
+                  id="consulta-tecnica-item"
+                  placeholder="BUSCAR ÍTEM..."
+                  value={q}
+                  onChange={handleQChange}
+                  isDebouncing={isDebouncing || buscando}
+                  inputRef={busquedaRef}
+                  disabled={creando}
+                />
+              </label>
+              {q.trim().length < 3 ? (
+                <p className="text-sm text-muted-foreground">ESCRIBÍ AL MENOS 3 LETRAS.</p>
+              ) : items.length === 0 && !buscando && !isDebouncing ? (
+                <p className="text-sm text-muted-foreground">NO HAY ÍTEMS.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {items.map((item) => (
+                    <li key={item.codTienda}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-auto w-full justify-start whitespace-normal border-primary py-2 text-left"
+                        disabled={creando}
+                        onClick={() => void elegirItem(item.codTienda)}
+                      >
+                        {item.descripcion}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </AppModal>
       </Dialog>
-    </div>
-  );
-}
-
-function CampoTexto({
-  label,
-  value,
-  disabled,
-  maxLength,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  disabled: boolean;
-  maxLength: number;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <ModalMicroLabel>{label}</ModalMicroLabel>
-      <textarea
-        value={value}
-        disabled={disabled}
-        rows={3}
-        maxLength={maxLength}
-        aria-label={label}
-        onChange={(event) => onChange(event.target.value)}
-        className={CAMPO_CLASS}
-      />
-    </label>
+    </ClassicFilteredTableLayout>
   );
 }

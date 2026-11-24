@@ -288,6 +288,36 @@ model ConsultaTecnicaRecomendacion {
   @@map("consulta_tecnica_recomendaciones")
 }
 
+/** Hilo de Consulta Técnica. `tipo`: TECNICA, FICHA_ITEM, RECOMENDAR o MANUAL. El usuario es quien la abrió. */
+model ConsultaTecnicaConversacion {
+  id         String   @id @default(cuid())
+  tipo       String   @db.VarChar(40)
+  personalId Int      @map("personal_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  personal GlobalPersonal            @relation(fields: [personalId], references: [idPersonal], onDelete: Restrict)
+  mensajes ConsultaTecnicaMensaje[]
+
+  @@index([updatedAt], map: "consulta_tecnica_conversaciones_updated_idx")
+  @@index([personalId], map: "consulta_tecnica_conversaciones_personal_idx")
+  @@map("consulta_tecnica_conversaciones")
+}
+
+/** Texto del hilo. `autor`: USUARIO o SISTEMA (instructivo). */
+model ConsultaTecnicaMensaje {
+  id             String   @id @default(cuid())
+  conversacionId String   @map("conversacion_id")
+  autor          String   @db.VarChar(16)
+  texto          String   @db.VarChar(2000)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversacion ConsultaTecnicaConversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId, createdAt], map: "consulta_tecnica_mensajes_conversacion_created_idx")
+  @@map("consulta_tecnica_mensajes")
+}
+
 /**
  * Sub-rubros de un rubro (1 rubro → N sub-rubros). Nombre único dentro del rubro.
  * `@@unique([id, idRubro])` sostiene la FK compuesta de `prod_lista` (el sub-rubro debe ser del rubro del ítem).
@@ -624,6 +654,7 @@ model GlobalPersonal {
   stockTransferenciasResueltas StockTransferencia[]  @relation("StockTransferenciaResueltaPor")
   notificacionesLeidas         Notificacion[]
   chequesEmitidos              TesoreriaChequeEmitido[]
+  consultasTecnicas            ConsultaTecnicaConversacion[]
 
   @@index([sucursalPorDefecto], map: "usuarios_sucursal_por_defecto_idx")
   @@map("usuarios")

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prismaCuidSchema } from "@/lib/validations/common";
+import { listaPreciosCodTiendaSchema, prismaCuidSchema } from "@/lib/validations/common";
 
 function campo(max: number, mensaje: string) {
   return z
@@ -30,4 +30,25 @@ export const guardarConsultaTecnicaSchema = z
 
 export const eliminarConsultaTecnicaSchema = z.object({
   id: prismaCuidSchema,
+});
+
+export const leerMensajesConsultaTecnicaSchema = z.object({
+  conversacionId: prismaCuidSchema,
+});
+
+export const buscarItemsConsultaTecnicaSchema = z.object({
+  q: z.string().trim().min(3, "Escribí al menos 3 letras.").max(80, "La búsqueda es demasiado larga."),
+});
+
+export const crearFichaItemConsultaTecnicaSchema = z.object({
+  codTienda: listaPreciosCodTiendaSchema,
+});
+
+export const enviarMensajeConsultaTecnicaSchema = z.object({
+  conversacionId: prismaCuidSchema.optional(),
+  texto: z
+    .string()
+    .trim()
+    .min(1, "Escribí la consulta.")
+    .max(2000, "La consulta es demasiado larga."),
 });

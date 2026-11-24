@@ -1,9 +1,17 @@
 import "server-only";
 
 import { Prisma } from "@prisma/client";
-import type {
-  ConsultaTecnicaPagina,
-  ConsultaTecnicaRecomendacionItem,
+import {
+  CONSULTA_TECNICA_AUTOR_SISTEMA,
+  CONSULTA_TECNICA_AUTOR_USUARIO,
+  CONSULTA_TECNICA_TIPO,
+  CONSULTA_TECNICA_TIPO_FICHA,
+  armarInstructivoFichaItem,
+  etiquetaTipoConsultaTecnica,
+  type ConsultaTecnicaConversacionItem,
+  type ConsultaTecnicaMensajeItem,
+  type ConsultaTecnicaPagina,
+  type ConsultaTecnicaRecomendacionItem,
 } from "@/lib/consultaTecnica";
 import { prisma } from "@/lib/prisma";
 import type { ServiceResult } from "@/types/service.types";
@@ -148,5 +156,253 @@ export async function eliminarConsultaTecnica(id: string): Promise<ServiceResult
   } catch (error: unknown) {
     console.error("[consultaTecnica][eliminar]", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo eliminar la recomendación." };
+  }
+}
+
+function aConversacion(fila: {
+  id: string;
+  tipo: string;
+  updatedAt: Date;
+  personal: { nombrePersonal: string };
+}): ConsultaTecnicaConversacionItem {
+  return {
+    id: fila.id,
+    tipo: fila.tipo,
+    tipoEtiqueta: etiquetaTipoConsultaTecnica(fila.tipo),
+    usuario: fila.personal.nombrePersonal,
+    actualizadoEnIso: fila.updatedAt.toISOString(),
+  };
+}
+
+function aMensaje(fila: {
+  id: string;
+  autor: string;
+  texto: string;
+  createdAt: Date;
+}): ConsultaTecnicaMensajeItem {
+  return {
+    id: fila.id,
+    autor: fila.autor,
+    texto: fila.texto,
+    creadoEnIso: fila.createdAt.toISOString(),
+  };
+}
+
+/** Hilos, el más reciente primero. */
+export async function listarConversacionesConsultaTecnica(): Promise<
+  ConsultaTecnicaConversacionItem[]
+> {
+  const filas = await prisma.consultaTecnicaConversacion.findMany({
+    include: { personal: { select: { nombrePersonal: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+  });
+  return filas.map(aConversacion);
+}
+
+/** Últimos 200 mensajes del hilo, del más viejo al más nuevo. */
+export async function listarMensajesConsultaTecnica(
+  conversacionId: string
+): Promise<ServiceResult<ConsultaTecnicaMensajeItem[]>> {
+  const existe = await prisma.consultaTecnicaConversacion.findUnique({
+    where: { id: conversacionId },
+    select: { id: true },
+  });
+  if (!existe) return { success: false, error: "La consulta no existe." };
+
+  const filas = await prisma.consultaTecnicaMensaje.findMany({
+    where: { conversacionId },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  return { success: true, data: filas.reverse().map(aMensaje) };
+}
+
+/**
+ * Agrega el texto del usuario. Sin hilo, abre uno de tipo TECNICA.
+ * No llama a OpenAI.
+ */
+export async function enviarMensajeConsultaTecnica(input: {
+  personalId: number;
+  conversacionId?: string;
+  texto: string;
+}): Promise<
+  ServiceResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  try {
+    const personal = await prisma.globalPersonal.findUnique({
+      where: { idPersonal: input.personalId },
+      select: { idPersonal: true },
+    });
+    if (!personal) return { success: false, error: "El usuario de la sesión no existe." };
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      let conversacionId = input.conversacionId;
+      if (conversacionId) {
+        const actual = await tx.consultaTecnicaConversacion.findUnique({
+          where: { id: conversacionId },
+          select: { id: true },
+        });
+        if (!actual) return null;
+      } else {
+        const creada = await tx.consultaTecnicaConversacion.create({
+          data: { tipo: CONSULTA_TECNICA_TIPO, personalId: input.personalId },
+          select: { id: true },
+        });
+        conversacionId = creada.id;
+      }
+
+      const mensaje = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_USUARIO,
+          texto: input.texto,
+        },
+      });
+      const conversacion = await tx.consultaTecnicaConversacion.update({
+        where: { id: conversacionId },
+        data: { updatedAt: new Date() },
+        include: { personal: { select: { nombrePersonal: true } } },
+      });
+      return { conversacion, mensaje };
+    });
+
+    if (!resultado) return { success: false, error: "La consulta no existe." };
+    return {
+      success: true,
+      data: {
+        conversacion: aConversacion(resultado.conversacion),
+        mensaje: aMensaje(resultado.mensaje),
+      },
+    };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][enviar]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo guardar la consulta." };
+  }
+}
+
+export type ItemConsultaTecnica = {
+  codTienda: string;
+  descripcion: string;
+};
+
+/** Ítems habilitados cuya descripción contiene todas las palabras. Máximo 15. */
+export async function buscarItemsConsultaTecnica(
+  q: string
+): Promise<ServiceResult<ItemConsultaTecnica[]>> {
+  const tokens = q
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+  if (tokens.length === 0) return { success: true, data: [] };
+
+  try {
+    const filas = await prisma.prodPropio.findMany({
+      where: {
+        habilitado: true,
+        AND: tokens.map((token) => ({
+          descripcionTienda: { contains: token, mode: "insensitive" as const },
+        })),
+      },
+      select: { codTienda: true, descripcionTienda: true },
+      orderBy: { descripcionTienda: "asc" },
+      take: 15,
+    });
+    return {
+      success: true,
+      data: filas
+        .map((fila) => ({
+          codTienda: fila.codTienda,
+          descripcion: (fila.descripcionTienda ?? "").trim(),
+        }))
+        .filter((fila) => fila.descripcion.length > 0),
+    };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][buscar]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo buscar el ítem." };
+  }
+}
+
+/**
+ * Abre un hilo de ficha técnica y escribe el instructivo.
+ * Dilución sale de la ficha activa de esa marca y rubro. El resto, si no está, queda en [COMPLETAR].
+ */
+export async function crearFichaItemConsultaTecnica(input: {
+  personalId: number;
+  codTienda: string;
+}): Promise<
+  ServiceResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  try {
+    const personal = await prisma.globalPersonal.findUnique({
+      where: { idPersonal: input.personalId },
+      select: { idPersonal: true },
+    });
+    if (!personal) return { success: false, error: "El usuario de la sesión no existe." };
+
+    const item = await prisma.prodPropio.findUnique({
+      where: { codTienda: input.codTienda },
+      select: {
+        habilitado: true,
+        descripcionTienda: true,
+        idMarca: true,
+        idRubro: true,
+      },
+    });
+    const descripcion = (item?.descripcionTienda ?? "").trim();
+    if (!item || !item.habilitado || descripcion.length === 0) {
+      return { success: false, error: "El ítem no está habilitado." };
+    }
+
+    let dilucion = "";
+    if (item.idMarca && item.idRubro) {
+      const ficha = await prisma.consultaTecnicaRecomendacion.findUnique({
+        where: { idMarca_idRubro: { idMarca: item.idMarca, idRubro: item.idRubro } },
+        select: { activo: true, dilucion: true },
+      });
+      if (ficha?.activo) dilucion = ficha.dilucion;
+    }
+
+    const texto = armarInstructivoFichaItem({ descripcion, dilucion, urlFicha: "" });
+    if (texto.length > 2000) {
+      return { success: false, error: "El instructivo es demasiado largo." };
+    }
+    const resultado = await prisma.$transaction(async (tx) => {
+      const creada = await tx.consultaTecnicaConversacion.create({
+        data: { tipo: CONSULTA_TECNICA_TIPO_FICHA, personalId: input.personalId },
+        select: { id: true },
+      });
+      const mensaje = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: creada.id,
+          autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
+          texto,
+        },
+      });
+      const conversacion = await tx.consultaTecnicaConversacion.update({
+        where: { id: creada.id },
+        data: { updatedAt: new Date() },
+        include: { personal: { select: { nombrePersonal: true } } },
+      });
+      return { conversacion, mensaje };
+    });
+
+    return {
+      success: true,
+      data: {
+        conversacion: aConversacion(resultado.conversacion),
+        mensaje: aMensaje(resultado.mensaje),
+      },
+    };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][ficha]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo armar el instructivo." };
   }
 }

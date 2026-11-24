@@ -31,7 +31,7 @@ QUÉ YA HACE EL SISTEMA
 - Si el cliente nombra un producto, se buscan hasta 6 ítems habilitados de prod_lista. El precio es el de la lista 1 - GENERAL (prod_lista_precios). Sin fila, el hecho dice que no hay precio. El stock es el saldo de stock_movimientos por sucursal, sin corporativo.
 - Horario, dirección y teléfono de sucursal entran solo si la consulta habla del local.
 - Cada generación lee whatsapp_ia_contexto activo: alcance NEGOCIO (telefono null) o CHAT de ese teléfono. CHECK whatsapp_ia_contexto_alcance_chk. La pantalla para marcar notas todavía no existe. No crees otra tabla paralela para eso.
-- Las fichas de uso, dilución, aplicación y rendimiento se cargan en Consulta Técnica (`/ventas/herramientas/consulta-tecnica`, tabla `consulta_tecnica_recomendaciones`, una por marca y rubro). La sugerencia de WhatsApp todavía no las lee. No dupliques esa tabla.
+- Las fichas de uso, dilución, aplicación y rendimiento están en `consulta_tecnica_recomendaciones` (una por marca y rubro). La pantalla Consulta Técnica (`/ventas/ventas/consulta-tecnica`, módulo Ventas) abre **Nueva Consulta**. Ficha de un ítem arma un instructivo con la dilución de esa ficha, si existe; preparación, secado y la URL del fabricante quedan en `[COMPLETAR]` porque no están en la base. No inventes esos datos ni una URL. No edita las fichas y no llama a OpenAI. La sugerencia de WhatsApp tampoco las lee. No dupliques esa tabla.
 - Cada borrador se guarda en whatsapp_ia_sugerencias: teléfono, texto, modelo, tokens_entrada, tokens_salida, tokens_total y mensaje_ancla_id (el último entrante, sin FK).
 - La clave vive en .env y, en el sitio publicado, en las variables de Vercel. .env no se commitea.
 
