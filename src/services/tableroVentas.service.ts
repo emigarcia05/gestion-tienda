@@ -109,7 +109,7 @@ export interface TableroVentasSerieDia {
   dias: TableroVentasDiaGrafico[];
 }
 
-/** Lunes → domingo. El gráfico SEMANA siempre trae los siete, en este orden. */
+/** Lunes → domingo. El gráfico SEM siempre trae los siete, en este orden. */
 const ETIQUETAS_DIA_SEMANA = [
   "LUNES",
   "MARTES",
@@ -120,7 +120,7 @@ const ETIQUETAS_DIA_SEMANA = [
   "DOMINGO",
 ] as const;
 
-/** Un día de la semana del gráfico SEMANA. `promedio` es null si ningún día de ese nombre tuvo neto > 0. */
+/** Un día de la semana del gráfico SEM. `promedio` es null si ningún día de ese nombre tuvo neto > 0. */
 export interface TableroVentasDiaSemanaGrafico {
   etiqueta: string;
   /** Suma de los días con neto > 0 / cantidad de esos días. Null si no hubo ninguno. */
