@@ -343,6 +343,7 @@ export default function TableroVentas({
               <GraficoMesesTablero
                 series={datos.seriesMeses}
                 seriesDias={datos.seriesDias}
+                seriesSemana={datos.seriesSemana}
                 anio={datos.graficoDiaPeriodo.anio}
                 mes={datos.graficoDiaPeriodo.mes}
               />

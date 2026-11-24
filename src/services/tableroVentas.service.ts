@@ -8,7 +8,6 @@ import {
   horarioSucursalParaDiasHabiles,
   pesoDiaHabilFijo,
   pesoDiaHabilSucursal,
-  sumaPesosDiasHabiles,
 } from "@/lib/horarioSucursal";
 import { esFacturaTipo, esFacturaTipoNotaCredito, montoSaldoVencidoVenta } from "@/lib/factura";
 import {
@@ -80,7 +79,7 @@ const ETIQUETAS_MES = [
   "DIC",
 ] as const;
 
-/** Mes del gráfico. `proyectado` solo en el mes en curso: vendido / días hábiles hasta hoy × días hábiles del mes. */
+/** Mes del gráfico. `proyectado` solo en el mes en curso: vendido hasta hoy + promedio de cada día hábil que queda. */
 export interface TableroVentasMesGrafico {
   mes: number;
   etiqueta: string;
@@ -108,6 +107,33 @@ export interface TableroVentasSerieDia {
   /** Total del año / días con neto mayor a 0. La misma cuenta que `montoPromedioDia`. */
   promedio: number;
   dias: TableroVentasDiaGrafico[];
+}
+
+/** Lunes → domingo. El gráfico SEMANA siempre trae los siete, en este orden. */
+const ETIQUETAS_DIA_SEMANA = [
+  "LUNES",
+  "MARTES",
+  "MIÉRCOLES",
+  "JUEVES",
+  "VIERNES",
+  "SÁBADO",
+  "DOMINGO",
+] as const;
+
+/** Un día de la semana del gráfico SEMANA. `promedio` es null si ningún día de ese nombre tuvo neto > 0. */
+export interface TableroVentasDiaSemanaGrafico {
+  etiqueta: string;
+  /** Suma de los días con neto > 0 / cantidad de esos días. Null si no hubo ninguno. */
+  promedio: number | null;
+  /** Días del año (hasta hoy) con neto > 0 que entran en el promedio. */
+  dias: number;
+}
+
+/** Una sucursal en el gráfico por día de la semana. Sin serie GLOBAL. */
+export interface TableroVentasSerieSemana {
+  id: string;
+  etiqueta: string;
+  dias: TableroVentasDiaSemanaGrafico[];
 }
 
 /** Parte de las ventas de una sucursal sobre el total global del día o del mes, y su promedio. */
@@ -141,6 +167,8 @@ export interface TableroVentasDatos {
   seriesMeses: TableroVentasSerieMes[];
   /** Una serie por sucursal, días 1..último del mes en curso. */
   seriesDias: TableroVentasSerieDia[];
+  /** Una serie por sucursal: promedio del año hasta hoy, de lunes a domingo. */
+  seriesSemana: TableroVentasSerieSemana[];
   /** Año y mes AR del gráfico por día (mes en curso). */
   graficoDiaPeriodo: { anio: number; mes: number };
   clientesVencidos: TableroVentasClienteVencido[];
@@ -172,24 +200,42 @@ export function pctCobradoSobreVentas(cobrado: number, ventas: number): number |
   return Math.round((cobrado / ventas) * 100);
 }
 
-/** Vendido / días hábiles ya corridos × días hábiles del mes. Sin días corridos, queda lo vendido. */
-function proyectadoMesHabil(vendido: number, habilesHastaHoy: number, habilesMes: number): number {
-  if (habilesHastaHoy <= 0) return redondear2(vendido);
-  return redondear2((vendido / habilesHastaHoy) * habilesMes);
+/**
+ * Vendido hasta hoy más el promedio de cada día hábil que queda.
+ * Un día cerrado no suma. Uno que abre suma el promedio entero de ese día de la semana.
+ */
+function proyectadoConDiasRestantes(
+  vendido: number,
+  promedios: readonly number[],
+  pesoDeDia: (iso: string) => number,
+  desdeIso: string,
+  hastaIso: string
+): number {
+  let extra = 0;
+  if (desdeIso <= hastaIso) {
+    let cursor = desdeIso;
+    for (let i = 0; i < 31 && cursor <= hastaIso; i += 1) {
+      if (pesoDeDia(cursor) > 0) {
+        const indice = indiceDiaSemanaLunes(cursor);
+        if (indice != null) extra += promedios[indice] ?? 0;
+      }
+      if (cursor === hastaIso) break;
+      cursor = addDaysToIsoYmdArgentina(cursor, 1);
+    }
+  }
+  return redondear2(vendido + extra);
 }
 
 function mesesDelAnio(
   mesActual: number,
   vendidoMes: number,
-  habilesHastaHoy: number,
-  habilesMes: number,
+  proyectadoActual: number,
   ventasPorMes: Map<number, number>
 ): TableroVentasMesGrafico[] {
-  const proyectado = proyectadoMesHabil(vendidoMes, habilesHastaHoy, habilesMes);
   return ETIQUETAS_MES.map((etiqueta, indice) => {
     const m = indice + 1;
     if (m === mesActual) {
-      return { mes: m, etiqueta, ventas: vendidoMes, proyectado };
+      return { mes: m, etiqueta, ventas: vendidoMes, proyectado: proyectadoActual };
     }
     if (m > mesActual) {
       return { mes: m, etiqueta, ventas: 0, proyectado: null };
@@ -308,6 +354,55 @@ function compararVentas(actual: number, anterior: number): ComparacionVentas {
 
 function diasDelMes(anio: number, mes: number): number {
   return new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+}
+
+/** 0 = lunes … 6 = domingo. La fecha es calendario (`YYYY-MM-DD`), no hora del servidor. */
+function indiceDiaSemanaLunes(iso: string): number | null {
+  const anio = Number(iso.slice(0, 4));
+  const mes = Number(iso.slice(5, 7));
+  const dia = Number(iso.slice(8, 10));
+  if (!Number.isInteger(anio) || !Number.isInteger(mes) || !Number.isInteger(dia)) return null;
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
+    return null;
+  }
+  const utc = fecha.getUTCDay();
+  return utc === 0 ? 6 : utc - 1;
+}
+
+/**
+ * Promedio por día de la semana del año en curso, hasta hoy.
+ * Solo entran los días con neto > 0: un feriado o un cerrado no suma ni divide.
+ */
+function serieSemanaDe(
+  id: string,
+  etiqueta: string,
+  porDia: Map<string, number> | undefined,
+  hoyIso: string
+): TableroVentasSerieSemana {
+  const sumas = [0, 0, 0, 0, 0, 0, 0];
+  const cuentas = [0, 0, 0, 0, 0, 0, 0];
+  if (porDia) {
+    for (const [iso, neto] of porDia) {
+      if (iso > hoyIso || neto <= 0.009) continue;
+      const indice = indiceDiaSemanaLunes(iso);
+      if (indice == null) continue;
+      sumas[indice] += neto;
+      cuentas[indice] += 1;
+    }
+  }
+  return {
+    id,
+    etiqueta,
+    dias: ETIQUETAS_DIA_SEMANA.map((nombre, indice) => {
+      const n = cuentas[indice] ?? 0;
+      return {
+        etiqueta: nombre,
+        promedio: n === 0 ? null : redondear2((sumas[indice] ?? 0) / n),
+        dias: n,
+      };
+    }),
+  };
 }
 
 function isoMes(anio: number, mes: number): string {
@@ -575,42 +670,32 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       const horario = horarioPorSucursal.get(id);
       return horario ? pesoDiaHabilSucursal(horario, iso) : pesoDiaHabilFijo(iso);
     };
-    const pesosSucursal = (id: string) => ({
-      hastaHoy: sumaPesosDiasHabiles((iso) => pesoSucursal(id, iso), desdeMesIso, hoyIso),
-      mes: sumaPesosDiasHabiles((iso) => pesoSucursal(id, iso), desdeMesIso, finMesIso),
-    });
-    const pesoGlobal = (iso: string) => {
-      if (sucursales.length === 0) return pesoDiaHabilFijo(iso);
-      let suma = 0;
-      for (const s of sucursales) suma += pesoSucursal(s.id, iso);
-      return suma / sucursales.length;
-    };
-    const habilesGlobal = {
-      hastaHoy: sumaPesosDiasHabiles(pesoGlobal, desdeMesIso, hoyIso),
-      mes: sumaPesosDiasHabiles(pesoGlobal, desdeMesIso, finMesIso),
-    };
+    const mananaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
     let proyectadoSucursales = 0;
     let vendidoConSucursal = 0;
+    const seriesSemana: TableroVentasSerieSemana[] = [];
     const seriesSucursales: TableroVentasSerieMes[] = sucursales
       .slice()
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
       .map((s) => {
         const vendidoRaw = ventasHastaHoyPorSucursal.get(s.id) ?? 0;
         const vendido = redondear2(vendidoRaw);
-        const pesos = pesosSucursal(s.id);
+        const etiqueta = s.nombre.toLocaleUpperCase("es");
+        const semana = serieSemanaDe(s.id, etiqueta, ventasPorDiaSucursal.get(s.id), hoyIso);
+        seriesSemana.push(semana);
         vendidoConSucursal += vendidoRaw;
-        const proyectado = proyectadoMesHabil(vendido, pesos.hastaHoy, pesos.mes);
+        const proyectado = proyectadoConDiasRestantes(
+          vendido,
+          semana.dias.map((dia) => dia.promedio ?? 0),
+          (iso) => pesoSucursal(s.id, iso),
+          mananaIso,
+          finMesIso
+        );
         proyectadoSucursales += proyectado;
         return {
           id: s.id,
-          etiqueta: s.nombre.toLocaleUpperCase("es"),
-          meses: mesesDelAnio(
-            mes,
-            vendido,
-            pesos.hastaHoy,
-            pesos.mes,
-            ventasPorMesSucursal.get(s.id) ?? new Map()
-          ),
+          etiqueta,
+          meses: mesesDelAnio(mes, vendido, proyectado, ventasPorMesSucursal.get(s.id) ?? new Map()),
         };
       });
     const ultimoDiaMes = diasDelMes(anio, mes);
@@ -633,23 +718,12 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
       };
     });
     const vendidoSinSucursal = ventasMesHastaHoy - vendidoConSucursal;
-    const proyectadoGlobal = redondear2(
-      proyectadoSucursales +
-        (Math.abs(vendidoSinSucursal) < 0.005
-          ? 0
-          : proyectadoMesHabil(vendidoSinSucursal, habilesGlobal.hastaHoy, habilesGlobal.mes))
-    );
+    const proyectadoGlobal = redondear2(proyectadoSucursales + vendidoSinSucursal);
     const seriesMeses: TableroVentasSerieMes[] = [
       {
         id: "global",
         etiqueta: "GLOBAL",
-        meses: mesesDelAnio(
-          mes,
-          redondear2(ventasMesHastaHoy),
-          habilesGlobal.hastaHoy,
-          habilesGlobal.mes,
-          ventasPorMes
-        ).map((fila) => (fila.mes === mes ? { ...fila, proyectado: proyectadoGlobal } : fila)),
+        meses: mesesDelAnio(mes, redondear2(ventasMesHastaHoy), proyectadoGlobal, ventasPorMes),
       },
       ...seriesSucursales,
     ];
@@ -718,6 +792,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         participacionSucursales,
         seriesMeses,
         seriesDias,
+        seriesSemana,
         graficoDiaPeriodo: { anio, mes },
         clientesVencidos,
         enviosPendientesHoy: pendientes.enviosPendientesHoy,
@@ -739,6 +814,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
     globales: { dia: montosVacios(), mes: montosVacios() },
     participacionSucursales: [],
     seriesDias: [],
+    seriesSemana: [],
     graficoDiaPeriodo: { anio: 0, mes: 0 },
     seriesMeses: [
       {

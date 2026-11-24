@@ -15,6 +15,7 @@ import type {
   TableroVentasMesGrafico,
   TableroVentasSerieDia,
   TableroVentasSerieMes,
+  TableroVentasSerieSemana,
 } from "@/services/tableroVentas.service";
 
 /** Deja lugar arriba de la barra más alta para el total en millones. */
@@ -23,7 +24,17 @@ const ALTO_BARRA_MAX = 82;
 /** Azul y amarillo de la marca. La primera sucursal, por nombre, lleva el azul. */
 const COLORES_SUCURSAL = ["var(--primary)", "var(--accent2)"] as const;
 
-type ModoGrafico = "dia" | "mes";
+type ModoGrafico = "dia" | "semana" | "mes";
+
+const ETIQUETAS_SEMANA = [
+  "LUNES",
+  "MARTES",
+  "MIÉRCOLES",
+  "JUEVES",
+  "VIERNES",
+  "SÁBADO",
+  "DOMINGO",
+] as const;
 
 function pesos(n: number): string {
   return `$${fmtPrecio(n)}`;
@@ -103,6 +114,10 @@ function pctSobreTotal(monto: number, total: number): number {
 function ventasDelDia(serie: TableroVentasSerieDia, dia: number): number {
   const punto = serie.dias.find((fila) => fila.dia === dia);
   return punto?.ventas ?? 0;
+}
+
+function etiquetaCantidadDias(n: number): string {
+  return n === 1 ? "(1 día)" : `(${n} días)`;
 }
 
 function LineasDia({
@@ -248,6 +263,133 @@ function LineasDia({
   );
 }
 
+function LineasSemana({ series }: { series: TableroVentasSerieSemana[] }) {
+  const etiquetas = series[0]?.dias.map((dia) => dia.etiqueta) ?? [...ETIQUETAS_SEMANA];
+  const nDias = etiquetas.length;
+  const montos = series.flatMap((serie) =>
+    serie.dias.flatMap((dia) => (dia.promedio == null ? [] : [dia.promedio]))
+  );
+  const maximo = montos.reduce((max, monto) => (monto > max ? monto : max), 0);
+  const minimo = montos.reduce((min, monto) => (monto < min ? monto : min), 0);
+  const { piso, techo, ticks } = escalaEjeMillon(maximo, minimo);
+  const xDe = (indice: number) => ((indice + 0.5) / nDias) * 100;
+  return (
+    <div className="grid h-full min-h-0 flex-1 grid-cols-[4.25rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-1">
+      <div className="relative min-h-0 text-right text-[10px] font-semibold tabular-nums leading-none">
+        {ticks.map((monto) => (
+          <span
+            key={monto}
+            className="absolute right-0 -translate-y-1/2"
+            style={{ top: `${yDeMonto(monto, piso, techo)}%` }}
+          >
+            {etiquetaPasoMillon(monto)}
+          </span>
+        ))}
+      </div>
+      <div className="relative min-h-0">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          aria-hidden
+        >
+          {ticks.map((monto) => (
+            <line
+              key={monto}
+              x1="0"
+              x2="100"
+              y1={yDeMonto(monto, piso, techo)}
+              y2={yDeMonto(monto, piso, techo)}
+              stroke="var(--border)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {series.map((serie, indice) => {
+            const tramos: string[][] = [];
+            let actual: string[] = [];
+            serie.dias.forEach((dia, indiceDia) => {
+              if (dia.promedio == null) {
+                if (actual.length > 0) tramos.push(actual);
+                actual = [];
+                return;
+              }
+              actual.push(`${xDe(indiceDia)},${yDeMonto(dia.promedio, piso, techo)}`);
+            });
+            if (actual.length > 0) tramos.push(actual);
+            return tramos.map((puntos) =>
+              puntos.length < 2 ? null : (
+                <polyline
+                  key={`${serie.id}-${puntos[0]}`}
+                  fill="none"
+                  stroke={COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length]}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                  points={puntos.join(" ")}
+                />
+              )
+            );
+          })}
+        </svg>
+        {series.map((serie, indice) =>
+          serie.dias.map((dia, indiceDia) => {
+            if (dia.promedio == null) return null;
+            const color = COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length];
+            return (
+              <Tooltip key={`${serie.id}-${dia.etiqueta}`}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="absolute z-10 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                    style={{
+                      left: `${xDe(indiceDia)}%`,
+                      top: `${yDeMonto(dia.promedio, piso, techo)}%`,
+                    }}
+                    aria-label={dia.etiqueta}
+                  >
+                    <span
+                      className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card"
+                      style={{ backgroundColor: color }}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-left leading-snug">
+                  <p className="text-center font-bold">{dia.etiqueta}</p>
+                  <div className="grid grid-cols-[auto_auto_auto] justify-items-start gap-x-3 tabular-nums">
+                    {series.map((item) => {
+                      const punto = item.dias[indiceDia];
+                      const promedio = punto?.promedio;
+                      return (
+                        <Fragment key={item.id}>
+                          <span>{item.etiqueta}</span>
+                          <span>{promedio == null ? "" : pesos(promedio)}</span>
+                          <span>{etiquetaCantidadDias(punto?.dias ?? 0)}</span>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })
+        )}
+      </div>
+      <span />
+      <div className="grid grid-cols-7 pt-1">
+        {etiquetas.map((etiqueta) => (
+          <span
+            key={etiqueta}
+            className="min-w-0 text-center text-[9px] font-semibold leading-none tracking-tight"
+          >
+            {etiqueta}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BarrasMes({ meses }: { meses: TableroVentasMesGrafico[] }) {
   const techo = meses.reduce((max, mes) => {
     const candidato = Math.max(mes.ventas, mes.proyectado ?? 0);
@@ -308,18 +450,20 @@ function BarrasMes({ meses }: { meses: TableroVentasMesGrafico[] }) {
 export default function GraficoMesesTablero({
   series,
   seriesDias = [],
+  seriesSemana = [],
   anio,
   mes,
 }: {
   series: TableroVentasSerieMes[];
   seriesDias?: TableroVentasSerieDia[];
+  seriesSemana?: TableroVentasSerieSemana[];
   anio: number;
   mes: number;
 }) {
   const [modo, setModo] = useState<ModoGrafico>("dia");
   const [serieId, setSerieId] = useState("global");
   const serie = series.find((item) => item.id === serieId) ?? series[0];
-  if (!serie && seriesDias.length === 0) return null;
+  if (!serie && seriesDias.length === 0 && seriesSemana.length === 0) return null;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 items-center justify-between gap-2">
@@ -327,7 +471,7 @@ export default function GraficoMesesTablero({
           <Select
             value={modo}
             onValueChange={(valor) => {
-              if (valor === "dia" || valor === "mes") setModo(valor);
+              if (valor === "dia" || valor === "semana" || valor === "mes") setModo(valor);
             }}
           >
             <SelectTrigger
@@ -339,6 +483,7 @@ export default function GraficoMesesTablero({
             </SelectTrigger>
             <SelectContent searchable={false} className="select-content-filtro" position="popper" side="bottom" align="start">
               <SelectItem value="dia">DIA</SelectItem>
+              <SelectItem value="semana">SEMANA</SelectItem>
               <SelectItem value="mes">MES</SelectItem>
             </SelectContent>
           </Select>
@@ -361,9 +506,9 @@ export default function GraficoMesesTablero({
             </Select>
           ) : null}
         </div>
-        {modo === "dia" ? (
+        {modo === "dia" || modo === "semana" ? (
           <div className="flex items-center justify-end gap-3">
-            {seriesDias.map((item, indice) => (
+            {(modo === "dia" ? seriesDias : seriesSemana).map((item, indice) => (
               <span
                 key={item.id}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
@@ -373,10 +518,12 @@ export default function GraficoMesesTablero({
                     className="h-0.5 w-full"
                     style={{ backgroundColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
                   />
-                  <span
-                    className="w-full border-t border-dotted"
-                    style={{ borderTopColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
-                  />
+                  {modo === "dia" ? (
+                    <span
+                      className="w-full border-t border-dotted"
+                      style={{ borderTopColor: COLORES_SUCURSAL[indice % COLORES_SUCURSAL.length] }}
+                    />
+                  ) : null}
                 </span>
                 {item.etiqueta}
               </span>
@@ -397,6 +544,8 @@ export default function GraficoMesesTablero({
       </div>
       {modo === "dia" ? (
         <LineasDia series={seriesDias} anio={anio} mes={mes} />
+      ) : modo === "semana" ? (
+        <LineasSemana series={seriesSemana} />
       ) : serie ? (
         <BarrasMes meses={serie.meses} />
       ) : null}

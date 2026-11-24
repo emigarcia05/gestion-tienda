@@ -2,9 +2,9 @@
 
 Plan de recorrido. No es un agente: no va en la tabla de `docs/Agentes/README.md`.
 
-- Siguiente: 33
+- Siguiente: 41
 - Total de pasos: 194
-- Hechos: 32
+- Hechos: 40
 - Archivos en el plan: 973
 
 Cada paso queda en pendiente hasta ejecutarse. Al cerrar un paso: estado `hecho`, líneas revisadas (las de abajo, antes de borrar), líneas eliminadas, porcentaje y dudosos.
@@ -45,14 +45,14 @@ Una tanda junta pasos pendientes seguidos. `src/app`: hasta 2.500 líneas o 8 pa
 30. src/components/asistente-ia (2/3) — hecho — 1280 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
 31. src/components/asistente-ia (3/3) — hecho — 256 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
 32. src/components/desc-promos (1/2) — hecho — 1050 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
-33. src/components/desc-promos (2/2) — pendiente — 3 archivos, 769 líneas
-34. src/components/envios (1/3) — pendiente — 2 archivos, 948 líneas
-35. src/components/envios (2/3) — pendiente — 3 archivos, 1426 líneas
-36. src/components/envios (3/3) — pendiente — 11 archivos, 1292 líneas
-37. src/components/estadisticas-productos (1/5) — pendiente — 4 archivos, 1241 líneas
-38. src/components/estadisticas-productos (2/5) — pendiente — 1 archivos, 600 líneas
-39. src/components/estadisticas-productos (3/5) — pendiente — 2 archivos, 1341 líneas
-40. src/components/estadisticas-productos (4/5) — pendiente — 3 archivos, 1460 líneas
+33. src/components/desc-promos (2/2) — hecho — 769 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+34. src/components/envios (1/3) — hecho — 948 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+35. src/components/envios (2/3) — hecho — 1426 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+36. src/components/envios (3/3) — hecho — 1292 líneas revisadas, 116 eliminadas (8,98%). Dudosos: ninguno
+37. src/components/estadisticas-productos (1/5) — hecho — 1241 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+38. src/components/estadisticas-productos (2/5) — hecho — 600 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+39. src/components/estadisticas-productos (3/5) — hecho — 1341 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
+40. src/components/estadisticas-productos (4/5) — hecho — 1460 líneas revisadas, 0 eliminadas (0,00%). Dudosos: ninguno
 41. src/components/estadisticas-productos (5/5) — pendiente — 1 archivos, 716 líneas
 42. src/components/facturacion (1/10) — pendiente — 5 archivos, 1289 líneas
 43. src/components/facturacion (2/10) — pendiente — 3 archivos, 1500 líneas
@@ -781,11 +781,12 @@ Archivos:
 
 ### 33. src/components/desc-promos (2/2)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 769
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `/administrador/cobros-desc/descuentos` importa `DescPromosPageClient`. Esa página usa `EliminarDescPromoModal` y `VerDescPromoModal`. `FacturaDescuentoModal` también abre `VerDescPromoModal`. Los helpers locales se usan.
 
 Archivos:
 
@@ -795,11 +796,12 @@ Archivos:
 
 ### 34. src/components/envios (1/3)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 948
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `CrearEditarClienteModal` y `CrearEditarEnviosDireccionModal` los usan la lista de clientes, crear factura y el asistente de envío. El modal de cliente también abre el de dirección. Los helpers locales se usan.
 
 Archivos:
 
@@ -808,11 +810,12 @@ Archivos:
 
 ### 35. src/components/envios (2/3)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 1426
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `EnviosPageClient` y `FacturaListadoPageClient` importan `CrearEnvioWizardModal`. `/ventas/envios/conductor` y `/conductor/[token]` importan `EnviosConductorPageClient`, que abre `EnviosConductorDireccionesModal`. Los helpers locales se usan.
 
 Archivos:
 
@@ -822,11 +825,12 @@ Archivos:
 
 ### 36. src/components/envios (3/3)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 1292
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 116
+- Porcentaje: 8,98
+- Dudosos: ninguno
+- Nota: se borró `EnviosConsumidoresDePintorModal.tsx` (nadie lo importaba). El filtro de pintor lo hace `EnviosPintorConsumidoresButton` dentro del wizard. El resto se importa: la página de programados, el wizard, el modal de cliente o el de ver. `ENVIOS_WIZARD_PASOS` se usa en su archivo.
 
 Archivos:
 
@@ -844,11 +848,12 @@ Archivos:
 
 ### 37. src/components/estadisticas-productos (1/5)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 1241
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `/administrador/estadisticas/configuracion` importa `EstCategorizacionPageClient` y `/carga-de-datos` importa `EstPorProdPageClient`. `EstVtasPageClient` usa los dos gráficos. Los helpers locales se usan.
 
 Archivos:
 
@@ -859,11 +864,12 @@ Archivos:
 
 ### 38. src/components/estadisticas-productos (2/5)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 600
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `EstVtasPageClient` importa `EstVtasGraficoVarianteBarras`. Los helpers de barras, desglose y encabezados se usan en el mismo archivo.
 
 Archivos:
 
@@ -871,11 +877,12 @@ Archivos:
 
 ### 39. src/components/estadisticas-productos (3/5)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 1341
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `/administrador/estadisticas/ventas` importa `EstVtasPageClient`. `GestionarEstPorProdColoresModal` lo abren categorización y el catálogo de producto tienda. Los helpers y los imports del cliente se usan.
 
 Archivos:
 
@@ -884,11 +891,12 @@ Archivos:
 
 ### 40. src/components/estadisticas-productos (4/5)
 
-- Estado: pendiente
+- Estado: hecho
 - Líneas revisadas: 1460
-- Líneas eliminadas: —
-- Porcentaje: —
-- Dudosos: —
+- Líneas eliminadas: 0
+- Porcentaje: 0,00
+- Dudosos: ninguno
+- Nota: `EstCategorizacionPageClient` abre los tres modales. El de presentación también abre el de unidades. Los helpers de formato y las clases de fila se usan en cada archivo.
 
 Archivos:
 
