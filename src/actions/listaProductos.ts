@@ -17,14 +17,12 @@ import {
   crearRubroSchema,
   crearSubRubroSchema,
   editarMarcaSchema,
-  buscarSkuMismoProductoSchema,
   editarProductoTiendaSchema,
   editarRubroSchema,
   editarSubRubroSchema,
   eliminarProductoTiendaSchema,
   idCatalogoInputSchema,
   leerFliaProductoSchema,
-  leerProductoSkuSchema,
 } from "@/lib/validations/listaProductos";
 import {
   getPxVentaItemModalSchema,
@@ -67,12 +65,8 @@ import {
   setProductoCompuestoTienda,
 } from "@/services/productoCompuesto.service";
 import {
-  buscarSkusMismoProducto,
-  leerProductoDelSku,
   listarDescripcionesFliaItem,
   siguienteCodFliaItem,
-  type ProductoDelSku,
-  type SkuMismoProducto,
 } from "@/services/prodProducto.service";
 import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
 import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
@@ -108,16 +102,6 @@ export async function editarProductoTiendaAction(
   return out;
 }
 
-export async function leerProductoDelSkuAction(
-  raw: unknown
-): Promise<ActionResult<ProductoDelSku>> {
-  const gate = await requireEditorTienda();
-  if (gate) return gate;
-  const parsed = leerProductoSkuSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  return fromServiceResult(await leerProductoDelSku(parsed.data.codTienda));
-}
-
 export async function siguienteCodFliaItemAction(): Promise<ActionResult<{ codigo: string }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
@@ -132,16 +116,6 @@ export async function listarDescripcionesFliaItemAction(
   const parsed = leerFliaProductoSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
   return fromServiceResult(await listarDescripcionesFliaItem(parsed.data.codigo));
-}
-
-export async function buscarSkusMismoProductoAction(
-  raw: unknown
-): Promise<ActionResult<SkuMismoProducto[]>> {
-  const gate = await requireEditorTienda();
-  if (gate) return gate;
-  const parsed = buscarSkuMismoProductoSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  return fromServiceResult(await buscarSkusMismoProducto(parsed.data));
 }
 
 export async function eliminarProductoTiendaAction(

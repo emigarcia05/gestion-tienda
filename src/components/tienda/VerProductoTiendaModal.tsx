@@ -90,7 +90,7 @@ export default function VerProductoTiendaModal({
             <LineaLecturaModal etiqueta="PRESENTACIÓN" valor={fmtCelda(item.presentacion)} />
             <LineaLecturaModal etiqueta="COLOR" valor={fmtCelda(item.color)} />
             <LineaLecturaModal etiqueta="TERMINACIÓN" valor={fmtCelda(item.terminacion)} />
-            <LineaLecturaModal etiqueta="COD. FLIA." valor={fmtCelda(item.codFliaItem)} />
+            <LineaLecturaModal etiqueta="COD. FAMILIA" valor={fmtCelda(item.codFamilia)} />
           </section>
           <section className="modal-seccion-formulario flex flex-col gap-2">
             <h3 className={TITULO_SECCION_CLASS}>ITEM VINCULADOS</h3>

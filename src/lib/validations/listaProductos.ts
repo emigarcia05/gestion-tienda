@@ -14,8 +14,8 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-/** `prod_lista.cod_flia_item`. Vacío → null. `5` y `005` quedan `005`. */
-export const codFliaItemSchema = z
+/** `prod_lista.cod_familia`. Vacío → null. `5` y `005` quedan `005`. */
+export const codFamiliaSchema = z
   .string()
   .trim()
   .max(6, "El código de familia admite hasta 6 dígitos.")
@@ -58,7 +58,7 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
     esProductoCompuesto: z.boolean(),
     componentes: componentesCompuestoSchema,
-    codFliaItem: codFliaItemSchema,
+    codFamilia: codFamiliaSchema,
   })
   .superRefine((item, ctx) => {
     if (item.esProductoPropio && item.codExtVinculo) {
@@ -96,33 +96,13 @@ export const crearProductosTiendaLoteSchema = z
   });
 
 /** Editar: vínculos, costo y producto propio se manejan con sus propias acciones (inmediatas). */
-export const editarProductoTiendaSchema = camposProductoTiendaSchema
-  .extend({
-    codTienda: listaPreciosCodTiendaSchema,
-    /** SKU de la misma marca al que se une este ítem. `null` = no cambia el vínculo a mano. */
-    codMismoProducto: listaPreciosCodTiendaSchema.nullable(),
-    /** Vuelve a calcular el producto por el nombre, sin el vínculo a mano. */
-    soltarProducto: z.boolean(),
-    codFliaItem: codFliaItemSchema,
-  })
-  .superRefine((item, ctx) => {
-    if (item.soltarProducto && item.codMismoProducto) {
-      ctx.addIssue({ code: "custom", message: "No se puede unir y separar a la vez." });
-    }
-  });
+export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
+  codTienda: listaPreciosCodTiendaSchema,
+  codFamilia: codFamiliaSchema,
+});
 
 export const leerFliaProductoSchema = z.object({
   codigo: z.string().trim().max(6),
-});
-
-export const leerProductoSkuSchema = z.object({
-  codTienda: listaPreciosCodTiendaSchema,
-});
-
-export const buscarSkuMismoProductoSchema = z.object({
-  idMarca: idCatalogoSchema,
-  q: z.string().trim().min(3, "Escribí al menos 3 letras.").max(80, "La búsqueda es demasiado larga."),
-  excluirCodTienda: listaPreciosCodTiendaSchema,
 });
 
 export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });

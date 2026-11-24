@@ -18,10 +18,6 @@ import type {
 } from "@/lib/validations/listaProductos";
 import type { ServiceResult } from "@/types";
 import {
-  asignarProductoDeSku,
-  borrarProductoSiQuedaVacio,
-} from "@/services/prodProducto.service";
-import {
   ErrorNegocioCompuesto,
   insertarComponentesCompuesto,
 } from "@/services/productoCompuesto.service";
@@ -142,11 +138,9 @@ async function crearUnProductoTienda(
       esProductoPropio: item.esProductoPropio || item.esProductoCompuesto,
       esProductoCompuesto: item.esProductoCompuesto,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
-      codFliaItem: item.codFliaItem,
+      codFamilia: item.codFamilia,
     },
   });
-  const producto = await asignarProductoDeSku(tx, cod, { codMismoProducto: null, soltar: false });
-  if (!producto.ok) throw new ErrorNegocio(producto.error);
   if (lineaProveedor) {
     await tx.listaPrecioProveedor.update({
       where: { codExt: lineaProveedor.codExt },
@@ -211,13 +205,8 @@ export async function editarProductoTienda(
       const { data } = await resolverCamposProductoTienda(tx, input);
       await tx.prodPropio.update({
         where: { codTienda: input.codTienda },
-        data: { ...data, codFliaItem: input.codFliaItem },
+        data: { ...data, codFamilia: input.codFamilia },
       });
-      const producto = await asignarProductoDeSku(tx, input.codTienda, {
-        codMismoProducto: input.codMismoProducto,
-        soltar: input.soltarProducto,
-      });
-      if (!producto.ok) throw new ErrorNegocio(producto.error);
     });
     return { success: true, data: { codTienda: input.codTienda } };
   } catch (error) {
@@ -240,7 +229,7 @@ export async function eliminarProductoTienda(
     return await prisma.$transaction(async (tx) => {
       const existe = await tx.prodPropio.findUnique({
         where: { codTienda },
-        select: { codTienda: true, idProducto: true },
+        select: { codTienda: true },
       });
       if (!existe) throw new ErrorNegocio("El producto ya no existe.");
       const [movStock, transferencias, compras, ventas, estadisticas, componenteDe] = await Promise.all([
@@ -265,7 +254,6 @@ export async function eliminarProductoTienda(
       }
       await tx.prodPedMerc2.deleteMany({ where: { reposicionCodTienda: codTienda } });
       await tx.prodPropio.delete({ where: { codTienda } });
-      await borrarProductoSiQuedaVacio(tx, existe.idProducto);
       return { success: true as const, data: { codTienda, deshabilitadoPor: null } };
     });
   } catch (error) {

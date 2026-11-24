@@ -13,9 +13,8 @@ import {
   type ConsultaTecnicaPagina,
   type ConsultaTecnicaRecomendacionItem,
 } from "@/lib/consultaTecnica";
-import { claveFichaDeFlia, claveFichaDeProducto } from "@/lib/prodProducto";
+import { claveFichaDeFlia, claveFichaDeSku } from "@/lib/prodProducto";
 import { prisma } from "@/lib/prisma";
-import { asignarProductoDeSku } from "@/services/prodProducto.service";
 import {
   resumirHojaFabricante,
   type ResumenHojaFabricante,
@@ -399,8 +398,7 @@ export async function crearFichaItemConsultaTecnica(input: {
         habilitado: true,
         descripcionTienda: true,
         idMarca: true,
-        idProducto: true,
-        codFliaItem: true,
+        codFamilia: true,
         marcaRelation: { select: { nombre: true } },
       },
     });
@@ -409,27 +407,9 @@ export async function crearFichaItemConsultaTecnica(input: {
       return { success: false, error: "El ítem no está habilitado." };
     }
 
-    let idProducto = item.idProducto;
-    if (!idProducto) {
-      const asignado = await prisma.$transaction((tx) =>
-        asignarProductoDeSku(tx, input.codTienda, { codMismoProducto: null, soltar: false })
-      );
-      if (!asignado.ok) {
-        if (!item.codFliaItem) return { success: false, error: asignado.error };
-      } else {
-        const ligado = await prisma.prodPropio.findUnique({
-          where: { codTienda: input.codTienda },
-          select: { idProducto: true },
-        });
-        idProducto = ligado?.idProducto ?? null;
-      }
-    }
-    if (!idProducto && !item.codFliaItem) {
-      return { success: false, error: "El ítem no tiene producto." };
-    }
-    const clave = item.codFliaItem
-      ? claveFichaDeFlia(item.codFliaItem)
-      : claveFichaDeProducto(idProducto ?? "");
+    const clave = item.codFamilia
+      ? claveFichaDeFlia(item.codFamilia)
+      : claveFichaDeSku(input.codTienda);
     const guardada = await prisma.consultaTecnicaFicha.findUnique({
       where: { clave },
     });

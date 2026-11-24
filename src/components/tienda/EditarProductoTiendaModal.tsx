@@ -13,9 +13,6 @@ import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import PxListasItemEnProducto, {
   type PxVentaItemHandle,
 } from "@/components/tienda/PxListasItemEnProducto";
-import MismoProductoTienda, {
-  type EleccionMismoProducto,
-} from "@/components/tienda/MismoProductoTienda";
 import ProductoTiendaCampos, {
   SIN_VALOR_PRODUCTO_TIENDA,
   camposProductoTiendaCompletos,
@@ -58,11 +55,10 @@ export default function EditarProductoTiendaModal({
     bulto: item.bulto != null ? String(item.bulto) : "",
     precioEditable: item.precioEditable,
   });
-  const [eleccion, setEleccion] = useState<EleccionMismoProducto>({ tipo: "igual" });
-  const [codFliaItem, setCodFliaItem] = useState(item.codFliaItem ?? "");
+  const [codFamilia, setCodFliaItem] = useState(item.codFamilia ?? "");
 
   useEffect(() => {
-    if (item.codFliaItem) return;
+    if (item.codFamilia) return;
     let activo = true;
     void siguienteCodFliaItemAction().then((res) => {
       if (!activo || !res.ok) return;
@@ -71,7 +67,7 @@ export default function EditarProductoTiendaModal({
     return () => {
       activo = false;
     };
-  }, [item.codFliaItem]);
+  }, [item.codFamilia]);
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
@@ -80,7 +76,7 @@ export default function EditarProductoTiendaModal({
     recargar();
   }, [recargar]);
 
-  const flia = normalizarCodFliaItem(codFliaItem);
+  const flia = normalizarCodFliaItem(codFamilia);
   const fliaOk = flia.ok && flia.codigo != null;
   const puedeGuardar = camposProductoTiendaCompletos(campos) && fliaOk && !pending;
 
@@ -91,9 +87,7 @@ export default function EditarProductoTiendaModal({
       const res = await editarProductoTiendaAction({
         ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
-        codMismoProducto: eleccion.tipo === "unir" ? eleccion.codTienda : null,
-        soltarProducto: eleccion.tipo === "soltar",
-        codFliaItem,
+        codFamilia,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -134,29 +128,13 @@ export default function EditarProductoTiendaModal({
             <h3 className={SECCION_TITULO_CLASS}>DATOS DEL PRODUCTO</h3>
             <ProductoTiendaCampos
               campos={campos}
-              onChange={(patch) => {
-                if (patch.idMarca && patch.idMarca !== campos.idMarca) {
-                  setEleccion({ tipo: "igual" });
-                }
-                setCampos((prev) => ({ ...prev, ...patch }));
-              }}
+              onChange={(patch) => setCampos((prev) => ({ ...prev, ...patch }))}
               catalogos={catalogos}
               disabled={pending}
               onGestionar={setGestionando}
             />
           </section>
-          <FliaProductoSeccion codigo={codFliaItem} onChange={setCodFliaItem} disabled={pending} />
-          <section className="modal-seccion-formulario flex flex-col gap-3">
-            <h3 className={SECCION_TITULO_CLASS}>Mismo producto</h3>
-            <MismoProductoTienda
-              key={campos.idMarca}
-              codTienda={item.codItem}
-              idMarca={campos.idMarca}
-              disabled={pending}
-              eleccion={eleccion}
-              onChange={setEleccion}
-            />
-          </section>
+          <FliaProductoSeccion codigo={codFamilia} onChange={setCodFliaItem} disabled={pending} />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <VinculosCostoProductoTienda

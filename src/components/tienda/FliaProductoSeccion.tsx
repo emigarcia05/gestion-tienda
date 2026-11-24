@@ -41,7 +41,7 @@ export default function FliaProductoSeccion({
 
   return (
     <section className="modal-seccion-formulario flex flex-col gap-3">
-      <h3 className={TITULO_SECCION_CLASS}>FLIA PRODUCTO</h3>
+      <h3 className={TITULO_SECCION_CLASS}>COD. FAMILIA</h3>
       <div className="grid grid-cols-[minmax(0,15%)_minmax(0,1fr)] items-start gap-3">
         <Input
           value={codigo}
