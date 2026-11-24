@@ -259,8 +259,33 @@ model ProdRubro {
   descPromos         DescPromo[]
   subRubros          ProdSubRubro[]
   prodPropios        ProdPropio[]
+  consultaTecnica    ConsultaTecnicaRecomendacion[]
 
   @@map("prod_rubros")
+}
+
+/**
+ * Ficha técnica de Consulta Técnica (Ventas). Una por marca y rubro.
+ * La sugerencia de WhatsApp todavía no la lee.
+ */
+model ConsultaTecnicaRecomendacion {
+  id          String   @id @default(cuid())
+  idMarca     String   @map("id_marca")
+  idRubro     String   @map("id_rubro")
+  uso         String   @default("") @db.VarChar(400)
+  dilucion    String   @default("") @db.VarChar(240)
+  aplicacion  String   @default("") @db.VarChar(400)
+  rendimiento String   @default("") @db.VarChar(160)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  marca Marca     @relation(fields: [idMarca], references: [id], onDelete: Restrict)
+  rubro ProdRubro @relation(fields: [idRubro], references: [id], onDelete: Restrict)
+
+  @@unique([idMarca, idRubro], map: "consulta_tecnica_recomendaciones_marca_rubro_key")
+  @@index([activo], map: "consulta_tecnica_recomendaciones_activo_idx")
+  @@map("consulta_tecnica_recomendaciones")
 }
 
 /**
@@ -1464,6 +1489,7 @@ model Marca {
   codColorVtasItems             ComprobanteVtaItem[]
   codColorPedidosMerc           ProdPedMerc2[]
   codColorPedidosHistoriaItems  PedidoHistoriaItem[]
+  consultaTecnica               ConsultaTecnicaRecomendacion[]
 
   @@map("prod_marcas")
 }

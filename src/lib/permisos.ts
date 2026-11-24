@@ -154,6 +154,12 @@ export const PERMISOS = {
     acceso: { simple: false, editor: true },
   },
 
+  // ─── Ventas · HERRAMIENTAS · Consulta Técnica ─────────────────────────────
+  consultaTecnica: {
+    /** Leer fichas de pintura. Alta y edición: solo editor (`esEditor`). */
+    acceso: { simple: true, editor: true },
+  },
+
   // ─── Módulo Asistente IA (Vendedor) ────────────────────────────────────────
   asistenteIa: {
     /** Acceso al módulo (vendedor/`simple` + editor). CRUD de prompts: solo editor (`esEditor`). */

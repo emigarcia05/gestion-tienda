@@ -20,6 +20,7 @@ Stack: **Next.js 16.1.6 (App Router)**, **React 19.2.3**, **TypeScript 5.9.3**, 
 | Comportamiento de una pantalla concreta | **§3** (solo esa subsección) |
 | Reposición Corp. / COMPRAS CORP. | **§3** Administrador · COMPRAS CORP. + Pedidos · Pedir Mercadería |
 | Tablero de Ventas | **§3** Ventas · Tablero |
+| Consulta Técnica | **§3** Ventas · Consulta Técnica |
 | Lista Precios / Edición Masiva | **§3 Proveedores** |
 | Ptos. Vtas. | **§3** Ptos. Vtas. |
 | IA Diseño / Asistente IA | `docs/AGENTEIA_GUIDELINES.md` |
@@ -363,6 +364,10 @@ Módulo **COBROS & DESC.** (`/administrador/cobros-desc/*`): **Descuentos** / **
 ### Marketing
 
 SSOT `MARKETING_ROUTES`. Calendario: grilla mes + Cuadro De Mando; ícono red `MktRedSocialIcon`. Ideas: Finder 2 columnas. Objetivos: 3 ejes × semanal/mensual. Base Multimedia / Colores Marca: tablas CFTL. Sin export a Google Sheets (botón **Exportar a Sheets** eliminado 2026-10-27).
+
+### Ventas · Consulta Técnica
+
+`/ventas/herramientas/consulta-tecnica` (`ConsultaTecnicaPageClient`; CFTL **Herramientas** / **Consulta Técnica**, `contentWidth="full"`; `PERMISOS.consultaTecnica.acceso`, `simple` y `editor`). Sidenav **HERRAMIENTAS**, debajo de Calculadora de Lts. Filtros MARCA / RUBRO (`FilaFiltrosDesplegables` `columnas={4}`) + búsqueda (`useFiltrosConBusqueda` / `FiltroBusquedaInput`) + `LimpiarFiltrosButton`. Tabla: MARCA · RUBRO · USO · DILUCIÓN · APLICACIÓN · RENDIMIENTO · **ACTIVA** (solo editor: `Check` si está activa) · ACCIONES. El vendedor ve **Ver**. El editor, en **ACCIONES** del header, **Nueva Recomendación** (`Plus`); en la fila, Ver / Editar / Eliminar. Modal `AppModal` `lg`: MARCA y RUBRO (`Select` con buscador; en edición quedan fijos), USO, DILUCIÓN, APLICACIÓN, RENDIMIENTO y **ACTIVA** (`ModalSiNoChoice`). Hace falta al menos uno de los cuatro textos. Una ficha por marca y rubro. Confirmar el borrado en `AppModal` `sm`. El vendedor no ve las fichas inactivas. Esta pantalla no llama a OpenAI ni envía WhatsApp.
 
 ### Ventas · Tablero
 

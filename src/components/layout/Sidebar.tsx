@@ -25,6 +25,7 @@ import {
   Truck,
   ScanSearch,
   Paintbrush,
+  BookOpen,
   ArrowLeftRight,
   History,
   Files,
@@ -162,6 +163,12 @@ const MODULES: NavModule[] = [
         label: "Calculadora de Lts",
         icon: <Droplets className="h-4 w-4 shrink-0" />,
         permiso: PERMISOS.tienda.tintoLts,
+      },
+      {
+        href: GP_ROUTES.ayudaVendedor.consultaTecnica,
+        label: "Consulta Técnica",
+        icon: <BookOpen className="h-4 w-4 shrink-0" />,
+        permiso: PERMISOS.consultaTecnica.acceso,
       },
       {
         href: GP_ROUTES.asistenteIa.buscarColorImagen,

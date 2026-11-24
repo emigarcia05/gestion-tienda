@@ -2,7 +2,7 @@
 
 Carpeta de prompts para copiar a un chat nuevo. En otra computadora, con este mismo proyecto abierto, el agente entrega la misma lista.
 
-Cada agente nuevo se agrega a la tabla de abajo. El texto para copiar es el archivo de esa fila.
+Cada agente nuevo se agrega a la sección que corresponda. El texto para copiar es el archivo de esa fila.
 
 ## Cómo pedirlo
 
@@ -15,18 +15,28 @@ Cada agente nuevo se agrega a la tabla de abajo. El texto para copiar es el arch
 
 Cuando pidan la lista o un prompt para copiar:
 
-1. Leer este archivo. La única lista es la tabla de abajo.
+1. Leer este archivo. La única lista son las secciones de abajo.
 2. No inventar agentes. No ofrecer los prompts viejos de `.cursor/prompts.md` ni de `.cursor/*_promp.md`.
-3. Si la tabla está vacía: decir que todavía no hay agentes.
-4. Si piden la **lista**: responder solo número, nombre y para qué sirve. No pegar el texto del prompt.
-5. Si eligen **uno**: leer el archivo de la fila y devolverlo **entero**, en un solo bloque de texto, sin resumir y sin empezar el trabajo de ese agente en este chat.
+3. Si no hay ninguna fila: decir que todavía no hay agentes.
+4. Si piden la **lista**: responder por sección, solo número, nombre y para qué sirve. No pegar el texto del prompt.
+5. Si eligen **uno** (por número, como `2.1`, o por nombre): leer el archivo de la fila y devolverlo **entero**, en un solo bloque de texto, sin resumir y sin empezar el trabajo de ese agente en este chat.
 
-## Lista
+## 1. Agentes internos
 
 | # | Nombre | Para qué | Archivo |
 |---|--------|----------|---------|
-| 1 | FULL STACK | Modificar y crear código de punta a punta, guiado por las guías, y dejar la documentación al día | [full-stack.md](./full-stack.md) |
-| 2 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
-| 3 | API WHATSAPP | Enviar mensajes desde el teléfono de cada local con la Cloud API oficial de Meta | [api-whatsapp.md](./api-whatsapp.md) |
-| 4 | AUDITOR CÓDIGO MUERTO | Recorre el código por tandas, borra solo el código muerto comprobado y espera confirmación antes de la tanda siguiente | [auditor-codigo-muerto.md](./auditor-codigo-muerto.md) |
-| 5 | API OPENIA | Borradores de respuesta del chat de WhatsApp con la API oficial de OpenAI. No se envían solos | [api-openia.md](./api-openia.md) |
+| 1.1 | FULL STACK | Modificar y crear código de punta a punta, guiado por las guías, y dejar la documentación al día | [full-stack.md](./full-stack.md) |
+
+## 2. Agentes de API
+
+| # | Nombre | Para qué | Archivo |
+|---|--------|----------|---------|
+| 2.1 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
+| 2.2 | API WHATSAPP | Enviar mensajes desde el teléfono de cada local con la Cloud API oficial de Meta | [api-whatsapp.md](./api-whatsapp.md) |
+| 2.3 | API OPENIA | Borradores de respuesta del chat de WhatsApp con la API oficial de OpenAI. No se envían solos | [api-openia.md](./api-openia.md) |
+
+## 3. Agentes auditores
+
+| # | Nombre | Para qué | Archivo |
+|---|--------|----------|---------|
+| 3.1 | AUDITOR CÓDIGO MUERTO | Recorre el código por tandas, borra solo el código muerto comprobado y espera confirmación antes de la tanda siguiente | [auditor-codigo-muerto.md](./auditor-codigo-muerto.md) |

@@ -35,6 +35,7 @@ export const APP_ROUTES = {
     },
     herramientas: {
       calculadoraLts: `${VENTAS}/herramientas/calculadora-lts`,
+      consultaTecnica: `${VENTAS}/herramientas/consulta-tecnica`,
       buscarCodImagen: `${VENTAS}/herramientas/buscar-cod-imagen`,
       disenar: `${VENTAS}/herramientas/disenar`,
     },

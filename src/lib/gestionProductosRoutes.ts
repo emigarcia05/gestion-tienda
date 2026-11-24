@@ -27,6 +27,7 @@ export const GP_ROUTES = {
       pxTintometrico: V.ventas.pxTintometrico,
     },
     calcLitros: V.herramientas.calculadoraLts,
+    consultaTecnica: V.herramientas.consultaTecnica,
     controlStock: V.stock.controlStock,
     transfDepositos: V.stock.transfDepositos,
     movimientosStock: V.stock.movimientos,
