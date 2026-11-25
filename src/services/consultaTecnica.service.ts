@@ -20,6 +20,7 @@ import { claveFichaDeFlia, claveFichaDeSku } from "@/lib/prodProducto";
 import { prisma } from "@/lib/prisma";
 import {
   resumirHojaFabricante,
+  type FichaCargadaConsulta,
   type ResumenHojaFabricante,
 } from "@/services/consultaTecnicaInstructivo.service";
 import { completarConsultaTecnica } from "@/lib/whatsapp/ia/completar";
@@ -364,6 +365,78 @@ export async function enviarMensajeConsultaTecnica(input: {
   }
 }
 
+function descripcionDelInstructivo(mensajes: ConsultaTecnicaMensajeItem[]): string | null {
+  const intro = mensajes.find(
+    (mensaje) => mensaje.autor === CONSULTA_TECNICA_AUTOR_SISTEMA && mensaje.texto.startsWith("Así se usa ")
+  );
+  if (!intro) return null;
+  const linea = intro.texto.split("\n")[0] ?? "";
+  const nombre = linea.replace(/^Así se usa\s+/, "").replace(/\.\s*$/, "").trim();
+  return nombre.length > 0 ? nombre : null;
+}
+
+function hiloSinDatosDeHoja(mensajes: ConsultaTecnicaMensajeItem[]): boolean {
+  return !mensajes.some(
+    (mensaje) =>
+      mensaje.autor === CONSULTA_TECNICA_AUTOR_SISTEMA &&
+      (mensaje.texto.includes("\nPreparación") ||
+        mensaje.texto.includes("\nDilución") ||
+        mensaje.texto.includes("\nTiempo de secado") ||
+        mensaje.texto.includes("https://"))
+  );
+}
+
+async function responderConHoja(descripcion: string): Promise<string | null> {
+  const item = await prisma.prodPropio.findFirst({
+    where: { descripcionTienda: descripcion, habilitado: true },
+    select: { codTienda: true },
+  });
+  if (item) {
+    const armado = await instructivoDeItem(item.codTienda);
+    if (!armado.success) return null;
+    return instructivoConDatos(armado.data.texto);
+  }
+  const leida = await resumirHojaFabricante({ descripcion, marca: "" });
+  const texto = armarInstructivoFichaItem({
+    descripcion,
+    preparacion: leida.resumen.preparacion,
+    dilucion: leida.resumen.dilucion,
+    secadoEntreManos: leida.resumen.secadoEntreManos,
+    secadoFinal: leida.resumen.secadoFinal,
+    urlFicha: leida.resumen.urlFicha,
+  });
+  return instructivoConDatos(texto);
+}
+
+function instructivoConDatos(texto: string): string | null {
+  if (!texto.includes("\n") && !texto.includes("https://")) return null;
+  return texto.slice(0, 2000);
+}
+
+async function guardarRespuesta(
+  conversacionId: string,
+  texto: string
+): Promise<ConsultaTecnicaMensajeItem | null> {
+  const limpio = textoSinCompletar(texto);
+  if (!limpio) return null;
+  const mensaje = await prisma.$transaction(async (tx) => {
+    const creado = await tx.consultaTecnicaMensaje.create({
+      data: {
+        conversacionId,
+        autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
+        texto: limpio,
+      },
+      select: MENSAJE_SELECT,
+    });
+    await tx.consultaTecnicaConversacion.update({
+      where: { id: conversacionId },
+      data: { updatedAt: new Date() },
+    });
+    return creado;
+  });
+  return aMensaje(mensaje);
+}
+
 const SISTEMA_CONVERSACION = [
   "Sos el asesor de pintura de TiendaColor, en una consulta que ya está abierta.",
   "Respondé en español de Argentina, de vos, en pocas oraciones, siguiendo este mismo hilo.",
@@ -391,38 +464,42 @@ export async function conversarConsultaTecnica(input: {
   if (!guardado.success) return guardado;
 
   const hilo = await listarMensajesConsultaTecnica(input.conversacionId);
-  const contexto = hilo.success
-    ? hilo.data
-        .slice(-12)
-        .map((mensaje) => `${mensaje.autor}: ${mensaje.texto}`)
-        .join("\n")
-    : `USUARIO: ${input.texto}`;
-  const completado = await completarConsultaTecnica({
-    system: SISTEMA_CONVERSACION,
-    user: contexto,
-  });
-  const respuestaTexto = completado.success ? textoSinCompletar(completado.data) : null;
+  const mensajes = hilo.success ? hilo.data : [guardado.data.mensaje];
+  let respuestaTexto: string | null = null;
+
+  const descripcion = descripcionDelInstructivo(mensajes);
+  if (descripcion && hiloSinDatosDeHoja(mensajes)) {
+    try {
+      respuestaTexto = await responderConHoja(descripcion);
+    } catch (error: unknown) {
+      console.error("[consultaTecnica][conversar] hoja", error instanceof Error ? error.name : "error");
+    }
+  }
+
+  if (!respuestaTexto) {
+    const contexto = mensajes
+      .slice(-12)
+      .map((mensaje) => `${mensaje.autor}: ${mensaje.texto}`)
+      .join("\n");
+    const completado = await completarConsultaTecnica({
+      system: SISTEMA_CONVERSACION,
+      user: contexto,
+    });
+    if (completado.success) {
+      respuestaTexto = textoSinCompletar(completado.data);
+    } else {
+      console.error("[consultaTecnica][conversar] modelo", completado.error);
+      respuestaTexto = completado.error;
+    }
+  }
+
   if (!respuestaTexto) {
     return { success: true, data: { ...guardado.data, respuesta: null } };
   }
 
   try {
-    const respuesta = await prisma.$transaction(async (tx) => {
-      const mensaje = await tx.consultaTecnicaMensaje.create({
-        data: {
-          conversacionId: input.conversacionId,
-          autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
-          texto: respuestaTexto,
-        },
-        select: MENSAJE_SELECT,
-      });
-      await tx.consultaTecnicaConversacion.update({
-        where: { id: input.conversacionId },
-        data: { updatedAt: new Date() },
-      });
-      return mensaje;
-    });
-    return { success: true, data: { ...guardado.data, respuesta: aMensaje(respuesta) } };
+    const respuesta = await guardarRespuesta(input.conversacionId, respuestaTexto);
+    return { success: true, data: { ...guardado.data, respuesta } };
   } catch (error: unknown) {
     console.error("[consultaTecnica][conversar]", error instanceof Error ? error.name : "error");
     return { success: true, data: { ...guardado.data, respuesta: null } };
@@ -548,6 +625,37 @@ export async function buscarItemsConsultaTecnica(
 const DIAS_MEMORIA_FICHA = 30;
 const MS_DIA = 24 * 60 * 60 * 1000;
 
+function resumenUtil(resumen: ResumenHojaFabricante): boolean {
+  return (
+    resumen.preparacion.trim().length > 0 ||
+    resumen.dilucion.trim().length > 0 ||
+    resumen.secadoEntreManos.trim().length > 0 ||
+    resumen.secadoFinal.trim().length > 0 ||
+    resumen.urlFicha.trim().length > 0
+  );
+}
+
+async function fichaCargadaDeFamilia(familia: {
+  id: string;
+  fichaUrl: string | null;
+  fichaPdfNombre: string | null;
+}): Promise<FichaCargadaConsulta | undefined> {
+  const url = (familia.fichaUrl ?? "").trim();
+  const urlOk = /^https?:\/\//i.test(url) ? url : "";
+  let pdf: Uint8Array | null = null;
+  if (familia.fichaPdfNombre) {
+    const archivo = await prisma.prodFamilia.findUnique({
+      where: { id: familia.id },
+      select: { fichaPdf: true },
+    });
+    if (archivo?.fichaPdf && archivo.fichaPdf.byteLength > 0) {
+      pdf = new Uint8Array(archivo.fichaPdf);
+    }
+  }
+  if (!pdf && urlOk.length === 0) return undefined;
+  return { url: urlOk, pdf };
+}
+
 function memoriaVigente(fecha: Date): boolean {
   return Date.now() - fecha.getTime() < DIAS_MEMORIA_FICHA * MS_DIA;
 }
@@ -593,7 +701,7 @@ async function instructivoDeItem(
       habilitado: true,
       descripcionTienda: true,
       idMarca: true,
-      familia: { select: { id: true } },
+      familia: { select: { id: true, fichaUrl: true, fichaPdfNombre: true } },
       marcaRelation: { select: { nombre: true } },
     },
   });
@@ -604,15 +712,18 @@ async function instructivoDeItem(
 
   const clave = item.familia ? claveFichaDeFlia(item.familia.id) : claveFichaDeSku(codTienda);
   const guardada = await prisma.consultaTecnicaFicha.findUnique({ where: { clave } });
+  const cache = guardada ? resumenGuardado(guardada) : null;
   let resumen: ResumenHojaFabricante;
-  if (guardada && memoriaVigente(guardada.updatedAt)) {
-    resumen = resumenGuardado(guardada);
+  if (guardada && cache && memoriaVigente(guardada.updatedAt) && resumenUtil(cache)) {
+    resumen = cache;
   } else {
+    const fichaCargada = item.familia ? await fichaCargadaDeFamilia(item.familia) : undefined;
     const leida = await resumirHojaFabricante({
       descripcion,
       marca: item.marcaRelation?.nombre ?? "",
+      fichaCargada,
     });
-    if (leida.guardar) {
+    if (leida.guardar && resumenUtil(leida.resumen)) {
       const datos = paraGuardar(leida.resumen);
       await prisma.consultaTecnicaFicha.upsert({
         where: { clave },

@@ -5,7 +5,7 @@ import { leerWhatsappIaEnv } from "@/lib/whatsapp/ia/env";
 import { WHATSAPP_IA_MAX_TOKENS_SALIDA } from "@/lib/whatsapp/ia/limites";
 import type { ServiceResult } from "@/types/service.types";
 
-const TIMEOUT_MS = 20_000;
+const TIMEOUT_MS = 45_000;
 
 const usoSchema = z.object({
   prompt_tokens: z.number().optional(),
@@ -17,12 +17,24 @@ const respuestaSchema = z.object({
   choices: z
     .array(
       z.object({
-        message: z.object({ content: z.string().nullable().optional() }).optional(),
+        message: z.object({ content: z.unknown().optional() }).optional(),
       })
     )
     .optional(),
   usage: usoSchema.optional(),
 });
+
+function textoDeContenido(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((parte) => {
+      if (!parte || typeof parte !== "object" || !("text" in parte)) return "";
+      return typeof parte.text === "string" ? parte.text : "";
+    })
+    .join("")
+    .trim();
+}
 
 export type CompletarWhatsappIaInput = {
   system: string;
@@ -126,7 +138,7 @@ export async function completarWhatsappIa(
   }
 
   const parsed = respuestaSchema.safeParse(respuesta.json);
-  const texto = parsed.success ? (parsed.data.choices?.[0]?.message?.content ?? "").trim() : "";
+  const texto = parsed.success ? textoDeContenido(parsed.data.choices?.[0]?.message?.content) : "";
   if (!texto) return { success: false, error: "El modelo no devolvió un texto." };
 
   const uso = parsed.success ? parsed.data.usage : undefined;
@@ -175,9 +187,19 @@ export async function completarConsultaTecnica(
     return { success: false, error: mensajeHttp(respuesta.status) };
   }
 
-  const parsed = respuestaSchema.safeParse(respuesta.json);
-  const texto = parsed.success ? (parsed.data.choices?.[0]?.message?.content ?? "").trim() : "";
-  if (!texto) return { success: false, error: "El modelo no devolvió un texto." };
+  let parsed = respuestaSchema.safeParse(respuesta.json);
+  let texto = parsed.success ? textoDeContenido(parsed.data.choices?.[0]?.message?.content) : "";
+  if (!texto && respuesta.status >= 200 && respuesta.status < 300) {
+    const reintento = await postChat(env, input, "max_completion_tokens", false, 1500);
+    if (!("error" in reintento) && reintento.status >= 200 && reintento.status < 300) {
+      parsed = respuestaSchema.safeParse(reintento.json);
+      texto = parsed.success ? textoDeContenido(parsed.data.choices?.[0]?.message?.content) : "";
+    }
+  }
+  if (!texto) {
+    console.error("[consultaTecnica][completar] vacio", respuesta.status);
+    return { success: false, error: "El modelo no devolvió un texto." };
+  }
   return { success: true, data: texto };
 }
 

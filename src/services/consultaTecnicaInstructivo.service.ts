@@ -35,14 +35,12 @@ const VACIO: ResumenHojaFabricante = {
   urlFicha: "",
 };
 
-async function leerPdf(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: { Accept: "application/pdf" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!response.ok) return "";
-  const buffer = new Uint8Array(await response.arrayBuffer());
+export type FichaCargadaConsulta = {
+  url: string;
+  pdf: Uint8Array | null;
+};
+
+async function textoDePdfBytes(buffer: Uint8Array): Promise<string> {
   if (buffer.length < 5 || buffer[0] !== 0x25) return "";
   const pdfjs = await getPdfJsServer();
   const doc = await pdfjs.getDocument({
@@ -61,6 +59,16 @@ async function leerPdf(url: string): Promise<string> {
     partes.push(linea);
   }
   return partes.join(" ").replace(/\s+/g, " ").slice(0, 7000);
+}
+
+async function leerPdf(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: { Accept: "application/pdf" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) return "";
+  return textoDePdfBytes(new Uint8Array(await response.arrayBuffer()));
 }
 
 async function leerHtml(url: string): Promise<string> {
@@ -91,36 +99,64 @@ function leerPartes(texto: string): z.infer<typeof partesSchema> | null {
 }
 
 /**
- * El mismo camino para cualquier ítem: busca la hoja del fabricante, la lee y
- * la resume para un consumidor final. No hay reglas por producto.
- * `guardar` es true solo cuando el resumen salió de esa hoja.
+ * La ficha cargada en la familia se lee primero. Si no hay, o no se puede leer,
+ * se busca la hoja del fabricante en la web. `guardar` es true solo cuando el
+ * resumen salió de esa hoja. No hay reglas por producto.
  */
 export async function resumirHojaFabricante(input: {
   descripcion: string;
   marca: string;
+  fichaCargada?: FichaCargadaConsulta;
 }): Promise<{ resumen: ResumenHojaFabricante; guardar: boolean }> {
   const vacio = { resumen: VACIO, guardar: false };
   try {
-    const fuentes = await buscarFuentesConsultaTecnica(
-      `Hoja técnica oficial del fabricante de "${input.marca} ${input.descripcion}" en Argentina. Solo el sitio del fabricante, no tiendas.`
-    );
-    if (!fuentes.success || fuentes.data.length === 0) return vacio;
-
-    const elegida = elegirFuenteOficial(fuentes.data, input.marca, input.descripcion);
-    const urlFicha = elegida.ficha ?? "";
-    if (!elegida.leer && !urlFicha) return vacio;
-
     let hoja = "";
-    if (urlFicha.toLowerCase().includes(".pdf")) {
+    let urlFicha = "";
+    const cargada = input.fichaCargada;
+    const urlCargada = cargada?.url.trim() ?? "";
+    if (cargada?.pdf && cargada.pdf.byteLength > 0) {
       try {
-        hoja = await leerPdf(urlFicha);
+        hoja = await textoDePdfBytes(cargada.pdf);
       } catch (error: unknown) {
         console.error("[consultaTecnica][pdf]", error instanceof Error ? error.name : "error");
       }
+      if (/^https?:\/\//i.test(urlCargada)) urlFicha = urlCargada;
     }
-    if (hoja.length < 200 && elegida.leer && elegida.leer !== urlFicha) {
-      hoja = await leerHtml(elegida.leer);
+    if (hoja.length < 200 && /^https?:\/\//i.test(urlCargada)) {
+      urlFicha = urlCargada;
+      try {
+        hoja = urlCargada.toLowerCase().includes(".pdf")
+          ? await leerPdf(urlCargada)
+          : await leerHtml(urlCargada);
+      } catch (error: unknown) {
+        console.error("[consultaTecnica][ficha-cargada]", error instanceof Error ? error.name : "error");
+        hoja = "";
+      }
     }
+
+    if (hoja.length < 200) {
+      const fuentes = await buscarFuentesConsultaTecnica(
+        `Hoja técnica oficial del fabricante de "${input.marca} ${input.descripcion}" en Argentina. Solo el sitio del fabricante, no tiendas.`
+      );
+      if (!fuentes.success || fuentes.data.length === 0) {
+        return { resumen: { ...VACIO, urlFicha }, guardar: false };
+      }
+      const elegida = elegirFuenteOficial(fuentes.data, input.marca, input.descripcion);
+      urlFicha = elegida.ficha ?? "";
+      if (!elegida.leer && !urlFicha) return { resumen: { ...VACIO, urlFicha }, guardar: false };
+      hoja = "";
+      if (urlFicha.toLowerCase().includes(".pdf")) {
+        try {
+          hoja = await leerPdf(urlFicha);
+        } catch (error: unknown) {
+          console.error("[consultaTecnica][pdf]", error instanceof Error ? error.name : "error");
+        }
+      }
+      if (hoja.length < 200 && elegida.leer && elegida.leer !== urlFicha) {
+        hoja = await leerHtml(elegida.leer);
+      }
+    }
+
     if (hoja.length < 200) {
       return { resumen: { ...VACIO, urlFicha }, guardar: false };
     }

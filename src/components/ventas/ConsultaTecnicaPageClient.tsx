@@ -331,17 +331,12 @@ export default function ConsultaTecnicaPageClient({
               <p className="px-2 py-6 text-center text-sm text-muted-foreground">NO HAY CONSULTAS.</p>
             ) : (
               <ul className="flex flex-col gap-1">
-                {lista.map((fila) => {
-                  const elegido = fila.id === seleccionId;
-                  return (
+                {lista.map((fila) => (
                     <li key={fila.id} className="flex items-stretch gap-1">
                       <button
                         type="button"
                         onClick={() => void elegir(fila.id)}
-                        className={cn(
-                          "flex min-w-0 flex-1 rounded-md border border-primary bg-card px-3 py-2 text-left text-foreground",
-                          elegido ? "border-2" : "hover:bg-primary/10"
-                        )}
+                        className="flex min-w-0 flex-1 rounded-md border-2 border-primary bg-transparent px-3 py-2 text-left text-foreground"
                       >
                         <div className="flex min-w-0 flex-col gap-0.5">
                           <div className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</div>
@@ -360,8 +355,7 @@ export default function ConsultaTecnicaPageClient({
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </li>
-                  );
-                })}
+                ))}
               </ul>
             )}
           </div>
@@ -413,7 +407,7 @@ export default function ConsultaTecnicaPageClient({
             )}
           </div>
           {activa ? (
-            <form className="flex shrink-0 items-end gap-2 border-t border-border p-3" onSubmit={(event) => void enviarTexto(event)}>
+            <form className="flex shrink-0 items-stretch gap-2 border-t border-border p-3" onSubmit={(event) => void enviarTexto(event)}>
               <input
                 ref={fotoRef}
                 type="file"
@@ -427,9 +421,8 @@ export default function ConsultaTecnicaPageClient({
               />
               <Button
                 type="button"
-                variant="outline"
                 size="icon"
-                className="border-primary"
+                className="size-14 shrink-0"
                 aria-label="Adjuntar"
                 disabled={enviando || creando}
                 onClick={abrirAdjuntar}
@@ -452,11 +445,11 @@ export default function ConsultaTecnicaPageClient({
                 aria-label="Consulta"
                 className={cn(
                   "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
-                  "flex min-w-0 flex-1 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
+                  "flex h-14 min-h-14 max-h-14 min-w-0 flex-1 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
                   "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
                 )}
               />
-              <Button type="submit" disabled={enviando || creando || borrador.trim().length === 0}>
+              <Button type="submit" className="h-14 shrink-0" disabled={enviando || creando || borrador.trim().length === 0}>
                 Enviar
               </Button>
             </form>
