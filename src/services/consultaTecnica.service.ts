@@ -439,13 +439,133 @@ async function guardarRespuesta(
   return aMensaje(mensaje);
 }
 
+const PALABRAS_VACIAS = new Set([
+  "que",
+  "como",
+  "para",
+  "con",
+  "por",
+  "los",
+  "las",
+  "del",
+  "una",
+  "uno",
+  "este",
+  "esta",
+  "esto",
+  "sirve",
+  "tiene",
+  "sobre",
+  "desde",
+  "donde",
+  "cuando",
+  "porque",
+  "necesito",
+  "quiero",
+  "puedo",
+  "puede",
+  "hacer",
+  "usar",
+  "uso",
+  "producto",
+  "item",
+  "consulta",
+  "ficha",
+  "tecnica",
+  "tecnico",
+  "contestaste",
+  "contesta",
+  "decime",
+  "dime",
+]);
+
+function tokensConsulta(texto: string): string[] {
+  const vistos = new Set<string>();
+  const salida: string[] = [];
+  for (const crudo of texto.toLowerCase().split(/[^a-z0-9áéíóúüñ]+/i)) {
+    const token = crudo.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (token.length < 4 || PALABRAS_VACIAS.has(token) || vistos.has(token)) continue;
+    vistos.add(token);
+    salida.push(token);
+    if (salida.length === 4) break;
+  }
+  return salida;
+}
+
+async function descripcionesTienda(tokens: string[]): Promise<string[]> {
+  const filas = await prisma.prodPropio.findMany({
+    where: {
+      habilitado: true,
+      AND: tokens.map((token) => ({
+        descripcionTienda: { contains: token, mode: "insensitive" as const },
+      })),
+    },
+    select: { descripcionTienda: true },
+    orderBy: { descripcionTienda: "asc" },
+    take: 5,
+  });
+  return filas
+    .map((fila) => (fila.descripcionTienda ?? "").trim())
+    .filter((descripcion) => descripcion.length > 0);
+}
+
+async function descripcionesProveedor(tokens: string[]): Promise<string[]> {
+  const filas = await prisma.listaPrecioProveedor.findMany({
+    where: {
+      habilitado: true,
+      AND: tokens.map((token) => ({
+        descripcionProveedor: { contains: token, mode: "insensitive" as const },
+      })),
+    },
+    select: { descripcionProveedor: true, marca: true },
+    orderBy: { descripcionProveedor: "asc" },
+    take: 5,
+  });
+  return filas
+    .map((fila) => {
+      const descripcion = fila.descripcionProveedor.trim();
+      const marca = (fila.marca ?? "").trim();
+      if (descripcion.length === 0) return "";
+      return marca.length > 0 ? `${marca}: ${descripcion}` : descripcion;
+    })
+    .filter((linea) => linea.length > 0);
+}
+
+async function listasParaRecomendar(tokens: string[]): Promise<string> {
+  if (tokens.length === 0) {
+    return "No hay palabras de producto para buscar en las listas. No cambies de ítem.";
+  }
+  let tienda = await descripcionesTienda(tokens);
+  let proveedor = await descripcionesProveedor(tokens);
+  if (tienda.length === 0 && proveedor.length === 0 && tokens.length > 1) {
+    const principal = [...tokens].sort((a, b) => b.length - a.length).slice(0, 1);
+    tienda = await descripcionesTienda(principal);
+    proveedor = await descripcionesProveedor(principal);
+  }
+  const bloqueTienda =
+    tienda.length > 0 ? tienda.map((linea) => `- ${linea}`).join("\n") : "- Ninguno.";
+  const bloqueProveedor =
+    proveedor.length > 0 ? proveedor.map((linea) => `- ${linea}`).join("\n") : "- Ninguno.";
+  return [
+    "Prioridad para recomendar un ítem:",
+    "1. Tienda (prod_lista):",
+    bloqueTienda,
+    "2. Proveedor (proveedores_prod_lista), solo si ninguno de tienda resuelve el uso:",
+    bloqueProveedor,
+    "3. Si ninguna lista tiene un ítem que sirva, decilo y recién ahí usá conocimiento general. No inventes un código ni un precio.",
+  ].join("\n");
+}
+
 const SISTEMA_CONVERSACION = [
-  "Sos el asesor de pintura de TiendaColor, en una consulta que ya está abierta.",
-  "Respondé en español de Argentina, de vos, en pocas oraciones, siguiendo este mismo hilo.",
-  "Usá solo lo que ya está escrito en el hilo.",
-  "No inventes dilución, tiempos de secado, precios ni stock. Si un dato no está en el hilo, no lo escribas.",
-  "Si preguntan por un producto que no está en el hilo, pedí que lo adjunten con el clip.",
-  "Si hay una foto, no describas lo que no ves: pedí que cuenten qué quieren saber.",
+  "Sos el especialista técnico-comercial de TiendaColor, en Argentina: pinturería arquitectónica, impermeabilización, materiales de construcción y repintado automotor.",
+  "Hablás de vos, en español rioplatense, como un colega de mostrador. Sos directo, empático y corto.",
+  "El chat muestra texto plano: usá renglones y guiones. No uses markdown ni tablas.",
+  "Si preguntan si un producto sirve, empezá por Sí, No o Depende, y explicá en una frase por qué, desde el material.",
+  "Cuando pidan cómo prepararlo, da el paso a paso. Si el bloque Hoja trae un número, usá ese. Si no hay hoja, podés usar criterio de mostrador y tenés que decir que no sale de la ficha del fabricante.",
+  "No inventes precios ni stock. No cambies el ítem de la consulta salvo que pidan otra opción.",
+  "Para recomendar, respetá el orden de las listas que te paso: primero tienda, después proveedor, y solo al final un producto que no esté en esas listas.",
+  "Si piden un texto para el cliente, cerrá con un bloque corto listo para reenviar, separado de la explicación.",
+  "Si la pregunta llega cortada, pedí que la completen. No escribas [COMPLETAR].",
 ].join(" ");
 
 /**
@@ -467,36 +587,65 @@ export async function conversarConsultaTecnica(input: {
 
   const hilo = await listarMensajesConsultaTecnica(input.conversacionId);
   const mensajes = hilo.success ? hilo.data : [guardado.data.mensaje];
-  let respuestaTexto: string | null = null;
-
   const descripcion = descripcionDelInstructivo(mensajes);
+  let hoja = "";
   if (descripcion && hiloSinDatosDeHoja(mensajes)) {
     try {
-      respuestaTexto = await responderConHoja(descripcion);
+      hoja = (await responderConHoja(descripcion)) ?? "";
     } catch (error: unknown) {
       console.error("[consultaTecnica][conversar] hoja", error instanceof Error ? error.name : "error");
     }
+  } else if (descripcion) {
+    const previo = mensajes.find(
+      (mensaje) =>
+        mensaje.autor === CONSULTA_TECNICA_AUTOR_SISTEMA && mensaje.texto.startsWith("Así se usa ")
+    );
+    hoja = previo?.texto ?? "";
   }
 
+  const ultimo = mensajes.filter((mensaje) => mensaje.autor === CONSULTA_TECNICA_AUTOR_USUARIO).at(-1);
+  const tokens = tokensConsulta(`${descripcion ?? ""} ${ultimo?.texto ?? input.texto}`);
+  let listas = "No se pudieron leer las listas.";
+  try {
+    listas = await listasParaRecomendar(tokens);
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][conversar] listas", error instanceof Error ? error.name : "error");
+  }
+
+  const contexto = mensajes
+    .slice(-8)
+    .map((mensaje) => `${mensaje.autor}: ${mensaje.texto}`)
+    .join("\n");
+  const pedido = [
+    "Hilo:",
+    contexto,
+    "",
+    hoja.length > 0
+      ? `Hoja del ítem de esta consulta:\n${hoja}`
+      : "No hay ficha de fabricante para el ítem de esta consulta. Respondé igual, con criterio de mostrador, y no lo presentes como ficha oficial.",
+    "",
+    listas,
+    "",
+    "Respondé el último mensaje del usuario.",
+  ].join("\n");
+  const completado = await completarConsultaTecnica({
+    system: SISTEMA_CONVERSACION,
+    user: pedido,
+  });
+  const respuestaTexto = completado.success ? textoSinCompletar(completado.data) : null;
+  if (!completado.success) {
+    console.error("[consultaTecnica][conversar] modelo", completado.error);
+  }
   if (!respuestaTexto) {
-    const contexto = mensajes
-      .slice(-12)
-      .map((mensaje) => `${mensaje.autor}: ${mensaje.texto}`)
-      .join("\n");
-    const completado = await completarConsultaTecnica({
-      system: SISTEMA_CONVERSACION,
-      user: contexto,
-    });
-    if (completado.success) {
-      respuestaTexto = textoSinCompletar(completado.data);
-    } else {
-      console.error("[consultaTecnica][conversar] modelo", completado.error);
-      respuestaTexto = completado.error;
+    const aviso = completado.success ? null : completado.error;
+    if (!aviso) return { success: true, data: { ...guardado.data, respuesta: null } };
+    try {
+      const respuesta = await guardarRespuesta(input.conversacionId, aviso);
+      return { success: true, data: { ...guardado.data, respuesta } };
+    } catch (error: unknown) {
+      console.error("[consultaTecnica][conversar]", error instanceof Error ? error.name : "error");
+      return { success: true, data: { ...guardado.data, respuesta: null } };
     }
-  }
-
-  if (!respuestaTexto) {
-    return { success: true, data: { ...guardado.data, respuesta: null } };
   }
 
   try {
