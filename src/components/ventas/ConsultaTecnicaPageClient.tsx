@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Paperclip, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  agregarItemConsultaTecnicaAction,
   buscarItemsConsultaTecnicaAction,
+  conversarConsultaTecnicaAction,
   crearFichaItemConsultaTecnicaAction,
+  eliminarConversacionConsultaTecnicaAction,
   listarMensajesConsultaTecnicaAction,
 } from "@/actions/consultaTecnica";
 import AppModal from "@/components/shared/AppModal";
@@ -73,6 +76,14 @@ export default function ConsultaTecnicaPageClient({
   const [items, setItems] = useState<ItemConsultaTecnica[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [creando, setCreando] = useState(false);
+  const [borrarId, setBorrarId] = useState<string | null>(null);
+  const [borrando, setBorrando] = useState(false);
+  const [ocultas, setOcultas] = useState<string[]>([]);
+  const [borrador, setBorrador] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [adjuntoAbierto, setAdjuntoAbierto] = useState(false);
+  const [pasoAdjunto, setPasoAdjunto] = useState<"menu" | "item">("menu");
+  const fotoRef = useRef<HTMLInputElement>(null);
 
   const buscarItems = useCallback(async (value: string) => {
     const seq = ++busquedaSeq.current;
@@ -107,10 +118,9 @@ export default function ConsultaTecnicaPageClient({
     onDebouncedSearch: alBuscar,
   });
 
-  const lista = [
-    ...propias.filter((fila) => !conversaciones.some((item) => item.id === fila.id)),
-    ...conversaciones,
-  ].sort((a, b) => (a.actualizadoEnIso < b.actualizadoEnIso ? 1 : -1));
+  const lista = [...new Map([...conversaciones, ...propias].map((fila) => [fila.id, fila])).values()]
+    .filter((fila) => !ocultas.includes(fila.id))
+    .sort((a, b) => (a.actualizadoEnIso < b.actualizadoEnIso ? 1 : -1));
 
   const activa = lista.find((fila) => fila.id === seleccionId) ?? null;
 
@@ -122,6 +132,7 @@ export default function ConsultaTecnicaPageClient({
   }
 
   function abrirNuevaConsulta() {
+    setAdjuntoAbierto(false);
     setPaso("tipo");
     setItems([]);
     setQ("");
@@ -151,6 +162,33 @@ export default function ConsultaTecnicaPageClient({
     bajarAlFinal();
   }
 
+  async function confirmarBorrar() {
+    if (!borrarId || borrando) return;
+    const id = borrarId;
+    setBorrando(true);
+    const out = await eliminarConversacionConsultaTecnicaAction({ conversacionId: id });
+    setBorrando(false);
+    if (!out.ok) {
+      toast.error(out.error);
+      return;
+    }
+    const queda = lista.filter((fila) => fila.id !== id);
+    setOcultas((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setPropias((prev) => prev.filter((fila) => fila.id !== id));
+    setBorrarId(null);
+    toast.success("Consulta borrada.");
+    if (seleccionId === id) {
+      const siguiente = queda[0] ?? null;
+      if (siguiente) {
+        void elegir(siguiente.id);
+      } else {
+        setSeleccionId(null);
+        setMensajes([]);
+      }
+    }
+    router.refresh();
+  }
+
   async function elegirItem(codTienda: string) {
     if (creando) return;
     setCreando(true);
@@ -171,6 +209,110 @@ export default function ConsultaTecnicaPageClient({
     router.refresh();
   }
 
+  function recordar(conversacion: ConsultaTecnicaConversacionItem) {
+    setPropias((prev) => [conversacion, ...prev.filter((fila) => fila.id !== conversacion.id)]);
+  }
+
+  async function enviarTexto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activa || enviando || creando) return;
+    const texto = borrador.trim();
+    if (texto.length === 0) return;
+    setEnviando(true);
+    const out = await conversarConsultaTecnicaAction({ conversacionId: activa.id, texto });
+    setEnviando(false);
+    if (!out.ok) {
+      toast.error(out.error);
+      return;
+    }
+    setBorrador("");
+    recordar(out.data.conversacion);
+    setMensajes((prev) => [...prev, out.data.mensaje, ...(out.data.respuesta ? [out.data.respuesta] : [])]);
+    if (!out.data.respuesta) toast.message("No pude responder ahora. El texto quedó en la consulta.");
+    bajarAlFinal();
+  }
+
+  function abrirAdjuntar() {
+    if (!activa || enviando || creando) return;
+    setModalAbierto(false);
+    setPasoAdjunto("menu");
+    setItems([]);
+    setQ("");
+    setAdjuntoAbierto(true);
+  }
+
+  function cerrarAdjunto(abierto: boolean) {
+    setAdjuntoAbierto(abierto);
+    if (!abierto) {
+      setPasoAdjunto("menu");
+      setItems([]);
+      setQ("");
+    }
+  }
+
+  async function sumarItem(codTienda: string) {
+    if (!activa || creando) return;
+    setCreando(true);
+    const out = await agregarItemConsultaTecnicaAction({ conversacionId: activa.id, codTienda });
+    setCreando(false);
+    if (!out.ok) {
+      toast.error(out.error);
+      return;
+    }
+    recordar(out.data.conversacion);
+    setMensajes((prev) => [...prev, out.data.mensaje, out.data.respuesta]);
+    setAdjuntoAbierto(false);
+    setPasoAdjunto("menu");
+    setItems([]);
+    setQ("");
+    bajarAlFinal();
+    router.refresh();
+  }
+
+  async function subirFoto(archivo: File) {
+    if (!activa || enviando) return;
+    const cuerpo = new FormData();
+    cuerpo.set("conversacionId", activa.id);
+    cuerpo.set("archivo", archivo);
+    setEnviando(true);
+    setAdjuntoAbierto(false);
+    let respuesta: Response;
+    try {
+      respuesta = await fetch("/api/consulta-tecnica/adjuntos", { method: "POST", body: cuerpo });
+    } catch {
+      setEnviando(false);
+      toast.error("No se pudo adjuntar la foto.");
+      return;
+    }
+    const json: unknown = await respuesta.json().catch(() => null);
+    setEnviando(false);
+    if (
+      !json ||
+      typeof json !== "object" ||
+      !("ok" in json) ||
+      json.ok !== true ||
+      !("data" in json) ||
+      !json.data ||
+      typeof json.data !== "object" ||
+      !("mensaje" in json.data) ||
+      !("respuesta" in json.data)
+    ) {
+      const error =
+        json && typeof json === "object" && "error" in json && typeof json.error === "string"
+          ? json.error
+          : "No se pudo adjuntar la foto.";
+      toast.error(error);
+      return;
+    }
+    const data = json.data as {
+      mensaje: ConsultaTecnicaMensajeItem;
+      respuesta: ConsultaTecnicaMensajeItem;
+    };
+    setMensajes((prev) => [...prev, data.mensaje, data.respuesta]);
+    bajarAlFinal();
+    router.refresh();
+  }
+
   return (
     <ClassicFilteredTableLayout title="Ventas" subtitle="Consulta Técnica" contentWidth="full">
       <div className="grid min-h-0 flex-1 grid-cols-[20rem_minmax(0,1fr)] gap-4">
@@ -178,6 +320,12 @@ export default function ConsultaTecnicaPageClient({
           <h2 className="shrink-0 bg-sidebar px-4 py-3 text-sm font-semibold uppercase tracking-tight text-sidebar-foreground">
             Consultas
           </h2>
+          <div className="shrink-0 border-b border-border p-2">
+            <Button type="button" className="w-full" onClick={abrirNuevaConsulta} disabled={creando || enviando}>
+              <Plus className="h-4 w-4" />
+              Nueva Consulta
+            </Button>
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {lista.length === 0 ? (
               <p className="px-2 py-6 text-center text-sm text-muted-foreground">NO HAY CONSULTAS.</p>
@@ -186,29 +334,31 @@ export default function ConsultaTecnicaPageClient({
                 {lista.map((fila) => {
                   const elegido = fila.id === seleccionId;
                   return (
-                    <li key={fila.id}>
+                    <li key={fila.id} className="flex items-stretch gap-1">
                       <button
                         type="button"
                         onClick={() => void elegir(fila.id)}
                         className={cn(
-                          "flex w-full flex-col gap-0.5 rounded-md px-3 py-2 text-left",
-                          elegido ? "bg-sidebar text-sidebar-foreground" : "hover:bg-muted"
+                          "flex min-w-0 flex-1 rounded-md border border-primary bg-card px-3 py-2 text-left text-foreground",
+                          elegido ? "border-2" : "hover:bg-primary/10"
                         )}
                       >
-                        <span className="text-xs font-semibold uppercase tracking-tight">
-                          Tipo consulta
-                        </span>
-                        <span className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</span>
-                        <span
-                          className={cn(
-                            "mt-1 text-xs font-semibold uppercase tracking-tight",
-                            elegido ? "text-sidebar-foreground" : "text-muted-foreground"
-                          )}
-                        >
-                          Usuario
-                        </span>
-                        <span className="truncate text-sm">{fila.usuario}</span>
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <div className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</div>
+                          <div className="truncate text-sm">{fila.usuario}</div>
+                        </div>
                       </button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        className="size-9 shrink-0 self-center"
+                        aria-label="Borrar consulta"
+                        title="Borrar consulta"
+                        disabled={borrando}
+                        onClick={() => setBorrarId(fila.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </li>
                   );
                 })}
@@ -240,6 +390,15 @@ export default function ConsultaTecnicaPageClient({
                     )}
                   >
                     <TextoConEnlace texto={mensaje.texto} />
+                    {mensaje.tieneImagen ? (
+                      // Foto del hilo, mismo origen: next/image no aplica.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/consulta-tecnica/mensajes/${mensaje.id}/imagen`}
+                        alt="Foto adjunta"
+                        className="max-h-48 rounded-md object-contain"
+                      />
+                    ) : null}
                     <p
                       className={cn(
                         "text-xs tabular-nums",
@@ -253,12 +412,55 @@ export default function ConsultaTecnicaPageClient({
               })
             )}
           </div>
-          <div className="shrink-0 border-t border-border p-3">
-            <Button type="button" className="w-full" onClick={abrirNuevaConsulta} disabled={creando}>
-              <Plus className="h-4 w-4" />
-              Nueva Consulta
-            </Button>
-          </div>
+          {activa ? (
+            <form className="flex shrink-0 items-end gap-2 border-t border-border p-3" onSubmit={(event) => void enviarTexto(event)}>
+              <input
+                ref={fotoRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  const archivo = event.target.files?.[0];
+                  event.target.value = "";
+                  if (archivo) void subirFoto(archivo);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="border-primary"
+                aria-label="Adjuntar"
+                disabled={enviando || creando}
+                onClick={abrirAdjuntar}
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <textarea
+                value={borrador}
+                onChange={(event) => setBorrador(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder="ESCRIBÍ LA CONSULTA..."
+                rows={2}
+                maxLength={2000}
+                disabled={enviando || creando}
+                aria-label="Consulta"
+                className={cn(
+                  "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
+                  "flex min-w-0 flex-1 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
+                  "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+                )}
+              />
+              <Button type="submit" disabled={enviando || creando || borrador.trim().length === 0}>
+                Enviar
+              </Button>
+            </form>
+          ) : null}
         </section>
       </div>
 
@@ -342,6 +544,115 @@ export default function ConsultaTecnicaPageClient({
               )}
             </div>
           )}
+        </AppModal>
+      </Dialog>
+
+      <Dialog open={adjuntoAbierto && borrarId == null} onOpenChange={cerrarAdjunto}>
+        <AppModal
+          title={pasoAdjunto === "menu" ? "ADJUNTAR" : "ÍTEM"}
+          size="md"
+          actions={
+            pasoAdjunto === "menu" ? (
+              <Button type="button" variant="outline" onClick={() => cerrarAdjunto(false)}>
+                Cancelar
+              </Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => setPasoAdjunto("menu")} disabled={creando}>
+                  Volver
+                </Button>
+                <Button type="button" variant="outline" onClick={() => cerrarAdjunto(false)} disabled={creando}>
+                  Cancelar
+                </Button>
+              </>
+            )
+          }
+        >
+          {pasoAdjunto === "menu" ? (
+            <div className="flex flex-col gap-3">
+              <Button type="button" className="w-full" onClick={() => fotoRef.current?.click()}>
+                Foto
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-primary"
+                onClick={() => {
+                  setItems([]);
+                  setQ("");
+                  setPasoAdjunto("item");
+                }}
+              >
+                Ítem
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5" htmlFor="consulta-tecnica-adjunto-item">
+                <ModalMicroLabel>Descripción</ModalMicroLabel>
+                <FiltroBusquedaInput
+                  id="consulta-tecnica-adjunto-item"
+                  placeholder="BUSCAR ÍTEM..."
+                  value={q}
+                  onChange={handleQChange}
+                  isDebouncing={isDebouncing || buscando}
+                  inputRef={busquedaRef}
+                  disabled={creando}
+                />
+              </label>
+              {q.trim().length < 3 ? (
+                <p className="text-sm text-muted-foreground">ESCRIBÍ AL MENOS 3 LETRAS.</p>
+              ) : items.length === 0 && !buscando && !isDebouncing ? (
+                <p className="text-sm text-muted-foreground">NO HAY ÍTEMS.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {items.map((item) => (
+                    <li key={item.codTienda}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-auto w-full justify-start whitespace-normal border-primary py-2 text-left"
+                        disabled={creando}
+                        onClick={() => void sumarItem(item.codTienda)}
+                      >
+                        {item.descripcion}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </AppModal>
+      </Dialog>
+
+      <Dialog
+        open={borrarId != null && !modalAbierto && !adjuntoAbierto}
+        onOpenChange={(abierto) => {
+          if (!abierto && !borrando) setBorrarId(null);
+        }}
+      >
+        <AppModal
+          title="BORRAR CONSULTA"
+          size="sm"
+          actions={
+            <div className="flex w-full justify-end gap-2">
+              <Button type="button" variant="outline" disabled={borrando} onClick={() => setBorrarId(null)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="destructive" disabled={borrando} onClick={() => void confirmarBorrar()}>
+                Borrar
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            ¿Borrar la consulta de{" "}
+            <span className="font-semibold text-foreground">
+              {lista.find((fila) => fila.id === borrarId)?.usuario ?? ""}
+            </span>
+            ?
+          </p>
         </AppModal>
       </Dialog>
     </ClassicFilteredTableLayout>

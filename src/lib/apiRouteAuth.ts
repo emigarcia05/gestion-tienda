@@ -102,6 +102,15 @@ export async function guardFacturacionLectura(): Promise<NextResponse | null> {
   return null;
 }
 
+/** Lectura de Consulta Técnica (hilo y fotos). */
+export async function guardConsultaTecnicaLectura(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.consultaTecnica.acceso)) {
+    return NextResponse.json({ ok: false, error: "Sin permisos para Consulta Técnica." }, { status: 403 });
+  }
+  return null;
+}
+
 /** Stock / Movimientos / Trans. Depósitos (lectura HTTP). */
 export async function guardStockAcceso(): Promise<NextResponse | null> {
   const rol = await getRol();

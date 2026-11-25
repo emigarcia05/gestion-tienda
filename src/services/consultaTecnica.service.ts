@@ -4,6 +4,9 @@ import { Prisma } from "@prisma/client";
 import {
   CONSULTA_TECNICA_AUTOR_SISTEMA,
   CONSULTA_TECNICA_AUTOR_USUARIO,
+  CONSULTA_TECNICA_IMAGEN_MAX_BYTES,
+  CONSULTA_TECNICA_IMAGEN_MIME,
+  CONSULTA_TECNICA_TEXTO_FOTO,
   CONSULTA_TECNICA_TIPO,
   CONSULTA_TECNICA_TIPO_FICHA,
   armarInstructivoFichaItem,
@@ -19,6 +22,7 @@ import {
   resumirHojaFabricante,
   type ResumenHojaFabricante,
 } from "@/services/consultaTecnicaInstructivo.service";
+import { completarConsultaTecnica } from "@/lib/whatsapp/ia/completar";
 import type { ServiceResult } from "@/types/service.types";
 
 export type GuardarConsultaTecnicaInput = {
@@ -179,30 +183,99 @@ function aConversacion(fila: {
   };
 }
 
+const MENSAJE_SELECT = {
+  id: true,
+  autor: true,
+  texto: true,
+  imagenMime: true,
+  createdAt: true,
+} as const;
+
 function aMensaje(fila: {
   id: string;
   autor: string;
   texto: string;
+  imagenMime: string | null;
   createdAt: Date;
 }): ConsultaTecnicaMensajeItem {
   return {
     id: fila.id,
     autor: fila.autor,
     texto: fila.texto,
+    tieneImagen: fila.imagenMime != null,
     creadoEnIso: fila.createdAt.toISOString(),
   };
 }
 
-/** Hilos, el más reciente primero. */
+function textoSinCompletar(valor: string): string | null {
+  const texto = valor
+    .split("\n")
+    .filter((linea) => !linea.includes("[COMPLETAR]"))
+    .join("\n")
+    .trim()
+    .slice(0, 2000);
+  return texto.length > 0 ? texto : null;
+}
+
+function imagenValida(mime: string, bytes: Uint8Array): boolean {
+  if (!(CONSULTA_TECNICA_IMAGEN_MIME as readonly string[]).includes(mime)) return false;
+  if (bytes.byteLength === 0 || bytes.byteLength > CONSULTA_TECNICA_IMAGEN_MAX_BYTES) return false;
+  if (mime === "image/png") {
+    return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  }
+  if (mime === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return (
+    bytes.byteLength > 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  );
+}
+
+const DIAS_VIDA_CONSULTA = 7;
+
+/** Borra los hilos abiertos hace más de 7 días. Los mensajes se van en cascada. */
+async function purgarConsultasVencidas(): Promise<void> {
+  const limite = new Date(Date.now() - DIAS_VIDA_CONSULTA * 24 * 60 * 60 * 1000);
+  await prisma.consultaTecnicaConversacion.deleteMany({
+    where: { createdAt: { lt: limite } },
+  });
+}
+
+/** Hilos, el más reciente primero. Al listar, primero saca los de más de 7 días. */
 export async function listarConversacionesConsultaTecnica(): Promise<
   ConsultaTecnicaConversacionItem[]
 > {
+  await purgarConsultasVencidas();
   const filas = await prisma.consultaTecnicaConversacion.findMany({
     include: { personal: { select: { nombrePersonal: true } } },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
   return filas.map(aConversacion);
+}
+
+/** Borra el hilo y sus mensajes. No toca la ficha técnica guardada. */
+export async function eliminarConversacionConsultaTecnica(
+  conversacionId: string
+): Promise<ServiceResult> {
+  try {
+    const actual = await prisma.consultaTecnicaConversacion.findUnique({
+      where: { id: conversacionId },
+      select: { id: true },
+    });
+    if (!actual) return { success: false, error: "La consulta no existe." };
+    await prisma.consultaTecnicaConversacion.delete({ where: { id: conversacionId } });
+    return { success: true, data: undefined };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][eliminar hilo]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo borrar la consulta." };
+  }
 }
 
 /** Últimos 200 mensajes del hilo, del más viejo al más nuevo. */
@@ -217,6 +290,7 @@ export async function listarMensajesConsultaTecnica(
 
   const filas = await prisma.consultaTecnicaMensaje.findMany({
     where: { conversacionId },
+    select: MENSAJE_SELECT,
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -266,6 +340,7 @@ export async function enviarMensajeConsultaTecnica(input: {
           autor: CONSULTA_TECNICA_AUTOR_USUARIO,
           texto: input.texto,
         },
+        select: MENSAJE_SELECT,
       });
       const conversacion = await tx.consultaTecnicaConversacion.update({
         where: { id: conversacionId },
@@ -287,6 +362,144 @@ export async function enviarMensajeConsultaTecnica(input: {
     console.error("[consultaTecnica][enviar]", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo guardar la consulta." };
   }
+}
+
+const SISTEMA_CONVERSACION = [
+  "Sos el asesor de pintura de TiendaColor, en una consulta que ya está abierta.",
+  "Respondé en español de Argentina, de vos, en pocas oraciones, siguiendo este mismo hilo.",
+  "Usá solo lo que ya está escrito en el hilo.",
+  "No inventes dilución, tiempos de secado, precios ni stock. Si un dato no está en el hilo, no lo escribas.",
+  "Si preguntan por un producto que no está en el hilo, pedí que lo adjunten con el clip.",
+  "Si hay una foto, no describas lo que no ves: pedí que cuenten qué quieren saber.",
+].join(" ");
+
+/**
+ * Guarda el texto del usuario en el hilo abierto y responde en ese mismo hilo.
+ */
+export async function conversarConsultaTecnica(input: {
+  personalId: number;
+  conversacionId: string;
+  texto: string;
+}): Promise<
+  ServiceResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem | null;
+  }>
+> {
+  const guardado = await enviarMensajeConsultaTecnica(input);
+  if (!guardado.success) return guardado;
+
+  const hilo = await listarMensajesConsultaTecnica(input.conversacionId);
+  const contexto = hilo.success
+    ? hilo.data
+        .slice(-12)
+        .map((mensaje) => `${mensaje.autor}: ${mensaje.texto}`)
+        .join("\n")
+    : `USUARIO: ${input.texto}`;
+  const completado = await completarConsultaTecnica({
+    system: SISTEMA_CONVERSACION,
+    user: contexto,
+  });
+  const respuestaTexto = completado.success ? textoSinCompletar(completado.data) : null;
+  if (!respuestaTexto) {
+    return { success: true, data: { ...guardado.data, respuesta: null } };
+  }
+
+  try {
+    const respuesta = await prisma.$transaction(async (tx) => {
+      const mensaje = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: input.conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
+          texto: respuestaTexto,
+        },
+        select: MENSAJE_SELECT,
+      });
+      await tx.consultaTecnicaConversacion.update({
+        where: { id: input.conversacionId },
+        data: { updatedAt: new Date() },
+      });
+      return mensaje;
+    });
+    return { success: true, data: { ...guardado.data, respuesta: aMensaje(respuesta) } };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][conversar]", error instanceof Error ? error.name : "error");
+    return { success: true, data: { ...guardado.data, respuesta: null } };
+  }
+}
+
+/** Foto en el hilo abierto. El modelo no la ve. */
+export async function adjuntarFotoConsultaTecnica(input: {
+  conversacionId: string;
+  mime: string;
+  bytes: Uint8Array;
+}): Promise<
+  ServiceResult<{
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  if (!imagenValida(input.mime, input.bytes)) {
+    return { success: false, error: "La foto tiene que ser JPG, PNG o WEBP de hasta 4 MB." };
+  }
+  const existe = await prisma.consultaTecnicaConversacion.findUnique({
+    where: { id: input.conversacionId },
+    select: { id: true },
+  });
+  if (!existe) return { success: false, error: "La consulta no existe." };
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const mensaje = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: input.conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_USUARIO,
+          texto: CONSULTA_TECNICA_TEXTO_FOTO,
+          imagenMime: input.mime,
+          imagen: Buffer.from(input.bytes),
+        },
+        select: MENSAJE_SELECT,
+      });
+      const respuesta = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: input.conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
+          texto: "Recibí la foto. Escribí qué querés saber de ella.",
+        },
+        select: MENSAJE_SELECT,
+      });
+      await tx.consultaTecnicaConversacion.update({
+        where: { id: input.conversacionId },
+        data: { updatedAt: new Date() },
+      });
+      return { mensaje, respuesta };
+    });
+    return {
+      success: true,
+      data: { mensaje: aMensaje(resultado.mensaje), respuesta: aMensaje(resultado.respuesta) },
+    };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][foto]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo adjuntar la foto." };
+  }
+}
+
+export async function leerImagenConsultaTecnica(
+  mensajeId: string
+): Promise<ServiceResult<{ mime: string; bytes: Uint8Array }>> {
+  const fila = await prisma.consultaTecnicaMensaje.findUnique({
+    where: { id: mensajeId },
+    select: { imagenMime: true, imagen: true },
+  });
+  if (!fila?.imagen || !fila.imagenMime) return { success: false, error: "La foto no existe." };
+  if (!(CONSULTA_TECNICA_IMAGEN_MIME as readonly string[]).includes(fila.imagenMime)) {
+    return { success: false, error: "La foto no existe." };
+  }
+  return {
+    success: true,
+    data: { mime: fila.imagenMime, bytes: new Uint8Array(fila.imagen) },
+  };
 }
 
 export type ItemConsultaTecnica = {
@@ -371,6 +584,61 @@ function paraGuardar(resumen: ResumenHojaFabricante) {
   };
 }
 
+async function instructivoDeItem(
+  codTienda: string
+): Promise<ServiceResult<{ texto: string; descripcion: string }>> {
+  const item = await prisma.prodPropio.findUnique({
+    where: { codTienda },
+    select: {
+      habilitado: true,
+      descripcionTienda: true,
+      idMarca: true,
+      familia: { select: { id: true } },
+      marcaRelation: { select: { nombre: true } },
+    },
+  });
+  const descripcion = (item?.descripcionTienda ?? "").trim();
+  if (!item || !item.habilitado || descripcion.length === 0) {
+    return { success: false, error: "El ítem no está habilitado." };
+  }
+
+  const clave = item.familia ? claveFichaDeFlia(item.familia.id) : claveFichaDeSku(codTienda);
+  const guardada = await prisma.consultaTecnicaFicha.findUnique({ where: { clave } });
+  let resumen: ResumenHojaFabricante;
+  if (guardada && memoriaVigente(guardada.updatedAt)) {
+    resumen = resumenGuardado(guardada);
+  } else {
+    const leida = await resumirHojaFabricante({
+      descripcion,
+      marca: item.marcaRelation?.nombre ?? "",
+    });
+    if (leida.guardar) {
+      const datos = paraGuardar(leida.resumen);
+      await prisma.consultaTecnicaFicha.upsert({
+        where: { clave },
+        create: { clave, idMarca: item.idMarca, ...datos },
+        update: datos,
+      });
+      resumen = leida.resumen;
+    } else if (guardada) {
+      resumen = resumenGuardado(guardada);
+    } else {
+      resumen = leida.resumen;
+    }
+  }
+
+  const texto = armarInstructivoFichaItem({
+    descripcion,
+    preparacion: resumen.preparacion,
+    dilucion: resumen.dilucion,
+    secadoEntreManos: resumen.secadoEntreManos,
+    secadoFinal: resumen.secadoFinal,
+    urlFicha: resumen.urlFicha,
+  });
+  if (texto.length > 2000) return { success: false, error: "El instructivo es demasiado largo." };
+  return { success: true, data: { texto, descripcion } };
+}
+
 /**
  * Abre un hilo de ficha técnica. El instructivo sale de la hoja del fabricante.
  * Los SKU del mismo producto (otro tamaño, color o terminación) reusan la misma hoja.
@@ -392,61 +660,9 @@ export async function crearFichaItemConsultaTecnica(input: {
     });
     if (!personal) return { success: false, error: "El usuario de la sesión no existe." };
 
-    const item = await prisma.prodPropio.findUnique({
-      where: { codTienda: input.codTienda },
-      select: {
-        habilitado: true,
-        descripcionTienda: true,
-        idMarca: true,
-        familia: { select: { id: true } },
-        marcaRelation: { select: { nombre: true } },
-      },
-    });
-    const descripcion = (item?.descripcionTienda ?? "").trim();
-    if (!item || !item.habilitado || descripcion.length === 0) {
-      return { success: false, error: "El ítem no está habilitado." };
-    }
+    const armado = await instructivoDeItem(input.codTienda);
+    if (!armado.success) return armado;
 
-    const clave = item.familia
-      ? claveFichaDeFlia(item.familia.id)
-      : claveFichaDeSku(input.codTienda);
-    const guardada = await prisma.consultaTecnicaFicha.findUnique({
-      where: { clave },
-    });
-    let resumen: ResumenHojaFabricante;
-    if (guardada && memoriaVigente(guardada.updatedAt)) {
-      resumen = resumenGuardado(guardada);
-    } else {
-      const leida = await resumirHojaFabricante({
-        descripcion,
-        marca: item.marcaRelation?.nombre ?? "",
-      });
-      if (leida.guardar) {
-        const datos = paraGuardar(leida.resumen);
-        await prisma.consultaTecnicaFicha.upsert({
-          where: { clave },
-          create: { clave, idMarca: item.idMarca, ...datos },
-          update: datos,
-        });
-        resumen = leida.resumen;
-      } else if (guardada) {
-        resumen = resumenGuardado(guardada);
-      } else {
-        resumen = leida.resumen;
-      }
-    }
-
-    const texto = armarInstructivoFichaItem({
-      descripcion,
-      preparacion: resumen.preparacion,
-      dilucion: resumen.dilucion,
-      secadoEntreManos: resumen.secadoEntreManos,
-      secadoFinal: resumen.secadoFinal,
-      urlFicha: resumen.urlFicha,
-    });
-    if (texto.length > 2000) {
-      return { success: false, error: "El instructivo es demasiado largo." };
-    }
     const resultado = await prisma.$transaction(async (tx) => {
       const creada = await tx.consultaTecnicaConversacion.create({
         data: { tipo: CONSULTA_TECNICA_TIPO_FICHA, personalId: input.personalId },
@@ -456,8 +672,9 @@ export async function crearFichaItemConsultaTecnica(input: {
         data: {
           conversacionId: creada.id,
           autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
-          texto,
+          texto: armado.data.texto,
         },
+        select: MENSAJE_SELECT,
       });
       const conversacion = await tx.consultaTecnicaConversacion.update({
         where: { id: creada.id },
@@ -477,5 +694,65 @@ export async function crearFichaItemConsultaTecnica(input: {
   } catch (error: unknown) {
     console.error("[consultaTecnica][ficha]", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo armar el instructivo." };
+  }
+}
+
+/** Suma la ficha de otro ítem al hilo que ya está abierto. */
+export async function agregarItemConsultaTecnica(input: {
+  conversacionId: string;
+  codTienda: string;
+}): Promise<
+  ServiceResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  const existe = await prisma.consultaTecnicaConversacion.findUnique({
+    where: { id: input.conversacionId },
+    select: { id: true },
+  });
+  if (!existe) return { success: false, error: "La consulta no existe." };
+
+  const armado = await instructivoDeItem(input.codTienda);
+  if (!armado.success) return armado;
+  const consulta = `Consulto sobre ${armado.data.descripcion}.`.slice(0, 2000);
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const mensaje = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: input.conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_USUARIO,
+          texto: consulta,
+        },
+        select: MENSAJE_SELECT,
+      });
+      const respuesta = await tx.consultaTecnicaMensaje.create({
+        data: {
+          conversacionId: input.conversacionId,
+          autor: CONSULTA_TECNICA_AUTOR_SISTEMA,
+          texto: armado.data.texto,
+        },
+        select: MENSAJE_SELECT,
+      });
+      const conversacion = await tx.consultaTecnicaConversacion.update({
+        where: { id: input.conversacionId },
+        data: { updatedAt: new Date() },
+        include: { personal: { select: { nombrePersonal: true } } },
+      });
+      return { conversacion, mensaje, respuesta };
+    });
+    return {
+      success: true,
+      data: {
+        conversacion: aConversacion(resultado.conversacion),
+        mensaje: aMensaje(resultado.mensaje),
+        respuesta: aMensaje(resultado.respuesta),
+      },
+    };
+  } catch (error: unknown) {
+    console.error("[consultaTecnica][item]", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo sumar el ítem a la consulta." };
   }
 }

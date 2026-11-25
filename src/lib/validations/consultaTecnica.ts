@@ -36,11 +36,25 @@ export const leerMensajesConsultaTecnicaSchema = z.object({
   conversacionId: prismaCuidSchema,
 });
 
+export const eliminarConversacionConsultaTecnicaSchema = z.object({
+  conversacionId: prismaCuidSchema,
+});
+
 export const buscarItemsConsultaTecnicaSchema = z.object({
   q: z.string().trim().min(3, "Escribí al menos 3 letras.").max(80, "La búsqueda es demasiado larga."),
 });
 
 export const crearFichaItemConsultaTecnicaSchema = z.object({
+  codTienda: listaPreciosCodTiendaSchema,
+});
+
+export const conversarConsultaTecnicaSchema = z.object({
+  conversacionId: prismaCuidSchema,
+  texto: z.string().trim().min(1, "Escribí la consulta.").max(2000, "La consulta es demasiado larga."),
+});
+
+export const agregarItemConsultaTecnicaSchema = z.object({
+  conversacionId: prismaCuidSchema,
   codTienda: listaPreciosCodTiendaSchema,
 });
 

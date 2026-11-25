@@ -304,12 +304,14 @@ model ConsultaTecnicaConversacion {
   @@map("consulta_tecnica_conversaciones")
 }
 
-/** Texto del hilo. `autor`: USUARIO o SISTEMA (instructivo). */
+/** Texto del hilo. `autor`: USUARIO o SISTEMA (instructivo). `imagen` es la foto; el listado no la trae. */
 model ConsultaTecnicaMensaje {
   id             String   @id @default(cuid())
   conversacionId String   @map("conversacion_id")
   autor          String   @db.VarChar(16)
   texto          String   @db.VarChar(2000)
+  imagenMime     String?  @map("imagen_mime") @db.VarChar(40)
+  imagen         Bytes?   @map("imagen")
   createdAt      DateTime @default(now()) @map("created_at")
 
   conversacion ConsultaTecnicaConversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)

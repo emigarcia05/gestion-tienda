@@ -16,17 +16,23 @@ import type { ItemConsultaTecnica } from "@/services/consultaTecnica.service";
 import { getIdPersonalSesion } from "@/lib/sesion";
 import type { ActionResult } from "@/lib/types";
 import {
+  agregarItemConsultaTecnicaSchema,
   buscarItemsConsultaTecnicaSchema,
+  conversarConsultaTecnicaSchema,
   crearFichaItemConsultaTecnicaSchema,
   eliminarConsultaTecnicaSchema,
+  eliminarConversacionConsultaTecnicaSchema,
   enviarMensajeConsultaTecnicaSchema,
   guardarConsultaTecnicaSchema,
   leerMensajesConsultaTecnicaSchema,
 } from "@/lib/validations/consultaTecnica";
 import {
+  agregarItemConsultaTecnica,
   buscarItemsConsultaTecnica,
+  conversarConsultaTecnica,
   crearFichaItemConsultaTecnica,
   eliminarConsultaTecnica,
+  eliminarConversacionConsultaTecnica,
   enviarMensajeConsultaTecnica,
   guardarConsultaTecnica,
   listarMensajesConsultaTecnica,
@@ -60,6 +66,20 @@ export async function eliminarConsultaTecnicaAction(
   if (!parsed.success) return zodFail(parsed.error);
 
   const out = fromServiceResult(await eliminarConsultaTecnica(parsed.data.id));
+  if (out.ok) refrescar();
+  return out;
+}
+
+export async function eliminarConversacionConsultaTecnicaAction(
+  raw: unknown
+): Promise<ActionResult> {
+  const gate = await requireConsultaTecnicaLectura();
+  if (gate) return gate;
+
+  const parsed = eliminarConversacionConsultaTecnicaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const out = fromServiceResult(await eliminarConversacionConsultaTecnica(parsed.data.conversacionId));
   if (out.ok) refrescar();
   return out;
 }
@@ -134,6 +154,55 @@ export async function crearFichaItemConsultaTecnicaAction(
   const out = fromServiceResult(
     await crearFichaItemConsultaTecnica({ personalId, codTienda: parsed.data.codTienda })
   );
+  if (out.ok) refrescar();
+  return out;
+}
+
+export async function conversarConsultaTecnicaAction(
+  raw: unknown
+): Promise<
+  ActionResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem | null;
+  }>
+> {
+  const gate = await requireConsultaTecnicaLectura();
+  if (gate) return gate;
+
+  const personalId = await getIdPersonalSesion();
+  if (personalId == null) return { ok: false, error: "Ingresá de nuevo para consultar." };
+
+  const parsed = conversarConsultaTecnicaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const out = fromServiceResult(
+    await conversarConsultaTecnica({
+      personalId,
+      conversacionId: parsed.data.conversacionId,
+      texto: parsed.data.texto,
+    })
+  );
+  if (out.ok) refrescar();
+  return out;
+}
+
+export async function agregarItemConsultaTecnicaAction(
+  raw: unknown
+): Promise<
+  ActionResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  const gate = await requireConsultaTecnicaLectura();
+  if (gate) return gate;
+
+  const parsed = agregarItemConsultaTecnicaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const out = fromServiceResult(await agregarItemConsultaTecnica(parsed.data));
   if (out.ok) refrescar();
   return out;
 }

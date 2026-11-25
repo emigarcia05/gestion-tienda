@@ -88,9 +88,14 @@ export type ConsultaTecnicaConversacionItem = {
   actualizadoEnIso: string;
 };
 
+export const CONSULTA_TECNICA_IMAGEN_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
+export const CONSULTA_TECNICA_IMAGEN_MAX_BYTES = 4 * 1024 * 1024;
+export const CONSULTA_TECNICA_TEXTO_FOTO = "Foto adjunta.";
+
 export type ConsultaTecnicaMensajeItem = {
   id: string;
   autor: string;
   texto: string;
+  tieneImagen: boolean;
   creadoEnIso: string;
 };
