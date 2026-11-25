@@ -336,7 +336,7 @@ export default function ConsultaTecnicaPageClient({
                       <button
                         type="button"
                         onClick={() => void elegir(fila.id)}
-                        className="flex min-w-0 flex-1 rounded-md border-2 border-primary bg-transparent px-3 py-2 text-left text-foreground"
+                        className="consulta-historial-item min-w-0 flex-1 rounded-md text-left"
                       >
                         <div className="flex min-w-0 flex-col gap-0.5">
                           <div className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</div>
@@ -407,7 +407,7 @@ export default function ConsultaTecnicaPageClient({
             )}
           </div>
           {activa ? (
-            <form className="flex shrink-0 items-stretch gap-2 border-t border-border p-3" onSubmit={(event) => void enviarTexto(event)}>
+            <form className="consulta-composer flex shrink-0 items-stretch gap-2 border-t border-border p-3" onSubmit={(event) => void enviarTexto(event)}>
               <input
                 ref={fotoRef}
                 type="file"
@@ -422,7 +422,7 @@ export default function ConsultaTecnicaPageClient({
               <Button
                 type="button"
                 size="icon"
-                className="size-14 shrink-0"
+                className="shrink-0"
                 aria-label="Adjuntar"
                 disabled={enviando || creando}
                 onClick={abrirAdjuntar}
@@ -445,11 +445,11 @@ export default function ConsultaTecnicaPageClient({
                 aria-label="Consulta"
                 className={cn(
                   "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50",
-                  "flex h-14 min-h-14 max-h-14 min-w-0 flex-1 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
+                  "flex min-w-0 flex-1 resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none",
                   "focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
                 )}
               />
-              <Button type="submit" className="h-14 shrink-0" disabled={enviando || creando || borrador.trim().length === 0}>
+              <Button type="submit" className="shrink-0" disabled={enviando || creando || borrador.trim().length === 0}>
                 Enviar
               </Button>
             </form>

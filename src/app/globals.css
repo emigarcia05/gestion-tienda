@@ -2374,6 +2374,43 @@ main button.boton-encubierto:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 20%, transparent) !important;
 }
 
+/* Consulta Técnica · historial: gana a `main button:not([data-variant])` (CTA azul). */
+main button.consulta-historial-item,
+main button.consulta-historial-item:hover:not(:disabled),
+main button.consulta-historial-item:focus-visible,
+main button.consulta-historial-item:active:not(:disabled) {
+  height: auto !important;
+  min-height: 2.5rem !important;
+  padding: 0.5rem 0.75rem !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  white-space: normal !important;
+  text-align: left !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: var(--foreground) !important;
+  border: 2px solid var(--primary) !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* Consulta Técnica · pie del hilo. `main button` fija 2.5rem y deja el cuadro más alto. */
+main form.consulta-composer > textarea,
+main form.consulta-composer > button,
+main form.consulta-composer > button:hover:not(:disabled),
+main form.consulta-composer > button:disabled {
+  height: 3.5rem !important;
+  min-height: 3.5rem !important;
+  max-height: 3.5rem !important;
+  box-sizing: border-box !important;
+}
+main form.consulta-composer > button[data-size="icon"] {
+  width: 3.5rem !important;
+  min-width: 3.5rem !important;
+  max-width: 3.5rem !important;
+  padding: 0 !important;
+}
+
 /*
  * Tablero · filtros de los gráficos (meses y participación) y el enlace de Envios pendientes.
  * Anula `main button` (CTA relleno). Contorno azul, fondo transparente, texto negro.
