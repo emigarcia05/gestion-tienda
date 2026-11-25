@@ -2382,10 +2382,10 @@ main button.consulta-historial-item:active:not(:disabled) {
   height: auto !important;
   min-height: 2.5rem !important;
   padding: 0.5rem 0.75rem !important;
-  justify-content: flex-start !important;
-  align-items: flex-start !important;
+  justify-content: center !important;
+  align-items: center !important;
   white-space: normal !important;
-  text-align: left !important;
+  text-align: center !important;
   background-color: transparent !important;
   background-image: none !important;
   color: var(--foreground) !important;

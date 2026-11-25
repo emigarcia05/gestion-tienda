@@ -23,7 +23,7 @@ import type {
   ConsultaTecnicaMensajeItem,
 } from "@/lib/consultaTecnica";
 import { CONSULTA_TECNICA_AUTOR_USUARIO } from "@/lib/consultaTecnica";
-import { formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
+import { formatFechaCortaArgentina, formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { cn } from "@/lib/utils";
 import type { ItemConsultaTecnica } from "@/services/consultaTecnica.service";
@@ -338,9 +338,13 @@ export default function ConsultaTecnicaPageClient({
                         onClick={() => void elegir(fila.id)}
                         className="consulta-historial-item min-w-0 flex-1 rounded-md text-left"
                       >
-                        <div className="flex min-w-0 flex-col gap-0.5">
-                          <div className="truncate text-sm font-semibold">{fila.tipoEtiqueta}</div>
-                          <div className="truncate text-sm">{fila.usuario}</div>
+                        <div className="flex w-full min-w-0 flex-col items-center gap-0.5">
+                          <div className="w-full truncate text-center text-base font-bold uppercase">
+                            {fila.tipoEtiqueta}
+                          </div>
+                          <div className="w-full truncate text-center text-xs font-normal">
+                            {fila.usuario} - {formatFechaCortaArgentina(new Date(fila.creadoEnIso)).slice(0, 5)}
+                          </div>
                         </div>
                       </button>
                       <Button

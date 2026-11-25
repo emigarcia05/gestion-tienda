@@ -85,6 +85,7 @@ export type ConsultaTecnicaConversacionItem = {
   tipo: string;
   tipoEtiqueta: string;
   usuario: string;
+  creadoEnIso: string;
   actualizadoEnIso: string;
 };
 

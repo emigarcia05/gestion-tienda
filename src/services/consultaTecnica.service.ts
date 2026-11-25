@@ -172,6 +172,7 @@ export async function eliminarConsultaTecnica(id: string): Promise<ServiceResult
 function aConversacion(fila: {
   id: string;
   tipo: string;
+  createdAt: Date;
   updatedAt: Date;
   personal: { nombrePersonal: string };
 }): ConsultaTecnicaConversacionItem {
@@ -180,6 +181,7 @@ function aConversacion(fila: {
     tipo: fila.tipo,
     tipoEtiqueta: etiquetaTipoConsultaTecnica(fila.tipo),
     usuario: fila.personal.nombrePersonal,
+    creadoEnIso: fila.createdAt.toISOString(),
     actualizadoEnIso: fila.updatedAt.toISOString(),
   };
 }
