@@ -13,7 +13,7 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-/** `prod_familias.familia_nombre`. Vacío = el ítem queda sin familia. Se guarda en mayúsculas. */
+/** `prod_familias.familia_nombre`. Se guarda en mayúsculas. El alta del catálogo lo exige no vacío. */
 export const familiaNombreSchema = z
   .string()
   .trim()
@@ -50,7 +50,8 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
     esProductoCompuesto: z.boolean(),
     componentes: componentesCompuestoSchema,
-    familiaNombre: familiaNombreSchema,
+    /** `null` = el ítem queda sin familia. No crea la familia: tiene que existir en el catálogo. */
+    familiaId: idCatalogoSchema.nullable(),
   })
   .superRefine((item, ctx) => {
     if (item.esProductoPropio && item.codExtVinculo) {
@@ -90,11 +91,8 @@ export const crearProductosTiendaLoteSchema = z
 /** Editar: vínculos, costo y producto propio se manejan con sus propias acciones (inmediatas). */
 export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
   codTienda: listaPreciosCodTiendaSchema,
-  familiaNombre: familiaNombreSchema,
-});
-
-export const leerFliaProductoSchema = z.object({
-  nombre: z.string().trim().max(120),
+  /** `null` = el ítem queda sin familia. No crea la familia: tiene que existir en el catálogo. */
+  familiaId: idCatalogoSchema.nullable(),
 });
 
 export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });
@@ -112,7 +110,40 @@ export const crearFamiliaSchema = z.object({
   nombre: familiaNombreObligatorioSchema,
 });
 
-export const editarFamiliaSchema = crearFamiliaSchema.extend({ id: idCatalogoSchema });
+/** Vacío = sin enlace. Si hay texto, tiene que ser http(s). */
+const familiaUrlSchema = z
+  .string()
+  .trim()
+  .max(2048, "La URL es demasiado larga.")
+  .refine((valor) => valor.length === 0 || /^https?:\/\//i.test(valor), "Ingresá una URL válida (http/https).");
+
+const familiaPdfSchema = z.object({
+  nombre: z
+    .string()
+    .trim()
+    .min(1, "Ingresá el nombre del PDF.")
+    .max(200, "El nombre del PDF es demasiado largo.")
+    .refine((nombre) => nombre.toLowerCase().endsWith(".pdf"), "El archivo debe ser un PDF."),
+  /** Base64. Tope ~5 MB de archivo. */
+  base64: z.string().min(1, "El PDF está vacío.").max(7_000_000, "El PDF supera el tamaño máximo (5 MB)."),
+});
+
+export const editarFamiliaSchema = crearFamiliaSchema
+  .extend({
+    id: idCatalogoSchema,
+    url: familiaUrlSchema,
+    quitarPdf: z.boolean(),
+    pdf: familiaPdfSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.pdf && data.quitarPdf) {
+      ctx.addIssue({
+        code: "custom",
+        message: "No se puede adjuntar y quitar el PDF a la vez.",
+        path: ["pdf"],
+      });
+    }
+  });
 
 export const buscarItemsFamiliaSchema = z.object({
   id: idCatalogoSchema,

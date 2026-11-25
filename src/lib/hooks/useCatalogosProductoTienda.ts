@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   listarColoresOpcionesAction,
+  listarFamiliasOpcionesAction,
   listarMarcasCatalogoAction,
   listarPresentacionesOpcionesAction,
   listarRubrosCatalogoAction,
@@ -15,6 +16,7 @@ export type CatalogosProductoTienda = {
   marcas: MarcaCatalogoItem[];
   presentaciones: OpcionCatalogoItem[];
   colores: OpcionCatalogoItem[];
+  familias: OpcionCatalogoItem[];
 };
 
 const CATALOGOS_VACIOS: CatalogosProductoTienda = {
@@ -22,6 +24,7 @@ const CATALOGOS_VACIOS: CatalogosProductoTienda = {
   marcas: [],
   presentaciones: [],
   colores: [],
+  familias: [],
 };
 
 /**
@@ -43,9 +46,10 @@ export function useCatalogosProductoTienda(
       listarMarcasCatalogoAction(),
       listarPresentacionesOpcionesAction(),
       listarColoresOpcionesAction(),
-    ]).then(([rubros, marcas, presentaciones, colores]) => {
+      listarFamiliasOpcionesAction(),
+    ]).then(([rubros, marcas, presentaciones, colores, familias]) => {
       if (!activo) return;
-      for (const res of [rubros, marcas, presentaciones, colores]) {
+      for (const res of [rubros, marcas, presentaciones, colores, familias]) {
         if (!res.ok) toast.error(res.error);
       }
       setCatalogos({
@@ -53,6 +57,7 @@ export function useCatalogosProductoTienda(
         marcas: marcas.ok ? marcas.data : [],
         presentaciones: presentaciones.ok ? presentaciones.data : [],
         colores: colores.ok ? colores.data : [],
+        familias: familias.ok ? familias.data : [],
       });
     });
     return () => {

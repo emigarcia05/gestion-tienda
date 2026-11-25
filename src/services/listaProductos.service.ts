@@ -21,12 +21,25 @@ import {
   ErrorNegocioCompuesto,
   insertarComponentesCompuesto,
 } from "@/services/productoCompuesto.service";
-import { resolverFamiliaId } from "@/services/prodProducto.service";
 
 /** Clave de `pg_advisory_xact_lock` que serializa la asignación de `cod_tienda` correlativo. */
 const LOCK_COD_TIENDA = 72_431_001;
 
 class ErrorNegocio extends Error {}
+
+/** `null` deja el ítem sin familia. Un id tiene que existir: desde el ítem no se crea la familia. */
+async function familiaIdParaGuardar(
+  tx: Prisma.TransactionClient,
+  familiaId: string | null
+): Promise<string | null> {
+  if (!familiaId) return null;
+  const familia = await tx.prodFamilia.findUnique({
+    where: { id: familiaId },
+    select: { id: true },
+  });
+  if (!familia) throw new ErrorNegocio("La familia ya no existe.");
+  return familia.id;
+}
 
 function normalizarNombreCatalogo(nombre: string): string {
   return nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
@@ -139,7 +152,7 @@ async function crearUnProductoTienda(
       esProductoPropio: item.esProductoPropio || item.esProductoCompuesto,
       esProductoCompuesto: item.esProductoCompuesto,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
-      familiaId: await resolverFamiliaId(tx, item.familiaNombre),
+      familiaId: await familiaIdParaGuardar(tx, item.familiaId),
     },
   });
   if (lineaProveedor) {
@@ -208,7 +221,7 @@ export async function editarProductoTienda(
         where: { codTienda: input.codTienda },
         data: {
           ...data,
-          familiaId: await resolverFamiliaId(tx, input.familiaNombre),
+          familiaId: await familiaIdParaGuardar(tx, input.familiaId),
         },
       });
     });

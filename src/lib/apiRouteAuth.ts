@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { esEditor, getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 
+/** PDF de la ficha técnica de una familia (Lista Productos). */
+export async function guardTiendaLectura(): Promise<NextResponse | null> {
+  const rol = await getRol();
+  if (!puede(rol, PERMISOS.tienda.acceso)) {
+    return NextResponse.json({ ok: false, error: "Sin permisos para productos." }, { status: 403 });
+  }
+  return null;
+}
+
 /** Lectura/descarga de comprobante PDF de Envios. */
 export async function guardEnviosLectura(): Promise<NextResponse | null> {
   const rol = await getRol();

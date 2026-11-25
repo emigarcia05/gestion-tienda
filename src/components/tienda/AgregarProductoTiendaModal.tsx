@@ -29,7 +29,6 @@ import TablaComponentesCompuesto, {
   type FilaComponente,
 } from "@/components/tienda/TablaComponentesCompuesto";
 import { crearProductosTiendaLoteAction } from "@/actions/listaProductos";
-import FliaProductoSeccion from "@/components/tienda/FliaProductoSeccion";
 import {
   costoProductoCompuesto,
   parseCantidadComponente,
@@ -62,7 +61,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [selectorComponenteAbierto, setSelectorComponenteAbierto] = useState(false);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
-  const [familiaNombre, setFamiliaNombre] = useState("");
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
   const cerrarGestion = useCallback(() => {
@@ -77,7 +75,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setEsPropio(false);
     setEsCompuesto(false);
     setComponentes([]);
-    setFamiliaNombre("");
   }, [open]);
 
   const componentesValidos =
@@ -146,7 +143,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
       esProductoPropio: esPropio,
       codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
       esProductoCompuesto: esPropio && esCompuesto,
-      familiaNombre,
       componentes:
         esPropio && esCompuesto
           ? componentes.map((c) => ({
@@ -216,11 +212,6 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
               onGestionar={setGestionando}
             />
           </section>
-          <FliaProductoSeccion
-            nombre={familiaNombre}
-            onChangeNombre={setFamiliaNombre}
-            disabled={pending}
-          />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>

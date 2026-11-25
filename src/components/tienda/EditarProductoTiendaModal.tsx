@@ -7,7 +7,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
-import FliaProductoSeccion from "@/components/tienda/FliaProductoSeccion";
 import PxListasItemEnProducto, {
   type PxVentaItemHandle,
 } from "@/components/tienda/PxListasItemEnProducto";
@@ -51,9 +50,9 @@ export default function EditarProductoTiendaModal({
     idColor: item.idColor ?? SIN_VALOR_PRODUCTO_TIENDA,
     terminacion: item.terminacion ?? SIN_VALOR_PRODUCTO_TIENDA,
     bulto: item.bulto != null ? String(item.bulto) : "",
+    familiaId: item.familiaId ?? SIN_VALOR_PRODUCTO_TIENDA,
     precioEditable: item.precioEditable,
   });
-  const [familiaNombre, setFamiliaNombre] = useState(item.familiaNombre);
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
@@ -71,7 +70,6 @@ export default function EditarProductoTiendaModal({
       const res = await editarProductoTiendaAction({
         ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
-        familiaNombre,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -118,11 +116,6 @@ export default function EditarProductoTiendaModal({
               onGestionar={setGestionando}
             />
           </section>
-          <FliaProductoSeccion
-            nombre={familiaNombre}
-            onChangeNombre={setFamiliaNombre}
-            disabled={pending}
-          />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <VinculosCostoProductoTienda

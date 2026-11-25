@@ -10,6 +10,10 @@ export type FamiliaCatalogoItem = {
   id: string;
   nombre: string;
   descripciones: string[];
+  /** Hay PDF o URL. El listado no trae los bytes del archivo. */
+  tieneFicha: boolean;
+  pdfNombre: string | null;
+  url: string;
 };
 
 /** `prod_marcas` en **Gestionar Marcas**; `productos` = filas `prod_lista` vinculadas. */

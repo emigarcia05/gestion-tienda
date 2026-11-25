@@ -6,6 +6,15 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FiltroIndividualContainer } from "@/components/FilterBar";
+import { leerPdfComprobante } from "@/components/envios/leerPdfComprobante";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import {
@@ -36,6 +45,10 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<FamiliaCatalogoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
+  const [formUrl, setFormUrl] = useState("");
+  const [pdfAdjunto, setPdfAdjunto] = useState<{ nombre: string; base64: string } | null>(null);
+  const [quitarPdf, setQuitarPdf] = useState(false);
+  const [fichaFiltro, setFichaFiltro] = useState<"" | "si" | "no">("");
   const [pending, setPending] = useState(false);
   const [itemsAbiertos, setItemsAbiertos] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FamiliaCatalogoItem | null>(null);
@@ -59,6 +72,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
   useEffect(() => {
     if (!open) return;
     setBusqueda("");
+    setFichaFiltro("");
     setFormOpen(false);
     setBorrarTarget(null);
     void cargar();
@@ -67,10 +81,13 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
     if (!q) return items;
-    return items.filter((familia) =>
-      matchByMultiTerm([familia.nombre, ...familia.descripciones], q)
-    );
-  }, [items, busqueda]);
+    return items.filter((familia) => {
+      if (fichaFiltro === "si" && !familia.tieneFicha) return false;
+      if (fichaFiltro === "no" && familia.tieneFicha) return false;
+      if (!q) return true;
+      return matchByMultiTerm([familia.nombre, ...familia.descripciones], q);
+    });
+  }, [items, busqueda, fichaFiltro]);
 
   const puedeGuardar = esEditor && formNombre.trim().length > 0 && !pending;
 
@@ -78,6 +95,9 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
     if (!esEditor || pending) return;
     setEditing(item);
     setFormNombre(item?.nombre ?? "");
+    setFormUrl(item?.url ?? "");
+    setPdfAdjunto(null);
+    setQuitarPdf(false);
     setFormOpen(true);
   }
 
@@ -85,10 +105,15 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
     if (!puedeGuardar) return;
     setPending(true);
     try {
-      const payload = { nombre: formNombre };
       const res = editing
-        ? await editarFamiliaAction({ id: editing.id, ...payload })
-        : await crearFamiliaAction(payload);
+        ? await editarFamiliaAction({
+            id: editing.id,
+            nombre: formNombre,
+            url: formUrl,
+            quitarPdf,
+            ...(pdfAdjunto ? { pdf: pdfAdjunto } : {}),
+          })
+        : await crearFamiliaAction({ nombre: formNombre });
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -141,6 +166,24 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
         >
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
+              <FiltroIndividualContainer
+                className="w-44 max-w-44 shrink-0 flex-none"
+                activo={Boolean(fichaFiltro)}
+                onLimpiar={() => setFichaFiltro("")}
+              >
+                <Select
+                  value={fichaFiltro}
+                  onValueChange={(valor) => setFichaFiltro(valor === "si" || valor === "no" ? valor : "")}
+                >
+                  <SelectTrigger id="filtro-familia-ficha" className="input-filtro-unificado">
+                    <SelectValue placeholder="FICHA TECNICA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no">NO</SelectItem>
+                    <SelectItem value="si">SI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FiltroIndividualContainer>
               <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
                 <Input
@@ -250,6 +293,75 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
                 onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
               />
             </div>
+            {editing ? (
+              <>
+                <div className="flex flex-col gap-1">
+                  <ModalMicroLabel>URL</ModalMicroLabel>
+                  <Input
+                    value={formUrl}
+                    maxLength={2048}
+                    disabled={pending}
+                    placeholder="https://"
+                    aria-label="URL de la ficha técnica"
+                    onChange={(e) => setFormUrl(e.target.value.trimStart())}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <ModalMicroLabel>PDF</ModalMicroLabel>
+                  {pdfAdjunto ? (
+                    <p className="text-sm text-foreground">{pdfAdjunto.nombre}</p>
+                  ) : editing.pdfNombre && !quitarPdf ? (
+                    <a
+                      href={`/api/familias/${editing.id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary underline"
+                    >
+                      {editing.pdfNombre}
+                    </a>
+                  ) : null}
+                  <label
+                    className={cn(
+                      "border-input bg-transparent text-foreground shadow-xs",
+                      "hover:bg-muted/40 flex h-9 w-full min-w-0 cursor-pointer items-center justify-center rounded-md border px-3 py-1 text-sm font-medium",
+                      "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
+                      pending && "pointer-events-none cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    <Input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      disabled={pending}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        void leerPdfComprobante(file).then((pdf) => {
+                          if (!pdf) return;
+                          setPdfAdjunto(pdf);
+                          setQuitarPdf(false);
+                        });
+                      }}
+                    />
+                    Adjuntar PDF
+                  </label>
+                  {editing.pdfNombre && !quitarPdf && !pdfAdjunto ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => {
+                        setQuitarPdf(true);
+                        setPdfAdjunto(null);
+                      }}
+                    >
+                      Quitar PDF
+                    </Button>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
             {editing ? (
               <Button
                 type="button"

@@ -146,6 +146,8 @@ export interface ItemTiendaParaTabla {
   color: string | null;
   /** `prod_lista.terminacion`. `null` = vacío. */
   terminacion: TerminacionProdListaValor | null;
+  /** `prod_familias.id`. `null` si el ítem no tiene familia. */
+  familiaId: string | null;
   /** `prod_familias.familia_nombre`. Vacío si el ítem no tiene familia. */
   familiaNombre: string;
 }
@@ -357,6 +359,7 @@ export async function getTiendaPageData(params: {
       idColor: r.idColor,
       color: r.color?.nombre ?? null,
       terminacion: r.terminacion,
+      familiaId: r.familiaId,
       familiaNombre: r.familia?.familiaNombre ?? "",
     };
   });

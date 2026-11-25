@@ -1631,6 +1631,11 @@ model ProdFamilia {
   id            String   @id @default(cuid())
   /// Nombre en mayúsculas. Único: dos familias no pueden llamarse igual.
   familiaNombre String   @unique(map: "prod_familias_familia_nombre_key") @map("familia_nombre") @db.VarChar(120)
+  /// PDF de la ficha técnica. Vacío = no hay archivo.
+  fichaPdfNombre String? @map("ficha_pdf_nombre") @db.VarChar(200)
+  fichaPdf       Bytes?  @map("ficha_pdf")
+  /// URL http(s) de la ficha técnica. Vacío = no hay enlace.
+  fichaUrl       String? @map("ficha_url") @db.VarChar(2048)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { filtroTexto } from "@/lib/busqueda";
-import type { FamiliaCatalogoItem, ItemSelectorFamilia } from "@/lib/listaProductos";
+import { ENVIOS_PDF_MAX_BYTES } from "@/lib/envios";
+import type { FamiliaCatalogoItem, ItemSelectorFamilia, OpcionCatalogoItem } from "@/lib/listaProductos";
 import { prisma } from "@/lib/prisma";
 import type {
   CrearFamiliaInput,
@@ -12,67 +13,42 @@ function nombreFamiliaOcupado(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
-/**
- * Vincula el ítem a la familia de ese nombre. Si no existe, la crea.
- * Nombre vacío: el ítem queda sin familia y el catálogo no se borra.
- */
-export async function resolverFamiliaId(
-  tx: Prisma.TransactionClient,
-  nombre: string
-): Promise<string | null> {
-  if (nombre.length === 0) return null;
-  const existente = await tx.prodFamilia.findUnique({
-    where: { familiaNombre: nombre },
-    select: { id: true },
-  });
-  if (existente) return existente.id;
-  try {
-    const creada = await tx.prodFamilia.create({
-      data: { familiaNombre: nombre },
-      select: { id: true },
-    });
-    return creada.id;
-  } catch (error: unknown) {
-    if (!nombreFamiliaOcupado(error)) throw error;
-    const otra = await tx.prodFamilia.findUnique({
-      where: { familiaNombre: nombre },
-      select: { id: true },
-    });
-    if (otra) return otra.id;
-    throw error;
-  }
+function nombrePdfFamilia(nombre: string): string {
+  const base = nombre.replace(/\\/g, "/").split("/").pop() ?? nombre;
+  const limpio = base.replace(/[^\w.\- áéíóúÁÉÍÓÚñÑ]/gi, "_").trim();
+  return (limpio || "ficha.pdf").slice(0, 200);
 }
 
-/** Descripciones de los ítems de la familia con ese nombre. */
-export async function listarDescripcionesFliaItem(
-  nombre: string
-): Promise<ServiceResult<{ descripciones: string[] }>> {
-  const limpio = nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
-  if (limpio.length === 0) return { success: true, data: { descripciones: [] } };
+function decodePdfFamilia(
+  nombre: string,
+  base64: string
+): ServiceResult<{ nombre: string; bytes: Uint8Array<ArrayBuffer> }> {
+  const raw = base64.includes(",") ? (base64.split(",").pop() ?? "") : base64;
+  let decoded: Buffer;
   try {
-    const familia = await prisma.prodFamilia.findUnique({
-      where: { familiaNombre: limpio },
-      select: {
-        prodTiendas: {
-          select: { descripcionTienda: true },
-          orderBy: { descripcionTienda: "asc" },
-          take: 50,
-        },
-      },
-    });
-    return {
-      success: true,
-      data: {
-        descripciones:
-          familia?.prodTiendas
-            .map((fila) => (fila.descripcionTienda ?? "").trim())
-            .filter((descripcion) => descripcion.length > 0) ?? [],
-      },
-    };
-  } catch (error: unknown) {
-    console.error("[prodProducto] flia:", error instanceof Error ? error.name : "error");
-    return { success: false, error: "No se pudieron leer los ítems de la familia." };
+    decoded = Buffer.from(raw, "base64");
+  } catch {
+    return { success: false, error: "El PDF no se pudo leer." };
   }
+  if (decoded.length === 0) return { success: false, error: "El PDF está vacío." };
+  if (decoded.length > ENVIOS_PDF_MAX_BYTES) {
+    return { success: false, error: "El PDF supera el tamaño máximo (5 MB)." };
+  }
+  if (decoded[0] !== 0x25 || decoded[1] !== 0x50 || decoded[2] !== 0x44 || decoded[3] !== 0x46) {
+    return { success: false, error: "El archivo no es un PDF válido." };
+  }
+  const bytes = new Uint8Array(decoded.byteLength);
+  bytes.set(decoded);
+  return { success: true, data: { nombre: nombrePdfFamilia(nombre), bytes } };
+}
+
+/** Opciones del Select FAMILIA en Nuevo Item / Editar (solo id y nombre). */
+export async function listarFamiliasOpciones(): Promise<OpcionCatalogoItem[]> {
+  const filas = await prisma.prodFamilia.findMany({
+    orderBy: { familiaNombre: "asc" },
+    select: { id: true, familiaNombre: true },
+  });
+  return filas.map((fila) => ({ id: fila.id, nombre: fila.familiaNombre }));
 }
 
 /** Catálogo para Gestionar Familias. Las descripciones alimentan el buscador. */
@@ -82,19 +58,27 @@ export async function listarFamiliasCatalogo(): Promise<FamiliaCatalogoItem[]> {
     select: {
       id: true,
       familiaNombre: true,
+      fichaPdfNombre: true,
+      fichaUrl: true,
       prodTiendas: {
         select: { descripcionTienda: true },
         orderBy: { descripcionTienda: "asc" },
       },
     },
   });
-  return filas.map((fila) => ({
-    id: fila.id,
-    nombre: fila.familiaNombre,
-    descripciones: fila.prodTiendas
-      .map((item) => (item.descripcionTienda ?? "").trim())
-      .filter((descripcion) => descripcion.length > 0),
-  }));
+  return filas.map((fila) => {
+    const url = fila.fichaUrl?.trim() ?? "";
+    return {
+      id: fila.id,
+      nombre: fila.familiaNombre,
+      descripciones: fila.prodTiendas
+        .map((item) => (item.descripcionTienda ?? "").trim())
+        .filter((descripcion) => descripcion.length > 0),
+      pdfNombre: fila.fichaPdfNombre,
+      url,
+      tieneFicha: Boolean(fila.fichaPdfNombre) || url.length > 0,
+    };
+  });
 }
 
 export async function crearFamilia(input: CrearFamiliaInput): Promise<ServiceResult<{ id: string }>> {
@@ -114,10 +98,23 @@ export async function crearFamilia(input: CrearFamiliaInput): Promise<ServiceRes
 }
 
 export async function editarFamilia(input: EditarFamiliaInput): Promise<ServiceResult<{ id: string }>> {
+  const data: Prisma.ProdFamiliaUpdateInput = {
+    familiaNombre: input.nombre,
+    fichaUrl: input.url.length === 0 ? null : input.url,
+  };
+  if (input.quitarPdf) {
+    data.fichaPdfNombre = null;
+    data.fichaPdf = null;
+  } else if (input.pdf) {
+    const decoded = decodePdfFamilia(input.pdf.nombre, input.pdf.base64);
+    if (!decoded.success) return decoded;
+    data.fichaPdfNombre = decoded.data.nombre;
+    data.fichaPdf = decoded.data.bytes;
+  }
   try {
     await prisma.prodFamilia.update({
       where: { id: input.id },
-      data: { familiaNombre: input.nombre },
+      data,
     });
     return { success: true, data: { id: input.id } };
   } catch (error: unknown) {
@@ -129,6 +126,30 @@ export async function editarFamilia(input: EditarFamiliaInput): Promise<ServiceR
     }
     console.error("[prodProducto] editar flia:", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo guardar la familia." };
+  }
+}
+
+/** PDF guardado de la ficha. No incluye familias que solo tienen URL. */
+export async function obtenerPdfFamilia(
+  id: string
+): Promise<ServiceResult<{ nombre: string; bytes: Uint8Array<ArrayBuffer> }>> {
+  try {
+    const fila = await prisma.prodFamilia.findUnique({
+      where: { id },
+      select: { fichaPdfNombre: true, fichaPdf: true },
+    });
+    if (!fila?.fichaPdf || fila.fichaPdf.length === 0) {
+      return { success: false, error: "Esta familia no tiene PDF." };
+    }
+    const bytes = new Uint8Array(fila.fichaPdf.byteLength);
+    bytes.set(fila.fichaPdf);
+    return {
+      success: true,
+      data: { nombre: fila.fichaPdfNombre?.trim() || "ficha.pdf", bytes },
+    };
+  } catch (error: unknown) {
+    console.error("[prodProducto] pdf flia:", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudo leer el PDF de la familia." };
   }
 }
 

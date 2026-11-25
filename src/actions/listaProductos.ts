@@ -28,7 +28,6 @@ import {
   editarSubRubroSchema,
   eliminarProductoTiendaSchema,
   idCatalogoInputSchema,
-  leerFliaProductoSchema,
 } from "@/lib/validations/listaProductos";
 import {
   getPxVentaItemModalSchema,
@@ -75,8 +74,8 @@ import {
   editarFamilia,
   eliminarFamilia,
   guardarItemsFamilia,
-  listarDescripcionesFliaItem,
   listarFamiliasCatalogo,
+  listarFamiliasOpciones,
   listarItemsSelectorFamilia,
 } from "@/services/prodProducto.service";
 import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
@@ -181,14 +180,15 @@ export async function eliminarFamiliaAction(raw: unknown): Promise<ActionResult<
   return out;
 }
 
-export async function listarDescripcionesFliaItemAction(
-  raw: unknown
-): Promise<ActionResult<{ descripciones: string[] }>> {
-  const gate = await requireEditorTienda();
+export async function listarFamiliasOpcionesAction(): Promise<ActionResult<OpcionCatalogoItem[]>> {
+  const gate = await requireTiendaLectura();
   if (gate) return gate;
-  const parsed = leerFliaProductoSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  return fromServiceResult(await listarDescripcionesFliaItem(parsed.data.nombre));
+  try {
+    return { ok: true, data: await listarFamiliasOpciones() };
+  } catch (error: unknown) {
+    console.error("[listaProductos][listarFamiliasOpciones]", error instanceof Error ? error.name : "error");
+    return { ok: false, error: "No se pudieron listar las familias." };
+  }
 }
 
 export async function eliminarProductoTiendaAction(

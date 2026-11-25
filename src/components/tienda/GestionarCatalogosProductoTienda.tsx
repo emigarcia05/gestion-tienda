@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import GestionarFamiliasModal from "@/components/tienda/GestionarFamiliasModal";
 import GestionarMarcasModal from "@/components/tienda/GestionarMarcasModal";
 import GestionarRubrosModal from "@/components/tienda/GestionarRubrosModal";
 import GestionarEstPorProdColoresModal from "@/components/estadisticas-productos/GestionarEstPorProdColoresModal";
@@ -15,7 +16,7 @@ import type { EstPorProdUnPresentacionItem } from "@/lib/estPorProdUnPresentacio
 const COLORES_INICIALES: EstPorProdColorItem[] = [];
 const PRESENTACIONES_INICIALES: EstPorProdPresentacionItem[] = [];
 
-export type CatalogoProductoTienda = "marcas" | "rubros" | "colores" | "presentacion";
+export type CatalogoProductoTienda = "marcas" | "rubros" | "colores" | "presentacion" | "familias";
 
 /**
  * Modales «GESTIONAR…» de los catálogos de producto (Lista Productos y botón «+» de Agregar / Editar).
@@ -58,6 +59,12 @@ export default function GestionarCatalogosProductoTienda({
 
   return (
     <>
+      <GestionarFamiliasModal
+        open={abierto === "familias"}
+        onOpenChange={cerrar}
+        esEditor={esEditor}
+        onCatalogoChanged={onCatalogoChanged}
+      />
       <GestionarMarcasModal
         open={abierto === "marcas"}
         onOpenChange={cerrar}

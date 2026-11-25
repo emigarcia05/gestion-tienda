@@ -39,6 +39,8 @@ export type CamposProductoTiendaForm = {
   terminacion: string;
   /** Texto del input UN. POR BULTO (solo dígitos; vacío = sin bulto). */
   bulto: string;
+  /** `SIN_VALOR_PRODUCTO_TIENDA` = sin familia. */
+  familiaId: string;
   /** `prod_lista.precio_editable`. */
   precioEditable: boolean;
 };
@@ -52,6 +54,7 @@ export const CAMPOS_PRODUCTO_TIENDA_VACIOS: CamposProductoTiendaForm = {
   idColor: SIN_VALOR_PRODUCTO_TIENDA,
   terminacion: SIN_VALOR_PRODUCTO_TIENDA,
   bulto: "",
+  familiaId: SIN_VALOR_PRODUCTO_TIENDA,
   precioEditable: false,
 };
 
@@ -85,6 +88,7 @@ export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm)
         : null,
     bulto: parsearBultoProductoTienda(campos.bulto).bulto,
     precioEditable: campos.precioEditable,
+    familiaId: campos.familiaId === SIN_VALOR_PRODUCTO_TIENDA ? null : campos.familiaId,
   };
 }
 
@@ -166,7 +170,7 @@ function SelectCatalogo({
 
 /**
  * Agregar / Editar producto:
- * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO.
+ * DESCRIPCIÓN · RUBRO | SUB-RUBRO · MARCA | COLOR · PRESENTACIÓN | TERMINACIÓN · UN. POR BULTO | FAMILIA.
  * PX. EDITABLE vive en la sección Px Venta.
  */
 export default function ProductoTiendaCampos({
@@ -276,6 +280,17 @@ export default function ProductoTiendaCampos({
             aria-invalid={bultoInvalido || undefined}
           />
         </div>
+        <SelectCatalogo
+          label="FAMILIA"
+          value={campos.familiaId}
+          onChange={(v) => onChange({ familiaId: v })}
+          opciones={catalogos.familias}
+          placeholder="FAMILIA"
+          opcionVacia="SIN FAMILIA"
+          disabled={disabled}
+          onGestionar={onGestionar ? () => onGestionar("familias") : undefined}
+          gestionarLabel="Gestionar familias"
+        />
       </div>
     </>
   );
