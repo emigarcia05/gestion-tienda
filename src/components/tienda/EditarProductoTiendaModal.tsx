@@ -56,6 +56,7 @@ export default function EditarProductoTiendaModal({
     precioEditable: item.precioEditable,
   });
   const [codFamilia, setCodFliaItem] = useState(item.codFamilia ?? "");
+  const [familiaNombre, setFamiliaNombre] = useState(item.familiaNombre);
 
   useEffect(() => {
     if (item.codFamilia) return;
@@ -88,6 +89,7 @@ export default function EditarProductoTiendaModal({
         ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
         codFamilia,
+        familiaNombre,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -134,7 +136,13 @@ export default function EditarProductoTiendaModal({
               onGestionar={setGestionando}
             />
           </section>
-          <FliaProductoSeccion codigo={codFamilia} onChange={setCodFliaItem} disabled={pending} />
+          <FliaProductoSeccion
+            codigo={codFamilia}
+            nombre={familiaNombre}
+            onChangeCodigo={setCodFliaItem}
+            onChangeNombre={setFamiliaNombre}
+            disabled={pending}
+          />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <VinculosCostoProductoTienda

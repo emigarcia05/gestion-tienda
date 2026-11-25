@@ -14,7 +14,7 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-/** `prod_lista.cod_familia`. Vacío → null. `5` y `005` quedan `005`. */
+/** `prod_familias.familia_cod`. Vacío → null. `5` y `005` quedan `005`. */
 export const codFamiliaSchema = z
   .string()
   .trim()
@@ -27,6 +27,13 @@ export const codFamiliaSchema = z
     }
     return codigo.codigo;
   });
+
+/** `prod_familias.familia_nombre`. Vacío permitido. Se guarda en mayúsculas. */
+export const familiaNombreSchema = z
+  .string()
+  .trim()
+  .max(120, "El nombre de la familia es demasiado largo.")
+  .transform((valor) => valor.replace(/\s+/g, " ").toLocaleUpperCase("es-AR"));
 
 /** Campos de catálogo comunes al alta y a la edición de un producto de tienda. */
 const camposProductoTiendaSchema = z.object({
@@ -59,6 +66,7 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     esProductoCompuesto: z.boolean(),
     componentes: componentesCompuestoSchema,
     codFamilia: codFamiliaSchema,
+    familiaNombre: familiaNombreSchema,
   })
   .superRefine((item, ctx) => {
     if (item.esProductoPropio && item.codExtVinculo) {
@@ -99,6 +107,7 @@ export const crearProductosTiendaLoteSchema = z
 export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
   codTienda: listaPreciosCodTiendaSchema,
   codFamilia: codFamiliaSchema,
+  familiaNombre: familiaNombreSchema,
 });
 
 export const leerFliaProductoSchema = z.object({
@@ -106,6 +115,31 @@ export const leerFliaProductoSchema = z.object({
 });
 
 export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });
+
+/** Código de familia obligatorio (alta y edición del catálogo). */
+export const familiaCodigoObligatorioSchema = codFamiliaSchema.transform((codigo, ctx) => {
+  if (codigo == null) {
+    ctx.addIssue({ code: "custom", message: "Ingresá el código de familia." });
+    return z.NEVER;
+  }
+  return codigo;
+});
+
+/** Nombre de familia obligatorio. Vacío sigue permitido al guardar un ítem. */
+export const familiaNombreObligatorioSchema = familiaNombreSchema.transform((nombre, ctx) => {
+  if (nombre.length === 0) {
+    ctx.addIssue({ code: "custom", message: "Ingresá el nombre de la familia." });
+    return z.NEVER;
+  }
+  return nombre;
+});
+
+export const crearFamiliaSchema = z.object({
+  codigo: familiaCodigoObligatorioSchema,
+  nombre: familiaNombreObligatorioSchema,
+});
+
+export const editarFamiliaSchema = crearFamiliaSchema.extend({ id: idCatalogoSchema });
 
 export const crearMarcaSchema = z.object({
   nombre: nombreCatalogoSchema,
@@ -134,3 +168,5 @@ export type CrearRubroInput = z.infer<typeof crearRubroSchema>;
 export type EditarRubroInput = z.infer<typeof editarRubroSchema>;
 export type CrearSubRubroInput = z.infer<typeof crearSubRubroSchema>;
 export type EditarSubRubroInput = z.infer<typeof editarSubRubroSchema>;
+export type CrearFamiliaInput = z.infer<typeof crearFamiliaSchema>;
+export type EditarFamiliaInput = z.infer<typeof editarFamiliaSchema>;

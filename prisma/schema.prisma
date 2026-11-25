@@ -1623,6 +1623,24 @@ enum TerminacionProdLista {
   MATE
 }
 
+/**
+ * Familia de ítems de tienda. El mismo código agrupa SKU que cambian de tamaño, color o terminación.
+ * El precio y el stock siguen en cada `prod_lista`.
+ */
+model ProdFamilia {
+  id            String   @id @default(cuid())
+  /// Número de familia, al menos tres dígitos (`005`). Único.
+  familiaCod    String   @unique(map: "prod_familias_familia_cod_key") @map("familia_cod") @db.VarChar(6)
+  /// Nombre en mayúsculas. Vacío si todavía no se cargó.
+  familiaNombre String   @default("") @map("familia_nombre") @db.VarChar(120)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  prodTiendas ProdPropio[]
+
+  @@map("prod_familias")
+}
+
 /// Catálogo de productos propios (alta/edición en Lista Productos). Rubro, sub-rubro, marca, color y
 /// presentación solo por FK a sus catálogos (sin columnas de texto espejo).
 model ProdPropio {
@@ -1672,8 +1690,8 @@ model ProdPropio {
   idColor                     String?   @map("id_color")
   /// Acabado: BRILLANTE / SATINADO / MATE. `null` = vacío. Sync DUX no escribe.
   terminacion                 TerminacionProdLista?
-  /// Familia numérica (`006`). El mismo `cod_familia` es el mismo ítem con otro tamaño, color o terminación.
-  codFamilia                  String?                  @map("cod_familia") @db.VarChar(40)
+  /// Familia (`prod_familias`). `null` = el ítem no pertenece a ninguna.
+  familiaId                   String?                  @map("familia_id")
   /// Baja lógica: `false` = borrado con historia (no se puede borrar físicamente). Oculto en Lista Productos
   /// y en buscadores operativos (factura, pedidos, stock, transferencias, componentes); informes lo siguen viendo.
   habilitado                  Boolean   @default(true)
@@ -1683,6 +1701,7 @@ model ProdPropio {
   marcaRelation             Marca?                         @relation(fields: [idMarca], references: [id], onDelete: SetNull)
   presentacion              ProdPresentacion?              @relation(fields: [idPresentacion], references: [id], onDelete: SetNull)
   color                     ProdColor?                     @relation(fields: [idColor], references: [id], onDelete: SetNull)
+  familia                   ProdFamilia?                   @relation(fields: [familiaId], references: [id], onDelete: SetNull)
   listaPreciosProveedores   ListaPrecioProveedor[] // vínculos por proveedores_prod_lista.cod_tienda → esta PK
   costoListaProveedor       ListaPrecioProveedor?          @relation("CostoListaEnTienda", fields: [costoCompraCodExt], references: [codExt], onDelete: SetNull)
   competenciaPxListaGeneral ProdCompetencia?               @relation("PxListaGeneralCompRef", fields: [competenciaIdPxListaGeneral], references: [id], onDelete: SetNull)
@@ -1705,7 +1724,7 @@ model ProdPropio {
   @@index([idSubRubro], map: "prod_lista_id_sub_rubro_idx")
   @@index([idPresentacion], map: "prod_lista_id_presentacion_idx")
   @@index([idColor], map: "prod_lista_id_color_idx")
-  @@index([codFamilia], map: "prod_lista_cod_familia_idx")
+  @@index([familiaId], map: "prod_lista_familia_id_idx")
   @@map("prod_lista")
 }
 

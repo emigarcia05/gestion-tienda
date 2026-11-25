@@ -6,16 +6,19 @@ import { firstZodErrorMessage, fromServiceResult } from "@/lib/actionResult";
 import { APP_ROUTES } from "@/lib/appRoutes";
 import { GP_ROUTES, REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
 import type {
+  FamiliaCatalogoItem,
   MarcaCatalogoItem,
   OpcionCatalogoItem,
   RubroCatalogoItem,
 } from "@/lib/listaProductos";
 import type { ActionResult } from "@/lib/types";
 import {
+  crearFamiliaSchema,
   crearMarcaSchema,
   crearProductosTiendaLoteSchema,
   crearRubroSchema,
   crearSubRubroSchema,
+  editarFamiliaSchema,
   editarMarcaSchema,
   editarProductoTiendaSchema,
   editarRubroSchema,
@@ -65,7 +68,11 @@ import {
   setProductoCompuestoTienda,
 } from "@/services/productoCompuesto.service";
 import {
+  crearFamilia,
+  editarFamilia,
+  eliminarFamilia,
   listarDescripcionesFliaItem,
+  listarFamiliasCatalogo,
   siguienteCodFliaItem,
 } from "@/services/prodProducto.service";
 import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
@@ -108,9 +115,50 @@ export async function siguienteCodFliaItemAction(): Promise<ActionResult<{ codig
   return fromServiceResult(await siguienteCodFliaItem());
 }
 
+export async function listarFamiliasCatalogoAction(): Promise<ActionResult<FamiliaCatalogoItem[]>> {
+  const gate = await requireTiendaLectura();
+  if (gate) return gate;
+  try {
+    return { ok: true, data: await listarFamiliasCatalogo() };
+  } catch (error: unknown) {
+    console.error("[listaProductos][listarFamilias]", error instanceof Error ? error.name : "error");
+    return { ok: false, error: "No se pudieron listar las familias." };
+  }
+}
+
+export async function crearFamiliaAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = crearFamiliaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await crearFamilia(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function editarFamiliaAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = editarFamiliaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await editarFamilia(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
+export async function eliminarFamiliaAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = idCatalogoInputSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await eliminarFamilia(parsed.data.id));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
 export async function listarDescripcionesFliaItemAction(
   raw: unknown
-): Promise<ActionResult<{ descripciones: string[] }>> {
+): Promise<ActionResult<{ descripciones: string[]; nombre: string }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
   const parsed = leerFliaProductoSchema.safeParse(raw);

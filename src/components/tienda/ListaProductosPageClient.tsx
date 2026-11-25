@@ -2,13 +2,14 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FolderTree, Palette, Plus, Ruler, Tags } from "lucide-react";
+import { Boxes, FolderTree, Palette, Plus, Ruler, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ClassicFilteredTableLayout from "@/components/shared/ClassicFilteredTableLayout";
 import PaginacionTabla from "@/components/shared/PaginacionTabla";
 import FiltrosTienda from "@/components/tienda/FiltrosTienda";
 import TablaTienda from "@/components/tienda/TablaTienda";
 import AgregarProductoTiendaModal from "@/components/tienda/AgregarProductoTiendaModal";
+import GestionarFamiliasModal from "@/components/tienda/GestionarFamiliasModal";
 import GestionarCatalogosProductoTienda, {
   type CatalogoProductoTienda,
 } from "@/components/tienda/GestionarCatalogosProductoTienda";
@@ -60,6 +61,7 @@ export default function ListaProductosPageClient({
 }: Props) {
   const router = useRouter();
   const [agregarAbierto, setAgregarAbierto] = useState(false);
+  const [familiasAbiertas, setFamiliasAbiertas] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const puedeEditarCxProd = puede(rol, PERMISOS.cxPxTienda.acceso);
   const cerrarGestion = useCallback(() => setGestionando(null), []);
@@ -89,6 +91,10 @@ export default function ListaProductosPageClient({
       <Button type="button" size="sm" variant="outline" onClick={() => setGestionando("presentacion")}>
         <Ruler className="h-4 w-4" aria-hidden />
         Gestionar Presentación
+      </Button>
+      <Button type="button" size="sm" variant="outline" onClick={() => setFamiliasAbiertas(true)}>
+        <Boxes className="h-4 w-4" aria-hidden />
+        Gestionar Familias
       </Button>
     </>
   );
@@ -142,6 +148,12 @@ export default function ListaProductosPageClient({
       <GestionarCatalogosProductoTienda
         abierto={gestionando}
         onClose={cerrarGestion}
+        esEditor={esEditor}
+        onCatalogoChanged={refrescar}
+      />
+      <GestionarFamiliasModal
+        open={familiasAbiertas}
+        onOpenChange={setFamiliasAbiertas}
         esEditor={esEditor}
         onCatalogoChanged={refrescar}
       />

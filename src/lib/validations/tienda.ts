@@ -11,7 +11,7 @@ export const getTiendaPageParamsSchema = z.object({
   proveedor: z.string().max(200).optional(),
   /** Query `vinculado=no` | `vinculado=si`: SI = hay CX (`costo_compra_cod_ext`); NO = sin CX. Otro valor se ignora. */
   vinculado: z.string().max(5).optional(),
-  /** Query `flia=si` | `flia=no`: SI = tiene `cod_familia`; NO = sin código. Otro valor se ignora. */
+  /** Query `flia=si` | `flia=no`: SI = tiene familia; NO = sin vínculo. Otro valor se ignora. */
   flia: z.string().max(5).optional(),
   pagina: z.string().max(20).optional(),
 });

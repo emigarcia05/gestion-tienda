@@ -64,6 +64,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pending, setPending] = useState(false);
   const [codFamilia, setCodFliaItem] = useState("");
+  const [familiaNombre, setFamiliaNombre] = useState("");
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
   const cerrarGestion = useCallback(() => {
@@ -79,6 +80,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
     setEsCompuesto(false);
     setComponentes([]);
     setCodFliaItem("");
+    setFamiliaNombre("");
     let activo = true;
     void siguienteCodFliaItemAction().then((res) => {
       if (!activo || !res.ok) return;
@@ -159,6 +161,7 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
       codExtVinculo: esPropio ? null : (vinculo?.codigoExterno ?? null),
       esProductoCompuesto: esPropio && esCompuesto,
       codFamilia,
+      familiaNombre,
       componentes:
         esPropio && esCompuesto
           ? componentes.map((c) => ({
@@ -228,7 +231,13 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
               onGestionar={setGestionando}
             />
           </section>
-          <FliaProductoSeccion codigo={codFamilia} onChange={setCodFliaItem} disabled={pending} />
+          <FliaProductoSeccion
+            codigo={codFamilia}
+            nombre={familiaNombre}
+            onChangeCodigo={setCodFliaItem}
+            onChangeNombre={setFamiliaNombre}
+            disabled={pending}
+          />
           <section className="modal-seccion-formulario flex flex-col gap-3">
             <h3 className={SECCION_TITULO_CLASS}>Tipo & Costo</h3>
             <div className={cn(PRODUCTO_TIENDA_GRID_CLASS, "items-end")}>

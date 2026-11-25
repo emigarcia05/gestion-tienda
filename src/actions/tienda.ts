@@ -146,8 +146,10 @@ export interface ItemTiendaParaTabla {
   color: string | null;
   /** `prod_lista.terminacion`. `null` = vacío. */
   terminacion: TerminacionProdListaValor | null;
-  /** `prod_lista.cod_familia`. `null` = sin familia asignada. */
+  /** `prod_familias.familia_cod`. `null` = sin familia asignada. */
   codFamilia: string | null;
+  /** `prod_familias.familia_nombre`. Vacío si no hay familia o todavía no tiene nombre. */
+  familiaNombre: string;
 }
 
 export interface ProveedorTintoLts {
@@ -259,11 +261,11 @@ export async function getTiendaPageData(params: {
     andParts.push({ costoCompraCodExt: { not: null } });
   }
 
-  /* FLIA es temporal: SI = ya tiene cod_familia; NO = todavía no. */
+  /* FLIA es temporal: SI = ya tiene familia; NO = todavía no. */
   if (flia === "si") {
-    andParts.push({ codFamilia: { not: null } });
+    andParts.push({ familiaId: { not: null } });
   } else if (flia === "no") {
-    andParts.push({ codFamilia: null });
+    andParts.push({ familiaId: null });
   }
 
   const where: Prisma.ProdPropioWhereInput = { AND: andParts };
@@ -283,6 +285,7 @@ export async function getTiendaPageData(params: {
           _count: { select: { listaPreciosProveedores: true } },
           presentacion: { select: { texto: true } },
           color: { select: { nombre: true } },
+          familia: { select: { familiaCod: true, familiaNombre: true } },
           ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
         skip,
@@ -356,7 +359,8 @@ export async function getTiendaPageData(params: {
       idColor: r.idColor,
       color: r.color?.nombre ?? null,
       terminacion: r.terminacion,
-      codFamilia: r.codFamilia,
+      codFamilia: r.familia?.familiaCod ?? null,
+      familiaNombre: r.familia?.familiaNombre ?? "",
     };
   });
 

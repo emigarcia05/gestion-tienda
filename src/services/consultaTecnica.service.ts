@@ -398,7 +398,7 @@ export async function crearFichaItemConsultaTecnica(input: {
         habilitado: true,
         descripcionTienda: true,
         idMarca: true,
-        codFamilia: true,
+        familia: { select: { familiaCod: true } },
         marcaRelation: { select: { nombre: true } },
       },
     });
@@ -407,8 +407,8 @@ export async function crearFichaItemConsultaTecnica(input: {
       return { success: false, error: "El ítem no está habilitado." };
     }
 
-    const clave = item.codFamilia
-      ? claveFichaDeFlia(item.codFamilia)
+    const clave = item.familia
+      ? claveFichaDeFlia(item.familia.familiaCod)
       : claveFichaDeSku(input.codTienda);
     const guardada = await prisma.consultaTecnicaFicha.findUnique({
       where: { clave },

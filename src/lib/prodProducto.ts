@@ -1,4 +1,4 @@
-/** Clave de la hoja cuando los SKU comparten `prod_lista.cod_familia`. */
+/** Clave de la hoja cuando los SKU comparten `prod_familias.familia_cod`. */
 export function claveFichaDeFlia(codFamilia: string): string {
   return `FLIA ${codFamilia}`.slice(0, 300);
 }

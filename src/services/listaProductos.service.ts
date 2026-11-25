@@ -21,6 +21,7 @@ import {
   ErrorNegocioCompuesto,
   insertarComponentesCompuesto,
 } from "@/services/productoCompuesto.service";
+import { resolverFamiliaId } from "@/services/prodProducto.service";
 
 /** Clave de `pg_advisory_xact_lock` que serializa la asignación de `cod_tienda` correlativo. */
 const LOCK_COD_TIENDA = 72_431_001;
@@ -138,7 +139,7 @@ async function crearUnProductoTienda(
       esProductoPropio: item.esProductoPropio || item.esProductoCompuesto,
       esProductoCompuesto: item.esProductoCompuesto,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
-      codFamilia: item.codFamilia,
+      familiaId: await resolverFamiliaId(tx, item.codFamilia, item.familiaNombre),
     },
   });
   if (lineaProveedor) {
@@ -205,7 +206,10 @@ export async function editarProductoTienda(
       const { data } = await resolverCamposProductoTienda(tx, input);
       await tx.prodPropio.update({
         where: { codTienda: input.codTienda },
-        data: { ...data, codFamilia: input.codFamilia },
+        data: {
+          ...data,
+          familiaId: await resolverFamiliaId(tx, input.codFamilia, input.familiaNombre),
+        },
       });
     });
     return { success: true, data: { codTienda: input.codTienda } };

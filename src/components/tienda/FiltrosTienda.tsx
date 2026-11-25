@@ -37,7 +37,7 @@ interface Props {
   cxCompraActual?: string;
   proveedorActual: string;
   vinculadoActual: string;
-  /** Temporal: SI = tiene `cod_familia`; NO = sin código. */
+  /** Temporal: SI = tiene familia; NO = sin vínculo. */
   fliaActual?: string;
   /** Cx Compra: tercer desplegable = CX COMPRA; por defecto SUB-RUBRO. */
   modoFiltroTercero?: "subRubro" | "cxCompra";

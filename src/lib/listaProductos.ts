@@ -1,3 +1,11 @@
+/** `prod_familias` en **Gestionar Familias**. `descripciones` sirve para buscar la familia por el ítem. */
+export type FamiliaCatalogoItem = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  descripciones: string[];
+};
+
 /** `prod_marcas` en **Gestionar Marcas**; `productos` = filas `prod_lista` vinculadas. */
 export type MarcaCatalogoItem = {
   id: string;
