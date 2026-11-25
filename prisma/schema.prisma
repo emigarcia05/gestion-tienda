@@ -320,7 +320,7 @@ model ConsultaTecnicaMensaje {
 
 /**
  * Memoria del resumen leído en la hoja del fabricante.
- * Una fila por `cod_familia` (clave `FLIA {código}`). Sin código, una por SKU. No se carga a mano.
+ * Una fila por familia (`FLIA {id}` de `prod_familias`). Sin familia, una por SKU. No se carga a mano.
  * Se vuelve a leer a los 30 días.
  */
 model ConsultaTecnicaFicha {
@@ -1629,10 +1629,8 @@ enum TerminacionProdLista {
  */
 model ProdFamilia {
   id            String   @id @default(cuid())
-  /// Número de familia, al menos tres dígitos (`005`). Único.
-  familiaCod    String   @unique(map: "prod_familias_familia_cod_key") @map("familia_cod") @db.VarChar(6)
-  /// Nombre en mayúsculas. Vacío si todavía no se cargó.
-  familiaNombre String   @default("") @map("familia_nombre") @db.VarChar(120)
+  /// Nombre en mayúsculas. Único: dos familias no pueden llamarse igual.
+  familiaNombre String   @unique(map: "prod_familias_familia_nombre_key") @map("familia_nombre") @db.VarChar(120)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -139,7 +139,7 @@ async function crearUnProductoTienda(
       esProductoPropio: item.esProductoPropio || item.esProductoCompuesto,
       esProductoCompuesto: item.esProductoCompuesto,
       costoCompraCodExt: lineaProveedor?.codExt ?? null,
-      familiaId: await resolverFamiliaId(tx, item.codFamilia, item.familiaNombre),
+      familiaId: await resolverFamiliaId(tx, item.familiaNombre),
     },
   });
   if (lineaProveedor) {
@@ -208,7 +208,7 @@ export async function editarProductoTienda(
         where: { codTienda: input.codTienda },
         data: {
           ...data,
-          familiaId: await resolverFamiliaId(tx, input.codFamilia, input.familiaNombre),
+          familiaId: await resolverFamiliaId(tx, input.familiaNombre),
         },
       });
     });

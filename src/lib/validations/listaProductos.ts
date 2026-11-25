@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { TERMINACIONES_PROD_LISTA } from "@/lib/prodListaTerminacion";
-import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import { formatoCodSchema } from "@/lib/tintometricoFormatoCod";
 import { listaPreciosCodExtSchema, listaPreciosCodTiendaSchema } from "@/lib/validations/common";
 import { componentesCompuestoSchema } from "@/lib/validations/productoCompuesto";
@@ -14,21 +13,7 @@ const nombreCatalogoSchema = z
   .min(1, "Ingresá un nombre.")
   .max(120, "El nombre es demasiado largo.");
 
-/** `prod_familias.familia_cod`. Vacío → null. `5` y `005` quedan `005`. */
-export const codFamiliaSchema = z
-  .string()
-  .trim()
-  .max(6, "El código de familia admite hasta 6 dígitos.")
-  .transform((valor, ctx) => {
-    const codigo = normalizarCodFliaItem(valor);
-    if (!codigo.ok) {
-      ctx.addIssue({ code: "custom", message: "El código de familia es un número." });
-      return z.NEVER;
-    }
-    return codigo.codigo;
-  });
-
-/** `prod_familias.familia_nombre`. Vacío permitido. Se guarda en mayúsculas. */
+/** `prod_familias.familia_nombre`. Vacío = el ítem queda sin familia. Se guarda en mayúsculas. */
 export const familiaNombreSchema = z
   .string()
   .trim()
@@ -65,7 +50,6 @@ export const crearProductoTiendaItemSchema = camposProductoTiendaSchema
     codExtVinculo: listaPreciosCodExtSchema.nullable(),
     esProductoCompuesto: z.boolean(),
     componentes: componentesCompuestoSchema,
-    codFamilia: codFamiliaSchema,
     familiaNombre: familiaNombreSchema,
   })
   .superRefine((item, ctx) => {
@@ -106,26 +90,16 @@ export const crearProductosTiendaLoteSchema = z
 /** Editar: vínculos, costo y producto propio se manejan con sus propias acciones (inmediatas). */
 export const editarProductoTiendaSchema = camposProductoTiendaSchema.extend({
   codTienda: listaPreciosCodTiendaSchema,
-  codFamilia: codFamiliaSchema,
   familiaNombre: familiaNombreSchema,
 });
 
 export const leerFliaProductoSchema = z.object({
-  codigo: z.string().trim().max(6),
+  nombre: z.string().trim().max(120),
 });
 
 export const eliminarProductoTiendaSchema = z.object({ codTienda: listaPreciosCodTiendaSchema });
 
-/** Código de familia obligatorio (alta y edición del catálogo). */
-export const familiaCodigoObligatorioSchema = codFamiliaSchema.transform((codigo, ctx) => {
-  if (codigo == null) {
-    ctx.addIssue({ code: "custom", message: "Ingresá el código de familia." });
-    return z.NEVER;
-  }
-  return codigo;
-});
-
-/** Nombre de familia obligatorio. Vacío sigue permitido al guardar un ítem. */
+/** Nombre de familia obligatorio en el catálogo. Vacío sigue permitido al guardar un ítem. */
 export const familiaNombreObligatorioSchema = familiaNombreSchema.transform((nombre, ctx) => {
   if (nombre.length === 0) {
     ctx.addIssue({ code: "custom", message: "Ingresá el nombre de la familia." });
@@ -135,11 +109,20 @@ export const familiaNombreObligatorioSchema = familiaNombreSchema.transform((nom
 });
 
 export const crearFamiliaSchema = z.object({
-  codigo: familiaCodigoObligatorioSchema,
   nombre: familiaNombreObligatorioSchema,
 });
 
 export const editarFamiliaSchema = crearFamiliaSchema.extend({ id: idCatalogoSchema });
+
+export const buscarItemsFamiliaSchema = z.object({
+  id: idCatalogoSchema,
+  q: z.string().trim().max(300).optional().default(""),
+});
+
+export const guardarItemsFamiliaSchema = z.object({
+  id: idCatalogoSchema,
+  codTiendas: z.array(listaPreciosCodTiendaSchema).max(2000),
+});
 
 export const crearMarcaSchema = z.object({
   nombre: nombreCatalogoSchema,

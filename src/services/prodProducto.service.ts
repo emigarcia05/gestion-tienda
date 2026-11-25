@@ -1,69 +1,58 @@
 import { Prisma } from "@prisma/client";
-import type { FamiliaCatalogoItem } from "@/lib/listaProductos";
-import { normalizarCodFliaItem, textoCodFliaItem } from "@/lib/prodProducto";
+import { filtroTexto } from "@/lib/busqueda";
+import type { FamiliaCatalogoItem, ItemSelectorFamilia } from "@/lib/listaProductos";
 import { prisma } from "@/lib/prisma";
-import type { CrearFamiliaInput, EditarFamiliaInput } from "@/lib/validations/listaProductos";
+import type {
+  CrearFamiliaInput,
+  EditarFamiliaInput,
+} from "@/lib/validations/listaProductos";
 import type { ServiceResult } from "@/types";
 
-/** Siguiente familia: el mayor `familia_cod` numérico + 1, con tres dígitos. */
-export async function siguienteCodFliaItem(): Promise<ServiceResult<{ codigo: string }>> {
-  try {
-    const filas = await prisma.$queryRaw<Array<{ max: number | null }>>`
-      SELECT COALESCE(MAX(CAST(familia_cod AS INTEGER)), 0) AS max
-      FROM prod_familias
-      WHERE familia_cod ~ '^[0-9]+$'
-    `;
-    const max = Number(filas[0]?.max ?? 0);
-    const siguiente = Number.isFinite(max) && max >= 0 ? max + 1 : 1;
-    return { success: true, data: { codigo: textoCodFliaItem(siguiente) } };
-  } catch (error: unknown) {
-    console.error("[prodProducto] siguiente flia:", error instanceof Error ? error.name : "error");
-    return { success: false, error: "No se pudo calcular el código de familia." };
-  }
+function nombreFamiliaOcupado(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 /**
- * Crea la familia si el código no existe y devuelve su id.
- * `null` si el ítem queda sin familia. El nombre se guarda en el catálogo, compartido por los SKU.
+ * Vincula el ítem a la familia de ese nombre. Si no existe, la crea.
+ * Nombre vacío: el ítem queda sin familia y el catálogo no se borra.
  */
 export async function resolverFamiliaId(
   tx: Prisma.TransactionClient,
-  codigo: string | null,
   nombre: string
 ): Promise<string | null> {
-  if (codigo == null) return null;
+  if (nombre.length === 0) return null;
   const existente = await tx.prodFamilia.findUnique({
-    where: { familiaCod: codigo },
-    select: { id: true, familiaNombre: true },
-  });
-  if (existente) {
-    if (nombre !== existente.familiaNombre) {
-      await tx.prodFamilia.update({
-        where: { id: existente.id },
-        data: { familiaNombre: nombre },
-      });
-    }
-    return existente.id;
-  }
-  const creada = await tx.prodFamilia.create({
-    data: { familiaCod: codigo, familiaNombre: nombre },
+    where: { familiaNombre: nombre },
     select: { id: true },
   });
-  return creada.id;
+  if (existente) return existente.id;
+  try {
+    const creada = await tx.prodFamilia.create({
+      data: { familiaNombre: nombre },
+      select: { id: true },
+    });
+    return creada.id;
+  } catch (error: unknown) {
+    if (!nombreFamiliaOcupado(error)) throw error;
+    const otra = await tx.prodFamilia.findUnique({
+      where: { familiaNombre: nombre },
+      select: { id: true },
+    });
+    if (otra) return otra.id;
+    throw error;
+  }
 }
 
-/** Descripciones de los ítems de esa familia, y el nombre del catálogo. */
+/** Descripciones de los ítems de la familia con ese nombre. */
 export async function listarDescripcionesFliaItem(
-  codigo: string
-): Promise<ServiceResult<{ descripciones: string[]; nombre: string }>> {
-  const vacio = { descripciones: [], nombre: "" };
-  const normal = normalizarCodFliaItem(codigo);
-  if (!normal.ok || normal.codigo == null) return { success: true, data: vacio };
+  nombre: string
+): Promise<ServiceResult<{ descripciones: string[] }>> {
+  const limpio = nombre.trim().replace(/\s+/g, " ").toLocaleUpperCase("es-AR");
+  if (limpio.length === 0) return { success: true, data: { descripciones: [] } };
   try {
     const familia = await prisma.prodFamilia.findUnique({
-      where: { familiaCod: normal.codigo },
+      where: { familiaNombre: limpio },
       select: {
-        familiaNombre: true,
         prodTiendas: {
           select: { descripcionTienda: true },
           orderBy: { descripcionTienda: "asc" },
@@ -71,14 +60,13 @@ export async function listarDescripcionesFliaItem(
         },
       },
     });
-    if (!familia) return { success: true, data: vacio };
     return {
       success: true,
       data: {
-        nombre: familia.familiaNombre,
-        descripciones: familia.prodTiendas
-          .map((fila) => (fila.descripcionTienda ?? "").trim())
-          .filter((descripcion) => descripcion.length > 0),
+        descripciones:
+          familia?.prodTiendas
+            .map((fila) => (fila.descripcionTienda ?? "").trim())
+            .filter((descripcion) => descripcion.length > 0) ?? [],
       },
     };
   } catch (error: unknown) {
@@ -87,17 +75,12 @@ export async function listarDescripcionesFliaItem(
   }
 }
 
-function codigoFamiliaOcupado(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
-
 /** Catálogo para Gestionar Familias. Las descripciones alimentan el buscador. */
 export async function listarFamiliasCatalogo(): Promise<FamiliaCatalogoItem[]> {
   const filas = await prisma.prodFamilia.findMany({
-    orderBy: { familiaCod: "asc" },
+    orderBy: { familiaNombre: "asc" },
     select: {
       id: true,
-      familiaCod: true,
       familiaNombre: true,
       prodTiendas: {
         select: { descripcionTienda: true },
@@ -107,7 +90,6 @@ export async function listarFamiliasCatalogo(): Promise<FamiliaCatalogoItem[]> {
   });
   return filas.map((fila) => ({
     id: fila.id,
-    codigo: fila.familiaCod,
     nombre: fila.familiaNombre,
     descripciones: fila.prodTiendas
       .map((item) => (item.descripcionTienda ?? "").trim())
@@ -118,13 +100,13 @@ export async function listarFamiliasCatalogo(): Promise<FamiliaCatalogoItem[]> {
 export async function crearFamilia(input: CrearFamiliaInput): Promise<ServiceResult<{ id: string }>> {
   try {
     const creada = await prisma.prodFamilia.create({
-      data: { familiaCod: input.codigo, familiaNombre: input.nombre },
+      data: { familiaNombre: input.nombre },
       select: { id: true },
     });
     return { success: true, data: { id: creada.id } };
   } catch (error: unknown) {
-    if (codigoFamiliaOcupado(error)) {
-      return { success: false, error: "Ya existe una familia con ese código." };
+    if (nombreFamiliaOcupado(error)) {
+      return { success: false, error: "Ya existe una familia con ese nombre." };
     }
     console.error("[prodProducto] crear flia:", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo crear la familia." };
@@ -135,18 +117,91 @@ export async function editarFamilia(input: EditarFamiliaInput): Promise<ServiceR
   try {
     await prisma.prodFamilia.update({
       where: { id: input.id },
-      data: { familiaCod: input.codigo, familiaNombre: input.nombre },
+      data: { familiaNombre: input.nombre },
     });
     return { success: true, data: { id: input.id } };
   } catch (error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return { success: false, error: "La familia ya no existe." };
     }
-    if (codigoFamiliaOcupado(error)) {
-      return { success: false, error: "Ya existe una familia con ese código." };
+    if (nombreFamiliaOcupado(error)) {
+      return { success: false, error: "Ya existe una familia con ese nombre." };
     }
     console.error("[prodProducto] editar flia:", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo guardar la familia." };
+  }
+}
+
+const SELECTOR_FAMILIA_LIMITE = 300;
+
+/** Ítems habilitados para el selector. Con búsqueda vacía, los de la familia van primero. */
+export async function listarItemsSelectorFamilia(input: {
+  id: string;
+  q: string;
+}): Promise<ItemSelectorFamilia[]> {
+  const parts: Prisma.ProdPropioWhereInput[] = [{ habilitado: true }];
+  const textFilter = filtroTexto(input.q, ["descripcionTienda", "codTienda"]);
+  if (textFilter.AND?.length) parts.push(textFilter);
+  const buscados = await prisma.prodPropio.findMany({
+    where: { AND: parts },
+    orderBy: { descripcionTienda: "asc" },
+    take: SELECTOR_FAMILIA_LIMITE,
+    select: { codTienda: true, descripcionTienda: true, familiaId: true },
+  });
+  const qVacia = input.q.trim().length === 0;
+  const miembros = qVacia
+    ? await prisma.prodPropio.findMany({
+        where: { familiaId: input.id },
+        orderBy: { descripcionTienda: "asc" },
+        select: { codTienda: true, descripcionTienda: true, familiaId: true },
+      })
+    : [];
+  const porCodigo = new Map<string, (typeof buscados)[number]>();
+  for (const miembro of miembros) porCodigo.set(miembro.codTienda, miembro);
+  for (const fila of buscados) {
+    if (!porCodigo.has(fila.codTienda)) porCodigo.set(fila.codTienda, fila);
+  }
+  return [...porCodigo.values()].map((fila) => ({
+    codTienda: fila.codTienda,
+    descripcion: (fila.descripcionTienda ?? "").trim(),
+    enFamilia: fila.familiaId === input.id,
+  }));
+}
+
+/**
+ * Los códigos elegidos quedan en la familia. Los que ya estaban y no vienen en la lista, salen.
+ * Un ítem que estaba en otra familia pasa a esta.
+ */
+export async function guardarItemsFamilia(input: {
+  id: string;
+  codTiendas: string[];
+}): Promise<ServiceResult<{ id: string }>> {
+  try {
+    const familia = await prisma.prodFamilia.findUnique({
+      where: { id: input.id },
+      select: { id: true },
+    });
+    if (!familia) return { success: false, error: "La familia ya no existe." };
+    const codigos = [...new Set(input.codTiendas)];
+    await prisma.$transaction(async (tx) => {
+      await tx.prodPropio.updateMany({
+        where: {
+          familiaId: input.id,
+          ...(codigos.length > 0 ? { codTienda: { notIn: codigos } } : {}),
+        },
+        data: { familiaId: null },
+      });
+      if (codigos.length > 0) {
+        await tx.prodPropio.updateMany({
+          where: { codTienda: { in: codigos } },
+          data: { familiaId: input.id },
+        });
+      }
+    });
+    return { success: true, data: { id: input.id } };
+  } catch (error: unknown) {
+    console.error("[prodProducto] items flia:", error instanceof Error ? error.name : "error");
+    return { success: false, error: "No se pudieron guardar los ítems de la familia." };
   }
 }
 

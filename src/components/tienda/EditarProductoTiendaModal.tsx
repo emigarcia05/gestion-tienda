@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import AppModal from "@/components/shared/AppModal";
 import ModalSiNoChoice from "@/components/shared/ModalSiNoChoice";
 import FliaProductoSeccion from "@/components/tienda/FliaProductoSeccion";
-import { siguienteCodFliaItemAction } from "@/actions/listaProductos";
-import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import PxListasItemEnProducto, {
   type PxVentaItemHandle,
 } from "@/components/tienda/PxListasItemEnProducto";
@@ -55,20 +53,7 @@ export default function EditarProductoTiendaModal({
     bulto: item.bulto != null ? String(item.bulto) : "",
     precioEditable: item.precioEditable,
   });
-  const [codFamilia, setCodFliaItem] = useState(item.codFamilia ?? "");
   const [familiaNombre, setFamiliaNombre] = useState(item.familiaNombre);
-
-  useEffect(() => {
-    if (item.codFamilia) return;
-    let activo = true;
-    void siguienteCodFliaItemAction().then((res) => {
-      if (!activo || !res.ok) return;
-      setCodFliaItem((prev) => (prev === "" ? res.data.codigo : prev));
-    });
-    return () => {
-      activo = false;
-    };
-  }, [item.codFamilia]);
   const [pending, setPending] = useState(false);
   const [gestionando, setGestionando] = useState<CatalogoProductoTienda | null>(null);
   const { recargar } = catalogos;
@@ -77,9 +62,7 @@ export default function EditarProductoTiendaModal({
     recargar();
   }, [recargar]);
 
-  const flia = normalizarCodFliaItem(codFamilia);
-  const fliaOk = flia.ok && flia.codigo != null;
-  const puedeGuardar = camposProductoTiendaCompletos(campos) && fliaOk && !pending;
+  const puedeGuardar = camposProductoTiendaCompletos(campos) && !pending;
 
   async function guardar() {
     if (!puedeGuardar) return;
@@ -88,7 +71,6 @@ export default function EditarProductoTiendaModal({
       const res = await editarProductoTiendaAction({
         ...camposProductoTiendaParaAction(campos),
         codTienda: item.codItem,
-        codFamilia,
         familiaNombre,
       });
       if (!res.ok) {
@@ -137,9 +119,7 @@ export default function EditarProductoTiendaModal({
             />
           </section>
           <FliaProductoSeccion
-            codigo={codFamilia}
             nombre={familiaNombre}
-            onChangeCodigo={setCodFliaItem}
             onChangeNombre={setFamiliaNombre}
             disabled={pending}
           />

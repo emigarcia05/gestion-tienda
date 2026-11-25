@@ -7,18 +7,21 @@ import { APP_ROUTES } from "@/lib/appRoutes";
 import { GP_ROUTES, REVALIDATE_LISTA_PRODUCTOS } from "@/lib/gestionProductosRoutes";
 import type {
   FamiliaCatalogoItem,
+  ItemSelectorFamilia,
   MarcaCatalogoItem,
   OpcionCatalogoItem,
   RubroCatalogoItem,
 } from "@/lib/listaProductos";
 import type { ActionResult } from "@/lib/types";
 import {
+  buscarItemsFamiliaSchema,
   crearFamiliaSchema,
   crearMarcaSchema,
   crearProductosTiendaLoteSchema,
   crearRubroSchema,
   crearSubRubroSchema,
   editarFamiliaSchema,
+  guardarItemsFamiliaSchema,
   editarMarcaSchema,
   editarProductoTiendaSchema,
   editarRubroSchema,
@@ -71,9 +74,10 @@ import {
   crearFamilia,
   editarFamilia,
   eliminarFamilia,
+  guardarItemsFamilia,
   listarDescripcionesFliaItem,
   listarFamiliasCatalogo,
-  siguienteCodFliaItem,
+  listarItemsSelectorFamilia,
 } from "@/services/prodProducto.service";
 import { guardarCambiosPxListasLote } from "@/services/pxListasCambiosLote.service";
 import { guardarCompetenciaRefPxListaGeneral } from "@/services/pxListasCompetenciaRef.service";
@@ -109,12 +113,6 @@ export async function editarProductoTiendaAction(
   return out;
 }
 
-export async function siguienteCodFliaItemAction(): Promise<ActionResult<{ codigo: string }>> {
-  const gate = await requireEditorTienda();
-  if (gate) return gate;
-  return fromServiceResult(await siguienteCodFliaItem());
-}
-
 export async function listarFamiliasCatalogoAction(): Promise<ActionResult<FamiliaCatalogoItem[]>> {
   const gate = await requireTiendaLectura();
   if (gate) return gate;
@@ -146,6 +144,33 @@ export async function editarFamiliaAction(raw: unknown): Promise<ActionResult<{ 
   return out;
 }
 
+export async function buscarItemsFamiliaAction(
+  raw: unknown
+): Promise<ActionResult<ItemSelectorFamilia[]>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = buscarItemsFamiliaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  try {
+    return { ok: true, data: await listarItemsSelectorFamilia(parsed.data) };
+  } catch (error: unknown) {
+    console.error("[listaProductos][buscarItemsFamilia]", error instanceof Error ? error.name : "error");
+    return { ok: false, error: "No se pudieron cargar los ítems." };
+  }
+}
+
+export async function guardarItemsFamiliaAction(
+  raw: unknown
+): Promise<ActionResult<{ id: string }>> {
+  const gate = await requireEditorTienda();
+  if (gate) return gate;
+  const parsed = guardarItemsFamiliaSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
+  const out = fromServiceResult(await guardarItemsFamilia(parsed.data));
+  if (out.ok) revalidateListaProductos();
+  return out;
+}
+
 export async function eliminarFamiliaAction(raw: unknown): Promise<ActionResult<{ id: string }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
@@ -158,12 +183,12 @@ export async function eliminarFamiliaAction(raw: unknown): Promise<ActionResult<
 
 export async function listarDescripcionesFliaItemAction(
   raw: unknown
-): Promise<ActionResult<{ descripciones: string[]; nombre: string }>> {
+): Promise<ActionResult<{ descripciones: string[] }>> {
   const gate = await requireEditorTienda();
   if (gate) return gate;
   const parsed = leerFliaProductoSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, error: firstZodErrorMessage(parsed.error) };
-  return fromServiceResult(await listarDescripcionesFliaItem(parsed.data.codigo));
+  return fromServiceResult(await listarDescripcionesFliaItem(parsed.data.nombre));
 }
 
 export async function eliminarProductoTiendaAction(

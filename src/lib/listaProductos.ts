@@ -1,7 +1,13 @@
 /** `prod_familias` en **Gestionar Familias**. `descripciones` sirve para buscar la familia por el ítem. */
+/** Fila del selector **Gestionar Items** (mismo criterio que Seleccionar Productos). */
+export type ItemSelectorFamilia = {
+  codTienda: string;
+  descripcion: string;
+  enFamilia: boolean;
+};
+
 export type FamiliaCatalogoItem = {
   id: string;
-  codigo: string;
   nombre: string;
   descripciones: string[];
 };

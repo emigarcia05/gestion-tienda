@@ -146,9 +146,7 @@ export interface ItemTiendaParaTabla {
   color: string | null;
   /** `prod_lista.terminacion`. `null` = vacío. */
   terminacion: TerminacionProdListaValor | null;
-  /** `prod_familias.familia_cod`. `null` = sin familia asignada. */
-  codFamilia: string | null;
-  /** `prod_familias.familia_nombre`. Vacío si no hay familia o todavía no tiene nombre. */
+  /** `prod_familias.familia_nombre`. Vacío si el ítem no tiene familia. */
   familiaNombre: string;
 }
 
@@ -285,7 +283,7 @@ export async function getTiendaPageData(params: {
           _count: { select: { listaPreciosProveedores: true } },
           presentacion: { select: { texto: true } },
           color: { select: { nombre: true } },
-          familia: { select: { familiaCod: true, familiaNombre: true } },
+          familia: { select: { familiaNombre: true } },
           ...SELECT_NOMBRES_CATALOGO_PROD_PROPIO,
         },
         skip,
@@ -359,7 +357,6 @@ export async function getTiendaPageData(params: {
       idColor: r.idColor,
       color: r.color?.nombre ?? null,
       terminacion: r.terminacion,
-      codFamilia: r.familia?.familiaCod ?? null,
       familiaNombre: r.familia?.familiaNombre ?? "",
     };
   });

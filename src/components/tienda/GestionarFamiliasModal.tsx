@@ -13,11 +13,10 @@ import {
   editarFamiliaAction,
   eliminarFamiliaAction,
   listarFamiliasCatalogoAction,
-  siguienteCodFliaItemAction,
 } from "@/actions/listaProductos";
+import GestionarItemsFamiliaModal from "@/components/tienda/GestionarItemsFamiliaModal";
 import { matchByMultiTerm } from "@/lib/busqueda";
 import type { FamiliaCatalogoItem } from "@/lib/listaProductos";
-import { normalizarCodFliaItem } from "@/lib/prodProducto";
 import { TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
 
@@ -36,9 +35,9 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
   const [busqueda, setBusqueda] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<FamiliaCatalogoItem | null>(null);
-  const [formCodigo, setFormCodigo] = useState("");
   const [formNombre, setFormNombre] = useState("");
   const [pending, setPending] = useState(false);
+  const [itemsAbiertos, setItemsAbiertos] = useState(false);
   const [borrarTarget, setBorrarTarget] = useState<FamiliaCatalogoItem | null>(null);
   const [borrando, setBorrando] = useState(false);
 
@@ -69,32 +68,24 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
     const q = busqueda.trim();
     if (!q) return items;
     return items.filter((familia) =>
-      matchByMultiTerm([familia.nombre, familia.codigo, ...familia.descripciones], q)
+      matchByMultiTerm([familia.nombre, ...familia.descripciones], q)
     );
   }, [items, busqueda]);
 
-  const codigoNormal = normalizarCodFliaItem(formCodigo);
-  const puedeGuardar =
-    esEditor && codigoNormal.ok && codigoNormal.codigo != null && formNombre.trim().length > 0 && !pending;
+  const puedeGuardar = esEditor && formNombre.trim().length > 0 && !pending;
 
   function abrirForm(item: FamiliaCatalogoItem | null) {
     if (!esEditor || pending) return;
     setEditing(item);
     setFormNombre(item?.nombre ?? "");
-    setFormCodigo(item?.codigo ?? "");
     setFormOpen(true);
-    if (item) return;
-    void siguienteCodFliaItemAction().then((res) => {
-      if (!res.ok) return;
-      setFormCodigo((prev) => (prev === "" ? res.data.codigo : prev));
-    });
   }
 
   async function guardar() {
-    if (!puedeGuardar || !codigoNormal.ok || codigoNormal.codigo == null) return;
+    if (!puedeGuardar) return;
     setPending(true);
     try {
-      const payload = { codigo: codigoNormal.codigo, nombre: formNombre };
+      const payload = { nombre: formNombre };
       const res = editing
         ? await editarFamiliaAction({ id: editing.id, ...payload })
         : await crearFamiliaAction(payload);
@@ -133,7 +124,9 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
     <>
       <Dialog
         open={open}
-        onOpenChange={(next) => !pending && !borrando && !formOpen && !borrarTarget && onOpenChange(next)}
+        onOpenChange={(next) =>
+          !pending && !borrando && !formOpen && !borrarTarget && !itemsAbiertos && onOpenChange(next)
+        }
       >
         <AppModal
           title="GESTIONAR FAMILIAS"
@@ -186,7 +179,6 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
                       key={familia.id}
                       className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2"
                     >
-                      <p className="w-14 shrink-0 tabular-nums font-medium text-foreground">{familia.codigo}</p>
                       <p className="min-w-0 flex-1 truncate font-medium text-foreground">{familia.nombre}</p>
                       {esEditor ? (
                         <div className="ml-2 flex shrink-0 items-center gap-1.5">
@@ -195,7 +187,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Editar ${familia.codigo}`}
+                            aria-label={`Editar ${familia.nombre}`}
                             title="Editar"
                             disabled={pending}
                             onClick={() => abrirForm(familia)}
@@ -207,7 +199,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
                             variant="ghost"
                             size="icon"
                             className={LIST_ROW_ICON_BTN_CLASS}
-                            aria-label={`Borrar ${familia.codigo}`}
+                            aria-label={`Borrar ${familia.nombre}`}
                             title="Borrar"
                             disabled={pending}
                             onClick={() => setBorrarTarget(familia)}
@@ -225,7 +217,14 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
         </AppModal>
       </Dialog>
 
-      <Dialog open={formOpen} onOpenChange={(next) => !pending && setFormOpen(next)}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(next) => {
+          if (pending || itemsAbiertos) return;
+          if (!next) setItemsAbiertos(false);
+          setFormOpen(next);
+        }}
+      >
         <AppModal
           title={editing ? "EDITAR FAMILIA" : "NUEVA FAMILIA"}
           size="md"
@@ -240,22 +239,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
             </div>
           }
         >
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <ModalMicroLabel>CÓDIGO</ModalMicroLabel>
-              <Input
-                value={formCodigo}
-                inputMode="numeric"
-                maxLength={6}
-                disabled={pending}
-                aria-label="Código de familia"
-                onChange={(e) => setFormCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                onBlur={() => {
-                  const normal = normalizarCodFliaItem(formCodigo);
-                  if (normal.ok && normal.codigo) setFormCodigo(normal.codigo);
-                }}
-              />
-            </div>
+            <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <ModalMicroLabel>NOMBRE</ModalMicroLabel>
               <Input
@@ -266,9 +250,31 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
                 onChange={(e) => setFormNombre(e.target.value.toLocaleUpperCase("es-AR"))}
               />
             </div>
+            {editing ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setItemsAbiertos(true)}
+              >
+                Gestionar Items
+              </Button>
+            ) : null}
           </div>
         </AppModal>
       </Dialog>
+
+      {editing ? (
+        <GestionarItemsFamiliaModal
+          open={itemsAbiertos}
+          onOpenChange={setItemsAbiertos}
+          familiaId={editing.id}
+          onGuardado={() => {
+            void cargar();
+            onCatalogoChanged?.();
+          }}
+        />
+      ) : null}
 
       <Dialog open={Boolean(borrarTarget)} onOpenChange={(o) => !o && !borrando && setBorrarTarget(null)}>
         <AppModal
@@ -288,7 +294,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
           <p className="text-sm text-muted-foreground">
             ¿Borrar la familia{" "}
             <span className="font-semibold text-foreground">
-              {borrarTarget ? `${borrarTarget.codigo} ${borrarTarget.nombre}`.trim() : ""}
+              {borrarTarget?.nombre ?? ""}
             </span>
             ? Los ítems quedan sin familia.
           </p>
