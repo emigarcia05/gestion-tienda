@@ -339,7 +339,7 @@ export default function ConsultaTecnicaPageClient({
                         className="consulta-historial-item min-w-0 flex-1 rounded-md text-left"
                       >
                         <div className="flex w-full min-w-0 flex-col items-center gap-0.5">
-                          <div className="w-full truncate text-center text-base font-bold uppercase">
+                          <div className="w-full truncate text-center text-[length:calc(var(--text-xs)*1.1)] font-bold uppercase">
                             {fila.tipoEtiqueta}
                           </div>
                           <div className="w-full truncate text-center text-xs font-normal">
