@@ -41,6 +41,64 @@ export function etiquetaTipoConsultaTecnica(tipo: string): string {
 
 const URL_HTTP = /^https?:\/\/\S+$/i;
 
+/** Títulos del instructivo de ficha. En el hilo se ven en negrita. */
+export const CONSULTA_TECNICA_CATEGORIAS_FICHA = [
+  "Preparación de la superficie",
+  "Dilución",
+  "Tiempo de secado",
+  "Ficha técnica del fabricante",
+] as const;
+
+/** Etiquetas internas de Tiempo de secado. También van en negrita. */
+export const CONSULTA_TECNICA_ETIQUETAS_FICHA = ["Entre manos", "Final"] as const;
+
+export const CONSULTA_TECNICA_PREGUNTA_COINCIDENCIAS =
+  "Varios ítems pueden coincidir con esa descripción, ¿a cuál te referís?";
+
+const MARCA_OPCIONES = "\n---opciones---\n";
+
+export type CoincidenciaConsulta =
+  | { tipo: "familia"; id: string; etiqueta: string }
+  | { tipo: "item"; codTienda: string; etiqueta: string };
+
+function esCoincidencia(valor: unknown): valor is CoincidenciaConsulta {
+  if (typeof valor !== "object" || valor == null) return false;
+  const fila = valor as { tipo?: unknown; id?: unknown; codTienda?: unknown; etiqueta?: unknown };
+  if (typeof fila.etiqueta !== "string" || fila.etiqueta.trim().length === 0) return false;
+  if (fila.tipo === "familia") return typeof fila.id === "string" && fila.id.length > 0;
+  if (fila.tipo === "item") return typeof fila.codTienda === "string" && fila.codTienda.length > 0;
+  return false;
+}
+
+/** Pregunta + opciones. El hilo muestra cada opción como botón. */
+export function armarMensajeCoincidencias(opciones: CoincidenciaConsulta[]): string {
+  let corte = opciones.slice(0, 8);
+  let texto = `${CONSULTA_TECNICA_PREGUNTA_COINCIDENCIAS}${MARCA_OPCIONES}${JSON.stringify(corte)}`;
+  while (texto.length > 2000 && corte.length > 1) {
+    corte = corte.slice(0, -1);
+    texto = `${CONSULTA_TECNICA_PREGUNTA_COINCIDENCIAS}${MARCA_OPCIONES}${JSON.stringify(corte)}`;
+  }
+  return texto.slice(0, 2000);
+}
+
+/** Separa la pregunta de las opciones guardadas en el mensaje. */
+export function leerMensajeCoincidencias(
+  texto: string
+): { intro: string; opciones: CoincidenciaConsulta[] } | null {
+  const corte = texto.indexOf(MARCA_OPCIONES);
+  if (corte < 0) return null;
+  let crudo: unknown;
+  try {
+    crudo = JSON.parse(texto.slice(corte + MARCA_OPCIONES.length));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(crudo)) return null;
+  const opciones = crudo.filter(esCoincidencia);
+  if (opciones.length === 0) return null;
+  return { intro: texto.slice(0, corte).trim(), opciones };
+}
+
 function textoDeHoja(valor: string, tope: number): string | null {
   const texto = valor.replace(/\s+/g, " ").trim();
   if (texto.length === 0 || texto.includes("[COMPLETAR]")) return null;
@@ -53,7 +111,14 @@ function textoDeHoja(valor: string, tope: number): string | null {
   return corte.trim();
 }
 
-/** Instructivo corto. Un párrafo que la hoja no trae no se escribe. */
+function sinMarcaDeEstilo(valor: string): string {
+  return valor.replace(/^v2\|/, "");
+}
+
+/**
+ * Instructivo en un solo relato, en el orden de uso.
+ * Un dato que la hoja no trae no se escribe. La ficha del fabricante queda en la URL.
+ */
 export function armarInstructivoFichaItem(input: {
   descripcion: string;
   preparacion: string;
@@ -63,18 +128,14 @@ export function armarInstructivoFichaItem(input: {
   urlFicha: string;
 }): string {
   const descripcion = input.descripcion.trim().slice(0, 240);
+  const oraciones = [
+    textoDeHoja(sinMarcaDeEstilo(input.preparacion), 450),
+    textoDeHoja(input.dilucion, 320),
+    textoDeHoja(input.secadoEntreManos, 240),
+    textoDeHoja(input.secadoFinal, 280),
+  ].filter((parte): parte is string => parte != null);
   const bloques = [`Así se usa ${descripcion}.`];
-  const preparacion = textoDeHoja(input.preparacion, 320);
-  if (preparacion) bloques.push("", "Preparación de la superficie", preparacion);
-  const dilucion = textoDeHoja(input.dilucion, 320);
-  if (dilucion) bloques.push("", "Dilución", dilucion);
-  const entreManos = textoDeHoja(input.secadoEntreManos, 240);
-  const secadoFinal = textoDeHoja(input.secadoFinal, 280);
-  if (entreManos || secadoFinal) {
-    bloques.push("", "Tiempo de secado");
-    if (entreManos) bloques.push(`Entre manos: ${entreManos}`);
-    if (secadoFinal) bloques.push(`Final: ${secadoFinal}`);
-  }
+  if (oraciones.length > 0) bloques.push("", oraciones.join(" "));
   const url = input.urlFicha.trim().slice(0, 400);
   if (URL_HTTP.test(url)) bloques.push("", "Ficha técnica del fabricante", url);
   return bloques.join("\n");

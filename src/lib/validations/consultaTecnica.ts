@@ -58,6 +58,19 @@ export const agregarItemConsultaTecnicaSchema = z.object({
   codTienda: listaPreciosCodTiendaSchema,
 });
 
+export const elegirCoincidenciaConsultaTecnicaSchema = z.discriminatedUnion("tipo", [
+  z.object({
+    conversacionId: prismaCuidSchema,
+    tipo: z.literal("familia"),
+    id: prismaCuidSchema,
+  }),
+  z.object({
+    conversacionId: prismaCuidSchema,
+    tipo: z.literal("item"),
+    codTienda: listaPreciosCodTiendaSchema,
+  }),
+]);
+
 export const enviarMensajeConsultaTecnicaSchema = z.object({
   conversacionId: prismaCuidSchema.optional(),
   texto: z

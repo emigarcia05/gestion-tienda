@@ -163,11 +163,16 @@ export async function resumirHojaFabricante(input: {
 
     const redactado = await completarConsultaTecnica({
       system: [
-        "Hablás con un consumidor final en Argentina, de vos, con palabras de todos los días.",
+        "Hablás con un consumidor final en Argentina, de vos, con palabras de todos los días, como si le explicaras en el mostrador cómo se usa el producto.",
         "Leíste la hoja técnica que te paso. No uses otra fuente.",
-        "Resumí cómo preparar la superficie, con qué se mezcla y cuánto, cuánto esperar entre manos y cuándo se puede usar.",
+        "Cada campo es una o dos oraciones cortas. Se leen una detrás de la otra, en este orden: superficie, dilución, espera entre manos y cuándo se puede usar.",
+        "preparacion: cómo tiene que estar la superficie y cómo limpiarla. Empezá con «La superficie tiene que».",
+        "dilucion: con qué se diluye y el porcentaje, con el signo %. El número tiene que estar escrito en la hoja: no calcules otro. Si la primera mano y las siguientes no usan el mismo porcentaje, decilo ahí. Si una mano va pura, decilo.",
+        "secadoEntreManos: cuánto hay que esperar para dar la mano siguiente.",
+        "secadoFinal: cuándo queda listo para usar. Si la hoja pide una espera especial (por ejemplo, días antes de llenar una pileta), incluila acá.",
+        "Si la hoja aclara otra cosa importante para usarlo (cantidad de manos, dónde no va, lluvia), sumala en el campo que corresponda.",
         "No inventes números, tiempos ni pasos. Si la hoja no lo dice, el valor es exactamente [COMPLETAR].",
-        "No uses palabras de fábrica. Una o dos oraciones cortas por campo.",
+        "No uses títulos ni palabras de fábrica.",
         "Respondé solo un JSON con las claves preparacion, dilucion, secadoEntreManos y secadoFinal.",
       ].join(" "),
       user: `Producto: ${input.marca} ${input.descripcion}\n\nHoja técnica:\n${hoja}`,
@@ -178,10 +183,11 @@ export async function resumirHojaFabricante(input: {
     if (!partes) return { resumen: { ...VACIO, urlFicha }, guardar: false };
 
     const campo = (valor: string) => dejarSeccionSiEstaEnFuente(valor, hoja);
+    const dilucion = campo(partes.dilucion);
     return {
       resumen: {
         preparacion: campo(partes.preparacion),
-        dilucion: campo(partes.dilucion),
+        dilucion: dilucion.includes("%") ? dilucion : "[COMPLETAR]",
         secadoEntreManos: campo(partes.secadoEntreManos),
         secadoFinal: campo(partes.secadoFinal),
         urlFicha,

@@ -9,6 +9,7 @@ import {
   buscarItemsConsultaTecnicaAction,
   conversarConsultaTecnicaAction,
   crearFichaItemConsultaTecnicaAction,
+  elegirCoincidenciaConsultaTecnicaAction,
   eliminarConversacionConsultaTecnicaAction,
   listarMensajesConsultaTecnicaAction,
 } from "@/actions/consultaTecnica";
@@ -22,7 +23,13 @@ import type {
   ConsultaTecnicaConversacionItem,
   ConsultaTecnicaMensajeItem,
 } from "@/lib/consultaTecnica";
-import { CONSULTA_TECNICA_AUTOR_USUARIO } from "@/lib/consultaTecnica";
+import {
+  CONSULTA_TECNICA_AUTOR_USUARIO,
+  CONSULTA_TECNICA_CATEGORIAS_FICHA,
+  CONSULTA_TECNICA_ETIQUETAS_FICHA,
+  leerMensajeCoincidencias,
+  type CoincidenciaConsulta,
+} from "@/lib/consultaTecnica";
 import { formatFechaCortaArgentina, formatInstanteDdMmYyHhMmArgentina } from "@/lib/fechaArgentina";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
 import { cn } from "@/lib/utils";
@@ -32,25 +39,52 @@ type PasoConsulta = "tipo" | "item";
 
 const URL_EN_TEXTO = /(https?:\/\/\S+)/g;
 
-function TextoConEnlace({ texto }: { texto: string }) {
+function FragmentoConEnlace({ texto, clave }: { texto: string; clave: string }) {
   const partes = texto.split(URL_EN_TEXTO);
+  return partes.map((parte, indice) =>
+    /^https?:\/\/\S+$/i.test(parte) ? (
+      <a
+        key={`${clave}-${indice}-${parte}`}
+        href={parte}
+        target="_blank"
+        rel="noreferrer"
+        className="underline"
+      >
+        {parte}
+      </a>
+    ) : (
+      <span key={`${clave}-${indice}-texto`}>{parte}</span>
+    )
+  );
+}
+
+function LineaInstructivo({ linea, indice }: { linea: string; indice: number }) {
+  const titulo = (CONSULTA_TECNICA_CATEGORIAS_FICHA as readonly string[]).includes(linea.trim());
+  const etiqueta = CONSULTA_TECNICA_ETIQUETAS_FICHA.find((nombre) => linea.startsWith(`${nombre}:`));
+  return (
+    <span>
+      {indice > 0 ? "\n" : null}
+      {titulo ? (
+        <strong className="font-bold">{linea}</strong>
+      ) : etiqueta ? (
+        <>
+          <strong className="font-bold">{etiqueta}:</strong>
+          <FragmentoConEnlace texto={linea.slice(etiqueta.length + 1)} clave={`${indice}-resto`} />
+        </>
+      ) : (
+        <FragmentoConEnlace texto={linea} clave={`${indice}-linea`} />
+      )}
+    </span>
+  );
+}
+
+function TextoConEnlace({ texto }: { texto: string }) {
+  const lineas = texto.split("\n");
   return (
     <p className="whitespace-pre-wrap text-sm">
-      {partes.map((parte, indice) =>
-        /^https?:\/\/\S+$/i.test(parte) ? (
-          <a
-            key={`${indice}-${parte}`}
-            href={parte}
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-          >
-            {parte}
-          </a>
-        ) : (
-          <span key={`${indice}-texto`}>{parte}</span>
-        )
-      )}
+      {lineas.map((linea, indice) => (
+        <LineaInstructivo key={`${indice}-${linea}`} linea={linea} indice={indice} />
+      ))}
     </p>
   );
 }
@@ -250,6 +284,25 @@ export default function ConsultaTecnicaPageClient({
     }
   }
 
+  async function elegirOpcion(opcion: CoincidenciaConsulta) {
+    if (!activa || creando || enviando) return;
+    setCreando(true);
+    const out = await elegirCoincidenciaConsultaTecnicaAction(
+      opcion.tipo === "familia"
+        ? { conversacionId: activa.id, tipo: "familia", id: opcion.id }
+        : { conversacionId: activa.id, tipo: "item", codTienda: opcion.codTienda }
+    );
+    setCreando(false);
+    if (!out.ok) {
+      toast.error(out.error);
+      return;
+    }
+    recordar(out.data.conversacion);
+    setMensajes((prev) => [...prev, out.data.mensaje, out.data.respuesta]);
+    bajarAlFinal();
+    router.refresh();
+  }
+
   async function sumarItem(codTienda: string) {
     if (!activa || creando) return;
     setCreando(true);
@@ -377,17 +430,34 @@ export default function ConsultaTecnicaPageClient({
             ) : (
               mensajes.map((mensaje) => {
                 const propio = mensaje.autor === CONSULTA_TECNICA_AUTOR_USUARIO;
+                const coincidencias = propio ? null : leerMensajeCoincidencias(mensaje.texto);
                 return (
                   <article
                     key={mensaje.id}
                     className={cn(
-                      "flex w-fit max-w-[32rem] flex-col gap-1 rounded-lg px-3 py-2",
+                      "flex max-w-[32rem] flex-col gap-1 rounded-lg px-3 py-2",
+                      coincidencias ? "w-full" : "w-fit",
                       propio
                         ? "self-end bg-sidebar text-sidebar-foreground"
                         : "self-start border border-border bg-muted text-foreground"
                     )}
                   >
-                    <TextoConEnlace texto={mensaje.texto} />
+                    <TextoConEnlace texto={coincidencias ? coincidencias.intro : mensaje.texto} />
+                    {coincidencias ? (
+                      <div className="flex flex-col gap-1.5">
+                        {coincidencias.opciones.map((opcion) => (
+                          <Button
+                            key={opcion.tipo === "familia" ? opcion.id : opcion.codTienda}
+                            type="button"
+                            className="consulta-opcion-item w-full"
+                            disabled={creando || enviando}
+                            onClick={() => void elegirOpcion(opcion)}
+                          >
+                            {opcion.etiqueta}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
                     {mensaje.tieneImagen ? (
                       // Foto del hilo, mismo origen: next/image no aplica.
                       // eslint-disable-next-line @next/next/no-img-element

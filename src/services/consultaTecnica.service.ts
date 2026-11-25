@@ -10,7 +10,9 @@ import {
   CONSULTA_TECNICA_TIPO,
   CONSULTA_TECNICA_TIPO_FICHA,
   armarInstructivoFichaItem,
+  armarMensajeCoincidencias,
   etiquetaTipoConsultaTecnica,
+  type CoincidenciaConsulta,
   type ConsultaTecnicaConversacionItem,
   type ConsultaTecnicaMensajeItem,
   type ConsultaTecnicaPagina,
@@ -384,7 +386,8 @@ function hiloSinDatosDeHoja(mensajes: ConsultaTecnicaMensajeItem[]): boolean {
       (mensaje.texto.includes("\nPreparación") ||
         mensaje.texto.includes("\nDilución") ||
         mensaje.texto.includes("\nTiempo de secado") ||
-        mensaje.texto.includes("https://"))
+        mensaje.texto.includes("https://") ||
+        (mensaje.texto.startsWith("Así se usa ") && mensaje.texto.includes("\n\n")))
   );
 }
 
@@ -560,6 +563,7 @@ const SISTEMA_CONVERSACION = [
   "Sos el especialista técnico-comercial de TiendaColor, en Argentina: pinturería arquitectónica, impermeabilización, materiales de construcción y repintado automotor.",
   "Hablás de vos, en español rioplatense, como un colega de mostrador. Sos directo, empático y corto.",
   "El chat muestra texto plano: usá renglones y guiones. No uses markdown ni tablas.",
+  "Si el hilo trae el instructivo de un ítem, seguí ese tono: frases cortas, de vos, en el orden de uso. No vuelvas a armar títulos de ficha.",
   "Si preguntan si un producto sirve, empezá por Sí, No o Depende, y explicá en una frase por qué, desde el material.",
   "Cuando pidan cómo prepararlo, da el paso a paso. Si el bloque Hoja trae un número, usá ese. Si no hay hoja, podés usar criterio de mostrador y tenés que decir que no sale de la ficha del fabricante.",
   "No inventes precios ni stock. No cambies el ítem de la consulta salvo que pidan otra opción.",
@@ -567,6 +571,100 @@ const SISTEMA_CONVERSACION = [
   "Si piden un texto para el cliente, cerrá con un bloque corto listo para reenviar, separado de la explicación.",
   "Si la pregunta llega cortada, pedí que la completen. No escribas [COMPLETAR].",
 ].join(" ");
+
+function planoConsulta(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function raizToken(token: string): string {
+  if (token.length <= 4) return token;
+  return token.slice(0, token.length - 1);
+}
+
+function tokenCoincide(token: string, nombre: string): boolean {
+  const texto = planoConsulta(nombre);
+  if (texto.includes(token)) return true;
+  const palabras = texto.split(/[^a-z0-9]+/).filter((palabra) => palabra.length >= 4);
+  return palabras.some((palabra) => palabra.startsWith(token) || token.startsWith(palabra));
+}
+
+function pareceSeguimiento(texto: string, hayProducto: boolean): boolean {
+  if (!hayProducto) return false;
+  return /[?]|\b(como|cuanto|cuando|porque|sirve|puedo|podes|dilu\w*|esper\w*|manos?|sec\w*|aplic\w*|horas?|dias?|quedo|manch\w*|segund\w*|primer\w*|despues|listo)\b/i.test(
+    planoConsulta(texto)
+  );
+}
+
+async function familiasQueCoinciden(tokens: string[]): Promise<CoincidenciaConsulta[]> {
+  const filas = await prisma.prodFamilia.findMany({
+    where: {
+      prodTiendas: { some: { habilitado: true } },
+      AND: tokens.map((token) => ({
+        familiaNombre: { contains: raizToken(token), mode: "insensitive" as const },
+      })),
+    },
+    select: { id: true, familiaNombre: true },
+    orderBy: { familiaNombre: "asc" },
+    take: 20,
+  });
+  return filas
+    .filter((fila) => tokens.every((token) => tokenCoincide(token, fila.familiaNombre)))
+    .slice(0, 8)
+    .map((fila) => ({ tipo: "familia" as const, id: fila.id, etiqueta: fila.familiaNombre }));
+}
+
+async function itemsQueCoinciden(tokens: string[]): Promise<CoincidenciaConsulta[]> {
+  const filas = await prisma.prodPropio.findMany({
+    where: {
+      habilitado: true,
+      AND: tokens.map((token) => ({
+        descripcionTienda: { contains: raizToken(token), mode: "insensitive" as const },
+      })),
+    },
+    select: {
+      codTienda: true,
+      descripcionTienda: true,
+      familiaId: true,
+      familia: { select: { familiaNombre: true } },
+    },
+    orderBy: { descripcionTienda: "asc" },
+    take: 40,
+  });
+  const vistos = new Set<string>();
+  const salida: CoincidenciaConsulta[] = [];
+  for (const fila of filas) {
+    const descripcion = (fila.descripcionTienda ?? "").trim();
+    if (descripcion.length === 0 || !tokens.every((token) => tokenCoincide(token, descripcion))) continue;
+    if (fila.familiaId && fila.familia) {
+      if (vistos.has(fila.familiaId)) continue;
+      vistos.add(fila.familiaId);
+      salida.push({ tipo: "familia", id: fila.familiaId, etiqueta: fila.familia.familiaNombre });
+    } else {
+      salida.push({ tipo: "item", codTienda: fila.codTienda, etiqueta: descripcion });
+    }
+    if (salida.length === 8) break;
+  }
+  return salida;
+}
+
+/** Primero el nombre de la familia. Si no hay, la descripción del ítem. */
+async function buscarCoincidenciasProducto(texto: string): Promise<CoincidenciaConsulta[]> {
+  const tokens = tokensConsulta(texto);
+  if (tokens.length === 0) return [];
+  const familias = await familiasQueCoinciden(tokens);
+  if (familias.length > 0) return familias;
+  return itemsQueCoinciden(tokens);
+}
+
+async function codDeCoincidencia(opcion: CoincidenciaConsulta): Promise<string | null> {
+  if (opcion.tipo === "item") return opcion.codTienda;
+  const fila = await prisma.prodPropio.findFirst({
+    where: { familiaId: opcion.id, habilitado: true, descripcionTienda: { not: "" } },
+    select: { codTienda: true },
+    orderBy: { descripcionTienda: "asc" },
+  });
+  return fila?.codTienda ?? null;
+}
 
 /**
  * Guarda el texto del usuario en el hilo abierto y responde en ese mismo hilo.
@@ -588,6 +686,31 @@ export async function conversarConsultaTecnica(input: {
   const hilo = await listarMensajesConsultaTecnica(input.conversacionId);
   const mensajes = hilo.success ? hilo.data : [guardado.data.mensaje];
   const descripcion = descripcionDelInstructivo(mensajes);
+  if (!pareceSeguimiento(input.texto, descripcion != null)) {
+    try {
+      const coincidencias = await buscarCoincidenciasProducto(input.texto);
+      if (coincidencias.length >= 2) {
+        const respuesta = await guardarRespuesta(
+          input.conversacionId,
+          armarMensajeCoincidencias(coincidencias)
+        );
+        return { success: true, data: { ...guardado.data, respuesta } };
+      }
+      if (coincidencias.length === 1) {
+        const codTienda = await codDeCoincidencia(coincidencias[0]);
+        if (codTienda) {
+          const armado = await instructivoDeItem(codTienda);
+          const texto = armado.success ? instructivoConDatos(armado.data.texto) : null;
+          if (texto) {
+            const respuesta = await guardarRespuesta(input.conversacionId, texto);
+            return { success: true, data: { ...guardado.data, respuesta } };
+          }
+        }
+      }
+    } catch (error: unknown) {
+      console.error("[consultaTecnica][coincidencias]", error instanceof Error ? error.name : "error");
+    }
+  }
   let hoja = "";
   if (descripcion && hiloSinDatosDeHoja(mensajes)) {
     try {
@@ -836,7 +959,7 @@ function campoGuardado(valor: string, tope: number): string {
 function paraGuardar(resumen: ResumenHojaFabricante) {
   return {
     urlFicha: campoGuardado(resumen.urlFicha, 500),
-    preparacion: campoGuardado(resumen.preparacion, 500),
+    preparacion: `v2|${campoGuardado(resumen.preparacion, 497)}`.slice(0, 500),
     dilucion: campoGuardado(resumen.dilucion, 500),
     secadoEntreManos: campoGuardado(resumen.secadoEntreManos, 300),
     secadoFinal: campoGuardado(resumen.secadoFinal, 300),
@@ -865,7 +988,9 @@ async function instructivoDeItem(
   const guardada = await prisma.consultaTecnicaFicha.findUnique({ where: { clave } });
   const cache = guardada ? resumenGuardado(guardada) : null;
   let resumen: ResumenHojaFabricante;
-  if (guardada && cache && memoriaVigente(guardada.updatedAt) && resumenUtil(cache)) {
+  const dilucionCacheOk = cache == null || cache.dilucion.trim().length === 0 || cache.dilucion.includes("%");
+  const estiloNuevo = (cache?.preparacion ?? "").startsWith("v2|");
+  if (guardada && cache && memoriaVigente(guardada.updatedAt) && resumenUtil(cache) && dilucionCacheOk && estiloNuevo) {
     resumen = cache;
   } else {
     const fichaCargada = item.familia ? await fichaCargadaDeFamilia(item.familia) : undefined;
@@ -957,6 +1082,24 @@ export async function crearFichaItemConsultaTecnica(input: {
     console.error("[consultaTecnica][ficha]", error instanceof Error ? error.name : "error");
     return { success: false, error: "No se pudo armar el instructivo." };
   }
+}
+
+/** El botón de una coincidencia abre la ficha de esa familia o de ese ítem. */
+export async function elegirCoincidenciaConsultaTecnica(
+  input:
+    | { conversacionId: string; tipo: "familia"; id: string }
+    | { conversacionId: string; tipo: "item"; codTienda: string }
+): Promise<
+  ServiceResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  const codTienda =
+    input.tipo === "item" ? input.codTienda : await codDeCoincidencia({ tipo: "familia", id: input.id, etiqueta: "" });
+  if (!codTienda) return { success: false, error: "Esa familia no tiene un ítem habilitado." };
+  return agregarItemConsultaTecnica({ conversacionId: input.conversacionId, codTienda });
 }
 
 /** Suma la ficha de otro ítem al hilo que ya está abierto. */

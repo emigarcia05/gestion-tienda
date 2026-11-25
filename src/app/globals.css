@@ -2394,6 +2394,19 @@ main button.consulta-historial-item:active:not(:disabled) {
   filter: none !important;
 }
 
+/* Consulta Técnica · botón de cada coincidencia. El nombre puede ocupar más de un renglón. */
+main button.consulta-opcion-item,
+main button.consulta-opcion-item:hover:not(:disabled),
+main button.consulta-opcion-item:disabled {
+  height: auto !important;
+  min-height: 2.5rem !important;
+  white-space: normal !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
 /* Consulta Técnica · pie del hilo. `main button` fija 2.5rem y deja el cuadro más alto. */
 main form.consulta-composer > textarea,
 main form.consulta-composer > button,

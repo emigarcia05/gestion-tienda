@@ -20,6 +20,7 @@ import {
   buscarItemsConsultaTecnicaSchema,
   conversarConsultaTecnicaSchema,
   crearFichaItemConsultaTecnicaSchema,
+  elegirCoincidenciaConsultaTecnicaSchema,
   eliminarConsultaTecnicaSchema,
   eliminarConversacionConsultaTecnicaSchema,
   enviarMensajeConsultaTecnicaSchema,
@@ -31,6 +32,7 @@ import {
   buscarItemsConsultaTecnica,
   conversarConsultaTecnica,
   crearFichaItemConsultaTecnica,
+  elegirCoincidenciaConsultaTecnica,
   eliminarConsultaTecnica,
   eliminarConversacionConsultaTecnica,
   enviarMensajeConsultaTecnica,
@@ -183,6 +185,26 @@ export async function conversarConsultaTecnicaAction(
       texto: parsed.data.texto,
     })
   );
+  if (out.ok) refrescar();
+  return out;
+}
+
+export async function elegirCoincidenciaConsultaTecnicaAction(
+  raw: unknown
+): Promise<
+  ActionResult<{
+    conversacion: ConsultaTecnicaConversacionItem;
+    mensaje: ConsultaTecnicaMensajeItem;
+    respuesta: ConsultaTecnicaMensajeItem;
+  }>
+> {
+  const gate = await requireConsultaTecnicaLectura();
+  if (gate) return gate;
+
+  const parsed = elegirCoincidenciaConsultaTecnicaSchema.safeParse(raw);
+  if (!parsed.success) return zodFail(parsed.error);
+
+  const out = fromServiceResult(await elegirCoincidenciaConsultaTecnica(parsed.data));
   if (out.ok) refrescar();
   return out;
 }
