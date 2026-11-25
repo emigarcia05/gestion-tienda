@@ -42,8 +42,6 @@ function refrescar() {
   revalidatePath(APP_ROUTES.ventas.ventas.consultaTecnica);
 }
 
-export const maxDuration = 60;
-
 export async function guardarConsultaTecnicaAction(
   raw: unknown
 ): Promise<ActionResult<ConsultaTecnicaRecomendacionItem>> {
