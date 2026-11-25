@@ -88,6 +88,22 @@ export default function GestionarItemsFamiliaModal({ open, onOpenChange, familia
     };
   }, [open, familiaId, debouncedQ]);
 
+  const todosFiltradosTildados =
+    items.length > 0 && items.every((item) => selected.has(item.codTienda));
+
+  function seleccionarFiltrados() {
+    if (items.length === 0) return;
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (items.every((item) => next.has(item.codTienda))) {
+        for (const item of items) next.delete(item.codTienda);
+        return next;
+      }
+      for (const item of items) next.set(item.codTienda, item);
+      return next;
+    });
+  }
+
   function toggle(item: ItemSelectorFamilia) {
     setSelected((prev) => {
       const next = new Map(prev);
@@ -162,7 +178,20 @@ export default function GestionarItemsFamiliaModal({ open, onOpenChange, familia
                 <Table variant="compact">
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-transparent">
-                      <TableHead className="w-12 text-xs"> </TableHead>
+                      <TableHead className="w-12 text-xs">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mx-auto size-7 text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground"
+                          aria-label="Seleccionar todos los ítems filtrados"
+                          aria-pressed={todosFiltradosTildados}
+                          disabled={loading || items.length === 0}
+                          onClick={seleccionarFiltrados}
+                        >
+                          <Check className="h-4 w-4" aria-hidden />
+                        </Button>
+                      </TableHead>
                       <TableHead className="text-xs">DESCRIPCIÓN</TableHead>
                     </TableRow>
                   </TableHeader>
