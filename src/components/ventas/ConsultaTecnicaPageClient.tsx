@@ -58,8 +58,14 @@ function FragmentoConEnlace({ texto, clave }: { texto: string; clave: string }) 
   );
 }
 
+function esTituloInstructivo(linea: string): boolean {
+  const limpia = linea.trim();
+  if ((CONSULTA_TECNICA_CATEGORIAS_FICHA as readonly string[]).includes(limpia)) return true;
+  return /^\d+\. Preparación\.$/.test(limpia);
+}
+
 function LineaInstructivo({ linea, indice }: { linea: string; indice: number }) {
-  const titulo = (CONSULTA_TECNICA_CATEGORIAS_FICHA as readonly string[]).includes(linea.trim());
+  const titulo = esTituloInstructivo(linea);
   const etiqueta = CONSULTA_TECNICA_ETIQUETAS_FICHA.find((nombre) => linea.startsWith(`${nombre}:`));
   return (
     <span>
@@ -533,7 +539,7 @@ export default function ConsultaTecnicaPageClient({
 
       <Dialog open={modalAbierto} onOpenChange={cerrarModal}>
         <AppModal
-          title={paso === "tipo" ? "VAS A EMPEZAR CONSULTANDO SOBRE" : "FICHA TÉCNICA DE UN ÍTEM"}
+          title={paso === "tipo" ? "VAS A EMPEZAR CONSULTANDO SOBRE" : "CÓMO USAR UN PRODUCTO"}
           size="md"
           actions={
             paso === "tipo" ? (
@@ -555,7 +561,7 @@ export default function ConsultaTecnicaPageClient({
           {paso === "tipo" ? (
             <div className="flex flex-col gap-3">
               <Button type="button" className="h-auto w-full justify-start whitespace-normal py-3 text-left" onClick={() => setPaso("item")}>
-                1. Ficha técnica de un ítem
+                1. Cómo usar un producto
               </Button>
               <Button
                 type="button"

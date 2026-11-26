@@ -160,7 +160,7 @@ export async function completarWhatsappIa(
 
 const CONSULTA_TECNICA_MAX_TOKENS = 1000;
 
-/** Redacción corta para el instructivo. Sin búsqueda web: el texto de la hoja ya viene en el pedido. */
+/** Cómo usar un producto. Sin búsqueda web: el texto de la hoja ya viene en el pedido. */
 export async function completarConsultaTecnica(
   input: CompletarWhatsappIaInput
 ): Promise<ServiceResult<string>> {

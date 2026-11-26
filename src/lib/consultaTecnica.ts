@@ -33,7 +33,7 @@ export const CONSULTA_TECNICA_AUTOR_SISTEMA = "SISTEMA" as const;
 
 export function etiquetaTipoConsultaTecnica(tipo: string): string {
   if (tipo === CONSULTA_TECNICA_TIPO) return "Técnica";
-  if (tipo === CONSULTA_TECNICA_TIPO_FICHA) return "Ficha técnica de un ítem";
+  if (tipo === CONSULTA_TECNICA_TIPO_FICHA) return "Cómo usar un producto";
   if (tipo === CONSULTA_TECNICA_TIPO_RECOMENDAR) return "No sé qué producto recomendar";
   if (tipo === CONSULTA_TECNICA_TIPO_MANUAL) return "Manual de uso";
   return tipo;
@@ -112,30 +112,30 @@ function textoDeHoja(valor: string, tope: number): string | null {
 }
 
 function sinMarcaDeEstilo(valor: string): string {
-  return valor.replace(/^v2\|/, "");
+  return valor.replace(/^v\d+\|/, "");
 }
 
 /**
- * Instructivo en un solo relato, en el orden de uso.
+ * Cómo usar el producto, en dos pasos.
+ * 1 es la superficie. El siguiente es una explicación en orden de uso.
  * Un dato que la hoja no trae no se escribe. La ficha del fabricante queda en la URL.
  */
 export function armarInstructivoFichaItem(input: {
   descripcion: string;
   preparacion: string;
-  dilucion: string;
-  secadoEntreManos: string;
-  secadoFinal: string;
+  aplicacion: string;
   urlFicha: string;
 }): string {
   const descripcion = input.descripcion.trim().slice(0, 240);
-  const oraciones = [
-    textoDeHoja(sinMarcaDeEstilo(input.preparacion), 450),
-    textoDeHoja(input.dilucion, 320),
-    textoDeHoja(input.secadoEntreManos, 240),
-    textoDeHoja(input.secadoFinal, 280),
-  ].filter((parte): parte is string => parte != null);
+  const preparacion = textoDeHoja(sinMarcaDeEstilo(input.preparacion), 450);
+  const aplicacion = textoDeHoja(input.aplicacion, 900);
   const bloques = [`Así se usa ${descripcion}.`];
-  if (oraciones.length > 0) bloques.push("", oraciones.join(" "));
+  let paso = 1;
+  if (preparacion) {
+    bloques.push("", `${paso}. Preparación.`, preparacion);
+    paso += 1;
+  }
+  if (aplicacion) bloques.push("", `${paso}. ${aplicacion}`);
   const url = input.urlFicha.trim().slice(0, 400);
   if (URL_HTTP.test(url)) bloques.push("", "Ficha técnica del fabricante", url);
   return bloques.join("\n");

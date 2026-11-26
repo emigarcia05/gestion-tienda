@@ -9,6 +9,7 @@ alwaysApply: true
 - Frontend → `docs/FRONTEND_GUIDELINES.md` (tabla “Qué estás haciendo” + sección del patrón/módulo).
 - Backend → `docs/BACKEND_GUIDELINES.md` (tabla “Qué estás haciendo” + **§ del dominio**).
 - IA Diseño / colores / scraper / Asistente IA → `docs/AGENTEIA_GUIDELINES.md`; si afecta el asesor → también `docs/IA_DISEÑO/REGLAS_NEGOCIO.md`.
+- Cliente OpenAI (`OPENIA_`, sugerencia de WhatsApp o Consulta Técnica) → `docs/OPENIA.md`; el contrato de la pantalla sigue en `docs/BACKEND_GUIDELINES.md` §3.17 o §3.18.
 - No inventar convenciones que contradigan esas guías. Priorizar la guía del área.
 - Cerrar la tarea documentando cambios relevantes (guía del área, `CHANGELOG` IA Diseño o ADR nuevo si aplica).
 - La tarea **no está completa** si el código cambia y la documentación del área no se actualiza.

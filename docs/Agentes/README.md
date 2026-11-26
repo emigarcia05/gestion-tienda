@@ -33,7 +33,7 @@ Cuando pidan la lista o un prompt para copiar:
 |---|--------|----------|---------|
 | 2.1 | API ARCA | Facturación electrónica y constancia de inscripción contra la API oficial de ARCA | [api-arca.md](./api-arca.md) |
 | 2.2 | API WHATSAPP | Enviar mensajes desde el teléfono de cada local con la Cloud API oficial de Meta | [api-whatsapp.md](./api-whatsapp.md) |
-| 2.3 | API OPENIA | Borradores de respuesta del chat de WhatsApp con la API oficial de OpenAI. No se envían solos | [api-openia.md](./api-openia.md) |
+| 2.3 | API MODELOS DE TEXTO | Integrar y ajustar APIs de modelos generativos de texto. Hoy es OpenAI; Gemini o Cursor solo si se piden. El WhatsApp no se envía solo | [api-modelos-texto.md](./api-modelos-texto.md) |
 
 ## 3. Agentes auditores
 

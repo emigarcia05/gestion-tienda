@@ -47,7 +47,7 @@ No inventes convenciones de estilos ni estructuras que no estén documentadas en
 - Mantener actualizado **`docs/FRONTEND_GUIDELINES.md`**.
 - Incluir: patrones de diseño, catálogo de clases globales, checklist de PR.
 - Cada corrección o patrón detectado debe reflejarse en la documentación.
-- Guías centralizadas en **`docs/`** (frontend, backend, agente IA, módulo `IA_DISEÑO`).
+- Guías centralizadas en **`docs/`** (frontend, backend, agente IA, módulo `IA_DISEÑO`, cliente OpenAI en `OPENIA.md`).
 
 ---
 

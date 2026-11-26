@@ -16,6 +16,7 @@ alwaysApply: true
    - Nuevo/ajustado patrón UI → `docs/FRONTEND_GUIDELINES.md`
    - Nuevo/ajustado servicio, esquema o regla → `docs/BACKEND_GUIDELINES.md`
    - IA Diseño → `docs/AGENTEIA_GUIDELINES.md` y/o `docs/IA_DISEÑO/CHANGELOG.md` (ADR si cambia arquitectura)
+   - Cliente OpenAI (`OPENIA_`) → `docs/OPENIA.md`; el contrato de la pantalla sigue en BACKEND §3.17 o §3.18
 
 ## Reglas técnicas
 

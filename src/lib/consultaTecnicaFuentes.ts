@@ -164,11 +164,12 @@ export function htmlATexto(html: string): string {
 
 
 /** Si la sección trae un número que no está en la hoja, no se publica. */
-export function dejarSeccionSiEstaEnFuente(seccion: string, fuente: string): string {
+export function dejarSeccionSiEstaEnFuente(seccion: string, fuente: string, tope = 500): string {
   const texto = seccion
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^(preparaci[oó]n|diluci[oó]n)\s*:\s*/i, "")
+    .replace(/^\d+[.)]\s*/, "")
+    .replace(/^(preparaci[oó]n|diluci[oó]n|aplicaci[oó]n)\s*:\s*/i, "")
     .replace(/^(aplicaci[oó]n\s+)+/i, "")
     .replace(/^proporci[oó]n de la mezcla\s+/i, "");
   if (texto.length === 0 || texto.includes("[COMPLETAR]")) return "[COMPLETAR]";
@@ -188,5 +189,5 @@ export function dejarSeccionSiEstaEnFuente(seccion: string, fuente: string): str
       (entero.length > 0 && fuentePlana.includes(entero));
     if (!esta) return "[COMPLETAR]";
   }
-  return texto.slice(0, 500);
+  return texto.slice(0, tope);
 }

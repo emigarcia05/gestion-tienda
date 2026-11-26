@@ -5,6 +5,7 @@
 | [FRONTEND_GUIDELINES.md](./FRONTEND_GUIDELINES.md) | UI / componentes / estilos — **tabla “Qué estás haciendo” al inicio** + sección del patrón o módulo; no el archivo entero |
 | [BACKEND_GUIDELINES.md](./BACKEND_GUIDELINES.md) | Actions / servicios / Prisma — **tabla “Qué estás haciendo” al inicio** + § del dominio o principio |
 | [AGENTEIA_GUIDELINES.md](./AGENTEIA_GUIDELINES.md) | IA Diseño: capas, CSV, scraper, UI Asistente IA |
+| [OPENIA.md](./OPENIA.md) | API de OpenAI (`OPENIA_`): cliente HTTP, sugerencia de WhatsApp y Consulta Técnica |
 | [IA_DISEÑO/](./IA_DISEÑO/) | Índice del módulo, reglas, prompt GPT, ADRs, CSVs |
 
 Prompts de agentes (pedir la lista y copiar uno a un chat nuevo): [Agentes/README.md](./Agentes/README.md).
@@ -24,6 +25,7 @@ Prompts de agentes (pedir la lista y copiar uno a un chat nuevo): [Agentes/READM
    - Nuevo/ajustado patrón UI → [FRONTEND_GUIDELINES.md](./FRONTEND_GUIDELINES.md)
    - Nuevo/ajustado servicio, esquema o regla → [BACKEND_GUIDELINES.md](./BACKEND_GUIDELINES.md)
    - IA Diseño → [AGENTEIA_GUIDELINES.md](./AGENTEIA_GUIDELINES.md) y/o [IA_DISEÑO/CHANGELOG.md](./IA_DISEÑO/CHANGELOG.md) (ADR si cambia arquitectura)
+   - Cliente OpenAI (`OPENIA_`) → [OPENIA.md](./OPENIA.md); el contrato de la pantalla sigue en BACKEND **§3.17** o **§3.18** |
 
 ### Reglas técnicas (resumen)
 

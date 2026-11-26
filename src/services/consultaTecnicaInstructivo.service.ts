@@ -14,26 +14,22 @@ import {
 
 const partesSchema = z.object({
   preparacion: z.string(),
-  dilucion: z.string(),
-  secadoEntreManos: z.string(),
-  secadoFinal: z.string(),
+  aplicacion: z.string(),
 });
 
 export type ResumenHojaFabricante = {
   preparacion: string;
-  dilucion: string;
-  secadoEntreManos: string;
-  secadoFinal: string;
+  aplicacion: string;
   urlFicha: string;
 };
 
 const VACIO: ResumenHojaFabricante = {
   preparacion: "",
-  dilucion: "",
-  secadoEntreManos: "",
-  secadoFinal: "",
+  aplicacion: "",
   urlFicha: "",
 };
+
+const TOPE_APLICACION = 900;
 
 export type FichaCargadaConsulta = {
   url: string;
@@ -84,6 +80,21 @@ async function leerHtml(url: string): Promise<string> {
   const tipo = (response.headers.get("content-type") ?? "").toLowerCase();
   if (tipo.includes("pdf")) return "";
   return htmlATexto(await response.text());
+}
+
+function publicarCampo(valor: string, hoja: string, tope: number): string {
+  const texto = dejarSeccionSiEstaEnFuente(valor, hoja, tope);
+  return texto;
+}
+
+/** Una dilución sin porcentaje y sin decir que va pura no se publica. */
+function publicarAplicacion(valor: string, hoja: string): string {
+  const texto = publicarCampo(valor, hoja, TOPE_APLICACION);
+  if (texto === "[COMPLETAR]") return texto;
+  if (/dilu/i.test(texto) && !texto.includes("%") && !/pur[ao]|sin diluir/i.test(texto)) {
+    return "[COMPLETAR]";
+  }
+  return texto;
 }
 
 function leerPartes(texto: string): z.infer<typeof partesSchema> | null {
@@ -163,17 +174,14 @@ export async function resumirHojaFabricante(input: {
 
     const redactado = await completarConsultaTecnica({
       system: [
-        "Hablás con un consumidor final en Argentina, de vos, con palabras de todos los días, como si le explicaras en el mostrador cómo se usa el producto.",
-        "Leíste la hoja técnica que te paso. No uses otra fuente.",
-        "Cada campo es una o dos oraciones cortas. Se leen una detrás de la otra, en este orden: superficie, dilución, espera entre manos y cuándo se puede usar.",
-        "preparacion: cómo tiene que estar la superficie y cómo limpiarla. Empezá con «La superficie tiene que».",
-        "dilucion: con qué se diluye y el porcentaje, con el signo %. El número tiene que estar escrito en la hoja: no calcules otro. Si la primera mano y las siguientes no usan el mismo porcentaje, decilo ahí. Si una mano va pura, decilo.",
-        "secadoEntreManos: cuánto hay que esperar para dar la mano siguiente.",
-        "secadoFinal: cuándo queda listo para usar. Si la hoja pide una espera especial (por ejemplo, días antes de llenar una pileta), incluila acá.",
-        "Si la hoja aclara otra cosa importante para usarlo (cantidad de manos, dónde no va, lluvia), sumala en el campo que corresponda.",
-        "No inventes números, tiempos ni pasos. Si la hoja no lo dice, el valor es exactamente [COMPLETAR].",
-        "No uses títulos ni palabras de fábrica.",
-        "Respondé solo un JSON con las claves preparacion, dilucion, secadoEntreManos y secadoFinal.",
+        "Hablás con quien va a aplicar el producto, en Argentina, con palabras de todos los días. Traducís la hoja a una explicación clara. No copiés el lenguaje de fábrica.",
+        "Leíste solo la hoja técnica que te paso. No uses otra fuente.",
+        "Respondé solo un JSON con las claves preparacion y aplicacion.",
+        "preparacion: una o dos oraciones sobre cómo tiene que estar la superficie antes de empezar. Si la hoja no dice lo contrario, la frase es: «La superficie debe estar limpia, libre de polvo, grasitud y seca.» Si la hoja pide algo más, como lijar, sacar humedad, óxido o el material anterior, sumalo. Si la hoja contradice esa frase, por ejemplo porque tiene que estar húmeda, seguí la hoja y no dejes lo que no corresponde.",
+        "aplicacion: un solo párrafo, sin título y sin lista. Se lee seguido, como se lo explicarías en el mostrador, y cada frase entra solo si la hoja la respalda. Seguí este orden y salteá la frase que la hoja no traiga: primero revolver, batir o agitar, con «Antes de comenzar, no olvides batir bien el producto.»; después cada mano, de la primera a la última, con qué se diluye y el porcentaje escrito en la hoja, con el signo %; si una mano va pura, decilo, y si la hoja advierte que no se dé pura, decilo en esa misma frase; después la espera, con «Antes de la siguiente mano se debe esperar» y el tiempo de la hoja; al final el clima o la otra condición de uso, como lluvia, frío, pileta o tránsito.",
+        "Si la primera mano y las siguientes no se diluyen igual, explicalo en ese párrafo. No calcules un porcentaje que la hoja no escriba. Si hay una sola mano, no inventes la siguiente.",
+        "Nombrá el trabajo como lo trata la hoja: pintar, aplicar, colocar o dar. No digas pintar si la hoja no lo trata como pintura.",
+        "No inventes números, solventes, tiempos, manos ni pasos. Si la hoja no lo dice, no lo escribas. No uses [COMPLETAR] adentro de aplicacion.",
       ].join(" "),
       user: `Producto: ${input.marca} ${input.descripcion}\n\nHoja técnica:\n${hoja}`,
     });
@@ -182,14 +190,10 @@ export async function resumirHojaFabricante(input: {
     const partes = leerPartes(redactado.data);
     if (!partes) return { resumen: { ...VACIO, urlFicha }, guardar: false };
 
-    const campo = (valor: string) => dejarSeccionSiEstaEnFuente(valor, hoja);
-    const dilucion = campo(partes.dilucion);
     return {
       resumen: {
-        preparacion: campo(partes.preparacion),
-        dilucion: dilucion.includes("%") ? dilucion : "[COMPLETAR]",
-        secadoEntreManos: campo(partes.secadoEntreManos),
-        secadoFinal: campo(partes.secadoFinal),
+        preparacion: publicarCampo(partes.preparacion, hoja, 450),
+        aplicacion: publicarAplicacion(partes.aplicacion, hoja),
         urlFicha,
       },
       guardar: true,

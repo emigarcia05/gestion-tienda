@@ -405,9 +405,7 @@ async function responderConHoja(descripcion: string): Promise<string | null> {
   const texto = armarInstructivoFichaItem({
     descripcion,
     preparacion: leida.resumen.preparacion,
-    dilucion: leida.resumen.dilucion,
-    secadoEntreManos: leida.resumen.secadoEntreManos,
-    secadoFinal: leida.resumen.secadoFinal,
+    aplicacion: leida.resumen.aplicacion,
     urlFicha: leida.resumen.urlFicha,
   });
   return instructivoConDatos(texto);
@@ -563,7 +561,7 @@ const SISTEMA_CONVERSACION = [
   "Sos el especialista técnico-comercial de TiendaColor, en Argentina: pinturería arquitectónica, impermeabilización, materiales de construcción y repintado automotor.",
   "Hablás de vos, en español rioplatense, como un colega de mostrador. Sos directo, empático y corto.",
   "El chat muestra texto plano: usá renglones y guiones. No uses markdown ni tablas.",
-  "Si el hilo trae el instructivo de un ítem, seguí ese tono: frases cortas, de vos, en el orden de uso. No vuelvas a armar títulos de ficha.",
+  "Si el hilo trae cómo usar el producto, seguí ese tono: explicación cotidiana, de vos, en el orden de uso. No vuelvas a armar el paso a paso numerado: respondé la pregunta.",
   "Si preguntan si un producto sirve, empezá por Sí, No o Depende, y explicá en una frase por qué, desde el material.",
   "Cuando pidan cómo prepararlo, da el paso a paso. Si el bloque Hoja trae un número, usá ese. Si no hay hoja, podés usar criterio de mostrador y tenés que decir que no sale de la ficha del fabricante.",
   "No inventes precios ni stock. No cambies el ítem de la consulta salvo que pidan otra opción.",
@@ -902,9 +900,7 @@ const MS_DIA = 24 * 60 * 60 * 1000;
 function resumenUtil(resumen: ResumenHojaFabricante): boolean {
   return (
     resumen.preparacion.trim().length > 0 ||
-    resumen.dilucion.trim().length > 0 ||
-    resumen.secadoEntreManos.trim().length > 0 ||
-    resumen.secadoFinal.trim().length > 0 ||
+    resumen.aplicacion.trim().length > 0 ||
     resumen.urlFicha.trim().length > 0
   );
 }
@@ -934,6 +930,10 @@ function memoriaVigente(fecha: Date): boolean {
   return Date.now() - fecha.getTime() < DIAS_MEMORIA_FICHA * MS_DIA;
 }
 
+const ESTILO_USO = "v3|";
+const TOPE_COLUMNA_DILUCION = 500;
+const TOPE_COLUMNA_SECADO = 300;
+
 function resumenGuardado(fila: {
   preparacion: string;
   dilucion: string;
@@ -941,11 +941,16 @@ function resumenGuardado(fila: {
   secadoFinal: string;
   urlFicha: string;
 }): ResumenHojaFabricante {
+  const v3 = fila.preparacion.startsWith(ESTILO_USO);
+  const aplicacion = v3
+    ? `${fila.dilucion}${fila.secadoEntreManos}${fila.secadoFinal}`
+    : [fila.dilucion, fila.secadoEntreManos, fila.secadoFinal]
+        .map((parte) => parte.trim())
+        .filter((parte) => parte.length > 0)
+        .join(" ");
   return {
-    preparacion: fila.preparacion,
-    dilucion: fila.dilucion,
-    secadoEntreManos: fila.secadoEntreManos,
-    secadoFinal: fila.secadoFinal,
+    preparacion: fila.preparacion.replace(/^v\d+\|/, ""),
+    aplicacion: aplicacion.replace(/\s+/g, " ").trim(),
     urlFicha: fila.urlFicha,
   };
 }
@@ -956,14 +961,36 @@ function campoGuardado(valor: string, tope: number): string {
   return texto.slice(0, tope);
 }
 
+/** El párrafo de aplicación se parte en las columnas que ya existen. No hay migración. */
+function partirAplicacion(texto: string): {
+  dilucion: string;
+  secadoEntreManos: string;
+  secadoFinal: string;
+} {
+  const desdeSecado = TOPE_COLUMNA_DILUCION;
+  const desdeFinal = TOPE_COLUMNA_DILUCION + TOPE_COLUMNA_SECADO;
+  return {
+    dilucion: texto.slice(0, desdeSecado),
+    secadoEntreManos: texto.slice(desdeSecado, desdeFinal),
+    secadoFinal: texto.slice(desdeFinal, desdeFinal + TOPE_COLUMNA_SECADO),
+  };
+}
+
 function paraGuardar(resumen: ResumenHojaFabricante) {
+  const partes = partirAplicacion(campoGuardado(resumen.aplicacion, 900));
   return {
     urlFicha: campoGuardado(resumen.urlFicha, 500),
-    preparacion: `v2|${campoGuardado(resumen.preparacion, 497)}`.slice(0, 500),
-    dilucion: campoGuardado(resumen.dilucion, 500),
-    secadoEntreManos: campoGuardado(resumen.secadoEntreManos, 300),
-    secadoFinal: campoGuardado(resumen.secadoFinal, 300),
+    preparacion: `${ESTILO_USO}${campoGuardado(resumen.preparacion, 497)}`.slice(0, 500),
+    dilucion: partes.dilucion,
+    secadoEntreManos: partes.secadoEntreManos,
+    secadoFinal: partes.secadoFinal,
   };
+}
+
+function aplicacionCacheOk(texto: string): boolean {
+  const limpio = texto.trim();
+  if (limpio.length === 0 || !/dilu/i.test(limpio)) return true;
+  return limpio.includes("%") || /pur[ao]|sin diluir/i.test(limpio);
 }
 
 async function instructivoDeItem(
@@ -988,9 +1015,15 @@ async function instructivoDeItem(
   const guardada = await prisma.consultaTecnicaFicha.findUnique({ where: { clave } });
   const cache = guardada ? resumenGuardado(guardada) : null;
   let resumen: ResumenHojaFabricante;
-  const dilucionCacheOk = cache == null || cache.dilucion.trim().length === 0 || cache.dilucion.includes("%");
-  const estiloNuevo = (cache?.preparacion ?? "").startsWith("v2|");
-  if (guardada && cache && memoriaVigente(guardada.updatedAt) && resumenUtil(cache) && dilucionCacheOk && estiloNuevo) {
+  const estiloNuevo = (guardada?.preparacion ?? "").startsWith(ESTILO_USO);
+  if (
+    guardada &&
+    cache &&
+    memoriaVigente(guardada.updatedAt) &&
+    resumenUtil(cache) &&
+    aplicacionCacheOk(cache.aplicacion) &&
+    estiloNuevo
+  ) {
     resumen = cache;
   } else {
     const fichaCargada = item.familia ? await fichaCargadaDeFamilia(item.familia) : undefined;
@@ -1017,9 +1050,7 @@ async function instructivoDeItem(
   const texto = armarInstructivoFichaItem({
     descripcion,
     preparacion: resumen.preparacion,
-    dilucion: resumen.dilucion,
-    secadoEntreManos: resumen.secadoEntreManos,
-    secadoFinal: resumen.secadoFinal,
+    aplicacion: resumen.aplicacion,
     urlFicha: resumen.urlFicha,
   });
   if (texto.length > 2000) return { success: false, error: "El instructivo es demasiado largo." };
@@ -1027,7 +1058,7 @@ async function instructivoDeItem(
 }
 
 /**
- * Abre un hilo de ficha técnica. El instructivo sale de la hoja del fabricante.
+ * Abre un hilo de cómo usar un producto. El instructivo sale de la hoja del fabricante.
  * Los SKU del mismo producto (otro tamaño, color o terminación) reusan la misma hoja.
  * Si un párrafo no está en la hoja, no se escribe.
  */
