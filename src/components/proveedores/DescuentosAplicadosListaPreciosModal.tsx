@@ -65,6 +65,32 @@ function dtoTotalFila(fila: FilaListaPrecioParaCliente): number {
   );
 }
 
+/** Proveedor, marca, rubro, cantidad y el específico del ítem. El financiero va aparte. */
+function dtoProductosFila(fila: FilaListaPrecioParaCliente): number {
+  return clampPercent(
+    fila.dtoProveedor + fila.dtoMarca + fila.dtoRubro + fila.dtoCantidad + fila.descEspecial
+  );
+}
+
+function subtotalesDescuentos(
+  fila: FilaListaPrecioParaCliente,
+  pxPromo: number | null
+): { productos: number; financiero: number; pxFinal: number } {
+  const hayPromo = pxPromo != null && pxPromo > 0;
+  if (hayPromo && pxPromo != null) {
+    const pxFinal = pxPromo * (1 + fila.cxTransporte / 100);
+    return { productos: pxPromo, financiero: pxPromo, pxFinal };
+  }
+  const productos = fila.pxListaProveedor * (1 - dtoProductosFila(fila) / 100);
+  const descuentoFinanciero = fila.pxListaProveedor * (fila.dtoFinanciero / 100);
+  const financiero = Math.max(0, productos - descuentoFinanciero);
+  return {
+    productos,
+    financiero,
+    pxFinal: financiero * (1 + fila.cxTransporte / 100),
+  };
+}
+
 function nominalReglaNumero(
   fila: FilaListaPrecioParaCliente,
   descuento: DescuentoActivoListaPrecio,
@@ -204,6 +230,31 @@ function FilaReglaAplicada({
   );
 }
 
+function FilaSubtotal({
+  etiqueta,
+  detalle,
+  monto,
+}: {
+  etiqueta: string;
+  detalle?: string;
+  monto: number | null;
+}) {
+  return (
+    <TableRow className={LINEA_TOTAL_CON_DESCUENTOS_CLASS}>
+      <TableCell className="celda-datos text-left font-semibold">
+        {etiqueta}
+        {detalle ? (
+          <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{detalle}</span>
+        ) : null}
+      </TableCell>
+      <TableCell className="celda-datos celda-numero text-center font-semibold">
+        {fmtPesos(monto)}
+      </TableCell>
+      <TableCell className="celda-datos" />
+    </TableRow>
+  );
+}
+
 function FilaDescPxPromoFijo({
   pxLista,
   pxPromo,
@@ -255,6 +306,14 @@ export default function DescuentosAplicadosListaPreciosModal({
     () => descuentosReglas.filter((d) => d.tipo === "descuento"),
     [descuentosReglas]
   );
+  const reglasDescuentoProducto = useMemo(
+    () => reglasDescuento.filter((d) => d.campo !== "dto_financiero"),
+    [reglasDescuento]
+  );
+  const reglasDescuentoFinanciero = useMemo(
+    () => reglasDescuento.filter((d) => d.campo === "dto_financiero"),
+    [reglasDescuento]
+  );
   const reglasRecargo = useMemo(
     () => descuentosReglas.filter((d) => d.tipo === "costo"),
     [descuentosReglas]
@@ -271,12 +330,8 @@ export default function DescuentosAplicadosListaPreciosModal({
   const hayPromoVista = pxPromoVista != null;
   const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
   const mostrarBasura = puedeEditar && (hayPromoPersistido || hayValorPromoInput);
-  const totalConDescuentos =
-    fila == null
-      ? null
-      : hayPromoVista && pxPromoVista != null
-        ? pxPromoVista
-        : fila.pxListaProveedor * (1 - dtoTotalFila(fila) / 100);
+  const subtotales =
+    fila == null ? null : subtotalesDescuentos(fila, pxPromoVista);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -435,9 +490,9 @@ export default function DescuentosAplicadosListaPreciosModal({
                     </TableCell>
                     <TableCell className="celda-datos" />
                   </TableRow>
-                  {reglasDescuento.length > 0 || hayPromoVista ? (
+                  {reglasDescuentoProducto.length > 0 || hayPromoVista ? (
                     <>
-                      {reglasDescuento.map((descuento) => (
+                      {reglasDescuentoProducto.map((descuento) => (
                         <FilaReglaAplicada
                           key={descuento.campo}
                           fila={fila}
@@ -454,15 +509,24 @@ export default function DescuentosAplicadosListaPreciosModal({
                       ) : null}
                     </>
                   ) : null}
-                  <TableRow className={LINEA_TOTAL_CON_DESCUENTOS_CLASS}>
-                    <TableCell className="celda-datos text-left font-semibold">
-                      TOTAL CON DESCUENTOS
-                    </TableCell>
-                    <TableCell className="celda-datos celda-numero text-center font-semibold">
-                      {fmtPesos(totalConDescuentos)}
-                    </TableCell>
-                    <TableCell className="celda-datos" />
-                  </TableRow>
+                  <FilaSubtotal
+                    etiqueta="SUBTOTAL CON DESC. PRODUCTOS"
+                    detalle="Proveedor, Marca, Rubro, Cantidad"
+                    monto={subtotales?.productos ?? null}
+                  />
+                  {reglasDescuentoFinanciero.map((descuento) => (
+                    <FilaReglaAplicada
+                      key={descuento.campo}
+                      fila={fila}
+                      descuento={descuento}
+                      pxPromo={pxPromoVista}
+                      onVerRegla={onVerRegla}
+                    />
+                  ))}
+                  <FilaSubtotal
+                    etiqueta="SUBTOTAL CON DESC. FINANCIERO"
+                    monto={subtotales?.financiero ?? null}
+                  />
                   {reglasRecargo.map((descuento) => (
                     <FilaReglaAplicada
                       key={descuento.campo}
@@ -479,7 +543,7 @@ export default function DescuentosAplicadosListaPreciosModal({
                       PX. FINAL
                     </TableCell>
                     <TableCell className="celda-datos celda-numero text-center font-semibold">
-                      {fmtPesos(fila.pxCompraFinalSinIva)}
+                      {fmtPesos(subtotales?.pxFinal ?? null)}
                     </TableCell>
                     <TableCell className="celda-datos" />
                   </TableRow>
