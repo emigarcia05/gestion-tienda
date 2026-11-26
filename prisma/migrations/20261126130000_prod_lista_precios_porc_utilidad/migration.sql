@@ -1,12 +1,14 @@
 -- PORC. UTILIDAD es el valor persistido. El PX de venta se recalcula con el costo vigente.
+-- Tabla de trabajo (no TEMP): migrate aplica cada sentencia por separado.
 ALTER TABLE "prod_lista_precios"
-  ADD COLUMN "porc_utilidad" DECIMAL(8, 2);
+  ADD COLUMN IF NOT EXISTS "porc_utilidad" DECIMAL(8, 2);
 
 ALTER TABLE "prod_lista_precios_edicion"
-  ADD COLUMN "porc_utilidad" DECIMAL(8, 2);
+  ADD COLUMN IF NOT EXISTS "porc_utilidad" DECIMAL(8, 2);
 
--- Costo simple: CX elegido (si está habilitado) o costo manual.
-CREATE TEMP TABLE "_costo_px_lista" ON COMMIT DROP AS
+DROP TABLE IF EXISTS "_costo_px_lista";
+
+CREATE TABLE "_costo_px_lista" AS
 SELECT
   pl.cod_tienda,
   CASE
@@ -50,7 +52,8 @@ SET porc_utilidad = GREATEST(
 FROM _costo_px_lista c
 WHERE c.cod_tienda = p.cod_tienda
   AND c.costo > 0
-  AND p.precio > 0;
+  AND p.precio > 0
+  AND p.porc_utilidad IS NULL;
 
 UPDATE prod_lista_precios_edicion e
 SET porc_utilidad = GREATEST(
@@ -60,4 +63,7 @@ SET porc_utilidad = GREATEST(
 FROM _costo_px_lista c
 WHERE c.cod_tienda = e.cod_tienda
   AND c.costo > 0
-  AND e.precio > 0;
+  AND e.precio > 0
+  AND e.porc_utilidad IS NULL;
+
+DROP TABLE "_costo_px_lista";
