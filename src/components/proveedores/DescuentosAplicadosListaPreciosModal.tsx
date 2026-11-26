@@ -15,7 +15,10 @@ import {
   TableFooter,
   TableRow,
 } from "@/components/ui/table";
-import { CAMPO_PX_PROMO_FIJO } from "@/lib/descuentosListaPrecioReglasConstants";
+import {
+  CAMPO_DESC_ESPECIAL,
+  CAMPO_PX_PROMO_FIJO,
+} from "@/lib/descuentosListaPrecioReglasConstants";
 import { fmtPorcentajeTabla, fmtPrecio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { clampPercent, roundPrecioListaTienda } from "@/lib/calculos";
@@ -65,29 +68,55 @@ function dtoTotalFila(fila: FilaListaPrecioParaCliente): number {
   );
 }
 
-/** Proveedor, marca, rubro, cantidad y el específico del ítem. El financiero va aparte. */
-function dtoProductosFila(fila: FilaListaPrecioParaCliente): number {
-  return clampPercent(
-    fila.dtoProveedor + fila.dtoMarca + fila.dtoRubro + fila.dtoCantidad + fila.descEspecial
-  );
+const CAMPOS_DESC_PRODUCTO = [
+  "dto_marca",
+  "dto_rubro",
+  "dto_cantidad",
+  CAMPO_DESC_ESPECIAL,
+] as const;
+
+/** Nominal de un descuento sobre PX. LISTA. Con Px. Promo Fijo no se resta. */
+function nominalDescuentoAplicado(
+  fila: FilaListaPrecioParaCliente,
+  descuento: DescuentoActivoListaPrecio | undefined,
+  pxPromo: number | null
+): number {
+  if (!descuento || descuento.tipo !== "descuento") return 0;
+  if (pxPromo != null && pxPromo > 0) return 0;
+  return nominalReglaNumero(fila, descuento, pxPromo) ?? 0;
 }
 
+/**
+ * SUBTOTAL PROVEEDOR = PX. LISTA − DESC. PROV.
+ * SUBTOTAL PRODUCTO = ese subtotal − marca − rubro − cantidad − específico.
+ * SUBTOTAL FINANCIERO = ese subtotal − DESC. FINANCIERO.
+ * PX. FINAL = subtotal financiero + CX. TRANSP.
+ * Con Px. Promo Fijo la base es el promo y los descuentos no se restan.
+ */
 function subtotalesDescuentos(
   fila: FilaListaPrecioParaCliente,
+  descuentos: DescuentoActivoListaPrecio[],
   pxPromo: number | null
-): { productos: number; financiero: number; pxFinal: number } {
+): { proveedor: number; productos: number; financiero: number; pxFinal: number } {
   const hayPromo = pxPromo != null && pxPromo > 0;
-  if (hayPromo && pxPromo != null) {
-    const pxFinal = pxPromo * (1 + fila.cxTransporte / 100);
-    return { productos: pxPromo, financiero: pxPromo, pxFinal };
-  }
-  const productos = fila.pxListaProveedor * (1 - dtoProductosFila(fila) / 100);
-  const descuentoFinanciero = fila.pxListaProveedor * (fila.dtoFinanciero / 100);
-  const financiero = Math.max(0, productos - descuentoFinanciero);
+  const base = hayPromo && pxPromo != null ? pxPromo : fila.pxListaProveedor;
+  const porCampo = new Map(descuentos.map((d) => [d.campo, d]));
+  const resta = (campo: DescuentoActivoListaPrecio["campo"]) =>
+    nominalDescuentoAplicado(fila, porCampo.get(campo), pxPromo);
+  const proveedor = Math.max(0, base - resta("dto_proveedor"));
+  const productos = Math.max(
+    0,
+    CAMPOS_DESC_PRODUCTO.reduce((acc, campo) => acc - resta(campo), proveedor)
+  );
+  const financiero = Math.max(0, productos - resta("dto_financiero"));
+  const cx = descuentos.find((d) => d.campo === "cx_transporte");
+  const cxNominal =
+    cx != null ? (nominalReglaNumero(fila, cx, pxPromo) ?? 0) : 0;
   return {
+    proveedor,
     productos,
     financiero,
-    pxFinal: financiero * (1 + fila.cxTransporte / 100),
+    pxFinal: financiero + cxNominal,
   };
 }
 
@@ -117,8 +146,6 @@ function fmtNominalCuenta(
   return tipo === "descuento" ? `−${monto}` : `+${monto}`;
 }
 
-const LINEA_TOTAL_CON_DESCUENTOS_CLASS =
-  "border-t border-primary bg-muted/50";
 const REGLA_ANULADA_CLASS = "text-muted-foreground line-through";
 const HUECO_INFO_CLASS = "flex h-7 w-7 shrink-0 items-center justify-center";
 
@@ -164,11 +191,13 @@ function FilaReglaAplicada({
   descuento,
   pxPromo,
   onVerRegla,
+  corte = false,
 }: {
   fila: FilaListaPrecioParaCliente;
   descuento: DescuentoActivoListaPrecio;
   pxPromo: number | null;
   onVerRegla: (descuento: DescuentoActivoListaPrecio) => void;
+  corte?: boolean;
 }) {
   const esDescuento = descuento.tipo === "descuento";
   const hayPromo = pxPromo != null && pxPromo > 0;
@@ -177,6 +206,7 @@ function FilaReglaAplicada({
 
   return (
     <TableRow
+      className={cn(corte && "desc-aplicados-corte")}
       title={anuladoPorPromo ? "No aplicado: hay Px. Promo Fijo" : undefined}
     >
       <TableCell
@@ -232,20 +262,17 @@ function FilaReglaAplicada({
 
 function FilaSubtotal({
   etiqueta,
-  detalle,
   monto,
+  corte = false,
 }: {
   etiqueta: string;
-  detalle?: string;
   monto: number | null;
+  corte?: boolean;
 }) {
   return (
-    <TableRow className={LINEA_TOTAL_CON_DESCUENTOS_CLASS}>
+    <TableRow className={cn("desc-aplicados-subtotal", corte && "desc-aplicados-corte")}>
       <TableCell className="celda-datos text-left font-semibold">
         {etiqueta}
-        {detalle ? (
-          <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{detalle}</span>
-        ) : null}
       </TableCell>
       <TableCell className="celda-datos celda-numero text-center font-semibold">
         {fmtPesos(monto)}
@@ -302,20 +329,24 @@ export default function DescuentosAplicadosListaPreciosModal({
     () => (fila?.descuentosActivos ?? []).filter((d) => d.campo !== CAMPO_PX_PROMO_FIJO),
     [fila]
   );
-  const reglasDescuento = useMemo(
-    () => descuentosReglas.filter((d) => d.tipo === "descuento"),
+  const reglaProveedor = useMemo(
+    () => descuentosReglas.find((d) => d.campo === "dto_proveedor") ?? null,
     [descuentosReglas]
   );
-  const reglasDescuentoProducto = useMemo(
-    () => reglasDescuento.filter((d) => d.campo !== "dto_financiero"),
-    [reglasDescuento]
+  const reglasProducto = useMemo(
+    () =>
+      CAMPOS_DESC_PRODUCTO.flatMap((campo) => {
+        const regla = descuentosReglas.find((d) => d.campo === campo);
+        return regla ? [regla] : [];
+      }),
+    [descuentosReglas]
   );
-  const reglasDescuentoFinanciero = useMemo(
-    () => reglasDescuento.filter((d) => d.campo === "dto_financiero"),
-    [reglasDescuento]
+  const reglaFinanciera = useMemo(
+    () => descuentosReglas.find((d) => d.campo === "dto_financiero") ?? null,
+    [descuentosReglas]
   );
-  const reglasRecargo = useMemo(
-    () => descuentosReglas.filter((d) => d.tipo === "costo"),
+  const reglaTransporte = useMemo(
+    () => descuentosReglas.find((d) => d.campo === "cx_transporte") ?? null,
     [descuentosReglas]
   );
   const hayPromoPersistido = fila?.pxPromoFijo != null && fila.pxPromoFijo > 0;
@@ -327,11 +358,10 @@ export default function DescuentosAplicadosListaPreciosModal({
     );
     return n > 0 ? n : null;
   }, [pxPromoFijoNorm]);
-  const hayPromoVista = pxPromoVista != null;
   const hayValorPromoInput = pxPromoFijoNorm.trim() !== "";
   const mostrarBasura = puedeEditar && (hayPromoPersistido || hayValorPromoInput);
   const subtotales =
-    fila == null ? null : subtotalesDescuentos(fila, pxPromoVista);
+    fila == null ? null : subtotalesDescuentos(fila, descuentosReglas, pxPromoVista);
 
   useEffect(() => {
     if (!open || !fila) return;
@@ -490,52 +520,64 @@ export default function DescuentosAplicadosListaPreciosModal({
                     </TableCell>
                     <TableCell className="celda-datos" />
                   </TableRow>
-                  {reglasDescuentoProducto.length > 0 || hayPromoVista ? (
-                    <>
-                      {reglasDescuentoProducto.map((descuento) => (
-                        <FilaReglaAplicada
-                          key={descuento.campo}
-                          fila={fila}
-                          descuento={descuento}
-                          pxPromo={pxPromoVista}
-                          onVerRegla={onVerRegla}
-                        />
-                      ))}
-                      {pxPromoVista != null ? (
-                        <FilaDescPxPromoFijo
-                          pxLista={fila.pxListaProveedor}
-                          pxPromo={pxPromoVista}
-                        />
-                      ) : null}
-                    </>
+                  {pxPromoVista != null ? (
+                    <FilaDescPxPromoFijo
+                      pxLista={fila.pxListaProveedor}
+                      pxPromo={pxPromoVista}
+                    />
+                  ) : null}
+                  {reglaProveedor ? (
+                    <FilaReglaAplicada
+                      fila={fila}
+                      descuento={reglaProveedor}
+                      pxPromo={pxPromoVista}
+                      onVerRegla={onVerRegla}
+                      corte
+                    />
                   ) : null}
                   <FilaSubtotal
-                    etiqueta="SUBTOTAL CON DESC. PRODUCTOS"
-                    detalle="Proveedor, Marca, Rubro, Cantidad"
-                    monto={subtotales?.productos ?? null}
+                    etiqueta="SUBTOTAL CON DESC. PROVEEDOR"
+                    monto={subtotales?.proveedor ?? null}
+                    corte
                   />
-                  {reglasDescuentoFinanciero.map((descuento) => (
+                  {reglasProducto.map((descuento, indice) => (
                     <FilaReglaAplicada
                       key={descuento.campo}
                       fila={fila}
                       descuento={descuento}
                       pxPromo={pxPromoVista}
                       onVerRegla={onVerRegla}
+                      corte={indice === 0}
                     />
                   ))}
+                  <FilaSubtotal
+                    etiqueta="SUBTOTAL CON DESC. PRODUCTO"
+                    monto={subtotales?.productos ?? null}
+                    corte
+                  />
+                  {reglaFinanciera ? (
+                    <FilaReglaAplicada
+                      fila={fila}
+                      descuento={reglaFinanciera}
+                      pxPromo={pxPromoVista}
+                      onVerRegla={onVerRegla}
+                      corte
+                    />
+                  ) : null}
                   <FilaSubtotal
                     etiqueta="SUBTOTAL CON DESC. FINANCIERO"
                     monto={subtotales?.financiero ?? null}
+                    corte
                   />
-                  {reglasRecargo.map((descuento) => (
+                  {reglaTransporte ? (
                     <FilaReglaAplicada
-                      key={descuento.campo}
                       fila={fila}
-                      descuento={descuento}
+                      descuento={reglaTransporte}
                       pxPromo={pxPromoVista}
                       onVerRegla={onVerRegla}
+                      corte
                     />
-                  ))}
+                  ) : null}
                 </TableBody>
                 <TableFooter className="border-t-2 border-primary bg-muted">
                   <TableRow className="border-0 bg-muted hover:bg-muted">
