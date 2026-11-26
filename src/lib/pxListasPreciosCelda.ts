@@ -3,6 +3,7 @@ import {
   calcPxListaDesdeMargenSinIvaPct,
 } from "@/lib/calculos";
 import {
+  margenesPorcUtilidadDifieren,
   preciosPxListaEnterosIguales,
   roundMargenPxListaPct,
   roundPxListaEntero,
@@ -22,13 +23,84 @@ export function margenDesdePrecioDux(
   return margen == null ? null : roundMargenPxListaPct(margen);
 }
 
+/**
+ * PX vigente. Si hay PORC. UTILIDAD y costo, el importe sale de esa cuenta.
+ * Sin porcentaje, queda el importe guardado.
+ */
+export function pxVentaVigente(
+  porcUtilidad: number | null,
+  precioGuardado: number | null,
+  costoCompra: number
+): number | null {
+  if (porcUtilidad != null && costoCompra > 0) {
+    const px = calcPxListaDesdeMargenSinIvaPct(porcUtilidad, costoCompra);
+    if (px != null && px > 0) return px;
+  }
+  if (precioGuardado != null && precioGuardado > 0) return roundPxListaEntero(precioGuardado);
+  return null;
+}
+
 export function armarCeldaPrecioPxListas(params: {
   idLista: number;
   costoCompra: number;
   pxDux: number | null;
   pxEdicion: number | null;
+  /**
+   * Porcentaje publicado. Si no viene, la celda se arma desde los importes
+   * (cambio todavía no guardado en pantalla).
+   */
+  porcDefinitivo?: number | null;
+  porcEdicion?: number | null;
+  hayStaging?: boolean;
 }): PrecioListaPxListasCelda {
   const { idLista, costoCompra, pxDux, pxEdicion } = params;
+  if (params.porcDefinitivo === undefined && params.hayStaging === undefined) {
+    return armarCeldaDesdeImportes(idLista, costoCompra, pxDux, pxEdicion);
+  }
+
+  const porcPub = params.porcDefinitivo ?? null;
+  const staging = params.hayStaging === true;
+  const porcTrabajo = staging ? (params.porcEdicion ?? null) : porcPub;
+  const pxPublicado = pxVentaVigente(porcPub, pxDux, costoCompra);
+  const pxTrabajo = staging
+    ? pxVentaVigente(porcTrabajo, pxEdicion, costoCompra)
+    : pxPublicado;
+  const margenPub =
+    porcPub ?? margenDesdePrecioDux(pxPublicado, costoCompra);
+  const margenTrabajo = staging
+    ? (porcTrabajo ?? margenDesdePrecioDux(pxTrabajo, costoCompra))
+    : margenPub;
+  const pendiente = staging && porcPendiente(porcTrabajo, porcPub, pxTrabajo, pxPublicado);
+
+  return {
+    idLista,
+    pxDux: pxPublicado,
+    pxEdicion: pendiente ? pxTrabajo : null,
+    margenManual: pendiente ? margenTrabajo : null,
+    margenDux: margenPub,
+    pxEfectivo: pxTrabajo,
+    margenPct: margenTrabajo,
+  };
+}
+
+function porcPendiente(
+  porcTrabajo: number | null,
+  porcPub: number | null,
+  pxTrabajo: number | null,
+  pxPublicado: number | null
+): boolean {
+  if (porcTrabajo != null) {
+    return porcPub == null || margenesPorcUtilidadDifieren(porcTrabajo, porcPub);
+  }
+  return !preciosPxListaEnterosIguales(pxTrabajo, pxPublicado);
+}
+
+function armarCeldaDesdeImportes(
+  idLista: number,
+  costoCompra: number,
+  pxDux: number | null,
+  pxEdicion: number | null
+): PrecioListaPxListasCelda {
   const margenDux = margenDesdePrecioDux(pxDux, costoCompra);
   const tieneEdicion = pxEdicion != null && pxEdicion > 0;
 
@@ -39,8 +111,7 @@ export function armarCeldaPrecioPxListas(params: {
   if (tieneEdicion) {
     pxEfectivo = pxEdicion;
     margenManual = margenDesdePrecioDux(pxEdicion, costoCompra);
-    margenPct =
-      margenManual != null ? roundMargenPxListaPct(margenManual) : null;
+    margenPct = margenManual != null ? roundMargenPxListaPct(margenManual) : null;
   } else {
     pxEfectivo = pxDux;
     margenManual = null;

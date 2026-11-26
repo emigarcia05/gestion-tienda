@@ -2,6 +2,7 @@ import { fmtCantidad, fmtPrecio } from "@/lib/format";
 import { textoHorarioSucursalDesdeDb } from "@/lib/horarioSucursal";
 import { prisma } from "@/lib/prisma";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
+import { mapPxVentaDeLista } from "@/services/prodTiendaPrecios.service";
 import {
   armarPedidoSugerencia,
   cerrarBorradorSugerencia,
@@ -85,24 +86,13 @@ async function hechosDeProductos(tokens: string[]): Promise<HechoWhatsappIa[]> {
   const codigos = rankeadas.map((fila) => fila.codTienda);
   const locales = sucursales.filter((suc) => suc.codigo.toLowerCase() !== "corporativo");
   const idLista = encontrarIdListaGeneralPxListas(listas);
-  const [precios, saldos] = await Promise.all([
-    idLista == null
-      ? Promise.resolve([])
-      : prisma.prodPropioListaPrecio.findMany({
-          where: { idLista, codTienda: { in: codigos } },
-          select: { codTienda: true, precio: true },
-        }),
+  const [precioPorCod, saldos] = await Promise.all([
+    idLista == null ? Promise.resolve(new Map<string, number>()) : mapPxVentaDeLista(codigos, idLista),
     buildMapSaldoStockItemsSucursales(
       codigos,
       locales.map((suc) => suc.id)
     ),
   ]);
-
-  const precioPorCod = new Map<string, number>();
-  for (const precio of precios) {
-    const n = Number(precio.precio);
-    if (Number.isFinite(n) && n > 0) precioPorCod.set(precio.codTienda, n);
-  }
 
   return rankeadas.map((fila) => {
     const stock =

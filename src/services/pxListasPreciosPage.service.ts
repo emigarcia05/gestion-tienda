@@ -200,41 +200,51 @@ async function cargarMapsPreciosYEdicion(
   idListas: number[]
 ): Promise<{
   duxMap: Map<string, number>;
+  porcDuxMap: Map<string, number>;
   pxEdicionMap: Map<string, number>;
+  porcEdicionMap: Map<string, number | null>;
 }> {
   const duxMap = new Map<string, number>();
+  const porcDuxMap = new Map<string, number>();
   const pxEdicionMap = new Map<string, number>();
+  const porcEdicionMap = new Map<string, number | null>();
 
   if (codTiendas.length === 0 || idListas.length === 0) {
-    return { duxMap, pxEdicionMap };
+    return { duxMap, porcDuxMap, pxEdicionMap, porcEdicionMap };
   }
 
   const [duxRows, edicionRows] = await Promise.all([
     prisma.prodPropioListaPrecio.findMany({
       where: { codTienda: { in: codTiendas }, idLista: { in: idListas } },
-      select: { codTienda: true, idLista: true, precio: true },
+      select: { codTienda: true, idLista: true, precio: true, porcUtilidad: true },
     }),
     prisma.prodPropioListaPrecioEdicion.findMany({
       where: { codTienda: { in: codTiendas }, idLista: { in: idListas } },
-      select: { codTienda: true, idLista: true, precio: true },
+      select: { codTienda: true, idLista: true, precio: true, porcUtilidad: true },
     }),
   ]);
 
   for (const r of duxRows) {
-    duxMap.set(`${r.codTienda}:${r.idLista}`, Number(r.precio));
+    const key = `${r.codTienda}:${r.idLista}`;
+    duxMap.set(key, Number(r.precio));
+    if (r.porcUtilidad != null) porcDuxMap.set(key, Number(r.porcUtilidad));
   }
   for (const r of edicionRows) {
-    pxEdicionMap.set(`${r.codTienda}:${r.idLista}`, Number(r.precio));
+    const key = `${r.codTienda}:${r.idLista}`;
+    pxEdicionMap.set(key, Number(r.precio));
+    porcEdicionMap.set(key, r.porcUtilidad == null ? null : Number(r.porcUtilidad));
   }
 
-  return { duxMap, pxEdicionMap };
+  return { duxMap, porcDuxMap, pxEdicionMap, porcEdicionMap };
 }
 
 function buildItemDesdeFila(
   row: FilaListadoPxListas,
   listas: ListaPrecioPxListasColumna[],
   duxMap: Map<string, number>,
+  porcDuxMap: Map<string, number>,
   pxEdicionMap: Map<string, number>,
+  porcEdicionMap: Map<string, number | null>,
   opcionesPorCod: Map<string, OpcionCompetenciaRefPxListas[]>
 ): ItemPxListasPreciosTabla {
   const costoCompra = resolverCostoCompraTienda(row);
@@ -246,11 +256,15 @@ function buildItemDesdeFila(
     opcionesCompetenciaRef: opcionesPorCod.get(row.codTienda) ?? [],
     preciosPorLista: listas.map((lista) => {
       const key = `${row.codTienda}:${lista.idLista}`;
+      const hayStaging = porcEdicionMap.has(key) || pxEdicionMap.has(key);
       return armarCeldaPrecioPxListas({
         idLista: lista.idLista,
         costoCompra,
         pxDux: duxMap.get(key) ?? null,
         pxEdicion: pxEdicionMap.get(key) ?? null,
+        porcDefinitivo: porcDuxMap.get(key) ?? null,
+        porcEdicion: porcEdicionMap.get(key) ?? null,
+        hayStaging,
       });
     }),
   };
@@ -295,13 +309,13 @@ async function enriquecerItemsPxListas(
         .filter((id): id is string => Boolean(id))
     ),
   ];
-  const [{ duxMap, pxEdicionMap }, opcionesPorCod] = await Promise.all([
+  const [{ duxMap, porcDuxMap, pxEdicionMap, porcEdicionMap }, opcionesPorCod] = await Promise.all([
     cargarMapsPreciosYEdicion(codTiendas, idListas),
     listarOpcionesCompetenciaRefPorCodTiendas(codTiendas, extraCompetenciaIds),
   ]);
   await asegurarOpcionCompetenciaRefSeleccionada(opcionesPorCod, rows);
   return rows.map((row) =>
-    buildItemDesdeFila(row, listas, duxMap, pxEdicionMap, opcionesPorCod)
+    buildItemDesdeFila(row, listas, duxMap, porcDuxMap, pxEdicionMap, porcEdicionMap, opcionesPorCod)
   );
 }
 

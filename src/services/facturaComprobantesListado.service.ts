@@ -314,7 +314,6 @@ export async function listarFacturasComprobantes(): Promise<FacturaComprobanteLi
       },
     },
     orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
-    take: 500,
     select: listSelect,
   });
   const idsNc = rows

@@ -9,17 +9,17 @@ export type ListaPrecioPxListasColumna = {
 /** Precio por lista en una fila del listado Px Listas. */
 export type PrecioListaPxListasCelda = {
   idLista: number;
-  /** Espejo DUX (`prod_lista_precios`). */
+  /** PX publicado recalculado con el costo vigente. */
   pxDux: number | null;
-  /** PX pendiente de Act. Px (`prod_lista_precios_edicion`); `null` = sin edición staging. */
+  /** PX de una edición todavía no publicada; `null` = sin pendiente. */
   pxEdicion: number | null;
-  /** Margen % derivado de `pxEdicion` cuando hay staging; si no, `null`. */
+  /** PORC. UTILIDAD pendiente; `null` = sin pendiente. */
   margenManual: number | null;
-  /** Margen % derivado del precio DUX. */
+  /** PORC. UTILIDAD publicado. */
   margenDux: number | null;
-  /** PX mostrado: calculado desde margen manual si existe; si no, precio DUX. */
+  /** PX mostrado: el pendiente si hay, si no el publicado. */
   pxEfectivo: number | null;
-  /** Margen % mostrado: manual si existe; si no, margen DUX. */
+  /** PORC. UTILIDAD mostrado. */
   margenPct: number | null;
 };
 

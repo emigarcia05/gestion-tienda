@@ -6,6 +6,7 @@ import {
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import { margenDesdePrecioDux } from "@/lib/pxListasPreciosCelda";
 import {
+  margenesPorcUtilidadDifieren,
   preciosPxListaEnterosIguales,
   roundMargenPxListaPct,
   roundPxListaEntero,
@@ -32,6 +33,7 @@ async function obtenerContextoPrecioListaEdicion(
       ok: true;
       costoCompra: number;
       pxDux: number | null;
+      porcDefinitivo: number | null;
     }
 > {
   const listaExiste = await prisma.prodPropioListaPrecioNombre.findUnique({
@@ -52,14 +54,16 @@ async function obtenerContextoPrecioListaEdicion(
 
   const dux = await prisma.prodPropioListaPrecio.findUnique({
     where: { codTienda_idLista: { codTienda, idLista } },
-    select: { precio: true },
+    select: { precio: true, porcUtilidad: true },
   });
   const pxDux = dux ? Number(dux.precio) : null;
+  const porcDefinitivo = dux?.porcUtilidad == null ? null : Number(dux.porcUtilidad);
 
   return {
     ok: true,
     costoCompra: resolverCostoCompraTienda(producto),
     pxDux,
+    porcDefinitivo,
   };
 }
 
@@ -77,7 +81,8 @@ async function eliminarStagingPrecioLista(
 async function persistirStagingPrecioLista(
   codTienda: string,
   idLista: number,
-  pxEntero: number
+  pxEntero: number,
+  porcUtilidad: number | null
 ): Promise<void> {
   const precioPersistir = new Prisma.Decimal(roundPrecioListaTienda(pxEntero));
   await prisma.prodPropioListaPrecioEdicion.upsert({
@@ -86,11 +91,17 @@ async function persistirStagingPrecioLista(
       codTienda,
       idLista,
       precio: precioPersistir,
+      porcUtilidad: porcUtilidad == null ? null : new Prisma.Decimal(porcUtilidad),
     },
     update: {
       precio: precioPersistir,
+      porcUtilidad: porcUtilidad == null ? null : new Prisma.Decimal(porcUtilidad),
     },
   });
+}
+
+function porcYaPublicado(porc: number, porcDefinitivo: number | null): boolean {
+  return porcDefinitivo != null && !margenesPorcUtilidadDifieren(porc, porcDefinitivo);
 }
 
 /**
@@ -107,7 +118,7 @@ export async function guardarPrecioListaEdicionDesdeMargen(
     return { success: false, error: ctx.error };
   }
 
-  const { costoCompra, pxDux } = ctx;
+  const { costoCompra, pxDux, porcDefinitivo } = ctx;
 
   if (margenManual === null) {
     const data = await eliminarStagingPrecioLista(codTienda, idLista, pxDux);
@@ -131,12 +142,12 @@ export async function guardarPrecioListaEdicionDesdeMargen(
   }
 
   const pxEntero = roundPxListaEntero(pxCalculado);
-  if (preciosPxListaEnterosIguales(pxEntero, pxDux)) {
+  if (porcYaPublicado(margenRedondeado, porcDefinitivo)) {
     const data = await eliminarStagingPrecioLista(codTienda, idLista, pxDux);
     return { success: true, data };
   }
 
-  await persistirStagingPrecioLista(codTienda, idLista, pxEntero);
+  await persistirStagingPrecioLista(codTienda, idLista, pxEntero, margenRedondeado);
 
   return {
     success: true,
@@ -149,8 +160,7 @@ export async function guardarPrecioListaEdicionDesdeMargen(
 }
 
 /**
- * Guarda PX entero en staging desde edición directa del precio.
- * Deriva el margen % para la respuesta; `pxEdicion: null` elimina staging.
+ * Guarda PX en staging. Con costo, deriva PORC. UTILIDAD y persiste ese porcentaje.
  */
 export async function guardarPrecioListaEdicionDesdePx(
   codTienda: string,
@@ -162,7 +172,7 @@ export async function guardarPrecioListaEdicionDesdePx(
     return { success: false, error: ctx.error };
   }
 
-  const { costoCompra, pxDux } = ctx;
+  const { costoCompra, pxDux, porcDefinitivo } = ctx;
 
   if (pxEdicion === null) {
     const data = await eliminarStagingPrecioLista(codTienda, idLista, pxDux);
@@ -174,19 +184,37 @@ export async function guardarPrecioListaEdicionDesdePx(
     return { success: false, error: "Precio inválido." };
   }
 
+  const margenManual = margenDesdePrecioDux(pxEntero, costoCompra);
+  if (margenManual != null) {
+    if (porcYaPublicado(margenManual, porcDefinitivo)) {
+      const data = await eliminarStagingPrecioLista(codTienda, idLista, pxDux);
+      return { success: true, data };
+    }
+    const pxDesdePorc = calcPxListaDesdeMargenSinIvaPct(margenManual, costoCompra);
+    const pxPersistir =
+      pxDesdePorc != null && pxDesdePorc > 0 ? roundPxListaEntero(pxDesdePorc) : pxEntero;
+    await persistirStagingPrecioLista(codTienda, idLista, pxPersistir, margenManual);
+    return {
+      success: true,
+      data: {
+        margenManual,
+        pxEdicion: pxPersistir,
+        pxEfectivo: pxPersistir,
+      },
+    };
+  }
+
   if (preciosPxListaEnterosIguales(pxEntero, pxDux)) {
     const data = await eliminarStagingPrecioLista(codTienda, idLista, pxDux);
     return { success: true, data };
   }
 
-  const margenManual = margenDesdePrecioDux(pxEntero, costoCompra);
-
-  await persistirStagingPrecioLista(codTienda, idLista, pxEntero);
+  await persistirStagingPrecioLista(codTienda, idLista, pxEntero, null);
 
   return {
     success: true,
     data: {
-      margenManual,
+      margenManual: null,
       pxEdicion: pxEntero,
       pxEfectivo: pxEntero,
     },
@@ -204,7 +232,10 @@ export async function contarItemsConPrecioDeVentaDistinto(): Promise<number> {
         FROM prod_lista_precios p
         WHERE p.cod_tienda = e.cod_tienda
           AND p.id_lista = e.id_lista
-          AND round(p.precio) = round(e.precio)
+          AND (
+            (e.porc_utilidad IS NOT NULL AND p.porc_utilidad IS NOT DISTINCT FROM e.porc_utilidad)
+            OR (e.porc_utilidad IS NULL AND round(p.precio) = round(e.precio))
+          )
       )
   `;
   return Number(rows[0]?.items ?? 0);
@@ -220,7 +251,7 @@ export async function publicarPreciosDefinitivosDesdeEdicion(): Promise<{
 }> {
   const filas = await prisma.$queryRaw<Array<{ precios: number; items: number }>>`
     WITH objetivo AS (
-      SELECT e.cod_tienda, e.id_lista, e.precio
+      SELECT e.cod_tienda, e.id_lista, e.precio, e.porc_utilidad
       FROM prod_lista_precios_edicion e
       WHERE e.precio > 0
         AND NOT EXISTS (
@@ -228,12 +259,16 @@ export async function publicarPreciosDefinitivosDesdeEdicion(): Promise<{
           FROM prod_lista_precios p
           WHERE p.cod_tienda = e.cod_tienda
             AND p.id_lista = e.id_lista
-            AND round(p.precio) = round(e.precio)
+            AND (
+              (e.porc_utilidad IS NOT NULL AND p.porc_utilidad IS NOT DISTINCT FROM e.porc_utilidad)
+              OR (e.porc_utilidad IS NULL AND round(p.precio) = round(e.precio))
+            )
         )
     ),
     actualizados AS (
       UPDATE prod_lista_precios p
       SET precio = o.precio,
+          porc_utilidad = COALESCE(o.porc_utilidad, p.porc_utilidad),
           updated_at = NOW()
       FROM objetivo o
       WHERE p.cod_tienda = o.cod_tienda
@@ -241,8 +276,8 @@ export async function publicarPreciosDefinitivosDesdeEdicion(): Promise<{
       RETURNING p.cod_tienda, p.id_lista, p.precio
     ),
     insertados AS (
-      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, updated_at)
-      SELECT o.cod_tienda, o.id_lista, o.precio, NOW()
+      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, porc_utilidad, updated_at)
+      SELECT o.cod_tienda, o.id_lista, o.precio, o.porc_utilidad, NOW()
       FROM objetivo o
       WHERE NOT EXISTS (
         SELECT 1
@@ -290,7 +325,7 @@ export async function publicarPreciosDefinitivosDeItem(
 
   const filas = await prisma.$queryRaw<Array<{ precios: number }>>`
     WITH objetivo AS (
-      SELECT e.cod_tienda, e.id_lista, e.precio
+      SELECT e.cod_tienda, e.id_lista, e.precio, e.porc_utilidad
       FROM prod_lista_precios_edicion e
       WHERE e.cod_tienda = ${codTienda}
         AND e.id_lista IN (${Prisma.join([...ids])})
@@ -300,12 +335,16 @@ export async function publicarPreciosDefinitivosDeItem(
           FROM prod_lista_precios p
           WHERE p.cod_tienda = e.cod_tienda
             AND p.id_lista = e.id_lista
-            AND round(p.precio) = round(e.precio)
+            AND (
+              (e.porc_utilidad IS NOT NULL AND p.porc_utilidad IS NOT DISTINCT FROM e.porc_utilidad)
+              OR (e.porc_utilidad IS NULL AND round(p.precio) = round(e.precio))
+            )
         )
     ),
     actualizados AS (
       UPDATE prod_lista_precios p
       SET precio = o.precio,
+          porc_utilidad = COALESCE(o.porc_utilidad, p.porc_utilidad),
           updated_at = NOW()
       FROM objetivo o
       WHERE p.cod_tienda = o.cod_tienda
@@ -313,8 +352,8 @@ export async function publicarPreciosDefinitivosDeItem(
       RETURNING p.cod_tienda
     ),
     insertados AS (
-      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, updated_at)
-      SELECT o.cod_tienda, o.id_lista, o.precio, NOW()
+      INSERT INTO prod_lista_precios (cod_tienda, id_lista, precio, porc_utilidad, updated_at)
+      SELECT o.cod_tienda, o.id_lista, o.precio, o.porc_utilidad, NOW()
       FROM objetivo o
       WHERE NOT EXISTS (
         SELECT 1

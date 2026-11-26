@@ -618,7 +618,11 @@ export type FacturaComprobanteListItem = {
   personalId: number | null;
 };
 
-/** Pie de Lista Comprobantes: recuento y montos según las filas visibles. */
+/**
+ * Pie de Lista Comprobantes, sobre las filas del filtro (sin tope).
+ * TOTAL VENDIDO = `impTotal` de ventas − NC, cobradas o no. Sin rechazados.
+ * PENDIENTE DE COBRO = suma de `saldoPendiente` de esas ventas.
+ */
 export function resumenIndicadoresListaComprobantes(
   items: readonly FacturaComprobanteListItem[]
 ): {

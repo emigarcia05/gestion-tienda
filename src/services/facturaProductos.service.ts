@@ -5,6 +5,7 @@ import { getProveedoresMercaderia } from "@/services/proveedor.service";
 import type { DescPromoEspecialFactura } from "@/lib/descPromo";
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import { listarDescPromosEspecialesPorCodigos } from "@/services/descPromo.service";
+import { mapPxVentaDeLista } from "@/services/prodTiendaPrecios.service";
 import {
   buildMapSaldoStockItemsSucursales,
   claveSaldoStock,
@@ -133,18 +134,10 @@ export async function buscarProductosParaFactura(params: {
     });
 
     const codigos = rows.map((r) => r.codTienda);
-    const pxPorCod = new Map<string, number>();
-
-    if (codigos.length > 0 && idListaGeneral != null) {
-      const precios = await prisma.prodPropioListaPrecio.findMany({
-        where: { idLista: idListaGeneral, codTienda: { in: codigos } },
-        select: { codTienda: true, precio: true },
-      });
-      for (const p of precios) {
-        const n = Number(p.precio);
-        pxPorCod.set(p.codTienda, Number.isFinite(n) ? n : 0);
-      }
-    }
+    const pxPorCod =
+      codigos.length > 0 && idListaGeneral != null
+        ? await mapPxVentaDeLista(codigos, idListaGeneral)
+        : new Map<string, number>();
 
     const [saldos, especialesPorCod] = await Promise.all([
       buildMapSaldoStockItemsSucursales(
@@ -231,15 +224,9 @@ export async function obtenerProductoFacturaPorCodTienda(
     }
 
     const idListaGeneral = encontrarIdListaGeneralPxListas(listas);
-    let pxLista = 0;
-    if (idListaGeneral != null) {
-      const precio = await prisma.prodPropioListaPrecio.findUnique({
-        where: { codTienda_idLista: { codTienda: cod, idLista: idListaGeneral } },
-        select: { precio: true },
-      });
-      const n = Number(precio?.precio);
-      pxLista = Number.isFinite(n) ? n : 0;
-    }
+    const pxPorCod =
+      idListaGeneral == null ? new Map<string, number>() : await mapPxVentaDeLista([cod], idListaGeneral);
+    const pxLista = pxPorCod.get(cod) ?? 0;
 
     const [saldos, especialesPorCod] = await Promise.all([
       buildMapSaldoStockItemsSucursales(

@@ -1588,6 +1588,8 @@ model ProdPropioListaPrecio {
   codTienda String   @map("cod_tienda")
   idLista   Int      @map("id_lista")
   precio    Decimal  @db.Decimal(14, 4)
+  /** PORC. UTILIDAD persistido. El PX vigente se calcula con el costo de compra actual. */
+  porcUtilidad Decimal? @map("porc_utilidad") @db.Decimal(8, 2)
   updatedAt DateTime @updatedAt @map("updated_at")
 
   prodTienda ProdPropio                  @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
@@ -1605,6 +1607,8 @@ model ProdPropioListaPrecioEdicion {
   codTienda String   @map("cod_tienda")
   idLista   Int      @map("id_lista")
   precio    Decimal  @db.Decimal(14, 4)
+  /** PORC. UTILIDAD pendiente de publicar. `null` = la fila solo guarda un PX (sin costo al editar). */
+  porcUtilidad Decimal? @map("porc_utilidad") @db.Decimal(8, 2)
   updatedAt DateTime @updatedAt @map("updated_at")
 
   prodTienda ProdPropio                  @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
