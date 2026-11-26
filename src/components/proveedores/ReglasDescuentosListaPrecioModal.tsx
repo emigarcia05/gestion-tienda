@@ -70,9 +70,9 @@ const COL_COUNT = COL_WIDTHS_PCT.length;
 const TH_DIVIDER_CLASS = "tabla-bloque-secundario-head-divider";
 const TD_DIVIDER_CLASS = "tabla-bloque-secundario-cell-divider";
 
-/** Alto fijo del área de tabla: mismo tamaño en GENERAL y POR PRODUCTO (vacía o con datos). */
+/** Alto fijo del área de tabla: mismo tamaño en GENERAL y POR PRODUCTO. El scroll vive en esta caja. */
 const REGLAS_DESCUENTOS_TABLA_AREA_CLASS =
-  "contenedor-tabla-gestion h-[min(46.4vh,25.6rem)] min-h-[min(46.4vh,25.6rem)] shrink-0";
+  "contenedor-tabla-gestion reglas-descuentos-tabla shrink-0";
 
 interface Props {
   onSuccess?: () => void;

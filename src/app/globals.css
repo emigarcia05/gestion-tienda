@@ -360,6 +360,26 @@
   .contenedor-tabla-gestion.no-scroll-x {
     overflow-x: hidden;
   }
+  /* Reglas Descuentos: alto fijo y scroll en esta caja (no en el cuerpo del modal).
+     `display: block` evita que el hijo flex con `min-h-0` trague el alto y oculte la barra. */
+  .contenedor-tabla-gestion.reglas-descuentos-tabla {
+    display: block;
+    flex: none;
+    height: min(46.4vh, 25.6rem);
+    min-height: min(46.4vh, 25.6rem);
+    max-height: min(46.4vh, 25.6rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--primary) 55%, transparent) transparent;
+  }
+  .contenedor-tabla-gestion.reglas-descuentos-tabla::-webkit-scrollbar {
+    width: 0.5rem;
+  }
+  .contenedor-tabla-gestion.reglas-descuentos-tabla::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--primary) 55%, transparent);
+    border-radius: 999px;
+  }
 
   /**
    * Tabla con pie de totales siempre visible: el scroll vertical solo afecta a encabezado + cuerpo.

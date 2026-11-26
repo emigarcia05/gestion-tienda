@@ -86,9 +86,7 @@ export default function CrearEditarReglaDescuentoListaPrecioModal({
     if (!open) return;
     if (modo === "editar" && regla) {
       setCampo(regla.campo);
-      setValorNorm(
-        porcentajeCentFromNumber(Math.round(regla.valor), PORCENTAJE_ENTERO_MAX_CENTS)
-      );
+      setValorNorm(porcentajeCentFromNumber(regla.valor, PORCENTAJE_ENTERO_MAX_CENTS));
       setIdProveedor(regla.idProveedor ?? "");
       setIdMarca(regla.idMarca ?? "");
       setIdRubro(regla.idRubro ?? "");
@@ -118,8 +116,8 @@ export default function CrearEditarReglaDescuentoListaPrecioModal({
     }
 
     const valor = parsePorcentajeCentNormalized(valorNorm, PORCENTAJE_ENTERO_MAX_CENTS);
-    if (valor === undefined || !Number.isInteger(valor)) {
-      toast.error("Ingresá un porcentaje entero (0–100).");
+    if (valor === undefined) {
+      toast.error("Ingresá un porcentaje de 0 a 100, con hasta 2 decimales.");
       return;
     }
 
@@ -248,9 +246,8 @@ export default function CrearEditarReglaDescuentoListaPrecioModal({
                 id="valor-regla"
                 valueNormalized={valorNorm}
                 onValueNormalizedChange={setValorNorm}
-                soloEnteros
                 maxCents={PORCENTAJE_ENTERO_MAX_CENTS}
-                placeholder="0%"
+                placeholder="0,00%"
                 className="h-9"
               />
             </ModalFormRow>
