@@ -930,7 +930,7 @@ function memoriaVigente(fecha: Date): boolean {
   return Date.now() - fecha.getTime() < DIAS_MEMORIA_FICHA * MS_DIA;
 }
 
-const ESTILO_USO = "v3|";
+const ESTILO_USO = "v4|";
 const TOPE_COLUMNA_DILUCION = 500;
 const TOPE_COLUMNA_SECADO = 300;
 
@@ -941,8 +941,8 @@ function resumenGuardado(fila: {
   secadoFinal: string;
   urlFicha: string;
 }): ResumenHojaFabricante {
-  const v3 = fila.preparacion.startsWith(ESTILO_USO);
-  const aplicacion = v3
+  const empacado = /^v[34]\|/.test(fila.preparacion);
+  const aplicacion = empacado
     ? `${fila.dilucion}${fila.secadoEntreManos}${fila.secadoFinal}`
     : [fila.dilucion, fila.secadoEntreManos, fila.secadoFinal]
         .map((parte) => parte.trim())

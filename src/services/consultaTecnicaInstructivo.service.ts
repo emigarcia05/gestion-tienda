@@ -109,6 +109,27 @@ function leerPartes(texto: string): z.infer<typeof partesSchema> | null {
   }
 }
 
+function textoPlano(valor: string): string {
+  return valor.replace(/\s+/g, " ").trim();
+}
+
+/** El prompt pide los dos pasos. Si el modelo igual manda JSON, también se lee. */
+function leerInstructivo(texto: string): { preparacion: string; aplicacion: string } | null {
+  const sinCerca = texto.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const corte = sinCerca.match(/1\.\s*Preparaci[oó]n\.?\s*([\s\S]*?)\s*\n+\s*2\.\s*([\s\S]*)$/i);
+  if (corte) {
+    const preparacion = textoPlano(corte[1]);
+    const aplicacion = textoPlano(corte[2]).replace(/\s*¿[^?]{0,240}\?\s*$/, "").trim();
+    if (preparacion.length > 0 && aplicacion.length > 0) return { preparacion, aplicacion };
+  }
+  const json = leerPartes(sinCerca);
+  if (!json) return null;
+  const preparacion = textoPlano(json.preparacion);
+  const aplicacion = textoPlano(json.aplicacion);
+  if (preparacion.length === 0 || aplicacion.length === 0) return null;
+  return { preparacion, aplicacion };
+}
+
 /**
  * La ficha cargada en la familia se lee primero. Si no hay, o no se puede leer,
  * se busca la hoja del fabricante en la web. `guardar` es true solo cuando el
@@ -174,20 +195,19 @@ export async function resumirHojaFabricante(input: {
 
     const redactado = await completarConsultaTecnica({
       system: [
-        "Hablás con quien va a aplicar el producto, en Argentina, con palabras de todos los días. Traducís la hoja a una explicación clara. No copiés el lenguaje de fábrica.",
-        "Leíste solo la hoja técnica que te paso. No uses otra fuente.",
-        "Respondé solo un JSON con las claves preparacion y aplicacion.",
-        "preparacion: una o dos oraciones sobre cómo tiene que estar la superficie antes de empezar. Si la hoja no dice lo contrario, la frase es: «La superficie debe estar limpia, libre de polvo, grasitud y seca.» Si la hoja pide algo más, como lijar, sacar humedad, óxido o el material anterior, sumalo. Si la hoja contradice esa frase, por ejemplo porque tiene que estar húmeda, seguí la hoja y no dejes lo que no corresponde.",
-        "aplicacion: un solo párrafo, sin título y sin lista. Se lee seguido, como se lo explicarías en el mostrador, y cada frase entra solo si la hoja la respalda. Seguí este orden y salteá la frase que la hoja no traiga: primero revolver, batir o agitar, con «Antes de comenzar, no olvides batir bien el producto.»; después cada mano, de la primera a la última, con qué se diluye y el porcentaje escrito en la hoja, con el signo %; si una mano va pura, decilo, y si la hoja advierte que no se dé pura, decilo en esa misma frase; después la espera, con «Antes de la siguiente mano se debe esperar» y el tiempo de la hoja; al final el clima o la otra condición de uso, como lluvia, frío, pileta o tránsito.",
-        "Si la primera mano y las siguientes no se diluyen igual, explicalo en ese párrafo. No calcules un porcentaje que la hoja no escriba. Si hay una sola mano, no inventes la siguiente.",
-        "Nombrá el trabajo como lo trata la hoja: pintar, aplicar, colocar o dar. No digas pintar si la hoja no lo trata como pintura.",
-        "No inventes números, solventes, tiempos, manos ni pasos. Si la hoja no lo dice, no lo escribas. No uses [COMPLETAR] adentro de aplicacion.",
+        "Hablás con quien va a aplicar el producto, en Argentina. El texto se lee en el mostrador: claro, corto y de todos los días. No sos un vendedor ni un buscador.",
+        "Usá solo la hoja técnica que te paso. No uses otra fuente. Ignorá precio, moneda, tienda, estrellas, envío y cualquier oferta.",
+        "Respondé exactamente así, sin JSON, sin títulos de más y sin una pregunta al final:",
+        "1. Preparación. Una oración, en este tono: «La superficie debe estar limpia, libre de polvo, grasitud y seca.» Si la hoja pide un paso previo concreto (mampostería nueva, hongos, partes flojas), sumá una segunda oración corta con ese dato. No armes un informe.",
+        "2. Un solo párrafo, seguido, sin viñetas. Cada frase entra solo si la hoja la respalda, en este orden: si hay que mezclar, empezá con «Antes de comenzar, no olvides batir bien el producto.» La primera mano: «La primera mano se debe diluir en un X% con el líquido de la hoja.» Si la hoja explica la proporción, agregala en esa misma frase. Si advierte que no se dé pura, decilo ahí. Si entre manos hay que tapar grietas o usar otro producto, una frase. «Antes de la siguiente mano se debe esperar al menos el tiempo de la hoja.» Las manos que siguen: si van puras o diluidas, y cuántas pide la hoja. Al final, una sola condición para trabajar o dejar secar (lluvia o temperatura).",
+        "No repitas un dato que ya dijiste. No inventes números, solventes, tiempos ni manos. No digas pintar si la hoja no lo trata como pintura.",
+        "No escribas nada después de ese párrafo. No copies estas instrucciones.",
       ].join(" "),
       user: `Producto: ${input.marca} ${input.descripcion}\n\nHoja técnica:\n${hoja}`,
     });
     if (!redactado.success) return { resumen: { ...VACIO, urlFicha }, guardar: false };
 
-    const partes = leerPartes(redactado.data);
+    const partes = leerInstructivo(redactado.data);
     if (!partes) return { resumen: { ...VACIO, urlFicha }, guardar: false };
 
     return {
