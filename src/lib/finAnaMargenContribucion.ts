@@ -612,6 +612,10 @@ export const FIN_ANA_MC_METRICAS_GRAFICO = [
   "MC_PONDERADO",
 ] as const satisfies readonly MetricaGraficoMcMargenContribucion[];
 
+/** Métrica con la que arranca el gráfico y a la que vuelve Limpiar. No se persiste. */
+export const METRICA_GRAFICO_MC_INICIAL: MetricaGraficoMcMargenContribucion =
+  "MC_PONDERADO";
+
 export const ETIQUETA_METRICA_GRAFICO_MC: Record<
   MetricaGraficoMcMargenContribucion,
   string
@@ -632,13 +636,6 @@ export const ETIQUETA_CORTA_METRICA_GRAFICO_MC: Record<
   MC: "M.C",
   MC_PONDERADO: "M.C POND.",
 };
-
-/** Métricas del gráfico que admiten overlay de Cat. M.C. (umbrales en M.C. PONDERADO). */
-export function metricaGraficoSoportaCategoriasMc(
-  metrica: MetricaGraficoMcMargenContribucion
-): boolean {
-  return metrica === "MC" || metrica === "MC_PONDERADO";
-}
 
 function valorYGraficoMcMargenContribucion(
   calculados: ValoresCalculadosMargenContribucion,

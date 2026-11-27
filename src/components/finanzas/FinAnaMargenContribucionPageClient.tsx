@@ -29,6 +29,7 @@ import {
   mcPctEnPorcUtilidadMargenContribucion,
   MC_GRAFICO_PORC_UTILIDAD_MAX,
   MC_GRAFICO_PORC_UTILIDAD_MIN,
+  METRICA_GRAFICO_MC_INICIAL,
   serieMcVsPorcUtilidadMargenContribucion,
   type MetricaGraficoMcMargenContribucion,
   type TipoComprobanteVentaMargenContribucion,
@@ -47,12 +48,7 @@ import {
   type FinAnaMcFormulaItem,
 } from "@/lib/finAnaMcFormulas";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
-import {
-  metricaDesdeVariableObjetivo,
-  type FinAnaMcConfigItem,
-} from "@/lib/finAnaMcConfig";
 import type { FinAnaCosFinaItem } from "@/services/finAnaCosFina.service";
-import type { FinAnaCosFinaTerminalMarcaItem } from "@/lib/finAnaCosFinaTerminalesMarcas";
 import type { DescuentosMargenContribucionMap } from "@/services/margenContribucionDesc.service";
 import { guardarDescuentoMargenContribucionAction } from "@/actions/finAnaMargenContribucion";
 import { toast } from "sonner";
@@ -62,11 +58,9 @@ const DESCUENTO_GUARDADO_DEBOUNCE_MS = 500;
 
 interface Props {
   filasCostosFinancieros: FinAnaCosFinaItem[];
-  terminales: FinAnaCosFinaTerminalMarcaItem[];
   descuentosPorColumna: DescuentosMargenContribucionMap;
   formulas: FinAnaMcFormulaItem[];
   categoriasMc: FinAnaMcCategoriaItem[];
-  configMc: FinAnaMcConfigItem;
   esEditor: boolean;
 }
 
@@ -80,15 +74,12 @@ function soloDisponibles(
 
 export default function FinAnaMargenContribucionPageClient({
   filasCostosFinancieros,
-  terminales,
   descuentosPorColumna,
   formulas,
   categoriasMc,
-  configMc,
   esEditor,
 }: Props) {
   const router = useRouter();
-  const [defaultsMc, setDefaultsMc] = useState(configMc);
   const formulaParams = useMemo(
     () => resolverParametrosFormulaMargenContribucion(formulas),
     [formulas]
@@ -122,9 +113,7 @@ export default function FinAnaMargenContribucionPageClient({
   const [entidadIds, setEntidadIds] = useState<string[]>([]);
   const [cuotasSel, setCuotasSel] = useState<string[]>([]);
   const [metricaGrafico, setMetricaGrafico] =
-    useState<MetricaGraficoMcMargenContribucion>(() =>
-      metricaDesdeVariableObjetivo(configMc.variableObjetivo)
-    );
+    useState<MetricaGraficoMcMargenContribucion>(METRICA_GRAFICO_MC_INICIAL);
 
   const filasHabilitadas = useMemo(
     () => filasHabilitadasColumnasMargenContribucion(filasCostosFinancieros),
@@ -228,10 +217,6 @@ export default function FinAnaMargenContribucionPageClient({
 
     return {
       series: seriesDe(metricaGrafico, true),
-      /** Escala M.C. (ratio×100) para umbrales cuando VARIABLE OBJETIVO = M.C. */
-      seriesMc: seriesDe("MC", false),
-      /** Escala M.C. PONDERADO para umbrales de Cat. M.C. */
-      seriesMcPonderado: seriesDe("MC_PONDERADO", false),
       porcUtilidadMarca: marcaEnRango ? porcUtilidadPct : null,
       revisionFiltros: [
         escenarioGrafico,
@@ -258,7 +243,7 @@ export default function FinAnaMargenContribucionPageClient({
     setPagoIds([]);
     setEntidadIds([]);
     setCuotasSel([]);
-    setMetricaGrafico(metricaDesdeVariableObjetivo(defaultsMc.variableObjetivo));
+    setMetricaGrafico(METRICA_GRAFICO_MC_INICIAL);
   }
 
   function cambiarDescuentoColumna(columnaId: string, descuentoPct: number) {
@@ -407,8 +392,6 @@ export default function FinAnaMargenContribucionPageClient({
             <div className="flex h-1/2 min-h-0 flex-col pt-3">
               <GraficoMcVsPorcUtilidad
                 series={graficoMc.series}
-                seriesMc={graficoMc.seriesMc}
-                seriesMcPonderado={graficoMc.seriesMcPonderado}
                 porcUtilidadMarca={graficoMc.porcUtilidadMarca}
                 revisionFiltros={graficoMc.revisionFiltros}
                 metrica={metricaGrafico}
@@ -416,7 +399,6 @@ export default function FinAnaMargenContribucionPageClient({
                 escenario={escenarioGrafico}
                 onEscenarioChange={setEscenarioGrafico}
                 categoriasMc={categoriasMc}
-                variableObjetivo={defaultsMc.variableObjetivo}
                 className="min-h-0 flex-1"
               />
             </div>
@@ -434,11 +416,7 @@ export default function FinAnaMargenContribucionPageClient({
         open={modalCategoriasAbierto}
         onOpenChange={setModalCategoriasAbierto}
         esEditor={esEditor}
-        terminales={terminales}
-        configInicial={defaultsMc}
-        onGuardado={({ config: cfg }) => {
-          setDefaultsMc(cfg);
-          setMetricaGrafico(metricaDesdeVariableObjetivo(cfg.variableObjetivo));
+        onGuardado={() => {
           router.refresh();
         }}
       />

@@ -2258,7 +2258,6 @@ model FinAnaCosFinaTerminalMarca {
 
   cajas                CajaTesoreria[]
   filas                FinAnaCosFina[]
-  mcConfig             FinAnaMcConfig[]
   formasPago           CobrosFormaPagoEntidad[]
   cuotaVinculos        CobrosCuotaVinculo[]
   cobrosPorSucursal    CobrosPorSucursal[]
@@ -2618,8 +2617,8 @@ model FinAnaMcFormula {
 }
 
 /**
- * Categorías por rango continuo [desde, hasta) sobre la VARIABLE OBJETIVO
- * de `fin_ana_mc_cat_config` (**M.C** o **M.C. PONDERADO**, 0…100; la última incluye 100).
+ * Categorías por rango continuo [desde, hasta) sobre el PORC. UTILIDAD
+ * de la lista **1 - GENERAL** (0…100; la última incluye 100).
  * Continuidad: el `desde` de una fila debe ser igual al `hasta` de la anterior.
  */
 model FinAnaMcCategoria {
@@ -2633,22 +2632,6 @@ model FinAnaMcCategoria {
 
   @@index([desdePct], map: "fin_ana_mc_cat_desde_pct_idx")
   @@map("fin_ana_mc_cat")
-}
-
-/**
- * Singleton de defaults del módulo Margen Contribución / Cat. M.C.
- * `id` fijo `DEFAULT`. Condiciones de cálculo (TERMINAL, FACTURA, VARIABLE OBJETIVO).
- */
-model FinAnaMcConfig {
-  id               String   @id
-  terminalId       String?  @map("terminal_id")
-  tipoComprobante  String   @map("tipo_comprobante")
-  variableObjetivo String   @map("variable_objetivo")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-
-  terminal FinAnaCosFinaTerminalMarca? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
-
-  @@map("fin_ana_mc_cat_config")
 }
 
 // ─── Marketing · Publicaciones (catálogos + hechos) ────────────────────────

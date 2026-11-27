@@ -1,10 +1,10 @@
-/** Categoría por rango sobre la VARIABLE OBJETIVO de `fin_ana_mc_cat_config` (tabla `fin_ana_mc_cat`, escala 0…100). */
+/** Categoría por rango de PORC. UTILIDAD de la lista 1 - GENERAL (`fin_ana_mc_cat`, escala 0…100). */
 export type FinAnaMcCategoriaItem = {
   id: string;
   categoria: string;
-  /** Límite inferior inclusivo en M.C. PONDERADO (0…99). */
+  /** Límite inferior inclusivo (0…99). */
   desdePct: number;
-  /** Límite superior exclusivo en M.C. PONDERADO (salvo última: 100 inclusivo). */
+  /** Límite superior exclusivo (salvo la última: 100 inclusivo). */
   hastaPct: number;
   orden: number;
 };
@@ -73,23 +73,21 @@ export function validarContinuidadRangosMcCategorias(
 }
 
 /**
- * Resuelve la categoría para un valor de la VARIABLE OBJETIVO (M.C o M.C. PONDERADO).
+ * Resuelve la categoría para un PORC. UTILIDAD (lista 1 - GENERAL, recortado a 0…100).
  * Regla: `[desde, hasta)` y la última (`hasta === 100`) incluye 100.
  */
 export function resolverCategoriaMcPorPct(
-  mcPonderado: number,
+  porcUtilidad: number,
   categorias: FinAnaMcCategoriaItem[]
 ): FinAnaMcCategoriaItem | null {
-  if (!Number.isFinite(mcPonderado) || categorias.length === 0) return null;
+  if (!Number.isFinite(porcUtilidad) || categorias.length === 0) return null;
   const sorted = [...categorias].sort((a, b) => a.desdePct - b.desdePct);
   for (let i = 0; i < sorted.length; i++) {
     const cat = sorted[i]!;
     const esUltima = i === sorted.length - 1;
     const dentro =
-      mcPonderado >= cat.desdePct &&
-      (esUltima
-        ? mcPonderado <= cat.hastaPct
-        : mcPonderado < cat.hastaPct);
+      porcUtilidad >= cat.desdePct &&
+      (esUltima ? porcUtilidad <= cat.hastaPct : porcUtilidad < cat.hastaPct);
     if (dentro) return cat;
   }
   return null;

@@ -14,12 +14,6 @@ import {
 } from "@/services/finAnaMcCategorias.service";
 import { reemplazarFinAnaMcCategoriasSchema } from "@/lib/validations/finAnaMcCategorias";
 import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
-import {
-  getFinAnaMcConfig,
-  guardarFinAnaMcConfig,
-} from "@/services/finAnaMcConfig.service";
-import { guardarFinAnaMcConfigSchema } from "@/lib/validations/finAnaMcConfig";
-import type { FinAnaMcConfigItem } from "@/lib/finAnaMcConfig";
 import { APP_ROUTES } from "@/lib/appRoutes";
 
 const RUTA_MARGEN_CONTRIBUCION = APP_ROUTES.administrador.cobrosDesc.margenContribucion;
@@ -60,32 +54,6 @@ export async function reemplazarFinAnaMcCategoriasAction(
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
 
   const res = await reemplazarFinAnaMcCategorias(parsed.data);
-  if (!res.success) return { ok: false, error: res.error };
-
-  revalidatePath(RUTA_MARGEN_CONTRIBUCION);
-  return { ok: true, data: res.data };
-}
-
-export async function getFinAnaMcConfigAction(): Promise<
-  ActionResult<FinAnaMcConfigItem>
-> {
-  const gate = await requireFinanzasLectura();
-  if (gate) return gate;
-
-  const data = await getFinAnaMcConfig();
-  return { ok: true, data };
-}
-
-export async function guardarFinAnaMcConfigAction(
-  params: unknown
-): Promise<ActionResult<FinAnaMcConfigItem>> {
-  const gate = await requireEditorFinanzas();
-  if (gate) return gate;
-
-  const parsed = guardarFinAnaMcConfigSchema.safeParse(params);
-  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
-
-  const res = await guardarFinAnaMcConfig(parsed.data);
   if (!res.success) return { ok: false, error: res.error };
 
   revalidatePath(RUTA_MARGEN_CONTRIBUCION);

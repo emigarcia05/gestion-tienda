@@ -19,7 +19,6 @@ import {
   FIN_ANA_MC_TIPOS_COMPROBANTE,
   MC_GRAFICO_PORC_UTILIDAD_MAX,
   MC_GRAFICO_PORC_UTILIDAD_MIN,
-  metricaGraficoSoportaCategoriasMc,
   type MetricaGraficoMcMargenContribucion,
   type PuntoMcVsPorcUtilidad,
   type TipoComprobanteVentaMargenContribucion,
@@ -37,13 +36,6 @@ export type SerieGraficoMcVsPorcUtilidad = {
 
 interface Props {
   series: SerieGraficoMcVsPorcUtilidad[];
-  /** Series en escala **M.C** (ratio×100) para umbrales si VARIABLE OBJETIVO = M.C. */
-  seriesMc?: SerieGraficoMcVsPorcUtilidad[];
-  /**
-   * Series en escala **M.C. PONDERADO**.
-   * Umbrales Cat. M.C. cuando VARIABLE OBJETIVO = M.C. PONDERADO.
-   */
-  seriesMcPonderado?: SerieGraficoMcVsPorcUtilidad[];
   /** PORC. UTILIDAD actual del filtro; si null, no se dibuja la marca vertical. */
   porcUtilidadMarca: number | null;
   /** Cambia con escenario / PORC. UTILIDAD / columnas / CX / descuentos. */
@@ -55,10 +47,8 @@ interface Props {
   onEscenarioChange: (escenario: TipoComprobanteVentaMargenContribucion) => void;
   /** Texto cuando no hay series (sin formas elegidas). */
   mensajeSinSeries?: string;
-  /** Rangos de catálogo; overlay en métricas MC / MC_PONDERADO. */
+  /** Rangos de Cat. M.C. sobre el eje PORC. UTILIDAD (lista 1 - GENERAL). */
   categoriasMc?: FinAnaMcCategoriaItem[];
-  /** Escala de umbrales guardada en `fin_ana_mc_cat_config`. */
-  variableObjetivo?: "MC" | "MC_PONDERADO";
   className?: string;
 }
 
@@ -138,45 +128,6 @@ const TICKS_X_PORC_UTILIDAD = [
   0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300,
 ] as const;
 
-/**
- * Primer PORC. UTILIDAD (eje X) donde la serie Y alcanza el umbral.
- * Para Cat. M.C. el umbral y la serie de búsqueda están en escala **M.C. PONDERADO**.
- */
-function porcUtilidadDondeValorAlcanza(
-  puntos: PuntoMcVsPorcUtilidad[],
-  umbralY: number
-): number | null {
-  const validos = puntos
-    .filter(
-      (p): p is PuntoMcVsPorcUtilidad & { mcPct: number } =>
-        p.mcPct != null && Number.isFinite(p.mcPct)
-    )
-    .slice()
-    .sort((a, b) => a.porcUtilidadPct - b.porcUtilidadPct);
-
-  if (validos.length === 0 || !Number.isFinite(umbralY)) return null;
-
-  const primero = validos[0]!;
-  if (primero.mcPct >= umbralY) return primero.porcUtilidadPct;
-
-  for (let i = 1; i < validos.length; i++) {
-    const prev = validos[i - 1]!;
-    const curr = validos[i]!;
-    const cruzaSubiendo =
-      prev.mcPct < umbralY && curr.mcPct >= umbralY;
-    const cruzaBajando =
-      prev.mcPct > umbralY && curr.mcPct <= umbralY;
-    if (!cruzaSubiendo && !cruzaBajando) continue;
-    const span = curr.mcPct - prev.mcPct;
-    if (span === 0) return curr.porcUtilidadPct;
-    const t = (umbralY - prev.mcPct) / span;
-    return (
-      prev.porcUtilidadPct + t * (curr.porcUtilidadPct - prev.porcUtilidadPct)
-    );
-  }
-  return null;
-}
-
 function pathFromPuntos(
   puntos: PuntoMcVsPorcUtilidad[],
   xPx: (x: number) => number,
@@ -197,8 +148,6 @@ function pathFromPuntos(
 
 export default function GraficoMcVsPorcUtilidad({
   series,
-  seriesMc = [],
-  seriesMcPonderado = [],
   porcUtilidadMarca,
   revisionFiltros,
   metrica,
@@ -207,12 +156,11 @@ export default function GraficoMcVsPorcUtilidad({
   onEscenarioChange,
   mensajeSinSeries = "Seleccioná al menos una forma de pago",
   categoriasMc = [],
-  variableObjetivo = "MC_PONDERADO",
   className,
 }: Props) {
   const gradId = useId().replace(/:/g, "");
   const [mostrarCategoriasMc, setMostrarCategoriasMc] = useState(false);
-  const categoriasDisponibles = metricaGraficoSoportaCategoriasMc(metrica);
+  const categoriasDisponibles = categoriasMc.length > 0;
   const etiquetaEjeY = ETIQUETA_METRICA_GRAFICO_MC[metrica];
   const categoriasOrdenadas = useMemo(
     () => [...categoriasMc].sort((a, b) => a.desdePct - b.desdePct),
@@ -325,69 +273,21 @@ export default function GraficoMcVsPorcUtilidad({
         visible: boolean;
       }[] = [];
 
-      const seriesUmbral =
-        variableObjetivo === "MC"
-          ? seriesMc.length > 0
-            ? seriesMc
-            : metrica === "MC"
-              ? series
-              : []
-          : seriesMcPonderado.length > 0
-            ? seriesMcPonderado
-            : metrica === "MC_PONDERADO"
-              ? series
-              : [];
-
-      if (
-        mostrarCategoriasMc &&
-        categoriasDisponibles &&
-        categoriasOrdenadas.length > 0 &&
-        seriesUmbral.length > 0
-      ) {
+      if (mostrarCategoriasMc && categoriasOrdenadas.length > 0) {
         for (const cat of categoriasOrdenadas) {
-          for (const serie of seriesUmbral) {
-            const porcDesde =
-              cat.desdePct <= 0
-                ? xMin
-                : porcUtilidadDondeValorAlcanza(serie.puntos, cat.desdePct);
-            if (porcDesde == null || !Number.isFinite(porcDesde)) continue;
-
-            let porcHasta = porcUtilidadDondeValorAlcanza(
-              serie.puntos,
-              cat.hastaPct
-            );
-            if (porcHasta == null || !Number.isFinite(porcHasta)) {
-              const validos = serie.puntos.filter(
-                (p) => p.mcPct != null && Number.isFinite(p.mcPct)
-              );
-              const ultimo = validos[validos.length - 1];
-              if (
-                ultimo?.mcPct != null &&
-                ultimo.mcPct >= cat.desdePct &&
-                (cat.hastaPct >= 100 || ultimo.mcPct < cat.hastaPct)
-              ) {
-                porcHasta = xMax;
-              } else {
-                continue;
-              }
-            }
-
-            const desdeClamped = Math.min(xMax, Math.max(xMin, porcDesde));
-            const hastaClamped = Math.min(xMax, Math.max(xMin, porcHasta));
-            if (hastaClamped <= desdeClamped + 1e-6) continue;
-
-            lineasLocal.push({
-              id: `${serie.id}-${cat.id}`,
-              etiqueta: cat.categoria,
-              color: serie.color,
-              /** Línea + % en el límite superior (hasta). */
-              xLinea: xPx(hastaClamped),
-              xLabel: (xPx(desdeClamped) + xPx(hastaClamped)) / 2,
-              xLimiteSuperior: xPx(hastaClamped),
-              porcLimiteSuperior: hastaClamped,
-              visible: true,
-            });
-          }
+          const desdeClamped = Math.min(xMax, Math.max(xMin, cat.desdePct));
+          const hastaClamped = Math.min(xMax, Math.max(xMin, cat.hastaPct));
+          if (hastaClamped <= desdeClamped + 1e-6) continue;
+          lineasLocal.push({
+            id: cat.id,
+            etiqueta: cat.categoria,
+            color: "var(--primary)",
+            xLinea: xPx(hastaClamped),
+            xLabel: (xPx(desdeClamped) + xPx(hastaClamped)) / 2,
+            xLimiteSuperior: xPx(hastaClamped),
+            porcLimiteSuperior: hastaClamped,
+            visible: true,
+          });
         }
       }
 
@@ -404,14 +304,9 @@ export default function GraficoMcVsPorcUtilidad({
       };
     }, [
       series,
-      seriesMc,
-      seriesMcPonderado,
       porcUtilidadMarca,
       mostrarCategoriasMc,
       categoriasOrdenadas,
-      categoriasDisponibles,
-      variableObjetivo,
-      metrica,
     ]);
 
   return (
@@ -493,8 +388,8 @@ export default function GraficoMcVsPorcUtilidad({
                 aria-pressed={mostrarCategoriasMc}
                 aria-label={
                   mostrarCategoriasMc
-                    ? "Ocultar categorías de M.C. Ponderado en el gráfico"
-                    : "Mostrar categorías de M.C. Ponderado en el gráfico"
+                    ? "Ocultar categorías según PORC. UTILIDAD"
+                    : "Mostrar categorías según PORC. UTILIDAD"
                 }
                 title={
                   mostrarCategoriasMc
