@@ -28,9 +28,19 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   esEditor: boolean;
   onCatalogoChanged?: () => void;
+  /** Desde el «+» del producto: abre solo NUEVA MARCA. */
+  soloCrear?: boolean;
+  onCreado?: (id: string) => void;
 }
 
-export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onCatalogoChanged }: Props) {
+export default function GestionarMarcasModal({
+  open,
+  onOpenChange,
+  esEditor,
+  onCatalogoChanged,
+  soloCrear = false,
+  onCreado,
+}: Props) {
   const [items, setItems] = useState<MarcaCatalogoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -61,10 +71,15 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
   useEffect(() => {
     if (!open) return;
     setBusqueda("");
-    setFormOpen(false);
+    setEditing(null);
+    setFormNombre("");
+    setFormAcepta(false);
+    setFormFormato("");
     setBorrarTarget(null);
+    if (soloCrear) return;
+    setFormOpen(false);
     void cargar();
-  }, [open, cargar]);
+  }, [open, cargar, soloCrear]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -102,6 +117,11 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
         return;
       }
       toast.success(editing ? "Marca actualizada." : "Marca creada.");
+      if (soloCrear && !editing) {
+        onCreado?.(res.data.id);
+        onOpenChange(false);
+        return;
+      }
       setFormOpen(false);
       await cargar();
       onCatalogoChanged?.();
@@ -131,7 +151,7 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
   return (
     <>
       <Dialog
-        open={open}
+        open={soloCrear ? false : open}
         onOpenChange={(next) => !pending && !borrando && !formOpen && !borrarTarget && onOpenChange(next)}
       >
         <AppModal
@@ -221,13 +241,28 @@ export default function GestionarMarcasModal({ open, onOpenChange, esEditor, onC
         </AppModal>
       </Dialog>
 
-      <Dialog open={formOpen} onOpenChange={(next) => !pending && setFormOpen(next)}>
+      <Dialog
+        open={soloCrear ? open : formOpen}
+        onOpenChange={(next) => {
+          if (pending) return;
+          setFormOpen(next);
+          if (!next && soloCrear) onOpenChange(false);
+        }}
+      >
         <AppModal
           title={editing ? "EDITAR MARCA" : "NUEVA MARCA"}
           size="md"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={pending} onClick={() => setFormOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setFormOpen(false);
+                  if (soloCrear) onOpenChange(false);
+                }}
+              >
                 Cancelar
               </Button>
               <Button

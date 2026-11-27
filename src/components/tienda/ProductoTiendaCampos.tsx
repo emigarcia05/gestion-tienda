@@ -74,6 +74,22 @@ export function camposProductoTiendaCompletos(campos: CamposProductoTiendaForm):
 }
 
 /** Campos en el formato que esperan las actions (`null` = vacío). */
+/** Deja elegido en el formulario el atributo recién creado desde el «+». */
+export function camposConCatalogoCreado(
+  prev: CamposProductoTiendaForm,
+  catalogo: CatalogoProductoTienda,
+  id: string
+): CamposProductoTiendaForm {
+  if (catalogo === "rubros") {
+    return { ...prev, idRubro: id, idSubRubro: SIN_VALOR_PRODUCTO_TIENDA };
+  }
+  if (catalogo === "subRubros") return { ...prev, idSubRubro: id };
+  if (catalogo === "marcas") return { ...prev, idMarca: id };
+  if (catalogo === "colores") return { ...prev, idColor: id };
+  if (catalogo === "presentacion") return { ...prev, idPresentacion: id };
+  return { ...prev, familiaId: id };
+}
+
 export function camposProductoTiendaParaAction(campos: CamposProductoTiendaForm) {
   return {
     descripcion: campos.descripcion,
@@ -214,7 +230,7 @@ export default function ProductoTiendaCampos({
           placeholder="RUBRO (OBLIGATORIO)"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("rubros") : undefined}
-          gestionarLabel="Gestionar rubros"
+          gestionarLabel="Nuevo rubro"
         />
         <SelectCatalogo
           label="SUB-RUBRO"
@@ -224,8 +240,8 @@ export default function ProductoTiendaCampos({
           placeholder={campos.idRubro ? "SUB-RUBRO" : "ELEGÍ UN RUBRO"}
           opcionVacia="SIN SUB-RUBRO"
           disabled={disabled || !campos.idRubro}
-          onGestionar={onGestionar ? () => onGestionar("rubros") : undefined}
-          gestionarLabel="Gestionar sub-rubros"
+          onGestionar={onGestionar ? () => onGestionar("subRubros") : undefined}
+          gestionarLabel="Nuevo sub-rubro"
         />
         <SelectCatalogo
           label="MARCA"
@@ -235,7 +251,7 @@ export default function ProductoTiendaCampos({
           placeholder="MARCA (OBLIGATORIO)"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("marcas") : undefined}
-          gestionarLabel="Gestionar marcas"
+          gestionarLabel="Nueva marca"
         />
         <SelectCatalogo
           label="COLOR"
@@ -246,7 +262,7 @@ export default function ProductoTiendaCampos({
           opcionVacia="SIN COLOR"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("colores") : undefined}
-          gestionarLabel="Gestionar colores"
+          gestionarLabel="Nuevo color"
         />
         <SelectCatalogo
           label="PRESENTACIÓN"
@@ -257,7 +273,7 @@ export default function ProductoTiendaCampos({
           opcionVacia="SIN PRESENTACIÓN"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("presentacion") : undefined}
-          gestionarLabel="Gestionar presentaciones"
+          gestionarLabel="Nueva presentación"
         />
         <SelectCatalogo
           label="TERMINACIÓN"
@@ -289,7 +305,7 @@ export default function ProductoTiendaCampos({
           opcionVacia="SIN FAMILIA"
           disabled={disabled}
           onGestionar={onGestionar ? () => onGestionar("familias") : undefined}
-          gestionarLabel="Gestionar familias"
+          gestionarLabel="Nueva familia"
         />
       </div>
     </>

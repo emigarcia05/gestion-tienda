@@ -45,9 +45,23 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   esEditor: boolean;
   onCatalogoChanged?: () => void;
+  /** Desde el «+» del producto: abre solo NUEVO RUBRO o NUEVO SUB-RUBRO. */
+  soloCrear?: false | "rubro" | "subRubro";
+  rubroPadreId?: string | null;
+  rubroPadreNombre?: string | null;
+  onCreado?: (id: string) => void;
 }
 
-export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onCatalogoChanged }: Props) {
+export default function GestionarRubrosModal({
+  open,
+  onOpenChange,
+  esEditor,
+  onCatalogoChanged,
+  soloCrear = false,
+  rubroPadreId = null,
+  rubroPadreNombre = null,
+  onCreado,
+}: Props) {
   const [items, setItems] = useState<RubroCatalogoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -72,14 +86,51 @@ export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onC
     }
   }, []);
 
+  const altaKey = !open || !soloCrear ? "" : soloCrear === "subRubro" ? `sub:${rubroPadreId ?? ""}` : "rubro";
+  const [altaAplicada, setAltaAplicada] = useState("");
+  if (altaKey !== altaAplicada) {
+    setAltaAplicada(altaKey);
+    if (altaKey === "rubro") {
+      setForm({
+        tipo: "rubro",
+        id: null,
+        idRubro: null,
+        rubroNombre: null,
+        nombre: "",
+        productos: 0,
+      });
+    } else if (altaKey.startsWith("sub:")) {
+      setForm(
+        rubroPadreId && rubroPadreNombre
+          ? {
+              tipo: "subRubro",
+              id: null,
+              idRubro: rubroPadreId,
+              rubroNombre: rubroPadreNombre,
+              nombre: "",
+              productos: 0,
+            }
+          : null
+      );
+    } else if (!altaKey) {
+      setForm(null);
+    }
+  }
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || soloCrear) return;
     setBusqueda("");
     setExpandidos(new Set());
     setForm(null);
     setBorrarTarget(null);
     void cargar();
-  }, [open, cargar]);
+  }, [open, cargar, soloCrear]);
+
+  useEffect(() => {
+    if (!open || soloCrear !== "subRubro" || (rubroPadreId && rubroPadreNombre)) return;
+    toast.error("Elegí un rubro antes de crear un sub-rubro.");
+    onOpenChange(false);
+  }, [open, soloCrear, rubroPadreId, rubroPadreNombre, onOpenChange]);
 
   const q = busqueda.trim();
   const listaFiltrada = useMemo(() => {
@@ -142,6 +193,12 @@ export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onC
       }
       const entidad = form.tipo === "rubro" ? "Rubro" : "Sub-rubro";
       toast.success(form.id ? `${entidad} actualizado.` : `${entidad} creado.`);
+      if (soloCrear && !form.id) {
+        onCreado?.(res.data.id);
+        setForm(null);
+        onOpenChange(false);
+        return;
+      }
       if (form.tipo === "subRubro" && form.idRubro) {
         const idRubro = form.idRubro;
         setExpandidos((prev) => new Set(prev).add(idRubro));
@@ -183,7 +240,7 @@ export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onC
   return (
     <>
       <Dialog
-        open={open}
+        open={soloCrear ? false : open}
         onOpenChange={(next) => !pending && !borrando && !form && !borrarTarget && onOpenChange(next)}
       >
         <AppModal
@@ -354,13 +411,28 @@ export default function GestionarRubrosModal({ open, onOpenChange, esEditor, onC
         </AppModal>
       </Dialog>
 
-      <Dialog open={Boolean(form)} onOpenChange={(next) => !next && !pending && setForm(null)}>
+      <Dialog
+        open={soloCrear ? open && Boolean(form) : Boolean(form)}
+        onOpenChange={(next) => {
+          if (pending || next) return;
+          setForm(null);
+          if (soloCrear) onOpenChange(false);
+        }}
+      >
         <AppModal
           title={tituloForm}
           size="sm"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={pending} onClick={() => setForm(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setForm(null);
+                  if (soloCrear) onOpenChange(false);
+                }}
+              >
                 Cancelar
               </Button>
               <Button type="button" disabled={pending || !form?.nombre.trim()} onClick={() => void guardar()}>

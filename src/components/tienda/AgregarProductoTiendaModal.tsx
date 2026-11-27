@@ -16,6 +16,7 @@ import PxListasItemEnProducto, {
 import ProductoTiendaCampos, {
   CAMPOS_PRODUCTO_TIENDA_VACIOS,
   PRODUCTO_TIENDA_GRID_CLASS,
+  camposConCatalogoCreado,
   camposProductoTiendaCompletos,
   camposProductoTiendaParaAction,
   type CamposProductoTiendaForm,
@@ -331,6 +332,9 @@ export default function AgregarProductoTiendaModal({ open, onOpenChange, onCread
         abierto={gestionando}
         onClose={cerrarGestion}
         esEditor
+        altaDirecta
+        rubroPadre={rubroSel ?? null}
+        onCreado={(catalogo, id) => setCampos((prev) => camposConCatalogoCreado(prev, catalogo, id))}
         onCatalogoChanged={recargar}
       />
     </Dialog>

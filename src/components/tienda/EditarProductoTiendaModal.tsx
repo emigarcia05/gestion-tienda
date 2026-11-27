@@ -12,6 +12,7 @@ import PxListasItemEnProducto, {
 } from "@/components/tienda/PxListasItemEnProducto";
 import ProductoTiendaCampos, {
   SIN_VALOR_PRODUCTO_TIENDA,
+  camposConCatalogoCreado,
   camposProductoTiendaCompletos,
   camposProductoTiendaParaAction,
   type CamposProductoTiendaForm,
@@ -152,6 +153,9 @@ export default function EditarProductoTiendaModal({
         abierto={gestionando}
         onClose={cerrarGestion}
         esEditor
+        altaDirecta
+        rubroPadre={catalogos.rubros.find((r) => r.id === campos.idRubro) ?? null}
+        onCreado={(catalogo, id) => setCampos((prev) => camposConCatalogoCreado(prev, catalogo, id))}
         onCatalogoChanged={recargar}
       />
     </Dialog>

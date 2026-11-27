@@ -61,6 +61,9 @@ interface Props {
   esEditor: boolean;
   /** Tras crear/editar/eliminar: p. ej. `router.refresh()`. */
   onCatalogoChanged?: () => void;
+  /** Desde el «+» del producto: abre solo Nueva Presentacion. */
+  soloCrear?: boolean;
+  onCreado?: (id: string) => void;
 }
 
 function formatoNumeroInput(n: number): string {
@@ -93,6 +96,8 @@ export default function GestionarEstPorProdPresentacionModal({
   unidades: unidadesProp,
   esEditor,
   onCatalogoChanged,
+  soloCrear = false,
+  onCreado,
 }: Props) {
   const [items, setItems] = useState<EstPorProdPresentacionItem[]>(itemsIniciales);
   /** Unidades recargadas tras gestionar el catálogo; `null` = usar las del padre. */
@@ -170,7 +175,6 @@ export default function GestionarEstPorProdPresentacionModal({
     if (!open) return;
     setItems(itemsIniciales);
     setBusqueda("");
-    setFormOpen(false);
     setEditingItem(null);
     setFormUnidadMedidaId("");
     setFormPresentacionNumerica("");
@@ -180,8 +184,10 @@ export default function GestionarEstPorProdPresentacionModal({
     setUnidadesRecargadas(null);
     setModalUnidadesOpen(false);
     setUnidadesCambiaron(false);
+    if (soloCrear) return;
+    setFormOpen(false);
     void cargar();
-  }, [open, cargar, itemsIniciales]);
+  }, [open, cargar, itemsIniciales, soloCrear]);
 
   async function recargarUnidades() {
     const res = await listarEstPorProdUnPresentacionesAction();
@@ -305,6 +311,11 @@ export default function GestionarEstPorProdPresentacionModal({
           return;
         }
         toast.success("Presentación creada.");
+        if (soloCrear) {
+          onCreado?.(res.data.id);
+          onOpenChange(false);
+          return;
+        }
       }
       setFormOpen(false);
       resetForm();
@@ -335,7 +346,10 @@ export default function GestionarEstPorProdPresentacionModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
+      <Dialog
+        open={soloCrear ? false : open}
+        onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}
+      >
         <AppModal
           title="Gestion Presentacion"
           size="lg"
@@ -450,11 +464,14 @@ export default function GestionarEstPorProdPresentacionModal({
       </Dialog>
 
       <Dialog
-        open={formOpen}
+        open={soloCrear ? open : formOpen}
         onOpenChange={(next) => {
           if (pending) return;
           setFormOpen(next);
-          if (!next) resetForm();
+          if (!next) {
+            resetForm();
+            if (soloCrear) onOpenChange(false);
+          }
         }}
       >
         <AppModal
@@ -471,6 +488,7 @@ export default function GestionarEstPorProdPresentacionModal({
                 onClick={() => {
                   setFormOpen(false);
                   resetForm();
+                  if (soloCrear) onOpenChange(false);
                 }}
               >
                 Cancelar

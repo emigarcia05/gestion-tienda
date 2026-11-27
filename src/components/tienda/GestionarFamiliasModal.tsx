@@ -36,9 +36,19 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   esEditor: boolean;
   onCatalogoChanged?: () => void;
+  /** Desde el «+» del producto: abre solo NUEVA FAMILIA. */
+  soloCrear?: boolean;
+  onCreado?: (id: string) => void;
 }
 
-export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, onCatalogoChanged }: Props) {
+export default function GestionarFamiliasModal({
+  open,
+  onOpenChange,
+  esEditor,
+  onCatalogoChanged,
+  soloCrear = false,
+  onCreado,
+}: Props) {
   const [items, setItems] = useState<FamiliaCatalogoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -73,10 +83,16 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
     if (!open) return;
     setBusqueda("");
     setFichaFiltro("");
-    setFormOpen(false);
+    setEditing(null);
+    setFormNombre("");
+    setFormUrl("");
+    setPdfAdjunto(null);
+    setQuitarPdf(false);
     setBorrarTarget(null);
+    if (soloCrear) return;
+    setFormOpen(false);
     void cargar();
-  }, [open, cargar]);
+  }, [open, cargar, soloCrear]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -119,6 +135,11 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
         return;
       }
       toast.success(editing ? "Familia actualizada." : "Familia creada.");
+      if (soloCrear && !editing) {
+        onCreado?.(res.data.id);
+        onOpenChange(false);
+        return;
+      }
       setFormOpen(false);
       await cargar();
       onCatalogoChanged?.();
@@ -148,7 +169,7 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
   return (
     <>
       <Dialog
-        open={open}
+        open={soloCrear ? false : open}
         onOpenChange={(next) =>
           !pending && !borrando && !formOpen && !borrarTarget && !itemsAbiertos && onOpenChange(next)
         }
@@ -261,11 +282,12 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
       </Dialog>
 
       <Dialog
-        open={formOpen}
+        open={soloCrear ? open : formOpen}
         onOpenChange={(next) => {
           if (pending || itemsAbiertos) return;
           if (!next) setItemsAbiertos(false);
           setFormOpen(next);
+          if (!next && soloCrear) onOpenChange(false);
         }}
       >
         <AppModal
@@ -273,7 +295,15 @@ export default function GestionarFamiliasModal({ open, onOpenChange, esEditor, o
           size="md"
           actions={
             <div className="flex w-full justify-end gap-2">
-              <Button type="button" variant="outline" disabled={pending} onClick={() => setFormOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setFormOpen(false);
+                  if (soloCrear) onOpenChange(false);
+                }}
+              >
                 Cancelar
               </Button>
               <Button type="button" disabled={!puedeGuardar} onClick={() => void guardar()}>

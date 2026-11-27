@@ -32,6 +32,10 @@ interface Props {
   esEditor: boolean;
   /** Tras crear/editar/eliminar: p. ej. `router.refresh()` para recalcular colores en la tabla. */
   onCatalogoChanged?: () => void;
+  /** Desde el «+» de COLOR del producto: abre solo Nuevo Color, sin el listado. */
+  soloCrear?: boolean;
+  /** Color recién creado, para dejarlo elegido en el producto. */
+  onColorCreado?: (color: EstPorProdColorItem) => void;
 }
 
 export default function GestionarEstPorProdColoresModal({
@@ -40,6 +44,8 @@ export default function GestionarEstPorProdColoresModal({
   itemsIniciales,
   esEditor,
   onCatalogoChanged,
+  soloCrear = false,
+  onColorCreado,
 }: Props) {
   const [items, setItems] = useState<EstPorProdColorItem[]>(itemsIniciales);
   const [loading, setLoading] = useState(false);
@@ -68,14 +74,15 @@ export default function GestionarEstPorProdColoresModal({
 
   useEffect(() => {
     if (!open) return;
-    setItems(itemsIniciales);
-    setBusqueda("");
-    setFormOpen(false);
     setEditingItem(null);
     setFormNombre("");
     setBorrarTarget(null);
+    if (soloCrear) return;
+    setItems(itemsIniciales);
+    setBusqueda("");
+    setFormOpen(false);
     void cargar();
-  }, [open, cargar, itemsIniciales]);
+  }, [open, cargar, itemsIniciales, soloCrear]);
 
   const listaFiltrada = useMemo(() => {
     const q = busqueda.trim();
@@ -118,10 +125,15 @@ export default function GestionarEstPorProdColoresModal({
           return;
         }
         toast.success("Color creado.");
+        if (soloCrear) onColorCreado?.(res.data);
       }
       setFormOpen(false);
       setEditingItem(null);
       setFormNombre("");
+      if (soloCrear) {
+        onOpenChange(false);
+        return;
+      }
       await cargar();
       onCatalogoChanged?.();
     } finally {
@@ -149,7 +161,10 @@ export default function GestionarEstPorProdColoresModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}>
+      <Dialog
+        open={soloCrear ? false : open}
+        onOpenChange={(next) => !pending && !borrando && onOpenChange(next)}
+      >
         <AppModal
           title="Gestion Colores"
           size="lg"
@@ -246,13 +261,14 @@ export default function GestionarEstPorProdColoresModal({
       </Dialog>
 
       <Dialog
-        open={formOpen}
+        open={soloCrear ? open : formOpen}
         onOpenChange={(next) => {
           if (pending) return;
           setFormOpen(next);
           if (!next) {
             setEditingItem(null);
             setFormNombre("");
+            if (soloCrear) onOpenChange(false);
           }
         }}
       >
@@ -269,6 +285,7 @@ export default function GestionarEstPorProdColoresModal({
                   setFormOpen(false);
                   setEditingItem(null);
                   setFormNombre("");
+                  if (soloCrear) onOpenChange(false);
                 }}
               >
                 Cancelar

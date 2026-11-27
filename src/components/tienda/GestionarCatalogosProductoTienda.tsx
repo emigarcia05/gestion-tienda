@@ -16,10 +16,17 @@ import type { EstPorProdUnPresentacionItem } from "@/lib/estPorProdUnPresentacio
 const COLORES_INICIALES: EstPorProdColorItem[] = [];
 const PRESENTACIONES_INICIALES: EstPorProdPresentacionItem[] = [];
 
-export type CatalogoProductoTienda = "marcas" | "rubros" | "colores" | "presentacion" | "familias";
+export type CatalogoProductoTienda =
+  | "marcas"
+  | "rubros"
+  | "subRubros"
+  | "colores"
+  | "presentacion"
+  | "familias";
 
 /**
- * Modales «GESTIONAR…» de los catálogos de producto (Lista Productos y botón «+» de Agregar / Editar).
+ * Catálogos de producto. Desde el header de Lista Productos abre el listado «GESTIONAR…».
+ * Desde el «+» de Crear / Editar (`altaDirecta`) abre solo el alta del atributo.
  * Presentación pide antes las unidades; el modal se abre cuando llegan.
  */
 export default function GestionarCatalogosProductoTienda({
@@ -27,11 +34,20 @@ export default function GestionarCatalogosProductoTienda({
   onClose,
   esEditor,
   onCatalogoChanged,
+  altaDirecta = false,
+  rubroPadre = null,
+  onCreado,
 }: {
   abierto: CatalogoProductoTienda | null;
   onClose: () => void;
   esEditor: boolean;
   onCatalogoChanged?: () => void;
+  /** El «+» del producto abre el alta, no el listado GESTIONAR. */
+  altaDirecta?: boolean;
+  /** Rubro ya elegido en el producto; lo usa el alta de sub-rubro. */
+  rubroPadre?: { id: string; nombre: string } | null;
+  /** Atributo recién creado, para dejarlo elegido en el producto. */
+  onCreado?: (catalogo: CatalogoProductoTienda, id: string) => void;
 }) {
   const [unidades, setUnidades] = useState<EstPorProdUnPresentacionItem[] | null>(null);
 
@@ -57,24 +73,35 @@ export default function GestionarCatalogosProductoTienda({
     if (!open) onClose();
   };
 
+  const altaRubro = altaDirecta && abierto === "rubros";
+  const altaSubRubro = altaDirecta && abierto === "subRubros";
+
   return (
     <>
       <GestionarFamiliasModal
         open={abierto === "familias"}
         onOpenChange={cerrar}
         esEditor={esEditor}
+        soloCrear={altaDirecta && abierto === "familias"}
+        onCreado={(id) => onCreado?.("familias", id)}
         onCatalogoChanged={onCatalogoChanged}
       />
       <GestionarMarcasModal
         open={abierto === "marcas"}
         onOpenChange={cerrar}
         esEditor={esEditor}
+        soloCrear={altaDirecta && abierto === "marcas"}
+        onCreado={(id) => onCreado?.("marcas", id)}
         onCatalogoChanged={onCatalogoChanged}
       />
       <GestionarRubrosModal
-        open={abierto === "rubros"}
+        open={abierto === "rubros" || abierto === "subRubros"}
         onOpenChange={cerrar}
         esEditor={esEditor}
+        soloCrear={altaSubRubro ? "subRubro" : altaRubro ? "rubro" : false}
+        rubroPadreId={rubroPadre?.id ?? null}
+        rubroPadreNombre={rubroPadre?.nombre ?? null}
+        onCreado={(id) => onCreado?.(altaSubRubro ? "subRubros" : "rubros", id)}
         onCatalogoChanged={onCatalogoChanged}
       />
       <GestionarEstPorProdColoresModal
@@ -82,6 +109,9 @@ export default function GestionarCatalogosProductoTienda({
         onOpenChange={cerrar}
         itemsIniciales={COLORES_INICIALES}
         esEditor={esEditor}
+        soloCrear={altaDirecta && abierto === "colores"}
+        onColorCreado={(color: EstPorProdColorItem) => onCreado?.("colores", color.id)}
+        onCatalogoChanged={onCatalogoChanged}
       />
       <GestionarEstPorProdPresentacionModal
         open={abierto === "presentacion" && unidades !== null}
@@ -89,6 +119,9 @@ export default function GestionarCatalogosProductoTienda({
         itemsIniciales={PRESENTACIONES_INICIALES}
         unidades={unidades ?? []}
         esEditor={esEditor}
+        soloCrear={altaDirecta && abierto === "presentacion"}
+        onCreado={(id) => onCreado?.("presentacion", id)}
+        onCatalogoChanged={onCatalogoChanged}
       />
     </>
   );
