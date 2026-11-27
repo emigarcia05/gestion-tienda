@@ -47,6 +47,15 @@ export const quitarReferenciaCompetenciaItemSchema = z.object({
   refCompId: comparacionIdSchema,
 });
 
+export const asignarFamiliaPrioridadSchema = z.object({
+  subcategoriaId: comparacionIdSchema,
+  familiaId: comparacionIdSchema,
+});
+
+export const quitarFamiliaPrioridadSchema = z.object({
+  id: comparacionIdSchema,
+});
+
 export const asignarProductosSchema = z.object({
   subcategoriaId: comparacionIdSchema,
   idsProductos: z.array(listaPreciosCodExtSchema),

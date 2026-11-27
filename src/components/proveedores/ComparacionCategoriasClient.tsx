@@ -39,6 +39,7 @@ import CeldaDifPct from "@/components/shared/CeldaDifPct";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import type { CategoriaComparacionTree } from "@/services/categoriasComparacion.service";
 import type {
+  FamiliaPrioridadComparacion,
   ProductoEnCategoria,
   ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
@@ -53,9 +54,11 @@ import {
 import {
   getProductosPorSubcategoriaAction,
   quitarAsignacionSubcategoriaAction,
+  quitarFamiliaPrioridadAction,
   quitarReferenciaCompetenciaAction,
 } from "@/actions/comparacionCategorias";
 import AsignarProductosModal from "@/components/proveedores/comparacion-categorias/AsignarProductosModal";
+import AgregarFamiliaPrioridadModal from "@/components/proveedores/comparacion-categorias/AgregarFamiliaPrioridadModal";
 import ElegirReferenciaCompetenciaModal from "@/components/proveedores/comparacion-categorias/ElegirReferenciaCompetenciaModal";
 import CeldaDtoExtraComparacion from "@/components/proveedores/comparacion-categorias/CeldaDtoExtraComparacion";
 import CeldaDifPxRefManualComparacion from "@/components/proveedores/comparacion-categorias/CeldaDifPxRefManualComparacion";
@@ -175,6 +178,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
   const [selectedCategoriaId, setSelectedCategoriaId] = useState<string | null>(null);
   const [selectedSubcategoriaId, setSelectedSubcategoriaId] = useState<string | null>(null);
   const [productos, setProductos] = useState<ProductoEnCategoria[]>([]);
+  const [familiasPrioridad, setFamiliasPrioridad] = useState<FamiliaPrioridadComparacion[]>([]);
   const [referenciasCompetencia, setReferenciasCompetencia] = useState<
     ReferenciaCompetenciaComparacion[]
   >([]);
@@ -182,6 +186,8 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [modalAsignar, setModalAsignar] = useState(false);
   const [modalReferencia, setModalReferencia] = useState(false);
+  const [modalFamilia, setModalFamilia] = useState(false);
+  const [quitarFamiliaPendingId, setQuitarFamiliaPendingId] = useState<string | null>(null);
   const [quitarReferenciaPendingId, setQuitarReferenciaPendingId] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [baseItemId, setBaseItemId] = useState<string | null>(null);
@@ -210,6 +216,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
 
   const limpiarSeleccionProductos = useCallback(() => {
     setProductos([]);
+    setFamiliasPrioridad([]);
     setReferenciasCompetencia([]);
     setReferenciaActivaId(null);
     setBaseItemId(null);
@@ -248,6 +255,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
       const res = await getProductosPorSubcategoriaAction(subcategoriaId);
       if (res.ok && res.data) {
         setProductos(res.data.productos);
+        setFamiliasPrioridad(res.data.familiasPrioridad);
         setReferenciasCompetencia(res.data.referenciasCompetencia);
         setReferenciaActivaId((prev) => {
           const refs = res.data.referenciasCompetencia;
@@ -260,6 +268,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
         setDtoExtraDraft({});
       } else {
         setProductos([]);
+        setFamiliasPrioridad([]);
         setReferenciasCompetencia([]);
         setReferenciaActivaId(null);
         setBaseItemId(null);
@@ -345,6 +354,40 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
       if (selectedSubcategoriaId) void loadProductos(selectedSubcategoriaId);
     },
     [selectedSubcategoriaId, loadProductos]
+  );
+
+  const handleFamiliaSuccess = useCallback((familia: FamiliaPrioridadComparacion) => {
+    setModalFamilia(false);
+    setFamiliasPrioridad((prev) => {
+      if (prev.some((fila) => fila.id === familia.id || fila.familiaId === familia.familiaId)) {
+        return prev;
+      }
+      return [...prev, familia].sort((a, b) => a.orden - b.orden);
+    });
+  }, []);
+
+  const handleQuitarFamilia = useCallback(
+    async (id: string) => {
+      if (quitarFamiliaPendingId != null) return;
+      setQuitarFamiliaPendingId(id);
+      try {
+        const res = await quitarFamiliaPrioridadAction(id);
+        if (!res.ok) {
+          toast.error(res.error ?? "Error al quitar la familia.");
+          return;
+        }
+        setFamiliasPrioridad((prev) =>
+          prev
+            .filter((fila) => fila.id !== id)
+            .sort((a, b) => a.orden - b.orden)
+            .map((fila, index) => ({ ...fila, orden: index + 1 }))
+        );
+        toast.success("Familia quitada de la prioridad de venta.");
+      } finally {
+        setQuitarFamiliaPendingId(null);
+      }
+    },
+    [quitarFamiliaPendingId]
   );
 
   const handleQuitarReferencia = useCallback(
@@ -478,6 +521,8 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
               selectedCategoriaId={selectedCategoriaId}
               selectedSubcategoriaId={selectedSubcategoriaId}
               loadingReferencia={loadingProductos}
+              familiasPrioridad={familiasPrioridad}
+              quitarFamiliaPendingId={quitarFamiliaPendingId}
               referenciasCompetencia={referenciasCompetencia}
               referenciaActivaId={referenciaActivaId}
               puedeEditarCatalogo={puedeEditar}
@@ -526,6 +571,8 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
               onEliminarSubcategoria={(id, nombre) =>
                 setEliminarCatalogo({ open: true, nivel: "subcategoria", id, nombre })
               }
+              onAgregarFamilia={() => setModalFamilia(true)}
+              onQuitarFamilia={(id) => void handleQuitarFamilia(id)}
               onAgregarReferencia={() => setModalReferencia(true)}
               onQuitarReferencia={(refCompId) => void handleQuitarReferencia(refCompId)}
             />
@@ -761,6 +808,13 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
             onOpenChange={setModalAsignar}
             subcategoriaId={selectedSubcategoriaId}
             onSuccess={onAsignarSuccess}
+          />
+          <AgregarFamiliaPrioridadModal
+            open={modalFamilia}
+            onOpenChange={setModalFamilia}
+            subcategoriaId={selectedSubcategoriaId}
+            excluirIds={familiasPrioridad.map((fila) => fila.familiaId)}
+            onSuccess={handleFamiliaSuccess}
           />
           <ElegirReferenciaCompetenciaModal
             open={modalReferencia}

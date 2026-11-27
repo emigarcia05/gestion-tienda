@@ -1509,8 +1509,28 @@ model SubcategoriaComparacion {
   categoria              CategoriaComparacion           @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
   itemsComparados        ComparacionItem[]
   referenciasCompetencia ComparacionSubcategoriaRefComp[]
+  familiasPrioridad      ComparacionFamilia[]
 
   @@map("prod_comp_sub_cat")
+}
+
+/** Prioridad de venta de una subcategoría: familias de `prod_familias`, en orden. */
+model ComparacionFamilia {
+  id             String   @id @default(cuid())
+  subcategoriaId String   @map("subcategoria_id")
+  familiaId      String   @map("familia_id")
+  /** 1 = primera prioridad de venta. */
+  orden          Int      @map("orden")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  subcategoria SubcategoriaComparacion @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
+  familia      ProdFamilia             @relation(fields: [familiaId], references: [id], onDelete: Cascade)
+
+  @@unique([subcategoriaId, familiaId], map: "prod_comp_familias_sub_familia_ux")
+  @@unique([subcategoriaId, orden], map: "prod_comp_familias_sub_orden_ux")
+  @@index([familiaId], map: "prod_comp_familias_familia_id_idx")
+  @@map("prod_comp_familias")
 }
 
 // Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_lista.
@@ -1630,7 +1650,8 @@ model ProdFamilia {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  prodTiendas ProdPropio[]
+  prodTiendas            ProdPropio[]
+  prioridadesComparacion ComparacionFamilia[]
 
   @@map("prod_familias")
 }

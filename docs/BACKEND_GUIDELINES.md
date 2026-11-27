@@ -388,7 +388,7 @@ PK, FK, índices y CHECK usan el prefijo nuevo (`prod_propios_*`; FKs entrantes 
 
 ### 3.6 Comp. Categorías
 
-Jerarquía `CategoriaComparacion` → subcategoría. No hay presentación (`prod_comp_presentaciones` se dropeó). Membresía en `prod_comp_item_comparados` (`subcategoria_id` + `cod_ext`). Px de referencia en `prod_comp_item_referencia` (`subcategoria_id`). **No** hay `proveedores_prod_lista.id_presentacion`.
+Jerarquía `CategoriaComparacion` → subcategoría. No hay presentación (`prod_comp_presentaciones` se dropeó). Membresía en `prod_comp_item_comparados` (`subcategoria_id` + `cod_ext`). Px de referencia en `prod_comp_item_referencia` (`subcategoria_id`). **PRIORIDAD VTA:** `prod_comp_familias` (`ComparacionFamilia`) por subcategoría, `familia_id` → `prod_familias` (Cascade) y `orden` desde 1 (`prod_comp_familias_sub_familia_ux`, `prod_comp_familias_sub_orden_ux`). Alta `asignarFamiliaPrioridad` (siguiente orden); baja `quitarFamiliaPrioridad` recompacta el orden. **No** hay `proveedores_prod_lista.id_presentacion`.
 
 - COSTO pantalla: `calcCostoComparacion` suma `dto_extra` al dtoTotal (solo este módulo).
 - `dif_px_ref_manual` en la misma fila. `costo_compra_objetivo` quedó en la subcategoría (respaldo si no hay Px de referencia).

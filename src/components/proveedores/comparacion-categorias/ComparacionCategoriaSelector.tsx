@@ -6,9 +6,11 @@ import CatalogoFinderRow from "@/components/shared/catalogo-finder/CatalogoFinde
 import CatalogoFinderEmpty from "@/components/shared/catalogo-finder/CatalogoFinderEmpty";
 import type {
   CategoriaComparacionTree,
+  FamiliaPrioridadComparacion,
   ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
 import { COMP_CATEGORIAS_SELECTOR_GRID_CLASS } from "@/lib/comparacionCategoriasLayout";
+import ComparacionPrioridadVtaColumn from "@/components/proveedores/comparacion-categorias/ComparacionPrioridadVtaColumn";
 import ComparacionReferenciaCompetenciaColumn from "@/components/proveedores/comparacion-categorias/ComparacionReferenciaCompetenciaColumn";
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
   selectedCategoriaId: string | null;
   selectedSubcategoriaId: string | null;
   loadingReferencia: boolean;
+  familiasPrioridad: FamiliaPrioridadComparacion[];
+  quitarFamiliaPendingId: string | null;
   referenciasCompetencia: ReferenciaCompetenciaComparacion[];
   referenciaActivaId: string | null;
   puedeEditarCatalogo: boolean;
@@ -30,6 +34,8 @@ interface Props {
   onEliminarCategoria: (id: string, nombre: string) => void;
   onEditarSubcategoria: (id: string, nombre: string) => void;
   onEliminarSubcategoria: (id: string, nombre: string) => void;
+  onAgregarFamilia: () => void;
+  onQuitarFamilia: (id: string) => void;
   onAgregarReferencia: () => void;
   onQuitarReferencia: (refCompId: string) => void;
 }
@@ -39,6 +45,8 @@ export default function ComparacionCategoriaSelector({
   selectedCategoriaId,
   selectedSubcategoriaId,
   loadingReferencia,
+  familiasPrioridad,
+  quitarFamiliaPendingId,
   referenciasCompetencia,
   referenciaActivaId,
   puedeEditarCatalogo,
@@ -53,6 +61,8 @@ export default function ComparacionCategoriaSelector({
   onEliminarCategoria,
   onEditarSubcategoria,
   onEliminarSubcategoria,
+  onAgregarFamilia,
+  onQuitarFamilia,
   onAgregarReferencia,
   onQuitarReferencia,
 }: Props) {
@@ -109,6 +119,16 @@ export default function ComparacionCategoriaSelector({
           ))
         )}
       </CatalogoFinderColumn>
+
+      <ComparacionPrioridadVtaColumn
+        subcategoriaSeleccionada={selectedSubcategoriaId != null}
+        loading={loadingReferencia}
+        familias={familiasPrioridad}
+        puedeEditar={puedeEditarCatalogo}
+        quitarPendingId={quitarFamiliaPendingId}
+        onAgregar={onAgregarFamilia}
+        onQuitar={onQuitarFamilia}
+      />
 
       <ComparacionReferenciaCompetenciaColumn
         subcategoriaSeleccionada={selectedSubcategoriaId != null}

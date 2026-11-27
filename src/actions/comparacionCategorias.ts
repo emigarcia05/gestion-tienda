@@ -19,6 +19,10 @@ import {
   listarCompetidoresParaReferencia,
   asignarReferenciaCompetenciaSubcategoria,
   quitarReferenciaCompetenciaItem,
+  listarFamiliasParaPrioridad,
+  asignarFamiliaPrioridad,
+  quitarFamiliaPrioridad,
+  type FamiliaPrioridadComparacion,
   type ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
 import { listarProductosProveedoresParaVincular } from "@/services/listaPrecios.service";
@@ -39,6 +43,8 @@ import {
   asignarReferenciaCompetenciaSchema,
   buscarReferenciaCompetenciaSchema,
   quitarReferenciaCompetenciaItemSchema,
+  asignarFamiliaPrioridadSchema,
+  quitarFamiliaPrioridadSchema,
 } from "@/lib/validations/comparacionCategorias";
 import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
@@ -73,6 +79,9 @@ export async function getProductosPorSubcategoriaAction(
     referenciasCompetencia: Awaited<
       ReturnType<typeof getProductosPorSubcategoria>
     >["referenciasCompetencia"];
+    familiasPrioridad: Awaited<
+      ReturnType<typeof getProductosPorSubcategoria>
+    >["familiasPrioridad"];
   }>
 > {
   const rol = await getRol();
@@ -90,6 +99,7 @@ export async function getProductosPorSubcategoriaAction(
         costoCompraObjetivo: result.costoCompraObjetivo,
         labelCompleto: result.labelCompleto,
         referenciasCompetencia: result.referenciasCompetencia,
+        familiasPrioridad: result.familiasPrioridad,
       },
     };
   } catch (e) {
@@ -350,6 +360,47 @@ export async function asignarReferenciaCompetenciaAction(
     return { ok: true, data: referencia };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al asignar referencia." };
+  }
+}
+
+export async function listarFamiliasParaPrioridadAction(): Promise<
+  ActionResult<Awaited<ReturnType<typeof listarFamiliasParaPrioridad>>>
+> {
+  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
+  try {
+    const data = await listarFamiliasParaPrioridad();
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al cargar familias." };
+  }
+}
+
+export async function asignarFamiliaPrioridadAction(
+  subcategoriaId: string,
+  familiaId: string
+): Promise<ActionResult<FamiliaPrioridadComparacion>> {
+  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
+  const parsed = asignarFamiliaPrioridadSchema.safeParse({ subcategoriaId, familiaId });
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  try {
+    const data = await asignarFamiliaPrioridad(parsed.data.subcategoriaId, parsed.data.familiaId);
+    revalidateComparacionCategorias();
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al agregar la familia." };
+  }
+}
+
+export async function quitarFamiliaPrioridadAction(id: string): Promise<ActionResult> {
+  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
+  const parsed = quitarFamiliaPrioridadSchema.safeParse({ id });
+  if (!parsed.success) return { ok: false, error: "ID inválido." };
+  try {
+    await quitarFamiliaPrioridad(parsed.data.id);
+    revalidateComparacionCategorias();
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al quitar la familia." };
   }
 }
 

@@ -5,6 +5,7 @@
  * Costo objetivo (SSOT): (1) `pxMostrar` de la primera referencia competencia; (2) `costo_compra_objetivo` de la subcategoría.
  */
 
+import { Prisma } from "@prisma/client";
 import { calcCostoComparacion, type DatosCostoComparacion } from "@/lib/calculos";
 import { prisma } from "@/lib/prisma";
 import { matchByMultiTerm } from "@/lib/busqueda";
@@ -115,6 +116,14 @@ const getObjetivoFromSubcategoria = async (p: {
   return null;
 };
 
+/** Familia de `prod_familias` en la prioridad de venta de una subcategoría. */
+export interface FamiliaPrioridadComparacion {
+  id: string;
+  orden: number;
+  familiaId: string;
+  familiaNombre: string;
+}
+
 export interface CategoriaComparacionTree {
   id: string;
   nombre: string;
@@ -198,12 +207,22 @@ export async function getProductosPorSubcategoria(
   costoCompraObjetivo: number | null;
   labelCompleto: string;
   referenciasCompetencia: ReferenciaCompetenciaComparacion[];
+  familiasPrioridad: FamiliaPrioridadComparacion[];
 }> {
   const subcategoria = await prisma.subcategoriaComparacion.findUnique({
     where: { id: subcategoriaId },
     include: {
       categoria: true,
       referenciasCompetencia: REFERENCIAS_COMPETENCIA_INCLUDE,
+      familiasPrioridad: {
+        orderBy: { orden: "asc" },
+        select: {
+          id: true,
+          orden: true,
+          familiaId: true,
+          familia: { select: { familiaNombre: true } },
+        },
+      },
       itemsComparados: {
         include: {
           listaPrecioProveedor: {
@@ -222,6 +241,7 @@ export async function getProductosPorSubcategoria(
       costoCompraObjetivo: null,
       labelCompleto: "",
       referenciasCompetencia: [],
+      familiasPrioridad: [],
     };
   }
 
@@ -260,7 +280,99 @@ export async function getProductosPorSubcategoria(
       return pa - pb;
     });
 
-  return { productos, costoCompraObjetivo: objetivo, labelCompleto, referenciasCompetencia };
+  const familiasPrioridad: FamiliaPrioridadComparacion[] = subcategoria.familiasPrioridad.map(
+    (fila) => ({
+      id: fila.id,
+      orden: fila.orden,
+      familiaId: fila.familiaId,
+      familiaNombre: fila.familia.familiaNombre,
+    })
+  );
+
+  return {
+    productos,
+    costoCompraObjetivo: objetivo,
+    labelCompleto,
+    referenciasCompetencia,
+    familiasPrioridad,
+  };
+}
+
+export async function listarFamiliasParaPrioridad(): Promise<
+  Array<{ id: string; nombre: string }>
+> {
+  const rows = await prisma.prodFamilia.findMany({
+    orderBy: { familiaNombre: "asc" },
+    select: { id: true, familiaNombre: true },
+  });
+  return rows.map((row) => ({ id: row.id, nombre: row.familiaNombre }));
+}
+
+export async function asignarFamiliaPrioridad(
+  subcategoriaId: string,
+  familiaId: string
+): Promise<FamiliaPrioridadComparacion> {
+  const [subcategoria, familia] = await Promise.all([
+    prisma.subcategoriaComparacion.findUnique({
+      where: { id: subcategoriaId },
+      select: { id: true },
+    }),
+    prisma.prodFamilia.findUnique({
+      where: { id: familiaId },
+      select: { id: true, familiaNombre: true },
+    }),
+  ]);
+  if (!subcategoria) throw new Error("La subcategoría no existe.");
+  if (!familia) throw new Error("La familia no existe.");
+
+  const maxOrden = await prisma.comparacionFamilia.aggregate({
+    where: { subcategoriaId },
+    _max: { orden: true },
+  });
+  const orden = (maxOrden._max.orden ?? 0) + 1;
+
+  try {
+    const created = await prisma.comparacionFamilia.create({
+      data: { subcategoriaId, familiaId, orden },
+      select: { id: true, orden: true, familiaId: true },
+    });
+    return {
+      id: created.id,
+      orden: created.orden,
+      familiaId: created.familiaId,
+      familiaNombre: familia.familiaNombre,
+    };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new Error("Esa familia ya está en la prioridad de venta.");
+    }
+    throw error;
+  }
+}
+
+export async function quitarFamiliaPrioridad(id: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const row = await tx.comparacionFamilia.findUnique({
+      where: { id },
+      select: { id: true, subcategoriaId: true },
+    });
+    if (!row) return;
+    await tx.comparacionFamilia.delete({ where: { id: row.id } });
+    const restantes = await tx.comparacionFamilia.findMany({
+      where: { subcategoriaId: row.subcategoriaId },
+      orderBy: { orden: "asc" },
+      select: { id: true, orden: true },
+    });
+    for (let i = 0; i < restantes.length; i++) {
+      const orden = i + 1;
+      const actual = restantes[i]!;
+      if (actual.orden === orden) continue;
+      await tx.comparacionFamilia.update({
+        where: { id: actual.id },
+        data: { orden },
+      });
+    }
+  });
 }
 
 function claveOpcionReferenciaCompetencia(codTienda: string, competenciaId: string): string {
