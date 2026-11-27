@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  compararEnvioPorProximidad,
+  compararEnvioConductor,
+  esEnvioConductorAtrasado,
   etiquetaDepartamentoEnvio,
   etiquetaSucursalEnvio,
   etiquetaHorarioEnvio,
@@ -82,8 +83,8 @@ export default function EnviosConductorPageClient({
     return () => cancelAnimationFrame(frame);
   }, [abiertoId]);
 
+  const hoyIso = dateToIsoYmdArgentina(new Date());
   const enviosVisibles = useMemo(() => {
-    const hoyIso = dateToIsoYmdArgentina(new Date());
     const diaIso =
       filtroDia === FILTRO_DIA_MANANA ? addDaysToIsoYmdArgentina(hoyIso, 1) : hoyIso;
     return envios
@@ -91,10 +92,13 @@ export default function EnviosConductorPageClient({
         if (filtroSucursal !== FILTRO_SUCURSAL_TODAS && item.sucursal.id !== filtroSucursal) {
           return false;
         }
-        return item.fechaEnvioIso === diaIso;
+        return (
+          esEnvioConductorAtrasado(item.fechaEnvioIso, hoyIso) ||
+          item.fechaEnvioIso === diaIso
+        );
       })
-      .sort(compararEnvioPorProximidad);
-  }, [envios, filtroSucursal, filtroDia]);
+      .sort((a, b) => compararEnvioConductor(a, b, hoyIso));
+  }, [envios, filtroSucursal, filtroDia, hoyIso]);
 
   async function handleConfirmarEntrega() {
     if (!modalEntregar.open || entregando) return;
@@ -212,6 +216,7 @@ export default function EnviosConductorPageClient({
             <div className="flex flex-col gap-3">
               {enviosVisibles.map((item) => {
                 const abierto = abiertoId === item.id;
+                const atrasado = esEnvioConductorAtrasado(item.fechaEnvioIso, hoyIso);
                 const maps = item.direccion.urlMaps.trim();
                 const tel = telefonoEnvio(item);
                 const telHref = tel !== "" ? `tel:${tel.replace(/\s+/g, "")}` : "";
@@ -232,7 +237,8 @@ export default function EnviosConductorPageClient({
                       else tarjetasRef.current.delete(item.id);
                     }}
                     className={cn(
-                      "flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
+                      "flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm",
+                      atrasado ? "border-destructive" : "border-border"
                     )}
                   >
                     <div className="flex flex-col gap-1">
@@ -242,7 +248,13 @@ export default function EnviosConductorPageClient({
                           <span className="font-normal">{` - Cliente de ${nombrePintorAsociado}`}</span>
                         ) : null}
                       </p>
-                      <p className="text-sm tabular-nums text-muted-foreground">
+                      <p
+                        className={cn(
+                          "text-sm tabular-nums",
+                          atrasado ? "font-semibold text-destructive" : "text-muted-foreground"
+                        )}
+                      >
+                        {atrasado ? "ATRASADO · " : null}
                         {formatIsoYmdDdMmYyyyArgentina(item.fechaEnvioIso)}
                         {" · "}
                         {etiquetaHorarioEnvio(item.horaDesde, item.horaHasta)}

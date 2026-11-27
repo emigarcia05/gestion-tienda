@@ -273,7 +273,7 @@ export default function TableroVentas({
             <div className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden">
               <MetricasVentas montos={datos.sucursal} />
               <PendientesSucursalTablero
-                envios={datos.enviosPendientesHoy}
+                envios={datos.enviosPendientes}
                 generacion={datos.pedidosGeneracion}
                 recepcion={datos.pedidosRecepcion}
                 sucursalCodigo={datos.sucursalCodigo}

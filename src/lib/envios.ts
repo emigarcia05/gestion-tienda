@@ -495,7 +495,27 @@ export interface EnviosFinalListItem {
   tienePdf: boolean;
 }
 
-/** Orden Conductor: fecha y rango horario más cercanos a ahora (ascendente). */
+/** Pendiente con fecha anterior a hoy (AR): prioridad en Conductor. */
+export function esEnvioConductorAtrasado(fechaEnvioIso: string, hoyIso: string): boolean {
+  return fechaEnvioIso < hoyIso;
+}
+
+/**
+ * Orden Conductor: primero los atrasados (fecha anterior a hoy, el más viejo arriba)
+ * y después el día elegido, por fecha y rango horario ascendente.
+ */
+export function compararEnvioConductor(
+  a: Pick<EnviosFinalListItem, "fechaEnvioIso" | "horaDesde" | "horaHasta">,
+  b: Pick<EnviosFinalListItem, "fechaEnvioIso" | "horaDesde" | "horaHasta">,
+  hoyIso: string
+): number {
+  const aAtrasado = esEnvioConductorAtrasado(a.fechaEnvioIso, hoyIso);
+  const bAtrasado = esEnvioConductorAtrasado(b.fechaEnvioIso, hoyIso);
+  if (aAtrasado !== bAtrasado) return aAtrasado ? -1 : 1;
+  return compararEnvioPorProximidad(a, b);
+}
+
+/** Orden por fecha y rango horario ascendente. */
 export function compararEnvioPorProximidad(
   a: Pick<EnviosFinalListItem, "fechaEnvioIso" | "horaDesde" | "horaHasta">,
   b: Pick<EnviosFinalListItem, "fechaEnvioIso" | "horaDesde" | "horaHasta">

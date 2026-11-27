@@ -172,8 +172,8 @@ export interface TableroVentasDatos {
   /** Año y mes AR del gráfico por día (mes en curso). */
   graficoDiaPeriodo: { anio: number; mes: number };
   clientesVencidos: TableroVentasClienteVencido[];
-  /** Envíos de la sucursal con fecha de hoy y sin entregar. */
-  enviosPendientesHoy: number;
+  /** Envíos de la sucursal sin entregar con fecha de hoy o anterior. */
+  enviosPendientes: number;
   /** Una línea por proveedor y tipo con cantidad a pedir mayor a 0. */
   pedidosGeneracion: TableroPendienteLinea[];
   /** Un renglón por proveedor: prefijo, y `(N)` solo si hay más de un pedido emitido. */
@@ -252,28 +252,28 @@ function mesesDelAnio(
 const ORDEN_TIPO_PEDIDO = ["URGENTE", "TINTOMETRICO", "REPOSICION", "A FÁBRICA"] as const;
 
 function pendientesVacios(): {
-  enviosPendientesHoy: number;
+  enviosPendientes: number;
   pedidosGeneracion: TableroPendienteLinea[];
   pedidosRecepcion: TableroPendienteLinea[];
 } {
-  return { enviosPendientesHoy: 0, pedidosGeneracion: [], pedidosRecepcion: [] };
+  return { enviosPendientes: 0, pedidosGeneracion: [], pedidosRecepcion: [] };
 }
 
-/** Envíos de hoy y pedidos por generar o recepcionar, de la sucursal del usuario. */
+/** Envíos sin entregar (hoy o antes) y pedidos por generar o recepcionar, de la sucursal del usuario. */
 async function cargarPendientesTablero(
   codigo: string | null,
   sucursalId: string | undefined,
   hoy: Date
 ): Promise<{
-  enviosPendientesHoy: number;
+  enviosPendientes: number;
   pedidosGeneracion: TableroPendienteLinea[];
   pedidosRecepcion: TableroPendienteLinea[];
 }> {
   if (!codigo || !sucursalId) return pendientesVacios();
   try {
-    const [enviosPendientesHoy, recepcion, proveedores] = await Promise.all([
+    const [enviosPendientes, recepcion, proveedores] = await Promise.all([
       prisma.enviosFinal.count({
-        where: { sucursalId, entregado: false, fechaEnvio: hoy },
+        where: { sucursalId, entregado: false, fechaEnvio: { lte: hoy } },
       }),
       prisma.pedidoHistoria.findMany({
         where: { sucursalId, estado: "ABIERTO" },
@@ -319,7 +319,7 @@ async function cargarPendientesTablero(
       }))
       .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
     return {
-      enviosPendientesHoy,
+      enviosPendientes,
       pedidosGeneracion,
       pedidosRecepcion,
     };
@@ -795,7 +795,7 @@ export async function obtenerTableroVentas(): Promise<ServiceResult<TableroVenta
         seriesSemana,
         graficoDiaPeriodo: { anio, mes },
         clientesVencidos,
-        enviosPendientesHoy: pendientes.enviosPendientesHoy,
+        enviosPendientes: pendientes.enviosPendientes,
         pedidosGeneracion: pendientes.pedidosGeneracion,
         pedidosRecepcion: pendientes.pedidosRecepcion,
       },
@@ -829,7 +829,7 @@ export function tableroVentasVacio(): TableroVentasDatos {
       },
     ],
     clientesVencidos: [],
-    enviosPendientesHoy: 0,
+    enviosPendientes: 0,
     pedidosGeneracion: [],
     pedidosRecepcion: [],
   };

@@ -354,12 +354,16 @@ export async function purgarEnviosFinalAntiguosProgramados(): Promise<number> {
   }
 }
 
-/** Envíos no entregados con `fecha_envio` ≥ hoy (AR), para el módulo Conductor. */
+/**
+ * Envíos no entregados hasta mañana (AR), para el módulo Conductor.
+ * Incluye los de fecha anterior a hoy: la UI los deja arriba como atrasados.
+ */
 export async function listarEnviosPendientesConductor(): Promise<EnviosFinalListItem[]> {
   try {
     const hoyIso = dateToIsoYmdArgentina(new Date());
+    const mananaIso = addDaysToIsoYmdArgentina(hoyIso, 1);
     const rows = await prisma.enviosFinal.findMany({
-      where: { fechaEnvio: { gte: dateFromIsoYmd(hoyIso) }, entregado: false },
+      where: { fechaEnvio: { lte: dateFromIsoYmd(mananaIso) }, entregado: false },
       orderBy: [
         { fechaEnvio: "asc" },
         { horaDesde: "asc" },
