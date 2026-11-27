@@ -13,7 +13,7 @@ interface Props {
     rubro?: string;
     marca?: string;
     subRubro?: string;
-    actualizar?: string;
+    catMc?: string;
     pxVinculado?: string;
     pagina?: string;
   }>;
@@ -31,7 +31,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
     rubro = "",
     marca = "",
     subRubro = "",
-    actualizar = "",
+    catMc = "",
     pxVinculado = "",
     pagina = "1",
   } = sp;
@@ -53,7 +53,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
     rubro,
     marca,
     subRubro,
-    actualizar,
+    catMc,
     pxVinculado,
     pagina,
   });
@@ -77,7 +77,7 @@ export default async function PxListasPreciosPage({ searchParams }: Props) {
       rubro={rubro}
       marca={marca}
       subRubro={subRubro}
-      actualizar={actualizar}
+      catMc={catMc}
       pxVinculado={pxVinculado}
       paginaNum={paginaNum}
       itemsConDiferencia={itemsConDiferencia}

@@ -35,23 +35,11 @@ import { preciosPxListaEnterosIguales } from "@/lib/pxListasPreciosFormat";
 import type { CambioPxListas } from "@/lib/validations/pxListasPrecios";
 import { PERMISOS, puede, type Rol } from "@/lib/permisos";
 import {
-  FILTRO_ACTUALIZAR_NO,
-  FILTRO_ACTUALIZAR_SI,
   hayFiltroActivoPxListas,
   MENSAJE_SIN_FILTRO_PX_LISTAS,
 } from "@/lib/pxListasPreciosFiltros";
 
 const BASE_PATH = GP_ROUTES.analisisPrecios.cxYPxTienda.pxListas;
-
-function codigosConCambioPendiente(
-  cambios: ReadonlyMap<string, CambioPxListas>,
-  refsPendientes: ReadonlyMap<string, string | null>
-): Set<string> {
-  const codigos = new Set<string>();
-  for (const cambio of cambios.values()) codigos.add(cambio.codTienda);
-  for (const cod of refsPendientes.keys()) codigos.add(cod);
-  return codigos;
-}
 
 function precioEdicionDifiereDefinitivo(celda: PrecioListaPxListasCelda): boolean {
   if (celda.pxEdicion == null || !(celda.pxEdicion > 0)) return false;
@@ -98,7 +86,7 @@ interface Props {
   rubro: string;
   marca: string;
   subRubro: string;
-  actualizar: string;
+  catMc: string;
   pxVinculado: string;
   paginaNum: number;
   /** Ítems de toda la base con edición distinta del precio de Ventas. */
@@ -121,7 +109,7 @@ export default function PxListasPreciosPageClient({
   rubro,
   marca,
   subRubro,
-  actualizar,
+  catMc,
   pxVinculado,
   paginaNum,
   itemsConDiferencia,
@@ -133,8 +121,8 @@ export default function PxListasPreciosPageClient({
     rubro,
     marca,
     subRubro,
+    catMc,
     pxVinculado,
-    actualizar,
   });
   const mensajeVacio = hayFiltro
     ? "NO HAY PRODUCTOS."
@@ -160,61 +148,16 @@ export default function PxListasPreciosPageClient({
   itemsBdRef.current = itemsBd;
   const [guardando, setGuardando] = useState(false);
   const cantCambios = cambios.size + refsPendientes.size;
-  const codigosPendientes = useMemo(
-    () => codigosConCambioPendiente(cambios, refsPendientes),
-    [cambios, refsPendientes]
-  );
-  /** Filas editadas que el listado del servidor puede dejar afuera al cambiar el filtro. */
-  const [retenidos, setRetenidos] = useState<
-    Map<string, ItemPxListasPreciosTabla>
-  >(() => new Map());
-
-  useEffect(() => {
-    setRetenidos((prev) => {
-      let changed = false;
-      const next = new Map(prev);
-      for (const item of itemsBd) {
-        if (!codigosPendientes.has(item.codTienda)) continue;
-        if (next.get(item.codTienda) !== item) {
-          next.set(item.codTienda, item);
-          changed = true;
-        }
-      }
-      for (const cod of next.keys()) {
-        if (!codigosPendientes.has(cod)) {
-          next.delete(cod);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [itemsBd, codigosPendientes]);
-
-  const itemsVisibles = useMemo(() => {
-    if (actualizar === FILTRO_ACTUALIZAR_NO) {
-      return itemsBd.filter((item) => !codigosPendientes.has(item.codTienda));
-    }
-    if (actualizar === FILTRO_ACTUALIZAR_SI) {
-      const enPagina = new Set(itemsBd.map((item) => item.codTienda));
-      const extras: ItemPxListasPreciosTabla[] = [];
-      for (const [cod, item] of retenidos) {
-        if (codigosPendientes.has(cod) && !enPagina.has(cod)) extras.push(item);
-      }
-      return extras.length > 0 ? [...extras, ...itemsBd] : itemsBd;
-    }
-    return itemsBd;
-  }, [actualizar, itemsBd, codigosPendientes, retenidos]);
-
   const codigosDistintos = useMemo(() => {
-    const visibles = new Set(itemsVisibles.map((item) => item.codTienda));
+    const visibles = new Set(itemsBd.map((item) => item.codTienda));
     return codigosConPrecioDeVentaDistinto(
-      itemsVisibles,
+      itemsBd,
       visibles,
       cambios,
       refsPendientes,
       idListaGeneral
     );
-  }, [itemsVisibles, cambios, refsPendientes, idListaGeneral]);
+  }, [itemsBd, cambios, refsPendientes, idListaGeneral]);
   const [itemsDistintos, setItemsDistintos] = useState(itemsConDiferencia);
   useEffect(() => {
     setItemsDistintos(itemsConDiferencia);
@@ -453,11 +396,12 @@ export default function PxListasPreciosPageClient({
             rubros={rubros.map((r) => r.rubro)}
             subRubros={subRubros.map((s) => s.subRubro)}
             opcionesPxVinculado={opcionesPxVinculado}
+            categoriasMc={categoriasMc}
             qActual={q}
             marcaActual={marca}
             rubroActual={rubro}
             subRubroActual={subRubro}
-            actualizarActual={actualizar}
+            catMcActual={catMc}
             pxVinculadoActual={pxVinculado}
           />
         }
@@ -465,7 +409,7 @@ export default function PxListasPreciosPageClient({
         <div className="flex h-full min-h-0 flex-col gap-0.5">
           <div className="contenedor-tabla-gestion flex-1 min-h-0">
             <TablaPxListasPrecios
-              items={itemsVisibles}
+              items={itemsBd}
               listas={listas}
               puedeEditar={puedeEditar}
               categoriasMc={categoriasMc}
@@ -481,7 +425,7 @@ export default function PxListasPreciosPageClient({
             <div className="flex shrink-0 justify-end pt-2">
               <PaginacionTabla
                 basePath={BASE_PATH}
-                params={{ q, rubro, marca, subRubro, actualizar, pxVinculado }}
+                params={{ q, rubro, marca, subRubro, catMc, pxVinculado }}
                 paginaActual={paginaNum}
                 totalPaginas={totalPaginas}
                 total={total}

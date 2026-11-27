@@ -14,12 +14,8 @@ import type {
 import { encontrarIdListaGeneralPxListas } from "@/lib/pxListasPreciosCategoria";
 import { armarCeldaPrecioPxListas } from "@/lib/pxListasPreciosCelda";
 import {
-  esFiltroActualizarPxListas,
-  FILTRO_ACTUALIZAR_NO,
-  FILTRO_ACTUALIZAR_SI,
   hayFiltroActivoPxListas,
   MIN_CARACTERES_BUSQUEDA_PX_LISTAS,
-  type FiltroActualizarPxListas,
 } from "@/lib/pxListasPreciosFiltros";
 import { prisma } from "@/lib/prisma";
 import { getPxListasPreciosPageParamsSchema } from "@/lib/validations/pxListasPrecios";
@@ -94,13 +90,60 @@ let metaEstaticoCache: { at: number; data: MetaEstaticoPxListas } | null = null;
 let distinctSinQCache: { at: number; data: DistinctFiltrosPxListas } | null =
   null;
 
+/**
+ * PORC. UTILIDAD de 1 - GENERAL dentro del rango de la categoría.
+ * Si hay staging con porcentaje, manda ese; si no, el publicado.
+ * `[desde, hasta)` y la última categoría incluye su máximo.
+ */
+function whereCategoriaMcPxListas(
+  idListaGeneral: number | null,
+  categoria: FinAnaMcCategoriaItem | null,
+  categorias: FinAnaMcCategoriaItem[]
+): Prisma.ProdPropioWhereInput {
+  if (idListaGeneral == null || categoria == null) {
+    return { codTienda: { in: [] } };
+  }
+  const esUltima = categorias.every((c) => c.desdePct <= categoria.desdePct);
+  const porc: Prisma.DecimalFilter = esUltima
+    ? { gte: categoria.desdePct, lte: categoria.hastaPct }
+    : { gte: categoria.desdePct, lt: categoria.hastaPct };
+  return {
+    OR: [
+      {
+        preciosListaEdicion: {
+          some: { idLista: idListaGeneral, porcUtilidad: porc },
+        },
+      },
+      {
+        AND: [
+          {
+            NOT: {
+              preciosListaEdicion: {
+                some: {
+                  idLista: idListaGeneral,
+                  porcUtilidad: { not: null },
+                },
+              },
+            },
+          },
+          {
+            preciosLista: {
+              some: { idLista: idListaGeneral, porcUtilidad: porc },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function buildWhere(params: {
   q: string;
   rubro: string;
   marca: string;
   subRubro: string;
   pxVinculado: string;
-  actualizar: FiltroActualizarPxListas | "";
+  categoriaMc: Prisma.ProdPropioWhereInput | null;
 }): Prisma.ProdPropioWhereInput {
   const andParts: Prisma.ProdPropioWhereInput[] = [];
   const qListado =
@@ -121,11 +164,7 @@ function buildWhere(params: {
   } else if (params.pxVinculado) {
     andParts.push({ competenciaIdPxListaGeneral: params.pxVinculado });
   }
-  if (params.actualizar === FILTRO_ACTUALIZAR_SI) {
-    andParts.push({ preciosListaEdicion: { some: {} } });
-  } else if (params.actualizar === FILTRO_ACTUALIZAR_NO) {
-    andParts.push({ preciosListaEdicion: { none: {} } });
-  }
+  if (params.categoriaMc) andParts.push(params.categoriaMc);
   return andParts.length ? { AND: andParts } : {};
 }
 
@@ -324,7 +363,7 @@ export async function getPxListasPreciosPageDataFromDb(params: {
   rubro?: string;
   marca?: string;
   subRubro?: string;
-  actualizar?: string;
+  catMc?: string;
   pxVinculado?: string;
   pagina?: string;
 }): Promise<PxListasPreciosPageData> {
@@ -338,16 +377,12 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     rubro = "",
     marca = "",
     subRubro = "",
-    actualizar: actualizarRaw = "",
+    catMc: catMcRaw = "",
     pxVinculado = "",
     pagina = "1",
   } = parsed.data;
 
-  const actualizar: FiltroActualizarPxListas | "" = esFiltroActualizarPxListas(
-    actualizarRaw
-  )
-    ? actualizarRaw
-    : "";
+  const catMc = catMcRaw.trim();
 
   const qDistinct =
     q.trim().length >= MIN_CARACTERES_BUSQUEDA_PX_LISTAS ? q : "";
@@ -356,9 +391,19 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     rubro,
     marca,
     subRubro,
+    catMc,
     pxVinculado,
-    actualizar,
   });
+
+  const metaPromise = cargarMetaEstaticoPxListas();
+  const metaParaCategoria = catMc ? await metaPromise : null;
+  const categoriaMc = catMc
+    ? whereCategoriaMcPxListas(
+        metaParaCategoria?.idListaGeneral ?? null,
+        metaParaCategoria?.categoriasMc.find((c) => c.id === catMc) ?? null,
+        metaParaCategoria?.categoriasMc ?? []
+      )
+    : null;
 
   const where = buildWhere({
     q,
@@ -366,13 +411,13 @@ export async function getPxListasPreciosPageDataFromDb(params: {
     marca,
     subRubro,
     pxVinculado,
-    actualizar,
+    categoriaMc,
   });
   const paginaNum = Math.max(1, parseInt(pagina, 10) || 1);
   const skip = (paginaNum - 1) * PAGE_SIZE;
 
   const [metaEstatico, distincts, listado, itemsConDiferencia] = await Promise.all([
-    cargarMetaEstaticoPxListas(),
+    metaParaCategoria ?? metaPromise,
     listarOpcionesDistinctFiltrosCached(qDistinct),
     listarItems
       ? listarPaginaProdTiendaPxListas(where, skip)

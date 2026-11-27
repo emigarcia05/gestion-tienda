@@ -16,11 +16,11 @@ const EMPTY: { items: ProductoTiendaParaComparacionRow[]; total: number } = {
   total: 0,
 };
 
-/** CHECK + COD. TIENDA + MARCA + DESCRIPCIÓN */
-const COLUMN_WIDTHS_PCT = [5, 10, 20, 65] as const;
+/** CHECK + MARCA + DESCRIPCIÓN */
+const COLUMN_WIDTHS_PCT = [5, 20, 75] as const;
 
-/** `ModalTablaConFiltros` base `max-w-[84rem]` × 1,25 */
-const MODAL_AGREGAR_PRODUCTO_COMPARACION_MAX_WIDTH = "!max-w-[105rem]";
+/** Antes `!max-w-[105rem]` (84rem × 1,25). 25 % más angosto. */
+const MODAL_AGREGAR_PRODUCTO_COMPARACION_MAX_WIDTH = "!max-w-[78.75rem]";
 
 export default function AgregarProductoComparacionModal({
   open,
@@ -71,12 +71,6 @@ export default function AgregarProductoComparacionModal({
 
   const columns: ColumnaModalTabla<ProductoTiendaParaComparacionRow>[] = useMemo(
     () => [
-      {
-        key: "codTienda",
-        label: "COD. TIENDA",
-        className: "py-2 px-3 text-xs",
-        render: (r) => r.codTienda,
-      },
       {
         key: "marca",
         label: "MARCA",

@@ -18,6 +18,7 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FiltroBusquedaInput from "@/components/shared/FiltroBusquedaInput";
 import { useFiltrosConBusqueda } from "@/lib/hooks/useFiltrosConBusqueda";
+import type { FinAnaMcCategoriaItem } from "@/lib/finAnaMcCategorias";
 import {
   PX_LISTAS_PX_VINCULADO_SIN_VINCULAR,
   type OpcionFiltroPxVinculado,
@@ -29,11 +30,12 @@ interface Props {
   rubros: string[];
   subRubros: string[];
   opcionesPxVinculado: OpcionFiltroPxVinculado[];
+  categoriasMc: FinAnaMcCategoriaItem[];
   qActual: string;
   marcaActual: string;
   rubroActual: string;
   subRubroActual: string;
-  actualizarActual: string;
+  catMcActual: string;
   pxVinculadoActual: string;
 }
 
@@ -42,11 +44,12 @@ export default function FiltrosPxListasPrecios({
   rubros,
   subRubros,
   opcionesPxVinculado,
+  categoriasMc,
   qActual,
   marcaActual,
   rubroActual,
   subRubroActual,
-  actualizarActual,
+  catMcActual,
   pxVinculadoActual,
 }: Props) {
   const pathname = usePathname();
@@ -74,7 +77,7 @@ export default function FiltrosPxListasPrecios({
     marca?: string;
     rubro?: string;
     subRubro?: string;
-    actualizar?: string;
+    catMc?: string;
     pxVinculado?: string;
   }) {
     const p = new URLSearchParams();
@@ -83,8 +86,7 @@ export default function FiltrosPxListasPrecios({
     const rubroVal = updates.rubro !== undefined ? updates.rubro : rubroActual;
     const subRubroVal =
       updates.subRubro !== undefined ? updates.subRubro : subRubroActual;
-    const actualizarVal =
-      updates.actualizar !== undefined ? updates.actualizar : actualizarActual;
+    const catMcVal = updates.catMc !== undefined ? updates.catMc : catMcActual;
     const pxVinculadoVal =
       updates.pxVinculado !== undefined
         ? updates.pxVinculado
@@ -93,7 +95,7 @@ export default function FiltrosPxListasPrecios({
     if (marcaVal) p.set("marca", marcaVal);
     if (rubroVal) p.set("rubro", rubroVal);
     if (subRubroVal) p.set("subRubro", subRubroVal);
-    if (actualizarVal) p.set("actualizar", actualizarVal);
+    if (catMcVal) p.set("catMc", catMcVal);
     if (pxVinculadoVal) p.set("pxVinculado", pxVinculadoVal);
     const query = p.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
@@ -115,8 +117,8 @@ export default function FiltrosPxListasPrecios({
     navigate({ pxVinculado: value });
   }
 
-  function handleActualizar(value: string) {
-    navigate({ actualizar: value });
+  function handleCatMc(value: string) {
+    navigate({ catMc: value });
   }
 
   function limpiarFiltros() {
@@ -220,6 +222,38 @@ export default function FiltrosPxListasPrecios({
 
           <FiltroIndividualContainer
             className={FILTER_SELECT_WRAPPER_CLASS}
+            activo={Boolean(catMcActual)}
+            onLimpiar={() => handleCatMc("")}
+          >
+            <Select
+              value={catMcActual ?? ""}
+              onValueChange={(v) => handleCatMc(v)}
+            >
+              <SelectTrigger
+                id="filtro-px-listas-precios-categoria-mc"
+                className="input-filtro-unificado"
+              >
+                <SelectValue placeholder="CATEGORÍA M.C" />
+              </SelectTrigger>
+              <SelectContent
+                position="popper"
+                side="bottom"
+                align="start"
+                className="select-content-filtro"
+              >
+                {[...categoriasMc]
+                  .sort((a, b) => a.orden - b.orden || a.desdePct - b.desdePct)
+                  .map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id} title={cat.categoria}>
+                      {cat.categoria}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </FiltroIndividualContainer>
+
+          <FiltroIndividualContainer
+            className={FILTER_SELECT_WRAPPER_CLASS}
             activo={Boolean(pxVinculadoActual)}
             onLimpiar={() => handlePxVinculado("")}
           >
@@ -255,32 +289,6 @@ export default function FiltrosPxListasPrecios({
             </Select>
           </FiltroIndividualContainer>
 
-          <FiltroIndividualContainer
-            className={FILTER_SELECT_WRAPPER_CLASS}
-            activo={Boolean(actualizarActual)}
-            onLimpiar={() => handleActualizar("")}
-          >
-            <Select
-              value={actualizarActual ?? ""}
-              onValueChange={(v) => handleActualizar(v)}
-            >
-              <SelectTrigger
-                id="filtro-px-listas-precios-actualizar"
-                className="input-filtro-unificado"
-              >
-                <SelectValue placeholder="ACTUALIZAR" />
-              </SelectTrigger>
-              <SelectContent
-                position="popper"
-                side="bottom"
-                align="start"
-                className="select-content-filtro"
-              >
-                <SelectItem value="si">SI</SelectItem>
-                <SelectItem value="no">NO</SelectItem>
-              </SelectContent>
-            </Select>
-          </FiltroIndividualContainer>
         </FilaFiltrosDesplegables>
       </FilterRowSelection>
 
