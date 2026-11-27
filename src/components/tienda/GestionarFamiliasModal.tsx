@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FiltroIndividualContainer } from "@/components/FilterBar";
-import { leerPdfComprobante } from "@/components/envios/leerPdfComprobante";
 import AppModal from "@/components/shared/AppModal";
 import ModalMicroLabel from "@/components/shared/ModalMicroLabel";
 import {
@@ -56,8 +55,6 @@ export default function GestionarFamiliasModal({
   const [editing, setEditing] = useState<FamiliaCatalogoItem | null>(null);
   const [formNombre, setFormNombre] = useState("");
   const [formUrl, setFormUrl] = useState("");
-  const [pdfAdjunto, setPdfAdjunto] = useState<{ nombre: string; base64: string } | null>(null);
-  const [quitarPdf, setQuitarPdf] = useState(false);
   const [fichaFiltro, setFichaFiltro] = useState<"" | "si" | "no">("");
   const [pending, setPending] = useState(false);
   const [itemsAbiertos, setItemsAbiertos] = useState(false);
@@ -86,8 +83,6 @@ export default function GestionarFamiliasModal({
     setEditing(null);
     setFormNombre("");
     setFormUrl("");
-    setPdfAdjunto(null);
-    setQuitarPdf(false);
     setBorrarTarget(null);
     if (soloCrear) return;
     setFormOpen(false);
@@ -112,8 +107,6 @@ export default function GestionarFamiliasModal({
     setEditing(item);
     setFormNombre(item?.nombre ?? "");
     setFormUrl(item?.url ?? "");
-    setPdfAdjunto(null);
-    setQuitarPdf(false);
     setFormOpen(true);
   }
 
@@ -126,8 +119,6 @@ export default function GestionarFamiliasModal({
             id: editing.id,
             nombre: formNombre,
             url: formUrl,
-            quitarPdf,
-            ...(pdfAdjunto ? { pdf: pdfAdjunto } : {}),
           })
         : await crearFamiliaAction({ nombre: formNombre });
       if (!res.ok) {
@@ -336,69 +327,10 @@ export default function GestionarFamiliasModal({
                     onChange={(e) => setFormUrl(e.target.value.trimStart())}
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <ModalMicroLabel>PDF</ModalMicroLabel>
-                  {pdfAdjunto ? (
-                    <p className="text-sm text-foreground">{pdfAdjunto.nombre}</p>
-                  ) : editing.pdfNombre && !quitarPdf ? (
-                    <a
-                      href={`/api/familias/${editing.id}/pdf`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-primary underline"
-                    >
-                      {editing.pdfNombre}
-                    </a>
-                  ) : null}
-                  <label
-                    className={cn(
-                      "border-input bg-transparent text-foreground shadow-xs",
-                      "hover:bg-muted/40 flex h-9 w-full min-w-0 cursor-pointer items-center justify-center rounded-md border px-3 py-1 text-sm font-medium",
-                      "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
-                      pending && "pointer-events-none cursor-not-allowed opacity-50"
-                    )}
-                  >
-                    <Input
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      disabled={pending}
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!file) return;
-                        void leerPdfComprobante(file).then((pdf) => {
-                          if (!pdf) return;
-                          setPdfAdjunto(pdf);
-                          setQuitarPdf(false);
-                        });
-                      }}
-                    />
-                    Adjuntar PDF
-                  </label>
-                  {editing.pdfNombre && !quitarPdf && !pdfAdjunto ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => {
-                        setQuitarPdf(true);
-                        setPdfAdjunto(null);
-                      }}
-                    >
-                      Quitar PDF
-                    </Button>
-                  ) : null}
-                </div>
               </>
             ) : null}
             {editing ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={pending}
-                onClick={() => setItemsAbiertos(true)}
-              >
+              <Button type="button" disabled={pending} onClick={() => setItemsAbiertos(true)}>
                 Gestionar Items
               </Button>
             ) : null}

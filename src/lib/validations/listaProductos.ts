@@ -117,33 +117,10 @@ const familiaUrlSchema = z
   .max(2048, "La URL es demasiado larga.")
   .refine((valor) => valor.length === 0 || /^https?:\/\//i.test(valor), "Ingresá una URL válida (http/https).");
 
-const familiaPdfSchema = z.object({
-  nombre: z
-    .string()
-    .trim()
-    .min(1, "Ingresá el nombre del PDF.")
-    .max(200, "El nombre del PDF es demasiado largo.")
-    .refine((nombre) => nombre.toLowerCase().endsWith(".pdf"), "El archivo debe ser un PDF."),
-  /** Base64. Tope ~5 MB de archivo. */
-  base64: z.string().min(1, "El PDF está vacío.").max(7_000_000, "El PDF supera el tamaño máximo (5 MB)."),
+export const editarFamiliaSchema = crearFamiliaSchema.extend({
+  id: idCatalogoSchema,
+  url: familiaUrlSchema,
 });
-
-export const editarFamiliaSchema = crearFamiliaSchema
-  .extend({
-    id: idCatalogoSchema,
-    url: familiaUrlSchema,
-    quitarPdf: z.boolean(),
-    pdf: familiaPdfSchema.optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.pdf && data.quitarPdf) {
-      ctx.addIssue({
-        code: "custom",
-        message: "No se puede adjuntar y quitar el PDF a la vez.",
-        path: ["pdf"],
-      });
-    }
-  });
 
 export const buscarItemsFamiliaSchema = z.object({
   id: idCatalogoSchema,

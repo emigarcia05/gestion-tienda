@@ -10,9 +10,8 @@ export type FamiliaCatalogoItem = {
   id: string;
   nombre: string;
   descripciones: string[];
-  /** Hay PDF o URL. El listado no trae los bytes del archivo. */
+  /** Hay URL de ficha técnica. */
   tieneFicha: boolean;
-  pdfNombre: string | null;
   url: string;
 };
 

@@ -1449,43 +1449,44 @@ model ListaPrecioProveedor {
 }
 
 /**
- * Ítem de lista proveedor asignado a una presentación en Comp. Categorías (+ DTO. EXTRA, DIF % REF. MAN.).
+ * Ítem de lista proveedor asignado a una subcategoría en Comp. Categorías (+ DTO. EXTRA, DIF % REF. MAN.).
  */
 model ComparacionItem {
   id                         String   @id @default(cuid())
-  presentacionId             String   @map("presentacion_id")
+  subcategoriaId             String   @map("subcategoria_id")
   listaPrecioProveedorCodExt String   @map("cod_ext_prod_precios_provee")
   dtoExtra                   Int?     @map("dto_extra") // 0-99, null si está vacío
   difPxRefManual             Int?     @map("dif_px_ref_manual") // entero con signo % vs px referencia
   createdAt                  DateTime @default(now()) @map("created_at")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
-  presentacion         PresentacionComparacion @relation(fields: [presentacionId], references: [id], onDelete: Cascade)
+  subcategoria         SubcategoriaComparacion @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
   listaPrecioProveedor ListaPrecioProveedor    @relation(fields: [listaPrecioProveedorCodExt], references: [codExt], onDelete: Cascade)
 
-  @@unique([presentacionId, listaPrecioProveedorCodExt], map: "prod_comp_item_comparados_present_cod_ext_ux")
-  @@index([presentacionId], map: "prod_comp_item_comparados_presentacion_id_idx")
+  @@unique([subcategoriaId, listaPrecioProveedorCodExt], map: "prod_comp_item_comparados_sub_cod_ext_ux")
+  @@index([subcategoriaId], map: "prod_comp_item_comparados_subcategoria_id_idx")
   @@map("prod_comp_item_comparados")
 }
 
-model ComparacionPresentacionRefComp {
+/** Px de referencia de una subcategoría (`prod_comp_item_referencia`). */
+model ComparacionSubcategoriaRefComp {
   id               String   @id @default(cuid())
-  presentacionId   String   @map("presentacion_id")
+  subcategoriaId   String   @map("subcategoria_id")
   refCodTienda     String   @map("ref_cod_tienda")
   refCompetenciaId String   @map("ref_competencia_id")
   orden            Int      @default(0) @map("orden")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  presentacion          PresentacionComparacion @relation(fields: [presentacionId], references: [id], onDelete: Cascade)
+  subcategoria          SubcategoriaComparacion @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
   referenciaCompetencia ProdPrecioCompetencia   @relation(fields: [refCodTienda, refCompetenciaId], references: [codTienda, competenciaId], onDelete: Cascade)
 
-  @@unique([presentacionId, refCodTienda, refCompetenciaId], map: "prod_comp_item_referencia_present_ref_ux")
-  @@index([presentacionId], map: "prod_comp_item_referencia_presentacion_id_idx")
+  @@unique([subcategoriaId, refCodTienda, refCompetenciaId], map: "prod_comp_item_referencia_sub_ref_ux")
+  @@index([subcategoriaId], map: "prod_comp_item_referencia_subcategoria_id_idx")
   @@map("prod_comp_item_referencia")
 }
 
-// ─── Comparación por categorías (Categoria → Subcategoria → Presentacion) ───
+// ─── Comparación por categorías (Categoria → Subcategoria) ───
 model CategoriaComparacion {
   id        String   @id @default(cuid())
   nombre    String
@@ -1498,31 +1499,18 @@ model CategoriaComparacion {
 }
 
 model SubcategoriaComparacion {
-  id          String   @id @default(cuid())
-  categoriaId String   @map("categoria_id")
-  nombre      String
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  categoria      CategoriaComparacion      @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
-  presentaciones PresentacionComparacion[]
-
-  @@map("prod_comp_sub_cat")
-}
-
-model PresentacionComparacion {
   id                  String   @id @default(cuid())
-  subcategoriaId      String   @map("subcategoria_id")
+  categoriaId         String   @map("categoria_id")
   nombre              String
   costoCompraObjetivo Decimal? @map("costo_compra_objetivo") @db.Decimal(14, 4)
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  subcategoria           SubcategoriaComparacion          @relation(fields: [subcategoriaId], references: [id], onDelete: Cascade)
+  categoria              CategoriaComparacion           @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
   itemsComparados        ComparacionItem[]
-  referenciasCompetencia ComparacionPresentacionRefComp[]
+  referenciasCompetencia ComparacionSubcategoriaRefComp[]
 
-  @@map("prod_comp_presentaciones")
+  @@map("prod_comp_sub_cat")
 }
 
 // Catálogo de marcas; se alimenta desde el texto "marca" que viene de la API en prod_lista.
@@ -1637,10 +1625,7 @@ model ProdFamilia {
   id            String   @id @default(cuid())
   /// Nombre en mayúsculas. Único: dos familias no pueden llamarse igual.
   familiaNombre String   @unique(map: "prod_familias_familia_nombre_key") @map("familia_nombre") @db.VarChar(120)
-  /// PDF de la ficha técnica. Vacío = no hay archivo.
-  fichaPdfNombre String? @map("ficha_pdf_nombre") @db.VarChar(200)
-  fichaPdf       Bytes?  @map("ficha_pdf")
-  /// URL http(s) de la ficha técnica. Vacío = no hay enlace.
+  /// URL http(s) de la ficha técnica. Vacío = no hay enlace. No se guarda el PDF.
   fichaUrl       String? @map("ficha_url") @db.VarChar(2048)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -2068,7 +2053,7 @@ model ProdPrecioCompetencia {
 
   prodTienda              ProdPropio                       @relation(fields: [codTienda], references: [codTienda], onDelete: Cascade)
   competencia             ProdCompetencia                  @relation(fields: [competenciaId], references: [id], onDelete: Cascade)
-  referenciasPresentacion ComparacionPresentacionRefComp[]
+  referenciasComparacion ComparacionSubcategoriaRefComp[]
 
   @@id([codTienda, competenciaId])
   @@index([competenciaId], map: "prod_precios_competencia_competencia_id_idx")

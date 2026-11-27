@@ -906,24 +906,12 @@ function resumenUtil(resumen: ResumenHojaFabricante): boolean {
 }
 
 async function fichaCargadaDeFamilia(familia: {
-  id: string;
   fichaUrl: string | null;
-  fichaPdfNombre: string | null;
 }): Promise<FichaCargadaConsulta | undefined> {
   const url = (familia.fichaUrl ?? "").trim();
   const urlOk = /^https?:\/\//i.test(url) ? url : "";
-  let pdf: Uint8Array | null = null;
-  if (familia.fichaPdfNombre) {
-    const archivo = await prisma.prodFamilia.findUnique({
-      where: { id: familia.id },
-      select: { fichaPdf: true },
-    });
-    if (archivo?.fichaPdf && archivo.fichaPdf.byteLength > 0) {
-      pdf = new Uint8Array(archivo.fichaPdf);
-    }
-  }
-  if (!pdf && urlOk.length === 0) return undefined;
-  return { url: urlOk, pdf };
+  if (urlOk.length === 0) return undefined;
+  return { url: urlOk, pdf: null };
 }
 
 function memoriaVigente(fecha: Date): boolean {
@@ -1002,7 +990,7 @@ async function instructivoDeItem(
       habilitado: true,
       descripcionTienda: true,
       idMarca: true,
-      familia: { select: { id: true, fichaUrl: true, fichaPdfNombre: true } },
+      familia: { select: { id: true, fichaUrl: true } },
       marcaRelation: { select: { nombre: true } },
     },
   });

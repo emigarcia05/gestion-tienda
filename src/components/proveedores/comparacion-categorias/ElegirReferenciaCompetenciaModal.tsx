@@ -19,7 +19,7 @@ import {
 } from "@/actions/comparacionCategorias";
 import type {
   OpcionReferenciaCompetencia,
-  ReferenciaCompetenciaPresentacion,
+  ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
 import { fmtPrecio } from "@/lib/format";
 import {
@@ -34,8 +34,8 @@ import {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  presentacionId: string;
-  onSuccess: (referencia: ReferenciaCompetenciaPresentacion) => void;
+  subcategoriaId: string;
+  onSuccess: (referencia: ReferenciaCompetenciaComparacion) => void;
 }
 
 type CompetidorOption = { id: string; nombre: string; prefijoProveedor: string | null };
@@ -43,7 +43,7 @@ type CompetidorOption = { id: string; nombre: string; prefijoProveedor: string |
 export default function ElegirReferenciaCompetenciaModal({
   open,
   onOpenChange,
-  presentacionId,
+  subcategoriaId,
   onSuccess,
 }: Props) {
   const [competidores, setCompetidores] = useState<CompetidorOption[]>([]);
@@ -76,7 +76,7 @@ export default function ElegirReferenciaCompetenciaModal({
       const result = await buscarReferenciaCompetenciaAction({
         q: q.trim() || undefined,
         competenciaId: competenciaId || undefined,
-        presentacionId,
+        subcategoriaId,
       });
       setLoading(false);
       if (result.ok && result.data) setRows(result.data);
@@ -89,7 +89,7 @@ export default function ElegirReferenciaCompetenciaModal({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [open, q, competenciaId, presentacionId]);
+  }, [open, q, competenciaId, subcategoriaId]);
 
   async function handleConfirmSingle(row: OpcionReferenciaCompetencia) {
     if (row.pxMostrar == null) {
@@ -100,7 +100,7 @@ export default function ElegirReferenciaCompetenciaModal({
     setConfirmPending(true);
     try {
       const res = await asignarReferenciaCompetenciaAction(
-        presentacionId,
+        subcategoriaId,
         row.codTienda,
         row.competenciaId
       );

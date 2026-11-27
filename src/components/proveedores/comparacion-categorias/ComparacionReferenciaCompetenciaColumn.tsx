@@ -12,12 +12,12 @@ import {
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import type { ReferenciaCompetenciaPresentacion } from "@/services/categoriasComparacion.service";
+import type { ReferenciaCompetenciaComparacion } from "@/services/categoriasComparacion.service";
 
 interface Props {
-  presentacionSeleccionada: boolean;
+  subcategoriaSeleccionada: boolean;
   loading: boolean;
-  referenciasCompetencia: ReferenciaCompetenciaPresentacion[];
+  referenciasCompetencia: ReferenciaCompetenciaComparacion[];
   referenciaActivaId: string | null;
   puedeEditar: boolean;
   quitarPendingId: string | null;
@@ -33,7 +33,7 @@ function referenciaGridClass(puedeEditar: boolean): string {
 }
 
 export default function ComparacionReferenciaCompetenciaColumn({
-  presentacionSeleccionada,
+  subcategoriaSeleccionada,
   loading,
   referenciasCompetencia,
   referenciaActivaId,
@@ -49,12 +49,12 @@ export default function ComparacionReferenciaCompetenciaColumn({
   return (
     <CatalogoFinderColumn
       titulo="REFERENCIA COMPETENCIA"
-      mostrarNuevo={puedeEditar && presentacionSeleccionada && !loading}
+      mostrarNuevo={puedeEditar && subcategoriaSeleccionada && !loading}
       onNuevo={onAgregarReferencia}
-      deshabilitada={!presentacionSeleccionada}
+      deshabilitada={!subcategoriaSeleccionada}
     >
-      {!presentacionSeleccionada ? (
-        <CatalogoFinderEmpty mensaje="Seleccioná una presentación para ver o editar referencias de competencia." />
+      {!subcategoriaSeleccionada ? (
+        <CatalogoFinderEmpty mensaje="Seleccioná una subcategoría para ver o editar el precio de referencia." />
       ) : loading ? (
         <div className="flex items-center justify-center px-3 py-6 text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />

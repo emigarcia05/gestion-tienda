@@ -10,13 +10,11 @@ import { Input } from "@/components/ui/input";
 import {
   createCategoriaAction,
   createSubcategoriaAction,
-  createPresentacionAction,
   updateCategoriaAction,
   updateSubcategoriaAction,
-  updatePresentacionAction,
 } from "@/actions/comparacionCategorias";
 
-export type NivelComparacionCategoria = "categoria" | "subcategoria" | "presentacion";
+export type NivelComparacionCategoria = "categoria" | "subcategoria";
 type Modo = "crear" | "editar";
 
 interface Props {
@@ -44,11 +42,6 @@ const LABELS: Record<
     singular: "Subcategoría",
     placeholder: "INGRESAR NOMBRE DE LA SUBCATEGORÍA",
     parentLabel: "CATEGORÍA",
-  },
-  presentacion: {
-    singular: "Presentación",
-    placeholder: "INGRESAR NOMBRE DE LA PRESENTACIÓN",
-    parentLabel: "SUBCATEGORÍA",
   },
 };
 
@@ -198,10 +191,5 @@ async function dispatch(args: {
     return r.ok ? { ok: true } : { ok: false, error: r.error ?? "" };
   }
 
-  if (modo === "crear") {
-    const r = await createPresentacionAction(parentId!, nombre);
-    return r.ok ? { ok: true } : { ok: false, error: r.error ?? "" };
-  }
-  const r = await updatePresentacionAction(id!, { nombre, subcategoriaId: parentId });
-  return r.ok ? { ok: true } : { ok: false, error: r.error ?? "" };
+  return { ok: false, error: "Nivel inválido." };
 }

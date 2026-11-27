@@ -4,38 +4,33 @@ import { GP_ROUTES } from "@/lib/gestionProductosRoutes";
 
 import { revalidatePath } from "next/cache";
 import {
-  getProductosPorPresentacion,
+  getProductosPorSubcategoria,
   createCategoria,
   updateCategoria,
   deleteCategoria,
   createSubcategoria,
   updateSubcategoria,
   deleteSubcategoria,
-  createPresentacion,
-  updatePresentacion,
-  deletePresentacion,
-  asignarProductosAPresentacion,
-  quitarAsignacionPresentacion,
+  asignarProductosASubcategoria,
+  quitarAsignacionSubcategoria,
   actualizarDtoExtraComparacionItem,
   actualizarDifPxRefManualComparacionItem,
   buscarOpcionesReferenciaCompetencia,
   listarCompetidoresParaReferencia,
-  asignarReferenciaCompetenciaPresentacion,
+  asignarReferenciaCompetenciaSubcategoria,
   quitarReferenciaCompetenciaItem,
-  type ReferenciaCompetenciaPresentacion,
+  type ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
 import { listarProductosProveedoresParaVincular } from "@/services/listaPrecios.service";
 import { getRol } from "@/lib/sesion";
 import { PERMISOS, puede } from "@/lib/permisos";
 import type { ActionResult } from "@/lib/types";
 import {
-  presentacionIdSchema,
+  subcategoriaIdSchema,
   createCategoriaSchema,
   updateCategoriaSchema,
   createSubcategoriaSchema,
   updateSubcategoriaSchema,
-  createPresentacionSchema,
-  updatePresentacionSchema,
   asignarProductosSchema,
   idsProductosSchema,
   comparacionIdSchema,
@@ -67,16 +62,16 @@ async function tienePermisoEditar(): Promise<boolean> {
   return puede(rol, PERMISOS.comparacionCategorias.editar);
 }
 
-/** Productos de una presentación con comparación vs objetivo. */
-export async function getProductosPorPresentacionAction(
-  presentacionId: string
+/** Productos de una subcategoría con comparación vs el Px de referencia. */
+export async function getProductosPorSubcategoriaAction(
+  subcategoriaId: string
 ): Promise<
   ActionResult<{
-    productos: Awaited<ReturnType<typeof getProductosPorPresentacion>>["productos"];
+    productos: Awaited<ReturnType<typeof getProductosPorSubcategoria>>["productos"];
     costoCompraObjetivo: number | null;
     labelCompleto: string;
     referenciasCompetencia: Awaited<
-      ReturnType<typeof getProductosPorPresentacion>
+      ReturnType<typeof getProductosPorSubcategoria>
     >["referenciasCompetencia"];
   }>
 > {
@@ -84,10 +79,10 @@ export async function getProductosPorPresentacionAction(
   if (!puede(rol, PERMISOS.comparacionCategorias.acceso)) {
     return { ok: false, error: "Sin acceso." };
   }
-  const parsed = presentacionIdSchema.safeParse(presentacionId);
-  if (!parsed.success) return { ok: false, error: "ID de presentación inválido." };
+  const parsed = subcategoriaIdSchema.safeParse(subcategoriaId);
+  if (!parsed.success) return { ok: false, error: "ID de subcategoría inválido." };
   try {
-    const result = await getProductosPorPresentacion(parsed.data);
+    const result = await getProductosPorSubcategoria(parsed.data);
     return {
       ok: true,
       data: {
@@ -209,70 +204,16 @@ export async function deleteSubcategoriaAction(id: string): Promise<ActionResult
   }
 }
 
-// ─── CRUD Presentaciones ────────────────────────────────────────────────────
-export async function createPresentacionAction(
+/** Asignar productos a una subcategoría. */
+export async function asignarProductosASubcategoriaAction(
   subcategoriaId: string,
-  nombre: string,
-  costoCompraObjetivo?: number | null
-): Promise<ActionResult> {
-  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
-  const parsed = createPresentacionSchema.safeParse({ subcategoriaId, nombre, costoCompraObjetivo });
-  if (!parsed.success) {
-    const msg = parsed.error.flatten().fieldErrors.nombre?.[0] ?? parsed.error.message;
-    return { ok: false, error: msg ?? "Datos inválidos." };
-  }
-  try {
-    await createPresentacion(parsed.data.subcategoriaId, parsed.data.nombre, parsed.data.costoCompraObjetivo);
-    revalidateComparacionCategorias();
-    return { ok: true, data: undefined };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Error al crear presentación." };
-  }
-}
-
-export async function updatePresentacionAction(
-  id: string,
-  data: {
-    nombre?: string;
-    subcategoriaId?: string;
-    costoCompraObjetivo?: number | null;
-  }
-): Promise<ActionResult> {
-  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
-  const parsed = updatePresentacionSchema.safeParse({ id, data });
-  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
-  try {
-    await updatePresentacion(parsed.data.id, parsed.data.data);
-    revalidateComparacionCategorias();
-    return { ok: true, data: undefined };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Error al actualizar." };
-  }
-}
-
-export async function deletePresentacionAction(id: string): Promise<ActionResult> {
-  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
-  const parsed = comparacionIdSchema.safeParse(id);
-  if (!parsed.success) return { ok: false, error: "ID inválido." };
-  try {
-    await deletePresentacion(parsed.data);
-    revalidateComparacionCategorias();
-    return { ok: true, data: undefined };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Error al eliminar." };
-  }
-}
-
-/** Asignar productos a una presentación. */
-export async function asignarProductosAPresentacionAction(
-  presentacionId: string,
   idsProductos: string[]
 ): Promise<ActionResult<{ count: number }>> {
   if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
-  const parsed = asignarProductosSchema.safeParse({ presentacionId, idsProductos });
+  const parsed = asignarProductosSchema.safeParse({ subcategoriaId, idsProductos });
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {
-    const { count } = await asignarProductosAPresentacion(parsed.data.presentacionId, parsed.data.idsProductos);
+    const { count } = await asignarProductosASubcategoria(parsed.data.subcategoriaId, parsed.data.idsProductos);
     revalidateComparacionCategorias();
     revalidatePath("/administrador/proveedores/lista-prod-prov");
     return { ok: true, data: { count } };
@@ -281,15 +222,15 @@ export async function asignarProductosAPresentacionAction(
   }
 }
 
-/** Quitar asignación de presentación de productos. */
-export async function quitarAsignacionPresentacionAction(
+/** Quitar productos de la subcategoría. */
+export async function quitarAsignacionSubcategoriaAction(
   idsProductos: string[]
 ): Promise<ActionResult<{ count: number }>> {
   if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
   const parsed = idsProductosSchema.safeParse(idsProductos);
   if (!parsed.success) return { ok: false, error: "IDs inválidos." };
   try {
-    const { count } = await quitarAsignacionPresentacion(parsed.data);
+    const { count } = await quitarAsignacionSubcategoria(parsed.data);
     revalidateComparacionCategorias();
     revalidatePath("/administrador/proveedores/lista-prod-prov");
     return { ok: true, data: { count } };
@@ -348,7 +289,7 @@ export async function actualizarDifPxRefManualComparacionAction(
 export async function buscarReferenciaCompetenciaAction(params: {
   q?: string;
   competenciaId?: string;
-  presentacionId?: string;
+  subcategoriaId?: string;
 }): Promise<
   ActionResult<Awaited<ReturnType<typeof buscarOpcionesReferenciaCompetencia>>>
 > {
@@ -388,20 +329,20 @@ export async function listCompetidoresParaReferenciaAction(): Promise<
 }
 
 export async function asignarReferenciaCompetenciaAction(
-  presentacionId: string,
+  subcategoriaId: string,
   codTienda: string,
   competenciaId: string
-): Promise<ActionResult<ReferenciaCompetenciaPresentacion>> {
+): Promise<ActionResult<ReferenciaCompetenciaComparacion>> {
   if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
   const parsed = asignarReferenciaCompetenciaSchema.safeParse({
-    presentacionId,
+    subcategoriaId,
     codTienda,
     competenciaId,
   });
   if (!parsed.success) return { ok: false, error: "Datos inválidos." };
   try {
-    const referencia = await asignarReferenciaCompetenciaPresentacion(
-      parsed.data.presentacionId,
+    const referencia = await asignarReferenciaCompetenciaSubcategoria(
+      parsed.data.subcategoriaId,
       parsed.data.codTienda,
       parsed.data.competenciaId
     );

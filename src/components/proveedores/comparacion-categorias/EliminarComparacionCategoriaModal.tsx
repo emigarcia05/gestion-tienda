@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   deleteCategoriaAction,
   deleteSubcategoriaAction,
-  deletePresentacionAction,
 } from "@/actions/comparacionCategorias";
 import type { NivelComparacionCategoria } from "./CrearEditarComparacionCategoriaModal";
 
@@ -24,7 +23,6 @@ interface Props {
 const LABELS: Record<NivelComparacionCategoria, { singular: string; articuloDefinido: string }> = {
   categoria: { singular: "Categoría", articuloDefinido: "la categoría" },
   subcategoria: { singular: "Subcategoría", articuloDefinido: "la subcategoría" },
-  presentacion: { singular: "Presentación", articuloDefinido: "la presentación" },
 };
 
 export default function EliminarComparacionCategoriaModal({
@@ -104,6 +102,5 @@ async function dispatch(
     const r = await deleteSubcategoriaAction(id);
     return r.ok ? { ok: true } : { ok: false, error: r.error ?? "" };
   }
-  const r = await deletePresentacionAction(id);
-  return r.ok ? { ok: true } : { ok: false, error: r.error ?? "" };
+  return { ok: false, error: "Nivel inválido." };
 }

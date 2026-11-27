@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { FiltroIndividualContainer } from "@/components/FilterBar";
 import ModalTablaConFiltros, { type ColumnaModalTabla } from "@/components/shared/ModalTablaConFiltros";
 import { getProveedores } from "@/actions/vinculos";
-import { buscarProductosParaAsignarAction, asignarProductosAPresentacionAction } from "@/actions/comparacionCategorias";
+import { buscarProductosParaAsignarAction, asignarProductosASubcategoriaAction } from "@/actions/comparacionCategorias";
 import type { ProductoProveedorParaVincular } from "@/services/listaPrecios.service";
 import { fmtPrecio } from "@/lib/format";
 import {
@@ -28,7 +28,7 @@ import {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  presentacionId: string;
+  subcategoriaId: string;
   onSuccess: () => void;
 }
 
@@ -37,7 +37,7 @@ type ProveedorOption = { id: string; nombre: string; prefijo: string };
 export default function AsignarProductosModal({
   open,
   onOpenChange,
-  presentacionId,
+  subcategoriaId,
   onSuccess,
 }: Props) {
   const [proveedores, setProveedores] = useState<ProveedorOption[]>([]);
@@ -79,7 +79,7 @@ export default function AsignarProductosModal({
   async function handleConfirm(ids: string[]) {
     setAsignando(true);
     try {
-      const res = await asignarProductosAPresentacionAction(presentacionId, ids);
+      const res = await asignarProductosASubcategoriaAction(subcategoriaId, ids);
       if (!res.ok) {
         toast.error(res.error ?? "Error al asignar.");
         throw new Error(res.error);

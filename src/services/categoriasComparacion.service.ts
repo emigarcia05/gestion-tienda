@@ -1,8 +1,8 @@
 /**
  * Servicio Comparación por categorías.
- * Jerarquía: Categoria → Subcategoria → Presentacion.
+ * Jerarquía: Categoria → Subcategoria. Ítems y Px de referencia cuelgan de la subcategoría.
  * Referente competencia: `prod_comp_item_referencia` (precio vía `resolverPreciosCompetenciaMostrar`).
- * Costo objetivo (SSOT): (1) `pxMostrar` de la primera referencia competencia; (2) `costo_compra_objetivo` numérico.
+ * Costo objetivo (SSOT): (1) `pxMostrar` de la primera referencia competencia; (2) `costo_compra_objetivo` de la subcategoría.
  */
 
 import { calcCostoComparacion, type DatosCostoComparacion } from "@/lib/calculos";
@@ -19,7 +19,7 @@ import { ensureVinculoCompetenciaParaReferencia } from "@/services/competenciaVi
 const normalizeNombreCategoria = (nombre: string): string =>
   nombre.trim().toUpperCase();
 
-export interface ReferenciaCompetenciaPresentacion {
+export interface ReferenciaCompetenciaComparacion {
   id: string;
   codTienda: string;
   competenciaId: string;
@@ -62,7 +62,7 @@ async function buildReferenciaCompetenciaFromRow(row: {
     competencia: { nombre: string; proveedor: { prefijo: string | null } | null };
     prodTienda: { descripcionTienda: string | null };
   };
-}): Promise<ReferenciaCompetenciaPresentacion> {
+}): Promise<ReferenciaCompetenciaComparacion> {
   const resuelto = await resolverPrecioCompetenciaMostrar(row.refCodTienda, row.refCompetenciaId);
   const competenciaNombre = row.referenciaCompetencia.competencia.nombre;
   const prefijo = row.referenciaCompetencia.competencia.proveedor?.prefijo?.trim();
@@ -82,7 +82,7 @@ async function buildReferenciaCompetenciaFromRow(row: {
   };
 }
 
-async function buildReferenciasCompetenciaPresentacion(presentacion: {
+async function buildReferenciasCompetencia(nodo: {
   referenciasCompetencia: Array<{
     id: string;
     refCodTienda: string;
@@ -92,12 +92,12 @@ async function buildReferenciasCompetenciaPresentacion(presentacion: {
       prodTienda: { descripcionTienda: string | null };
     };
   }>;
-}): Promise<ReferenciaCompetenciaPresentacion[]> {
-  if (presentacion.referenciasCompetencia.length === 0) return [];
-  return Promise.all(presentacion.referenciasCompetencia.map(buildReferenciaCompetenciaFromRow));
+}): Promise<ReferenciaCompetenciaComparacion[]> {
+  if (nodo.referenciasCompetencia.length === 0) return [];
+  return Promise.all(nodo.referenciasCompetencia.map(buildReferenciaCompetenciaFromRow));
 }
 
-const getObjetivoFromPresentacion = async (p: {
+const getObjetivoFromSubcategoria = async (p: {
   costoCompraObjetivo: unknown;
   referenciasCompetencia: Array<{
     id: string;
@@ -109,7 +109,7 @@ const getObjetivoFromPresentacion = async (p: {
     };
   }>;
 }): Promise<number | null> => {
-  const refs = await buildReferenciasCompetenciaPresentacion(p);
+  const refs = await buildReferenciasCompetencia(p);
   if (refs[0]?.pxMostrar != null) return refs[0].pxMostrar;
   if (p.costoCompraObjetivo != null) return Number(p.costoCompraObjetivo);
   return null;
@@ -121,13 +121,6 @@ export interface CategoriaComparacionTree {
   subcategorias: {
     id: string;
     nombre: string;
-    presentaciones: {
-      id: string;
-      nombre: string;
-      costoCompraObjetivo: number | null;
-      referenciasCompetencia: ReferenciaCompetenciaPresentacion[];
-      labelCompleto: string;
-    }[];
   }[];
 }
 
@@ -178,61 +171,38 @@ function mapDatosCostoComparacion(lp: {
   };
 }
 
-/** Árbol completo Categoria → Subcategoria → Presentacion para la UI. */
+/** Árbol Categoria → Subcategoria para la UI. */
 export async function getArbolCategorias(): Promise<CategoriaComparacionTree[]> {
   const categorias = await prisma.categoriaComparacion.findMany({
     orderBy: { nombre: "asc" },
     include: {
       subcategorias: {
         orderBy: { nombre: "asc" },
-        include: {
-          presentaciones: {
-            orderBy: { nombre: "asc" },
-            include: {
-              referenciasCompetencia: REFERENCIAS_COMPETENCIA_INCLUDE,
-            },
-          },
-        },
+        select: { id: true, nombre: true },
       },
     },
   });
 
-  return Promise.all(
-    categorias.map(async (c) => ({
-      id: c.id,
-      nombre: c.nombre,
-      subcategorias: await Promise.all(
-        c.subcategorias.map(async (s) => ({
-          id: s.id,
-          nombre: s.nombre,
-          presentaciones: await Promise.all(
-            s.presentaciones.map(async (p) => ({
-              id: p.id,
-              nombre: p.nombre,
-              costoCompraObjetivo: await getObjetivoFromPresentacion(p),
-              referenciasCompetencia: await buildReferenciasCompetenciaPresentacion(p),
-              labelCompleto: `${c.nombre} - ${s.nombre} - ${p.nombre}`,
-            }))
-          ),
-        }))
-      ),
-    }))
-  );
+  return categorias.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    subcategorias: c.subcategorias.map((s) => ({ id: s.id, nombre: s.nombre })),
+  }));
 }
 
-/** Productos asignados a una presentación con referente de competencia. */
-export async function getProductosPorPresentacion(
-  presentacionId: string
+/** Productos asignados a una subcategoría, con su Px de referencia. */
+export async function getProductosPorSubcategoria(
+  subcategoriaId: string
 ): Promise<{
   productos: ProductoEnCategoria[];
   costoCompraObjetivo: number | null;
   labelCompleto: string;
-  referenciasCompetencia: ReferenciaCompetenciaPresentacion[];
+  referenciasCompetencia: ReferenciaCompetenciaComparacion[];
 }> {
-  const presentacion = await prisma.presentacionComparacion.findUnique({
-    where: { id: presentacionId },
+  const subcategoria = await prisma.subcategoriaComparacion.findUnique({
+    where: { id: subcategoriaId },
     include: {
-      subcategoria: { include: { categoria: true } },
+      categoria: true,
       referenciasCompetencia: REFERENCIAS_COMPETENCIA_INCLUDE,
       itemsComparados: {
         include: {
@@ -246,7 +216,7 @@ export async function getProductosPorPresentacion(
     },
   });
 
-  if (!presentacion) {
+  if (!subcategoria) {
     return {
       productos: [],
       costoCompraObjetivo: null,
@@ -255,11 +225,11 @@ export async function getProductosPorPresentacion(
     };
   }
 
-  const labelCompleto = `${presentacion.subcategoria.categoria.nombre} - ${presentacion.subcategoria.nombre} - ${presentacion.nombre}`;
-  const referenciasCompetencia = await buildReferenciasCompetenciaPresentacion(presentacion);
-  const objetivo = await getObjetivoFromPresentacion(presentacion);
+  const labelCompleto = `${subcategoria.categoria.nombre} - ${subcategoria.nombre}`;
+  const referenciasCompetencia = await buildReferenciasCompetencia(subcategoria);
+  const objetivo = await getObjetivoFromSubcategoria(subcategoria);
 
-  const productos: ProductoEnCategoria[] = presentacion.itemsComparados
+  const productos: ProductoEnCategoria[] = subcategoria.itemsComparados
     .map((item) => {
       const lp = item.listaPrecioProveedor;
       const dtoExtraComparacion = item.dtoExtra ?? null;
@@ -568,7 +538,7 @@ async function buscarOpcionesReferenciaCompetenciaBrowse(
 export async function buscarOpcionesReferenciaCompetencia(params: {
   q?: string;
   take?: number;
-  presentacionId?: string;
+  subcategoriaId?: string;
   competenciaId?: string;
 }): Promise<OpcionReferenciaCompetencia[]> {
   const q = params.q?.trim() ?? "";
@@ -576,9 +546,9 @@ export async function buscarOpcionesReferenciaCompetencia(params: {
   const competenciaId = params.competenciaId?.trim() || undefined;
 
   const excluirKeys = new Set<string>();
-  if (params.presentacionId) {
-    const asignadas = await prisma.comparacionPresentacionRefComp.findMany({
-      where: { presentacionId: params.presentacionId },
+  if (params.subcategoriaId) {
+    const asignadas = await prisma.comparacionSubcategoriaRefComp.findMany({
+      where: { subcategoriaId: params.subcategoriaId },
       select: { refCodTienda: true, refCompetenciaId: true },
     });
     for (const row of asignadas) {
@@ -637,12 +607,12 @@ export async function listarCompetidoresParaReferencia(): Promise<CompetidorPara
   }));
 }
 
-/** Asigna referencia Px Competencia a una presentación (`prod_comp_item_referencia`). */
-export async function asignarReferenciaCompetenciaPresentacion(
-  presentacionId: string,
+/** Asigna el Px de referencia de una subcategoría (`prod_comp_item_referencia`). */
+export async function asignarReferenciaCompetenciaSubcategoria(
+  subcategoriaId: string,
   codTienda: string,
   competenciaId: string
-): Promise<ReferenciaCompetenciaPresentacion> {
+): Promise<ReferenciaCompetenciaComparacion> {
   const prodTienda = await prisma.prodPropio.findUnique({
     where: { codTienda },
     select: { compararCompetencia: true },
@@ -658,10 +628,10 @@ export async function asignarReferenciaCompetenciaPresentacion(
     throw new Error("No hay precio de competencia disponible para esta referencia.");
   }
 
-  const existente = await prisma.comparacionPresentacionRefComp.findUnique({
+  const existente = await prisma.comparacionSubcategoriaRefComp.findUnique({
     where: {
-      presentacionId_refCodTienda_refCompetenciaId: {
-        presentacionId,
+      subcategoriaId_refCodTienda_refCompetenciaId: {
+        subcategoriaId,
         refCodTienda: codTienda,
         refCompetenciaId: competenciaId,
       },
@@ -669,21 +639,21 @@ export async function asignarReferenciaCompetenciaPresentacion(
     select: { id: true },
   });
   if (existente) {
-    throw new Error("Esta referencia ya está asignada a la presentación.");
+    throw new Error("Esta referencia ya está asignada a la subcategoría.");
   }
 
-  const refsPrevias = await prisma.comparacionPresentacionRefComp.count({
-    where: { presentacionId },
+  const refsPrevias = await prisma.comparacionSubcategoriaRefComp.count({
+    where: { subcategoriaId },
   });
 
-  const maxOrden = await prisma.comparacionPresentacionRefComp.aggregate({
-    where: { presentacionId },
+  const maxOrden = await prisma.comparacionSubcategoriaRefComp.aggregate({
+    where: { subcategoriaId },
     _max: { orden: true },
   });
 
-  const created = await prisma.comparacionPresentacionRefComp.create({
+  const created = await prisma.comparacionSubcategoriaRefComp.create({
     data: {
-      presentacionId,
+      subcategoriaId,
       refCodTienda: codTienda,
       refCompetenciaId: competenciaId,
       orden: (maxOrden._max.orden ?? -1) + 1,
@@ -691,13 +661,13 @@ export async function asignarReferenciaCompetenciaPresentacion(
   });
 
   if (refsPrevias === 0) {
-    await prisma.presentacionComparacion.update({
-      where: { id: presentacionId },
+    await prisma.subcategoriaComparacion.update({
+      where: { id: subcategoriaId },
       data: { costoCompraObjetivo: null },
     });
   }
 
-  const row = await prisma.comparacionPresentacionRefComp.findUniqueOrThrow({
+  const row = await prisma.comparacionSubcategoriaRefComp.findUniqueOrThrow({
     where: { id: created.id },
     include: REF_COMP_ROW_INCLUDE,
   });
@@ -711,7 +681,7 @@ export async function asignarReferenciaCompetenciaPresentacion(
 }
 
 export async function quitarReferenciaCompetenciaItem(refCompId: string): Promise<void> {
-  await prisma.comparacionPresentacionRefComp.delete({
+  await prisma.comparacionSubcategoriaRefComp.delete({
     where: { id: refCompId },
   });
 }
@@ -760,45 +730,9 @@ export async function deleteSubcategoria(id: string) {
   return prisma.subcategoriaComparacion.delete({ where: { id } });
 }
 
-// ─── CRUD Presentaciones ────────────────────────────────────────────────────
-export async function createPresentacion(
+/** Asignar productos (`cod_ext`) a una subcategoría (`prod_comp_item_comparados`). */
+export async function asignarProductosASubcategoria(
   subcategoriaId: string,
-  nombre: string,
-  costoCompraObjetivo?: number | null
-) {
-  return prisma.presentacionComparacion.create({
-    data: {
-      subcategoriaId,
-      nombre: normalizeNombreCategoria(nombre),
-      costoCompraObjetivo: costoCompraObjetivo ?? null,
-    },
-  });
-}
-
-export type UpdatePresentacionData = {
-  nombre?: string;
-  subcategoriaId?: string;
-  costoCompraObjetivo?: number | null;
-};
-
-export async function updatePresentacion(id: string, data: UpdatePresentacionData) {
-  const payload: UpdatePresentacionData = {};
-  if (data.nombre !== undefined) {
-    payload.nombre = normalizeNombreCategoria(data.nombre);
-  }
-  if (data.subcategoriaId !== undefined) payload.subcategoriaId = data.subcategoriaId;
-  if (data.costoCompraObjetivo !== undefined) payload.costoCompraObjetivo = data.costoCompraObjetivo;
-
-  return prisma.presentacionComparacion.update({ where: { id }, data: payload });
-}
-
-export async function deletePresentacion(id: string) {
-  return prisma.presentacionComparacion.delete({ where: { id } });
-}
-
-/** Asignar productos (`cod_ext`) a una presentación (`prod_comp_item_comparados`). */
-export async function asignarProductosAPresentacion(
-  presentacionId: string,
   codigosExtProductos: string[]
 ): Promise<{ count: number }> {
   if (codigosExtProductos.length === 0) return { count: 0 };
@@ -816,7 +750,7 @@ export async function asignarProductosAPresentacion(
     }),
     prisma.comparacionItem.createMany({
       data: codigosValidos.map((codExt) => ({
-        presentacionId,
+        subcategoriaId,
         listaPrecioProveedorCodExt: codExt,
       })),
     }),
@@ -825,8 +759,8 @@ export async function asignarProductosAPresentacion(
   return { count: codigosValidos.length };
 }
 
-/** Quitar productos de la comparación por presentación (borra filas en `prod_comp_item_comparados`). */
-export async function quitarAsignacionPresentacion(codigosExtProductos: string[]): Promise<{ count: number }> {
+/** Quita productos de la comparación (borra filas en `prod_comp_item_comparados`). */
+export async function quitarAsignacionSubcategoria(codigosExtProductos: string[]): Promise<{ count: number }> {
   if (codigosExtProductos.length === 0) return { count: 0 };
   const result = await prisma.comparacionItem.deleteMany({
     where: { listaPrecioProveedorCodExt: { in: codigosExtProductos } },
@@ -850,7 +784,7 @@ async function upsertComparacionItemParcial(
   });
 
   if (!existing) {
-    throw new Error("El producto no está asignado a una presentación de comparación.");
+    throw new Error("El producto no está asignado a una subcategoría.");
   }
 
   const dtoExtra =
