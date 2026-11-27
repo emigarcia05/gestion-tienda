@@ -15,6 +15,7 @@ import {
 import {
   agregarCategoriaMc,
   actualizarMaxCategoriaMc,
+  actualizarMinPrimeraCategoriaMc,
   borradoresDesdeCategoriasMc,
   FIN_ANA_MC_CATEGORIA_PCT_MAX,
   puedeAgregarCategoriaMc,
@@ -192,6 +193,12 @@ export default function GestionarCategoriasMargenContribucionModal({
     setFilas((prev) => actualizarMaxCategoriaMc(prev, index, entero));
   }
 
+  function cambiarMinPrimera(next: number) {
+    const entero = Math.trunc(next);
+    if (!Number.isFinite(entero)) return;
+    setFilas((prev) => actualizarMinPrimeraCategoriaMc(prev, entero));
+  }
+
   function handleAgregar() {
     if (!esEditor || !puedeAgregar || bloqueado) return;
     setFilas((prev) => agregarCategoriaMc(prev));
@@ -265,7 +272,9 @@ export default function GestionarCategoriasMargenContribucionModal({
       >
         <div className="flex flex-col gap-3">
           <p className="text-xs text-muted-foreground">
-            Los rangos se aplican al PORC. UTILIDAD de la lista 1 - GENERAL.
+            Los rangos se aplican al PORC. UTILIDAD de la lista 1 - GENERAL. El
+            mínimo de una categoría nueva es el máximo de la anterior, y ese
+            número pertenece a la nueva.
           </p>
           <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5.5rem_2.5rem] items-end gap-2 px-0.5">
             <ModalMicroLabel>CATEGORÍA</ModalMicroLabel>
@@ -290,10 +299,21 @@ export default function GestionarCategoriasMargenContribucionModal({
                     className="h-9 uppercase"
                     aria-label={`Categoría fila ${index + 1}`}
                   />
-                  <PctEnteroSoloLectura
-                    value={fila.desdePct}
-                    ariaLabel={`Mínimo fila ${index + 1}`}
-                  />
+                  {index === 0 ? (
+                    <PctEnteroEditable
+                      value={fila.desdePct}
+                      min={0}
+                      max={Math.max(0, fila.hastaPct - 1)}
+                      onValueChange={cambiarMinPrimera}
+                      disabled={!esEditor || bloqueado}
+                      ariaLabel="Mínimo de la primera categoría"
+                    />
+                  ) : (
+                    <PctEnteroSoloLectura
+                      value={fila.desdePct}
+                      ariaLabel={`Mínimo fila ${index + 1}`}
+                    />
+                  )}
                   <PctEnteroEditable
                     value={fila.hastaPct}
                     min={maxMinimo}
@@ -344,7 +364,7 @@ export default function GestionarCategoriasMargenContribucionModal({
                 title={
                   puedeAgregar
                     ? "Agregar categoría"
-                    : "El máximo ya llegó a 100"
+                    : `El máximo ya llegó a ${FIN_ANA_MC_CATEGORIA_PCT_MAX}`
                 }
               >
                 <Plus className="size-4" aria-hidden />

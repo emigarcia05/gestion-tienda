@@ -1,16 +1,17 @@
-/** Categoría por rango de PORC. UTILIDAD de la lista 1 - GENERAL (`fin_ana_mc_cat`, escala 0…100). */
+/** Categoría por rango de PORC. UTILIDAD de la lista 1 - GENERAL (`fin_ana_mc_cat`). */
 export type FinAnaMcCategoriaItem = {
   id: string;
   categoria: string;
-  /** Límite inferior inclusivo (0…99). */
+  /** Límite inferior inclusivo. En la fila siguiente es el máximo de la anterior. */
   desdePct: number;
-  /** Límite superior exclusivo (salvo la última: 100 inclusivo). */
+  /** Límite superior exclusivo, salvo la última categoría, que lo incluye. */
   hastaPct: number;
   orden: number;
 };
 
 export const FIN_ANA_MC_CATEGORIA_PCT_MIN = 0;
-export const FIN_ANA_MC_CATEGORIA_PCT_MAX = 100;
+/** Tope del MÁX. Alineado a la escala de PORC. UTILIDAD del gráfico (0…300). */
+export const FIN_ANA_MC_CATEGORIA_PCT_MAX = 300;
 
 export type RangoMcCategoriaInput = {
   id?: string;
@@ -21,8 +22,8 @@ export type RangoMcCategoriaInput = {
 
 /**
  * Valida rangos continuos sin huecos ni solapes.
+ * No exige empezar en 0 ni terminar en un tope fijo.
  * Ordenados por `desdePct`: cada `desde` debe ser igual al `hasta` anterior.
- * Si hay filas: la primera empieza en 0 y la última termina en 100.
  */
 export function validarContinuidadRangosMcCategorias(
   rangos: RangoMcCategoriaInput[]
@@ -38,9 +39,10 @@ export function validarContinuidadRangosMcCategorias(
     }
     if (
       rango.desdePct < FIN_ANA_MC_CATEGORIA_PCT_MIN ||
-      rango.hastaPct > FIN_ANA_MC_CATEGORIA_PCT_MAX
+      rango.hastaPct > FIN_ANA_MC_CATEGORIA_PCT_MAX ||
+      rango.desdePct > FIN_ANA_MC_CATEGORIA_PCT_MAX
     ) {
-      return "Los rangos deben estar entre 0 y 100.";
+      return `Los rangos deben estar entre ${FIN_ANA_MC_CATEGORIA_PCT_MIN} y ${FIN_ANA_MC_CATEGORIA_PCT_MAX}.`;
     }
     if (rango.desdePct >= rango.hastaPct) {
       return "El límite inferior debe ser menor que el superior.";
@@ -48,10 +50,6 @@ export function validarContinuidadRangosMcCategorias(
   }
 
   const sorted = [...rangos].sort((a, b) => a.desdePct - b.desdePct);
-
-  if (sorted[0]!.desdePct !== FIN_ANA_MC_CATEGORIA_PCT_MIN) {
-    return "La primera categoría debe comenzar en 0.";
-  }
 
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1]!;
@@ -64,17 +62,13 @@ export function validarContinuidadRangosMcCategorias(
     }
   }
 
-  const last = sorted[sorted.length - 1]!;
-  if (last.hastaPct !== FIN_ANA_MC_CATEGORIA_PCT_MAX) {
-    return "La última categoría debe terminar en 100.";
-  }
-
   return null;
 }
 
 /**
- * Resuelve la categoría para un PORC. UTILIDAD (lista 1 - GENERAL, recortado a 0…100).
- * Regla: `[desde, hasta)` y la última (`hasta === 100`) incluye 100.
+ * Resuelve la categoría para un PORC. UTILIDAD de la lista 1 - GENERAL.
+ * Regla: `[desde, hasta)` y la última categoría incluye su máximo.
+ * El valor igual al máximo de una categoría pertenece a la siguiente.
  */
 export function resolverCategoriaMcPorPct(
   porcUtilidad: number,
@@ -130,31 +124,58 @@ export function borradoresDesdeCategoriasMc(
     }));
 }
 
-/** Recalcula `desde` en cadena: cada mínimo = máximo de la fila anterior. */
+/** Recalcula `desde` desde la segunda fila: cada mínimo = máximo de la anterior. */
 export function sincronizarMinimosCategoriasMc(
   filas: BorradorCategoriaMc[]
 ): BorradorCategoriaMc[] {
   if (filas.length === 0) return filas;
   const next: BorradorCategoriaMc[] = [];
   for (let i = 0; i < filas.length; i++) {
-    const prevHasta =
-      i === 0 ? FIN_ANA_MC_CATEGORIA_PCT_MIN : next[i - 1]!.hastaPct;
-    if (prevHasta >= FIN_ANA_MC_CATEGORIA_PCT_MAX) break;
-    const desdePct = prevHasta;
-    let hastaPct = Math.trunc(filas[i]!.hastaPct);
-    if (hastaPct <= desdePct) {
+    const fila = filas[i]!;
+    const desdePct =
+      i === 0
+        ? Math.max(
+            FIN_ANA_MC_CATEGORIA_PCT_MIN,
+            Math.min(
+              FIN_ANA_MC_CATEGORIA_PCT_MAX - 1,
+              Math.trunc(fila.desdePct)
+            )
+          )
+        : next[i - 1]!.hastaPct;
+    if (desdePct >= FIN_ANA_MC_CATEGORIA_PCT_MAX) break;
+    let hastaPct = Math.trunc(fila.hastaPct);
+    if (!Number.isFinite(hastaPct) || hastaPct <= desdePct) {
       hastaPct = Math.min(FIN_ANA_MC_CATEGORIA_PCT_MAX, desdePct + 1);
     }
     if (hastaPct > FIN_ANA_MC_CATEGORIA_PCT_MAX) {
       hastaPct = FIN_ANA_MC_CATEGORIA_PCT_MAX;
     }
     next.push({
-      ...filas[i]!,
+      ...fila,
       desdePct,
       hastaPct,
     });
   }
   return next;
+}
+
+/** Cambia el mínimo de la primera categoría. El resto sigue el máximo anterior. */
+export function actualizarMinPrimeraCategoriaMc(
+  filas: BorradorCategoriaMc[],
+  desdePctRaw: number
+): BorradorCategoriaMc[] {
+  if (filas.length === 0) return filas;
+  const copia = filas.map((fila) => ({ ...fila }));
+  const tope = Math.max(
+    FIN_ANA_MC_CATEGORIA_PCT_MIN,
+    copia[0]!.hastaPct - 1
+  );
+  const desdePct = Math.max(
+    FIN_ANA_MC_CATEGORIA_PCT_MIN,
+    Math.min(tope, Math.trunc(desdePctRaw))
+  );
+  copia[0] = { ...copia[0]!, desdePct };
+  return sincronizarMinimosCategoriasMc(copia);
 }
 
 /**
@@ -197,7 +218,7 @@ export function agregarCategoriaMc(
       key: `nuevo-${Date.now()}-${filas.length}`,
       categoria: "",
       desdePct: lastHasta,
-      hastaPct: FIN_ANA_MC_CATEGORIA_PCT_MAX,
+      hastaPct: Math.min(FIN_ANA_MC_CATEGORIA_PCT_MAX, lastHasta + 1),
     },
   ];
 }

@@ -31,7 +31,8 @@ export function encontrarIdListaGeneralPxListas(
 
 /**
  * CATEGORÍA MARGEN según rangos `fin_ana_mc_cat` aplicados al **PORC. UTILIDAD**
- * de la lista GENERAL (escala 0…100; valores fuera se recortan).
+ * de la lista GENERAL. El valor igual al máximo de una categoría cae en la siguiente.
+ * Fuera de todos los rangos no hay categoría.
  */
 export function resolverCategoriaMargenPxListas(
   porcUtilidad: number | null | undefined,
@@ -40,6 +41,5 @@ export function resolverCategoriaMargenPxListas(
   if (porcUtilidad == null || !Number.isFinite(porcUtilidad) || categorias.length === 0) {
     return "";
   }
-  const pct = Math.min(100, Math.max(0, porcUtilidad));
-  return resolverCategoriaMcPorPct(pct, categorias)?.categoria ?? "";
+  return resolverCategoriaMcPorPct(porcUtilidad, categorias)?.categoria ?? "";
 }

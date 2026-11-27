@@ -51,7 +51,7 @@ function mapDbError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-/** Semilla idempotente de categorías M.C. (cobertura continua 0…100). */
+/** Semilla idempotente de categorías M.C. Solo si la tabla está vacía. */
 export async function ensureFinAnaMcCategoriasSeed(): Promise<void> {
   const count = await prisma.finAnaMcCategoria.count();
   if (count > 0) return;
@@ -77,7 +77,7 @@ export async function listarFinAnaMcCategorias(): Promise<FinAnaMcCategoriaItem[
   return rows.map(mapCategoria);
 }
 
-/** Reemplaza el catálogo completo (transacción) con rangos continuos 0…100. */
+/** Reemplaza el catálogo completo (transacción). Rangos continuos, sin exigir 0…100. */
 export async function reemplazarFinAnaMcCategorias(
   input: ReemplazarFinAnaMcCategoriasInput
 ): Promise<ServiceResult<FinAnaMcCategoriaItem[]>> {
