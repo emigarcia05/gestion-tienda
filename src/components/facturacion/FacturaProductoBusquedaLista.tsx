@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Info } from "lucide-react";
+import { fmtCantidad } from "@/lib/cantidadUnDecimal";
 import { fmtPrecio } from "@/lib/format";
 import { itemTieneDescEspecial } from "@/lib/descPromo";
 import {
@@ -18,9 +19,22 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
+import type {
+  ProductoFacturaBusquedaItem,
+  ProductoFacturaOpcionPrioridad,
+} from "@/services/facturaProductos.service";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+} from "@/components/ui/table";
 import FacturaProductoDescEspecialCelda from "@/components/facturacion/FacturaProductoDescEspecialCelda";
 import FacturaProductoStockCelda from "@/components/facturacion/FacturaProductoStockCelda";
+
+const SUBFILA_DETALLE_CLASS = "tabla-fila-detalle-competencia";
+const SUBFILA_CELDA_CLASS = "tabla-fila-detalle-competencia-celda";
+const SUBFILA_HUECA_CLASS = "tabla-fila-detalle-competencia-hueca";
 
 const FILA_BUSQUEDA_GRID_BASE =
   "grid w-full items-center justify-items-stretch gap-1.5 px-2";
@@ -169,43 +183,110 @@ export default function FacturaProductoBusquedaLista({
                 )}
               </div>
               {prioridad && prioridadAbierta === item.codTienda ? (
-                <div className="border-t border-border bg-muted/40 px-3 py-2 text-left text-xs text-foreground">
-                  <p className="mb-1.5 text-muted-foreground">
-                    {`En ${prioridad.categoriaNombre} le podemos recomendar al cliente estas opciones:`}
-                  </p>
-                  <div className="flex flex-col">
-                    {prioridad.opciones.map((opcion) => {
-                      const comoItem = { ...opcion, prioridadVenta: null };
-                      const pxOpcion = opcion.pxLista;
-                      const pxOpcionDesc = pxConDescuento(
-                        pxOpcion,
-                        porcentajeDescuentoParaProductoBusqueda(
-                          comoItem,
-                          descuento,
-                          lineas
-                        )
-                      );
-                      return (
-                        <button
-                          key={`${opcion.orden}-${opcion.codTienda}`}
-                          type="button"
-                          className="grid grid-cols-[6.5rem_minmax(0,1fr)_5.5rem_5.5rem] items-center gap-2 rounded-sm px-1 py-0.5 text-left hover:bg-accent"
-                          onClick={() => onElegir(comoItem)}
-                        >
-                          <span className="text-muted-foreground">{`Prioridad ${opcion.orden}`}</span>
-                          <span className="truncate">{opcion.descripcion}</span>
-                          <span className="text-right tabular-nums">{`$${fmtPrecio(pxOpcion)}`}</span>
-                          <span className="text-right tabular-nums">{`$${fmtPrecio(pxOpcionDesc)}`}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <PrioridadVentaSubtabla
+                  categoriaNombre={prioridad.categoriaNombre}
+                  opciones={prioridad.opciones.filter(
+                    (opcion) => opcion.codTienda !== item.codTienda
+                  )}
+                  descuento={descuento}
+                  lineas={lineas}
+                  onElegir={onElegir}
+                />
               ) : null}
             </li>
           );
         })}
       </ul>
     </div>
+  );
+}
+
+function PrioridadVentaSubtabla({
+  categoriaNombre,
+  opciones,
+  descuento,
+  lineas,
+  onElegir,
+}: {
+  categoriaNombre: string;
+  opciones: readonly ProductoFacturaOpcionPrioridad[];
+  descuento: FacturaDescuentoEstado | null;
+  lineas: readonly FacturaLineaLocal[];
+  onElegir: (item: ProductoFacturaBusquedaItem) => void;
+}) {
+  if (opciones.length === 0) return null;
+  const frase = `En la categoria "${categoriaNombre}", podemos ofrecerle estas otras alternativas`;
+  return (
+    <Table scrollX={false}>
+      <colgroup>
+        <col className="w-6" />
+        <col className="w-28" />
+        <col />
+        <col className="w-24" />
+        <col className="w-28" />
+        <col className="w-16" />
+      </colgroup>
+      <TableBody>
+        <TableRow className={cn(SUBFILA_DETALLE_CLASS, "hover:bg-transparent")}>
+          <TableCell
+            className={cn("celda-datos", SUBFILA_HUECA_CLASS)}
+            aria-hidden
+          />
+          <TableCell
+            colSpan={5}
+            className={cn("celda-datos max-w-0", SUBFILA_CELDA_CLASS)}
+          >
+            <span className="block truncate text-xs text-foreground" title={frase}>
+              {frase}
+            </span>
+          </TableCell>
+        </TableRow>
+        <TableRow className={cn(SUBFILA_DETALLE_CLASS, "hover:bg-transparent")}>
+          <TableCell className={cn("celda-datos", SUBFILA_HUECA_CLASS)} aria-hidden />
+          <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>PRIORIDAD</TableCell>
+          <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>DESCRIPCIÓN</TableCell>
+          <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>PX LISTA</TableCell>
+          <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>PX C/ DESC.</TableCell>
+          <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>STOCK</TableCell>
+        </TableRow>
+        {opciones.map((opcion) => {
+          const comoItem = { ...opcion, prioridadVenta: null };
+          const pxOpcion = opcion.pxLista;
+          const pxOpcionDesc = pxConDescuento(
+            pxOpcion,
+            porcentajeDescuentoParaProductoBusqueda(comoItem, descuento, lineas)
+          );
+          return (
+            <TableRow
+              key={`${opcion.orden}-${opcion.codTienda}`}
+              className={cn(
+                SUBFILA_DETALLE_CLASS,
+                "cursor-pointer hover:bg-transparent"
+              )}
+              onClick={() => onElegir(comoItem)}
+            >
+              <TableCell className={cn("celda-datos", SUBFILA_HUECA_CLASS)} aria-hidden />
+              <TableCell className={cn("celda-datos", SUBFILA_CELDA_CLASS)}>
+                {`PRIORIDAD ${opcion.orden}`}
+              </TableCell>
+              <TableCell className={cn("celda-datos max-w-0", SUBFILA_CELDA_CLASS)}>
+                <span className="block truncate text-xs text-foreground" title={opcion.descripcion}>
+                  {opcion.descripcion}
+                </span>
+              </TableCell>
+              <TableCell className={cn("celda-datos celda-numero", SUBFILA_CELDA_CLASS)}>
+                {`$${fmtPrecio(pxOpcion)}`}
+              </TableCell>
+              <TableCell className={cn("celda-datos celda-numero", SUBFILA_CELDA_CLASS)}>
+                {`$${fmtPrecio(pxOpcionDesc)}`}
+              </TableCell>
+              <TableCell className={cn("celda-datos celda-numero", SUBFILA_CELDA_CLASS)}>
+                {fmtCantidad(opcion.stock)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
