@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, TerminacionProdLista } from "@prisma/client";
 import { esRubroTintometrico } from "@/lib/codColorTintometrico";
 import { getProveedoresMercaderia } from "@/services/proveedor.service";
 import type { DescPromoEspecialFactura } from "@/lib/descPromo";
@@ -46,6 +46,237 @@ export interface ProductoFacturaBusquedaItem {
   precioEditable: boolean;
   /** Promos de alcance ITEMS (DESC. ESPECIAL) de este código. */
   descEspeciales: DescPromoEspecialFactura[];
+  /**
+   * Equivalente de mejor prioridad de venta (misma color, presentación y terminación).
+   * `null` si este ítem ya es el mejor o no hay equivalente.
+   */
+  prioridadOfrecer: ProductoFacturaPrioridadOferta | null;
+}
+
+/** Ítem a ofrecer en lugar del buscado. No anida otra sugerencia. */
+export interface ProductoFacturaPrioridadOferta {
+  codTienda: string;
+  descripcion: string;
+  pxLista: number;
+  stock: number;
+  stockPorSucursal: ProductoFacturaStockSucursal[];
+  tintometrico: { idMarca: string | null } | null;
+  idMarca: string | null;
+  idRubro: string | null;
+  idSubRubro: string | null;
+  precioEditable: boolean;
+  descEspeciales: DescPromoEspecialFactura[];
+}
+
+type FilaEquivalencia = {
+  idColor: string | null;
+  idPresentacion: string | null;
+  terminacion: TerminacionProdLista | null;
+};
+
+type FilaPrioridadFactura = {
+  subcategoriaId: string;
+  familiaId: string;
+  orden: number;
+};
+
+type CandidatoPrioridadFactura = {
+  codTienda: string;
+  descripcion: string;
+  familiaId: string;
+  idMarca: string | null;
+  idRubro: string | null;
+  idSubRubro: string | null;
+  precioEditable: boolean;
+  rubroNombre: string | null;
+};
+
+function claveEquivalenciaFactura(fila: FilaEquivalencia): string {
+  return `${fila.idColor ?? ""}\0${fila.idPresentacion ?? ""}\0${fila.terminacion ?? ""}`;
+}
+
+function filtroEquivalenciaFactura(
+  familiaId: string,
+  fila: FilaEquivalencia
+): Prisma.ProdPropioWhereInput {
+  return {
+    familiaId,
+    idColor: fila.idColor,
+    idPresentacion: fila.idPresentacion,
+    terminacion: fila.terminacion,
+    habilitado: true,
+  };
+}
+
+/**
+ * Para cada ítem buscado, el producto habilitado de mejor prioridad de venta
+ * con el mismo color, presentación y terminación (vacío coincide con vacío).
+ */
+async function resolverPrioridadOfrecerPorCod(
+  rows: Array<
+    FilaEquivalencia & {
+      codTienda: string;
+      familiaId: string | null;
+    }
+  >
+): Promise<Map<string, CandidatoPrioridadFactura>> {
+  const vacio = new Map<string, CandidatoPrioridadFactura>();
+  const conFamilia = rows.filter((row) => row.familiaId != null);
+  if (conFamilia.length === 0) return vacio;
+
+  const familiaIds = [...new Set(conFamilia.map((row) => row.familiaId as string))];
+  const propias = await prisma.comparacionFamilia.findMany({
+    where: { familiaId: { in: familiaIds } },
+    select: { subcategoriaId: true, familiaId: true, orden: true },
+  });
+  if (propias.length === 0) return vacio;
+
+  const subcategoriaIds = [...new Set(propias.map((fila) => fila.subcategoriaId))];
+  const prioridades = await prisma.comparacionFamilia.findMany({
+    where: { subcategoriaId: { in: subcategoriaIds } },
+    select: { subcategoriaId: true, familiaId: true, orden: true },
+  });
+  const porSubcategoria = new Map<string, FilaPrioridadFactura[]>();
+  for (const fila of prioridades) {
+    const lista = porSubcategoria.get(fila.subcategoriaId) ?? [];
+    lista.push(fila);
+    porSubcategoria.set(fila.subcategoriaId, lista);
+  }
+
+  const mejorOrdenPorCod = new Map<string, Map<string, number>>();
+  const or: Prisma.ProdPropioWhereInput[] = [];
+  const orVistos = new Set<string>();
+
+  for (const row of conFamilia) {
+    const familiaId = row.familiaId as string;
+    const mejores = new Map<string, number>();
+    for (const filas of porSubcategoria.values()) {
+      const propia = filas.find((fila) => fila.familiaId === familiaId);
+      if (!propia) continue;
+      for (const fila of filas) {
+        if (fila.orden >= propia.orden || fila.familiaId === familiaId) continue;
+        const previo = mejores.get(fila.familiaId);
+        if (previo == null || fila.orden < previo) mejores.set(fila.familiaId, fila.orden);
+      }
+    }
+    if (mejores.size === 0) continue;
+    mejorOrdenPorCod.set(row.codTienda, mejores);
+    for (const id of mejores.keys()) {
+      const clave = `${id}\0${claveEquivalenciaFactura(row)}`;
+      if (orVistos.has(clave)) continue;
+      orVistos.add(clave);
+      or.push(filtroEquivalenciaFactura(id, row));
+    }
+  }
+  if (or.length === 0) return vacio;
+
+  const candidatos = await prisma.prodPropio.findMany({
+    where: {
+      AND: [
+        { OR: or },
+        { descripcionTienda: { not: null } },
+        { descripcionTienda: { not: "" } },
+      ],
+    },
+    select: {
+      codTienda: true,
+      descripcionTienda: true,
+      familiaId: true,
+      idColor: true,
+      idPresentacion: true,
+      terminacion: true,
+      idMarca: true,
+      idRubro: true,
+      idSubRubro: true,
+      precioEditable: true,
+      rubroRelation: { select: { nombre: true } },
+    },
+    orderBy: [{ descripcionTienda: "asc" }, { codTienda: "asc" }],
+  });
+
+  const porFamiliaClave = new Map<string, CandidatoPrioridadFactura[]>();
+  for (const candidato of candidatos) {
+    if (!candidato.familiaId) continue;
+    const descripcion = (candidato.descripcionTienda ?? "").trim();
+    if (!descripcion) continue;
+    const armado: CandidatoPrioridadFactura = {
+      codTienda: candidato.codTienda,
+      descripcion,
+      familiaId: candidato.familiaId,
+      idMarca: candidato.idMarca,
+      idRubro: candidato.idRubro,
+      idSubRubro: candidato.idSubRubro,
+      precioEditable: candidato.precioEditable,
+      rubroNombre: candidato.rubroRelation?.nombre ?? null,
+    };
+    const clave = `${candidato.familiaId}\0${claveEquivalenciaFactura(candidato)}`;
+    const lista = porFamiliaClave.get(clave) ?? [];
+    lista.push(armado);
+    porFamiliaClave.set(clave, lista);
+  }
+
+  const elegidos = new Map<string, CandidatoPrioridadFactura>();
+  for (const row of conFamilia) {
+    const mejores = mejorOrdenPorCod.get(row.codTienda);
+    if (!mejores) continue;
+    const claveEq = claveEquivalenciaFactura(row);
+    let elegido: { orden: number; candidato: CandidatoPrioridadFactura } | null = null;
+    for (const [familiaId, orden] of mejores) {
+      const lista = porFamiliaClave.get(`${familiaId}\0${claveEq}`) ?? [];
+      const candidato = lista.find((item) => item.codTienda !== row.codTienda);
+      if (!candidato) continue;
+      if (
+        elegido == null ||
+        orden < elegido.orden ||
+        (orden === elegido.orden && candidato.descripcion < elegido.candidato.descripcion)
+      ) {
+        elegido = { orden, candidato };
+      }
+    }
+    if (elegido) elegidos.set(row.codTienda, elegido.candidato);
+  }
+  return elegidos;
+}
+
+export function itemFacturaDesdePrioridad(
+  oferta: ProductoFacturaPrioridadOferta
+): ProductoFacturaBusquedaItem {
+  return { ...oferta, prioridadOfrecer: null };
+}
+
+function armarPrioridadOferta(
+  candidato: CandidatoPrioridadFactura,
+  pxPorCod: Map<string, number>,
+  saldos: Map<string, number>,
+  especialesPorCod: Map<string, DescPromoEspecialFactura[]>,
+  sucursales: { id: string; codigo: string; nombre: string }[],
+  sucursalCodigo: string | null
+): ProductoFacturaPrioridadOferta {
+  const stockPorSucursal = sucursales.map((s) => ({
+    codigo: s.codigo,
+    nombre: s.nombre,
+    stock: saldos.get(claveSaldoStock(candidato.codTienda, s.id)) ?? 0,
+  }));
+  const stockUsuario =
+    sucursalCodigo != null
+      ? stockPorSucursal.find((x) => x.codigo === sucursalCodigo)?.stock
+      : undefined;
+  const stock = stockUsuario ?? stockPorSucursal.reduce((acc, x) => acc + x.stock, 0);
+  return {
+    codTienda: candidato.codTienda,
+    descripcion: candidato.descripcion,
+    pxLista: pxPorCod.get(candidato.codTienda) ?? 0,
+    stock,
+    stockPorSucursal,
+    tintometrico: esRubroTintometrico(candidato.rubroNombre)
+      ? { idMarca: candidato.idMarca }
+      : null,
+    idMarca: candidato.idMarca,
+    idRubro: candidato.idRubro,
+    idSubRubro: candidato.idSubRubro,
+    precioEditable: candidato.precioEditable,
+    descEspeciales: especialesPorCod.get(candidato.codTienda) ?? [],
+  };
 }
 
 function normalizeTokens(q: string): string[] {
@@ -123,6 +354,10 @@ export async function buscarProductosParaFactura(params: {
       select: {
         codTienda: true,
         descripcionTienda: true,
+        familiaId: true,
+        idColor: true,
+        idPresentacion: true,
+        terminacion: true,
         idRubro: true,
         idSubRubro: true,
         rubroRelation: { select: { nombre: true } },
@@ -133,7 +368,13 @@ export async function buscarProductosParaFactura(params: {
       take,
     });
 
-    const codigos = rows.map((r) => r.codTienda);
+    const prioridadPorCod = await resolverPrioridadOfrecerPorCod(rows);
+    const codigos = [
+      ...new Set([
+        ...rows.map((r) => r.codTienda),
+        ...[...prioridadPorCod.values()].map((candidato) => candidato.codTienda),
+      ]),
+    ];
     const pxPorCod =
       codigos.length > 0 && idListaGeneral != null
         ? await mapPxVentaDeLista(codigos, idListaGeneral)
@@ -163,6 +404,18 @@ export async function buscarProductosParaFactura(params: {
         stockUsuario ??
         stockPorSucursal.reduce((acc, x) => acc + x.stock, 0);
 
+      const candidato = prioridadPorCod.get(r.codTienda) ?? null;
+      const prioridadOfrecer = candidato
+        ? armarPrioridadOferta(
+            candidato,
+            pxPorCod,
+            saldos,
+            especialesPorCod,
+            sucursales,
+            sucursalCodigo
+          )
+        : null;
+
       return {
         codTienda: r.codTienda,
         descripcion: (r.descripcionTienda ?? "").trim(),
@@ -177,6 +430,7 @@ export async function buscarProductosParaFactura(params: {
         idSubRubro: r.idSubRubro,
         precioEditable: r.precioEditable,
         descEspeciales: especialesPorCod.get(r.codTienda) ?? [],
+        prioridadOfrecer,
       };
     });
 
@@ -257,6 +511,7 @@ export async function obtenerProductoFacturaPorCodTienda(
         idSubRubro: row.idSubRubro,
         precioEditable: row.precioEditable,
         descEspeciales: especialesPorCod.get(cod) ?? [],
+        prioridadOfrecer: null,
       },
     };
   } catch (e) {

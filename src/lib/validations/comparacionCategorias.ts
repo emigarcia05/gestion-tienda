@@ -56,6 +56,11 @@ export const quitarFamiliaPrioridadSchema = z.object({
   id: comparacionIdSchema,
 });
 
+export const moverFamiliaPrioridadSchema = z.object({
+  id: comparacionIdSchema,
+  direccion: z.enum(["subir", "bajar"]),
+});
+
 export const asignarProductosSchema = z.object({
   subcategoriaId: comparacionIdSchema,
   idsProductos: z.array(listaPreciosCodExtSchema),

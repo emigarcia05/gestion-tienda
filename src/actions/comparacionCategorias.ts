@@ -22,6 +22,8 @@ import {
   listarFamiliasParaPrioridad,
   asignarFamiliaPrioridad,
   quitarFamiliaPrioridad,
+  moverFamiliaPrioridad,
+  type DireccionPrioridadFamilia,
   type FamiliaPrioridadComparacion,
   type ReferenciaCompetenciaComparacion,
 } from "@/services/categoriasComparacion.service";
@@ -45,6 +47,7 @@ import {
   quitarReferenciaCompetenciaItemSchema,
   asignarFamiliaPrioridadSchema,
   quitarFamiliaPrioridadSchema,
+  moverFamiliaPrioridadSchema,
 } from "@/lib/validations/comparacionCategorias";
 import { z } from "zod";
 import { prismaCuidSchema } from "@/lib/validations/common";
@@ -388,6 +391,22 @@ export async function asignarFamiliaPrioridadAction(
     return { ok: true, data };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al agregar la familia." };
+  }
+}
+
+export async function moverFamiliaPrioridadAction(
+  id: string,
+  direccion: DireccionPrioridadFamilia
+): Promise<ActionResult> {
+  if (!(await tienePermisoEditar())) return { ok: false, error: "Sin permisos." };
+  const parsed = moverFamiliaPrioridadSchema.safeParse({ id, direccion });
+  if (!parsed.success) return { ok: false, error: "Datos inválidos." };
+  try {
+    await moverFamiliaPrioridad(parsed.data.id, parsed.data.direccion);
+    revalidateComparacionCategorias();
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al reordenar la familia." };
   }
 }
 

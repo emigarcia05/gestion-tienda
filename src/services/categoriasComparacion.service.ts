@@ -350,6 +350,41 @@ export async function asignarFamiliaPrioridad(
   }
 }
 
+export type DireccionPrioridadFamilia = "subir" | "bajar";
+
+/** Intercambia `orden` con la familia vecina. El 1 no sube y la última no baja. */
+export async function moverFamiliaPrioridad(
+  id: string,
+  direccion: DireccionPrioridadFamilia
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const row = await tx.comparacionFamilia.findUnique({
+      where: { id },
+      select: { id: true, subcategoriaId: true, orden: true },
+    });
+    if (!row) return;
+    const destino = direccion === "subir" ? row.orden - 1 : row.orden + 1;
+    if (destino < 1) return;
+    const vecino = await tx.comparacionFamilia.findFirst({
+      where: { subcategoriaId: row.subcategoriaId, orden: destino },
+      select: { id: true },
+    });
+    if (!vecino) return;
+    await tx.comparacionFamilia.update({
+      where: { id: row.id },
+      data: { orden: -row.orden },
+    });
+    await tx.comparacionFamilia.update({
+      where: { id: vecino.id },
+      data: { orden: row.orden },
+    });
+    await tx.comparacionFamilia.update({
+      where: { id: row.id },
+      data: { orden: destino },
+    });
+  });
+}
+
 export async function quitarFamiliaPrioridad(id: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const row = await tx.comparacionFamilia.findUnique({
@@ -851,22 +886,59 @@ export async function asignarProductosASubcategoria(
 
   const existentes = await prisma.listaPrecioProveedor.findMany({
     where: { codExt: { in: codigosExtProductos } },
-    select: { codExt: true },
+    select: {
+      codExt: true,
+      prodTienda: { select: { familiaId: true } },
+    },
   });
+  const familiaPorCod = new Map(
+    existentes.map((row) => [row.codExt, row.prodTienda?.familiaId ?? null])
+  );
   const codigosValidos = existentes.map((row) => row.codExt);
   if (codigosValidos.length === 0) return { count: 0 };
 
-  await prisma.$transaction([
-    prisma.comparacionItem.deleteMany({
+  const familiaIds: string[] = [];
+  const familiasVistas = new Set<string>();
+  for (const codExt of codigosValidos) {
+    const familiaId = familiaPorCod.get(codExt);
+    if (!familiaId || familiasVistas.has(familiaId)) continue;
+    familiasVistas.add(familiaId);
+    familiaIds.push(familiaId);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.comparacionItem.deleteMany({
       where: { listaPrecioProveedorCodExt: { in: codigosValidos } },
-    }),
-    prisma.comparacionItem.createMany({
+    });
+    await tx.comparacionItem.createMany({
       data: codigosValidos.map((codExt) => ({
         subcategoriaId,
         listaPrecioProveedorCodExt: codExt,
       })),
-    }),
-  ]);
+    });
+    if (familiaIds.length === 0) return;
+
+    const yaAsignadas = await tx.comparacionFamilia.findMany({
+      where: { subcategoriaId, familiaId: { in: familiaIds } },
+      select: { familiaId: true },
+    });
+    const ocupadas = new Set(yaAsignadas.map((row) => row.familiaId));
+    const nuevas = familiaIds.filter((familiaId) => !ocupadas.has(familiaId));
+    if (nuevas.length === 0) return;
+
+    const maxOrden = await tx.comparacionFamilia.aggregate({
+      where: { subcategoriaId },
+      _max: { orden: true },
+    });
+    let orden = (maxOrden._max.orden ?? 0) + 1;
+    await tx.comparacionFamilia.createMany({
+      data: nuevas.map((familiaId) => ({
+        subcategoriaId,
+        familiaId,
+        orden: orden++,
+      })),
+    });
+  });
 
   return { count: codigosValidos.length };
 }

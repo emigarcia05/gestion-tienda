@@ -1,13 +1,15 @@
 "use client";
 
-import { Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CatalogoFinderColumn from "@/components/shared/catalogo-finder/CatalogoFinderColumn";
 import CatalogoFinderEmpty from "@/components/shared/catalogo-finder/CatalogoFinderEmpty";
 import {
+  CATALOGO_FINDER_COLUMN_NOVO_BUTTON_COMPACT_CLASS,
   TABLE_ROW_ACTION_ICON_CLASS,
   TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
 } from "@/lib/ui-classes";
+import type { DireccionPrioridadFamilia } from "@/services/categoriasComparacion.service";
 import { cn } from "@/lib/utils";
 import type { FamiliaPrioridadComparacion } from "@/services/categoriasComparacion.service";
 
@@ -17,7 +19,9 @@ interface Props {
   familias: FamiliaPrioridadComparacion[];
   puedeEditar: boolean;
   quitarPendingId: string | null;
+  moverPendingId: string | null;
   onAgregar: () => void;
+  onMover: (id: string, direccion: DireccionPrioridadFamilia) => void;
   onQuitar: (id: string) => void;
 }
 
@@ -27,11 +31,13 @@ export default function ComparacionPrioridadVtaColumn({
   familias,
   puedeEditar,
   quitarPendingId,
+  moverPendingId,
   onAgregar,
+  onMover,
   onQuitar,
 }: Props) {
   const gridClass = puedeEditar
-    ? "grid grid-cols-[2.5rem_minmax(0,1fr)_2rem] items-center gap-x-1.5"
+    ? "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-1.5"
     : "grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-1.5";
 
   return (
@@ -52,8 +58,9 @@ export default function ComparacionPrioridadVtaColumn({
         <CatalogoFinderEmpty mensaje="Sin familias. Usá + para agregar." />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {familias.map((familia) => {
+          {familias.map((familia, index) => {
             const quitarPending = quitarPendingId === familia.id;
+            const ocupada = quitarPending || moverPendingId != null;
             return (
               <div
                 key={familia.id}
@@ -66,7 +73,31 @@ export default function ComparacionPrioridadVtaColumn({
                   {familia.familiaNombre}
                 </span>
                 {puedeEditar ? (
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-end gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_COMPACT_CLASS}
+                      disabled={ocupada || index === 0}
+                      title="Subir"
+                      aria-label={`Subir ${familia.familiaNombre}`}
+                      onClick={() => onMover(familia.id, "subir")}
+                    >
+                      <ChevronUp className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={CATALOGO_FINDER_COLUMN_NOVO_BUTTON_COMPACT_CLASS}
+                      disabled={ocupada || index === familias.length - 1}
+                      title="Bajar"
+                      aria-label={`Bajar ${familia.familiaNombre}`}
+                      onClick={() => onMover(familia.id, "bajar")}
+                    >
+                      <ChevronDown className={TABLE_ROW_ACTION_ICON_CLASS} aria-hidden />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -75,7 +106,7 @@ export default function ComparacionPrioridadVtaColumn({
                         TABLE_ROW_ICON_BUTTON_FILLED_BRAND_CLASS,
                         "!size-7 max-h-7 min-h-7 min-w-7 shrink-0 !p-0"
                       )}
-                      disabled={quitarPending}
+                      disabled={ocupada}
                       title="Quitar familia"
                       aria-label={`Quitar ${familia.familiaNombre}`}
                       onClick={() => onQuitar(familia.id)}

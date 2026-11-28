@@ -16,7 +16,10 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
+import {
+  itemFacturaDesdePrioridad,
+  type ProductoFacturaBusquedaItem,
+} from "@/services/facturaProductos.service";
 import FacturaProductoDescEspecialCelda from "@/components/facturacion/FacturaProductoDescEspecialCelda";
 import FacturaProductoStockCelda from "@/components/facturacion/FacturaProductoStockCelda";
 
@@ -106,8 +109,28 @@ export default function FacturaProductoBusquedaLista({
                 >
                   {item.codTienda}
                 </span>
-                <span className={cn(TYPEAHEAD_LISTBOX_CELL_CLASS, "text-foreground")}>
-                  {item.descripcion}
+                <span
+                  className={cn(
+                    TYPEAHEAD_LISTBOX_CELL_CLASS,
+                    "whitespace-normal text-foreground"
+                  )}
+                >
+                  <span className="block truncate">{item.descripcion}</span>
+                  {item.prioridadOfrecer ? (
+                    <button
+                      type="button"
+                      className="block w-full truncate text-xs font-semibold text-primary"
+                      title={`Ofrecer ${item.prioridadOfrecer.descripcion}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const oferta = item.prioridadOfrecer;
+                        if (!oferta) return;
+                        onElegir(itemFacturaDesdePrioridad(oferta));
+                      }}
+                    >
+                      {`Prioridad: ${item.prioridadOfrecer.descripcion}`}
+                    </button>
+                  ) : null}
                 </span>
                 <span
                   className={cn(

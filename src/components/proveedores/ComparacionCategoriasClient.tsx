@@ -39,6 +39,7 @@ import CeldaDifPct from "@/components/shared/CeldaDifPct";
 import { TableEmptyState } from "@/components/shared/TableEmptyState";
 import type { CategoriaComparacionTree } from "@/services/categoriasComparacion.service";
 import type {
+  DireccionPrioridadFamilia,
   FamiliaPrioridadComparacion,
   ProductoEnCategoria,
   ReferenciaCompetenciaComparacion,
@@ -54,6 +55,7 @@ import {
 import {
   getProductosPorSubcategoriaAction,
   quitarAsignacionSubcategoriaAction,
+  moverFamiliaPrioridadAction,
   quitarFamiliaPrioridadAction,
   quitarReferenciaCompetenciaAction,
 } from "@/actions/comparacionCategorias";
@@ -188,6 +190,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
   const [modalReferencia, setModalReferencia] = useState(false);
   const [modalFamilia, setModalFamilia] = useState(false);
   const [quitarFamiliaPendingId, setQuitarFamiliaPendingId] = useState<string | null>(null);
+  const [moverFamiliaPendingId, setMoverFamiliaPendingId] = useState<string | null>(null);
   const [quitarReferenciaPendingId, setQuitarReferenciaPendingId] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [baseItemId, setBaseItemId] = useState<string | null>(null);
@@ -366,6 +369,34 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
     });
   }, []);
 
+  const handleMoverFamilia = useCallback(
+    async (id: string, direccion: DireccionPrioridadFamilia) => {
+      if (moverFamiliaPendingId != null) return;
+      setMoverFamiliaPendingId(id);
+      try {
+        const res = await moverFamiliaPrioridadAction(id, direccion);
+        if (!res.ok) {
+          toast.error(res.error ?? "Error al reordenar la familia.");
+          return;
+        }
+        setFamiliasPrioridad((prev) => {
+          const index = prev.findIndex((fila) => fila.id === id);
+          const destino = direccion === "subir" ? index - 1 : index + 1;
+          if (index < 0 || destino < 0 || destino >= prev.length) return prev;
+          const next = [...prev];
+          const actual = next[index]!;
+          const vecino = next[destino]!;
+          next[index] = { ...vecino, orden: actual.orden };
+          next[destino] = { ...actual, orden: vecino.orden };
+          return next.sort((a, b) => a.orden - b.orden);
+        });
+      } finally {
+        setMoverFamiliaPendingId(null);
+      }
+    },
+    [moverFamiliaPendingId]
+  );
+
   const handleQuitarFamilia = useCallback(
     async (id: string) => {
       if (quitarFamiliaPendingId != null) return;
@@ -523,6 +554,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
               loadingReferencia={loadingProductos}
               familiasPrioridad={familiasPrioridad}
               quitarFamiliaPendingId={quitarFamiliaPendingId}
+              moverFamiliaPendingId={moverFamiliaPendingId}
               referenciasCompetencia={referenciasCompetencia}
               referenciaActivaId={referenciaActivaId}
               puedeEditarCatalogo={puedeEditar}
@@ -572,6 +604,7 @@ export default function ComparacionCategoriasClient({ arbolInicial, rol }: Props
                 setEliminarCatalogo({ open: true, nivel: "subcategoria", id, nombre })
               }
               onAgregarFamilia={() => setModalFamilia(true)}
+              onMoverFamilia={(id, direccion) => void handleMoverFamilia(id, direccion)}
               onQuitarFamilia={(id) => void handleQuitarFamilia(id)}
               onAgregarReferencia={() => setModalReferencia(true)}
               onQuitarReferencia={(refCompId) => void handleQuitarReferencia(refCompId)}

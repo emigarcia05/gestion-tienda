@@ -20,6 +20,7 @@ interface Props {
   loadingReferencia: boolean;
   familiasPrioridad: FamiliaPrioridadComparacion[];
   quitarFamiliaPendingId: string | null;
+  moverFamiliaPendingId: string | null;
   referenciasCompetencia: ReferenciaCompetenciaComparacion[];
   referenciaActivaId: string | null;
   puedeEditarCatalogo: boolean;
@@ -35,6 +36,7 @@ interface Props {
   onEditarSubcategoria: (id: string, nombre: string) => void;
   onEliminarSubcategoria: (id: string, nombre: string) => void;
   onAgregarFamilia: () => void;
+  onMoverFamilia: (id: string, direccion: "subir" | "bajar") => void;
   onQuitarFamilia: (id: string) => void;
   onAgregarReferencia: () => void;
   onQuitarReferencia: (refCompId: string) => void;
@@ -47,6 +49,7 @@ export default function ComparacionCategoriaSelector({
   loadingReferencia,
   familiasPrioridad,
   quitarFamiliaPendingId,
+  moverFamiliaPendingId,
   referenciasCompetencia,
   referenciaActivaId,
   puedeEditarCatalogo,
@@ -62,6 +65,7 @@ export default function ComparacionCategoriaSelector({
   onEditarSubcategoria,
   onEliminarSubcategoria,
   onAgregarFamilia,
+  onMoverFamilia,
   onQuitarFamilia,
   onAgregarReferencia,
   onQuitarReferencia,
@@ -126,7 +130,9 @@ export default function ComparacionCategoriaSelector({
         familias={familiasPrioridad}
         puedeEditar={puedeEditarCatalogo}
         quitarPendingId={quitarFamiliaPendingId}
+        moverPendingId={moverFamiliaPendingId}
         onAgregar={onAgregarFamilia}
+        onMover={onMoverFamilia}
         onQuitar={onQuitarFamilia}
       />
 
