@@ -16,10 +16,7 @@ import {
   TYPEAHEAD_LISTBOX_UL_CLASS,
 } from "@/lib/ui-classes";
 import { cn } from "@/lib/utils";
-import {
-  itemFacturaDesdePrioridad,
-  type ProductoFacturaBusquedaItem,
-} from "@/services/facturaProductos.service";
+import type { ProductoFacturaBusquedaItem } from "@/services/facturaProductos.service";
 import FacturaProductoDescEspecialCelda from "@/components/facturacion/FacturaProductoDescEspecialCelda";
 import FacturaProductoStockCelda from "@/components/facturacion/FacturaProductoStockCelda";
 
@@ -125,7 +122,7 @@ export default function FacturaProductoBusquedaLista({
                         event.stopPropagation();
                         const oferta = item.prioridadOfrecer;
                         if (!oferta) return;
-                        onElegir(itemFacturaDesdePrioridad(oferta));
+                        onElegir({ ...oferta, prioridadOfrecer: null });
                       }}
                     >
                       {`Prioridad: ${item.prioridadOfrecer.descripcion}`}

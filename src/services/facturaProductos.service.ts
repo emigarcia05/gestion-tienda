@@ -238,12 +238,6 @@ async function resolverPrioridadOfrecerPorCod(
   return elegidos;
 }
 
-export function itemFacturaDesdePrioridad(
-  oferta: ProductoFacturaPrioridadOferta
-): ProductoFacturaBusquedaItem {
-  return { ...oferta, prioridadOfrecer: null };
-}
-
 function armarPrioridadOferta(
   candidato: CandidatoPrioridadFactura,
   pxPorCod: Map<string, number>,
