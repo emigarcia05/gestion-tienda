@@ -844,7 +844,7 @@ export default function FacturaCrearLineasBlock({
                                   idSubRubro: linea.idSubRubro,
                                   precioEditable: linea.precioEditable,
                                   descEspeciales: [],
-                                  prioridadOfrecer: null,
+                                  prioridadVenta: null,
                                 });
                               }}
                             >

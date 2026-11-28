@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { Info } from "lucide-react";
 import { fmtPrecio } from "@/lib/format";
 import { itemTieneDescEspecial } from "@/lib/descPromo";
 import {
@@ -59,6 +61,7 @@ export default function FacturaProductoBusquedaLista({
   lineas = [],
 }: FacturaProductoBusquedaListaProps) {
   const filaGrid = FILA_BUSQUEDA_PRODUCTOS_GRID;
+  const [prioridadAbierta, setPrioridadAbierta] = useState<string | null>(null);
 
   return (
     <div className={cn(TYPEAHEAD_LISTBOX_BODY_SCROLL_CLASS, className)}>
@@ -84,8 +87,21 @@ export default function FacturaProductoBusquedaLista({
           const pxLista = item.pxLista;
           const pxDesc = pxConDescuento(pxLista, pct);
           const esDescEspecial = itemTieneDescEspecial(item);
+          const prioridad = item.prioridadVenta;
           return (
-            <li key={item.codTienda} role="option" aria-selected={activo}>
+            <li
+              key={item.codTienda}
+              role="option"
+              aria-selected={activo}
+              onMouseEnter={() => {
+                if (prioridad) setPrioridadAbierta(item.codTienda);
+              }}
+              onMouseLeave={() => {
+                setPrioridadAbierta((actual) =>
+                  actual === item.codTienda ? null : actual
+                );
+              }}
+            >
               <div
                 role="button"
                 tabIndex={-1}
@@ -112,22 +128,15 @@ export default function FacturaProductoBusquedaLista({
                     "whitespace-normal text-foreground"
                   )}
                 >
-                  <span className="block truncate">{item.descripcion}</span>
-                  {item.prioridadOfrecer ? (
-                    <button
-                      type="button"
-                      className="block w-full truncate text-xs font-semibold text-primary"
-                      title={`Ofrecer ${item.prioridadOfrecer.descripcion}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const oferta = item.prioridadOfrecer;
-                        if (!oferta) return;
-                        onElegir({ ...oferta, prioridadOfrecer: null });
-                      }}
-                    >
-                      {`Prioridad: ${item.prioridadOfrecer.descripcion}`}
-                    </button>
-                  ) : null}
+                  <span className="inline-flex max-w-full items-center justify-center gap-1">
+                    <span className="truncate">{item.descripcion}</span>
+                    {prioridad ? (
+                      <Info
+                        className="size-3.5 shrink-0 text-primary"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </span>
                 </span>
                 <span
                   className={cn(
@@ -159,6 +168,40 @@ export default function FacturaProductoBusquedaLista({
                   <span className={TYPEAHEAD_LISTBOX_CELL_CLASS} />
                 )}
               </div>
+              {prioridad && prioridadAbierta === item.codTienda ? (
+                <div className="border-t border-border bg-muted/40 px-3 py-2 text-left text-xs text-foreground">
+                  <p className="mb-1.5 text-muted-foreground">
+                    {`En ${prioridad.categoriaNombre} le podemos recomendar al cliente estas opciones:`}
+                  </p>
+                  <div className="flex flex-col">
+                    {prioridad.opciones.map((opcion) => {
+                      const comoItem = { ...opcion, prioridadVenta: null };
+                      const pxOpcion = opcion.pxLista;
+                      const pxOpcionDesc = pxConDescuento(
+                        pxOpcion,
+                        porcentajeDescuentoParaProductoBusqueda(
+                          comoItem,
+                          descuento,
+                          lineas
+                        )
+                      );
+                      return (
+                        <button
+                          key={`${opcion.orden}-${opcion.codTienda}`}
+                          type="button"
+                          className="grid grid-cols-[6.5rem_minmax(0,1fr)_5.5rem_5.5rem] items-center gap-2 rounded-sm px-1 py-0.5 text-left hover:bg-accent"
+                          onClick={() => onElegir(comoItem)}
+                        >
+                          <span className="text-muted-foreground">{`Prioridad ${opcion.orden}`}</span>
+                          <span className="truncate">{opcion.descripcion}</span>
+                          <span className="text-right tabular-nums">{`$${fmtPrecio(pxOpcion)}`}</span>
+                          <span className="text-right tabular-nums">{`$${fmtPrecio(pxOpcionDesc)}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </li>
           );
         })}
